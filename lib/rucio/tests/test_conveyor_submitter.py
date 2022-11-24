@@ -74,7 +74,7 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account, file
 
     # Forge request creation time to a random moment in the past hour
     @transactional_session
-    def _forge_requests_creation_time(session=None):
+    def _forge_requests_creation_time(*, session=None):
         base_time = datetime.utcnow().replace(microsecond=0, minute=0) - timedelta(hours=1)
         assigned_times = set()
         for request in requests:
@@ -172,7 +172,7 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
         assert request_core.get_request_by_did(rse_id=rse_id, **did)
 
     @read_session
-    def __number_sources(rse_id, scope, name, session=None):
+    def __number_sources(rse_id, scope, name, *, session=None):
         return session.query(Source). \
             filter(Source.rse_id == rse_id). \
             filter(Source.scope == scope). \
@@ -253,7 +253,7 @@ def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_f
     assert len(replica['pfns']) == 2
 
     @transactional_session
-    def __delete_sources(rse_id, scope, name, session=None):
+    def __delete_sources(rse_id, scope, name, *, session=None):
         session.execute(
             delete(Source).where(Source.rse_id == rse_id,
                                  Source.scope == scope,

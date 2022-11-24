@@ -1208,7 +1208,7 @@ class TestImporterSyncModes:
         protocols = get_rse_protocols(more_prot_rse_id)
         protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
         data_protocol_formated = {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'}
-        assert(data_protocol_formated not in protocols_formated)
+        assert (data_protocol_formated not in protocols_formated)
 
 
 @pytest.fixture

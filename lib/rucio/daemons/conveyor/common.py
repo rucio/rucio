@@ -254,8 +254,9 @@ def __assign_paths_to_transfertool_and_create_hops(
         candidate_paths: "Sequence[List[DirectTransferDefinition]]",
         default_tombstone_delay: int,
         transfertools: "Optional[List[str]]" = None,
+        *,
         logger: "Callable" = logging.log,
-        session: "Optional[Session]" = None,
+        session: "Session",
 ) -> "Tuple[Optional[List[DirectTransferDefinition]], Optional[TransferToolBuilder]]":
     """
     Out of a sequence of candidate paths for the given request, pick the first path which can
@@ -328,8 +329,9 @@ def __assign_paths_to_transfertool_and_create_hops(
 def __create_missing_replicas_and_requests(
         transfer_path: "List[DirectTransferDefinition]",
         default_tombstone_delay: int,
+        *,
         logger: "Callable",
-        session: "Optional[Session]" = None
+        session: "Session"
 ) -> "Tuple[bool, bool]":
     """
     Create replicas and requests in the database for the intermediate hops

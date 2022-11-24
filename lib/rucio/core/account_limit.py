@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func, select, literal
 from sqlalchemy.sql.expression import and_, or_
@@ -23,9 +25,12 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @read_session
-def get_rse_account_usage(rse_id, session=None):
+def get_rse_account_usage(rse_id, *, session: "Session"):
     """
     Returns the account limit and usage for all accounts on a RSE.
 
@@ -85,7 +90,7 @@ def get_rse_account_usage(rse_id, session=None):
 
 
 @read_session
-def get_global_account_limits(account=None, session=None):
+def get_global_account_limits(account=None, *, session: "Session"):
     """
     Returns the global account limits for the account.
 
@@ -116,7 +121,7 @@ def get_global_account_limits(account=None, session=None):
 
 
 @read_session
-def get_global_account_limit(account, rse_expression, session=None):
+def get_global_account_limit(account, rse_expression, *, session: "Session"):
     """
     Returns the global account limit for the account on the rse expression.
 
@@ -136,7 +141,7 @@ def get_global_account_limit(account, rse_expression, session=None):
 
 
 @read_session
-def get_local_account_limit(account, rse_id, session=None):
+def get_local_account_limit(account, rse_id, *, session: "Session"):
     """
     Returns the account limit for the account on the rse.
 
@@ -157,7 +162,7 @@ def get_local_account_limit(account, rse_id, session=None):
 
 
 @read_session
-def get_local_account_limits(account, rse_ids=None, session=None):
+def get_local_account_limits(account, rse_ids=None, *, session: "Session"):
     """
     Returns the account limits for the account on the list of rses.
 
@@ -191,7 +196,7 @@ def get_local_account_limits(account, rse_ids=None, session=None):
 
 
 @transactional_session
-def set_local_account_limit(account, rse_id, bytes_, session=None):
+def set_local_account_limit(account, rse_id, bytes_, *, session: "Session"):
     """
     Returns the limits for the account on the rse.
 
@@ -209,7 +214,7 @@ def set_local_account_limit(account, rse_id, bytes_, session=None):
 
 
 @transactional_session
-def set_global_account_limit(account, rse_expression, bytes_, session=None):
+def set_global_account_limit(account, rse_expression, bytes_, *, session: "Session"):
     """
     Sets the global limit for the account on a RSE expression.
 
@@ -227,7 +232,7 @@ def set_global_account_limit(account, rse_expression, bytes_, session=None):
 
 
 @transactional_session
-def delete_local_account_limit(account, rse_id, session=None):
+def delete_local_account_limit(account, rse_id, *, session: "Session"):
     """
     Deletes a local account limit.
 
@@ -245,7 +250,7 @@ def delete_local_account_limit(account, rse_id, session=None):
 
 
 @transactional_session
-def delete_global_account_limit(account, rse_expression, session=None):
+def delete_global_account_limit(account, rse_expression, *, session: "Session"):
     """
     Deletes a global account limit.
 
@@ -263,7 +268,7 @@ def delete_global_account_limit(account, rse_expression, session=None):
 
 
 @transactional_session
-def get_local_account_usage(account, rse_id=None, session=None):
+def get_local_account_usage(account, rse_id=None, *, session: "Session"):
     """
     Read the account usage and connect it with (if available) the account limits of the account.
 
@@ -306,7 +311,7 @@ def get_local_account_usage(account, rse_id=None, session=None):
 
 
 @transactional_session
-def get_global_account_usage(account, rse_expression=None, session=None):
+def get_global_account_usage(account, rse_expression=None, *, session: "Session"):
     """
     Read the account usage and connect it with the global account limits of the account.
 

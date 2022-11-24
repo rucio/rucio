@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from rucio.api.permission import has_permission
 from rucio.common import exception
 from rucio.common.schema import validate_schema
@@ -22,9 +24,12 @@ from rucio.core import vo as vo_core
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_vo(new_vo, issuer, description=None, email=None, vo='def', session=None):
+def add_vo(new_vo, issuer, description=None, email=None, vo='def', *, session: "Session"):
     '''
     Add a new VO.
 
@@ -47,7 +52,7 @@ def add_vo(new_vo, issuer, description=None, email=None, vo='def', session=None)
 
 
 @read_session
-def list_vos(issuer, vo='def', session=None):
+def list_vos(issuer, vo='def', *, session: "Session"):
     '''
     List the VOs.
 
@@ -63,7 +68,7 @@ def list_vos(issuer, vo='def', session=None):
 
 
 @transactional_session
-def recover_vo_root_identity(root_vo, identity_key, id_type, email, issuer, default=False, password=None, vo='def', session=None):
+def recover_vo_root_identity(root_vo, identity_key, id_type, email, issuer, default=False, password=None, vo='def', *, session: "Session"):
     """
     Adds a membership association between identity and the root account for given VO.
 
@@ -89,7 +94,7 @@ def recover_vo_root_identity(root_vo, identity_key, id_type, email, issuer, defa
 
 
 @transactional_session
-def update_vo(updated_vo, parameters, issuer, vo='def', session=None):
+def update_vo(updated_vo, parameters, issuer, vo='def', *, session: "Session"):
     """
     Update VO properties (email, description).
 

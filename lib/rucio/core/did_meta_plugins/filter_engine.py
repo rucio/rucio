@@ -18,6 +18,7 @@ import fnmatch
 import operator
 from datetime import datetime, timedelta, date
 from importlib import import_module
+from typing import TYPE_CHECKING
 
 import sqlalchemy
 from sqlalchemy import cast, or_, and_
@@ -27,6 +28,10 @@ from rucio.common import exception
 from rucio.common.utils import parse_did_filter_from_string_fe
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 # lookup table converting keyword suffixes to pythonic operators.
 OPERATORS_CONVERSION_LUT = {
@@ -295,10 +300,8 @@ class FilterEngine:
                         elif oper == operator.ne:
                             expression = {
                                 key: {
-                                    {
-                                        '$not': {
-                                            '$regex': fnmatch.translate(value)              # translate partial wildcard expression to regex
-                                        }
+                                    '$not': {
+                                        '$regex': fnmatch.translate(value)                  # translate partial wildcard expression to regex
                                     }
                                 }
                             }
@@ -396,7 +399,7 @@ class FilterEngine:
         return ' OR '.join(or_expressions)
 
     @read_session
-    def create_sqla_query(self, session=None, additional_model_attributes=[], additional_filters={}, json_column=None):
+    def create_sqla_query(self, *, session: "Session", additional_model_attributes=[], additional_filters={}, json_column=None):
         """
         Returns a database query that fully describes the filters.
 

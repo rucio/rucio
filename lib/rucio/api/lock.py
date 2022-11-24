@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import logging
+from typing import TYPE_CHECKING
 
 from rucio.common.types import InternalScope
 from rucio.common.utils import api_update_return_dict
@@ -22,13 +23,16 @@ from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import stream_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 LOGGER = logging.getLogger('lock')
 LOGGER.setLevel(logging.DEBUG)
 
 
 @stream_session
-def get_dataset_locks(scope, name, vo='def', session=None):
+def get_dataset_locks(scope, name, vo='def', *, session: "Session"):
     """
     Get the dataset locks of a dataset.
 
@@ -48,7 +52,7 @@ def get_dataset_locks(scope, name, vo='def', session=None):
 
 
 @stream_session
-def get_dataset_locks_bulk(dids, vo='def', session=None):
+def get_dataset_locks_bulk(dids, vo='def', *, session: "Session"):
     """
     Get the dataset locks for multiple datasets or containers.
 
@@ -90,7 +94,7 @@ def get_dataset_locks_bulk(dids, vo='def', session=None):
 
 
 @stream_session
-def get_dataset_locks_by_rse(rse, vo='def', session=None):
+def get_dataset_locks_by_rse(rse, vo='def', *, session: "Session"):
     """
     Get the dataset locks of an RSE.
 
@@ -108,7 +112,7 @@ def get_dataset_locks_by_rse(rse, vo='def', session=None):
 
 
 @stream_session
-def get_replica_locks_for_rule_id(rule_id, vo='def', session=None):
+def get_replica_locks_for_rule_id(rule_id, vo='def', *, session: "Session"):
     """
     Get the replica locks for a rule_id.
 

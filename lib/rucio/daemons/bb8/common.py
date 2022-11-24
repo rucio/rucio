@@ -49,7 +49,8 @@ def rebalance_rule(
     priority,
     source_replica_expression="*\\bb8-enabled=false",
     comment=None,
-    session=None,
+    *,
+    session,
 ):
     """
     Rebalance a replication rule to a new RSE
@@ -251,7 +252,7 @@ def _list_rebalance_rule_candidates_dump(rse_id, mode=None, logger=logging.log):
 
 
 @transactional_session
-def list_rebalance_rule_candidates(rse_id, mode=None, session=None):
+def list_rebalance_rule_candidates(rse_id, mode=None, *, session=None):
     """
     List the rebalance rule candidates based on the agreed on specification
     :param rse_id:       RSE of the source.
@@ -493,6 +494,7 @@ def select_target_rse(
     other_rses=[],
     exclude_expression=None,
     force_expression=None,
+    *,
     session=None,
 ):
     """
@@ -592,6 +594,7 @@ def rebalance_rse(
     mode=None,
     priority=3,
     source_replica_expression="*\\bb8-enabled=false",
+    *,
     session=None,
     logger=logging.log,
 ):
@@ -727,7 +730,7 @@ def rebalance_rse(
 
 
 @read_session
-def get_active_locks(session=None):
+def get_active_locks(*, session=None):
     locks_dict = {}
     rule_ids = (
         session.query(models.ReplicationRule.id)

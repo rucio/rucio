@@ -267,8 +267,7 @@ def ip_format_checker(value: str) -> bool:
         result = False
     else:
         result = True
-    finally:
-        return result
+    return result
 
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)

@@ -14,8 +14,13 @@
 # limitations under the License.
 
 from abc import ABCMeta, abstractmethod
+from typing import TYPE_CHECKING
 
 from rucio.db.sqla.session import transactional_session
+
+if TYPE_CHECKING:
+    from typing import Optional
+    from sqlalchemy.orm import Session
 
 
 class DidMetaPlugin(object, metaclass=ABCMeta):
@@ -30,7 +35,7 @@ class DidMetaPlugin(object, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_metadata(self, scope, name, session=None):
+    def get_metadata(self, scope, name, *, session: "Optional[Session]" = None):
         """
         Get data identifier metadata
 
@@ -41,7 +46,7 @@ class DidMetaPlugin(object, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def set_metadata(self, scope, name, key, value, recursive=False, session=None):
+    def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Optional[Session]" = None):
         """
         Add metadata to data identifier.
 
@@ -56,7 +61,7 @@ class DidMetaPlugin(object, metaclass=ABCMeta):
         pass
 
     @transactional_session
-    def set_metadata_bulk(self, scope, name, meta, recursive=False, session=None):
+    def set_metadata_bulk(self, scope, name, meta, recursive=False, *, session: "Optional[Session]" = None):
         """
         Add metadata to data identifier in bulk.
 
@@ -71,19 +76,20 @@ class DidMetaPlugin(object, metaclass=ABCMeta):
             self.set_metadata(scope, name, key, value, recursive=recursive, session=session)
 
     @abstractmethod
-    def delete_metadata(self, scope, name, key, session=None):
+    def delete_metadata(self, scope, name, key, *, session: "Session" = None):
         """
         Deletes the metadata stored for the given key.
 
         :param scope: The scope of the did.
         :param name: The name of the did.
         :param key: Key of the metadata.
+        :param session: The database session in use.
         """
         pass
 
     @abstractmethod
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
-                  offset=None, long=False, recursive=False, session=None):
+                  offset=None, long=False, recursive=False, *, session: "Optional[Session]" = None):
         """
         Search data identifiers
 
@@ -100,7 +106,7 @@ class DidMetaPlugin(object, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def manages_key(self, key, session=None):
+    def manages_key(self, key, *, session: "Optional[Session]" = None):
         """
         Returns whether key is managed by this plugin or not.
         :param key: Key of the metadata.

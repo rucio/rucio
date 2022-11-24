@@ -17,7 +17,8 @@
 Interface for identity abstraction layer
 """
 
-import typing
+from typing import TYPE_CHECKING
+
 from rucio.api import permission
 from rucio.common import exception
 from rucio.common.types import InternalAccount
@@ -25,9 +26,13 @@ from rucio.core import identity
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
 
+if TYPE_CHECKING:
+    from typing import Optional
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_identity(identity_key, id_type, email, password=None, session=None):
+def add_identity(identity_key, id_type, email, password=None, *, session: "Session"):
     """
     Creates a user identity.
 
@@ -41,7 +46,7 @@ def add_identity(identity_key, id_type, email, password=None, session=None):
 
 
 @transactional_session
-def del_identity(identity_key, id_type, issuer, vo='def', session=None):
+def del_identity(identity_key, id_type, issuer, vo='def', *, session: "Session"):
     """
     Deletes a user identity.
     :param identity_key: The identity key name. For example x509 DN, or a username.
@@ -59,7 +64,7 @@ def del_identity(identity_key, id_type, issuer, vo='def', session=None):
 
 
 @transactional_session
-def add_account_identity(identity_key, id_type, account, email, issuer, default=False, password=None, vo='def', session=None):
+def add_account_identity(identity_key, id_type, account, email, issuer, default=False, password=None, vo='def', *, session: "Session"):
     """
     Adds a membership association between identity and account.
 
@@ -84,7 +89,7 @@ def add_account_identity(identity_key, id_type, account, email, issuer, default=
 
 
 @read_session
-def verify_identity(identity_key: str, id_type: str, password: typing.Union[str, None] = None, session=None) -> bool:
+def verify_identity(identity_key: str, id_type: str, password: "Optional[str]" = None, *, session: "Session") -> bool:
     """
     Verifies a user identity.
     :param identity_key: The identity key name. For example x509 DN, or a username.
@@ -96,7 +101,7 @@ def verify_identity(identity_key: str, id_type: str, password: typing.Union[str,
 
 
 @transactional_session
-def del_account_identity(identity_key, id_type, account, issuer, vo='def', session=None):
+def del_account_identity(identity_key, id_type, account, issuer, vo='def', *, session: "Session"):
     """
     Removes a membership association between identity and account.
 
@@ -117,7 +122,7 @@ def del_account_identity(identity_key, id_type, account, issuer, vo='def', sessi
 
 
 @read_session
-def list_identities(session=None, **kwargs):
+def list_identities(*, session: "Session", **kwargs):
     """
     Returns a list of all enabled identities.
 
@@ -128,7 +133,7 @@ def list_identities(session=None, **kwargs):
 
 
 @read_session
-def get_default_account(identity_key, id_type, session=None):
+def get_default_account(identity_key, id_type, *, session: "Session"):
     """
     Returns the default account for this identity.
 
@@ -141,7 +146,7 @@ def get_default_account(identity_key, id_type, session=None):
 
 
 @read_session
-def list_accounts_for_identity(identity_key, id_type, session=None):
+def list_accounts_for_identity(identity_key, id_type, *, session: "Session"):
     """
     Returns a list of all accounts for an identity.
 

@@ -111,7 +111,7 @@ if __name__ == "__main__":
         args_dict = consistency.parse_args(args)
         data = record_type.dump(**args_dict)
 
-    fields = record_type.get_fieldnames()
+    fields = set(record_type.get_fieldnames())
 
     if 'group_by' in args and args.group_by:
         # FIXME: Better checking
@@ -126,7 +126,7 @@ if __name__ == "__main__":
             data_dict[key].append(record)
 
         if 'sum' in args and args.sum:
-            assert args.sum in record_type.get_fieldnames()
+            assert args.sum in set(record_type.get_fieldnames())
             fields.append(args.sum)
             data = []
             for key, value in data_dict.items():

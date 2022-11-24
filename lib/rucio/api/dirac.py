@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from rucio.api.permission import has_permission
 from rucio.api.scope import list_scopes
 
@@ -22,9 +24,12 @@ from rucio.common.exception import AccessDenied
 from rucio.common.utils import extract_scope
 from rucio.db.sqla.session import transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_files(lfns, issuer, ignore_availability, vo='def', session=None):
+def add_files(lfns, issuer, ignore_availability, vo='def', *, session: "Session"):
     """
     Bulk add files :
     - Create the file and replica.

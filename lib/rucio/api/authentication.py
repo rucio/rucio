@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from rucio.api import permission
 from rucio.common import exception
 from rucio.common.types import InternalAccount
@@ -21,9 +23,12 @@ from rucio.core import authentication, identity, oidc
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def refresh_cli_auth_token(token_string, account, vo='def', session=None):
+def refresh_cli_auth_token(token_string, account, vo='def', *, session: "Session"):
     """
     Checks if there is active refresh token and if so returns
     either active token with expiration timestamp or requests a new
@@ -39,7 +44,7 @@ def refresh_cli_auth_token(token_string, account, vo='def', session=None):
 
 
 @transactional_session
-def redirect_auth_oidc(authn_code, fetchtoken=False, session=None):
+def redirect_auth_oidc(authn_code, fetchtoken=False, *, session: "Session"):
     """
     Finds the Authentication URL in the Rucio DB oauth_requests table
     and redirects user's browser to this URL.
@@ -58,7 +63,7 @@ def redirect_auth_oidc(authn_code, fetchtoken=False, session=None):
 
 
 @transactional_session
-def get_auth_oidc(account, vo='def', session=None, **kwargs):
+def get_auth_oidc(account, vo='def', *, session: "Session", **kwargs):
     """
     Assembles the authorization request of the Rucio Client tailored to the Rucio user
     & Identity Provider. Saves authentication session parameters in the oauth_requests
@@ -98,7 +103,7 @@ def get_auth_oidc(account, vo='def', session=None, **kwargs):
 
 
 @transactional_session
-def get_token_oidc(auth_query_string, ip=None, session=None):
+def get_token_oidc(auth_query_string, ip=None, *, session: "Session"):
     """
     After Rucio User got redirected to Rucio /auth/oidc_token (or /auth/oidc_code)
     REST endpoints with authz code and session state encoded within the URL.
@@ -117,7 +122,7 @@ def get_token_oidc(auth_query_string, ip=None, session=None):
 
 
 @transactional_session
-def get_auth_token_user_pass(account, username, password, appid, ip=None, vo='def', session=None):
+def get_auth_token_user_pass(account, username, password, appid, ip=None, vo='def', *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via username and password.
 
@@ -144,7 +149,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, vo='de
 
 
 @transactional_session
-def get_auth_token_gss(account, gsscred, appid, ip=None, vo='def', session=None):
+def get_auth_token_gss(account, gsscred, appid, ip=None, vo='def', *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via a GSS token.
 
@@ -170,7 +175,7 @@ def get_auth_token_gss(account, gsscred, appid, ip=None, vo='def', session=None)
 
 
 @transactional_session
-def get_auth_token_x509(account, dn, appid, ip=None, vo='def', session=None):
+def get_auth_token_x509(account, dn, appid, ip=None, vo='def', *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via an x509 certificate.
 
@@ -199,7 +204,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, vo='def', session=None):
 
 
 @transactional_session
-def get_auth_token_ssh(account, signature, appid, ip=None, vo='def', session=None):
+def get_auth_token_ssh(account, signature, appid, ip=None, vo='def', *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via SSH key exchange.
 
@@ -225,7 +230,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, vo='def', session=Non
 
 
 @transactional_session
-def get_ssh_challenge_token(account, appid, ip=None, vo='def', session=None):
+def get_ssh_challenge_token(account, appid, ip=None, vo='def', *, session: "Session"):
     """
     Get a challenge token for subsequent SSH public key authentication.
 
@@ -250,7 +255,7 @@ def get_ssh_challenge_token(account, appid, ip=None, vo='def', session=None):
 
 
 @transactional_session
-def get_auth_token_saml(account, saml_nameid, appid, ip=None, vo='def', session=None):
+def get_auth_token_saml(account, saml_nameid, appid, ip=None, vo='def', *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via SSO.
 
@@ -275,7 +280,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, vo='def', session=
 
 
 @transactional_session
-def validate_auth_token(token, session=None):
+def validate_auth_token(token, *, session: "Session"):
     """
     Validate an authentication token.
 

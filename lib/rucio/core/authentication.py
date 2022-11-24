@@ -19,6 +19,7 @@ import random
 import sys
 import traceback
 from base64 import b64decode
+from typing import TYPE_CHECKING
 
 import paramiko
 from dogpile.cache.api import NO_VALUE
@@ -36,10 +37,13 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 def token_key_generator(namespace, fni, **kwargs):
     """ :returns: generate key function """
-    def generate_key(token, session=None):
+    def generate_key(token, *, session: "Session"):
         """ :returns: token """
         return token
     return generate_key
@@ -52,7 +56,7 @@ else:
 
 
 @transactional_session
-def get_auth_token_user_pass(account, username, password, appid, ip=None, session=None):
+def get_auth_token_user_pass(account, username, password, appid, ip=None, *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via username and password.
 
@@ -101,7 +105,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
 
 
 @transactional_session
-def get_auth_token_x509(account, dn, appid, ip=None, session=None):
+def get_auth_token_x509(account, dn, appid, ip=None, *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via an x509 certificate.
 
@@ -133,7 +137,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
 
 
 @transactional_session
-def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
+def get_auth_token_gss(account, gsstoken, appid, ip=None, *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via a GSS token.
 
@@ -165,7 +169,7 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
 
 
 @transactional_session
-def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
+def get_auth_token_ssh(account, signature, appid, ip=None, *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via SSH key exchange.
 
@@ -229,7 +233,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
 
 
 @transactional_session
-def get_ssh_challenge_token(account, appid, ip=None, session=None):
+def get_ssh_challenge_token(account, appid, ip=None, *, session: "Session"):
     """
     Prepare a challenge token for subsequent SSH public key authentication.
 
@@ -265,7 +269,7 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
 
 
 @transactional_session
-def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
+def get_auth_token_saml(account, saml_nameid, appid, ip=None, *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via SAML.
 
@@ -296,7 +300,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
 
 
 @transactional_session
-def redirect_auth_oidc(auth_code, fetchtoken=False, session=None):
+def redirect_auth_oidc(auth_code, fetchtoken=False, *, session: "Session"):
     """
     Finds the Authentication URL in the Rucio DB oauth_requests table
     and redirects user's browser to this URL.
@@ -332,7 +336,7 @@ def redirect_auth_oidc(auth_code, fetchtoken=False, session=None):
 
 
 @transactional_session
-def delete_expired_tokens(total_workers, worker_number, limit=1000, session=None):
+def delete_expired_tokens(total_workers, worker_number, limit=1000, *, session: "Session"):
     """
     Delete expired tokens.
 
@@ -372,7 +376,7 @@ def delete_expired_tokens(total_workers, worker_number, limit=1000, session=None
 
 
 @read_session
-def query_token(token, session=None):
+def query_token(token, *, session: "Session"):
     """
     Validate an authentication token using the database. This method will only be called
     if no entry could be found in the according cache.
@@ -406,7 +410,7 @@ def query_token(token, session=None):
 
 
 @transactional_session
-def validate_auth_token(token, session=None):
+def validate_auth_token(token, *, session: "Session"):
     """
     Validate an authentication token.
 
@@ -452,7 +456,7 @@ def token_dictionary(token: models.Token):
 
 
 @transactional_session
-def __delete_expired_tokens_account(account, session=None):
+def __delete_expired_tokens_account(account, *, session: "Session"):
     """"
     Deletes expired tokens from the database.
 

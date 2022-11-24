@@ -14,11 +14,15 @@
 # limitations under the License.
 
 import importlib
+from typing import TYPE_CHECKING
 
 from rucio.common import config, exception
-from rucio.db.sqla.session import read_session
+from rucio.db.sqla.session import read_session, transactional_session
 
 from configparser import NoOptionError, NoSectionError
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 # Set default modules.
 #
@@ -69,7 +73,8 @@ RESTRICTED_CHARACTERS = {
 }
 
 
-def get_metadata(scope, name, plugin="DID_COLUMN", session=None):
+@read_session
+def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
     """
     Gets the metadata for a given did from a specified plugin.
 
@@ -95,7 +100,8 @@ def get_metadata(scope, name, plugin="DID_COLUMN", session=None):
     raise NotImplementedError('Metadata plugin "%s" is not enabled on the server.' % plugin)
 
 
-def set_metadata(scope, name, key, value, recursive=False, session=None):
+@transactional_session
+def set_metadata(scope, name, key, value, recursive=False, *, session: "Session"):
     """
     Sets metadata for a given did.
 
@@ -128,7 +134,8 @@ def set_metadata(scope, name, key, value, recursive=False, session=None):
         raise exception.InvalidMetadata('No plugin manages metadata key %s for DID %s:%s' % (key, scope, name))
 
 
-def set_metadata_bulk(scope, name, meta, recursive=False, session=None):
+@transactional_session
+def set_metadata_bulk(scope, name, meta, recursive=False, *, session: "Session"):
     """
     Bulk sets metadata for a given did.
 
@@ -175,7 +182,8 @@ def set_metadata_bulk(scope, name, meta, recursive=False, session=None):
             metadata_plugin.set_metadata_bulk(scope, name, metadata=this_plugin_metadata, recursive=recursive, session=session)
 
 
-def delete_metadata(scope, name, key, session=None):
+@transactional_session
+def delete_metadata(scope, name, key, *, session: "Session"):
     """
     Deletes metadata stored for a given key.
 
@@ -190,7 +198,7 @@ def delete_metadata(scope, name, key, session=None):
 
 @read_session
 def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False, limit=None,
-              offset=None, long=False, recursive=False, ignore_dids=None, session=None):
+              offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Session"):
     """
     Search data identifiers.
 

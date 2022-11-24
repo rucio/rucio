@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import re
+from typing import TYPE_CHECKING
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -28,9 +29,12 @@ from rucio.db.sqla.session import read_session, transactional_session
 # Format for long VO names
 LONG_VO_RE = re.compile(r"^[a-zA-Z0-9\.\-]+$")
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @read_session
-def vo_exists(vo, session=None):
+def vo_exists(vo, *, session: "Session"):
     """
     Verify that the vo exists.
 
@@ -43,7 +47,7 @@ def vo_exists(vo, session=None):
 
 
 @transactional_session
-def add_vo(vo, description, email, session=None):
+def add_vo(vo, description, email, *, session: "Session"):
     """
     Add a VO and setup a new root user.
     New root user will have account name 'root' and a userpass identity with username: 'root@<vo>' and password: 'password'
@@ -85,7 +89,7 @@ def add_vo(vo, description, email, session=None):
 
 
 @read_session
-def list_vos(session=None):
+def list_vos(*, session: "Session"):
     """
     List all the VOs in the db.
 
@@ -110,7 +114,7 @@ def list_vos(session=None):
 
 
 @transactional_session
-def update_vo(vo, parameters, session=None):
+def update_vo(vo, parameters, *, session: "Session"):
     """
     Update VO properties (email, description).
 

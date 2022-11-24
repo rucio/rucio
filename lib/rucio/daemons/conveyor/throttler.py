@@ -195,7 +195,7 @@ class RequestGrouper:
         return merged_groups
 
 
-def _get_request_stats(rse_collection: RseCollection, logger=logging.log, session=None):
+def _get_request_stats(rse_collection: RseCollection, *, logger=logging.log, session):
     """
     Group waiting requests into arbitrary groups for bulk handling.
     The current grouping (source rse + dest rse + activity) was dictated

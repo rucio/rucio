@@ -16,6 +16,7 @@
 import hashlib
 import os
 from re import match
+from typing import TYPE_CHECKING
 
 from sqlalchemy import asc
 from sqlalchemy.exc import IntegrityError
@@ -28,9 +29,12 @@ from rucio.db.sqla.session import read_session, transactional_session
 from rucio.common.types import InternalAccount
 from typing import Union
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_identity(identity: str, type_: IdentityType, email: str, password: Union[str, None] = None, session=None):
+def add_identity(identity: str, type_: IdentityType, email: str, password: Union[str, None] = None, *, session: "Session"):
     """
     Creates a user identity.
 
@@ -61,7 +65,7 @@ def add_identity(identity: str, type_: IdentityType, email: str, password: Union
 
 
 @read_session
-def verify_identity(identity: str, type_: IdentityType, password: Union[str, None] = None, session=None) -> bool:
+def verify_identity(identity: str, type_: IdentityType, password: Union[str, None] = None, *, session: "Session") -> bool:
     """
     Verifies a user identity.
     :param identity: The identity key name. For example x509 DN, or a username.
@@ -91,7 +95,7 @@ def verify_identity(identity: str, type_: IdentityType, password: Union[str, Non
 
 
 @transactional_session
-def del_identity(identity: str, type_: IdentityType, session=None):
+def del_identity(identity: str, type_: IdentityType, *, session: "Session"):
     """
     Deletes a user identity.
 
@@ -107,7 +111,7 @@ def del_identity(identity: str, type_: IdentityType, session=None):
 
 
 @transactional_session
-def add_account_identity(identity: str, type_: IdentityType, account: InternalAccount, email: str, default: bool = False, password: str = None, session=None):
+def add_account_identity(identity: str, type_: IdentityType, account: InternalAccount, email: str, default: bool = False, password: str = None, *, session: "Session"):
     """
     Adds a membership association between identity and account.
 
@@ -143,7 +147,7 @@ def add_account_identity(identity: str, type_: IdentityType, account: InternalAc
 
 
 @read_session
-def exist_identity_account(identity: str, type_: IdentityType, account: InternalAccount, session=None):
+def exist_identity_account(identity: str, type_: IdentityType, account: InternalAccount, *, session: "Session"):
     """
     Check if an identity is mapped to an account.
 
@@ -160,7 +164,7 @@ def exist_identity_account(identity: str, type_: IdentityType, account: Internal
 
 
 @read_session
-def get_default_account(identity: str, type_: IdentityType, oldest_if_none: bool = False, session=None):
+def get_default_account(identity: str, type_: IdentityType, oldest_if_none: bool = False, *, session: "Session"):
     """
     Retrieves the default account mapped to an identity.
 
@@ -190,7 +194,7 @@ def get_default_account(identity: str, type_: IdentityType, oldest_if_none: bool
 
 
 @transactional_session
-def del_account_identity(identity: str, type_: IdentityType, account: InternalAccount, session=None):
+def del_account_identity(identity: str, type_: IdentityType, account: InternalAccount, *, session: "Session"):
     """
     Removes a membership association between identity and account.
 
@@ -206,7 +210,7 @@ def del_account_identity(identity: str, type_: IdentityType, account: InternalAc
 
 
 @read_session
-def list_identities(session=None, **kwargs):
+def list_identities(*, session: "Session", **kwargs):
     """
     Returns a list of all identities.
 
@@ -224,7 +228,7 @@ def list_identities(session=None, **kwargs):
 
 
 @read_session
-def list_accounts_for_identity(identity: str, type_: IdentityType, session=None):
+def list_accounts_for_identity(identity: str, type_: IdentityType, *, session: "Session"):
     """
     Returns a list of all accounts for an identity.
 

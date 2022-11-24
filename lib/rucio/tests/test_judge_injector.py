@@ -94,14 +94,14 @@ class TestJudgeEvaluator:
         # Add a first rule to the DS
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, asynchronous=True)[0]
 
-        assert(get_rule(rule_id)['state'] == RuleState.INJECT)
+        assert (get_rule(rule_id)['state'] == RuleState.INJECT)
 
         rule_injector(once=True)
 
         # Check if the Locks are created properly
         for file in files:
-            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
-        assert(get_rule(rule_id)['state'] == RuleState.REPLICATING)
+            assert (len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2)
+        assert (get_rule(rule_id)['state'] == RuleState.REPLICATING)
 
     def test_judge_inject_delayed_rule(self):
         """ JUDGE INJECTOR: Test the judge when injecting a delayed rule"""
@@ -127,7 +127,7 @@ class TestJudgeEvaluator:
 
         # simulate that time to inject the rule has arrived
         @transactional_session
-        def __update_created_at(session=None):
+        def __update_created_at(*, session=None):
             session.query(ReplicationRule).filter_by(id=rule_id).one().created_at = datetime.utcnow()
         __update_created_at()
 
@@ -147,18 +147,18 @@ class TestJudgeEvaluator:
         # Add a first rule to the DS
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse4, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
 
-        assert(get_rule(rule_id)['state'] == RuleState.WAITING_APPROVAL)
+        assert (get_rule(rule_id)['state'] == RuleState.WAITING_APPROVAL)
 
         approve_rule(rule_id=rule_id, approver=self.jdoe)
 
-        assert(get_rule(rule_id)['state'] == RuleState.INJECT)
+        assert (get_rule(rule_id)['state'] == RuleState.INJECT)
 
         rule_injector(once=True)
 
         # Check if the Locks are created properly
         for file in files:
-            assert(len(get_replica_locks(scope=file['scope'], name=file['name'])) == 1)
-        assert(get_rule(rule_id)['state'] == RuleState.REPLICATING)
+            assert (len(get_replica_locks(scope=file['scope'], name=file['name'])) == 1)
+        assert (get_rule(rule_id)['state'] == RuleState.REPLICATING)
 
     def test_judge_deny_rule(self):
         """ JUDGE INJECTOR: Test the judge when asking approval for a rule and denying it"""
@@ -171,7 +171,7 @@ class TestJudgeEvaluator:
         # Add a first rule to the DS
         rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse4, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
 
-        assert(get_rule(rule_id)['state'] == RuleState.WAITING_APPROVAL)
+        assert (get_rule(rule_id)['state'] == RuleState.WAITING_APPROVAL)
 
         deny_rule(rule_id=rule_id, approver=self.jdoe)
 
@@ -192,13 +192,13 @@ class TestJudgeEvaluator:
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
         rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=900, locked=False, subscription_id=None, ask_approval=True)[0]
         approve_rule(rule_id, approver=self.jdoe)
-        assert(get_rule(rule_id)['state'] == RuleState.INJECT)
+        assert (get_rule(rule_id)['state'] == RuleState.INJECT)
         rule_injector(once=True)
         # Check if there is a rule for each file
         with pytest.raises(RuleNotFound):
             get_rule(rule_id)
         for dataset in datasets:
-            assert(len([r for r in list_rules({'scope': scope, 'name': dataset})]) > 0)
+            assert (len([r for r in list_rules({'scope': scope, 'name': dataset})]) > 0)
 
     def test_add_rule_with_r2d2_container_treating_and_duplicate_rule(self):
         """ JUDGE INJECTOR (CORE): Add a replication rule with an r2d2 container treatment and duplicate rule"""
@@ -216,10 +216,10 @@ class TestJudgeEvaluator:
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=900, locked=False, subscription_id=None, ask_approval=False)
         rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=900, locked=False, subscription_id=None, ask_approval=True)[0]
         approve_rule(rule_id, approver=self.jdoe)
-        assert(get_rule(rule_id)['state'] == RuleState.INJECT)
+        assert (get_rule(rule_id)['state'] == RuleState.INJECT)
         rule_injector(once=True)
         # Check if there is a rule for each file
         with pytest.raises(RuleNotFound):
             get_rule(rule_id)
         for dataset in datasets:
-            assert(len([r for r in list_rules({'scope': scope, 'name': dataset})]) > 0)
+            assert (len([r for r in list_rules({'scope': scope, 'name': dataset})]) > 0)

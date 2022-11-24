@@ -39,7 +39,7 @@ from rucio.core.request import set_request_state, RequestWithSources, RequestSou
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, RequestType, TransferLimitDirection
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
@@ -309,8 +309,9 @@ def transfer_path_str(transfer_path: "List[DirectTransferDefinition]") -> str:
 def mark_submitting(
         transfer: "DirectTransferDefinition",
         external_host: str,
+        *,
         logger: "Callable",
-        session: "Optional[Session]" = None,
+        session: "Session",
 ):
     """
     Mark a transfer as submitting
@@ -350,10 +351,12 @@ def mark_submitting(
         raise RequestNotFound("Failed to prepare transfer: request %s does not exist or is not in queued state" % transfer.rws)
 
 
+@transactional_session
 def ensure_db_sources(
         transfer_path: "List[DirectTransferDefinition]",
+        *,
         logger: "Callable",
-        session: "Optional[Session]" = None,
+        session: "Session",
 ):
     """
     Ensure the needed DB source objects exist
@@ -396,7 +399,7 @@ def ensure_db_sources(
 
 
 @transactional_session
-def set_transfers_state(transfers, state, submitted_at, external_host, external_id, logger, session=None):
+def set_transfers_state(transfers, state, submitted_at, external_host, external_id, *, session: "Session", logger):
     """
     Update the transfer info of a request.
     :param transfers:  Dictionary containing request transfer info.
@@ -483,7 +486,7 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
 
 
 @transactional_session
-def mark_transfer_lost(request, session=None, logger=logging.log):
+def mark_transfer_lost(request, *, session: "Session", logger=logging.log):
     new_state = RequestState.LOST
     reason = "The FTS job lost"
 
@@ -494,7 +497,7 @@ def mark_transfer_lost(request, session=None, logger=logging.log):
 
 
 @transactional_session
-def set_transfer_update_time(external_host, transfer_id, update_time=datetime.datetime.utcnow(), session=None):
+def set_transfer_update_time(external_host, transfer_id, update_time=datetime.datetime.utcnow(), *, session: "Session"):
     """
     Update the state of a request. Fails silently if the transfer_id does not exist.
     :param external_host:  Selected external host as string in format protocol://fqdn:port
@@ -516,7 +519,7 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
         ).values(
             updated_at=update_time
         )
-        rowcount = session.executet(stmt).rowcount
+        rowcount = session.execute(stmt).rowcount
     except IntegrityError as error:
         raise RucioException(error.args)
 
@@ -525,7 +528,7 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
 
 
 @transactional_session
-def touch_transfer(external_host, transfer_id, session=None):
+def touch_transfer(external_host, transfer_id, *, session: "Session"):
     """
     Update the timestamp of requests in a transfer. Fails silently if the transfer_id does not exist.
     :param request_host:   Name of the external host.
@@ -566,7 +569,8 @@ def __create_transfer_definitions(
         operation_src: str,
         operation_dest: str,
         domain: str,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ) -> "Dict[str, List[DirectTransferDefinition]]":
     """
     Find the all paths from sources towards the destination of the given transfer request.
@@ -783,6 +787,7 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
     yield from sorted(candidate_paths, key=__transfer_order_key)
 
 
+@transactional_session
 def build_transfer_paths(
         topology: "Topology",
         requests_with_sources: "Iterable[RequestWithSources]",
@@ -792,8 +797,9 @@ def build_transfer_paths(
         transfertools: "Optional[List[str]]" = None,
         requested_source_only: bool = False,
         preparer_mode: bool = False,
+        *,
+        session: "Session",
         logger: "Callable" = logging.log,
-        session: "Optional[Session]" = None,
 ):
     """
     For each request, find all possible transfer paths from its sources, which respect the
@@ -1013,7 +1019,7 @@ def __add_compatible_schemes(schemes, allowed_schemes):
 
 
 @read_session
-def list_transfer_admin_accounts(session=None) -> "Set[InternalAccount]":
+def list_transfer_admin_accounts(*, session: "Session") -> "Set[InternalAccount]":
     """
     List admin accounts and cache the result in memory
     """
@@ -1078,7 +1084,8 @@ def prepare_transfers(
         candidate_paths_by_request_id: "Dict[str, List[List[DirectTransferDefinition]]]",
         logger: "LoggerFunction" = logging.log,
         transfertools: "Optional[List[str]]" = None,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ) -> "Tuple[List[str], List[str]]":
     """
     Update transfer requests according to preparer settings.
@@ -1139,11 +1146,13 @@ def prepare_transfers(
     return updated_reqs, reqs_no_transfertool
 
 
+@stream_session
 def applicable_rse_transfer_limits(
         source_rse: "Optional[RseData]" = None,
         dest_rse: "Optional[RseData]" = None,
         activity: "Optional[str]" = None,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ):
     """
     Find all RseTransferLimits which must be enforced for transfers between source and destination RSEs for the given activity.
@@ -1174,7 +1183,7 @@ def applicable_rse_transfer_limits(
         yield limit
 
 
-def _throttler_request_state(activity, source_rse, dest_rse, session: "Optional[Session]" = None) -> RequestState:
+def _throttler_request_state(activity, source_rse, dest_rse, *, session: "Session") -> RequestState:
     """
     Takes request attributes to return a new state for the request
     based on throttler settings. Always returns QUEUED,
@@ -1187,11 +1196,13 @@ def _throttler_request_state(activity, source_rse, dest_rse, session: "Optional[
     return RequestState.WAITING if limit_found else RequestState.QUEUED
 
 
+@read_session
 def get_supported_transfertools(
         source_rse: "RseData",
         dest_rse: "RseData",
         transfertools: "Optional[List[str]]" = None,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ) -> "Set[str]":
 
     if not transfertools:

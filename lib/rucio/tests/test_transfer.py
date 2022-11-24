@@ -33,7 +33,7 @@ from rucio.daemons.conveyor.common import next_transfers_to_submit, assign_paths
 
 
 @transactional_session
-def __fake_source_ranking(request, source_rse_id, new_ranking, session=None):
+def __fake_source_ranking(request, source_rse_id, new_ranking, *, session=None):
     rowcount = session.query(models.Source).filter(models.Source.rse_id == source_rse_id).update({'ranking': new_ranking})
     if not rowcount:
         models.Source(request_id=request['id'],

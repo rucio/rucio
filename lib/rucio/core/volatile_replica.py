@@ -15,6 +15,7 @@
 
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, or_, exists, update
 from sqlalchemy.orm.exc import NoResultFound
@@ -26,9 +27,12 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import ReplicaState
 from rucio.db.sqla.session import transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_volatile_replicas(rse_id, replicas, session=None):
+def add_volatile_replicas(rse_id, replicas, *, session: "Session"):
     """
     Bulk add volatile replicas.
 
@@ -80,7 +84,7 @@ def add_volatile_replicas(rse_id, replicas, session=None):
 
 
 @transactional_session
-def delete_volatile_replicas(rse_id, replicas, session=None):
+def delete_volatile_replicas(rse_id, replicas, *, session: "Session"):
     """
     Bulk delete volatile replicas.
 

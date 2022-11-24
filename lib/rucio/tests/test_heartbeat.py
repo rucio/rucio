@@ -156,7 +156,7 @@ class TestHeartbeat:
         assert len(list_heartbeats()) == 6
 
         @transactional_session
-        def __forge_updated_at(session=None):
+        def __forge_updated_at(*, session=None):
             two_days_ago = datetime.utcnow() - timedelta(days=2)
             a_dozen_hours_ago = datetime.utcnow() - timedelta(hours=12)
             session.query(Heartbeats).filter_by(hostname='host1').update({'updated_at': two_days_ago})

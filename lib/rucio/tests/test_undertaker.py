@@ -155,11 +155,11 @@ class TestUndertaker:
         undertaker(once=True)
 
         for replica in replicas:
-            assert(get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse_id)['tombstone'] is None)
+            assert (get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse_id)['tombstone'] is None)
 
         for dsn in dsns2:
-            assert(get_did(scope=InternalScope('archive', vo=vo), name=dsn['name'])['name'] == dsn['name'])
-            assert(len([x for x in list_rules(filters={'scope': InternalScope('archive', vo=vo), 'name': dsn['name']})]) == 1)
+            assert (get_did(scope=InternalScope('archive', vo=vo), name=dsn['name'])['name'] == dsn['name'])
+            assert (len([x for x in list_rules(filters={'scope': InternalScope('archive', vo=vo), 'name': dsn['name']})]) == 1)
 
 
 @pytest.mark.noparallel(reason='runs undertaker, which impacts other tests')

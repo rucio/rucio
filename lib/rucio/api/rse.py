@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from rucio.api import permission
 from rucio.common import exception
@@ -24,13 +24,17 @@ from rucio.core import rse as rse_module
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
+if TYPE_CHECKING:
+    from typing import Optional
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
 def add_rse(rse, issuer, vo='def', deterministic=True, volatile=False, city=None, region_code=None,
             country_name=None, continent=None, time_zone=None, ISP=None,
             staging_area=False, rse_type=None, latitude=None, longitude=None, ASN=None,
-            availability_read: Optional[bool] = None, availability_write: Optional[bool] = None,
-            availability_delete: Optional[bool] = None, session=None):
+            availability_read: "Optional[bool]" = None, availability_write: "Optional[bool]" = None,
+            availability_delete: "Optional[bool]" = None, *, session: "Session"):
     """
     Creates a new Rucio Storage Element(RSE).
 
@@ -68,7 +72,7 @@ def add_rse(rse, issuer, vo='def', deterministic=True, volatile=False, city=None
 
 
 @read_session
-def get_rse(rse, vo='def', session=None):
+def get_rse(rse, vo='def', *, session: "Session"):
     """
     Provides details about the specified RSE.
 
@@ -86,7 +90,7 @@ def get_rse(rse, vo='def', session=None):
 
 
 @transactional_session
-def del_rse(rse, issuer, vo='def', session=None):
+def del_rse(rse, issuer, vo='def', *, session: "Session"):
     """
     Disables an RSE with the provided RSE name.
 
@@ -105,7 +109,7 @@ def del_rse(rse, issuer, vo='def', session=None):
 
 
 @read_session
-def list_rses(filters={}, vo='def', session=None):
+def list_rses(filters={}, vo='def', *, session: "Session"):
     """
     Lists all RSEs.
 
@@ -124,7 +128,7 @@ def list_rses(filters={}, vo='def', session=None):
 
 
 @transactional_session
-def del_rse_attribute(rse, key, issuer, vo='def', session=None):
+def del_rse_attribute(rse, key, issuer, vo='def', *, session: "Session"):
     """
     Delete a RSE attribute.
 
@@ -146,7 +150,7 @@ def del_rse_attribute(rse, key, issuer, vo='def', session=None):
 
 
 @transactional_session
-def add_rse_attribute(rse, key, value, issuer, vo='def', session=None):
+def add_rse_attribute(rse, key, value, issuer, vo='def', *, session: "Session"):
     """ Adds a RSE attribute.
 
     :param rse: the rse name.
@@ -168,7 +172,7 @@ def add_rse_attribute(rse, key, value, issuer, vo='def', session=None):
 
 
 @read_session
-def list_rse_attributes(rse, vo='def', session=None):
+def list_rse_attributes(rse, vo='def', *, session: "Session"):
     """
     List RSE attributes for a RSE_MODULE.
 
@@ -184,7 +188,7 @@ def list_rse_attributes(rse, vo='def', session=None):
 
 
 @read_session
-def has_rse_attribute(rse_id, key, session=None):
+def has_rse_attribute(rse_id, key, *, session: "Session"):
     """
     Indicates whether the named key is present for the RSE.
 
@@ -198,7 +202,7 @@ def has_rse_attribute(rse_id, key, session=None):
 
 
 @read_session
-def get_rses_with_attribute(key, session=None):
+def get_rses_with_attribute(key, *, session: "Session"):
     """
     Return all RSEs with a certain attribute.
 
@@ -211,7 +215,7 @@ def get_rses_with_attribute(key, session=None):
 
 
 @transactional_session
-def add_protocol(rse, issuer, vo='def', session=None, **data):
+def add_protocol(rse, issuer, vo='def', *, session: "Session", **data):
     """
     Creates a new protocol entry for an existing RSE.
 
@@ -230,7 +234,7 @@ def add_protocol(rse, issuer, vo='def', session=None, **data):
 
 
 @read_session
-def get_rse_protocols(rse, issuer, vo='def', session=None):
+def get_rse_protocols(rse, issuer, vo='def', *, session: "Session"):
     """
     Returns all matching protocols (including detailed information) for the given RSE.
 
@@ -246,7 +250,7 @@ def get_rse_protocols(rse, issuer, vo='def', session=None):
 
 
 @transactional_session
-def del_protocols(rse, scheme, issuer, vo='def', hostname=None, port=None, session=None):
+def del_protocols(rse, scheme, issuer, vo='def', hostname=None, port=None, *, session: "Session"):
     """
     Deletes all matching protocol entries for the given RSE..
 
@@ -268,7 +272,7 @@ def del_protocols(rse, scheme, issuer, vo='def', hostname=None, port=None, sessi
 
 
 @transactional_session
-def update_protocols(rse, scheme, data, issuer, vo='def', hostname=None, port=None, session=None):
+def update_protocols(rse, scheme, data, issuer, vo='def', hostname=None, port=None, *, session: "Session"):
     """
     Updates all provided attributes for all matching protocol entries of the given RSE..
 
@@ -289,7 +293,7 @@ def update_protocols(rse, scheme, data, issuer, vo='def', hostname=None, port=No
 
 
 @transactional_session
-def set_rse_usage(rse, source, used, free, issuer, files=None, vo='def', session=None):
+def set_rse_usage(rse, source, used, free, issuer, files=None, vo='def', *, session: "Session"):
     """
     Set RSE usage information.
 
@@ -314,7 +318,7 @@ def set_rse_usage(rse, source, used, free, issuer, files=None, vo='def', session
 
 
 @read_session
-def get_rse_usage(rse, issuer, source=None, per_account=False, vo='def', session=None):
+def get_rse_usage(rse, issuer, source=None, per_account=False, vo='def', *, session: "Session"):
     """
     get RSE usage information.
 
@@ -338,7 +342,7 @@ def get_rse_usage(rse, issuer, source=None, per_account=False, vo='def', session
 
 
 @stream_session
-def list_rse_usage_history(rse, issuer, source=None, vo='def', session=None):
+def list_rse_usage_history(rse, issuer, source=None, vo='def', *, session: "Session"):
     """
     List RSE usage history information.
 
@@ -356,7 +360,7 @@ def list_rse_usage_history(rse, issuer, source=None, vo='def', session=None):
 
 
 @transactional_session
-def set_rse_limits(rse, name, value, issuer, vo='def', session=None):
+def set_rse_limits(rse, name, value, issuer, vo='def', *, session: "Session"):
     """
     Set RSE limits.
 
@@ -378,7 +382,7 @@ def set_rse_limits(rse, name, value, issuer, vo='def', session=None):
 
 
 @transactional_session
-def delete_rse_limits(rse, name, issuer, vo='def', session=None):
+def delete_rse_limits(rse, name, issuer, vo='def', *, session: "Session"):
     """
     Set RSE limits.
 
@@ -399,7 +403,7 @@ def delete_rse_limits(rse, name, issuer, vo='def', session=None):
 
 
 @read_session
-def get_rse_limits(rse, issuer, vo='def', session=None):
+def get_rse_limits(rse, issuer, vo='def', *, session: "Session"):
     """
     Get RSE limits.
 
@@ -415,7 +419,7 @@ def get_rse_limits(rse, issuer, vo='def', session=None):
 
 
 @transactional_session
-def parse_rse_expression(rse_expression, vo='def', session=None):
+def parse_rse_expression(rse_expression, vo='def', *, session: "Session"):
     """
     Parse an RSE expression and return the list of RSEs.
 
@@ -431,7 +435,7 @@ def parse_rse_expression(rse_expression, vo='def', session=None):
 
 
 @transactional_session
-def update_rse(rse, parameters, issuer, vo='def', session=None):
+def update_rse(rse, parameters, issuer, vo='def', *, session: "Session"):
     """
     Update RSE properties like availability or name.
 
@@ -453,7 +457,7 @@ def update_rse(rse, parameters, issuer, vo='def', session=None):
 @transactional_session
 def add_distance(source, destination, issuer, vo='def', ranking=None, distance=None,
                  geoip_distance=None, active=None, submitted=None, finished=None,
-                 failed=None, transfer_speed=None, session=None):
+                 failed=None, transfer_speed=None, *, session: "Session"):
     """
     Add a src-dest distance.
 
@@ -487,7 +491,7 @@ def add_distance(source, destination, issuer, vo='def', ranking=None, distance=N
 
 
 @transactional_session
-def update_distance(source, destination, parameters, issuer, vo='def', session=None):
+def update_distance(source, destination, parameters, issuer, vo='def', *, session: "Session"):
     """
     Update distances with the given RSE ids.
 
@@ -512,7 +516,7 @@ def update_distance(source, destination, parameters, issuer, vo='def', session=N
 
 
 @read_session
-def get_distance(source, destination, issuer, vo='def', session=None):
+def get_distance(source, destination, issuer, vo='def', *, session: "Session"):
     """
     Get distances between rses.
 
@@ -532,7 +536,7 @@ def get_distance(source, destination, issuer, vo='def', session=None):
 
 
 @transactional_session
-def delete_distance(source, destination, issuer, vo='def', session=None):
+def delete_distance(source, destination, issuer, vo='def', *, session: "Session"):
     """
     Delete distances with the given RSE ids.
 
@@ -552,7 +556,7 @@ def delete_distance(source, destination, issuer, vo='def', session=None):
 
 
 @transactional_session
-def add_qos_policy(rse, qos_policy, issuer, vo='def', session=None):
+def add_qos_policy(rse, qos_policy, issuer, vo='def', *, session: "Session"):
     """
     Add a QoS policy from an RSE.
 
@@ -575,7 +579,7 @@ def add_qos_policy(rse, qos_policy, issuer, vo='def', session=None):
 
 
 @transactional_session
-def delete_qos_policy(rse, qos_policy, issuer, vo='def', session=None):
+def delete_qos_policy(rse, qos_policy, issuer, vo='def', *, session: "Session"):
     """
     Delete a QoS policy from an RSE.
 
@@ -597,7 +601,7 @@ def delete_qos_policy(rse, qos_policy, issuer, vo='def', session=None):
 
 
 @read_session
-def list_qos_policies(rse, issuer, vo='def', session=None):
+def list_qos_policies(rse, issuer, vo='def', *, session: "Session"):
     """
     List all QoS policies of an RSE.
 

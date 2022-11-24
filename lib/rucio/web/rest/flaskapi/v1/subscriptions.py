@@ -192,7 +192,7 @@ class Subscription(ErrorHandlingMethodView):
             'retroactive': None,
             'priority': None,
         }
-        for keyword in metadata:
+        for keyword in list(metadata):
             metadata[keyword] = param_get(options, keyword, default=metadata[keyword])
 
         try:

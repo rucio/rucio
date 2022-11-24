@@ -818,7 +818,7 @@ def test_client_list_replicas_on_did_without_replicas(rse_factory, did_factory, 
     container = did_factory.make_container()
 
     @transactional_session
-    def __add_file_did_without_replica(session=None):
+    def __add_file_did_without_replica(*, session=None):
         models.DataIdentifier(scope=file['scope'], name=file['name'], did_type=DIDType.FILE, bytes=1, adler32='0cc737eb', account=root_account).save(session=session, flush=False)
 
     __add_file_did_without_replica()

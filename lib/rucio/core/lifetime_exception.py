@@ -44,7 +44,8 @@ if TYPE_CHECKING:
 def list_exceptions(
         exception_id: 'Optional[str]',
         states: 'List[LifetimeExceptionsState]',
-        session: 'Optional[Session]' = None
+        *,
+        session: 'Session',
 ) -> 'Iterator[Dict[str, Any]]':
     """
     List exceptions to Lifetime Model.
@@ -79,7 +80,8 @@ def add_exception(
         pattern: 'Optional[str]',
         comments: str,
         expires_at: 'Optional[Union[str, datetime]]',
-        session: 'Optional[Session]' = None
+        *,
+        session: 'Session'
 ) -> 'Dict[str, Any]':
     """
     Add exceptions to Lifetime Model.
@@ -153,7 +155,8 @@ def __add_exception(
         comments: str,
         expires_at: 'Optional[Union[str, datetime]]',
         estimated_volume: 'Optional[int]' = None,
-        session: 'Optional[Session]' = None
+        *,
+        session: 'Session',
 ) -> str:
     """
     Add exceptions to Lifetime Model.
@@ -235,7 +238,8 @@ def __add_exception(
 def update_exception(
         exception_id: str,
         state: LifetimeExceptionsState,
-        session: 'Optional[Session]' = None
+        *,
+        session: 'Session',
 ) -> None:
     """
     Update exceptions state to Lifetime Model.
@@ -266,7 +270,8 @@ def define_eol(
         scope: 'InternalScope',
         name: str,
         rses: 'List[Dict[str, Any]]',
-        session: 'Optional[Session]' = None
+        *,
+        session: 'Session',
 ) -> 'Optional[datetime]':
     """
     ATLAS policy for rules on SCRATCHDISK

@@ -24,11 +24,12 @@ from rucio.db.sqla.session import transactional_session, read_session
 
 if TYPE_CHECKING:
     from typing import List, Dict
+    from sqlalchemy.orm import Session
 
 
 @transactional_session
 def add_distance(src_rse_id, dest_rse_id, ranking=None, agis_distance=None, geoip_distance=None,
-                 active=None, submitted=None, finished=None, failed=None, transfer_speed=None, session=None):
+                 active=None, submitted=None, finished=None, failed=None, transfer_speed=None, *, session: "Session"):
     """
     Add a src-dest distance.
 
@@ -56,7 +57,7 @@ def add_distance(src_rse_id, dest_rse_id, ranking=None, agis_distance=None, geoi
 
 
 @transactional_session
-def add_distance_short(src_rse_id, dest_rse_id, distance=None, session=None):
+def add_distance_short(src_rse_id, dest_rse_id, distance=None, *, session: "Session"):
     """
     Add a src-dest distance.
 
@@ -72,7 +73,7 @@ def add_distance_short(src_rse_id, dest_rse_id, distance=None, session=None):
 
 
 @read_session
-def get_distances(src_rse_id=None, dest_rse_id=None, session=None) -> "List[Dict]":
+def get_distances(src_rse_id=None, dest_rse_id=None, *, session: "Session") -> "List[Dict]":
     """
     Get distances between rses.
 
@@ -104,7 +105,7 @@ def get_distances(src_rse_id=None, dest_rse_id=None, session=None) -> "List[Dict
 
 
 @transactional_session
-def delete_distances(src_rse_id=None, dest_rse_id=None, session=None):
+def delete_distances(src_rse_id=None, dest_rse_id=None, *, session: "Session"):
     """
     Delete distances with the given RSE ids.
 
@@ -127,7 +128,7 @@ def delete_distances(src_rse_id=None, dest_rse_id=None, session=None):
 
 
 @transactional_session
-def update_distances(src_rse_id=None, dest_rse_id=None, parameters=None, session=None):
+def update_distances(src_rse_id=None, dest_rse_id=None, parameters=None, *, session: "Session"):
     """
     Update distances with the given RSE ids.
 
@@ -152,7 +153,7 @@ def update_distances(src_rse_id=None, dest_rse_id=None, parameters=None, session
 
 
 @read_session
-def list_distances(filter_={}, session=None):
+def list_distances(filter_={}, *, session: "Session"):
     """
     Get distances between all the RSEs.
 
@@ -163,7 +164,7 @@ def list_distances(filter_={}, session=None):
 
 
 @read_session
-def export_distances(vo='def', session=None):
+def export_distances(vo='def', *, session: "Session"):
     """
     Export distances between all the RSEs using RSE ids.
     :param vo: The VO to export.

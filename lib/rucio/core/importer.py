@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from rucio.common.exception import RSEOperationNotSupported
 from rucio.common.types import InternalAccount
 from rucio.core import rse as rse_module, distance as distance_module, account as account_module, identity as identity_module
@@ -21,9 +23,12 @@ from rucio.db.sqla.constants import RSEType, AccountType, IdentityType
 from rucio.db.sqla.session import transactional_session
 from rucio.common.config import config_get
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_sync_method='edit', vo='def', session=None):
+def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_sync_method='edit', vo='def', *, session: "Session"):
     new_rses = []
     for rse_name in rses:
         rse = rses[rse_name]
@@ -131,7 +136,7 @@ def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_
 
 
 @transactional_session
-def import_distances(distances, vo='def', session=None):
+def import_distances(distances, vo='def', *, session: "Session"):
     for src_rse_name in distances:
         src = rse_module.get_rse_id(rse=src_rse_name, vo=vo, session=session)
         for dest_rse_name in distances[src_rse_name]:
@@ -154,7 +159,7 @@ def import_distances(distances, vo='def', session=None):
 
 
 @transactional_session
-def import_identities(identities, account_name, old_identities, old_identity_account, account_email, session=None):
+def import_identities(identities, account_name, old_identities, old_identity_account, account_email, *, session: "Session"):
     for identity in identities:
         identity['type'] = IdentityType[identity['type'].upper()]
 
@@ -183,7 +188,7 @@ def import_identities(identities, account_name, old_identities, old_identity_acc
 
 
 @transactional_session
-def import_accounts(accounts, vo='def', session=None):
+def import_accounts(accounts, vo='def', *, session: "Session"):
     vo_filter = {'account': InternalAccount(account='*', vo=vo)}
     old_accounts = {account['account']: account for account in account_module.list_accounts(filter_=vo_filter, session=session)}
     missing_accounts = [account for account in accounts if account['account'] not in old_accounts]
@@ -220,7 +225,7 @@ def import_accounts(accounts, vo='def', session=None):
 
 
 @transactional_session
-def import_data(data, vo='def', session=None):
+def import_data(data, vo='def', *, session: "Session"):
     """
     Import data to add and update records in Rucio.
 

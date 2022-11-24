@@ -15,6 +15,7 @@
 
 import datetime
 import hashlib
+from typing import TYPE_CHECKING
 
 from sqlalchemy import func
 from sqlalchemy.sql import distinct
@@ -24,13 +25,16 @@ from rucio.db.sqla.session import read_session, transactional_session
 from rucio.common.exception import DatabaseException
 from rucio.common.utils import pid_exists
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 DEFAULT_EXPIRATION_DELAY = datetime.timedelta(days=1).total_seconds()
 
 
 @transactional_session
 def sanity_check(executable, hostname, hash_executable=None, pid=None, thread=None,
-                 expiration_delay=DEFAULT_EXPIRATION_DELAY, session=None):
+                 expiration_delay=DEFAULT_EXPIRATION_DELAY, *, session: "Session"):
     """
     sanity_check wrapper to ignore DatabaseException errors.
 
@@ -53,7 +57,7 @@ def sanity_check(executable, hostname, hash_executable=None, pid=None, thread=No
 
 
 @transactional_session
-def _sanity_check(executable, hostname, hash_executable=None, expiration_delay=DEFAULT_EXPIRATION_DELAY, session=None):
+def _sanity_check(executable, hostname, hash_executable=None, expiration_delay=DEFAULT_EXPIRATION_DELAY, *, session: "Session"):
     """
     Check if processes on the host are still running.
 
@@ -80,7 +84,7 @@ def _sanity_check(executable, hostname, hash_executable=None, expiration_delay=D
 
 
 @transactional_session
-def live(executable, hostname, pid, thread=None, older_than=600, hash_executable=None, payload=None, session=None):
+def live(executable, hostname, pid, thread=None, older_than=600, hash_executable=None, payload=None, *, session: "Session"):
     """
     Register a heartbeat for a process/thread on a given node.
     The executable name is used for the calculation of thread assignments.
@@ -153,7 +157,7 @@ def live(executable, hostname, pid, thread=None, older_than=600, hash_executable
 
 
 @transactional_session
-def die(executable, hostname, pid, thread, older_than=None, hash_executable=None, session=None):
+def die(executable, hostname, pid, thread, older_than=None, hash_executable=None, *, session: "Session"):
     """
     Remove a single heartbeat older than specified.
 
@@ -182,7 +186,7 @@ def die(executable, hostname, pid, thread, older_than=None, hash_executable=None
 
 
 @transactional_session
-def cardiac_arrest(older_than=None, session=None):
+def cardiac_arrest(older_than=None, *, session: "Session"):
     """
     Removes all heartbeats older than specified.
 
@@ -199,7 +203,7 @@ def cardiac_arrest(older_than=None, session=None):
 
 
 @read_session
-def list_heartbeats(session=None):
+def list_heartbeats(*, session: "Session"):
     """
     List all heartbeats.
 
@@ -221,7 +225,7 @@ def list_heartbeats(session=None):
 
 
 @read_session
-def list_payload_counts(executable, older_than=600, hash_executable=None, session=None):
+def list_payload_counts(executable, older_than=600, hash_executable=None, *, session: "Session"):
     """
     Give the counts of number of threads per payload for a certain executable.
 

@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from rucio.api import permission
 from rucio.db.sqla.session import transactional_session
 from rucio.core.rse import get_rse_id
@@ -20,9 +22,12 @@ from rucio.core.quarantined_replica import add_quarantined_replicas
 from rucio.common.types import InternalScope
 from rucio.common import exception
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def quarantine_file_replicas(replicas, issuer, rse=None, rse_id=None, vo='def', session=None):
+def quarantine_file_replicas(replicas, issuer, rse=None, rse_id=None, vo='def', *, session: "Session"):
     """
     Quarantine replicas.
 
