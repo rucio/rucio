@@ -23,6 +23,7 @@ from sqlalchemy import delete
 
 from rucio.common.exception import RequestNotFound
 from rucio.core import distance as distance_core
+from rucio.core import monitor as monitor_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
 from rucio.core import replica as replica_core
@@ -197,7 +198,7 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     assert replica['tombstone'] is None
 
     # Ensure that prometheus metrics were correctly registered. Only one submission, mock transfertool groups everything into one job.
-    assert metrics_mock.get_sample_value('rucio_core_request_submit_transfer_total') == 1
+    assert metrics_mock.get_sample_value(f'{monitor_core.SCOPE}_daemons_conveyor_common_submit_transfer_total') == 1
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")

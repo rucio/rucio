@@ -39,9 +39,10 @@ from rucio.common.exception import (
     SubscriptionNotFound,
 )
 from rucio.common.logging import setup_logging
+from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
-from rucio.core import monitor
+from rucio.core.monitor import MetricManager
 from rucio.core.did import list_new_dids, set_new_dids, get_metadata
 from rucio.core.rse import list_rses, rse_exists, get_rse_id, list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
@@ -54,6 +55,7 @@ if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
     from rucio.common.types import InternalScope
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 
 RULES_COMMENT_LENGTH = 255
@@ -190,10 +192,7 @@ def __split_rule_select_rses(
             )
             # Now including the blocklisted sites
             blocklisted_rse_id = []
-            monitor.record_counter(
-                name="transmogrifier.addnewrule.errortype.{exception}",
-                labels={"exception": str(error.__class__.__name__)},
-            )
+            METRICS.counter(name="addnewrule.errortype.{exception}").labels(exception=str(error.__class__.__name__)).inc()
             wont_reevaluate = True
         except Exception as error:
             logger(
@@ -477,7 +476,7 @@ def transmogrifier(bulk: int = 5, once: bool = False, sleep_time: int = 60) -> N
 def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> bool:
 
     worker_number, total_workers, logger = heartbeat_handler.live()
-    timer = monitor.Timer()
+    stopwatch = Stopwatch()
     blocklisted_rse_id = [rse["id"] for rse in list_rses({"availability_write": False})]
     identifiers = []
     #  List all the active subscriptions
@@ -631,17 +630,8 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                             if split_rule:
                                 success = True
 
-                        monitor.record_counter(
-                            name="transmogrifier.addnewrule.done",
-                            delta=nb_rule,
-                        )
-                        monitor.record_counter(
-                            name="transmogrifier.addnewrule.activity.{activity}",
-                            delta=nb_rule,
-                            labels={
-                                "activity": "".join(rule_dict.get("activity").split())
-                            },
-                        )
+                        METRICS.counter("addnewrule.done").inc(nb_rule)
+                        METRICS.counter("addnewrule.activity.{activity}").labels(activity="".join(rule_dict.get("activity").split())).inc(nb_rule)
                         success = True
                     except (
                         InvalidReplicationRule,
@@ -653,16 +643,10 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                         # Errors that won't be retried
                         success = True
                         logger(logging.ERROR, str(error))
-                        monitor.record_counter(
-                            name="transmogrifier.addnewrule.errortype.{exception}",
-                            labels={"exception": str(error.__class__.__name__)},
-                        )
+                        METRICS.counter("addnewrule.errortype.{exception}").labels(exception=str(error.__class__.__name__)).inc()
                     except Exception:
                         # Errors that will be retried
-                        monitor.record_counter(
-                            name="transmogrifier.addnewrule.errortype.{exception}",
-                            labels={"exception": "unknown"},
-                        )
+                        METRICS.counter("addnewrule.errortype.{exception}").labels(exception="unknown").inc()
                         logger(logging.ERROR, "Unexpected error", exc_info=True)
 
                     did_success = did_success and success
@@ -685,14 +669,12 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
 
         if did_success:
             if did["did_type"] == str(DIDType.FILE):
-                monitor.record_counter(name="transmogrifier.did.file.processed")
+                METRICS.counter(name="files_processed").inc()
             elif did["did_type"] == str(DIDType.DATASET):
-                monitor.record_counter(name="transmogrifier.did.dataset.processed")
+                METRICS.counter(name="datasets_processed").inc()
             elif did["did_type"] == str(DIDType.CONTAINER):
-                monitor.record_counter(
-                    name="transmogrifier.did.container.processed", delta=1
-                )
-            monitor.record_counter(name="transmogrifier.did.processed", delta=1)
+                METRICS.counter(name="containers_processed").inc()
+            METRICS.counter(name="dids_processed").inc()
             identifiers.append(
                 {
                     "scope": did["scope"],
@@ -702,12 +684,12 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             )
 
     #  Mark the DIDs as processed
-    flag_timer = monitor.Timer()
+    flag_stopwatch = Stopwatch()
     for identifier in chunks(identifiers, 100):
         set_new_dids(identifier, None)
-    logger(logging.DEBUG, "Time to set the new flag : %f" % flag_timer.elapsed)
+    logger(logging.DEBUG, "Time to set the new flag : %f" % flag_stopwatch.elapsed)
 
-    timer.stop()
+    stopwatch.stop()
 
     for sub in subscriptions:
         update_subscription(
@@ -717,11 +699,11 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
         )
     logger(
         logging.INFO,
-        "It took %f seconds to process %i DIDs" % (timer.elapsed, len(identifiers)),
+        "It took %f seconds to process %i DIDs" % (stopwatch.elapsed, len(identifiers)),
     )
     logger(logging.DEBUG, "DIDs processed : %s" % (str(identifiers)))
-    monitor.record_counter(name="transmogrifier.job.done", delta=1)
-    timer.record("transmogrifier.job.duration")
+    METRICS.counter(name="transmogrifier.job.done").inc(1)
+    METRICS.timer("job.duration").observe(stopwatch.elapsed)
     must_sleep = True
     return must_sleep
 

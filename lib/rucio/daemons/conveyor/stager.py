@@ -27,19 +27,21 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.logging import setup_logging
-from rucio.core.monitor import record_counter, record_timer, Timer
+from rucio.common.stopwatch import Stopwatch
+from rucio.core.monitor import MetricManager
 from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 
 
 def run_once(bulk, group_bulk, rse_ids, scheme, failover_scheme, transfertool_kwargs, heartbeat_handler, activity):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
-    timer = Timer()
+    stopwatch = Stopwatch()
     transfers = next_transfers_to_submit(
         total_workers=total_workers,
         worker_number=worker_number,
@@ -54,17 +56,18 @@ def run_once(bulk, group_bulk, rse_ids, scheme, failover_scheme, transfertool_kw
         logger=logger,
     )
     total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
-    timer.record('daemons.conveyor.stager.get_stagein_transfers.per_transfer', divisor=total_transfers or 1)
-    record_counter('daemons.conveyor.stager.get_stagein_transfers', total_transfers)
-    record_timer('daemons.conveyor.stager.get_stagein_transfers.transfers', total_transfers)
+
+    METRICS.timer('get_transfers.time_per_transfer').observe(stopwatch.elapsed / (total_transfers or 1))
+    METRICS.counter('get_transfers.total_transfers').inc(total_transfers)
     logger(logging.INFO, 'Got %s stagein transfers for %s' % (total_transfers, activity))
 
     for builder, transfer_paths in transfers.items():
         transfertool_obj = builder.make_transfertool(logger=logger, **transfertool_kwargs.get(builder.transfertool_class, {}))
         logger(logging.INFO, 'Starting to group transfers for %s (%s)' % (activity, transfertool_obj))
 
-        with Timer('daemons.conveyor.stager.bulk_group_transfer', divisor=len(transfer_paths) or 1):
-            grouped_jobs = transfertool_obj.group_into_submit_jobs(transfer_paths)
+        stopwatch.restart()
+        grouped_jobs = transfertool_obj.group_into_submit_jobs(transfer_paths)
+        METRICS.timer('bulk_group_transfer').observe(stopwatch.elapsed / (len(transfer_paths) or 1))
 
         logger(logging.INFO, 'Starting to submit transfers for %s (%s)' % (activity, transfertool_obj))
         for job in grouped_jobs:

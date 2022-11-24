@@ -31,7 +31,7 @@ from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get_int
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
-from rucio.core import monitor
+from rucio.core.monitor import MetricManager
 from rucio.core.replica import list_bad_replicas, get_replicas_state, get_bad_replicas_backlog
 from rucio.core.rule import (update_rules_for_lost_replica, update_rules_for_bad_replica,
                              get_evaluation_backlog)
@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
+METRICS = MetricManager(module=__name__)
 REGION = make_region_memcached(expiration_time=config_get_int('necromancer', 'cache_time', False, 600))
 
 
@@ -135,7 +136,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     logger(logging.INFO, 'File %s:%s has no other available or temporary available replicas, it will be marked as lost' % (scope, name))
                     try:
                         update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
-                        monitor.record_counter(name='necromancer.badfiles.lostfile')
+                        METRICS.counter(name='badfiles.lostfile').inc()
                     except (DatabaseException, DatabaseError) as error:
                         if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
                             logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
@@ -148,7 +149,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     logger(logging.INFO, 'File %s:%s can be recovered. Available sources : %s + Unavailable sources : %s' % (scope, name, str(rep), str(unavailable_rep)))
                     try:
                         update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
-                        monitor.record_counter(name='necromancer.badfiles.recovering')
+                        METRICS.counter(name='badfiles.recovering').inc()
                     except (DatabaseException, DatabaseError) as error:
                         if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
                             logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))

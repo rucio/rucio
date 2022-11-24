@@ -30,9 +30,10 @@ from rucio.client.uploadclient import UploadClient
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.common.logging import setup_logging
+from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalScope
 from rucio.common.utils import execute, generate_uuid
-from rucio.core import monitor
+from rucio.core.monitor import MetricManager
 from rucio.core.scope import list_scopes
 from rucio.core.vo import map_vo
 from rucio.daemons.common import run_daemon
@@ -41,6 +42,7 @@ from rucio.daemons.common import run_daemon
 if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 
 
@@ -173,9 +175,9 @@ def run_once(heartbeat_handler: "HeartbeatHandler", inputfile: str, **_kwargs) -
     probabilities, data = get_data_distribution(inputfile)
     logger(logging.DEBUG, "Probabilities %s", probabilities)
 
-    cycle_timer = monitor.Timer()
+    cycle_stopwatch = Stopwatch()
     for rse in rses:
-        timer = monitor.Timer()
+        stopwatch = Stopwatch()
         _, _, logger = heartbeat_handler.live()
         tmpdir = tempfile.mkdtemp()
         logger(logging.INFO, "Running on RSE %s", rse)
@@ -227,9 +229,9 @@ def run_once(heartbeat_handler: "HeartbeatHandler", inputfile: str, **_kwargs) -
         ret = upload_client.upload(files)
         if ret == 0:
             logger(logging.INFO, "%s sucessfully registered" % dsn)
-            monitor.record_counter(name="automatix.addnewdataset.done", delta=1)
-            monitor.record_counter(name="automatix.addnewfile.done", delta=nbfiles)
-            timer.record('automatix.datasetinjection')
+            METRICS.counter(name="addnewdataset.done").inc()
+            METRICS.counter(name="addnewfile.done").inc(nbfiles)
+            METRICS.timer(name='datasetinjection').observe(stopwatch.elapsed)
         else:
             logger(logging.INFO, "Error uploading files")
         for physical_fname in physical_fnames:
@@ -238,7 +240,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", inputfile: str, **_kwargs) -
     logger(
         logging.INFO,
         "It took %f seconds to upload one dataset on %s",
-        cycle_timer.elapsed,
+        cycle_stopwatch.elapsed,
         str(rses),
     )
     return True

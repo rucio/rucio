@@ -47,6 +47,7 @@ from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.constants import SuspiciousAvailability
 from rucio.core.credential import get_signed_url
 from rucio.core import config as config_core
+from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
@@ -64,6 +65,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=60)
+METRICS = MetricManager(module=__name__)
 
 
 ScopeName = namedtuple('ScopeName', ['scope', 'name'])
@@ -1659,6 +1661,7 @@ def add_replica(rse_id, scope, name, bytes_, account, adler32=None, md5=None, ds
     return add_replicas(rse_id=rse_id, files=[file, ], account=account, session=session)
 
 
+@METRICS.time_it
 @transactional_session
 def delete_replicas(rse_id, files, ignore_availability=True, *, session: "Session"):
     """

@@ -38,11 +38,12 @@ from sqlalchemy.sql.expression import true
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
                                     RucioException)
+from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import all_oidc_req_claims_present, build_url, val_to_space_sep_str
 from rucio.common import types
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
-from rucio.core.monitor import record_counter, Timer
+from rucio.core.monitor import MetricManager
 from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
@@ -51,6 +52,8 @@ from rucio.db.sqla.session import read_session, transactional_session
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+
+METRICS = MetricManager(module=__name__)
 
 # worokaround for a bug in pyoidc (as of Dec 2019)
 REQUEST2ENDPOINT['CCAccessTokenRequest'] = 'token_endpoint'
@@ -301,7 +304,7 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
             return None
 
     try:
-        timer = Timer()
+        stopwatch = Stopwatch()
         # redirect_url needs to be specified & one of those defined
         # in the Rucio OIDC Client configuration
         redirect_to = "auth/oidc_code"
@@ -349,7 +352,7 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
             auth_url = build_url('https://' + auth_server.netloc, path='{}auth/oidc_redirect'.format(
                 auth_server.path.split('auth/')[0].lstrip('/')), params=access_msg)
 
-        timer.record('IdP_authentication.request')
+        METRICS.timer('IdP_authentication.request').observe(stopwatch.elapsed)
         return auth_url
 
     except Exception as error:
@@ -372,7 +375,7 @@ def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"
               (no auto, auto, polling).
     """
     try:
-        timer = Timer()
+        stopwatch = Stopwatch()
         parsed_authquery = parse_qs(auth_query_string)
         state = parsed_authquery["state"][0]
         code = parsed_authquery["code"][0]
@@ -388,7 +391,7 @@ def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"
             req_params[key] = val_to_space_sep_str(req_params[key])
 
         oidc_client = __get_init_oidc_client(issuer=issuer, code=code, **req_params)['client']
-        record_counter(name='IdP_authentication.code_granted')
+        METRICS.counter(name='IdP_authentication.code_granted').inc()
         # exchange access code for a access token
         oidc_tokens = oidc_client.do_access_token_request(state=state,
                                                           request_args={"code": code},
@@ -418,7 +421,7 @@ def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"
         if not exist_identity_account(jwt_row_dict['identity'], IdentityType.OIDC, jwt_row_dict['account'], session=session):
             raise CannotAuthenticate("OIDC identity '%s' of the '%s' account is unknown to Rucio."
                                      % (jwt_row_dict['identity'], str(jwt_row_dict['account'])))
-        record_counter(name='IdP_authentication.success')
+        METRICS.counter(name='success').inc()
         # get access token expiry timestamp
         jwt_row_dict['lifetime'] = datetime.utcnow() + timedelta(seconds=oidc_tokens['expires_in'])
         # get audience and scope info from the token
@@ -459,9 +462,9 @@ def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"
                 extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=REFRESH_LIFETIME_H)
 
         new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
-        record_counter(name='IdP_authorization.access_token.saved')
+        METRICS.counter(name='IdP_authorization.access_token.saved').inc()
         if 'refresh_token' in oidc_tokens:
-            record_counter(name='IdP_authorization.refresh_token.saved')
+            METRICS.counter(name='IdP_authorization.refresh_token.saved').inc()
         # In case authentication via browser was requested,
         # we save the token in the oauth_requests table
         if oauth_req_params.access_msg:
@@ -479,7 +482,7 @@ def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"
                            .update({models.OAuthRequest.access_msg: oauth_req_params.access_msg,
                                     models.OAuthRequest.redirect_msg: new_token['token']})
                 session.commit()
-            timer.record('IdP_authorization')
+            METRICS.timer('IdP_authorization').observe(stopwatch.elapsed)
             if '_polling' in oauth_req_params.access_msg:
                 return {'polling': True}
             elif 'http' in oauth_req_params.access_msg:
@@ -487,12 +490,12 @@ def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"
             else:
                 return {'fetchcode': fetchcode}
         else:
-            timer.record('IdP_authorization')
+            METRICS.timer('IdP_authorization').observe(stopwatch.elapsed)
             return {'token': new_token}
 
     except Exception:
         # TO-DO catch different exceptions - InvalidGrant etc. ...
-        record_counter(name='IdP_authorization.access_token.exception')
+        METRICS.counter(name='IdP_authorization.access_token.exception').inc()
         logging.debug(traceback.format_exc())
         return None
         # raise CannotAuthenticate(traceback.format_exc())
@@ -533,14 +536,14 @@ def __get_admin_token_oidc(account: types.InternalAccount, req_scope, req_audien
                                          response=AccessTokenResponse)
         if 'error' in oidc_tokens:
             raise CannotAuthorize(oidc_tokens['error'])
-        record_counter(name='IdP_authentication.rucio_admin_token_granted')
+        METRICS.counter(name='IdP_authentication.rucio_admin_token_granted').inc()
         # save the access token in the Rucio DB
         if 'access_token' in oidc_tokens:
             validate_dict = __get_rucio_jwt_dict(oidc_tokens['access_token'], account=account, session=session)
             if validate_dict:
-                record_counter(name='IdP_authentication.success')
+                METRICS.counter(name='IdP_authentication.success').inc()
                 new_token = __save_validated_token(oidc_tokens['access_token'], validate_dict, extra_dict={}, session=session)
-                record_counter(name='IdP_authorization.access_token.saved')
+                METRICS.counter(name='IdP_authentication.access_token.saved').inc()
                 return new_token
             else:
                 logging.debug("Rucio could not get a valid admin token from the Identity Provider.")
@@ -551,7 +554,7 @@ def __get_admin_token_oidc(account: types.InternalAccount, req_scope, req_audien
 
     except Exception:
         # TO-DO catch different exceptions - InvalidGrant etc. ...
-        record_counter(name='IdP_authorization.access_token.exception')
+        METRICS.counter(name='IdP_authorization.access_token.exception').inc()
         logging.debug(traceback.format_exc())
         return None
         # raise CannotAuthenticate(traceback.format_exc())
@@ -737,6 +740,7 @@ def get_token_for_account_operation(account: str, req_audience: str = None, req_
         return None
 
 
+@METRICS.time_it
 @transactional_session
 def __exchange_token_oidc(subject_token_object: models.Token, *, session: "Session", **kwargs):
     """
@@ -767,9 +771,6 @@ def __exchange_token_oidc(subject_token_object: models.Token, *, session: "Sessi
     if not grant_type:
         grant_type = EXCHANGE_GRANT_TYPE
     try:
-        timer = Timer()
-
-        record_counter(name='IdP_authentication.code_granted')
         oidc_dict = __get_init_oidc_client(token_object=subject_token_object, token_type="subject_token")
         oidc_client = oidc_dict['client']
         args = {"subject_token": subject_token_object.token,
@@ -808,10 +809,9 @@ def __exchange_token_oidc(subject_token_object: models.Token, *, session: "Sessi
                 extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=REFRESH_LIFETIME_H)
 
         new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
-        record_counter(name='IdP_authorization.access_token.saved')
+        METRICS.counter(name='IdP_authorization.access_token.saved').inc()
         if 'refresh_token' in oidc_tokens:
-            record_counter(name='IdP_authorization.refresh_token.saved')
-        timer.record('IdP_authorization.token_exchange')
+            METRICS.counter(name='IdP_authorization.refresh_token.saved').inc()
         return new_token
 
     except Exception:
@@ -956,6 +956,7 @@ def refresh_jwt_tokens(total_workers: int, worker_number: int, refreshrate: int 
     return nrefreshed
 
 
+@METRICS.time_it
 @transactional_session
 def __refresh_token_oidc(token_object: models.Token, *, session: "Session"):
     """
@@ -971,8 +972,6 @@ def __refresh_token_oidc(token_object: models.Token, *, session: "Session"):
         constraints. Otherwise, throws an an Exception.
     """
     try:
-        timer = Timer()
-        record_counter(name='IdP_authorization.refresh_token.request')
         jwt_row_dict, extra_dict = {}, {}
         jwt_row_dict['account'] = token_object.account
         jwt_row_dict['identity'] = token_object.identity
@@ -997,7 +996,7 @@ def __refresh_token_oidc(token_object: models.Token, *, session: "Session"):
         oidc_tokens = oidc_client.do_access_token_refresh(state=state, skew=LEEWAY_SECS)
         if 'error' in oidc_tokens:
             raise CannotAuthorize(oidc_tokens['error'])
-        record_counter(name='IdP_authorization.refresh_token.refreshed')
+        METRICS.counter(name='IdP_authorization.refresh_token.refreshed').inc()
         # get audience and scope information
         if 'scope' in oidc_tokens and 'audience' in oidc_tokens:
             jwt_row_dict['authz_scope'] = val_to_space_sep_str(oidc_tokens['scope'])
@@ -1023,16 +1022,15 @@ def __refresh_token_oidc(token_object: models.Token, *, session: "Session"):
                 # 4 day expiry period by default
                 extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=REFRESH_LIFETIME_H)
             new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
-            record_counter(name='IdP_authorization.access_token.saved')
-            record_counter(name='IdP_authorization.refresh_token.saved')
+            METRICS.counter(name='IdP_authorization.access_token.saved').inc()
+            METRICS.counter(name='IdP_authorization.refresh_token.saved').inc()
         else:
             raise CannotAuthorize("OIDC identity '%s' of the '%s' account is did not " % (token_object.identity, token_object.account)
                                   + "succeed requesting a new access and refresh tokens.")  # NOQA: W503
-        timer.record('IdP_authorization.refresh_token')
         return new_token
 
     except Exception as error:
-        record_counter(name='IdP_authorization.refresh_token.exception')
+        METRICS.counter(name='IdP_authorization.refresh_token.exception').inc()
         raise CannotAuthorize(traceback.format_exc()) from error
 
 
@@ -1220,7 +1218,7 @@ def validate_jwt(json_web_token: str, *, session: "Session"):
                 token_dict['authz_scope'] = inspect_claims['scope']
             except:
                 pass
-        record_counter(name='JSONWebToken.valid')
+        METRICS.counter(name='JSONWebToken.valid').inc()
         # if token is valid and coming from known issuer --> check aud and scope and save it if unknown
         if token_dict['authz_scope'] and token_dict['audience']:
             if all_oidc_req_claims_present(token_dict['authz_scope'], token_dict['audience'], EXPECTED_OIDC_SCOPE, EXPECTED_OIDC_AUDIENCE):
@@ -1232,10 +1230,10 @@ def validate_jwt(json_web_token: str, *, session: "Session"):
         else:
             logging.debug("Token audience or scope not present.")
             return None
-        record_counter(name='JSONWebToken.saved')
+        METRICS.counter(name='JSONWebToken.saved').inc()
         return token_dict
     except Exception:
-        record_counter(name='JSONWebToken.invalid')
+        METRICS.counter(name='JSONWebToken.invalid').inc()
         logging.debug(traceback.format_exc())
         return None
 

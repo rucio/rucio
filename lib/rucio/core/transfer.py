@@ -34,7 +34,7 @@ from rucio.common.exception import (InvalidRSEExpression,
 from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.account import list_accounts
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MetricManager
 from rucio.core.request import set_request_state, RequestWithSources, RequestSource
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -61,6 +61,7 @@ Requests accessed by request_id  are covered in the core request.py
 """
 
 REGION_ACCOUNTS = make_region().configure('dogpile.cache.memory', expiration_time=600)
+METRICS = MetricManager(module=__name__)
 
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
 
@@ -496,6 +497,7 @@ def mark_transfer_lost(request, *, session: "Session", logger=logging.log):
     request_core.add_monitor_message(new_state=new_state, request=request, additional_fields={'reason': reason}, session=session)
 
 
+@METRICS.count_it
 @transactional_session
 def set_transfer_update_time(external_host, transfer_id, update_time=datetime.datetime.utcnow(), *, session: "Session"):
     """
@@ -505,8 +507,6 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
     :param update_time:    Time stamp.
     :param session:        Database session to use.
     """
-
-    record_counter('core.request.set_transfer_update_time')
 
     try:
         stmt = update(
@@ -527,6 +527,7 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
         raise UnsupportedOperation("Transfer %s doesn't exist or its status is not submitted." % transfer_id)
 
 
+@METRICS.count_it
 @transactional_session
 def touch_transfer(external_host, transfer_id, *, session: "Session"):
     """
@@ -535,9 +536,6 @@ def touch_transfer(external_host, transfer_id, *, session: "Session"):
     :param transfer_id:    External transfer job id as a string.
     :param session:        Database session to use.
     """
-
-    record_counter('core.request.touch_transfer')
-
     try:
         # don't touch it if it's already touched in 30 seconds
         stmt = update(
@@ -1064,6 +1062,7 @@ def cancel_transfers(transfers_to_cancel, logger=logging.log):
                 logger(logging.WARNING, 'Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, str(error)))
 
 
+@METRICS.count_it
 def cancel_transfer(transfertool_obj, transfer_id):
     """
     Cancel a transfer based on external transfer id.
@@ -1072,7 +1071,6 @@ def cancel_transfer(transfertool_obj, transfer_id):
     :param transfer_id:      External-ID as a 32 character hex string.
     """
 
-    record_counter('core.request.cancel_request_external_id')
     try:
         transfertool_obj.cancel(transfer_ids=[transfer_id])
     except Exception:

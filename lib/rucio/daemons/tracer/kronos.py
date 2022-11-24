@@ -33,10 +33,11 @@ from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import RSENotFound, DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.common.stomp_utils import get_stomp_brokers
+from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.did import touch_dids, list_parent_dids
 from rucio.core.lock import touch_dataset_locks
-from rucio.core.monitor import record_counter, Timer
+from rucio.core.monitor import MetricManager
 from rucio.core.replica import touch_replica, touch_collection_replicas, declare_bad_file_replicas
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType, BadFilesStatus
@@ -46,6 +47,7 @@ from queue import Queue
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = Event()
 
 
@@ -68,24 +70,23 @@ class AMQConsumer(object):
         self.__bad_files_patterns = bad_files_patterns
         self.__logger = logger
 
+    @METRICS.count_it
     def on_heartbeat_timeout(self):
-        record_counter('daemons.tracer.kronos.heartbeat.lost')
         self.__conn.disconnect()
 
+    @METRICS.count_it
     def on_error(self, frame):
-        record_counter('daemons.tracer.kronos.error')
         self.__logger(logging.ERROR, 'Message receive error: [%s] %s' % (self.__broker, frame.body))
 
+    @METRICS.count_it
     def on_message(self, frame):
-        record_counter('daemons.tracer.kronos.reports')
-
         appversion = 'dq2'
         msg_id = frame.headers['message-id']
         if 'appversion' in frame.headers:
             appversion = frame.headers['appversion']
 
         if 'resubmitted' in frame.headers:
-            record_counter('daemons.tracer.kronos.received_resubmitted')
+            METRICS.counter('received_resubmitted').inc()
 
         try:
             if appversion == 'dq2':
@@ -96,7 +97,7 @@ class AMQConsumer(object):
         except Exception:
             # message is corrupt, not much to do here
             # send count to graphite, send ack to broker and return
-            record_counter('daemons.tracer.kronos.json_error')
+            METRICS.counter('json_error').inc()
             self.__logger(logging.ERROR, 'json error', exc_info=True)
             self.__conn.ack(msg_id, self.__subscription_id)
             return
@@ -148,11 +149,11 @@ class AMQConsumer(object):
 
                 # check if scope in report. if not skip this one.
                 if 'scope' not in report:
-                    record_counter('daemons.tracer.kronos.missing_scope')
+                    METRICS.counter('missing_scope').inc()
                     if report['eventType'] != 'touch':
                         continue
                 else:
-                    record_counter('daemons.tracer.kronos.with_scope')
+                    METRICS.counter('with_scope').inc()
                     report['scope'] = InternalScope(report['scope'], report['vo'])
 
                 # handle all events starting with get* and download and touch events.
@@ -160,25 +161,25 @@ class AMQConsumer(object):
                     continue
                 if report['eventType'].endswith('_es'):
                     continue
-                record_counter('daemons.tracer.kronos.total_get')
+                METRICS.counter('total_get').inc()
                 if report['eventType'] == 'get':
-                    record_counter('daemons.tracer.kronos.dq2clients')
+                    METRICS.counter('dq2clients').inc()
                 elif report['eventType'] == 'get_sm' or report['eventType'] == 'sm_get':
                     if report['eventVersion'] == 'aCT':
-                        record_counter('daemons.tracer.kronos.panda_production_act')
+                        METRICS.counter('panda_production_act').inc()
                     else:
-                        record_counter('daemons.tracer.kronos.panda_production')
+                        METRICS.counter('panda_production').inc()
                 elif report['eventType'] == 'get_sm_a' or report['eventType'] == 'sm_get_a':
                     if report['eventVersion'] == 'aCT':
-                        record_counter('daemons.tracer.kronos.panda_analysis_act')
+                        METRICS.counter('panda_analysis_act').inc()
                     else:
-                        record_counter('daemons.tracer.kronos.panda_analysis')
+                        METRICS.counter('panda_analysis').inc()
                 elif report['eventType'] == 'download':
-                    record_counter('daemons.tracer.kronos.rucio_download')
+                    METRICS.counter('rucio_download').inc()
                 elif report['eventType'] == 'touch':
-                    record_counter('daemons.tracer.kronos.rucio_touch')
+                    METRICS.counter('rucio_touch').inc()
                 else:
-                    record_counter('daemons.tracer.kronos.other_get')
+                    METRICS.counter('other_get').inc()
 
                 if report['eventType'] == 'download' or report['eventType'] == 'touch':
                     report['usrdn'] = report['account']
@@ -208,7 +209,7 @@ class AMQConsumer(object):
                             rse_id = get_rse_id(rse=rse, vo=report['vo'])
                         except RSENotFound:
                             self.__logger(logging.WARNING, "Cannot lookup rse_id for %s. Will skip this report.", rse)
-                            record_counter('daemons.tracer.kronos.rse_not_found')
+                            METRICS.counter('rse_not_found').inc()
                             continue
                         replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']),
                                          'traceTimeentryUnix': report['traceTimeentryUnix'], 'eventVersion': report['eventVersion']})
@@ -224,7 +225,7 @@ class AMQConsumer(object):
                             rse_id = get_rse_id(rse=rse, vo=report['vo'])
                         except RSENotFound:
                             self.__logger(logging.WARNING, "Cannot lookup rse_id for %s.", rse)
-                            record_counter('daemons.tracer.kronos.rse_not_found')
+                            METRICS.counter('rse_not_found').inc()
                     if 'datasetScope' in report:
                         self.__dataset_queue.put({'scope': InternalScope(report['datasetScope'], vo=report['vo']),
                                                   'name': report['dataset'],
@@ -242,7 +243,7 @@ class AMQConsumer(object):
 
             except (KeyError, AttributeError):
                 self.__logger(logging.ERROR, "Cannot handle report.", exc_info=True)
-                record_counter('daemons.tracer.kronos.report_error')
+                METRICS.counter('report_error').inc()
                 continue
             except Exception:
                 self.__logger(logging.ERROR, "Exception", exc_info=True)
@@ -259,7 +260,7 @@ class AMQConsumer(object):
                         rse_id = get_rse_id(rse=rse, vo=report['vo'])
                     except RSENotFound:
                         self.__logger(logging.WARNING, "Cannot lookup rse_id for %s. Will skip this report.", rse)
-                        record_counter('daemons.tracer.kronos.rse_not_found')
+                        METRICS.counter('rse_not_found').inc()
                         continue
                     self.__dataset_queue.put({'scope': did['scope'], 'name': did['name'], 'did_type': did['type'], 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
 
@@ -268,8 +269,8 @@ class AMQConsumer(object):
 
         self.__logger(logging.DEBUG, "trying to update replicas: %s", replicas)
 
+        stopwatch = Stopwatch()
         try:
-            timer = Timer()
             for replica in replicas:
                 # if touch replica hits a locked row put the trace back into queue for later retry
                 if not touch_replica(replica):
@@ -284,13 +285,13 @@ class AMQConsumer(object):
                     if replica['scope'].vo != 'def':
                         resubmit['vo'] = replica['scope'].vo
                     self.__conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
-                    record_counter('daemons.tracer.kronos.sent_resubmitted')
-            timer.record('daemons.tracer.kronos.update_atime')
+                    METRICS.counter('sent_resubmitted').inc()
+            METRICS.timer('update_atime').observe(stopwatch.elapsed)
         except Exception:
             self.__logger(logging.ERROR, "Cannot update replicas.", exc_info=True)
-            record_counter('daemons.tracer.kronos.update_error')
+            METRICS.counter('update_error').inc()
 
-        record_counter('daemons.tracer.kronos.updated_replicas')
+        METRICS.counter('updated_replicas').inc()
 
 
 def kronos_file(once: bool = False, dataset_queue: Queue = None, sleep_time: int = 60):
@@ -372,7 +373,7 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, return_values: Dic
     for conn in conns:
         if not conn.is_connected():
             logger(logging.INFO, 'connecting to %s' % str(conn.transport._Transport__host_and_ports[0]))
-            record_counter('daemons.tracer.kronos.reconnect.{host}', labels={'host': conn.transport._Transport__host_and_ports[0][0]})
+            METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0]).inc()
             conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0],
                                                                  conn=conn,
                                                                  queue=config_get('tracer-kronos', 'queue'),

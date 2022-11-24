@@ -35,7 +35,7 @@ from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import live, die, sanity_check
-from rucio.core.monitor import record_gauge, record_counter
+from rucio.core.monitor import MetricManager
 from rucio.core.quarantined_replica import add_quarantined_replicas
 from rucio.core.replica import __exist_replicas, update_replicas_states
 from rucio.core.rse import list_rses, get_rse_id
@@ -49,6 +49,7 @@ from rucio.db.sqla.constants import (ReplicaState, BadFilesStatus)
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import FlushError
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 
 # FIXME: declare_bad_file_replicas will be used directly from core/replica.py when handling of DID is added there
@@ -369,10 +370,8 @@ def process_dark_files(path, scope, rse, latest_run, max_dark_fraction,
 # Labels for the Prometheus counters/gauges
     labels = {'rse': rse}
 
-    record_gauge('storage.consistency.actions_dark_files_found',
-                 confirmed_dark_files, labels=labels)
-    record_gauge('storage.consistency.actions_dark_files_confirmed',
-                 confirmed_dark_files, labels=labels)
+    METRICS.gauge('actions_dark_files_found.{rse}').labels(**labels).set(dark_files)
+    METRICS.gauge('actions_dark_files_confirmed.{rse}').labels(**labels).set(confirmed_dark_files)
 
     deleted_files = 0
     if confirmed_dark_files / max_files_at_site < max_dark_fraction or force_proceed is True:
@@ -399,9 +398,7 @@ def process_dark_files(path, scope, rse, latest_run, max_dark_fraction,
                              'path': paths[url]['path'] + paths[url]['name']}]
                 add_quarantined_replicas(rse_id, replicas, session=None)
                 deleted_files += 1
-                labels = {'rse': rse}
-                record_counter('storage.consistency.actions_dark_files_deleted_counter',
-                               delta=1, labels=labels)
+                METRICS.counter('actions_dark_files_deleted_counter.{rse}').labels(**labels).inc()
 
 # Update the stats
         t1 = time.time()
@@ -413,9 +410,6 @@ def process_dark_files(path, scope, rse, latest_run, max_dark_fraction,
             "status": "done"
         })
         stats[stats_key] = cc_stats
-        record_gauge('storage.consistency.actions_dark_files_deleted',
-                     deleted_files, labels=labels)
-
     else:
         darkperc = 100. * confirmed_dark_files / max_files_at_site
         logger(logging.WARNING, '\n ATTENTION: Too many DARK files! (%3.2f%%) \n\
@@ -432,7 +426,7 @@ def process_dark_files(path, scope, rse, latest_run, max_dark_fraction,
             "aborted_reason": "%3.2f%% dark" % darkperc,
         })
         stats[stats_key] = cc_stats
-        record_gauge('storage.consistency.actions_dark_files_deleted', 0, labels=labels)
+    METRICS.gauge('actions_dark_files_deleted.{rse}').labels(**labels).set(deleted_files)
 
 
 def process_miss_files(path, scope, rse, latest_run, max_miss_fraction,
@@ -477,12 +471,12 @@ def process_miss_files(path, scope, rse, latest_run, max_miss_fraction,
     logger(logging.INFO, 'max_miss_fraction configured for this RSE (in %%): %f' % max_miss_fraction)
 
     labels = {'rse': rse}
-    record_gauge('storage.consistency.actions_miss_files_found', miss_files, labels=labels)
+    METRICS.gauge('actions_miss_files_found.{rse}').labels(**labels).set(miss_files)
 
+    invalidated_files = 0
     if miss_files / max_files_at_site < max_miss_fraction or force_proceed is True:
         logger(logging.INFO, 'Can proceed with missing files retransfer')
 
-        invalidated_files = 0
         issuer = InternalAccount('root')
         with open(latest_miss, 'r') as csvfile:
             reader = csv.reader(csvfile)
@@ -496,8 +490,7 @@ def process_miss_files(path, scope, rse, latest_run, max_miss_fraction,
                 declare_bad_file_replicas(dids=dids, rse_id=rse_id, reason=reason,
                                           issuer=issuer)
                 invalidated_files += 1
-                record_counter('storage.consistency.actions_miss_files_to_retransfer_counter',
-                               delta=1, labels=labels)
+                METRICS.counter('actions_miss_files_to_retransfer_counter.{rse}').labels(**labels).inc()
 
 # TODO: The stats updating can be refactored in a future version of the Stats class.
 # See: https://github.com/rucio/rucio/pull/5120#discussion_r792688019
@@ -511,8 +504,6 @@ def process_miss_files(path, scope, rse, latest_run, max_miss_fraction,
                 "status": "done"
             })
             stats[stats_key] = cc_stats
-            record_gauge('storage.consistency.actions_miss_files_to_retransfer',
-                         invalidated_files, labels=labels)
 
     else:
         missperc = 100. * miss_files / max_files_at_site
@@ -530,8 +521,7 @@ def process_miss_files(path, scope, rse, latest_run, max_miss_fraction,
             "aborted_reason": "%3.2f%% miss" % missperc,
         })
         stats[stats_key] = cc_stats
-        record_gauge('storage.consistency.actions_miss_files_to_retransfer',
-                     0, labels=labels)
+    METRICS.gauge('actions_miss_files_to_retransfer.{rse}').labels(**labels).set(invalidated_files)
 
 
 def deckard(scope, rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,

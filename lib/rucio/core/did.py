@@ -35,7 +35,7 @@ from rucio.common.config import config_get_bool
 from rucio.common.utils import is_archive, chunks
 from rucio.core import did_meta_plugins, config as config_core
 from rucio.core.message import add_message
-from rucio.core.monitor import Timer, record_counter
+from rucio.core.monitor import MetricManager
 from rucio.core.naming_convention import validate_name
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models, filter_thread_work
@@ -50,6 +50,8 @@ if TYPE_CHECKING:
     from rucio.common.types import InternalAccount, InternalScope
 
     LoggerFunction = Callable[..., Any]
+
+METRICS = MetricManager(module=__name__)
 
 
 @read_session
@@ -1280,7 +1282,7 @@ def _delete_dids(
 
     # Delete rules on did
     skip_deletion = False  # Skip deletion in case of expiration of a rule
-    with Timer('undertaker.rules'):
+    with METRICS.timer('delete_dids.rules'):
         stmt = select(
             models.ReplicationRule.id,
             models.ReplicationRule.scope,
@@ -1317,7 +1319,7 @@ def _delete_dids(
 
     # Detach from parent dids:
     existing_parent_dids = False
-    with Timer('undertaker.parent_content'):
+    with METRICS.timer('delete_dids.parent_content'):
         stmt = select(
             models.DataIdentifierAssociation
         ).join_from(
@@ -1349,7 +1351,7 @@ def _delete_dids(
         ).execution_options(
             synchronize_session=False
         )
-        with Timer('undertaker.did_meta'):
+        with METRICS.timer('delete_dids.did_meta'):
             session.execute(stmt)
 
     # Prepare the common part of the query for updating bad replicas if they exist
@@ -1421,7 +1423,7 @@ def _delete_dids(
 
         # Set Epoch tombstone for the files replicas inside the did
         if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session):
-            with Timer('undertaker.file_content'):
+            with METRICS.timer('delete_dids.file_content'):
                 stmt = update(
                     models.RSEFileAssociation
                 ).where(
@@ -1442,7 +1444,7 @@ def _delete_dids(
                 session.execute(stmt)
 
         # Remove content
-        with Timer('undertaker.content'):
+        with METRICS.timer('delete_dids.content'):
             stmt = delete(
                 models.DataIdentifierAssociation
             ).where(
@@ -1456,10 +1458,10 @@ def _delete_dids(
                 synchronize_session=False
             )
             rowcount = session.execute(stmt).rowcount
-        record_counter(name='undertaker.content.rowcount', delta=rowcount)
+            METRICS.counter(name='delete_dids.content_rowcount').inc(rowcount)
 
         # Remove CollectionReplica
-        with Timer('undertaker.collection_replicas'):
+        with METRICS.timer('delete_dids.collection_replicas'):
             stmt = delete(
                 models.CollectionReplica
             ).where(
@@ -1486,7 +1488,7 @@ def _delete_dids(
             session.bulk_insert_mappings(temp_table, collection_dids.values())
             data_in_temp_table = collection_dids
 
-        with Timer('undertaker.dids_followed'):
+        with METRICS.timer('delete_dids.dids_followed'):
             stmt = delete(
                 models.DidsFollowed
             ).where(
@@ -1501,7 +1503,7 @@ def _delete_dids(
             )
             session.execute(stmt)
 
-        with Timer('undertaker.dids'):
+        with METRICS.timer('delete_dids.dids'):
             dids_to_delete_filter = exists(
                 select([1])
             ).where(
@@ -1620,7 +1622,7 @@ def _delete_dids_wo_temp_tables(
     # Delete rules on did
     skip_deletion = False  # Skip deletion in case of expiration of a rule
     if rule_id_clause:
-        with Timer('undertaker.rules'):
+        with METRICS.timer('delete_dids.rules'):
             stmt = select(
                 models.ReplicationRule.id,
                 models.ReplicationRule.scope,
@@ -1655,7 +1657,7 @@ def _delete_dids_wo_temp_tables(
     # Detach from parent dids:
     existing_parent_dids = False
     if parent_content_clause:
-        with Timer('undertaker.parent_content'):
+        with METRICS.timer('delete_dids.parent_content'):
             stmt = select(
                 models.DataIdentifierAssociation
             ).where(
@@ -1667,7 +1669,7 @@ def _delete_dids_wo_temp_tables(
 
     # Set Epoch tombstone for the files replicas inside the did
     if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session) and file_content_clause:
-        with Timer('undertaker.file_content'):
+        with METRICS.timer('delete_dids.file_content'):
             stmt = select(
                 models.DataIdentifierAssociation.child_scope,
                 models.DataIdentifierAssociation.child_name,
@@ -1735,7 +1737,7 @@ def _delete_dids_wo_temp_tables(
 
     # Remove content
     if content_clause:
-        with Timer('undertaker.content'):
+        with METRICS.timer('delete_dids.content'):
             stmt = delete(
                 models.DataIdentifierAssociation
             ).where(
@@ -1744,11 +1746,11 @@ def _delete_dids_wo_temp_tables(
                 synchronize_session=False
             )
             rowcount = session.execute(stmt).rowcount
-        record_counter(name='undertaker.content.rowcount', delta=rowcount)
+        METRICS.counter(name='delete_dids.content_rowcount').inc(rowcount)
 
     # Remove CollectionReplica
     if collection_replica_clause:
-        with Timer('undertaker.dids'):
+        with METRICS.timer('delete_dids.dids'):
             stmt = delete(
                 models.CollectionReplica
             ).where(
@@ -1770,10 +1772,10 @@ def _delete_dids_wo_temp_tables(
         if session.bind.dialect.name == 'oracle':
             oracle_version = int(session.connection().connection.version.split('.')[0])
             if oracle_version >= 12:
-                with Timer('undertaker.did_meta'):
+                with METRICS.timer('delete_dids.did_meta'):
                     session.execute(stmt)
         else:
-            with Timer('undertaker.did_meta'):
+            with METRICS.timer('delete_dids.did_meta'):
                 session.execute(stmt)
 
     # remove data identifier
@@ -1783,7 +1785,7 @@ def _delete_dids_wo_temp_tables(
         return
 
     if did_clause:
-        with Timer('undertaker.dids'):
+        with METRICS.timer('delete_dids.dids'):
             stmt = delete(
                 models.DataIdentifier
             ).where(
@@ -1799,7 +1801,7 @@ def _delete_dids_wo_temp_tables(
                 insert_deleted_dids(filter_=or_(*did_clause), session=session)
 
     if did_followed_clause:
-        with Timer('undertaker.dids'):
+        with METRICS.timer('delete_dids.dids'):
             stmt = delete(
                 models.DidsFollowed
             ).where(

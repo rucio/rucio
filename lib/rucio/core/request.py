@@ -30,7 +30,7 @@ from rucio.common.exception import RequestNotFound, RucioException, UnsupportedO
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks
 from rucio.core.message import add_message, add_messages
-from rucio.core.monitor import record_counter, record_timer
+from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_name, get_rse_vo, RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
@@ -49,6 +49,8 @@ if TYPE_CHECKING:
 The core request.py is specifically for handling requests.
 Requests accessed by external_id (So called transfers), are covered in the core transfer.py
 """
+
+METRICS = MetricManager(module=__name__)
 
 
 class RequestSource:
@@ -157,6 +159,7 @@ def should_retry_request(req, retry_protocol_mismatches):
     return False
 
 
+@METRICS.time_it
 @transactional_session
 def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mismatches=False, *, session: "Session", logger=logging.log):
     """
@@ -169,7 +172,6 @@ def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mism
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
-    record_counter('core.request.requeue_request')
     # Probably not needed anymore
     request_id = request['request_id']
     new_req = get_request(request_id, session=session)
@@ -202,6 +204,7 @@ def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mism
     return None
 
 
+@METRICS.count_it
 @transactional_session
 def queue_requests(requests, *, session: "Session", logger=logging.log):
     """
@@ -212,8 +215,6 @@ def queue_requests(requests, *, session: "Session", logger=logging.log):
     :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:         List of Request-IDs as 32 character hex strings.
     """
-    record_counter('core.request.queue_requests')
-
     logger(logging.DEBUG, "queue requests")
 
     request_clause = []
@@ -582,6 +583,7 @@ def fetch_paths(request_id, *, session: "Session"):
     return paths
 
 
+@METRICS.time_it
 @read_session
 def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activity=None,
              total_workers=0, worker_number=0, mode_all=False, hash_variable='id',
@@ -608,8 +610,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     """
     request_type_metric_label = '.'.join(a.name for a in request_type) if isinstance(request_type, list) else request_type.name
     state_metric_label = '.'.join(s.name for s in state) if isinstance(state, list) else state.name
-    record_counter('core.request.get_next.{request_type}.{state}', labels={'request_type': request_type_metric_label,
-                                                                           'state': state_metric_label})
+    METRICS.counter('get_next.requests.{request_type}.{state}').labels(request_type=request_type_metric_label, state=state_metric_label).inc()
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
     if type(request_type) is not list:
@@ -698,6 +699,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     return result
 
 
+@METRICS.count_it
 @transactional_session
 def set_request_state(request_id, state, external_id=None, transferred_at=None, started_at=None, staging_started_at=None,
                       staging_finished_at=None, source_rse_id=None, err_msg=None, attributes=None, *, session: "Session", logger=logging.log):
@@ -716,8 +718,6 @@ def set_request_state(request_id, state, external_id=None, transferred_at=None, 
     """
 
     # TODO: Should this be a private method?
-
-    record_counter('core.request.set_request_state')
 
     rowcount = 0
     try:
@@ -763,6 +763,7 @@ def set_request_state(request_id, state, external_id=None, transferred_at=None, 
         raise UnsupportedOperation("Request %s state cannot be updated." % request_id)
 
 
+@METRICS.count_it
 @transactional_session
 def set_requests_state_if_possible(request_ids, new_state, *, session: "Session", logger=logging.log):
     """
@@ -774,8 +775,6 @@ def set_requests_state_if_possible(request_ids, new_state, *, session: "Session"
     :param logger:       Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
-    record_counter('core.request.set_requests_state_if_possible')
-
     try:
         for request_id in request_ids:
             try:
@@ -786,6 +785,7 @@ def set_requests_state_if_possible(request_ids, new_state, *, session: "Session"
         raise RucioException(error.args)
 
 
+@METRICS.count_it
 @transactional_session
 def touch_requests_by_rule(rule_id, *, session: "Session"):
     """
@@ -794,8 +794,6 @@ def touch_requests_by_rule(rule_id, *, session: "Session"):
     :param rule_id:  Rule-ID as a 32 character hex string.
     :param session:  Database session to use.
     """
-
-    record_counter('core.request.touch_requests_by_rule')
 
     try:
         stmt = update(
@@ -878,6 +876,7 @@ def get_requests_by_transfer(external_host, transfer_id, *, session: "Session"):
         raise RucioException(error.args)
 
 
+@METRICS.count_it
 @read_session
 def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Session"):
     """
@@ -891,7 +890,6 @@ def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Sess
     :returns:              Request as a dictionary.
     """
 
-    record_counter('core.request.get_request_by_did')
     try:
         stmt = select(
             models.Request
@@ -921,6 +919,7 @@ def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Sess
         raise RucioException(error.args)
 
 
+@METRICS.count_it
 @read_session
 def get_request_history_by_did(scope, name, rse_id, request_type=None, *, session: "Session"):
     """
@@ -934,7 +933,6 @@ def get_request_history_by_did(scope, name, rse_id, request_type=None, *, sessio
     :returns:              Request as a dictionary.
     """
 
-    record_counter('core.request.get_request_history_by_did')
     try:
         stmt = select(
             models.RequestHistory
@@ -1007,6 +1005,7 @@ def handle_failed_intermediate_hop(request, *, session: "Session"):
         session.execute(stmt)
 
 
+@METRICS.count_it
 @transactional_session
 def archive_request(request_id, *, session: "Session"):
     """
@@ -1016,7 +1015,6 @@ def archive_request(request_id, *, session: "Session"):
     :param session:     Database session to use.
     """
 
-    record_counter('core.request.archive')
     req = get_request(request_id=request_id, session=session)
 
     if req:
@@ -1055,7 +1053,7 @@ def archive_request(request_id, *, session: "Session"):
         try:
             time_diff = req['updated_at'] - req['created_at']
             time_diff_s = time_diff.seconds + time_diff.days * 24 * 3600
-            record_timer('core.request.archive_request.{activity}', time_diff_s, labels={'activity': req['activity'].replace(' ', '_')})
+            METRICS.timer('archive_request_per_activity.{activity}').labels(activity=req['activity'].replace(' ', '_')).observe(time_diff_s)
             session.execute(
                 delete(
                     models.Source
@@ -1083,6 +1081,7 @@ def archive_request(request_id, *, session: "Session"):
             raise RucioException(error.args)
 
 
+@METRICS.count_it
 @transactional_session
 def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSFER, *, session: "Session", logger=logging.log):
     """
@@ -1095,8 +1094,6 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
     :param session:       Database session to use.
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     """
-
-    record_counter('core.request.cancel_request_did')
 
     reqs = None
     try:
@@ -2100,6 +2097,7 @@ def get_transfer_error(state, reason=None):
     return err_msg
 
 
+@METRICS.count_it
 @transactional_session
 def __touch_request(request_id, *, session: "Session"):
     """
@@ -2108,8 +2106,6 @@ def __touch_request(request_id, *, session: "Session"):
     :param request_id:  Request-ID as a 32 character hex string.
     :param session:     Database session to use.
     """
-
-    record_counter('core.request.touch_request')
 
     try:
         stmt = update(

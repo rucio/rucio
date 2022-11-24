@@ -53,7 +53,7 @@ from rucio.core import account_counter, rse_counter, request as request_core, tr
 from rucio.core.account import get_account
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.message import add_message
-from rucio.core.monitor import Timer
+from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse, get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector
@@ -69,6 +69,7 @@ if TYPE_CHECKING:
 
 
 REGION = make_region_memcached(expiration_time=900)
+METRICS = MetricManager(module=__name__)
 
 
 @transactional_session
@@ -116,9 +117,9 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
     grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(grouping, RuleGrouping.DATASET)
 
-    with Timer('rule.add_rule'):
+    with METRICS.timer('add_rule.total'):
         # 1. Resolve the rse_expression into a list of RSE-ids
-        with Timer('rule.add_rule.parse_rse_expression'):
+        with METRICS.timer('add_rule.parse_rse_expression'):
             vo = account.vo
             if ignore_availability:
                 rses = parse_expression(rse_expression, filter_={'vo': vo}, session=session)
@@ -152,7 +153,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 source_rses = []
 
         # 2. Create the rse selector
-        with Timer('rule.add_rule.create_rse_selector'):
+        with METRICS.timer('add_rule.create_rse_selector'):
             rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies, ignore_account_limit=ask_approval or ignore_account_limit, session=session)
 
         expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
@@ -161,7 +162,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
         for elem in dids:
             # 3. Get the did
-            with Timer('rule.add_rule.get_did'):
+            with METRICS.timer('add_rule.get_did'):
                 try:
                     did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == elem['scope'],
                                                                       models.DataIdentifier.name == elem['name']).one()
@@ -201,7 +202,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             eol_at = define_eol(elem['scope'], elem['name'], rses, session=session)
 
             # 4. Create the replication rule
-            with Timer('rule.add_rule.create_rule'):
+            with METRICS.timer('add_rule.create_rule'):
                 meta_json = None
                 if meta is not None:
                     try:
@@ -290,7 +291,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 continue
 
             # 5. Apply the rule
-            with Timer('rule.add_rule.apply_rule'):
+            with METRICS.timer('add_rule.apply_rule'):
                 try:
                     apply_rule(did, new_rule, [x['id'] for x in rses], [x['id'] for x in source_rses], rseselector, session=session)
                 except IntegrityError as error:
@@ -340,13 +341,13 @@ def add_rules(dids, rules, *, session: "Session", logger=logging.log):
     if any(r.get("copies", 1) <= 0 for r in rules):
         raise InvalidValueForKey("The number of copies for a replication rule should be greater than 0.")
 
-    with Timer('rule.add_rules'):
+    with METRICS.timer('add_rules.total'):
         rule_ids = {}
 
         # 1. Fetch the RSEs from the RSE expression to restrict further queries just on these RSEs
         restrict_rses = []
         all_source_rses = []
-        with Timer('rule.add_rules.parse_rse_expressions'):
+        with METRICS.timer('add_rules.parse_rse_expressions'):
             for rule in rules:
                 vo = rule['account'].vo
                 if rule.get('ignore_availability'):
@@ -363,7 +364,7 @@ def add_rules(dids, rules, *, session: "Session", logger=logging.log):
 
         for elem in dids:
             # 2. Get the did
-            with Timer('rule.add_rules.get_did'):
+            with METRICS.timer('add_rules.get_did'):
                 try:
                     did = session.query(models.DataIdentifier).filter(
                         models.DataIdentifier.scope == elem['scope'],
@@ -402,7 +403,7 @@ def add_rules(dids, rules, *, session: "Session", logger=logging.log):
             rule_ids[(elem['scope'], elem['name'])] = []
 
             # 3. Resolve the did into its contents
-            with Timer('rule.add_rules.resolve_dids_to_locks_replicas'):
+            with METRICS.timer('add_rules.resolve_dids_to_locks_replicas'):
                 # Get all Replicas, not only the ones interesting for the rse_expression
                 datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
                                                                                                      nowait=False,
@@ -411,7 +412,7 @@ def add_rules(dids, rules, *, session: "Session", logger=logging.log):
                                                                                                      session=session)
 
             for rule in rules:
-                with Timer('rule.add_rules.add_rule'):
+                with METRICS.timer('add_rules.add_rule'):
                     # 4. Resolve the rse_expression into a list of RSE-ids
                     vo = rule['account'].vo
                     if rule.get('ignore_availability'):
@@ -451,11 +452,11 @@ def add_rules(dids, rules, *, session: "Session", logger=logging.log):
                         source_rses = []
 
                     # 5. Create the RSE selector
-                    with Timer('rule.add_rules.create_rse_selector'):
+                    with METRICS.timer('add_rules.create_rse_selector'):
                         rseselector = RSESelector(account=rule['account'], rses=rses, weight=rule.get('weight'), copies=rule['copies'], ignore_account_limit=rule.get('ask_approval', False), session=session)
 
                     # 4. Create the replication rule
-                    with Timer('rule.add_rules.create_rule'):
+                    with METRICS.timer('add_rules.create_rule'):
                         grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(rule.get('grouping'), RuleGrouping.DATASET)
 
                         expires_at = datetime.utcnow() + timedelta(seconds=rule.get('lifetime')) if rule.get('lifetime') is not None else None
@@ -542,7 +543,7 @@ def add_rules(dids, rules, *, session: "Session", logger=logging.log):
                         continue
 
                     # 5. Apply the replication rule to create locks, replicas and transfers
-                    with Timer('rule.add_rules.create_locks_replicas_transfers'):
+                    with METRICS.timer('add_rules.create_locks_replicas_transfers'):
                         try:
                             __create_locks_replicas_transfers(datasetfiles=datasetfiles,
                                                               locks=locks,
@@ -642,7 +643,7 @@ def inject_rule(rule_id, *, session: "Session", logger=logging.log):
         return
 
     # 1. Resolve the rse_expression into a list of RSE-ids
-    with Timer('rule.add_rule.parse_rse_expression'):
+    with METRICS.timer('inject_rule.parse_rse_expression'):
         vo = rule['account'].vo
         if rule.ignore_availability:
             rses = parse_expression(rule.rse_expression, filter_={'vo': vo}, session=session)
@@ -655,11 +656,11 @@ def inject_rule(rule_id, *, session: "Session", logger=logging.log):
             source_rses = []
 
     # 2. Create the rse selector
-    with Timer('rule.add_rule.create_rse_selector'):
+    with METRICS.timer('inject_rule.create_rse_selector'):
         rseselector = RSESelector(account=rule['account'], rses=rses, weight=rule.weight, copies=rule.copies, ignore_account_limit=rule.ignore_account_limit, session=session)
 
     # 3. Get the did
-    with Timer('rule.add_rule.get_did'):
+    with METRICS.timer('inject_rule.get_did'):
         try:
             did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == rule.scope,
                                                               models.DataIdentifier.name == rule.name).one()
@@ -669,7 +670,7 @@ def inject_rule(rule_id, *, session: "Session", logger=logging.log):
             raise InvalidObject(error.args)
 
     # 4. Apply the rule
-    with Timer('rule.add_rule.apply_rule'):
+    with METRICS.timer('inject_rule.apply_rule'):
         try:
             apply_rule(did, rule, [x['id'] for x in rses], [x['id'] for x in source_rses], rseselector, session=session)
         except IntegrityError as error:
@@ -851,7 +852,7 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, n
     :raises:                  UnsupportedOperation if the Rule is locked.
     """
 
-    with Timer('rule.delete_rule'):
+    with METRICS.timer('delete_rule.total'):
         try:
             rule = session.query(models.ReplicationRule)\
                           .filter(models.ReplicationRule.id == rule_id)\
@@ -2429,7 +2430,7 @@ def __evaluate_did_detach(eval_did, *, session: "Session", logger=logging.log):
     logger(logging.INFO, "Re-Evaluating did %s:%s for DETACH", eval_did.scope, eval_did.name)
     force_epoch = config_get('rules', 'force_epoch_when_detach', default=False, session=session)
 
-    with Timer('rule.evaluate_did_detach'):
+    with METRICS.timer('evaluate_did_detach.total'):
         # Get all parent DID's
         parent_dids = rucio.core.did.list_all_parent_dids(scope=eval_did.scope, name=eval_did.name, session=session)
 
@@ -2542,13 +2543,13 @@ def __evaluate_did_attach(eval_did, *, session: "Session", logger=logging.log):
 
     logger(logging.INFO, "Re-Evaluating did %s:%s for ATTACH", eval_did.scope, eval_did.name)
 
-    with Timer('rule.evaluate_did_attach'):
+    with METRICS.timer('evaluate_did_attach.total'):
         # Get all parent DID's
-        with Timer('rule.evaluate_did_attach.list_parent_dids'):
+        with METRICS.timer('evaluate_did_attach.list_parent_dids'):
             parent_dids = rucio.core.did.list_all_parent_dids(scope=eval_did.scope, name=eval_did.name, session=session)
 
         # Get immediate new child DID's
-        with Timer('rule.evaluate_did_attach.list_new_child_dids'):
+        with METRICS.timer('evaluate_did_attach.list_new_child_dids'):
             new_child_dids = session.query(models.DataIdentifierAssociation)\
                 .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(contents contents_pk)", 'oracle')\
                 .filter(models.DataIdentifierAssociation.scope == eval_did.scope,
@@ -2557,7 +2558,7 @@ def __evaluate_did_attach(eval_did, *, session: "Session", logger=logging.log):
 
         if new_child_dids:
             # Get all unsuspended RR from parents and eval_did
-            with Timer('rule.evaluate_did_attach.get_rules'):
+            with METRICS.timer('evaluate_did_attach.get_rules'):
                 rule_clauses = []
                 for did in parent_dids:
                     rule_clauses.append(and_(models.ReplicationRule.scope == did['scope'],
@@ -2572,7 +2573,7 @@ def __evaluate_did_attach(eval_did, *, session: "Session", logger=logging.log):
 
             if rules:
                 # Resolve the new_child_dids to its locks
-                with Timer('rule.evaluate_did_attach.resolve_did_to_locks_and_replicas'):
+                with METRICS.timer('evaluate_did_attach.resolve_did_to_locks_and_replicas'):
                     # Resolve the rules to possible target rses:
                     possible_rses = []
                     source_rses = []
@@ -2600,7 +2601,7 @@ def __evaluate_did_attach(eval_did, *, session: "Session", logger=logging.log):
                                                                                                           session=session)
 
                 # Evaluate the replication rules
-                with Timer('rule.evaluate_did_attach.evaluate_rules'):
+                with METRICS.timer('evaluate_did_attach.evaluate_rules'):
                     for rule in rules:
                         rule_locks_ok_cnt_before = rule.locks_ok_cnt
 
@@ -2712,7 +2713,7 @@ def __evaluate_did_attach(eval_did, *, session: "Session", logger=logging.log):
                         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
             # Unflage the dids
-            with Timer('rule.evaluate_did_attach.update_did'):
+            with METRICS.timer('evaluate_did_attach.update_did'):
                 for did in new_child_dids:
                     did.rule_evaluation = None
 

@@ -37,14 +37,19 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.common.logging import setup_logging
 from rucio.core.message import retrieve_messages, delete_messages
-from rucio.core.monitor import MultiCounter
+from rucio.core.monitor import MetricManager
 from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 logging.getLogger('stomp').setLevel(logging.CRITICAL)
 
-RECONNECT_COUNTER = MultiCounter(prom='rucio_daemons_hermes_reconnect', statsd='daemons.hermes.reconnect.{host}',
-                                 documentation='Counts Hermes reconnects to different ActiveMQ brokers', labelnames=('host',))
+METRICS = MetricManager(module=__name__)
+
+RECONNECT_COUNTER = METRICS.counter(
+    name='reconnect.{host}',
+    documentation='Counts Hermes reconnects to different ActiveMQ brokers',
+    labelnames=('host',)
+)
 
 graceful_stop = threading.Event()
 

@@ -35,11 +35,12 @@ from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.core.did import list_expired_dids, delete_dids
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon, HeartbeatHandler
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 
 
@@ -88,14 +89,14 @@ def run_once(paused_dids: Dict[Tuple, datetime], chunk_size: int, heartbeat_hand
                 logger(logging.INFO, 'Receive %s dids to delete', len(chunk))
                 delete_dids(dids=chunk, account=InternalAccount('root', vo='def'), expire_rules=True)
                 logger(logging.INFO, 'Delete %s dids', len(chunk))
-                record_counter(name='undertaker.delete_dids', delta=len(chunk))
+                METRICS.counter(name='undertaker.delete_dids').inc(len(chunk))
             except RuleNotFound as error:
                 logger(logging.ERROR, error)
             except (DatabaseException, DatabaseError, UnsupportedOperation) as e:
                 if match('.*ORA-00054.*', str(e.args[0])) or match('.*55P03.*', str(e.args[0])) or match('.*3572.*', str(e.args[0])):
                     for did in chunk:
                         paused_dids[(did['scope'], did['name'])] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
-                    record_counter('undertaker.delete_dids.exceptions.{exception}', labels={'exception': 'LocksDetected'})
+                    METRICS.counter('delete_dids.exceptions.{exception}').labels(exception='LocksDetected').inc()
                     logger(logging.WARNING, 'Locks detected for chunk')
                 else:
                     logger(logging.ERROR, 'Got database error %s.', str(e))

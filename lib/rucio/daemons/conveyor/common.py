@@ -27,8 +27,9 @@ from typing import TYPE_CHECKING
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
                                     DuplicateFileTransferSubmission, VONotFound, DatabaseException)
+from rucio.common.stopwatch import Stopwatch
 from rucio.core import request as request_core, transfer as transfer_core
-from rucio.core.monitor import record_counter, record_timer, Timer
+from rucio.core.monitor import MetricManager
 from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
 from rucio.core.request import set_request_state, queue_requests
 from rucio.core.rse import list_rses
@@ -46,6 +47,8 @@ if TYPE_CHECKING:
     from rucio.core.transfer import DirectTransferDefinition
     from rucio.transfertool.transfertool import TransferToolBuilder
     from sqlalchemy.orm import Session
+
+METRICS = MetricManager(module=__name__)
 
 
 def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
@@ -461,10 +464,10 @@ def _submit_transfers(transfertool_obj, transfers, job_params, submitter='submit
     # A eid is returned if the job is properly submitted otherwise an exception is raised
     is_bulk = len(transfers) > 1
     eid = None
-    timer = Timer()
+    stopwatch = Stopwatch()
     state_to_set = RequestState.SUBMISSION_FAILED
     try:
-        record_counter('core.request.submit_transfer')
+        METRICS.counter('submit_transfer').inc()
         eid = transfertool_obj.submit(transfers, job_params, timeout)
         state_to_set = RequestState.SUBMITTED
     except DuplicateFileTransferSubmission:
@@ -483,11 +486,10 @@ def _submit_transfers(transfertool_obj, transfers, job_params, submitter='submit
             state_to_set = None
 
     if eid is not None:
-        timer.stop()
-        logger(logging.DEBUG, 'Submit job %s to %s in %s seconds' % (eid, transfertool_obj, timer.elapsed))
-        timer.record('daemons.conveyor.{submitter}.submit_bulk_transfer.per_file', divisor=len(transfers) or 1, labels={'submitter': submitter})
-        record_counter('daemons.conveyor.{submitter}.submit_bulk_transfer', delta=len(transfers), labels={'submitter': submitter})
-        record_timer('daemons.conveyor.{submitter}.submit_bulk_transfer.files', len(transfers), labels={'submitter': submitter})
+        stopwatch.stop()
+        logger(logging.DEBUG, 'Submit job %s to %s in %s seconds' % (eid, transfertool_obj, stopwatch.elapsed))
+        METRICS.timer('submit_bulk_transfer_per_file').observe(stopwatch.elapsed / (len(transfers) or 1))
+        METRICS.counter('submit_bulk_transfer').inc(len(transfers))
 
     if state_to_set:
         try:
