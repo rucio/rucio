@@ -15,15 +15,12 @@
 
 """Provides functions to access the local configuration. The configuration locations are provided by get_config_dirs."""
 
-import os
-import json
-import sys
-
-from rucio.common.exception import ConfigNotFound, DatabaseException
-
 import configparser as ConfigParser
+import json
+import os
 
 from rucio.common import exception
+from rucio.common.exception import ConfigNotFound, DatabaseException
 
 
 def config_get(section, option, raise_exception=True, default=None, clean_cached=False, check_config_table=True,
@@ -433,10 +430,7 @@ class Config:
     get_config_dirs or the use of the RUCIO_CONFIG environment variable.
     """
     def __init__(self):
-        if sys.version_info < (3, 2):
-            self.parser = ConfigParser.SafeConfigParser()
-        else:
-            self.parser = ConfigParser.ConfigParser()
+        self.parser = ConfigParser.ConfigParser()
 
         if 'RUCIO_CONFIG' in os.environ:
             self.configfile = os.environ['RUCIO_CONFIG']
