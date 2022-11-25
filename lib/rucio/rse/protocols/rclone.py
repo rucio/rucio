@@ -195,7 +195,7 @@ class Default(protocol.RSEProtocol):
 
             if status_query == 0:
                 chsum = 'md5'
-                val = out.strip('  ').split()
+                val = out.strip(' ').split()
                 ret[chsum] = val[0]
 
         except Exception as e:
