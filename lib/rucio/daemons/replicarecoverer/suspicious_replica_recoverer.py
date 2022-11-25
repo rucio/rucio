@@ -26,6 +26,7 @@ import time
 from datetime import datetime, timedelta
 from sys import argv
 from typing import List, Any, Optional
+import re
 
 import functools
 import json
@@ -92,8 +93,6 @@ def declare_suspicious_replicas_bad(once: bool = False, younger_than: int = 3, n
 
 
 def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Optional[List[str]], limit_suspicious_files_on_rse: int, active_mode: int, **_kwargs) -> bool:
-    # assembling the worker name identifier ('executable') including the rses from <rse_expression>
-    # in order to have the possibility to detect a start of a second instance with the same set of RSES
 
     worker_number, total_workers, logger = heartbeat_handler.live()
 
@@ -114,10 +113,6 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
             vos = [v['vo'] for v in list_vos()]
         logger(logging.INFO, 'This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
 
-    # make an initial heartbeat - expected only one replica-recoverer thread on one node
-    # heartbeat mechanism is used in this daemon only for information purposes
-    # (due to expected low load, the actual DB query does not filter the result based on worker number)
-
     start = time.time()
 
     try:
@@ -131,10 +126,11 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
         json_data = json.load(json_file)
     except ValueError:
         logger(logging.WARNING, "No JSON object could be decoded.")
+        return True
 
     # Checking that the json file is formatedd properly.
     for i, entry in enumerate(json_data):
-        if "datatype" not in entry or "action" not in entry:
+        if ("datatype" not in entry or "scope" not in entry or "action" not in entry):
             logger(logging.ERROR, 'Entry %s in the json file is incomplete (missing either "datatype" or "action").', i)
             break
 
@@ -197,7 +193,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
 
             # RSEs that aren't available shouldn't have suspicious replicas showing up. Skip to next RSE.
             if not rse['availability_read'] and ((len(suspicious_replicas_avail_elsewhere) > 0) or (len(suspicious_replicas_last_copy) > 0)):
-                logger(logging.WARNING, "%s is not available (availability_read: %s), yet it has suspicious replicas. Please investigate. \n", rse_expr, rse['availability_read'])
+                logger(logging.WARNING, "%s is not available (availability: %s), yet it has suspicious replicas. Please investigate. \n", rse_expr, rse['availability_read'])
                 continue
 
             if suspicious_replicas_avail_elsewhere:
@@ -338,7 +334,9 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
             # Get the rse_id by going to one of the suspicious replicas from that RSE and reading it from there
             rse_id = list(recoverable_replicas[vo][rse_key].values())[0]['rse_id']
             for replica_key in list(recoverable_replicas[vo][rse_key].keys()):
-                file_metadata = get_metadata(recoverable_replicas[vo][rse_key][replica_key]["scope"], recoverable_replicas[vo][rse_key][replica_key]["name"])
+                file_scope = recoverable_replicas[vo][rse_key][replica_key]["scope"]
+                file_name = recoverable_replicas[vo][rse_key][replica_key]["name"]
+                file_metadata = get_metadata(file_scope, file_name)
                 recoverable_replicas[vo][rse_key][replica_key]["datatype"] = str(file_metadata["datatype"])
                 if recoverable_replicas[vo][rse_key][replica_key]['available_elsewhere'] is True:
                     # Replicas with other copies on at least one other RSE can safely be labeled as bad
@@ -346,7 +344,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
                     # Remove replica from dictionary
                     del recoverable_replicas[vo][rse_key][replica_key]
                 elif recoverable_replicas[vo][rse_key][replica_key]['available_elsewhere'] is False:
-                    if (recoverable_replicas[vo][rse_key][replica_key]['name'].startswith("log.")) or (recoverable_replicas[vo][rse_key][replica_key]['name'].startswith("user")):
+                    if (file_name.startswith("log.")) or (file_name.startswith("user")):
                         # Don't keep log files or user files
                         files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key])
                         del recoverable_replicas[vo][rse_key][replica_key]
@@ -354,33 +352,83 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
                         # Deal with replicas based on their metadata.
                         if file_metadata["datatype"] is None:  # "None" type has no function "split()"
                             files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key])
+                            logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Replica does not have a data type associated with it. No action will be taken.",
+                                   rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'])
                             continue
+
+                        file_metadata_datatype = str(file_metadata["datatype"])
+                        file_metadata_scope = str(file_metadata["scope"])
+                        datatype_found_in_file = False
+                        scope_found_in_file = False
+                        wildcard_found_in_file = False
+                        action = ""
                         for i in json_data:
-                            if i["datatype"] == file_metadata["datatype"].split("_")[-1]:
-                                action = i["action"]
-                                if action == "ignore":
-                                    files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key])
-                                elif action == "declare bad":
-                                    suspicious_reason = get_suspicious_reason(recoverable_replicas[vo][rse_key][replica_key]["rse_id"],
-                                                                              recoverable_replicas[vo][rse_key][replica_key]["scope"],
-                                                                              recoverable_replicas[vo][rse_key][replica_key]["name"],
-                                                                              nattempts)
-                                    for reason in suspicious_reason:
-                                        if "auditor" in reason["reason"].lower():
-                                            auditor += 1
-                                            files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key])
-                                            break
-                                        elif "checksum" in reason["reason"].lower():
-                                            checksum += 1
-                                            files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key])
-                                            break
-                                else:
-                                    logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Match for the metadata 'datatype' (%s) of replica found in json file, but no match for 'action' (%s)",
-                                           rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'], i["datatype"], i["action"])
-                                break
-                            else:
-                                # If no policy has been set, default to ignoring the file (no action taken).
+                            # Check if a policy has been set for the specific datatype or scope
+                            # or if there are any wildcard policies regarding the scope.
+                            # Datatype action has priority over scope action.
+                            # Specific scope has priority over wildcard scope.
+                            if "datatype" in i:
+                                if file_metadata_datatype in i["datatype"]:
+                                    try:
+                                        # action = i["datatype_action"]
+                                        action = i["action"]
+                                        datatype_found_in_file = True
+                                        break
+                                    except:
+                                        logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Datatype %s found in the policy library, but an error occured while retrieving the policy assigned to it. No action will be taken.",
+                                               rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'], file_metadata_datatype)
+                                        break
+                            if ("scope" in i) and not datatype_found_in_file:
+                                if file_metadata_scope in i["scope"]:
+                                    try:
+                                        # action = i["scope_action"]
+                                        action = i["action"]
+                                        scope_found_in_file = True
+                                    except:
+                                        logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Scope %s found in the policy library, but an error occured while retrieving the policy assigned to it. No action will be taken.",
+                                               rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'], file_scope)
+                                        break
+                            if ("scope_wildcard" in i) and not (datatype_found_in_file or scope_found_in_file):
+                                if (re.match(j, file_metadata_scope) for j in i["scope_wildcard"]):
+                                    try:
+                                        # action = i["scope_action"]
+                                        action = i["action"]
+                                        wildcard_found_in_file = True
+                                    except:
+                                        logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Wildcard-match for the scope (%s) found in the policy library, but an error occured while retrieving the policy assigned to it. No action will be taken.",
+                                               rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'], file_scope, i["action"])
+                                        break
+
+                        if action:
+                            if action == "ignore":
                                 files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key])
+                            elif action == "declare bad":
+                                suspicious_reason = get_suspicious_reason(recoverable_replicas[vo][rse_key][replica_key]["rse_id"],
+                                                                          file_scope,
+                                                                          file_name,
+                                                                          nattempts)
+                                for reason in suspicious_reason:
+                                    if "auditor" in reason["reason"].lower():
+                                        auditor += 1
+                                        files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key])
+                                        break
+                                    elif "checksum" in reason["reason"].lower():
+                                        checksum += 1
+                                        files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key])
+                                        break
+                            else:
+                                if datatype_found_in_file:
+                                    logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Match for the metadata 'datatype' (%s) of replica found in policy library, but the associated action is invalid. No aciton will be taken.",
+                                           rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'], file_metadata_datatype)
+                                elif scope_found_in_file:
+                                    logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Match for the specific scope (%s) of replica found in policy library, but but the associated action is invalid. No aciton will be taken.",
+                                           rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'], file_scope)
+                                elif wildcard_found_in_file:
+                                    logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Wildcard-match for the scope (%s) of replica found in policy library, but but the associated action is invalid. No aciton will be taken.",
+                                           rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'], file_scope)
+                        else:
+                            # If no policy has been set, default to ignoring the file (no action taken).
+                            files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key])
 
             logger(logging.INFO, '(%s) Remaining replicas (pfns) that will be ignored:', rse_key)
             for i in files_to_be_ignored:
