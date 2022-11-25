@@ -54,10 +54,10 @@ METRICS = MetricManager(module=__name__)
 
 
 class RequestSource:
-    def __init__(self, rse_data, source_ranking=None, distance_ranking=None, file_path=None, scheme=None, url=None):
+    def __init__(self, rse_data, ranking=None, distance=None, file_path=None, scheme=None, url=None):
         self.rse = rse_data
-        self.distance_ranking = distance_ranking if distance_ranking is not None else 9999
-        self.source_ranking = source_ranking if source_ranking is not None else 0
+        self.distance = distance if distance is not None else 9999
+        self.ranking = ranking if ranking is not None else 0
         self.file_path = file_path
         self.scheme = scheme
         self.url = url
@@ -480,7 +480,7 @@ def list_transfer_requests_and_source_replicas(
         models.RSEFileAssociation.path,
         models.Source.ranking.label("source_ranking"),
         models.Source.url.label("source_url"),
-        models.Distance.ranking.label("distance_ranking")
+        models.Distance.distance
     ).order_by(
         sub_requests.c.created_at
     ).outerjoin(
@@ -524,7 +524,7 @@ def list_transfer_requests_and_source_replicas(
 
     requests_by_id = {}
     for (request_id, req_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, source_rse_id, dest_rse_id, account, retry_count,
-         priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance_ranking) in session.execute(stmt):
+         priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance) in session.execute(stmt):
 
         # If we didn't pre-filter using temporary tables on database side, perform the filtering here
         if not use_temp_tables and rses and dest_rse_id not in rses:
@@ -541,7 +541,7 @@ def list_transfer_requests_and_source_replicas(
 
         if replica_rse_id is not None:
             source = RequestSource(rse_data=RseData(id_=replica_rse_id, name=replica_rse_name), file_path=file_path,
-                                   source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url)
+                                   ranking=source_ranking, distance=distance, url=source_url)
             request.sources.append(source)
             if source_rse_id == replica_rse_id:
                 request.requested_source = source
@@ -681,8 +681,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
         if query_result:
             if mode_all:
                 for res in query_result:
-                    res_dict = dict(res)
-                    res_dict.pop('_sa_instance_state')
+                    res_dict = res.to_dict()
                     res_dict['request_id'] = res_dict['id']
                     res_dict['attributes'] = json.loads(str(res_dict['attributes'] or '{}'))
 
@@ -835,8 +834,7 @@ def get_request(request_id, *, session: "Session"):
         if not tmp:
             return
         else:
-            tmp = dict(tmp)
-            tmp.pop('_sa_instance_state')
+            tmp = tmp.to_dict()
             tmp['attributes'] = json.loads(str(tmp['attributes'] or '{}'))
             return tmp
     except IntegrityError as error:
@@ -865,8 +863,7 @@ def get_requests_by_transfer(external_host, transfer_id, *, session: "Session"):
         if tmp:
             result = []
             for t in tmp:
-                t2 = dict(t)
-                t2.pop('_sa_instance_state')
+                t2 = t.to_dict()
                 t2['request_id'] = t2['id']
                 t2['attributes'] = json.loads(str(t2['attributes'] or '{}'))
                 result.append(t2)
@@ -907,8 +904,7 @@ def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Sess
         if not tmp:
             raise RequestNotFound(f'No request found for DID {scope}:{name} at RSE {rse_id}')
         else:
-            tmp = dict(tmp)
-            tmp.pop('_sa_instance_state')
+            tmp = tmp.to_dict()
 
             tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
             tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
@@ -950,8 +946,7 @@ def get_request_history_by_did(scope, name, rse_id, request_type=None, *, sessio
         if not tmp:
             raise RequestNotFound(f'No request found for DID {scope}:{name} at RSE {rse_id}')
         else:
-            tmp = dict(tmp)
-            tmp.pop('_sa_instance_state')
+            tmp = tmp.to_dict()
 
             tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
             tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
@@ -1149,8 +1144,7 @@ def get_sources(request_id, rse_id=None, *, session: "Session"):
         else:
             result = []
             for t in tmp:
-                t2 = dict(t)
-                t2.pop('_sa_instance_state')
+                t2 = t.to_dict()
                 result.append(t2)
 
             return result

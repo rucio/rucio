@@ -1221,8 +1221,8 @@ def distances_data(vo):
     rse_1_id = get_rse_id(rse_1, vo=vo)
     rse_2 = 'MOCK2'
     rse_2_id = get_rse_id(rse_2, vo=vo)
-    ranking = 10
-    add_distance(rse_1_id, rse_2_id, ranking)
+    distance = 10
+    add_distance(rse_1_id, rse_2_id, distance)
     distances = get_distances(rse_1_id, rse_2_id)[0]
 
     return {'distances': distances, 'rse_1': rse_1, 'rse_1_id': rse_1_id, 'rse_2': rse_2, 'rse_2_id': rse_2_id}

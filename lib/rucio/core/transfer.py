@@ -151,7 +151,7 @@ class DirectTransferDefinition:
                                            protocol_factory=self.protocol_factory,
                                            operation=self.operation_src),
                  src.rse.id,
-                 src.source_ranking)
+                 src.ranking)
                 for src in self.sources
             ]
         return self._legacy_sources
@@ -276,7 +276,7 @@ class StageinTransferDefinition(DirectTransferDefinition):
                 self.src.rse.name,
                 self.dest_url,  # Source and dest url is the same for stagein requests
                 self.src.rse.id,
-                self.src.source_ranking
+                self.src.ranking
             )]
         return self._legacy_sources
 
@@ -591,8 +591,8 @@ def __create_transfer_definitions(
             src = RequestSource(
                 rse_data=hop_src_rse,
                 file_path=source.file_path if hop_src_rse == source.rse else None,
-                source_ranking=source.source_ranking if hop_src_rse == source.rse else 0,
-                distance_ranking=hop['cumulated_distance'] if hop_src_rse == source.rse else hop['hop_distance'],
+                ranking=source.ranking if hop_src_rse == source.rse else 0,
+                distance=hop['cumulated_distance'] if hop_src_rse == source.rse else hop['hop_distance'],
                 scheme=hop['source_scheme'],
             )
             dst = TransferDestination(
@@ -649,7 +649,7 @@ def __create_transfer_definitions(
             inbound_links = inbound_links_by_node[transfer_path[0].dst.rse.id]
             main_source_schemes = __add_compatible_schemes(schemes=[transfer_path[0].dst.scheme], allowed_schemes=SUPPORTED_PROTOCOLS)
             added_sources = 0
-            for source in sorted(multi_source_sources, key=lambda s: (-s.source_ranking, s.distance_ranking)):
+            for source in sorted(multi_source_sources, key=lambda s: (-s.ranking, s.distance)):
                 if added_sources >= 5:
                     break
 
@@ -679,8 +679,8 @@ def __create_transfer_definitions(
                     RequestSource(
                         rse_data=source.rse,
                         file_path=source.file_path,
-                        source_ranking=source.source_ranking,
-                        distance_ranking=inbound_links[source.rse.id],
+                        ranking=source.ranking,
+                        distance=inbound_links[source.rse.id],
                         scheme=matching_scheme[1],
                     )
                 )
@@ -773,12 +773,12 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
         source_ranking_penalty = 1 if transfer_path[0].src.rse.is_tape_or_staging_required() else 0
         # higher source_ranking first,
         # on equal source_ranking, prefer DISK over TAPE
-        # on equal type, prefer lower distance_ranking
+        # on equal type, prefer lower distance
         # on equal distance, prefer single hop
         return (
-            - transfer_path[0].src.source_ranking + source_ranking_penalty,
+            - transfer_path[0].src.ranking + source_ranking_penalty,
             transfer_path[0].src.rse.is_tape_or_staging_required(),  # rely on the fact that False < True
-            transfer_path[0].src.distance_ranking,
+            transfer_path[0].src.distance,
             len(transfer_path) > 1,  # rely on the fact that False < True
         )
 
@@ -851,7 +851,7 @@ def build_transfer_paths(
                rws,
                len(all_sources),
                f' (priority {rws.requested_source.rse})' if requested_source_only and rws.requested_source else '',
-               ','.join('{}:{}:{}'.format(src.rse, src.source_ranking, src.distance_ranking) for src in all_sources[:num_sources_in_logs]),
+               ','.join('{}:{}:{}'.format(src.rse, src.ranking, src.distance) for src in all_sources[:num_sources_in_logs]),
                '... and %d others' % (len(all_sources) - num_sources_in_logs) if len(all_sources) > num_sources_in_logs else '')
 
         # Check if destination is blocked
@@ -966,7 +966,7 @@ def build_transfer_paths(
             candidate_paths = __compress_multihops(candidate_paths, all_sources)
         candidate_paths = list(__sort_paths(candidate_paths))
 
-        ordered_sources_log = ','.join(('multihop: ' if len(path) > 1 else '') + '{}:{}:{}'.format(path[0].src.rse, path[0].src.source_ranking, path[0].src.distance_ranking)
+        ordered_sources_log = ','.join(('multihop: ' if len(path) > 1 else '') + '{}:{}:{}'.format(path[0].src.rse, path[0].src.ranking, path[0].src.distance)
                                        for path in candidate_paths[:num_sources_in_logs])
         if len(candidate_paths) > num_sources_in_logs:
             ordered_sources_log += '... and %d others' % (len(candidate_paths) - num_sources_in_logs)

@@ -1823,14 +1823,12 @@ class Distance(ErrorHandlingMethodView):
                       dest_rse_id:
                         description: The destination rse id.
                         type: string
+                      distance:
+                        description: The distance between RSEs.
+                        type: integer
                       ranking:
-                        description: The ranking.
-                        type: integer
-                      agis_distance:
-                        description: The agis distance.
-                        type: integer
-                      geoip_distance:
-                        description: The geo ip distance.
+                        deprecated: true
+                        description: Same as distance.
                         type: integer
           401:
             description: Invalid Auth Token
@@ -1871,29 +1869,12 @@ class Distance(ErrorHandlingMethodView):
               schema:
                 type: object
                 properties:
-                  ranking:
-                    description: The ranking of the distance.
-                    type: integer
                   distance:
-                    description: The distance between the Rses.
+                    description: The distance between RSEs.
                     type: integer
-                  geoip_distance:
-                    description: The geoip distance between the Rses.
-                    type: integer
-                  active:
-                    description: If the distance is active.
-                    type: boolean
-                  submitted:
-                    description: If the distance is submitted.
-                    type: boolean
-                  finished:
-                    description: If the distance is finished.
-                    type: boolean
-                  failed:
-                    description: If the distance failed.
-                    type: boolean
-                  transfer_speed:
-                    description: The transferspeed between the Rses.
+                  ranking:
+                    deprecated: true
+                    description: Same as distance.
                     type: integer
         responses:
           201:
@@ -1911,26 +1892,18 @@ class Distance(ErrorHandlingMethodView):
             description: Not acceptable
         """
         parameters = json_parameters()
-        kwargs = {
-            'ranking': None,
-            'distance': None,
-            'geoip_distance': None,
-            'active': None,
-            'submitted': None,
-            'finished': None,
-            'failed': None,
-            'transfer_speed': None,
-        }
-        for keyword in kwargs.keys():
-            kwargs[keyword] = param_get(parameters, keyword, default=kwargs[keyword])
+
+        distance = param_get(parameters, 'distance', default=None)
+        if distance is None:
+            distance = param_get(parameters, 'ranking', default=None)
 
         try:
             add_distance(
                 source=source,
                 destination=destination,
+                distance=distance,
                 issuer=request.environ.get('issuer'),
                 vo=request.environ.get('vo'),
-                **kwargs,
             )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
@@ -1967,29 +1940,12 @@ class Distance(ErrorHandlingMethodView):
               schema:
                 type: object
                 properties:
+                  distance:
+                    description: The distance between the RSEs.
+                    type: integer
                   ranking:
-                    description: The ranking of the distance.
-                    type: integer
-                  agis_distance:
-                    description: The distance between the Rses.
-                    type: integer
-                  geoip_distance:
-                    description: The geoip distance between the Rses.
-                    type: integer
-                  active:
-                    description: If the distance is active.
-                    type: boolean
-                  submitted:
-                    description: If the distance is submitted.
-                    type: boolean
-                  finished:
-                    description: If the distance is finished.
-                    type: boolean
-                  failed:
-                    description: If the distance failed.
-                    type: boolean
-                  transfer_speed:
-                    description: The transferspeed between the Rses.
+                    deprecated: true
+                    description: Same as distance.
                     type: integer
         responses:
           201:
@@ -2007,13 +1963,18 @@ class Distance(ErrorHandlingMethodView):
             description: Not acceptable
         """
         parameters = json_parameters()
+
+        distance = param_get(parameters, 'distance', default=None)
+        if distance is None:
+            distance = param_get(parameters, 'ranking', default=None)
+
         try:
             update_distance(
                 source=source,
                 destination=destination,
+                distance=distance,
                 issuer=request.environ.get('issuer'),
                 vo=request.environ.get('vo'),
-                parameters=parameters,
             )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)

@@ -277,10 +277,9 @@ def _load_outgoing_distances_node(rse_id: str, *, session: "Session"):
             models.RSE.deleted == false()
         )
         for distance in session.execute(stmt).scalars():
-            if distance.ranking is None:
+            if distance.distance is None:
                 continue
-            ranking = distance.ranking if distance.ranking >= 0 else 0
-            outgoing_edges[distance.dest_rse_id] = ranking
+            outgoing_edges[distance.dest_rse_id] = distance.distance if distance.distance >= 0 else 0
         REGION.set('outgoing_edges_%s' % str(rse_id), outgoing_edges)
         result = outgoing_edges
     return result
@@ -308,10 +307,9 @@ def _load_inbound_distances_node(rse_id: str, *, session: "Session"):
             models.RSE.deleted == false()
         )
         for distance in session.execute(stmt).scalars():
-            if distance.ranking is None:
+            if distance.distance is None:
                 continue
-            ranking = distance.ranking if distance.ranking >= 0 else 0
-            inbound_edges[distance.src_rse_id] = ranking
+            inbound_edges[distance.src_rse_id] = distance.distance if distance.distance >= 0 else 0
         REGION.set('inbound_edges_%s' % str(rse_id), inbound_edges)
         result = inbound_edges
     return result

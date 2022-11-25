@@ -575,7 +575,6 @@ class RequestList(ErrorHandlingMethodView):
 
         def generate(issuer, vo):
             for result in request.list_requests(src_rses, dst_rses, states, issuer=issuer, vo=vo):
-                del result['_sa_instance_state']
                 yield render_json(**result) + '\n'
 
         return try_stream(generate(issuer=flask.request.environ.get('issuer'), vo=flask.request.environ.get('vo')))
@@ -813,7 +812,6 @@ class RequestHistoryList(ErrorHandlingMethodView):
 
         def generate(issuer, vo):
             for result in request.list_requests_history(src_rses, dst_rses, states, issuer=issuer, vo=vo, offset=offset, limit=limit):
-                del result['_sa_instance_state']
                 yield render_json(**result) + '\n'
 
         return try_stream(generate(issuer=flask.request.environ.get('issuer'), vo=flask.request.environ.get('vo')))

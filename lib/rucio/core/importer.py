@@ -141,21 +141,18 @@ def import_distances(distances, vo='def', *, session: "Session"):
         src = rse_module.get_rse_id(rse=src_rse_name, vo=vo, session=session)
         for dest_rse_name in distances[src_rse_name]:
             dest = rse_module.get_rse_id(rse=dest_rse_name, vo=vo, session=session)
-            distance = distances[src_rse_name][dest_rse_name]
-            if 'src_rse_id' in distance:
-                del distance['src_rse_id']
-            if 'dest_rse_id' in distance:
-                del distance['dest_rse_id']
+            distance_dict = distances[src_rse_name][dest_rse_name]
+            if 'src_rse_id' in distance_dict:
+                del distance_dict['src_rse_id']
+            if 'dest_rse_id' in distance_dict:
+                del distance_dict['dest_rse_id']
 
             old_distance = distance_module.get_distances(src_rse_id=src, dest_rse_id=dest, session=session)
+            new_distance = distance_dict.get('distance', distance_dict.get('ranking'))
             if old_distance:
-                distance_module.update_distances(src_rse_id=src, dest_rse_id=dest, parameters=distance, session=session)
+                distance_module.update_distances(src_rse_id=src, dest_rse_id=dest, distance=new_distance, session=session)
             else:
-                distance_module.add_distance(src_rse_id=src, dest_rse_id=dest, ranking=distance.get('ranking'),
-                                             agis_distance=distance.get('agis_distance'), geoip_distance=distance.get('geoip_distance'),
-                                             active=distance.get('active'), submitted=distance.get('submitted'),
-                                             transfer_speed=distance.get('transfer_speed'), finished=distance.get('finished'),
-                                             failed=distance.get('failed'), session=session)
+                distance_module.add_distance(src_rse_id=src, dest_rse_id=dest, distance=new_distance, session=session)
 
 
 @transactional_session
