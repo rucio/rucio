@@ -17,7 +17,7 @@ import ast
 
 from json import dumps
 
-from flask import Flask, Blueprint, Response, request
+from flask import Flask, Response, request
 
 from rucio.api.did import add_did, add_dids, list_content, list_content_history, list_dids, list_dids_extended, \
     list_files, scope_list, get_did, set_metadata, get_metadata, get_metadata_bulk, set_status, attach_dids, \
@@ -30,8 +30,9 @@ from rucio.common.exception import ScopeNotFound, DataIdentifierNotFound, DataId
     UnsupportedOperation, RSENotFound, RuleNotFound, InvalidMetadata, InvalidPath, FileAlreadyExists, InvalidObject, FileConsistencyMismatch
 from rucio.common.utils import render_json, APIEncoder
 from rucio.db.sqla.constants import DIDType
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     parse_scope_name, try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, json_list, param_get, json_parse
+from rucio.web.ui.flask.bp import AuthenticatedBlueprint
 
 
 class Scope(ErrorHandlingMethodView):
@@ -2189,7 +2190,7 @@ class Follow(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('dids', __name__, url_prefix='/dids')
+    bp = AuthenticatedBlueprint('dids', __name__, url_prefix='/dids')
 
     scope_view = Scope.as_view('scope')
     bp.add_url_rule('/<scope>/', view_func=scope_view, methods=['get', ])
@@ -2235,7 +2236,6 @@ def blueprint():
     bulkmeta_view = BulkMeta.as_view('bulkmeta')
     bp.add_url_rule('/bulkmeta', view_func=bulkmeta_view, methods=['post', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

@@ -16,7 +16,7 @@
 from datetime import datetime
 from json import dumps
 
-from flask import Flask, Blueprint, Response, request, redirect, jsonify
+from flask import Flask, Response, request, redirect, jsonify
 
 from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, \
     list_account_attributes, add_account_attribute, del_account_attribute, update_account, get_usage_history
@@ -28,8 +28,9 @@ from rucio.api.scope import add_scope, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RuleNotFound, RSENotFound, \
     IdentityError, CounterNotFound, ScopeNotFound, InvalidObject
 from rucio.common.utils import APIEncoder, render_json
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.ui.flask.bp import AuthenticatedBlueprint
 
 
 class Attributes(ErrorHandlingMethodView):
@@ -1035,7 +1036,7 @@ class GlobalUsage(ErrorHandlingMethodView):
 
 
 def blueprint(with_doc=False):
-    bp = Blueprint('accounts', __name__, url_prefix='/accounts')
+    bp = AuthenticatedBlueprint('accounts', __name__, url_prefix='/accounts')
 
     attributes_view = Attributes.as_view('attributes')
     bp.add_url_rule('/<account>/attr/', view_func=attributes_view, methods=['get', ])
@@ -1077,7 +1078,6 @@ def blueprint(with_doc=False):
         bp.add_url_rule('', view_func=account_view, methods=['get', ])
     bp.add_url_rule('/', view_func=account_view, methods=['get', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 
