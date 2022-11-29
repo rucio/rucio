@@ -19,7 +19,7 @@ from rucio.api import config
 from rucio.common.exception import ConfigurationError, AccessDenied, ConfigNotFound
 from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     generate_http_error_flask, ErrorHandlingMethodView, json_parameters
-from rucio.web.ui.flask.bp import AuthenticatedBlueprint
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class Config(ErrorHandlingMethodView):
