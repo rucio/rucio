@@ -218,10 +218,10 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
     # assume s3alternate True (path-style URL S3 RSEs)
     job_params['s3alternate'] = True
     if src_rse_s3_url_style:
-        if src_rse_s3_url_style == "virtual":
+        if src_rse_s3_url_style == "host":
             job_params['s3alternate'] = False
     if dst_rse_s3_url_style:
-        if dst_rse_s3_url_style == "virtual":
+        if dst_rse_s3_url_style == "host":
             job_params['s3alternate'] = False
 
     if archive_timeout and transfer.dst.rse.is_tape():
