@@ -110,9 +110,9 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
 
     elif service == 's3':
 
-        # get RSE S3 URL style (path or virtual)
+        # get RSE S3 URL style (path or host)
         # path-style: https://s3.region-code.amazonaws.com/bucket-name/key-name
-        # virtual-style: https://bucket-name.s3.region-code.amazonaws.com/key-name
+        # host-style: https://bucket-name.s3.region-code.amazonaws.com/key-name
         s3_url_style = get_rse_attribute(rse_id, 's3_url_style')
 
         # no S3 URL style specified, assume path-style
@@ -128,14 +128,14 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
                 raise UnsupportedOperation('Not a valid Path-Style S3 URL')
             bucket = pathcomponents[1]
             key = '/'.join(pathcomponents[2:])
-        elif s3_url_style == "virtual":
+        elif s3_url_style == "host":
             hostcomponents = host.split('.')
             bucket = hostcomponents[0]
             if len(pathcomponents) < 2:
-                raise UnsupportedOperation('Not a valid Virtual-Style S3 URL')
+                raise UnsupportedOperation('Not a valid Host-Style S3 URL')
             key = '/'.join(pathcomponents[1:])
         else:
-            raise UnsupportedOperation('Not a valid RSE S3 URL style (allowed values: path|virtual)')
+            raise UnsupportedOperation('Not a valid RSE S3 URL style (allowed values: path|host)')
 
         # remove port number from host if present
         colon = host.find(':')
@@ -164,6 +164,9 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
             s3op = 'delete_object'
 
         with METRICS.timer('signs3'):
+
+            if s3_url_style == "host":
+                s3_url_style = "virtual"
 
             s3 = boto3.client(service_name='s3',
                               endpoint_url='https://' + host + ':' + port,
