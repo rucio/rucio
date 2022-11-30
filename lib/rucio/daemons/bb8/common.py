@@ -668,7 +668,7 @@ def rebalance_rse(
                 if not dry_run:
                     child_rule_id = rebalance_rule(
                         parent_rule=rule,
-                        activity="Data rebalancing",
+                        activity="Data Rebalancing",
                         rse_expression=target_rse_exp,
                         priority=priority,
                         source_replica_expression=source_replica_expression,
