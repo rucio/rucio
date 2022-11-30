@@ -25,7 +25,7 @@ from rucio.core.rse import get_rses_with_attribute_value, get_rse_name
 from rucio.db.sqla.constants import RequestState
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
     response_headers, generate_http_error_flask, ErrorHandlingMethodView
-from rucio.web.ui.flask.bp import AuthenticatedBlueprint
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class RequestGet(ErrorHandlingMethodView):

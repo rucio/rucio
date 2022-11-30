@@ -35,7 +35,7 @@ from rucio.core.replica_sorter import sort_replicas
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, parse_scope_name, \
     response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
-from rucio.web.ui.flask.bp import AuthenticatedBlueprint
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 def _sorted_with_priorities(replicas, sorted_pfns, limit=None):

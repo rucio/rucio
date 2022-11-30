@@ -23,7 +23,7 @@ from rucio.common.exception import CannotAuthenticate
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, extract_vo, \
     generate_http_error_flask, ErrorHandlingMethodView, response_headers
 
-from rucio.web.ui.flask.bp import AuthenticatedBlueprint
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 if TYPE_CHECKING:
     from typing import Optional
     from rucio.web.rest.flaskapi.v1.common import HeadersType

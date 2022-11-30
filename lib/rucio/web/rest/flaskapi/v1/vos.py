@@ -20,7 +20,7 @@ from rucio.common.exception import AccessDenied, AccountNotFound, Duplicate, VON
 from rucio.common.utils import render_json
 from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
-from rucio.web.ui.flask.bp import AuthenticatedBlueprint
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class VOs(ErrorHandlingMethodView):

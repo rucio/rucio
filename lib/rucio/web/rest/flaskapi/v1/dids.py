@@ -32,7 +32,7 @@ from rucio.common.utils import render_json, APIEncoder
 from rucio.db.sqla.constants import DIDType
 from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     parse_scope_name, try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, json_list, param_get, json_parse
-from rucio.web.ui.flask.bp import AuthenticatedBlueprint
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class Scope(ErrorHandlingMethodView):
