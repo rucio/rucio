@@ -21,17 +21,17 @@ class TestMonitor:
     def test_record_counter_message(self, metrics_mock):
         """MONITOR (CORE): Send a counter message to graphite """
         monitor.MetricManager(prefix='test').counter('counter').inc(10)
-        assert metrics_mock.get_sample_value(f'{monitor.SCOPE}_test_counter_total') == 10
+        assert metrics_mock.get_sample_value('test_counter_total') == 10
 
     def test_record_gauge_message(self, metrics_mock):
         """MONITOR (CORE): Send a gauge message to graphite """
         monitor.MetricManager(prefix='test').gauge('gauge').set(10)
-        assert metrics_mock.get_sample_value(f'{monitor.SCOPE}_test_gauge') == 10
+        assert metrics_mock.get_sample_value('test_gauge') == 10
 
     def test_record_timer_message(self, metrics_mock):
         """MONITOR (CORE): Send a timer message to graphite """
         monitor.MetricManager(prefix='test').timer('runtime').observe(500)
-        assert metrics_mock.get_sample_value(f'{monitor.SCOPE}_test_runtime_count') == 1
+        assert metrics_mock.get_sample_value('test_runtime_count') == 1
 
     def test_context_record_timer(self, metrics_mock):
         """MONITOR (CORE): Send a timer message to graphite using context """
@@ -40,9 +40,9 @@ class TestMonitor:
         with metric_manager.timer('context_timer'):
             var_a = 2 * 100
             var_a = var_a * 1
-        assert metrics_mock.get_sample_value(f'{monitor.SCOPE}_test_context_timer_count') == 1
+        assert metrics_mock.get_sample_value('test_context_timer_count') == 1
 
         with metric_manager.timer('context_timer'):
             var_a = 2 * 100
             var_a = var_a * 1
-        assert metrics_mock.get_sample_value(f'{monitor.SCOPE}_test_context_timer_count') == 2
+        assert metrics_mock.get_sample_value('test_context_timer_count') == 2

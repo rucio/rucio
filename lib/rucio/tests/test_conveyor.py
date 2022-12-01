@@ -30,7 +30,6 @@ from rucio.core import did as did_core
 from rucio.core import distance as distance_core
 from rucio.core import lock as lock_core
 from rucio.core import message as message_core
-from rucio.core import monitor as monitor_core
 from rucio.core import replica as replica_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
@@ -231,10 +230,10 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
 
         # 3 request: copy to second source + 2 hops (each separately)
         # Use inequalities, because there can be left-overs from other tests
-        assert metrics_mock.get_sample_value(f'{monitor_core.SCOPE}_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 3
-        assert metrics_mock.get_sample_value(f'{monitor_core.SCOPE}_daemons_conveyor_common_submit_transfer_total') >= 3
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 3
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_common_submit_transfer_total') >= 3
         # at least the failed hop
-        assert metrics_mock.get_sample_value(f'{monitor_core.SCOPE}_daemons_conveyor_finisher_handle_requests_total') > 0
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_finisher_handle_requests_total') > 0
     finally:
 
         @transactional_session
@@ -282,7 +281,7 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
     assert request['attributes']['source_replica_expression'] == src_rse
 
     # Each hop is a separate transfer, which will be handled by the poller and marked as failed
-    assert metrics_mock.get_sample_value(f'{monitor_core.SCOPE}_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 2
+    assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 2
 
     # Finisher will handle transfers of the same multihop one hop at a time
     finisher(once=True, partition_wait_time=0)
@@ -346,7 +345,7 @@ def test_fts_recoverable_failures_handled_on_multihop(vo, did_factory, root_acco
     assert request['state'] == RequestState.FAILED
 
     # Each hop is a separate transfer, which will be handled by the poller and marked as failed
-    assert metrics_mock.get_sample_value(f'{monitor_core.SCOPE}_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 2
+    assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 2
 
 
 @skip_rse_tests_with_accounts
@@ -412,10 +411,10 @@ def test_multisource(vo, did_factory, root_account, replica_client, core_config_
     assert not __source_exists(src_rse_id=src_rse2_id, **did)
 
     # Only one request was handled; doesn't matter that it's multisource
-    assert metrics_mock.get_sample_value(f'{monitor_core.SCOPE}_daemons_conveyor_finisher_handle_requests_total') >= 1
-    assert metrics_mock.get_sample_value(f'{monitor_core.SCOPE}_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 1
+    assert metrics_mock.get_sample_value('rucio_daemons_conveyor_finisher_handle_requests_total') >= 1
+    assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 1
     assert metrics_mock.get_sample_value(
-        f'{monitor_core.SCOPE}_core_request_get_next_requests_total',
+        'rucio_core_request_get_next_requests_total',
         labels={
             'request_type': 'TRANSFER.STAGEIN.STAGEOUT',
             'state': 'DONE.FAILED.LOST.SUBMITTING.SUBMISSION_FAILED.NO_SOURCES.ONLY_TAPE_SOURCES.MISMATCH_SCHEME'}
@@ -471,7 +470,7 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
             time.sleep(1)
         assert request['state'] == RequestState.DONE
 
-        assert metrics_mock.get_sample_value(f'{monitor_core.SCOPE}_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 1
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 1
         # The source was updated to the good one
         assert request['source_rse'] == src_rse1
         assert request['source_rse_id'] == src_rse1_id
@@ -534,7 +533,7 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         assert request['state'] == RequestState.FAILED
         assert 'Unused hop in multi-hop' in request['err_msg']
 
-        assert metrics_mock.get_sample_value(f'{monitor_core.SCOPE}_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 1
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 1
 
         # Finisher will handle transfers of the same multihop one hop at a time
         finisher(once=True, partition_wait_time=0)
@@ -593,7 +592,7 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
         assert fts_response[request['external_id']][request['id']].job_response['priority'] == rule_priority
 
         # Two hops; both handled by receiver
-        assert metrics_mock.get_sample_value(f'{monitor_core.SCOPE}_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 2
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 2
     finally:
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)
@@ -656,7 +655,7 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
     throttler(once=True, partition_wait_time=0)
     # Check metrics.
     # This gauge values are recorded at the beginning of the execution. Hence 2 waiting and 0 transfers
-    gauge_name = f'{monitor_core.SCOPE}_daemons_conveyor_throttler_rse_transfer_limits'
+    gauge_name = 'rucio_daemons_conveyor_throttler_rse_transfer_limits'
     assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'residual_capacity'}) == 1
     assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'max_transfers'}) == 1
     assert metrics_mock.get_sample_value(gauge_name, labels={'activity': 'all_activities', 'rse': dst_rse1, 'limit_attr': 'active'}) == 0

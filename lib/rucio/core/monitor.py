@@ -84,7 +84,7 @@ PORT = config_get('monitor', 'carbon_port', raise_exception=False, default=8125)
 SCOPE = config_get('monitor', 'user_scope', raise_exception=False, default='rucio')
 STATSD_CLIENT = None
 if SERVER is not None:
-    STATSD_CLIENT = StatsClient(host=SERVER, port=PORT)
+    STATSD_CLIENT = StatsClient(host=SERVER, port=PORT, prefix=SCOPE)
 
 ENABLE_METRICS = config_get_bool('monitor', 'enable_metrics', raise_exception=False, default=False)
 if ENABLE_METRICS:
@@ -319,14 +319,16 @@ class MetricManager:
     """
     def __init__(self, prefix: "Optional[str]" = None, module: "Optional[str]" = None):
         if prefix:
-            self.prefix = f'{SCOPE}.{prefix}'
+            self.prefix = prefix
         elif module:
-            if module.startswith('rucio.'):
-                module = module[len('rucio.'):]
-            self.prefix = f'{SCOPE}.{module}'
+            self.prefix = module
+        else:
+            self.prefix = None
 
     def full_name(self, name: str):
-        return f'{self.prefix}.{name}'
+        if self.prefix:
+            return f'{self.prefix}.{name}'
+        return name
 
     def counter(
             self,
