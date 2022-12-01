@@ -2679,7 +2679,8 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
     ).where(
         models.Source.scope.is_(None)  # Only try to delete replicas if they are not used as sources in any transfers
     ).order_by(
-        models.RSEFileAssociation.tombstone
+        models.RSEFileAssociation.tombstone,
+        models.RSEFileAssociation.updated_at
     ).with_for_update(
         skip_locked=True,
         # oracle: we must specify a column, not a table; however, it doesn't matter which column, the lock is put on the whole row
@@ -2731,7 +2732,8 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
                   (func.count(models.Request.scope) == 0, True)],  # If it's the last replica, only can delete if there are no requests using it
                  else_=False).label("can_delete"),
         ).order_by(
-            models.RSEFileAssociation.tombstone
+            models.RSEFileAssociation.tombstone,
+            models.RSEFileAssociation.updated_at
         ).limit(
             limit - len(rows)
         )
@@ -2806,7 +2808,7 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
                                    models.RSEFileAssociation.name == models.Source.name,
                                    models.RSEFileAssociation.rse_id == models.Source.rse_id)))).\
         with_for_update(skip_locked=True).\
-        order_by(models.RSEFileAssociation.tombstone)
+        order_by(models.RSEFileAssociation.tombstone, models.RSEFileAssociation.updated_at)
 
     needed_space = bytes_
     total_bytes, total_files = 0, 0
