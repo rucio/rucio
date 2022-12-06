@@ -231,10 +231,18 @@ def _get_request_stats(rse_collection: RseCollection, *, logger=logging.log, ses
         counter = db_stat.counter
         activity = db_stat.activity
 
-        dest_rse = rse_collection[db_stat.dest_rse_id].ensure_loaded(load_transfer_limits=True, load_name=True, load_columns=True, session=session)
+        try:
+            dest_rse = rse_collection[db_stat.dest_rse_id].ensure_loaded(load_transfer_limits=True, load_name=True, load_columns=True, session=session)
+        except exception.RSENotFound:
+            logger(logging.INFO, "Destination RSE {} not found. Probably deleted.", db_stat.dest_rse_id)
+            continue
         source_rse = None
         if db_stat.source_rse_id:
-            source_rse = rse_collection[db_stat.source_rse_id].ensure_loaded(load_transfer_limits=True, load_name=True, load_columns=True, session=session)
+            try:
+                source_rse = rse_collection[db_stat.source_rse_id].ensure_loaded(load_transfer_limits=True, load_name=True, load_columns=True, session=session)
+            except exception.RSENotFound:
+                logger(logging.INFO, "Source RSE {} not found. Probably deleted.", db_stat.source_rse_id)
+                continue
 
         source_limits = list(applicable_rse_transfer_limits(activity=activity, source_rse=source_rse, session=session))
         dest_limits = list(applicable_rse_transfer_limits(activity=activity, dest_rse=dest_rse, session=session))
