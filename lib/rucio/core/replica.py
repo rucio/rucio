@@ -47,6 +47,7 @@ from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.constants import SuspiciousAvailability
 from rucio.core.credential import get_signed_url
 from rucio.core import config as config_core
+from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
@@ -64,6 +65,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=60)
+METRICS = MetricManager(module=__name__)
 
 
 ScopeName = namedtuple('ScopeName', ['scope', 'name'])
@@ -71,7 +73,7 @@ Association = namedtuple('Association', ['scope', 'name', 'child_scope', 'child_
 
 
 @read_session
-def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, filter_=None, session=None):
+def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, filter_=None, *, session: "Session"):
     """
     List the bad file replicas summary. Method used by the rucio-ui.
     :param rse_expression: The RSE expression.
@@ -125,7 +127,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
 
 
 @read_session
-def __exist_replicas(rse_id, replicas, session=None):
+def __exist_replicas(rse_id, replicas, *, session: "Session"):
     """
     Internal method to check if a replica exists at a given site.
     :param rse_id: The RSE id.
@@ -196,7 +198,7 @@ def __exist_replicas(rse_id, replicas, session=None):
 
 
 @read_session
-def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than=None, older_than=None, limit=None, list_pfns=False, vo='def', session=None):
+def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than=None, older_than=None, limit=None, list_pfns=False, vo='def', *, session: "Session"):
     """
     List the bad file replicas history states. Method used by the rucio-ui.
     :param state: The state of the file (SUSPICIOUS or BAD).
@@ -242,7 +244,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
 
 
 @transactional_session
-def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', force=False, session=None):
+def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', force=False, *, session: "Session"):
     """
     Declare a list of bad replicas.
 
@@ -353,7 +355,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
 
 
 @transactional_session
-def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, session=None):
+def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, *, session: "Session"):
     """
     Declare a list of bad replicas.
 
@@ -402,8 +404,8 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, session
 
 
 @transactional_session
-def declare_bad_file_replicas(replicas: list, reason: str, issuer, status=BadFilesStatus.BAD, force: bool = False,
-                              session=None):
+def declare_bad_file_replicas(replicas: list, reason: str, issuer, status=BadFilesStatus.BAD, force: bool = False, *,
+                              session: "Session"):
     """
     Declare a list of bad replicas.
 
@@ -439,7 +441,7 @@ def declare_bad_file_replicas(replicas: list, reason: str, issuer, status=BadFil
 
 
 @read_session
-def get_pfn_to_rse(pfns, vo='def', session=None):
+def get_pfn_to_rse(pfns, vo='def', *, session: "Session"):
     """
     Get the RSE associated to a list of PFNs.
 
@@ -509,7 +511,7 @@ def get_pfn_to_rse(pfns, vo='def', session=None):
 
 
 @read_session
-def get_bad_replicas_backlog(session=None):
+def get_bad_replicas_backlog(*, session: "Session"):
     """
     Get the replica backlog by RSE.
 
@@ -542,7 +544,7 @@ def get_bad_replicas_backlog(session=None):
 
 
 @read_session
-def list_bad_replicas(limit=10000, thread=None, total_threads=None, rses=None, session=None):
+def list_bad_replicas(limit=10000, thread=None, total_threads=None, rses=None, *, session: "Session"):
     """
     List RSE File replicas with no locks.
 
@@ -589,7 +591,7 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, rses=None, s
 
 
 @stream_session
-def get_did_from_pfns(pfns, rse_id=None, vo='def', session=None):
+def get_did_from_pfns(pfns, rse_id=None, vo='def', *, session: "Session"):
     """
     Get the DIDs associated to a PFN on one given RSE
 
@@ -675,7 +677,7 @@ def _pick_n_random(nrandom, generator):
         yield r
 
 
-def _list_files_wo_replicas(files_wo_replica, session):
+def _list_files_wo_replicas(files_wo_replica, *, session: "Session"):
     if files_wo_replica:
         file_wo_clause = []
         for file in sorted(files_wo_replica, key=lambda f: (f['scope'], f['name'])):
@@ -858,7 +860,7 @@ def _build_list_replicas_pfn(
 
 
 def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_location, domain,
-                   sign_urls, signature_lifetime, resolve_parents, filters, by_rse_name, session):
+                   sign_urls, signature_lifetime, resolve_parents, filters, by_rse_name, *, session: "Session"):
 
     # the `domain` variable name will be re-used throughout the function with different values
     input_domain = domain
@@ -1002,7 +1004,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
         if file:
             yield file
 
-    for scope, name, bytes_, md5, adler32 in _list_files_wo_replicas(files_wo_replica, session):
+    for scope, name, bytes_, md5, adler32 in _list_files_wo_replicas(files_wo_replica, session=session):
         yield {
             'scope': scope,
             'name': name,
@@ -1033,7 +1035,7 @@ def list_replicas(
         nrandom: "Optional[int]" = None,
         updated_after: "Optional[datetime]" = None,
         by_rse_name: bool = False,
-        session: "Optional[Session]" = None,
+        *, session: "Session",
 ):
     """
     List file replicas for a list of data identifiers (DIDs).
@@ -1062,12 +1064,14 @@ def list_replicas(
     if use_temp_tables:
         yield from _list_replicas_with_temp_tables(
             dids, schemes, unavailable, request_id, ignore_availability, all_states, pfns, rse_expression, client_location,
-            domain, sign_urls, signature_lifetime, resolve_archives, resolve_parents, nrandom, updated_after, by_rse_name, session,
+            domain, sign_urls, signature_lifetime, resolve_archives, resolve_parents, nrandom, updated_after, by_rse_name,
+            session=session,
         )
     else:
         yield from _list_replicas_wo_temp_tables(
             dids, schemes, unavailable, request_id, ignore_availability, all_states, pfns, rse_expression, client_location,
-            domain, sign_urls, signature_lifetime, resolve_archives, resolve_parents, nrandom, updated_after, by_rse_name, session,
+            domain, sign_urls, signature_lifetime, resolve_archives, resolve_parents, nrandom, updated_after, by_rse_name,
+            session=session,
         )
 
 
@@ -1089,7 +1093,8 @@ def _list_replicas_with_temp_tables(
         nrandom: "Optional[int]" = None,
         updated_after: "Optional[datetime]" = None,
         by_rse_name: bool = True,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ):
 
     def _replicas_filter_subquery():
@@ -1145,7 +1150,7 @@ def _list_replicas_with_temp_tables(
 
         return stmt.subquery()
 
-    def _resolve_collection_files(temp_table, session):
+    def _resolve_collection_files(temp_table, *, session: "Session"):
         """
         Find all FILE dids contained in collections from temp_table and return them in a newly
         created temporary table.
@@ -1260,7 +1265,7 @@ def _list_replicas_with_temp_tables(
                  replicas_subquery.c.name == temp_table.name),
         )
 
-    def _inspect_dids(temp_table, session):
+    def _inspect_dids(temp_table, *, session: "Session"):
         """
         Find how many files, collections and constituents are among the dids in the temp_table
         """
@@ -1292,11 +1297,11 @@ def _list_replicas_with_temp_tables(
     input_dids_temp_table = temp_table_mngr(session).create_scope_name_table()
     session.bulk_insert_mappings(input_dids_temp_table, [{'scope': s, 'name': n} for s, n in dids])
 
-    num_files, num_collections, num_constituents = _inspect_dids(input_dids_temp_table, session)
+    num_files, num_collections, num_constituents = _inspect_dids(input_dids_temp_table, session=session)
 
     num_files_in_collections, resolved_files_temp_table = 0, None
     if num_collections:
-        num_files_in_collections, resolved_files_temp_table = _resolve_collection_files(input_dids_temp_table, session)
+        num_files_in_collections, resolved_files_temp_table = _resolve_collection_files(input_dids_temp_table, session=session)
 
     replicas_subquery = _replicas_filter_subquery()
     replica_sources = []
@@ -1364,7 +1369,7 @@ def _list_replicas_with_temp_tables(
             _pick_n_random(
                 nrandom,
                 _list_replicas(replica_tuples, pfns, schemes, [], client_location, domain,
-                               sign_urls, signature_lifetime, resolve_parents, filter_, by_rse_name, session)
+                               sign_urls, signature_lifetime, resolve_parents, filter_, by_rse_name, session=session)
             )
         )
         if len(random_replicas) == nrandom:
@@ -1393,12 +1398,12 @@ def _list_replicas_with_temp_tables(
     yield from _pick_n_random(
         nrandom,
         _list_replicas(replica_tuples, pfns, schemes, [], client_location, domain,
-                       sign_urls, signature_lifetime, resolve_parents, filter_, by_rse_name, session)
+                       sign_urls, signature_lifetime, resolve_parents, filter_, by_rse_name, session=session)
     )
 
 
 @transactional_session
-def __bulk_add_new_file_dids(files, account, dataset_meta=None, session=None):
+def __bulk_add_new_file_dids(files, account, dataset_meta=None, *, session: "Session"):
     """
     Bulk add new dids.
 
@@ -1445,7 +1450,7 @@ def __bulk_add_new_file_dids(files, account, dataset_meta=None, session=None):
 
 
 @transactional_session
-def __bulk_add_file_dids(files, account, dataset_meta=None, session=None):
+def __bulk_add_file_dids(files, account, dataset_meta=None, *, session: "Session"):
     """
     Bulk add new dids.
 
@@ -1496,7 +1501,7 @@ def tombstone_from_delay(tombstone_delay):
 
 
 @transactional_session
-def __bulk_add_replicas(rse_id, files, account, session=None):
+def __bulk_add_replicas(rse_id, files, account, *, session: "Session"):
     """
     Bulk add new dids.
 
@@ -1555,7 +1560,7 @@ def __bulk_add_replicas(rse_id, files, account, session=None):
 
 @transactional_session
 def add_replicas(rse_id, files, account, ignore_availability=True,
-                 dataset_meta=None, session=None):
+                 dataset_meta=None, *, session: "Session"):
     """
     Bulk add file replicas.
 
@@ -1628,7 +1633,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
 
 
 @transactional_session
-def add_replica(rse_id, scope, name, bytes_, account, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=[], tombstone=None, session=None):
+def add_replica(rse_id, scope, name, bytes_, account, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=[], tombstone=None, *, session: "Session"):
     """
     Add File replica.
 
@@ -1656,8 +1661,9 @@ def add_replica(rse_id, scope, name, bytes_, account, adler32=None, md5=None, ds
     return add_replicas(rse_id=rse_id, files=[file, ], account=account, session=session)
 
 
+@METRICS.time_it
 @transactional_session
-def delete_replicas(rse_id, files, ignore_availability=True, session=None):
+def delete_replicas(rse_id, files, ignore_availability=True, *, session: "Session"):
     """
     Delete file replicas.
 
@@ -1673,7 +1679,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, session=None):
         __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=ignore_availability, session=session)
 
 
-def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
+def __delete_replicas(rse_id, files, ignore_availability=True, *, session: "Session"):
     if not files:
         return
 
@@ -1757,7 +1763,7 @@ def __delete_replicas(rse_id, files, ignore_availability=True, session=None):
 
 
 @transactional_session
-def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_table2, association_temp_table, rse_id, files, session=None):
+def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_table2, association_temp_table, rse_id, files, *, session: "Session"):
     """
     Perform update of collections/archive associations/dids after the removal of their replicas
     :param rse_id: the rse id
@@ -2193,7 +2199,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
 
 
 @transactional_session
-def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=True, session=None):
+def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=True, *, session: "Session"):
     """
     Delete file replicas.
 
@@ -2269,7 +2275,7 @@ def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=Tru
 
 
 @transactional_session
-def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, session=None):
+def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, session: "Session"):
     """
     Perform update of collections/archive associations/dids after the removal of their replicas
     :param rse_id: the rse id
@@ -2608,7 +2614,7 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, session=N
 
 
 @transactional_session
-def get_replica(rse_id, scope, name, session=None):
+def get_replica(rse_id, scope, name, *, session: "Session"):
     """
     Get File replica.
 
@@ -2630,7 +2636,7 @@ def get_replica(rse_id, scope, name, session=None):
 
 
 @transactional_session
-def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_seconds=600, only_delete_obsolete=False, session=None):
+def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_seconds=600, only_delete_obsolete=False, *, session: "Session"):
     """
     List RSE File replicas with no locks.
 
@@ -2765,7 +2771,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
 
 
 @transactional_session
-def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=None, delay_seconds=600, only_delete_obsolete=False, session=None):
+def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=None, delay_seconds=600, only_delete_obsolete=False, *, session: "Session"):
     """
     List RSE File replicas with no locks.
 
@@ -2872,7 +2878,7 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
 
 
 @transactional_session
-def update_replicas_states(replicas, nowait=False, session=None):
+def update_replicas_states(replicas, nowait=False, *, session: "Session"):
     """
     Update File replica information and state.
 
@@ -2927,7 +2933,7 @@ def update_replicas_states(replicas, nowait=False, session=None):
 
 
 @transactional_session
-def touch_replica(replica, session=None):
+def touch_replica(replica, *, session: "Session"):
     """
     Update the accessed_at timestamp of the given file replica/did but don't wait if row is locked.
 
@@ -2976,7 +2982,7 @@ def touch_replica(replica, session=None):
 
 
 @transactional_session
-def update_replica_state(rse_id, scope, name, state, session=None):
+def update_replica_state(rse_id, scope, name, state, *, session: "Session"):
     """
     Update File replica information and state.
 
@@ -2990,7 +2996,7 @@ def update_replica_state(rse_id, scope, name, state, session=None):
 
 
 @transactional_session
-def get_and_lock_file_replicas(scope, name, nowait=False, restrict_rses=None, session=None):
+def get_and_lock_file_replicas(scope, name, nowait=False, restrict_rses=None, *, session: "Session"):
     """
     Get file replicas for a specific scope:name.
 
@@ -3014,7 +3020,7 @@ def get_and_lock_file_replicas(scope, name, nowait=False, restrict_rses=None, se
 
 
 @transactional_session
-def get_source_replicas(scope, name, source_rses=None, session=None):
+def get_source_replicas(scope, name, source_rses=None, *, session: "Session"):
     """
     Get soruce replicas for a specific scope:name.
 
@@ -3039,7 +3045,7 @@ def get_source_replicas(scope, name, source_rses=None, session=None):
 @transactional_session
 def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_rses=None,
                                            total_threads=None, thread_id=None,
-                                           session=None):
+                                           *, session: "Session"):
     """
     Get file replicas for all files of a dataset.
 
@@ -3185,7 +3191,7 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
 @transactional_session
 def get_source_replicas_for_dataset(scope, name, source_rses=None,
                                     total_threads=None, thread_id=None,
-                                    session=None):
+                                    *, session: "Session"):
     """
     Get file replicas for all files of a dataset.
 
@@ -3245,7 +3251,7 @@ def get_source_replicas_for_dataset(scope, name, source_rses=None,
 
 
 @read_session
-def get_replica_atime(replica, session=None):
+def get_replica_atime(replica, *, session: "Session"):
     """
     Get the accessed_at timestamp for a replica. Just for testing.
     :param replicas: List of dictionaries {scope, name, rse_id, path}
@@ -3258,7 +3264,7 @@ def get_replica_atime(replica, session=None):
 
 
 @transactional_session
-def touch_collection_replicas(collection_replicas, session=None):
+def touch_collection_replicas(collection_replicas, *, session: "Session"):
     """
     Update the accessed_at timestamp of the given collection replicas.
 
@@ -3280,7 +3286,7 @@ def touch_collection_replicas(collection_replicas, session=None):
 
 
 @stream_session
-def list_dataset_replicas(scope, name, deep=False, session=None):
+def list_dataset_replicas(scope, name, deep=False, *, session: "Session"):
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.
@@ -3434,7 +3440,7 @@ def list_dataset_replicas(scope, name, deep=False, session=None):
 
 
 @stream_session
-def list_dataset_replicas_bulk(names_by_intscope, session=None):
+def list_dataset_replicas_bulk(names_by_intscope, *, session: "Session"):
     """
     :param names_by_intscope: The dictionary of internal scopes pointing at the list of names.
     :param session: Database session to use.
@@ -3474,7 +3480,7 @@ def list_dataset_replicas_bulk(names_by_intscope, session=None):
 
 
 @stream_session
-def list_dataset_replicas_vp(scope, name, deep=False, session=None, logger=logging.log):
+def list_dataset_replicas_vp(scope, name, deep=False, *, session: "Session", logger=logging.log):
     """
     List dataset replicas for a DID (scope:name) using the
     Virtual Placement service.
@@ -3528,7 +3534,7 @@ def list_dataset_replicas_vp(scope, name, deep=False, session=None, logger=loggi
 
 
 @stream_session
-def list_datasets_per_rse(rse_id, filters=None, limit=None, session=None):
+def list_datasets_per_rse(rse_id, filters=None, limit=None, *, session: "Session"):
     """
     List datasets at a RSE.
 
@@ -3584,7 +3590,7 @@ def list_datasets_per_rse(rse_id, filters=None, limit=None, session=None):
 
 
 @transactional_session
-def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=None, session=None):
+def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=None, *, session: "Session"):
     """
     Get update request for collection replicas.
     :param total_workers:      Number of total workers.
@@ -3646,7 +3652,7 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
 
 
 @transactional_session
-def update_collection_replica(update_request, session=None):
+def update_collection_replica(update_request, *, session: "Session"):
     """
     Update a collection replica.
     :param update_request: update request from the upated_col_rep table.
@@ -3761,7 +3767,7 @@ def update_collection_replica(update_request, session=None):
 
 
 @read_session
-def get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None):
+def get_bad_pfns(limit=10000, thread=None, total_threads=None, *, session: "Session"):
     """
     Returns a list of bad PFNs
 
@@ -3783,7 +3789,7 @@ def get_bad_pfns(limit=10000, thread=None, total_threads=None, session=None):
 
 
 @transactional_session
-def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=None, expires_at=None, session=None):
+def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=None, expires_at=None, *, session: "Session"):
     """
     Bulk add new bad replicas.
 
@@ -3819,7 +3825,7 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
 
 
 @transactional_session
-def bulk_delete_bad_pfns(pfns, session=None):
+def bulk_delete_bad_pfns(pfns, *, session: "Session"):
     """
     Bulk delete bad PFNs.
 
@@ -3840,7 +3846,7 @@ def bulk_delete_bad_pfns(pfns, session=None):
 
 
 @transactional_session
-def bulk_delete_bad_replicas(bad_replicas, session=None):
+def bulk_delete_bad_replicas(bad_replicas, *, session: "Session"):
     """
     Bulk delete bad replica.
 
@@ -3863,7 +3869,7 @@ def bulk_delete_bad_replicas(bad_replicas, session=None):
 
 
 @transactional_session
-def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=None):
+def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, *, session: "Session"):
     """
     Add bad PFNs.
 
@@ -3907,7 +3913,7 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, session=Non
 
 
 @read_session
-def list_expired_temporary_unavailable_replicas(total_workers, worker_number, limit=10000, session=None):
+def list_expired_temporary_unavailable_replicas(total_workers, worker_number, limit=10000, *, session: "Session"):
     """
     List the expired temporary unavailable replicas
 
@@ -3929,7 +3935,7 @@ def list_expired_temporary_unavailable_replicas(total_workers, worker_number, li
 
 
 @read_session
-def get_replicas_state(scope=None, name=None, session=None):
+def get_replicas_state(scope=None, name=None, *, session: "Session"):
     """
     Method used by the necromancer to get all the replicas of a DIDs
     :param scope: The scope of the file.
@@ -3950,7 +3956,7 @@ def get_replicas_state(scope=None, name=None, session=None):
 
 
 @read_session
-def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logger=logging.log, younger_than=10, nattempts=0, nattempts_exact=False, session=None, exclude_states=['B', 'R', 'D'], is_suspicious=False):
+def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logger=logging.log, younger_than=10, nattempts=0, nattempts_exact=False, *, session: "Session", exclude_states=['B', 'R', 'D'], is_suspicious=False):
     """
     Gets a list of replicas from bad_replicas table which are: declared more than <nattempts> times since <younger_than> date,
     present on the RSE specified by the <rse_expression> and do not have a state in <exclude_states> list.
@@ -4067,7 +4073,7 @@ def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logg
 
 
 @read_session
-def get_suspicious_reason(rse_id, scope, name, nattempts=0, logger=logging.log, session=None):
+def get_suspicious_reason(rse_id, scope, name, nattempts=0, logger=logging.log, *, session: "Session"):
     """
     Returns the error message(s) which lead to the replica(s) being declared suspicious.
 
@@ -4103,7 +4109,7 @@ def get_suspicious_reason(rse_id, scope, name, nattempts=0, logger=logging.log, 
 
 
 @transactional_session
-def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
+def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, *, session: "Session"):
     """
     Sets a tombstone on a replica.
 
@@ -4141,7 +4147,7 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, session=None):
 
 
 @read_session
-def get_RSEcoverage_of_dataset(scope, name, session=None):
+def get_RSEcoverage_of_dataset(scope, name, *, session: "Session"):
     """
     Get total bytes present on RSEs
 
@@ -4171,7 +4177,7 @@ def get_RSEcoverage_of_dataset(scope, name, session=None):
     return result
 
 
-def _resolve_dids_wo_temp_tables(dids, unavailable, ignore_availability, all_states, resolve_archives, session):
+def _resolve_dids_wo_temp_tables(dids, unavailable, ignore_availability, all_states, resolve_archives, *, session: "Session"):
     """
     Resolve list of DIDs into a list of conditions.
 
@@ -4246,7 +4252,7 @@ def _resolve_dids_wo_temp_tables(dids, unavailable, ignore_availability, all_sta
     return file_clause, dataset_clause, state_clause, constituent_clause, files_wo_replica
 
 
-def _list_replicas_for_datasets_wo_temp_tables(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session):
+def _list_replicas_for_datasets_wo_temp_tables(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, *, session: "Session"):
     """
     List file replicas for a list of datasets.
 
@@ -4294,7 +4300,7 @@ def _list_replicas_for_datasets_wo_temp_tables(dataset_clause, state_clause, rse
         yield scope, name, None, None, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile
 
 
-def _list_replicas_for_constituents_wo_temp_tables(constituent_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session):
+def _list_replicas_for_constituents_wo_temp_tables(constituent_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, *, session: "Session"):
     """
     List file replicas for archive constituents.
     """
@@ -4345,7 +4351,7 @@ def _list_replicas_for_constituents_wo_temp_tables(constituent_clause, state_cla
         yield replica
 
 
-def _list_replicas_for_files_wo_temp_tables(file_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session):
+def _list_replicas_for_files_wo_temp_tables(file_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, *, session: "Session"):
     """
     List file replicas for a list of files.
 
@@ -4413,7 +4419,8 @@ def _list_replicas_wo_temp_tables(
         nrandom: "Optional[int]" = None,
         updated_after: "Optional[datetime]" = None,
         by_rse_name: bool = True,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ):
     if dids:
         filter_ = {'vo': dids[0]['scope'].vo}
@@ -4436,14 +4443,14 @@ def _list_replicas_wo_temp_tables(
 
     # iterator which merges multiple sorted replica sources into a combine sorted result without loading everything into the memory
     replica_tuples = heapq.merge(
-        _list_replicas_for_datasets_wo_temp_tables(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session),
-        _list_replicas_for_files_wo_temp_tables(file_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session),
-        _list_replicas_for_constituents_wo_temp_tables(constituent_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session),
+        _list_replicas_for_datasets_wo_temp_tables(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session=session),
+        _list_replicas_for_files_wo_temp_tables(file_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session=session),
+        _list_replicas_for_constituents_wo_temp_tables(constituent_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session=session),
         key=lambda t: (t[0], t[1]),  # sort by scope, name
     )
 
     yield from _pick_n_random(
         nrandom,
         _list_replicas(replica_tuples, pfns, schemes, files_wo_replica, client_location, domain,
-                       sign_urls, signature_lifetime, resolve_parents, filter_, by_rse_name, session)
+                       sign_urls, signature_lifetime, resolve_parents, filter_, by_rse_name, session=session)
     )

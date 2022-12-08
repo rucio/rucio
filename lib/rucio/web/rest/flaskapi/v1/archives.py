@@ -15,11 +15,12 @@
 
 from json import dumps
 
-from flask import Flask, Blueprint, request
+from flask import Flask, request
 
 from rucio.api.did import list_archive_content
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     parse_scope_name, try_stream, generate_http_error_flask, ErrorHandlingMethodView
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class Archive(ErrorHandlingMethodView):
@@ -83,12 +84,11 @@ class Archive(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('archives', __name__, url_prefix='/archives')
+    bp = AuthenticatedBlueprint('archives', __name__, url_prefix='/archives')
 
     archive_view = Archive.as_view('archive')
     bp.add_url_rule('/<path:scope_name>/files', view_func=archive_view, methods=['get', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

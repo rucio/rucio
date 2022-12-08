@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import re
+from typing import TYPE_CHECKING
 
 from json import loads
 from json.decoder import JSONDecodeError
@@ -31,9 +32,12 @@ from rucio.core.replica import add_replicas
 from rucio.core.rule import add_rule, list_rules, update_rule
 from rucio.core.scope import list_scopes
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @read_session
-def _exists(scope, name, session=None):
+def _exists(scope, name, *, session: "Session"):
     """
     Check if the did exists
 
@@ -50,7 +54,7 @@ def _exists(scope, name, session=None):
 
 
 @transactional_session
-def add_files(lfns, account, ignore_availability, vo='def', session=None):
+def add_files(lfns, account, ignore_availability, vo='def', *, session: "Session"):
     """
     Bulk add files :
     - Create the file and replica.

@@ -116,7 +116,7 @@ def add_cookies(response, cookie={}):
     for int_cookie in cookie:
         response.set_cookie(**int_cookie)
 
-    return(response)
+    return response
 
 
 def redirect_to_last_known_url(cookie):

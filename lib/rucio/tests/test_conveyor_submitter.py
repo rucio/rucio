@@ -55,8 +55,8 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account, file
     dst_rses = [rse_factory.make_posix_rse() for _ in range(3)]
     for _, src_rse_id in src_rses:
         for _, dst_rse_id in dst_rses:
-            distance_core.add_distance(src_rse_id=src_rse_id, dest_rse_id=dst_rse_id, ranking=10)
-            distance_core.add_distance(src_rse_id=dst_rse_id, dest_rse_id=src_rse_id, ranking=10)
+            distance_core.add_distance(src_rse_id=src_rse_id, dest_rse_id=dst_rse_id, distance=10)
+            distance_core.add_distance(src_rse_id=dst_rse_id, dest_rse_id=src_rse_id, distance=10)
 
     # Create a certain number of files on source RSEs with replication rules towards random destination RSEs
     nb_files = 15
@@ -74,7 +74,7 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account, file
 
     # Forge request creation time to a random moment in the past hour
     @transactional_session
-    def _forge_requests_creation_time(session=None):
+    def _forge_requests_creation_time(*, session=None):
         base_time = datetime.utcnow().replace(microsecond=0, minute=0) - timedelta(hours=1)
         assigned_times = set()
         for request in requests:
@@ -157,10 +157,10 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     # if multihop delay is set to 0, the replica will have no tombstone
     rse_core.add_rse_attribute(jump_rse3_id, 'multihop_tombstone_delay', 0)
 
-    distance_core.add_distance(src_rse_id, jump_rse1_id, ranking=10)
-    distance_core.add_distance(jump_rse1_id, jump_rse2_id, ranking=10)
-    distance_core.add_distance(jump_rse2_id, jump_rse3_id, ranking=10)
-    distance_core.add_distance(jump_rse3_id, dst_rse_id, ranking=10)
+    distance_core.add_distance(src_rse_id, jump_rse1_id, distance=10)
+    distance_core.add_distance(jump_rse1_id, jump_rse2_id, distance=10)
+    distance_core.add_distance(jump_rse2_id, jump_rse3_id, distance=10)
+    distance_core.add_distance(jump_rse3_id, dst_rse_id, distance=10)
 
     did = did_factory.upload_test_file(src_rse_name)
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -172,7 +172,7 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
         assert request_core.get_request_by_did(rse_id=rse_id, **did)
 
     @read_session
-    def __number_sources(rse_id, scope, name, session=None):
+    def __number_sources(rse_id, scope, name, *, session=None):
         return session.query(Source). \
             filter(Source.rse_id == rse_id). \
             filter(Source.scope == scope). \
@@ -197,7 +197,7 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     assert replica['tombstone'] is None
 
     # Ensure that prometheus metrics were correctly registered. Only one submission, mock transfertool groups everything into one job.
-    assert metrics_mock.get_sample_value('rucio_core_request_submit_transfer_total') == 1
+    assert metrics_mock.get_sample_value('rucio_daemons_conveyor_common_submit_transfer_total') == 1
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
@@ -222,8 +222,8 @@ def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_f
     for rse_id in [src_rse1_id, src_rse2_id]:
         rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=1)
         rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=1, free=0)
-    distance_core.add_distance(src_rse1_id, dst_rse_id, ranking=20)
-    distance_core.add_distance(src_rse2_id, dst_rse_id, ranking=10)
+    distance_core.add_distance(src_rse1_id, dst_rse_id, distance=20)
+    distance_core.add_distance(src_rse2_id, dst_rse_id, distance=10)
 
     # Upload a test file to both rses without registering
     did = did_factory.random_file_did()
@@ -253,7 +253,7 @@ def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_f
     assert len(replica['pfns']) == 2
 
     @transactional_session
-    def __delete_sources(rse_id, scope, name, session=None):
+    def __delete_sources(rse_id, scope, name, *, session=None):
         session.execute(
             delete(Source).where(Source.rse_id == rse_id,
                                  Source.scope == scope,
@@ -282,7 +282,7 @@ def test_ignore_availability(rse_factory, did_factory, root_account, core_config
         src_rse, src_rse_id = rse_factory.make_posix_rse()
         dst_rse, dst_rse_id = rse_factory.make_posix_rse()
 
-        distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+        distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
         did = did_factory.upload_test_file(src_rse)
         rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
@@ -324,8 +324,8 @@ def test_globus(rse_factory, did_factory, root_account):
     rse4, rse4_id = rse_factory.make_posix_rse()
     all_rses = [rse1_id, rse2_id, rse3_id, rse4_id]
 
-    distance_core.add_distance(rse1_id, rse2_id, ranking=10)
-    distance_core.add_distance(rse3_id, rse4_id, ranking=10)
+    distance_core.add_distance(rse1_id, rse2_id, distance=10)
+    distance_core.add_distance(rse3_id, rse4_id, distance=10)
     for rse_id in all_rses:
         rse_core.add_rse_attribute(rse_id, 'globus_endpoint_id', rse_id)
 
@@ -412,10 +412,10 @@ def test_hop_penalty(rse_factory, did_factory, root_account, file_config_mock, c
     rse5, rse5_id = rse_factory.make_posix_rse()
     all_rses = [rse1_id, rse2_id, rse3_id, rse4_id, rse5_id]
 
-    distance_core.add_distance(rse1_id, rse2_id, ranking=10)
-    distance_core.add_distance(rse2_id, rse3_id, ranking=10)
-    distance_core.add_distance(rse4_id, rse5_id, ranking=10)
-    distance_core.add_distance(rse5_id, rse3_id, ranking=10)
+    distance_core.add_distance(rse1_id, rse2_id, distance=10)
+    distance_core.add_distance(rse2_id, rse3_id, distance=10)
+    distance_core.add_distance(rse4_id, rse5_id, distance=10)
+    distance_core.add_distance(rse5_id, rse3_id, distance=10)
 
     rse_core.add_rse_attribute(rse2_id, 'available_for_multihop', True)
     rse_core.add_rse_attribute(rse5_id, 'available_for_multihop', True)

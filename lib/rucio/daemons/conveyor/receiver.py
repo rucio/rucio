@@ -33,7 +33,7 @@ from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.logging import setup_logging
 from rucio.common.policy import get_policy
 from rucio.core import request as request_core
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MetricManager
 from rucio.core.transfer import set_transfer_update_time
 from rucio.daemons.common import HeartbeatHandler
 from rucio.db.sqla.session import transactional_session
@@ -41,6 +41,7 @@ from rucio.transfertool.fts3 import FTS3CompletionMessageTransferStatusReport
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 
 
@@ -53,13 +54,12 @@ class Receiver(object):
         self.__total_threads = total_threads
         self.__full_mode = full_mode
 
+    @METRICS.count_it
     def on_error(self, frame):
-        record_counter('daemons.conveyor.receiver.error')
         logging.error('[%s] %s' % (self.__broker, frame.body))
 
+    @METRICS.count_it
     def on_message(self, frame):
-        record_counter('daemons.conveyor.receiver.message_all')
-
         msg = json.loads(frame.body)
 
         if not self.__all_vos:
@@ -72,12 +72,12 @@ class Receiver(object):
            and str(msg['job_metadata']['issuer']) == str('rucio'):
 
             if 'job_state' in msg.keys() and (str(msg['job_state']) != str('ACTIVE') or msg.get('job_multihop', False) is True):
-                record_counter('daemons.conveyor.receiver.message_rucio')
+                METRICS.counter('message_rucio').inc()
 
                 self._perform_request_update(msg)
 
     @transactional_session
-    def _perform_request_update(self, msg, session=None, logger=logging.log):
+    def _perform_request_update(self, msg, *, session=None, logger=logging.log):
         external_host = msg.get('endpnt', None)
         request_id = msg['file_metadata'].get('request_id', None)
         try:
@@ -87,12 +87,12 @@ class Receiver(object):
 
                 if self.__full_mode:
                     ret = request_core.update_request_state(tt_status_report, session=session, logger=logger)
-                    record_counter('daemons.conveyor.receiver.update_request_state.{updated}', labels={'updated': ret})
+                    METRICS.counter('update_request_state.{updated}').labels(updated=ret).inc()
                 else:
                     try:
                         logging.debug("Update request %s update time" % request_id)
                         set_transfer_update_time(external_host, tt_status_report.external_id, datetime.datetime.utcnow() - datetime.timedelta(hours=24), session=session)
-                        record_counter('daemons.conveyor.receiver.set_transfer_update_time')
+                        METRICS.counter('set_transfer_update_time').inc()
                     except Exception as error:
                         logging.debug("Failed to update transfer's update time: %s" % str(error))
         except Exception:
@@ -168,7 +168,7 @@ def receiver(id_, total_threads=1, full_mode=False, all_vos=False):
 
                 if not conn.is_connected():
                     logger(logging.INFO, 'connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
-                    record_counter('daemons.messaging.fts3.reconnect.{host}', labels={'host': conn.transport._Transport__host_and_ports[0][0].split('.')[0]})
+                    METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0].split('.')[0]).inc()
 
                     conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0],
                                                                        id_=id_, total_threads=total_threads,

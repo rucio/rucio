@@ -34,12 +34,12 @@ from rucio.common.exception import (InvalidRSEExpression,
 from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.account import list_accounts
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MetricManager
 from rucio.core.request import set_request_state, RequestWithSources, RequestSource
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, RequestType, TransferLimitDirection
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
@@ -61,6 +61,7 @@ Requests accessed by request_id  are covered in the core request.py
 """
 
 REGION_ACCOUNTS = make_region().configure('dogpile.cache.memory', expiration_time=600)
+METRICS = MetricManager(module=__name__)
 
 WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, None)
 
@@ -150,7 +151,7 @@ class DirectTransferDefinition:
                                            protocol_factory=self.protocol_factory,
                                            operation=self.operation_src),
                  src.rse.id,
-                 src.source_ranking)
+                 src.ranking)
                 for src in self.sources
             ]
         return self._legacy_sources
@@ -275,7 +276,7 @@ class StageinTransferDefinition(DirectTransferDefinition):
                 self.src.rse.name,
                 self.dest_url,  # Source and dest url is the same for stagein requests
                 self.src.rse.id,
-                self.src.source_ranking
+                self.src.ranking
             )]
         return self._legacy_sources
 
@@ -309,8 +310,9 @@ def transfer_path_str(transfer_path: "List[DirectTransferDefinition]") -> str:
 def mark_submitting(
         transfer: "DirectTransferDefinition",
         external_host: str,
+        *,
         logger: "Callable",
-        session: "Optional[Session]" = None,
+        session: "Session",
 ):
     """
     Mark a transfer as submitting
@@ -350,10 +352,12 @@ def mark_submitting(
         raise RequestNotFound("Failed to prepare transfer: request %s does not exist or is not in queued state" % transfer.rws)
 
 
+@transactional_session
 def ensure_db_sources(
         transfer_path: "List[DirectTransferDefinition]",
+        *,
         logger: "Callable",
-        session: "Optional[Session]" = None,
+        session: "Session",
 ):
     """
     Ensure the needed DB source objects exist
@@ -396,7 +400,7 @@ def ensure_db_sources(
 
 
 @transactional_session
-def set_transfers_state(transfers, state, submitted_at, external_host, external_id, logger, session=None):
+def set_transfers_state(transfers, state, submitted_at, external_host, external_id, *, session: "Session", logger):
     """
     Update the transfer info of a request.
     :param transfers:  Dictionary containing request transfer info.
@@ -483,7 +487,7 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
 
 
 @transactional_session
-def mark_transfer_lost(request, session=None, logger=logging.log):
+def mark_transfer_lost(request, *, session: "Session", logger=logging.log):
     new_state = RequestState.LOST
     reason = "The FTS job lost"
 
@@ -493,8 +497,9 @@ def mark_transfer_lost(request, session=None, logger=logging.log):
     request_core.add_monitor_message(new_state=new_state, request=request, additional_fields={'reason': reason}, session=session)
 
 
+@METRICS.count_it
 @transactional_session
-def set_transfer_update_time(external_host, transfer_id, update_time=datetime.datetime.utcnow(), session=None):
+def set_transfer_update_time(external_host, transfer_id, update_time=datetime.datetime.utcnow(), *, session: "Session"):
     """
     Update the state of a request. Fails silently if the transfer_id does not exist.
     :param external_host:  Selected external host as string in format protocol://fqdn:port
@@ -502,8 +507,6 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
     :param update_time:    Time stamp.
     :param session:        Database session to use.
     """
-
-    record_counter('core.request.set_transfer_update_time')
 
     try:
         stmt = update(
@@ -516,7 +519,7 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
         ).values(
             updated_at=update_time
         )
-        rowcount = session.executet(stmt).rowcount
+        rowcount = session.execute(stmt).rowcount
     except IntegrityError as error:
         raise RucioException(error.args)
 
@@ -524,17 +527,15 @@ def set_transfer_update_time(external_host, transfer_id, update_time=datetime.da
         raise UnsupportedOperation("Transfer %s doesn't exist or its status is not submitted." % transfer_id)
 
 
+@METRICS.count_it
 @transactional_session
-def touch_transfer(external_host, transfer_id, session=None):
+def touch_transfer(external_host, transfer_id, *, session: "Session"):
     """
     Update the timestamp of requests in a transfer. Fails silently if the transfer_id does not exist.
     :param request_host:   Name of the external host.
     :param transfer_id:    External transfer job id as a string.
     :param session:        Database session to use.
     """
-
-    record_counter('core.request.touch_transfer')
-
     try:
         # don't touch it if it's already touched in 30 seconds
         stmt = update(
@@ -566,7 +567,8 @@ def __create_transfer_definitions(
         operation_src: str,
         operation_dest: str,
         domain: str,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ) -> "Dict[str, List[DirectTransferDefinition]]":
     """
     Find the all paths from sources towards the destination of the given transfer request.
@@ -589,8 +591,8 @@ def __create_transfer_definitions(
             src = RequestSource(
                 rse_data=hop_src_rse,
                 file_path=source.file_path if hop_src_rse == source.rse else None,
-                source_ranking=source.source_ranking if hop_src_rse == source.rse else 0,
-                distance_ranking=hop['cumulated_distance'] if hop_src_rse == source.rse else hop['hop_distance'],
+                ranking=source.ranking if hop_src_rse == source.rse else 0,
+                distance=hop['cumulated_distance'] if hop_src_rse == source.rse else hop['hop_distance'],
                 scheme=hop['source_scheme'],
             )
             dst = TransferDestination(
@@ -647,7 +649,7 @@ def __create_transfer_definitions(
             inbound_links = inbound_links_by_node[transfer_path[0].dst.rse.id]
             main_source_schemes = __add_compatible_schemes(schemes=[transfer_path[0].dst.scheme], allowed_schemes=SUPPORTED_PROTOCOLS)
             added_sources = 0
-            for source in sorted(multi_source_sources, key=lambda s: (-s.source_ranking, s.distance_ranking)):
+            for source in sorted(multi_source_sources, key=lambda s: (-s.ranking, s.distance)):
                 if added_sources >= 5:
                     break
 
@@ -677,8 +679,8 @@ def __create_transfer_definitions(
                     RequestSource(
                         rse_data=source.rse,
                         file_path=source.file_path,
-                        source_ranking=source.source_ranking,
-                        distance_ranking=inbound_links[source.rse.id],
+                        ranking=source.ranking,
+                        distance=inbound_links[source.rse.id],
                         scheme=matching_scheme[1],
                     )
                 )
@@ -771,18 +773,19 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
         source_ranking_penalty = 1 if transfer_path[0].src.rse.is_tape_or_staging_required() else 0
         # higher source_ranking first,
         # on equal source_ranking, prefer DISK over TAPE
-        # on equal type, prefer lower distance_ranking
+        # on equal type, prefer lower distance
         # on equal distance, prefer single hop
         return (
-            - transfer_path[0].src.source_ranking + source_ranking_penalty,
+            - transfer_path[0].src.ranking + source_ranking_penalty,
             transfer_path[0].src.rse.is_tape_or_staging_required(),  # rely on the fact that False < True
-            transfer_path[0].src.distance_ranking,
+            transfer_path[0].src.distance,
             len(transfer_path) > 1,  # rely on the fact that False < True
         )
 
     yield from sorted(candidate_paths, key=__transfer_order_key)
 
 
+@transactional_session
 def build_transfer_paths(
         topology: "Topology",
         requests_with_sources: "Iterable[RequestWithSources]",
@@ -792,8 +795,9 @@ def build_transfer_paths(
         transfertools: "Optional[List[str]]" = None,
         requested_source_only: bool = False,
         preparer_mode: bool = False,
+        *,
+        session: "Session",
         logger: "Callable" = logging.log,
-        session: "Optional[Session]" = None,
 ):
     """
     For each request, find all possible transfer paths from its sources, which respect the
@@ -847,7 +851,7 @@ def build_transfer_paths(
                rws,
                len(all_sources),
                f' (priority {rws.requested_source.rse})' if requested_source_only and rws.requested_source else '',
-               ','.join('{}:{}:{}'.format(src.rse, src.source_ranking, src.distance_ranking) for src in all_sources[:num_sources_in_logs]),
+               ','.join('{}:{}:{}'.format(src.rse, src.ranking, src.distance) for src in all_sources[:num_sources_in_logs]),
                '... and %d others' % (len(all_sources) - num_sources_in_logs) if len(all_sources) > num_sources_in_logs else '')
 
         # Check if destination is blocked
@@ -962,7 +966,7 @@ def build_transfer_paths(
             candidate_paths = __compress_multihops(candidate_paths, all_sources)
         candidate_paths = list(__sort_paths(candidate_paths))
 
-        ordered_sources_log = ','.join(('multihop: ' if len(path) > 1 else '') + '{}:{}:{}'.format(path[0].src.rse, path[0].src.source_ranking, path[0].src.distance_ranking)
+        ordered_sources_log = ','.join(('multihop: ' if len(path) > 1 else '') + '{}:{}:{}'.format(path[0].src.rse, path[0].src.ranking, path[0].src.distance)
                                        for path in candidate_paths[:num_sources_in_logs])
         if len(candidate_paths) > num_sources_in_logs:
             ordered_sources_log += '... and %d others' % (len(candidate_paths) - num_sources_in_logs)
@@ -1013,7 +1017,7 @@ def __add_compatible_schemes(schemes, allowed_schemes):
 
 
 @read_session
-def list_transfer_admin_accounts(session=None) -> "Set[InternalAccount]":
+def list_transfer_admin_accounts(*, session: "Session") -> "Set[InternalAccount]":
     """
     List admin accounts and cache the result in memory
     """
@@ -1058,6 +1062,7 @@ def cancel_transfers(transfers_to_cancel, logger=logging.log):
                 logger(logging.WARNING, 'Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, str(error)))
 
 
+@METRICS.count_it
 def cancel_transfer(transfertool_obj, transfer_id):
     """
     Cancel a transfer based on external transfer id.
@@ -1066,7 +1071,6 @@ def cancel_transfer(transfertool_obj, transfer_id):
     :param transfer_id:      External-ID as a 32 character hex string.
     """
 
-    record_counter('core.request.cancel_request_external_id')
     try:
         transfertool_obj.cancel(transfer_ids=[transfer_id])
     except Exception:
@@ -1078,7 +1082,8 @@ def prepare_transfers(
         candidate_paths_by_request_id: "Dict[str, List[List[DirectTransferDefinition]]]",
         logger: "LoggerFunction" = logging.log,
         transfertools: "Optional[List[str]]" = None,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ) -> "Tuple[List[str], List[str]]":
     """
     Update transfer requests according to preparer settings.
@@ -1139,11 +1144,13 @@ def prepare_transfers(
     return updated_reqs, reqs_no_transfertool
 
 
+@stream_session
 def applicable_rse_transfer_limits(
         source_rse: "Optional[RseData]" = None,
         dest_rse: "Optional[RseData]" = None,
         activity: "Optional[str]" = None,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ):
     """
     Find all RseTransferLimits which must be enforced for transfers between source and destination RSEs for the given activity.
@@ -1174,7 +1181,7 @@ def applicable_rse_transfer_limits(
         yield limit
 
 
-def _throttler_request_state(activity, source_rse, dest_rse, session: "Optional[Session]" = None) -> RequestState:
+def _throttler_request_state(activity, source_rse, dest_rse, *, session: "Session") -> RequestState:
     """
     Takes request attributes to return a new state for the request
     based on throttler settings. Always returns QUEUED,
@@ -1187,11 +1194,13 @@ def _throttler_request_state(activity, source_rse, dest_rse, session: "Optional[
     return RequestState.WAITING if limit_found else RequestState.QUEUED
 
 
+@read_session
 def get_supported_transfertools(
         source_rse: "RseData",
         dest_rse: "RseData",
         transfertools: "Optional[List[str]]" = None,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ) -> "Set[str]":
 
     if not transfertools:

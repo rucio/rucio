@@ -12,5 +12,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from flask import Blueprint
+from rucio.web.rest.flaskapi.v1.common import request_auth_env
 
-ALEMBIC_REVISION = '140fef722e91'  # the current alembic head revision
+
+class AuthenticatedBlueprint(Blueprint):
+    """
+    Enforce authorisation of blueprints by default
+    returns a normal blueprint otherwise
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.before_request(request_auth_env)

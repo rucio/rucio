@@ -615,9 +615,9 @@ def add_distance_rses(args):
     Set the distance between two RSEs.
     """
     client = get_client(args)
-    params = {'ranking': args.ranking, 'distance': args.distance}
+    params = {'distance': args.distance}
     client.add_distance(args.source, args.destination, params)
-    print('Set distance from %s to %s to %d with ranking %d' % (args.source, args.destination, args.distance, args.ranking))
+    print('Set distance from %s to %s to %d' % (args.source, args.destination, args.distance))
     return SUCCESS
 
 
@@ -631,7 +631,7 @@ def get_distance_rses(args):
     client = get_client(args)
     distance_info = client.get_distance(args.source, args.destination)
     if distance_info:
-        print('Distance information from %s to %s: distance=%d, ranking=%d' % (args.source, args.destination, distance_info[0]['distance'], distance_info[0]['ranking']))
+        print('Distance information from %s to %s: distance=%d' % (args.source, args.destination, distance_info[0]['distance']))
     else:
         print("No distance set from %s to %s" % (args.source, args.destination))
     return SUCCESS
@@ -646,16 +646,14 @@ def update_distance_rses(args):
     """
     client = get_client(args)
     params = {}
-    if args.ranking is not None:
-        params['ranking'] = args.ranking
     if args.distance is not None:
         params['distance'] = args.distance
+    elif args.ranking is not None:
+        params['distance'] = args.ranking
     client.update_distance(args.source, args.destination, params)
     print('Update distance information from %s to %s:' % (args.source, args.destination))
-    if args.distance is not None:
-        print("- Distance set to %d" % args.distance)
-    if args.ranking is not None:
-        print("- Ranking set to %d" % args.ranking)
+    if params.get('distance') is not None:
+        print("- Distance set to %d" % params['distance'])
     return SUCCESS
 
 
@@ -1854,43 +1852,41 @@ def get_parser():
                                                                '::\n'
                                                                '\n'
                                                                '    $ rucio-admin rse add-distance JDOE_SCRATCHDISK JDOE_DATADISK\n'
-                                                               '    Set distance from JDOE_SCRATCHDISK to JDOE_DATADISK to 1 with ranking 1/n'
+                                                               '    Set distance from JDOE_SCRATCHDISK to JDOE_DATADISK to 1/n'
                                                                '\n'
                                                                'Note::\n'
                                                                '\n'
-                                                               '    --distance and --ranking can range (0-11), 0 is the closest\n'
+                                                               '    --distance can be any positive integer, 0 is the closest\n'
                                                                'Note: order of RSEs is fixed: source, destination\n'
                                                                '\n')
     add_distance_rses_parser.set_defaults(which='add_distance_rses')
     add_distance_rses_parser.add_argument(dest='source', action='store', help='Source RSE name')
     add_distance_rses_parser.add_argument(dest='destination', action='store', help='Destination RSE name')
     add_distance_rses_parser.add_argument('--distance', dest='distance', default=1, type=int, help='Distance between RSEs')
-    add_distance_rses_parser.add_argument('--ranking', dest='ranking', default=1, type=int, help='Ranking of link')
+    add_distance_rses_parser.add_argument('--ranking', '--ranking', dest='ranking', new_option_string='--ranking', default=1, type=int, action=StoreAndDeprecateWarningAction, help='Ranking of link')
 
     # The update_distance_rses command
     update_distance_rses_parser = rse_subparser.add_parser('update-distance',
-                                                           help='Update the existing distance or ranking between a pair of RSEs. The mandatory parameters are source, destination and distance or ranking.',
+                                                           help='Update the existing distance between a pair of RSEs. The mandatory parameters are source, destination and distance or ranking.',
                                                            formatter_class=argparse.RawDescriptionHelpFormatter,
                                                            epilog='Usage example\n'
                                                                   '"""""""""""""\n'
                                                                   '::\n'
                                                                   '\n'
-                                                                  '    $ rucio-admin rse update-distance JDOE_DATADISK JDOE_SCRATCHDISK --ranking 10\n'
+                                                                  '    $ rucio-admin rse update-distance JDOE_DATADISK JDOE_SCRATCHDISK --distance 10\n'
                                                                   '    Update distance information from JDOE_DATADISK to JDOE_SCRATCHDISK:\n'
-                                                                  '    - Ranking set to 10\n'
+                                                                  '    - Distance set to 10\n'
                                                                   '\n'
                                                                   'Note::\n'
                                                                   '\n'
-                                                                  '    --distance can be set in range (0-11), 0 is the closest\n'
-                                                                  '    --ranking can be set in range (-inf+inf), the larger the better\n'
+                                                                  '    --distance can be any positive integer, 0 is the closest\n'
                                                                   'Note: order of RSEs is fixed: source, destination.\n'
-                                                                  'Note: ranking is updated dynamically against coditions at grid.\n'
                                                                   '\n')
     update_distance_rses_parser.set_defaults(which='update_distance_rses')
     update_distance_rses_parser.add_argument(dest='source', action='store', help='Source RSE name')
     update_distance_rses_parser.add_argument(dest='destination', action='store', help='Destination RSE name')
     update_distance_rses_parser.add_argument('--distance', dest='distance', type=int, help='Distance between RSEs')
-    update_distance_rses_parser.add_argument('--ranking', dest='ranking', type=int, help='Ranking of link')
+    update_distance_rses_parser.add_argument('--ranking', '--ranking', dest='ranking', new_option_string='--ranking', type=int, action=StoreAndDeprecateWarningAction, help='Ranking of link')
 
     # The delete_distance_rses command
     delete_distance_rses_parser = rse_subparser.add_parser('delete-distance',

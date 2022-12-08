@@ -41,8 +41,9 @@ from rucio.common.exception import (DatabaseException, RSENotFound,
                                     VONotFound)
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
+from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import chunks
-from rucio.core import monitor
+from rucio.core.monitor import MetricManager
 from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import list_payload_counts
 from rucio.core.message import add_message
@@ -60,13 +61,10 @@ if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
 
 GRACEFUL_STOP = threading.Event()
-
+METRICS = MetricManager(module=__name__)
 REGION = make_region_memcached(expiration_time=600)
 
-DELETION_COUNTER = monitor.MultiCounter(prom='rucio_daemons_reaper_deletion_done', statsd='reaper.deletion.done',
-                                        documentation='Number of deleted replicas')
-EXCLUDED_RSE_GAUGE = monitor.MultiGauge('daemons.reaper.excluded_rses',
-                                        documentation='Temporarly excluded RSEs', labelnames=('rse',))
+EXCLUDED_RSE_GAUGE = METRICS.gauge('excluded_rses.{rse}', documentation='Temporarly excluded RSEs')
 
 
 def get_rses_to_process(rses, include_rses, exclude_rses, vos):
@@ -143,19 +141,19 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
         for replica in replicas:
             # Physical deletion
             _, _, logger = heartbeat_handler.live(payload=hb_payload)
+            stopwatch = Stopwatch()
+            deletion_dict = {'scope': replica['scope'].external,
+                             'name': replica['name'],
+                             'rse': rse_name,
+                             'file-size': replica['bytes'],
+                             'bytes': replica['bytes'],
+                             'url': replica['pfn'],
+                             'protocol': prot.attributes['scheme'],
+                             'datatype': replica['datatype']}
             try:
-                deletion_dict = {'scope': replica['scope'].external,
-                                 'name': replica['name'],
-                                 'rse': rse_name,
-                                 'file-size': replica['bytes'],
-                                 'bytes': replica['bytes'],
-                                 'url': replica['pfn'],
-                                 'protocol': prot.attributes['scheme'],
-                                 'datatype': replica['datatype']}
                 if replica['scope'].vo != 'def':
                     deletion_dict['vo'] = replica['scope'].vo
                 logger(logging.DEBUG, 'Deletion ATTEMPT of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
-                timer = monitor.Timer()
                 # For STAGING RSEs, no physical deletion
                 if is_staging:
                     logger(logging.WARNING, 'Deletion STAGING of %s:%s as %s on %s, will only delete the catalog and not do physical deletion', replica['scope'], replica['name'], replica['pfn'], rse_name)
@@ -174,9 +172,8 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 else:
                     logger(logging.WARNING, 'Deletion UNAVAILABLE of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
 
-                timer.stop()
-                timer.record('daemons.reaper.delete.{scheme}.{rse}', labels={'scheme': prot.attributes['scheme'], 'rse': rse_name})
-                duration = timer.elapsed
+                duration = stopwatch.elapsed
+                METRICS.timer('delete.{scheme}.{rse}').labels(scheme=prot.attributes['scheme'], rse=rse_name).observe(duration)
 
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
@@ -185,7 +182,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %.2f seconds', replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
 
             except SourceNotFound:
-                duration = timer.elapsed
+                duration = stopwatch.elapsed
                 err_msg = 'Deletion NOTFOUND of %s:%s as %s on %s in %.2f seconds' % (replica['scope'], replica['name'], replica['pfn'], rse_name, duration)
                 logger(logging.WARNING, '%s', err_msg)
                 deletion_dict['reason'] = 'File Not Found'
@@ -194,7 +191,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
 
             except (ServiceUnavailable, RSEAccessDenied, ResourceTemporaryUnavailable) as error:
-                duration = timer.elapsed
+                duration = stopwatch.elapsed
                 logger(logging.WARNING, 'Deletion NOACCESS of %s:%s as %s on %s: %s in %.2f', replica['scope'], replica['name'], replica['pfn'], rse_name, str(error), duration)
                 deletion_dict['reason'] = str(error)
                 deletion_dict['duration'] = duration
@@ -203,11 +200,13 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 if noaccess_attempts >= auto_exclude_threshold:
                     logger(logging.INFO, 'Too many (%d) NOACCESS attempts for %s. RSE will be temporarly excluded.', noaccess_attempts, rse_name)
                     REGION.set('temporary_exclude_%s' % rse_id, True)
+                    METRICS.gauge('excluded_rses.{rse}').labels(rse=rse_name).set(1)
+
                     EXCLUDED_RSE_GAUGE.labels(rse=rse_name).set(1)
                     break
 
             except Exception as error:
-                duration = timer.elapsed
+                duration = stopwatch.elapsed
                 logger(logging.CRITICAL, 'Deletion CRITICAL of %s:%s as %s on %s in %.2f seconds : %s', replica['scope'], replica['name'], replica['pfn'], rse_name, duration, str(traceback.format_exc()))
                 deletion_dict['reason'] = str(error)
                 deletion_dict['duration'] = duration
@@ -575,7 +574,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
         del_start_time = time.time()
         try:
             use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
-            with monitor.Timer('reaper.list_unlocked_replicas'):
+            with METRICS.timer('list_unlocked_replicas'):
                 if only_delete_obsolete:
                     logger(logging.DEBUG, 'Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', rse.name)
                 if use_temp_tables:
@@ -639,10 +638,9 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
 
                 # Then finally delete the replicas
                 del_start = time.time()
-                with monitor.Timer('reaper.delete_replicas'):
-                    delete_replicas(rse_id=rse.id, files=deleted_files)
+                delete_replicas(rse_id=rse.id, files=deleted_files)
                 logger(logging.DEBUG, 'delete_replicas successed on %s : %s replicas in %s seconds', rse.name, len(deleted_files), time.time() - del_start)
-                DELETION_COUNTER.inc(len(deleted_files))
+                METRICS.counter('deletion.done').inc(len(deleted_files))
         except Exception:
             logger(logging.CRITICAL, 'Exception', exc_info=True)
 

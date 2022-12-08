@@ -19,7 +19,6 @@ import glob
 import logging
 import os
 import select
-import sys
 
 from datetime import datetime
 from datetime import timedelta
@@ -224,16 +223,13 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
             if output:
                 process_output(output)
         except:
-            success = False
-            class_, desc = sys.exc_info()[0:2]
-        else:
-            success = True
-        finally:
             elapsed = (datetime.now() - start).total_seconds() / 60
-            if success:
-                logger.info('SUCCESS checking "%s" in %d minutes', rse, elapsed)
-            else:
-                logger.error('Check of "%s" failed in %d minutes, %d remaining attemps: (%s: %s)', rse, elapsed, attemps, class_.__name__, desc)
+            logger.error('Check of "%s" failed in %d minutes, %d remaining attemps', rse, elapsed, attemps, exc_info=True)
+            success = False
+        else:
+            elapsed = (datetime.now() - start).total_seconds() / 60
+            logger.info('SUCCESS checking "%s" in %d minutes', rse, elapsed)
+            success = True
 
         if not keep_dumps:
             remove = glob.glob(os.path.join(cache_dir, 'replicafromhdfs_{0}_*'.format(rse)))

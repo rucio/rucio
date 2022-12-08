@@ -36,15 +36,17 @@ from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.types import InternalAccount
 from rucio.common.logging import setup_logging
+from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import dict_chunks
 from rucio.core import transfer as transfer_core, request as request_core
-from rucio.core.monitor import Timer, record_counter
+from rucio.core.monitor import MetricManager
 from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.daemons.common import run_daemon
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 
 graceful_stop = threading.Event()
+METRICS = MetricManager(module=__name__)
 
 datetime.datetime.strptime('', '')
 
@@ -55,19 +57,18 @@ FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)
 def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, activity, heartbeat_handler, oidc_account: str):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
-    with Timer('daemons.conveyor.poller.get_next'):
-        logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
-        transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                        state=[RequestState.SUBMITTED],
-                                        limit=db_bulk,
-                                        older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
-                                        total_workers=total_workers,
-                                        worker_number=worker_number,
-                                        mode_all=True,
-                                        hash_variable='id',
-                                        activity=activity,
-                                        activity_shares=activity_shares,
-                                        transfertool=FILTER_TRANSFERTOOL)
+    logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
+    transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+                                    state=[RequestState.SUBMITTED],
+                                    limit=db_bulk,
+                                    older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
+                                    total_workers=total_workers,
+                                    worker_number=worker_number,
+                                    mode_all=True,
+                                    hash_variable='id',
+                                    activity=activity,
+                                    activity_shares=activity_shares,
+                                    transfertool=FILTER_TRANSFERTOOL)
 
     if TRANSFER_TOOL and not FILTER_TRANSFERTOOL:
         # only keep transfers which don't have any transfertool set, or have one equal to TRANSFER_TOOL
@@ -254,12 +255,12 @@ def _poll_transfers(transfertool_obj, transfers_by_eid, timeout, logger):
     """
     is_bulk = len(transfers_by_eid) > 1
     try:
-        timer = Timer()
+        stopwatch = Stopwatch()
         logger(logging.INFO, 'Polling %i transfers against %s with timeout %s' % (len(transfers_by_eid), transfertool_obj, timeout))
         resps = transfertool_obj.bulk_query(requests_by_eid=transfers_by_eid, timeout=timeout)
-        timer.stop()
-        timer.record('daemons.conveyor.poller.bulk_query_transfers', divisor=len(transfers_by_eid))
-        logger(logging.DEBUG, 'Polled %s transfer requests status in %s seconds' % (len(transfers_by_eid), timer.elapsed))
+        stopwatch.stop()
+        METRICS.timer('bulk_query_transfers').observe(stopwatch.elapsed / (len(transfers_by_eid) or 1))
+        logger(logging.DEBUG, 'Polled %s transfer requests status in %s seconds' % (len(transfers_by_eid), stopwatch.elapsed))
     except TransferToolTimeout as error:
         logger(logging.ERROR, str(error))
         return
@@ -291,17 +292,17 @@ def _poll_transfers(transfertool_obj, transfers_by_eid, timeout, logger):
             if transf_resp is None:
                 for request_id, request in transfers_by_eid[transfer_id].items():
                     transfer_core.mark_transfer_lost(request, logger=logger)
-                record_counter('daemons.conveyor.poller.transfer_lost')
+                METRICS.counter('transfer_lost').inc()
             elif isinstance(transf_resp, Exception):
                 logger(logging.WARNING, "Failed to poll FTS(%s) job (%s): %s" % (transfertool_obj, transfer_id, transf_resp))
-                record_counter('daemons.conveyor.poller.query_transfer_exception')
+                METRICS.counter('query_transfer_exception').inc()
             else:
                 for request_id in request_ids.intersection(transf_resp):
                     ret = request_core.update_request_state(transf_resp[request_id], logger=logger)
                     # if True, really update request content; if False, only touch request
                     if ret:
                         cnt += 1
-                    record_counter('daemons.conveyor.poller.update_request_state.{updated}', labels={'updated': ret})
+                    METRICS.counter('update_request_state.{updated}').labels(updated=ret).inc()
 
             # should touch transfers.
             # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.

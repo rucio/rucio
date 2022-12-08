@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 import rucio.api.permission
 import rucio.common.exception
 
@@ -21,9 +23,12 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.schema import validate_schema
 from rucio.db.sqla.session import read_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @read_session
-def list_scopes(filter_={}, vo='def', session=None):
+def list_scopes(filter_={}, vo='def', *, session: "Session"):
     """
     Lists all scopes.
 
@@ -45,7 +50,7 @@ def list_scopes(filter_={}, vo='def', session=None):
 
 
 @transactional_session
-def add_scope(scope, account, issuer, vo='def', session=None):
+def add_scope(scope, account, issuer, vo='def', *, session: "Session"):
     """
     Creates a scope for an account.
 
@@ -69,7 +74,7 @@ def add_scope(scope, account, issuer, vo='def', session=None):
 
 
 @read_session
-def get_scopes(account, vo='def', session=None):
+def get_scopes(account, vo='def', *, session: "Session"):
     """
     Gets a list of all scopes for an account.
 

@@ -801,7 +801,7 @@ class Pcache:
 
         # Do the copy with a timeout
         if self.local_src:
-            return(0, None)
+            return (0, None)
         else:
             copy_status, copy_output = run_cmd(args, self.transfer_timeout)
 

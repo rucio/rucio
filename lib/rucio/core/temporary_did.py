@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, or_, func, delete
 from sqlalchemy.sql.expression import case
@@ -24,9 +25,12 @@ from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
 # from rucio.rse import rsemanager as rsemgr
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_temporary_dids(dids, account, session=None):
+def add_temporary_dids(dids, account, *, session: "Session"):
     """
     Bulk add temporary data identifiers.
 
@@ -69,7 +73,7 @@ def add_temporary_dids(dids, account, session=None):
 def compose(scope, name, rse_id, bytes_, sources, account,
             md5=None, adler32=None, pfn=None, meta={}, rules=[],
             parent_scope=None, parent_name=None,
-            session=None):
+            *, session: "Session"):
     """
     Concatenates a list of existing dids into a new file replica
 
@@ -110,7 +114,7 @@ def compose(scope, name, rse_id, bytes_, sources, account,
 
 @read_session
 def list_expired_temporary_dids(rse_id, limit, worker_number=None, total_workers=None,
-                                session=None):
+                                *, session: "Session"):
     """
     List expired temporary DIDs.
 
@@ -141,7 +145,7 @@ def list_expired_temporary_dids(rse_id, limit, worker_number=None, total_workers
 
 
 @transactional_session
-def delete_temporary_dids(dids, session=None):
+def delete_temporary_dids(dids, *, session: "Session"):
     """
     Delete temporary file replicas.
 
@@ -163,7 +167,7 @@ def delete_temporary_dids(dids, session=None):
 
 
 @read_session
-def get_count_of_expired_temporary_dids(rse_id, session=None):
+def get_count_of_expired_temporary_dids(rse_id, *, session: "Session"):
     """
     List expired temporary DIDs.
 

@@ -28,7 +28,8 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
-from rucio.core.monitor import MultiCounter, record_timer, Timer
+from rucio.common.stopwatch import Stopwatch
+from rucio.core.monitor import MetricManager
 from rucio.core.transfer import transfer_path_str
 from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit
 from rucio.daemons.common import run_daemon
@@ -36,14 +37,12 @@ from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 
 TRANSFER_TOOLS = config_get_list('conveyor', 'transfertool', False, None)  # NOTE: This should eventually be completely removed, as it can be fetched from the request
 FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
 TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
-
-GET_TRANSFERS_COUNTER = MultiCounter(prom='rucio_daemons_conveyor_submitter_get_transfers', statsd='daemons.conveyor.transfer_submitter.get_transfers',
-                                     documentation='Number of transfers retrieved')
 
 
 def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availability, rse_ids,
@@ -51,7 +50,7 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
              heartbeat_handler, activity):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
-    timer = Timer()
+    stopwatch = Stopwatch()
     transfers = next_transfers_to_submit(
         total_workers=total_workers,
         worker_number=worker_number,
@@ -68,12 +67,12 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
         ignore_availability=ignore_availability,
         logger=logger,
     )
+    stopwatch.stop()
     total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
 
-    timer.record('daemons.conveyor.transfer_submitter.get_transfers.per_transfer', divisor=total_transfers or 1)
-    GET_TRANSFERS_COUNTER.inc(total_transfers)
-    record_timer('daemons.conveyor.transfer_submitter.get_transfers.transfers', total_transfers)
-    logger(logging.INFO, 'Got %s transfers for %s in %s seconds', total_transfers, activity, timer.elapsed)
+    METRICS.timer('get_transfers.time_per_transfer').observe(stopwatch.elapsed / (total_transfers or 1))
+    METRICS.counter('get_transfers.total_transfers').inc(total_transfers)
+    logger(logging.INFO, 'Got %s transfers for %s in %s seconds', total_transfers, activity, stopwatch.elapsed)
 
     for builder, transfer_paths in transfers.items():
         # Globus Transfertool is not yet production-ready, but we need to partially activate it
@@ -90,10 +89,10 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
             continue
 
         transfertool_obj = builder.make_transfertool(logger=logger, **transfertool_kwargs.get(builder.transfertool_class, {}))
-        timer = Timer()
         logger(logging.DEBUG, 'Starting to group transfers for %s (%s)', activity, transfertool_obj)
+        stopwatch.restart()
         grouped_jobs = transfertool_obj.group_into_submit_jobs(transfer_paths)
-        timer.record('daemons.conveyor.transfer_submitter.bulk_group_transfer', divisor=len(transfer_paths) or 1)
+        METRICS.timer('bulk_group_transfer').observe(stopwatch.elapsed / (len(transfer_paths) or 1))
 
         logger(logging.DEBUG, 'Starting to submit transfers for %s (%s)', activity, transfertool_obj)
         for job in grouped_jobs:

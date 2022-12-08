@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-
 import pytest
 
 import rucio.core.config as config_core
@@ -74,9 +72,9 @@ def test_config_section_contextless():
     assert test_section_2 in value.keys()
 
 
-class TestConfigClients(unittest.TestCase):
+class TestConfigClients:
 
-    def setUp(self):
+    def setup_method(self):
         self.c = ConfigClient()
         self.test_section_1 = str(generate_uuid())
         self.test_section_2 = str(generate_uuid())
@@ -93,7 +91,7 @@ class TestConfigClients(unittest.TestCase):
         self.c.set_config_option(self.test_section_2, self.test_option_i, self.test_option_iv)
         self.c.set_config_option(self.test_section_2, self.test_option_f, self.test_option_fv)
 
-    def tearDown(self):
+    def teardown_method(self):
         self.c = None
 
     def test_get_config_all(self):

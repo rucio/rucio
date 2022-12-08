@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from collections import namedtuple
 from json import dumps, loads
 
@@ -23,12 +25,15 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import subscription
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 SubscriptionRuleState = namedtuple('SubscriptionRuleState', ['account', 'name', 'state', 'count'])
 
 
 @transactional_session
-def add_subscription(name, account, filter_, replication_rules, comments, lifetime, retroactive, dry_run, priority=None, issuer=None, vo='def', session=None):
+def add_subscription(name, account, filter_, replication_rules, comments, lifetime, retroactive, dry_run, priority=None, issuer=None, vo='def', *, session: "Session"):
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -94,7 +99,7 @@ def add_subscription(name, account, filter_, replication_rules, comments, lifeti
 
 
 @transactional_session
-def update_subscription(name, account, metadata=None, issuer=None, vo='def', session=None):
+def update_subscription(name, account, metadata=None, issuer=None, vo='def', *, session: "Session"):
     """
     Updates a subscription
 
@@ -147,7 +152,7 @@ def update_subscription(name, account, metadata=None, issuer=None, vo='def', ses
 
 
 @stream_session
-def list_subscriptions(name=None, account=None, state=None, vo='def', session=None):
+def list_subscriptions(name=None, account=None, state=None, vo='def', *, session: "Session"):
     """
     Returns a dictionary with the subscription information :
     Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
@@ -188,7 +193,7 @@ def list_subscriptions(name=None, account=None, state=None, vo='def', session=No
 
 
 @stream_session
-def list_subscription_rule_states(name=None, account=None, vo='def', session=None):
+def list_subscription_rule_states(name=None, account=None, vo='def', *, session: "Session"):
     """Returns a list of with the number of rules per state for a subscription.
 
     :param name: Name of the subscription
@@ -210,7 +215,7 @@ def list_subscription_rule_states(name=None, account=None, vo='def', session=Non
 
 
 @transactional_session
-def delete_subscription(subscription_id, vo='def', session=None):
+def delete_subscription(subscription_id, vo='def', *, session: "Session"):
     """
     Deletes a subscription
 
@@ -224,7 +229,7 @@ def delete_subscription(subscription_id, vo='def', session=None):
 
 
 @read_session
-def get_subscription_by_id(subscription_id, vo='def', session=None):
+def get_subscription_by_id(subscription_id, vo='def', *, session: "Session"):
     """
     Get a specific subscription by id.
 

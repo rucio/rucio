@@ -24,7 +24,7 @@ class JediDIDCollector():
         self.max_tid = 0
 
     @read_session
-    def get_dids(self, session=None):
+    def get_dids(self, *, session=None):
         query = """select t.jeditaskid, t.username, t.status, d.datasetname from ATLAS_PANDA.JEDI_TASKS t
         inner join ATLAS_PANDA.JEDI_DATASETS d
         on t.jeditaskid = d.jeditaskid

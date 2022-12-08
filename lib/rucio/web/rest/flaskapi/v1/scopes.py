@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, Blueprint, request, jsonify
+from flask import Flask, request, jsonify
 
 from rucio.api.scope import add_scope, list_scopes, get_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, request_auth_env, response_headers, \
+from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, response_headers, \
     generate_http_error_flask, ErrorHandlingMethodView
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class Scope(ErrorHandlingMethodView):
@@ -141,7 +142,7 @@ class AccountScopeList(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('scopes', __name__, url_prefix='/scopes')
+    bp = AuthenticatedBlueprint('scopes', __name__, url_prefix='/scopes')
 
     scope_view = Scope.as_view('scope')
     bp.add_url_rule('/', view_func=scope_view, methods=['get', ])
@@ -149,7 +150,6 @@ def blueprint():
     account_scope_list_view = AccountScopeList.as_view('account_scope_list')
     bp.add_url_rule('/<account>/scopes', view_func=account_scope_list_view, methods=['get', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

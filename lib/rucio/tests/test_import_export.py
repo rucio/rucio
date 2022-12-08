@@ -1208,7 +1208,7 @@ class TestImporterSyncModes:
         protocols = get_rse_protocols(more_prot_rse_id)
         protocols_formated = [{'hostname': protocol['hostname'], 'scheme': protocol['scheme'], 'port': protocol['port'], 'impl': protocol['impl']} for protocol in protocols['protocols']]
         data_protocol_formated = {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'}
-        assert(data_protocol_formated not in protocols_formated)
+        assert (data_protocol_formated not in protocols_formated)
 
 
 @pytest.fixture
@@ -1221,8 +1221,8 @@ def distances_data(vo):
     rse_1_id = get_rse_id(rse_1, vo=vo)
     rse_2 = 'MOCK2'
     rse_2_id = get_rse_id(rse_2, vo=vo)
-    ranking = 10
-    add_distance(rse_1_id, rse_2_id, ranking)
+    distance = 10
+    add_distance(rse_1_id, rse_2_id, distance)
     distances = get_distances(rse_1_id, rse_2_id)[0]
 
     return {'distances': distances, 'rse_1': rse_1, 'rse_1_id': rse_1_id, 'rse_2': rse_2, 'rse_2_id': rse_2_id}

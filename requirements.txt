@@ -41,13 +41,12 @@ pymongo==4.0.1                                              # pymongo (metadata 
 
 # All dependencies needed to develop/test rucio should be defined here
 pytest==7.0.1
-pytest-xdist~=2.5.0                                         # Used for parallel testing
-pyflakes==2.3.1                                             # Passive checker of Python programs
-flake8==3.9.2                                               # Wrapper around PyFlakes&pep8
-pycodestyle==2.7.0                                          # New package replacing pep8
-pylint==2.8.2
-astroid<2.5.7                                               # things break in 2.5.7 and everyone is to blame
-isort>=4.2.5,<5                                             # pylint up to now (2.5.3) does not support isort 5
+pytest-xdist~=3.0.2                                         # Used for parallel testing
+pyflakes==2.5.0                                             # Passive checker of Python programs
+flake8==5.0.4                                               # Wrapper around PyFlakes&pep8
+pycodestyle==2.9.1                                          # New package replacing pep8
+pylint==2.13.9
+astroid<=2.11.7
 virtualenv==20.13.3                                         # Virtual Python Environment builder
 xmltodict==0.12.0                                           # Makes working with XML feel like you are working with JSON
 pytz==2021.3                                                # World timezone definitions, modern and historical

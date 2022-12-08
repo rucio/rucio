@@ -50,7 +50,7 @@ class TestJudgeEvaluator:
             cls.vo = {}
 
         @transactional_session
-        def __cleanup_updated_dids(session=None):
+        def __cleanup_updated_dids(*, session=None):
             session.query(UpdatedDID).delete()
 
         __cleanup_updated_dids()

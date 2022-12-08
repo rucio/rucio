@@ -37,12 +37,14 @@ from sqlalchemy.exc import DatabaseError
 import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
+from rucio.common.stopwatch import Stopwatch
 from rucio.core.authentication import delete_expired_tokens
-from rucio.core.monitor import record_counter, Timer
+from rucio.core.monitor import MetricManager
 from rucio.core.oidc import delete_expired_oauthrequests, refresh_jwt_tokens
 from rucio.daemons.common import run_daemon
 from rucio.daemons.common import HeartbeatHandler
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 
 
@@ -79,35 +81,33 @@ def run_once(heartbeat_handler: HeartbeatHandler, max_rows: int, sleep_time: int
     # make an initial heartbeat
     heartbeat_handler.live()
 
-    timer = Timer()
+    stopwatch = Stopwatch()
 
     ndeleted = 0
     ndeletedreq = 0
     nrefreshed = 0
 
+    # make a heartbeat
+    worker_number, total_workers, logger = heartbeat_handler.live()
     try:
         # ACCESS TOKEN REFRESH - better to run first (in case some of the refreshed tokens needed deletion after this step)
-
-        # make a heartbeat
-        worker_number, total_workers, logger = heartbeat_handler.live()
-
         logger(logging.INFO, '----- START ----- ACCESS TOKEN REFRESH ----- ')
         logger(logging.INFO, 'starting to query tokens for automatic refresh')
         nrefreshed = refresh_jwt_tokens(total_workers, worker_number, refreshrate=int(sleep_time), limit=max_rows)
         logger(logging.INFO, 'successfully refreshed %i tokens', nrefreshed)
         logger(logging.INFO, '----- END ----- ACCESS TOKEN REFRESH ----- ')
-        record_counter(name='oauth_manager.tokens.refreshed', delta=nrefreshed)
+        METRICS.counter(name='oauth_manager.tokens.refreshed').inc(nrefreshed)
 
     except (DatabaseException, DatabaseError) as err:
         if match('.*QueuePool.*', str(err.args[0])):
             logger(logging.WARNING, traceback.format_exc())
-            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
         elif match('.*ORA-03135.*', str(err.args[0])):
             logger(logging.WARNING, traceback.format_exc())
-            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
         else:
             logger(logging.CRITICAL, traceback.format_exc())
-            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
 
     try:
         # waiting 1 sec as DBs does not store milisecond and tokens
@@ -123,18 +123,18 @@ def run_once(heartbeat_handler: HeartbeatHandler, max_rows: int, sleep_time: int
         ndeleted += delete_expired_tokens(total_workers, worker_number, limit=max_rows)
         logger(logging.INFO, 'deleted %i expired tokens', ndeleted)
         logger(logging.INFO, '----- END ----- DELETION OF EXPIRED TOKENS ----- ')
-        record_counter(name='oauth_manager.tokens.deleted', delta=ndeleted)
+        METRICS.counter(name='oauth_manager.tokens.deleted').inc(ndeleted)
 
     except (DatabaseException, DatabaseError) as err:
         if match('.*QueuePool.*', str(err.args[0])):
             logger(logging.WARNING, traceback.format_exc())
-            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
         elif match('.*ORA-03135.*', str(err.args[0])):
             logger(logging.WARNING, traceback.format_exc())
-            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
         else:
             logger(logging.CRITICAL, traceback.format_exc())
-            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
 
     try:
         # make a heartbeat
@@ -146,22 +146,22 @@ def run_once(heartbeat_handler: HeartbeatHandler, max_rows: int, sleep_time: int
         ndeletedreq += delete_expired_oauthrequests(total_workers, worker_number, limit=max_rows)
         logger(logging.INFO, 'expired parameters of %i authentication requests were deleted', ndeletedreq)
         logger(logging.INFO, '----- END ----- DELETION OF EXPIRED OAUTH SESSION REQUESTS ----- ')
-        record_counter(name='oauth_manager.oauthreq.deleted', delta=ndeletedreq)
+        METRICS.counter(name='oauth_manager.oauthreq.deleted').inc(ndeletedreq)
 
     except (DatabaseException, DatabaseError) as err:
         if match('.*QueuePool.*', str(err.args[0])):
             logger(logging.WARNING, traceback.format_exc())
-            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
         elif match('.*ORA-03135.*', str(err.args[0])):
             logger(logging.WARNING, traceback.format_exc())
-            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
         else:
             logger(logging.CRITICAL, traceback.format_exc())
-            record_counter('oauth_manager.exceptions.{exception}', labels={'exception': err.__class__.__name__})
+            METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
 
-    timer.stop()
-    logger(logging.INFO, 'took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens', timer.elapsed, ndeleted, ndeletedreq, nrefreshed)
-    timer.record('oauth_manager.duration')
+    stopwatch.stop()
+    logger(logging.INFO, 'took %f seconds to delete %i tokens, %i session parameters and refreshed %i tokens', stopwatch.elapsed, ndeleted, ndeletedreq, nrefreshed)
+    METRICS.timer('duration').observe(stopwatch.elapsed)
 
 
 def run(once: bool = False, threads: int = 1, max_rows: int = 100, sleep_time: int = 300) -> None:

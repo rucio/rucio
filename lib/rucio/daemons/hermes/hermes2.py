@@ -46,7 +46,7 @@ from rucio.common.config import (
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.core.message import retrieve_messages, delete_messages
-from rucio.core.monitor import MultiCounter
+from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
@@ -55,11 +55,11 @@ if TYPE_CHECKING:
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
+METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 
-RECONNECT_COUNTER = MultiCounter(
-    prom="rucio_daemons_hermes2_reconnect",
-    statsd="daemons.hermes.reconnect.{host}",
+RECONNECT_COUNTER = METRICS.counter(
+    name="reconnect.{host}",
     documentation="Counts Hermes2 reconnects to different ActiveMQ brokers",
     labelnames=("host",),
 )

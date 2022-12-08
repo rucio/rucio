@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, Blueprint, request
+from flask import Flask, request
 
 from rucio.api.vo import add_vo, list_vos, recover_vo_root_identity, update_vo
 from rucio.common.exception import AccessDenied, AccountNotFound, Duplicate, VONotFound, UnsupportedOperation
 from rucio.common.utils import render_json
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class VOs(ErrorHandlingMethodView):
@@ -155,7 +156,7 @@ class RecoverVO(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('vos', __name__, url_prefix='/vos')
+    bp = AuthenticatedBlueprint('vos', __name__, url_prefix='/vos')
 
     recover_view = RecoverVO.as_view('recover')
     bp.add_url_rule('/<vo>/recover', view_func=recover_view, methods=['post', ])
@@ -164,7 +165,6 @@ def blueprint():
     vos_view = VOs.as_view('vos')
     bp.add_url_rule('/', view_func=vos_view, methods=['get', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

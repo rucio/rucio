@@ -15,7 +15,6 @@
 
 import time
 import traceback
-import unittest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 from urllib.parse import urlparse, parse_qs
@@ -259,7 +258,7 @@ class MockADMINClientOtherISSOIDC(MagicMock):
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel')
-class TestAuthCoreAPIoidc(unittest.TestCase):
+class TestAuthCoreAPIoidc:
 
     """ OIDC Core API Testing: Testing creation of authorization URL for Rucio Client,
         token request, token exchange, admin token request, finding token for an account.
@@ -270,7 +269,7 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
     """
     # pylint: disable=unused-argument
 
-    def setUp(self):
+    def setup_method(self):
         if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
             self.vo = {'vo': get_vo()}
         else:
@@ -306,7 +305,7 @@ class TestAuthCoreAPIoidc(unittest.TestCase):
         except DatabaseException:
             pass
 
-    def tearDown(self):
+    def teardown_method(self):
         self.db_session.remove()
 
     def get_auth_init_and_mock_response(self, code_response, account=None, polling=False, auto=True, session=None):

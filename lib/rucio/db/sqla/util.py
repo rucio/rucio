@@ -274,7 +274,7 @@ def is_old_db():
             return (len(query) != 0 and str(query[0].version_num) != alembicrevision.ALEMBIC_REVISION)
 
 
-def json_implemented(session=None):
+def json_implemented(*, session=None):
     """
     Checks if the database on the current server installation can support json fields.
 

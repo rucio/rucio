@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -19,9 +20,12 @@ from rucio.common.exception import CounterNotFound
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_counter(rse_id, session=None):
+def add_counter(rse_id, *, session: "Session"):
     """
     Creates the specified counter for a rse_id.
 
@@ -33,7 +37,7 @@ def add_counter(rse_id, session=None):
 
 
 @transactional_session
-def increase(rse_id, files, bytes_, session=None):
+def increase(rse_id, files, bytes_, *, session: "Session"):
     """
     Increments the specified counter by the specified amount.
 
@@ -47,7 +51,7 @@ def increase(rse_id, files, bytes_, session=None):
 
 
 @transactional_session
-def decrease(rse_id, files, bytes_, session=None):
+def decrease(rse_id, files, bytes_, *, session: "Session"):
     """
     Decreases the specified counter by the specified amount.
 
@@ -60,7 +64,7 @@ def decrease(rse_id, files, bytes_, session=None):
 
 
 @transactional_session
-def del_counter(rse_id, session=None):
+def del_counter(rse_id, *, session: "Session"):
     """
     Delete specified counter.
 
@@ -73,7 +77,7 @@ def del_counter(rse_id, session=None):
 
 
 @read_session
-def get_counter(rse_id, session=None):
+def get_counter(rse_id, *, session: "Session"):
     """
     Returns current values of the specified counter or raises CounterNotFound if the counter does not exist.
 
@@ -95,7 +99,7 @@ def get_counter(rse_id, session=None):
 
 
 @read_session
-def get_updated_rse_counters(total_workers, worker_number, session=None):
+def get_updated_rse_counters(total_workers, worker_number, *, session: "Session"):
     """
     Get updated rse_counters.
 
@@ -113,7 +117,7 @@ def get_updated_rse_counters(total_workers, worker_number, session=None):
 
 
 @transactional_session
-def update_rse_counter(rse_id, session=None):
+def update_rse_counter(rse_id, *, session: "Session"):
     """
     Read the updated_rse_counters and update the rse_counter.
 
@@ -140,7 +144,7 @@ def update_rse_counter(rse_id, session=None):
 
 
 @transactional_session
-def fill_rse_counter_history_table(session=None):
+def fill_rse_counter_history_table(*, session: "Session"):
     """
     Fill the RSE usage history table with the current usage.
 

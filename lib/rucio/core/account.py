@@ -17,6 +17,7 @@ from datetime import datetime
 from enum import Enum
 from re import match
 from traceback import format_exc
+from typing import TYPE_CHECKING
 
 from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
@@ -32,9 +33,12 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_account(account, type_, email, session=None):
+def add_account(account, type_, email, *, session: "Session"):
     """ Add an account with the given account name and type.
 
     :param account: the name of the new account.
@@ -60,7 +64,7 @@ def add_account(account, type_, email, session=None):
 
 
 @read_session
-def account_exists(account, session=None):
+def account_exists(account, *, session: "Session"):
     """ Checks to see if account exists. This procedure does not check it's status.
 
     :param account: Name of the account.
@@ -75,7 +79,7 @@ def account_exists(account, session=None):
 
 
 @read_session
-def get_account(account, session=None):
+def get_account(account, *, session: "Session"):
     """ Returns an account for the given account name.
 
     :param account: the name of the account.
@@ -93,7 +97,7 @@ def get_account(account, session=None):
 
 
 @transactional_session
-def del_account(account, session=None):
+def del_account(account, *, session: "Session"):
     """ Disable an account with the given account name.
 
     :param account: the account name.
@@ -109,7 +113,7 @@ def del_account(account, session=None):
 
 
 @transactional_session
-def update_account(account, key, value, session=None):
+def update_account(account, key, value, *, session: "Session"):
     """ Update a property of an account.
 
     :param account: Name of the account.
@@ -134,7 +138,7 @@ def update_account(account, key, value, session=None):
 
 
 @stream_session
-def list_accounts(filter_=None, session=None):
+def list_accounts(filter_=None, *, session: "Session"):
     """ Returns a list of all account names.
 
     :param filter_: Dictionary of attributes by which the input data should be filtered
@@ -173,7 +177,7 @@ def list_accounts(filter_=None, session=None):
 
 
 @read_session
-def list_identities(account, session=None):
+def list_identities(account, *, session: "Session"):
     """
     List all identities on an account.
 
@@ -199,7 +203,7 @@ def list_identities(account, session=None):
 
 
 @read_session
-def list_account_attributes(account, session=None):
+def list_account_attributes(account, *, session: "Session"):
     """
     Get all attributes defined for an account.
 
@@ -223,7 +227,7 @@ def list_account_attributes(account, session=None):
 
 
 @read_session
-def has_account_attribute(account, key, session=None):
+def has_account_attribute(account, key, *, session: "Session"):
     """
     Indicates whether the named key is present for the account.
 
@@ -239,7 +243,7 @@ def has_account_attribute(account, key, session=None):
 
 
 @transactional_session
-def add_account_attribute(account, key, value, session=None):
+def add_account_attribute(account, key, value, *, session: "Session"):
     """
     Add an attribute for the given account name.
 
@@ -272,7 +276,7 @@ def add_account_attribute(account, key, value, session=None):
 
 
 @transactional_session
-def del_account_attribute(account, key, session=None):
+def del_account_attribute(account, key, *, session: "Session"):
     """
     Add an attribute for the given account name.
 
@@ -287,7 +291,7 @@ def del_account_attribute(account, key, session=None):
 
 
 @read_session
-def get_usage(rse_id, account, session=None):
+def get_usage(rse_id, account, *, session: "Session"):
     """
     Returns current values of the specified counter, or raises CounterNotFound if the counter does not exist.
 
@@ -305,7 +309,7 @@ def get_usage(rse_id, account, session=None):
 
 
 @read_session
-def get_all_rse_usages_per_account(account, session=None):
+def get_all_rse_usages_per_account(account, *, session: "Session"):
     """
     Returns current values of the specified counter, or raises CounterNotFound if the counter does not exist.
 
@@ -322,7 +326,7 @@ def get_all_rse_usages_per_account(account, session=None):
 
 
 @read_session
-def get_usage_history(rse_id, account, session=None):
+def get_usage_history(rse_id, account, *, session: "Session"):
     """
     Returns historical values of the specified counter, or raises CounterNotFound if the counter does not exist.
 

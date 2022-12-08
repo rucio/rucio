@@ -77,12 +77,12 @@ def test_bb8_rebalance_rule(vo, root_account, jdoe_account, rse_factory, mock_sc
 
     rule_cleaner(once=True)
 
-    assert(get_rule(rule_id)['expires_at'] <= datetime.utcnow())
-    assert(get_rule(rule_id)['child_rule_id'] == child_rule)
+    assert (get_rule(rule_id)['expires_at'] <= datetime.utcnow())
+    assert (get_rule(rule_id)['child_rule_id'] == child_rule)
 
     rule_cleaner(once=True)
 
-    assert(get_rule(rule_id)['expires_at'] <= datetime.utcnow())
+    assert (get_rule(rule_id)['expires_at'] <= datetime.utcnow())
 
     successful_transfer(scope=mock_scope, name=files[0]['name'], rse_id=rse2_id, nowait=False)
     successful_transfer(scope=mock_scope, name=files[1]['name'], rse_id=rse2_id, nowait=False)
@@ -91,7 +91,7 @@ def test_bb8_rebalance_rule(vo, root_account, jdoe_account, rse_factory, mock_sc
     successful_transfer(scope=mock_scope, name=files[2]['name'], rse_id=rse2_id, nowait=False)
 
     rule_cleaner(once=True)
-    assert(get_rule(child_rule)['state'] == RuleState.OK)
+    assert (get_rule(child_rule)['state'] == RuleState.OK)
     set_metadata(mock_scope, dataset['name'], 'lifetime', -86400)
     undertaker.run(once=True)
 
@@ -253,13 +253,13 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
     for rule_id in rules:
         rule = get_rule(rule_id)
         if rule_id != rule_to_rebalance:
-            assert(rule['child_rule_id'] is None)
+            assert (rule['child_rule_id'] is None)
         else:
-            assert(rule['child_rule_id'] is not None)
-            assert(rule['expires_at'] <= datetime.utcnow() + timedelta(seconds=1))  # timedelta needed to prevent failure due to rounding effects
+            assert (rule['child_rule_id'] is not None)
+            assert (rule['expires_at'] <= datetime.utcnow() + timedelta(seconds=1))  # timedelta needed to prevent failure due to rounding effects
             child_rule_id = rule['child_rule_id']
             child_rule = get_rule(child_rule_id)
-            assert(child_rule['rse_expression'] == rse2)
+            assert (child_rule['rse_expression'] == rse2)
             # For teardown, delete child rule
             update_rule(child_rule_id, {'lifetime': -86400})
     rule_cleaner(once=True)

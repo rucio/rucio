@@ -15,6 +15,7 @@
 
 import json
 import logging
+from typing import TYPE_CHECKING
 
 from configparser import NoOptionError
 
@@ -52,7 +53,7 @@ from rucio.core import account_counter, rse_counter, request as request_core, tr
 from rucio.core.account import get_account
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.message import add_message
-from rucio.core.monitor import Timer
+from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse, get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector
@@ -63,15 +64,19 @@ from rucio.db.sqla.constants import (LockState, ReplicaState, RuleState, RuleGro
                                      RequestType, RuleNotification, OBSOLETE, RSEType)
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 REGION = make_region_memcached(expiration_time=900)
+METRICS = MetricManager(module=__name__)
 
 
 @transactional_session
 def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, locked, subscription_id,
              source_replica_expression=None, activity='User Subscriptions', notify=None, purge_replicas=False,
              ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, ignore_account_limit=False,
-             priority=3, delay_injection=None, split_container=False, meta=None, session=None, logger=logging.log):
+             priority=3, delay_injection=None, split_container=False, meta=None, *, session: "Session", logger=logging.log):
     """
     Adds a replication rule for every did in dids
 
@@ -112,9 +117,9 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
     grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(grouping, RuleGrouping.DATASET)
 
-    with Timer('rule.add_rule'):
+    with METRICS.timer('add_rule.total'):
         # 1. Resolve the rse_expression into a list of RSE-ids
-        with Timer('rule.add_rule.parse_rse_expression'):
+        with METRICS.timer('add_rule.parse_rse_expression'):
             vo = account.vo
             if ignore_availability:
                 rses = parse_expression(rse_expression, filter_={'vo': vo}, session=session)
@@ -148,7 +153,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 source_rses = []
 
         # 2. Create the rse selector
-        with Timer('rule.add_rule.create_rse_selector'):
+        with METRICS.timer('add_rule.create_rse_selector'):
             rseselector = RSESelector(account=account, rses=rses, weight=weight, copies=copies, ignore_account_limit=ask_approval or ignore_account_limit, session=session)
 
         expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
@@ -157,7 +162,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
         for elem in dids:
             # 3. Get the did
-            with Timer('rule.add_rule.get_did'):
+            with METRICS.timer('add_rule.get_did'):
                 try:
                     did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == elem['scope'],
                                                                       models.DataIdentifier.name == elem['name']).one()
@@ -197,7 +202,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             eol_at = define_eol(elem['scope'], elem['name'], rses, session=session)
 
             # 4. Create the replication rule
-            with Timer('rule.add_rule.create_rule'):
+            with METRICS.timer('add_rule.create_rule'):
                 meta_json = None
                 if meta is not None:
                     try:
@@ -286,7 +291,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 continue
 
             # 5. Apply the rule
-            with Timer('rule.add_rule.apply_rule'):
+            with METRICS.timer('add_rule.apply_rule'):
                 try:
                     apply_rule(did, new_rule, [x['id'] for x in rses], [x['id'] for x in source_rses], rseselector, session=session)
                 except IntegrityError as error:
@@ -320,7 +325,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
 
 
 @transactional_session
-def add_rules(dids, rules, session=None, logger=logging.log):
+def add_rules(dids, rules, *, session: "Session", logger=logging.log):
     """
     Adds a list of replication rules to every did in dids
 
@@ -336,13 +341,13 @@ def add_rules(dids, rules, session=None, logger=logging.log):
     if any(r.get("copies", 1) <= 0 for r in rules):
         raise InvalidValueForKey("The number of copies for a replication rule should be greater than 0.")
 
-    with Timer('rule.add_rules'):
+    with METRICS.timer('add_rules.total'):
         rule_ids = {}
 
         # 1. Fetch the RSEs from the RSE expression to restrict further queries just on these RSEs
         restrict_rses = []
         all_source_rses = []
-        with Timer('rule.add_rules.parse_rse_expressions'):
+        with METRICS.timer('add_rules.parse_rse_expressions'):
             for rule in rules:
                 vo = rule['account'].vo
                 if rule.get('ignore_availability'):
@@ -359,7 +364,7 @@ def add_rules(dids, rules, session=None, logger=logging.log):
 
         for elem in dids:
             # 2. Get the did
-            with Timer('rule.add_rules.get_did'):
+            with METRICS.timer('add_rules.get_did'):
                 try:
                     did = session.query(models.DataIdentifier).filter(
                         models.DataIdentifier.scope == elem['scope'],
@@ -398,7 +403,7 @@ def add_rules(dids, rules, session=None, logger=logging.log):
             rule_ids[(elem['scope'], elem['name'])] = []
 
             # 3. Resolve the did into its contents
-            with Timer('rule.add_rules.resolve_dids_to_locks_replicas'):
+            with METRICS.timer('add_rules.resolve_dids_to_locks_replicas'):
                 # Get all Replicas, not only the ones interesting for the rse_expression
                 datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
                                                                                                      nowait=False,
@@ -407,7 +412,7 @@ def add_rules(dids, rules, session=None, logger=logging.log):
                                                                                                      session=session)
 
             for rule in rules:
-                with Timer('rule.add_rules.add_rule'):
+                with METRICS.timer('add_rules.add_rule'):
                     # 4. Resolve the rse_expression into a list of RSE-ids
                     vo = rule['account'].vo
                     if rule.get('ignore_availability'):
@@ -447,11 +452,11 @@ def add_rules(dids, rules, session=None, logger=logging.log):
                         source_rses = []
 
                     # 5. Create the RSE selector
-                    with Timer('rule.add_rules.create_rse_selector'):
+                    with METRICS.timer('add_rules.create_rse_selector'):
                         rseselector = RSESelector(account=rule['account'], rses=rses, weight=rule.get('weight'), copies=rule['copies'], ignore_account_limit=rule.get('ask_approval', False), session=session)
 
                     # 4. Create the replication rule
-                    with Timer('rule.add_rules.create_rule'):
+                    with METRICS.timer('add_rules.create_rule'):
                         grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(rule.get('grouping'), RuleGrouping.DATASET)
 
                         expires_at = datetime.utcnow() + timedelta(seconds=rule.get('lifetime')) if rule.get('lifetime') is not None else None
@@ -538,7 +543,7 @@ def add_rules(dids, rules, session=None, logger=logging.log):
                         continue
 
                     # 5. Apply the replication rule to create locks, replicas and transfers
-                    with Timer('rule.add_rules.create_locks_replicas_transfers'):
+                    with METRICS.timer('add_rules.create_locks_replicas_transfers'):
                         try:
                             __create_locks_replicas_transfers(datasetfiles=datasetfiles,
                                                               locks=locks,
@@ -579,7 +584,7 @@ def add_rules(dids, rules, session=None, logger=logging.log):
 
 
 @transactional_session
-def inject_rule(rule_id, session=None, logger=logging.log):
+def inject_rule(rule_id, *, session: "Session", logger=logging.log):
     """
     Inject a replication rule.
 
@@ -638,7 +643,7 @@ def inject_rule(rule_id, session=None, logger=logging.log):
         return
 
     # 1. Resolve the rse_expression into a list of RSE-ids
-    with Timer('rule.add_rule.parse_rse_expression'):
+    with METRICS.timer('inject_rule.parse_rse_expression'):
         vo = rule['account'].vo
         if rule.ignore_availability:
             rses = parse_expression(rule.rse_expression, filter_={'vo': vo}, session=session)
@@ -651,11 +656,11 @@ def inject_rule(rule_id, session=None, logger=logging.log):
             source_rses = []
 
     # 2. Create the rse selector
-    with Timer('rule.add_rule.create_rse_selector'):
+    with METRICS.timer('inject_rule.create_rse_selector'):
         rseselector = RSESelector(account=rule['account'], rses=rses, weight=rule.weight, copies=rule.copies, ignore_account_limit=rule.ignore_account_limit, session=session)
 
     # 3. Get the did
-    with Timer('rule.add_rule.get_did'):
+    with METRICS.timer('inject_rule.get_did'):
         try:
             did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == rule.scope,
                                                               models.DataIdentifier.name == rule.name).one()
@@ -665,7 +670,7 @@ def inject_rule(rule_id, session=None, logger=logging.log):
             raise InvalidObject(error.args)
 
     # 4. Apply the rule
-    with Timer('rule.add_rule.apply_rule'):
+    with METRICS.timer('inject_rule.apply_rule'):
         try:
             apply_rule(did, rule, [x['id'] for x in rses], [x['id'] for x in source_rses], rseselector, session=session)
         except IntegrityError as error:
@@ -698,7 +703,7 @@ def inject_rule(rule_id, session=None, logger=logging.log):
 
 
 @stream_session
-def list_rules(filters={}, session=None):
+def list_rules(filters={}, *, session: "Session"):
     """
     List replication rules.
 
@@ -753,7 +758,7 @@ def list_rules(filters={}, session=None):
 
 
 @stream_session
-def list_rule_history(rule_id, session=None):
+def list_rule_history(rule_id, *, session: "Session"):
     """
     List the rule history of a rule.
 
@@ -776,7 +781,7 @@ def list_rule_history(rule_id, session=None):
 
 
 @stream_session
-def list_rule_full_history(scope, name, session=None):
+def list_rule_full_history(scope, name, *, session: "Session"):
     """
     List the rule history of a DID.
 
@@ -805,7 +810,7 @@ def list_rule_full_history(scope, name, session=None):
 
 
 @stream_session
-def list_associated_rules_for_file(scope, name, session=None):
+def list_associated_rules_for_file(scope, name, *, session: "Session"):
     """
     List replication rules a file is affected from.
 
@@ -831,7 +836,7 @@ def list_associated_rules_for_file(scope, name, session=None):
 
 
 @transactional_session
-def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, nowait=False, session=None,
+def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, nowait=False, *, session: "Session",
                 ignore_rule_lock=False):
     """
     Delete a replication rule.
@@ -847,7 +852,7 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, n
     :raises:                  UnsupportedOperation if the Rule is locked.
     """
 
-    with Timer('rule.delete_rule'):
+    with METRICS.timer('delete_rule.total'):
         try:
             rule = session.query(models.ReplicationRule)\
                           .filter(models.ReplicationRule.id == rule_id)\
@@ -915,7 +920,7 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, n
 
 
 @transactional_session
-def repair_rule(rule_id, session=None, logger=logging.log):
+def repair_rule(rule_id, *, session: "Session", logger=logging.log):
     """
     Repair a STUCK replication rule.
 
@@ -1147,7 +1152,7 @@ def repair_rule(rule_id, session=None, logger=logging.log):
 
 
 @read_session
-def get_rule(rule_id, session=None):
+def get_rule(rule_id, *, session: "Session"):
     """
     Get a specific replication rule.
 
@@ -1170,7 +1175,7 @@ def get_rule(rule_id, session=None):
 
 
 @transactional_session
-def update_rule(rule_id, options, session=None):
+def update_rule(rule_id, options, *, session: "Session"):
     """
     Update a rules options.
 
@@ -1325,7 +1330,7 @@ def update_rule(rule_id, options, session=None):
 
 
 @transactional_session
-def reduce_rule(rule_id, copies, exclude_expression=None, session=None):
+def reduce_rule(rule_id, copies, exclude_expression=None, *, session: "Session"):
     """
     Reduce the number of copies for a rule by atomically replacing the rule.
 
@@ -1391,7 +1396,7 @@ def reduce_rule(rule_id, copies, exclude_expression=None, session=None):
 
 
 @transactional_session
-def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, Any]] = None, session=None):
+def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, Any]] = None, *, session: "Session"):
     """
     Move a replication rule to another RSE and, once done, delete the original one.
 
@@ -1460,7 +1465,7 @@ def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, An
 
 
 @transactional_session
-def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
+def re_evaluate_did(scope, name, rule_evaluation_action, *, session: "Session"):
     """
     Re-Evaluates a did.
 
@@ -1502,7 +1507,7 @@ def re_evaluate_did(scope, name, rule_evaluation_action, session=None):
 
 
 @read_session
-def get_updated_dids(total_workers, worker_number, limit=100, blocked_dids=[], session=None):
+def get_updated_dids(total_workers, worker_number, limit=100, blocked_dids=[], *, session: "Session"):
     """
     Get updated dids.
 
@@ -1540,7 +1545,7 @@ def get_updated_dids(total_workers, worker_number, limit=100, blocked_dids=[], s
 
 
 @read_session
-def get_rules_beyond_eol(date_check, worker_number, total_workers, session):
+def get_rules_beyond_eol(date_check, worker_number, total_workers, *, session: "Session"):
     """
     Get rules which have eol_at before a certain date.
 
@@ -1564,7 +1569,7 @@ def get_rules_beyond_eol(date_check, worker_number, total_workers, session):
 
 
 @read_session
-def get_expired_rules(total_workers, worker_number, limit=100, blocked_rules=[], session=None):
+def get_expired_rules(total_workers, worker_number, limit=100, blocked_rules=[], *, session: "Session"):
     """
     Get expired rules.
 
@@ -1599,7 +1604,7 @@ def get_expired_rules(total_workers, worker_number, limit=100, blocked_rules=[],
 
 
 @read_session
-def get_injected_rules(total_workers, worker_number, limit=100, blocked_rules=[], session=None):
+def get_injected_rules(total_workers, worker_number, limit=100, blocked_rules=[], *, session: "Session"):
     """
     Get rules to be injected.
 
@@ -1642,7 +1647,7 @@ def get_injected_rules(total_workers, worker_number, limit=100, blocked_rules=[]
 
 
 @read_session
-def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blocked_rules=[], session=None):
+def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blocked_rules=[], *, session: "Session"):
     """
     Get stuck rules.
 
@@ -1692,7 +1697,7 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blocked_r
 
 
 @transactional_session
-def delete_updated_did(id_, session=None):
+def delete_updated_did(id_, *, session: "Session"):
     """
     Delete an updated_did by id.
 
@@ -1703,7 +1708,7 @@ def delete_updated_did(id_, session=None):
 
 
 @transactional_session
-def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=None, logger=logging.log):
+def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, *, session: "Session", logger=logging.log):
     """
     Update rules if a file replica is lost.
 
@@ -1783,7 +1788,7 @@ def update_rules_for_lost_replica(scope, name, rse_id, nowait=False, session=Non
 
 
 @transactional_session
-def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None, logger=logging.log):
+def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, *, session: "Session", logger=logging.log):
     """
     Update rules if a file replica is bad and has to be recreated.
 
@@ -1857,7 +1862,7 @@ def update_rules_for_bad_replica(scope, name, rse_id, nowait=False, session=None
 
 
 @transactional_session
-def generate_rule_notifications(rule, replicating_locks_before=None, session=None):
+def generate_rule_notifications(rule, replicating_locks_before=None, *, session: "Session"):
     """
     Generate (If necessary) a callback for a rule (DATASETLOCK_OK, RULE_OK, DATASETLOCK_PROGRESS)
 
@@ -1965,7 +1970,7 @@ def generate_rule_notifications(rule, replicating_locks_before=None, session=Non
 
 
 @transactional_session
-def generate_email_for_rule_ok_notification(rule, session=None, logger=logging.log):
+def generate_email_for_rule_ok_notification(rule, *, session: "Session", logger=logging.log):
     """
     Generate (If necessary) an eMail for a rule with notification mode Y.
 
@@ -2016,7 +2021,7 @@ def generate_email_for_rule_ok_notification(rule, session=None, logger=logging.l
 
 
 @transactional_session
-def insert_rule_history(rule, recent=True, longterm=False, session=None):
+def insert_rule_history(rule, recent=True, longterm=False, *, session: "Session"):
     """
     Insert rule history to recent/longterm history.
 
@@ -2046,7 +2051,7 @@ def insert_rule_history(rule, recent=True, longterm=False, session=None):
 
 
 @transactional_session
-def approve_rule(rule_id, approver=None, notify_approvers=True, session=None):
+def approve_rule(rule_id, approver=None, notify_approvers=True, *, session: "Session"):
     """
     Approve a specific replication rule.
 
@@ -2106,7 +2111,7 @@ def approve_rule(rule_id, approver=None, notify_approvers=True, session=None):
 
 
 @transactional_session
-def deny_rule(rule_id, approver=None, reason=None, session=None):
+def deny_rule(rule_id, approver=None, reason=None, *, session: "Session"):
     """
     Deny a specific replication rule.
 
@@ -2165,7 +2170,7 @@ def deny_rule(rule_id, approver=None, reason=None, session=None):
 
 
 @transactional_session
-def examine_rule(rule_id, session=None):
+def examine_rule(rule_id, *, session: "Session"):
     """
     Examine a replication rule for transfer errors.
 
@@ -2222,7 +2227,7 @@ def examine_rule(rule_id, session=None):
 
 
 @transactional_session
-def get_evaluation_backlog(expiration_time=600, session=None):
+def get_evaluation_backlog(expiration_time=600, *, session: "Session"):
     """
     Counts the number of entries in the rule evaluation backlog.
     (Number of files to be evaluated)
@@ -2238,7 +2243,7 @@ def get_evaluation_backlog(expiration_time=600, session=None):
 
 
 @transactional_session
-def release_parent_rule(child_rule_id, remove_parent_expiration=False, session=None):
+def release_parent_rule(child_rule_id, remove_parent_expiration=False, *, session: "Session"):
     """
     Release a potential parent rule, because the child_rule is OK.
 
@@ -2259,7 +2264,7 @@ def release_parent_rule(child_rule_id, remove_parent_expiration=False, session=N
 
 
 @transactional_session
-def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None, logger=logging.log):
+def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, *, session: "Session", logger=logging.log):
     """
     Find missing locks for a rule and create them.
 
@@ -2306,7 +2311,7 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, source_r
 
 
 @transactional_session
-def __find_surplus_locks_and_remove_them(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None, logger=logging.log):
+def __find_surplus_locks_and_remove_them(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, *, session: "Session", logger=logging.log):
     """
     Find surplocks locks for a rule and delete them.
 
@@ -2354,7 +2359,7 @@ def __find_surplus_locks_and_remove_them(datasetfiles, locks, replicas, source_r
 
 
 @transactional_session
-def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, session=None, logger=logging.log):
+def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, *, session: "Session", logger=logging.log):
     """
     Find stuck locks for a rule and repair them.
 
@@ -2413,7 +2418,7 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, source_rep
 
 
 @transactional_session
-def __evaluate_did_detach(eval_did, session=None, logger=logging.log):
+def __evaluate_did_detach(eval_did, *, session: "Session", logger=logging.log):
     """
     Evaluate a parent did which has children removed.
 
@@ -2425,7 +2430,7 @@ def __evaluate_did_detach(eval_did, session=None, logger=logging.log):
     logger(logging.INFO, "Re-Evaluating did %s:%s for DETACH", eval_did.scope, eval_did.name)
     force_epoch = config_get('rules', 'force_epoch_when_detach', default=False, session=session)
 
-    with Timer('rule.evaluate_did_detach'):
+    with METRICS.timer('evaluate_did_detach.total'):
         # Get all parent DID's
         parent_dids = rucio.core.did.list_all_parent_dids(scope=eval_did.scope, name=eval_did.name, session=session)
 
@@ -2502,7 +2507,7 @@ def __evaluate_did_detach(eval_did, session=None, logger=logging.log):
 
 
 @transactional_session
-def __oldest_file_under(scope, name, session=None):
+def __oldest_file_under(scope, name, *, session: "Session"):
     """
     Finds oldest file in oldest container/dataset in the container or the dataset, recursively.
     Oldest means attached to its parent first.
@@ -2526,7 +2531,7 @@ def __oldest_file_under(scope, name, session=None):
 
 
 @transactional_session
-def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
+def __evaluate_did_attach(eval_did, *, session: "Session", logger=logging.log):
     """
     Evaluate a parent did which has new childs
 
@@ -2538,13 +2543,13 @@ def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
 
     logger(logging.INFO, "Re-Evaluating did %s:%s for ATTACH", eval_did.scope, eval_did.name)
 
-    with Timer('rule.evaluate_did_attach'):
+    with METRICS.timer('evaluate_did_attach.total'):
         # Get all parent DID's
-        with Timer('rule.evaluate_did_attach.list_parent_dids'):
+        with METRICS.timer('evaluate_did_attach.list_parent_dids'):
             parent_dids = rucio.core.did.list_all_parent_dids(scope=eval_did.scope, name=eval_did.name, session=session)
 
         # Get immediate new child DID's
-        with Timer('rule.evaluate_did_attach.list_new_child_dids'):
+        with METRICS.timer('evaluate_did_attach.list_new_child_dids'):
             new_child_dids = session.query(models.DataIdentifierAssociation)\
                 .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(contents contents_pk)", 'oracle')\
                 .filter(models.DataIdentifierAssociation.scope == eval_did.scope,
@@ -2553,7 +2558,7 @@ def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
 
         if new_child_dids:
             # Get all unsuspended RR from parents and eval_did
-            with Timer('rule.evaluate_did_attach.get_rules'):
+            with METRICS.timer('evaluate_did_attach.get_rules'):
                 rule_clauses = []
                 for did in parent_dids:
                     rule_clauses.append(and_(models.ReplicationRule.scope == did['scope'],
@@ -2568,7 +2573,7 @@ def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
 
             if rules:
                 # Resolve the new_child_dids to its locks
-                with Timer('rule.evaluate_did_attach.resolve_did_to_locks_and_replicas'):
+                with METRICS.timer('evaluate_did_attach.resolve_did_to_locks_and_replicas'):
                     # Resolve the rules to possible target rses:
                     possible_rses = []
                     source_rses = []
@@ -2596,7 +2601,7 @@ def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
                                                                                                           session=session)
 
                 # Evaluate the replication rules
-                with Timer('rule.evaluate_did_attach.evaluate_rules'):
+                with METRICS.timer('evaluate_did_attach.evaluate_rules'):
                     for rule in rules:
                         rule_locks_ok_cnt_before = rule.locks_ok_cnt
 
@@ -2708,7 +2713,7 @@ def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
                         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
             # Unflage the dids
-            with Timer('rule.evaluate_did_attach.update_did'):
+            with METRICS.timer('evaluate_did_attach.update_did'):
                 for did in new_child_dids:
                     did.rule_evaluation = None
 
@@ -2716,7 +2721,7 @@ def __evaluate_did_attach(eval_did, session=None, logger=logging.log):
 
 
 @transactional_session
-def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, source_rses=None, only_stuck=False, session=None):
+def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, source_rses=None, only_stuck=False, *, session: "Session"):
     """
     Resolves a did to its constituent childs and reads the locks and replicas of all the constituent files.
 
@@ -2813,7 +2818,7 @@ def __resolve_did_to_locks_and_replicas(did, nowait=False, restrict_rses=None, s
 
 
 @transactional_session
-def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], source_rses=None, session=None):
+def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], source_rses=None, *, session: "Session"):
     """
     Resolves a list of dids to its constituent childs and reads the locks and replicas of all the constituent files.
 
@@ -2925,7 +2930,7 @@ def __resolve_dids_to_locks_and_replicas(dids, nowait=False, restrict_rses=[], s
 
 
 @transactional_session
-def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], session=None, logger=logging.log):
+def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], *, session: "Session", logger=logging.log):
     """
     Apply a created replication rule to a set of files
 
@@ -2978,7 +2983,7 @@ def __create_locks_replicas_transfers(datasetfiles, locks, replicas, source_repl
 
 
 @transactional_session
-def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, session=None, logger=logging.log):
+def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, *, session: "Session", logger=logging.log):
     """
     Delete a lock and update the associated replica.
 
@@ -3017,7 +3022,7 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, s
 
 
 @transactional_session
-def __create_rule_approval_email(rule, session=None):
+def __create_rule_approval_email(rule, *, session: "Session"):
     """
     Create the rule notification email.
 
@@ -3087,7 +3092,7 @@ def __create_rule_approval_email(rule, session=None):
 
 
 @transactional_session
-def __create_recipents_list(rse_expression, filter_=None, session=None):
+def __create_recipents_list(rse_expression, filter_=None, *, session: "Session"):
     """
     Create a list of recipents for a notification email based on rse_expression.
 
@@ -3166,7 +3171,7 @@ def __progress_class(replicating_locks, total_locks):
 
 @policy_filter
 @transactional_session
-def archive_localgroupdisk_datasets(scope, name, session=None, logger=logging.log):
+def archive_localgroupdisk_datasets(scope, name, *, session: "Session", logger=logging.log):
     """
     ATLAS policy to archive a dataset which has a replica on LOCALGROUPDISK
 
@@ -3234,7 +3239,7 @@ def archive_localgroupdisk_datasets(scope, name, session=None, logger=logging.lo
 
 @policy_filter
 @read_session
-def get_scratch_policy(account, rses, lifetime, session=None):
+def get_scratch_policy(account, rses, lifetime, *, session: "Session"):
     """
     ATLAS policy for rules on SCRATCHDISK
 

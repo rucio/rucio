@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-Graphite counters
+Graphite and prometheus metrics
 """
 
 import atexit
@@ -23,8 +23,9 @@ import os
 import string
 from abc import abstractmethod
 from datetime import datetime, timedelta
+from functools import wraps
 from pathlib import Path
-from typing import Dict, Iterable, Optional
+from typing import TYPE_CHECKING
 from threading import Lock
 
 from prometheus_client import start_http_server, Counter, Gauge, Histogram, REGISTRY, CollectorRegistry, generate_latest, values, multiprocess
@@ -33,6 +34,11 @@ from statsd import StatsClient
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import retrying
+
+if TYPE_CHECKING:
+    from typing import Callable, Dict, Iterable, Optional, Sequence, TypeVar
+
+    T = TypeVar('T')
 
 PROMETHEUS_MULTIPROC_DIR = os.environ.get('PROMETHEUS_MULTIPROC_DIR', os.environ.get('prometheus_multiproc_dir', None))
 
@@ -73,10 +79,12 @@ if PROMETHEUS_MULTIPROC_DIR:
     atexit.register(cleanup_prometheus_files_at_exit)
 
 
-SERVER = config_get('monitor', 'carbon_server', raise_exception=False, default='localhost')
+SERVER = config_get('monitor', 'carbon_server', raise_exception=False, default=None)
 PORT = config_get('monitor', 'carbon_port', raise_exception=False, default=8125)
 SCOPE = config_get('monitor', 'user_scope', raise_exception=False, default='rucio')
-CLIENT = StatsClient(host=SERVER, port=PORT, prefix=SCOPE)
+STATSD_CLIENT = None
+if SERVER is not None:
+    STATSD_CLIENT = StatsClient(host=SERVER, port=PORT, prefix=SCOPE)
 
 ENABLE_METRICS = config_get_bool('monitor', 'enable_metrics', raise_exception=False, default=False)
 if ENABLE_METRICS:
@@ -129,7 +137,7 @@ def generate_prometheus_metrics():
     return generate_latest(registry)
 
 
-class MultiMetric:
+class _MultiMetric:
     """
     Thin wrapper class allowing to record both prometheus and statsd metrics.
 
@@ -138,33 +146,51 @@ class MultiMetric:
     ones using metric.labels(**labels) calls.
 
     If the prometheus metric string is not provided, it is derived from the statsd one.
+
+    If `labelnames` is not provided, tries to extract them from the metric name by parsing
+    it as a format string.
     """
 
-    def __init__(self, statsd, prom=None, documentation=None, labelnames=(), registry=None):
+    def __init__(
+            self,
+            statsd: str,
+            prom: "Optional[str | Counter | Gauge | Histogram]" = None,
+            documentation: "Optional[str]" = None,
+            labelnames: "Optional[Sequence[str]]" = None,
+            registry: "Optional[CollectorRegistry]" = None
+    ):
         """
         :param statsd: a string, eventually with keyword placeholders for the str.format(**labels) call
-        :param prom: a string or a prometheus metric object
+        :param prom: a string prometheus metric name; or an instantiated prometheus metric object
         """
         self._registry = registry or REGISTRY
         self._documentation = documentation or ''
         self._statsd = statsd
         if not prom:
+            parsed_format = list(string.Formatter().parse(statsd))
             # automatically generate a prometheus metric name
             #
             # remove '.{label}' from the string for each `label`
-            stats_without_labels = ''.join(tup[0].rstrip('.') for tup in string.Formatter().parse(self._statsd))
-            prom = 'rucio_{}'.format(stats_without_labels).replace('.', '_')
+            # substituted dots with underscores
+            if labelnames is None:
+                labelnames = tuple(field_name for _, field_name, _, _ in parsed_format if field_name)
+            prom = ''.join(literal_text.rstrip('.').replace('.', '_') for literal_text, *_ in parsed_format)
+        labelnames = labelnames or ()
         if isinstance(prom, str):
             self._prom = self.init_prometheus_metric(prom, self._documentation, labelnames=labelnames)
         else:
             self._prom = prom
+
         self._labelnames = labelnames
 
     @abstractmethod
-    def init_prometheus_metric(self, name, documentation, labelnames=()):
+    def init_prometheus_metric(self, name: str, documentation: "Optional[str]", labelnames: "Sequence[str]" = ()):
         pass
 
     def labels(self, **labelkwargs):
+        if not labelkwargs:
+            return self
+
         return self.__class__(
             prom=self._prom.labels(**labelkwargs),
             statsd=self._statsd.format(**labelkwargs),
@@ -174,201 +200,212 @@ class MultiMetric:
         )
 
 
-class MultiCounter(MultiMetric):
+class _MultiCounter(_MultiMetric):
 
     def inc(self, delta=1):
+        delta = abs(delta)
         self._prom.inc(delta)
-        CLIENT.incr(self._statsd, delta)
+        if STATSD_CLIENT:
+            STATSD_CLIENT.incr(self._statsd, delta)
 
-    def init_prometheus_metric(self, name, documentation, labelnames=()):
+    def init_prometheus_metric(self, name: str, documentation: "Optional[str]", labelnames: "Sequence[str]" = ()):
         return Counter(name, documentation, labelnames=labelnames, registry=self._registry)
 
 
-class MultiGauge(MultiMetric):
+class _MultiGauge(_MultiMetric):
 
     def set(self, value):
         self._prom.set(value)
-        CLIENT.gauge(self._statsd, value)
+        if STATSD_CLIENT:
+            STATSD_CLIENT.gauge(self._statsd, value)
 
-    def init_prometheus_metric(self, name, documentation, labelnames=()):
+    def init_prometheus_metric(self, name: str, documentation: "Optional[str]", labelnames: "Sequence[str]" = ()):
         return Gauge(name, documentation, labelnames=labelnames, registry=self._registry)
 
 
-class MultiTiming(MultiMetric):
+class _MultiTiming(_MultiMetric):
 
-    def __init__(self,
-                 statsd, prom=None, documentation=None, labelnames=(), registry=None,
-                 buckets: Iterable[float] = _HISTOGRAM_DEFAULT_BUCKETS,
-                 ) -> None:
+    def __init__(
+            self,
+            statsd: str,
+            prom: "Optional[str]" = None,
+            documentation: "Optional[str]" = None,
+            labelnames: "Optional[Sequence[str]]" = None,
+            registry: "Optional[CollectorRegistry]" = None,
+            buckets: "Iterable[float]" = _HISTOGRAM_DEFAULT_BUCKETS,
+    ) -> None:
+        self._stopwatch = None
         self._histogram_buckets = tuple(buckets)
         super().__init__(statsd, prom, documentation, labelnames, registry)
 
     def observe(self, value: float):
         self._prom.observe(value)
-        CLIENT.timing(self._statsd, value * 1000)
+        if STATSD_CLIENT:
+            STATSD_CLIENT.timing(self._statsd, value * 1000)
 
-    def init_prometheus_metric(self, name, documentation, labelnames=()):
+    def init_prometheus_metric(self, name: str, documentation: "Optional[str]", labelnames: "Sequence[str]" = ()):
         return Histogram(name, documentation, labelnames=labelnames, registry=self._registry, buckets=self._histogram_buckets)
 
-
-def record_counter(name, delta=1, labels=None):
-    """
-    Log one or more counters by arbitrary amounts
-
-    :param name: The counter to be updated.
-    :param delta: The increment for the counter, by default increment by 1.
-    :param labels: labels used to parametrize the metric
-    """
-
-    counter = COUNTERS.get(name)
-    if not counter:
-        with METRICS_LOCK:
-            if not COUNTERS.get(name):
-                COUNTERS[name] = counter = MultiCounter(statsd=name, labelnames=labels.keys() if labels else ())
-
-    delta = abs(delta)
-
-    if labels:
-        counter.labels(**labels).inc(delta)
-    else:
-        counter.inc(delta)
-
-
-def record_gauge(name, value, labels=None):
-    """
-    Log gauge information for a single stat
-
-    :param name: The name of the stat to be updated.
-    :param value: The value to log.
-    :param labels: labels used to parametrize the metric
-    """
-    gauge = GAUGES.get(name)
-    if not gauge:
-        with METRICS_LOCK:
-            if not GAUGES.get(name):
-                GAUGES[name] = gauge = MultiGauge(statsd=name, labelnames=labels.keys() if labels else ())
-
-    if labels:
-        gauge.labels(**labels).set(value)
-    else:
-        gauge.set(value)
-
-
-def record_timer(name: str,
-                 time: float,
-                 *,
-                 labels: Optional[Dict] = None,
-                 buckets: Iterable[float] = _HISTOGRAM_DEFAULT_BUCKETS
-                 ) -> None:
-    """
-    Log a time measurement.
-
-    :param name: The name of the stat to be updated.
-    :param time: The time (in seconds) to log.
-    :param labels: labels used to parametrize the metric
-    :param buckets: Optional iterable of histogram bucket separators.
-    """
-    histogram = TIMINGS.get(name)
-    if not histogram:
-        with METRICS_LOCK:
-            if not TIMINGS.get(name):
-                TIMINGS[name] = histogram = MultiTiming(statsd=name, labelnames=labels.keys() if labels else (), buckets=buckets)
-
-    if labels:
-        histogram.labels(**labels).observe(time)
-    else:
-        histogram.observe(time)
-
-
-class Timer:
-    """
-    Class for timing code execution and recording statistics to Prometheus/statsd.
-    Can be used both inline and as a context manager.
-
-    Inline usage:
-    ```
-    timer = Timer('test.inline_timer', divisor=3, buckets=[1, 5, 10, 100])
-    stuff1()
-    timer.record('test.inline_timer.stuff1')
-    stuff2()
-    timer.record() # records to the key 'test.inline_timer'
-    ```
-
-    As a context manager:
-    ```
-    with Timer('test.context_timer'), \\
-            Timer('test.context_timer_normalized', divisor=10):
-        stuff1()
-        stuff2()
-        # records to both 'test.context_timer' and 'test.context_timer_normalized' on exit
-    ```
-    """
-
-    def __init__(self,
-                 name: Optional[str] = None,
-                 *,
-                 divisor: float = 1,
-                 labels: Optional[Dict] = None,
-                 buckets: Iterable[float] = _HISTOGRAM_DEFAULT_BUCKETS
-                 ) -> None:
-        if divisor == 0:
-            raise ValueError('Divisor cannot be zero.')
-        self._name = name
-        self._divisor = divisor
-        self._labels = labels
-        self._buckets = tuple(buckets)
-        self._stopwatch = Stopwatch()
-
-    @property
-    def elapsed(self) -> float:
-        """Returns the total number of elapsed seconds."""
-        return self._stopwatch.elapsed
-
-    def restart(self) -> None:
-        """Restarts the timer."""
-        self._stopwatch.restart()
-
-    def stop(self) -> None:
-        """Stops the timer (without recording statistics)."""
-        self._stopwatch.stop()
-
-    def record(self,
-               name: Optional[str] = None,
-               *,
-               divisor: Optional[float] = None,
-               labels: Optional[Dict] = None,
-               buckets: Optional[Iterable[float]] = None,
-               ) -> None:
-        """Records the currently elapsed time and lets the clock continue running.
-
-        :param name: Name of recorded metric.
-        :param divisor: Optional divisor to scale the elapsed time by.
-        :param labels: Optional dictionary of additional information.
-        :param buckets: Optional iterable of histogram bucket separators.
-        """
-        if divisor == 0:
-            raise ValueError('Divisor cannot be zero.')
-
-        name = self._name if name is None else name
-        if name is None:
-            raise ValueError("Missing argument 'name'.")
-
-        divisor = self._divisor if divisor is None else divisor
-        if divisor is None:
-            raise ValueError("Missing argument 'divisor'.")
-
-        scaled_time = self._stopwatch.elapsed / divisor
-        record_timer(name=name,
-                     time=scaled_time,
-                     labels=self._labels if labels is None else labels,
-                     buckets=self._buckets if buckets is None else buckets)
-
     def __enter__(self):
-        """Starts the internal timer (or restarts it if it's already running)."""
-        self._stopwatch.restart()
+        self._stopwatch = Stopwatch()
         return self
 
     def __exit__(self, typ, value, tb):
-        """Stops the internal timer and records elapsed time."""
-        self._stopwatch.stop()
-        self.record()
+        if self._stopwatch:
+            self._stopwatch.stop()
+            self.observe(self._stopwatch.elapsed)
+
+
+def _fetch_or_create_metric(
+        name: str,
+        labelnames: "Optional[Sequence[str]]",
+        container: "Dict[str, T]",
+        factory: "Callable[[str, Optional[Sequence[str]]], T]"
+) -> "T":
+    metric = container.get(name)
+    if not metric:
+        with METRICS_LOCK:
+            metric = container.get(name)
+            if not metric:
+                container[name] = metric = factory(name, labelnames)
+    return metric
+
+
+def _fetch_or_create_counter(
+        name: str,
+        labelnames: "Optional[Sequence[str]]" = None,
+        documentation: "Optional[str]" = None,
+) -> _MultiCounter:
+    return _fetch_or_create_metric(
+        name=name,
+        labelnames=labelnames,
+        container=COUNTERS,
+        factory=lambda _name, _labelnames: _MultiCounter(statsd=_name, labelnames=_labelnames, documentation=documentation)
+    )
+
+
+def _fetch_or_create_gauge(
+        name: str,
+        labelnames: "Optional[Sequence[str]]" = None,
+        documentation: "Optional[str]" = None,
+) -> _MultiGauge:
+    return _fetch_or_create_metric(
+        name=name,
+        labelnames=labelnames,
+        container=GAUGES,
+        factory=lambda _name, _labelnames: _MultiGauge(statsd=_name, labelnames=_labelnames, documentation=documentation)
+    )
+
+
+def _fetch_or_create_timer(
+        name: str,
+        labelnames: "Optional[Sequence[str]]" = None,
+        documentation: "Optional[str]" = None,
+        buckets: "Iterable[float]" = _HISTOGRAM_DEFAULT_BUCKETS
+) -> _MultiTiming:
+    return _fetch_or_create_metric(
+        name=name,
+        labelnames=labelnames,
+        container=TIMINGS,
+        factory=lambda _name, _labels: _MultiTiming(statsd=_name, labelnames=_labels, documentation=documentation, buckets=buckets)
+    )
+
+
+class MetricManager:
+
+    """
+    Wrapper for metrics which prefixes them automatically with the given prefix or,
+    alternatively, with the path of the module.
+    """
+    def __init__(self, prefix: "Optional[str]" = None, module: "Optional[str]" = None):
+        if prefix:
+            self.prefix = prefix
+        elif module:
+            self.prefix = module
+        else:
+            self.prefix = None
+
+    def full_name(self, name: str):
+        if self.prefix:
+            return f'{self.prefix}.{name}'
+        return name
+
+    def counter(
+            self,
+            name: str,
+            *,
+            labelnames: "Optional[Sequence[str]]" = None,
+            documentation: "Optional[str]" = None,
+    ) -> _MultiCounter:
+        """
+        Log a counter.
+
+        :param name: The name (suffix) of the counter to be retrieved
+        :param labelnames: optional labels used to parametrize the metric
+        :param documentation: optional prometheus documentation for this metric
+        """
+        return _fetch_or_create_counter(name=self.full_name(name), labelnames=labelnames, documentation=documentation)
+
+    def gauge(
+            self,
+            name: str,
+            *,
+            labelnames: "Optional[Sequence[str]]" = None,
+            documentation: "Optional[str]" = None,
+    ) -> _MultiGauge:
+        """
+        Log gauge information for a single stat
+
+        :param name: The name (suffix) of the counter to be retrieved
+        :param labelnames: optional labels used to parametrize the metric
+        :param documentation: optional prometheus documentation for this metric
+        """
+        return _fetch_or_create_gauge(name=self.full_name(name), labelnames=labelnames, documentation=documentation)
+
+    def timer(
+            self,
+            name: str,
+            *,
+            labelnames: "Optional[Sequence[str]]" = None,
+            documentation: "Optional[str]" = None,
+            buckets: "Iterable[float]" = _HISTOGRAM_DEFAULT_BUCKETS
+    ) -> _MultiTiming:
+        """
+        Log a time measurement.
+
+        :param name: The name (suffix) of the counter to be retrieved
+        :param labelnames: optional labels used to parametrize the metric
+        :param documentation: optional prometheus documentation for this metric
+        :param buckets: Optional iterable of histogram bucket separators.
+        """
+        return _fetch_or_create_timer(name=self.full_name(name), labelnames=labelnames, documentation=documentation, buckets=buckets)
+
+    def time_it(self, original_function=None, *, buckets=_HISTOGRAM_DEFAULT_BUCKETS):
+        """
+        Function decorator which records a timer: the amount of time spent in the function.
+        """
+        def _decorator(func):
+            @wraps(func)
+            def _wrapper(*args, **kwargs):
+                with self.timer(name=func.__name__, buckets=buckets):
+                    return func(*args, **kwargs)
+            return _wrapper
+        if original_function:
+            return _decorator(original_function)
+        return _decorator
+
+    def count_it(self, original_function=None):
+        """
+        Function decorator which records a counter: how many times the function was executed.
+        """
+        def _decorator(func):
+            @wraps(func)
+            def _wrapper(*args, **kwargs):
+                try:
+                    return func(*args, **kwargs)
+                finally:
+                    _fetch_or_create_counter(name=self.full_name(func.__name__) + '_cnt').inc()
+            return _wrapper
+        if original_function:
+            return _decorator(original_function)
+        return _decorator

@@ -108,7 +108,7 @@ def set_query_parameters(url, params):
 
 
 @read_session
-def __get_source(request_id, src_rse_id, scope, name, session=None):
+def __get_source(request_id, src_rse_id, scope, name, *, session=None):
     return session.query(models.Source) \
         .filter(models.Source.request_id == request_id) \
         .filter(models.Source.scope == scope) \
@@ -186,7 +186,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         # The ranking of this source should remain at 0 till the end.
 
         @transactional_session
-        def __fake_source_ranking(session=None):
+        def __fake_source_ranking(*, session=None):
             models.Source(request_id=request['id'],
                           scope=request['scope'],
                           name=request['name'],
@@ -231,13 +231,13 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         # 3 request: copy to second source + 2 hops (each separately)
         # Use inequalities, because there can be left-overs from other tests
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 3
-        assert metrics_mock.get_sample_value('rucio_core_request_submit_transfer_total') >= 3
+        assert metrics_mock.get_sample_value('rucio_daemons_conveyor_common_submit_transfer_total') >= 3
         # at least the failed hop
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_finisher_handle_requests_total') > 0
     finally:
 
         @transactional_session
-        def _cleanup_all_usage_and_limits(rse_id, session=None):
+        def _cleanup_all_usage_and_limits(rse_id, *, session=None):
             session.query(models.RSELimit).filter_by(rse_id=rse_id).delete()
             session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='storage').delete()
 
@@ -382,7 +382,7 @@ def test_multisource(vo, did_factory, root_account, replica_client, core_config_
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
     @read_session
-    def __source_exists(src_rse_id, scope, name, session=None):
+    def __source_exists(src_rse_id, scope, name, *, session=None):
         return session.query(models.Source) \
             .filter(models.Source.rse_id == src_rse_id) \
             .filter(models.Source.scope == scope) \
@@ -414,7 +414,7 @@ def test_multisource(vo, did_factory, root_account, replica_client, core_config_
     assert metrics_mock.get_sample_value('rucio_daemons_conveyor_finisher_handle_requests_total') >= 1
     assert metrics_mock.get_sample_value('rucio_daemons_conveyor_poller_update_request_state_total', labels={'updated': 'True'}) >= 1
     assert metrics_mock.get_sample_value(
-        'rucio_core_request_get_next_total',
+        'rucio_core_request_get_next_requests_total',
         labels={
             'request_type': 'TRANSFER.STAGEIN.STAGEOUT',
             'state': 'DONE.FAILED.LOST.SUBMITTING.SUBMISSION_FAILED.NO_SOURCES.ONLY_TAPE_SOURCES.MISMATCH_SCHEME'}
@@ -618,8 +618,8 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
 
     for rse_id in all_rses:
         rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
-    distance_core.add_distance(src_rse_id, dst_rse_id1, ranking=10)
-    distance_core.add_distance(src_rse_id, dst_rse_id2, ranking=10)
+    distance_core.add_distance(src_rse_id, dst_rse_id1, distance=10)
+    distance_core.add_distance(src_rse_id, dst_rse_id2, distance=10)
     # Set limits only for one of the RSEs
     request_core.set_transfer_limit(dst_rse1, max_transfers=1, activity='all_activities', strategy='fifo')
 
@@ -735,7 +735,7 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
     dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
     all_rses = [src_rse_id, dst_rse_id]
 
-    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
     rse_core.add_rse_attribute(src_rse_id, 'staging_buffer', dst_rse)
     for rse_id in all_rses:
         rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
@@ -781,7 +781,7 @@ def test_transfer_to_mas_new_replica(rse_factory, did_factory, root_account):
 
     maximum_pin_lifetime = 86400
 
-    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
     rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
     rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
 
@@ -824,7 +824,7 @@ def test_failed_transfer_to_mas_new_replica(rse_factory, did_factory, root_accou
 
     maximum_pin_lifetime = 86400
 
-    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
     rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
     rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
 
@@ -869,7 +869,7 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
 
     maximum_pin_lifetime = 86400
 
-    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
     rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
     rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
 
@@ -934,7 +934,7 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
 
     maximum_pin_lifetime = 86400
 
-    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
     rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
     rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
 
@@ -1000,7 +1000,7 @@ def test_transfer_failed_stagein_to_mas_existing_replica(rse_factory, did_factor
 
     maximum_pin_lifetime = 86400
 
-    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
     rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
     rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
 
@@ -1064,7 +1064,7 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
     dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
     all_rses = [src_rse_id, dst_rse_id]
 
-    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
     for rse_id in all_rses:
         rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
 
@@ -1073,7 +1073,7 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     @transactional_session
-    def __update_request(request_id, session=None, **kwargs):
+    def __update_request(request_id, *, session=None, **kwargs):
         session.query(models.Request).filter_by(id=request_id).update(kwargs, synchronize_session=False)
 
     # Fake that the transfer is submitted and lost
@@ -1107,7 +1107,7 @@ def test_cancel_rule(rse_factory, did_factory, root_account):
     dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
     all_rses = [src_rse_id, dst_rse_id]
 
-    distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
     for rse_id in all_rses:
         rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
 
@@ -1437,7 +1437,7 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
 
         for rse_id in all_rses:
             rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
-        distance_core.add_distance(src_rse_id, dst_rse_id, ranking=10)
+        distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
         account = InternalAccount('root', vo=vo)
         did = did_factory.random_file_did(scope=scope)
         replica_core.add_replica(rse_id=src_rse_id, scope=scope, name=did['name'], bytes_=1, account=account, adler32=None, md5=None)
@@ -1515,12 +1515,12 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
         rse_core.add_rse_attribute(rse_id, 'available_for_multihop', True)
         rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=1)
         rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=1, free=0)
-    distance_core.add_distance(rse1_id, rse2_id, ranking=10)
-    distance_core.add_distance(rse2_id, rse3_id, ranking=10)
-    distance_core.add_distance(rse3_id, rse4_id, ranking=10)
-    distance_core.add_distance(rse4_id, rse5_id, ranking=10)
-    distance_core.add_distance(rse3_id, rse6_id, ranking=10)
-    distance_core.add_distance(rse6_id, rse7_id, ranking=10)
+    distance_core.add_distance(rse1_id, rse2_id, distance=10)
+    distance_core.add_distance(rse2_id, rse3_id, distance=10)
+    distance_core.add_distance(rse3_id, rse4_id, distance=10)
+    distance_core.add_distance(rse4_id, rse5_id, distance=10)
+    distance_core.add_distance(rse3_id, rse6_id, distance=10)
+    distance_core.add_distance(rse6_id, rse7_id, distance=10)
 
     did = did_factory.upload_test_file(rse1)
     rule_core.add_rule(dids=[did], account=root_account, copies=2, rse_expression=f'{rse5}|{rse7}', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -1602,7 +1602,7 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
     all_rses = [src_rse_id, dst_rse1_id, dst_rse2_id, dst_rse3_id]
 
     for rse_id in [dst_rse1_id, dst_rse2_id, dst_rse3_id]:
-        distance_core.add_distance(src_rse_id, rse_id, ranking=10)
+        distance_core.add_distance(src_rse_id, rse_id, distance=10)
     for rse_id in all_rses:
         rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
 

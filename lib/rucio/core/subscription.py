@@ -50,7 +50,7 @@ def add_subscription(name: str,
                      retroactive: "Optional[bool]" = False,
                      dry_run: "Optional[bool]" = False,
                      priority: "Optional[int]" = 3,
-                     session: "Optional[Session]" = None) -> str:
+                     *, session: "Session") -> str:
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
@@ -131,7 +131,7 @@ def add_subscription(name: str,
 def update_subscription(name: str,
                         account: "InternalAccount",
                         metadata: dict,
-                        session: "Optional[Session]" = None) -> None:
+                        *, session: "Session") -> None:
     """
     Updates a subscription
 
@@ -198,7 +198,7 @@ def update_subscription(name: str,
 def list_subscriptions(name: "Optional[str]" = None,
                        account: "Optional[InternalAccount]" = None,
                        state: "Optional[SubscriptionState]" = None,
-                       session: "Optional[Session]" = None,
+                       *, session: "Session",
                        logger: "LoggerFunction" = logging.log) -> "Iterator[SubscriptionType]":
     """
     Returns a dictionary with the subscription information :
@@ -241,7 +241,7 @@ def list_subscriptions(name: "Optional[str]" = None,
 
 
 @transactional_session
-def delete_subscription(subscription_id: str, session: "Optional[Session]" = None) -> None:
+def delete_subscription(subscription_id: str, *, session: "Session") -> None:
     """
     Deletes a subscription
 
@@ -252,7 +252,7 @@ def delete_subscription(subscription_id: str, session: "Optional[Session]" = Non
 
 
 @stream_session
-def list_subscription_rule_states(name=None, account=None, session=None, logger=logging.log):
+def list_subscription_rule_states(name=None, account=None, *, session: "Session", logger=logging.log):
     """Returns a list of with the number of rules per state for a subscription.
 
     :param name:               Name of the subscription
@@ -288,7 +288,7 @@ def list_subscription_rule_states(name=None, account=None, session=None, logger=
 
 
 @read_session
-def get_subscription_by_id(subscription_id, session=None):
+def get_subscription_by_id(subscription_id, *, session: "Session"):
     """
     Get a specific subscription by id.
 

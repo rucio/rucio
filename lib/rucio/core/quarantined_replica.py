@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, or_
 from sqlalchemy.sql.expression import false
@@ -22,9 +23,12 @@ from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.common.utils import chunks
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_quarantined_replicas(rse_id, replicas, session=None):
+def add_quarantined_replicas(rse_id, replicas, *, session: "Session"):
     """
     Bulk add quarantined file replicas.
 
@@ -73,7 +77,7 @@ def add_quarantined_replicas(rse_id, replicas, session=None):
 
 
 @transactional_session
-def delete_quarantined_replicas(rse_id, replicas, session=None):
+def delete_quarantined_replicas(rse_id, replicas, *, session: "Session"):
     """
     Delete file replicas.
 
@@ -102,7 +106,7 @@ def delete_quarantined_replicas(rse_id, replicas, session=None):
 
 
 @read_session
-def list_quarantined_replicas(rse_id, limit, worker_number=None, total_workers=None, session=None):
+def list_quarantined_replicas(rse_id, limit, worker_number=None, total_workers=None, *, session: "Session"):
     """
     List RSE Quarantined File replicas.
 
@@ -165,7 +169,7 @@ def list_quarantined_replicas(rse_id, limit, worker_number=None, total_workers=N
 
 
 @read_session
-def list_rses_with_quarantined_replicas(filters=None, session=None):
+def list_rses_with_quarantined_replicas(filters=None, *, session: "Session"):
     """
     List RSEs in the Quarantined Queues.
 

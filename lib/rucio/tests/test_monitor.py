@@ -18,29 +18,31 @@ from rucio.core import monitor
 
 class TestMonitor:
 
-    def test_record_counter_message(self):
+    def test_record_counter_message(self, metrics_mock):
         """MONITOR (CORE): Send a counter message to graphite """
-        monitor.record_counter('test.counter', 10)
+        monitor.MetricManager(prefix='test').counter('counter').inc(10)
+        assert metrics_mock.get_sample_value('test_counter_total') == 10
 
-    def test_record_gauge_message(self):
+    def test_record_gauge_message(self, metrics_mock):
         """MONITOR (CORE): Send a gauge message to graphite """
-        monitor.record_gauge('test.gauge', 10)
+        monitor.MetricManager(prefix='test').gauge('gauge').set(10)
+        assert metrics_mock.get_sample_value('test_gauge') == 10
 
-    def test_record_timer_message(self):
+    def test_record_timer_message(self, metrics_mock):
         """MONITOR (CORE): Send a timer message to graphite """
-        monitor.record_timer('test.runtime', 500)
+        monitor.MetricManager(prefix='test').timer('runtime').observe(500)
+        assert metrics_mock.get_sample_value('test_runtime_count') == 1
 
-    def test_context_record_timer(self):
+    def test_context_record_timer(self, metrics_mock):
         """MONITOR (CORE): Send a timer message to graphite using context """
-        with monitor.Timer('test.context_timer'):
-            var_a = 2 * 100
-            var_a = var_a * 1
 
-        with monitor.Timer('test.context_timer'):
+        metric_manager = monitor.MetricManager(prefix='test')
+        with metric_manager.timer('context_timer'):
             var_a = 2 * 100
             var_a = var_a * 1
+        assert metrics_mock.get_sample_value('test_context_timer_count') == 1
 
-        with monitor.Timer('test.context_timer'), \
-                monitor.Timer('test.context_timer_normal10', divisor=10):
+        with metric_manager.timer('context_timer'):
             var_a = 2 * 100
             var_a = var_a * 1
+        assert metrics_mock.get_sample_value('test_context_timer_count') == 2

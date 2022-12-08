@@ -62,7 +62,7 @@ def _dependency_paths(stack, nb_times_in_stack, cur_table):
 
 
 @transactional_session
-def cleanup_db_deps(model, select_rows_stmt, session=None):
+def cleanup_db_deps(model, select_rows_stmt, *, session=None):
     """
     Removes rows which have foreign key constraints pointing to rows
     selected by `select_rows_stmt` in `model`. The deletion is transitive.

@@ -13,39 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
+class TestBoolean:
 
-from rucio.client.accountclient import AccountClient
-from rucio.client.rseclient import RSEClient
-from rucio.common.utils import generate_uuid
-from rucio.tests.common import rse_name_generator
+    def test_booleanstring_account_attribute(self, random_account, account_client):
+        account = random_account.external
+        account_client.add_account_attribute(account, 'teststringtrue', 'true')
+        account_client.add_account_attribute(account, 'testinttrue', '1')
 
-
-class TestBoolean(unittest.TestCase):
-
-    def setUp(self):
-        self.account_client = AccountClient()
-        self.rse_client = RSEClient()
-
-        self.account = generate_uuid()[:10]
-        self.rse = rse_name_generator()
-
-        self.account_client.add_account(self.account, 'SERVICE', 'ddmlab@cern.ch')
-        self.rse_client.add_rse(self.rse)
-
-    def tearDown(self):
-        self.account_client.delete_account(self.account)
-        self.rse_client.delete_rse(self.rse)
-
-    def test_booleanstring_account_attribute(self):
-        self.account_client.add_account_attribute(self.account, 'teststringtrue', 'true')
-        self.account_client.add_account_attribute(self.account, 'testinttrue', '1')
-
-        self.account_client.add_account_attribute(self.account, 'teststringfalse', 'false')
-        self.account_client.add_account_attribute(self.account, 'testintfalse', '0')
+        account_client.add_account_attribute(account, 'teststringfalse', 'false')
+        account_client.add_account_attribute(account, 'testintfalse', '0')
 
         result = {}
-        for account in self.account_client.list_account_attributes(self.account):
+        for account in account_client.list_account_attributes(account):
             for res in account:
                 result[res['key']] = res['value']
 
@@ -54,14 +33,15 @@ class TestBoolean(unittest.TestCase):
         assert result['teststringfalse'] is False
         assert result['testintfalse'] == '0'
 
-    def test_booleanstring_rse_attribute(self):
-        self.rse_client.add_rse_attribute(self.rse, 'teststringtrue', 'true')
-        self.rse_client.add_rse_attribute(self.rse, 'testinttrue', '1')
+    def test_booleanstring_rse_attribute(self, rse_client, rse_factory):
+        rse, _ = rse_factory.make_mock_rse()
+        rse_client.add_rse_attribute(rse, 'teststringtrue', 'true')
+        rse_client.add_rse_attribute(rse, 'testinttrue', '1')
 
-        self.rse_client.add_rse_attribute(self.rse, 'teststringfalse', 'false')
-        self.rse_client.add_rse_attribute(self.rse, 'testintfalse', '0')
+        rse_client.add_rse_attribute(rse, 'teststringfalse', 'false')
+        rse_client.add_rse_attribute(rse, 'testintfalse', '0')
 
-        result = self.rse_client.list_rse_attributes(self.rse)
+        result = rse_client.list_rse_attributes(rse)
 
         assert result['teststringtrue'] is True
         assert result['testinttrue'] == '1'

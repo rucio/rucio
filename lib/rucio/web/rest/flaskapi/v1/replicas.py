@@ -19,7 +19,7 @@ from json import dumps, loads
 from urllib.parse import parse_qs, unquote
 from xml.sax.saxutils import escape
 
-from flask import Flask, Blueprint, Response, request
+from flask import Flask, Response, request
 
 from rucio.api.replica import add_replicas, list_replicas, list_dataset_replicas, list_dataset_replicas_bulk, \
     delete_replicas, get_did_from_pfns, update_replicas_states, declare_bad_file_replicas, add_bad_dids, add_bad_pfns, \
@@ -34,7 +34,8 @@ from rucio.common.utils import parse_response, APIEncoder, render_json_list
 from rucio.core.replica_sorter import sort_replicas
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, parse_scope_name, \
-    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+    response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 def _sorted_with_priorities(replicas, sorted_pfns, limit=None):
@@ -1798,7 +1799,7 @@ class Tombstone(ErrorHandlingMethodView):
 
 
 def blueprint(with_doc=False):
-    bp = Blueprint('replicas', __name__, url_prefix='/replicas')
+    bp = AuthenticatedBlueprint('replicas', __name__, url_prefix='/replicas')
 
     list_replicas_view = ListReplicas.as_view('list_replicas')
     bp.add_url_rule('/list', view_func=list_replicas_view, methods=['post', ])
@@ -1853,7 +1854,6 @@ def blueprint(with_doc=False):
         bp.add_url_rule('/tombstone/', view_func=set_tombstone_view, methods=['post', ])
         bp.add_url_rule('/quarantine/', view_func=quarantine_replicas_view, methods=['post', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

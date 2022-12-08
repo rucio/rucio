@@ -13,14 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
 from rucio.core import meta
 from rucio.db.sqla.session import read_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @read_session
-def list_keys(session=None):
+def list_keys(*, session: "Session"):
     """
     Lists all keys.
 
@@ -32,7 +37,7 @@ def list_keys(session=None):
 
 
 @read_session
-def list_values(key, session=None):
+def list_values(key, *, session: "Session"):
     """
     Lists all values for a key.
 
@@ -46,7 +51,7 @@ def list_values(key, session=None):
 
 
 @transactional_session
-def add_key(key, key_type, issuer, value_type=None, value_regexp=None, vo='def', session=None):
+def add_key(key, key_type, issuer, value_type=None, value_regexp=None, vo='def', *, session: "Session"):
     """
     Add a new allowed key.
 
@@ -65,7 +70,7 @@ def add_key(key, key_type, issuer, value_type=None, value_regexp=None, vo='def',
 
 
 @transactional_session
-def add_value(key, value, issuer, vo='def', session=None):
+def add_value(key, value, issuer, vo='def', *, session: "Session"):
     """
     Add a new value to a key.
 

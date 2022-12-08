@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 import rucio.api.permission
 import rucio.common.exception
 import rucio.core.identity
@@ -25,9 +27,12 @@ from rucio.common.types import InternalAccount
 from rucio.db.sqla.constants import AccountType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_account(account, type_, email, issuer, vo='def', session=None):
+def add_account(account, type_, email, issuer, vo='def', *, session: "Session"):
     """
     Creates an account with the provided account name, contact information, etc.
 
@@ -53,7 +58,7 @@ def add_account(account, type_, email, issuer, vo='def', session=None):
 
 
 @transactional_session
-def del_account(account, issuer, vo='def', session=None):
+def del_account(account, issuer, vo='def', *, session: "Session"):
     """
     Disables an account with the provided account name.
 
@@ -73,7 +78,7 @@ def del_account(account, issuer, vo='def', session=None):
 
 
 @read_session
-def get_account_info(account, vo='def', session=None):
+def get_account_info(account, vo='def', *, session: "Session"):
     """
     Returns the info like the statistics information associated to an account_core.
 
@@ -91,7 +96,7 @@ def get_account_info(account, vo='def', session=None):
 
 
 @transactional_session
-def update_account(account, key, value, issuer='root', vo='def', session=None):
+def update_account(account, key, value, issuer='root', vo='def', *, session: "Session"):
     """ Update a property of an account_core.
 
     :param account: Name of the account_core.
@@ -112,7 +117,7 @@ def update_account(account, key, value, issuer='root', vo='def', session=None):
 
 
 @stream_session
-def list_accounts(filter_={}, vo='def', session=None):
+def list_accounts(filter_={}, vo='def', *, session: "Session"):
     """
     Lists all the Rucio account names.
 
@@ -137,7 +142,7 @@ def list_accounts(filter_={}, vo='def', session=None):
 
 
 @read_session
-def account_exists(account, vo='def', session=None):
+def account_exists(account, vo='def', *, session: "Session"):
     """
     Checks to see if account exists. This procedure does not check it's status.
 
@@ -153,7 +158,7 @@ def account_exists(account, vo='def', session=None):
 
 
 @read_session
-def list_identities(account, vo='def', session=None):
+def list_identities(account, vo='def', *, session: "Session"):
     """
     List all identities on an account_core.
 
@@ -168,7 +173,7 @@ def list_identities(account, vo='def', session=None):
 
 
 @read_session
-def list_account_attributes(account, vo='def', session=None):
+def list_account_attributes(account, vo='def', *, session: "Session"):
     """
     Returns all the attributes for the given account.
 
@@ -183,7 +188,7 @@ def list_account_attributes(account, vo='def', session=None):
 
 
 @transactional_session
-def add_account_attribute(key, value, account, issuer, vo='def', session=None):
+def add_account_attribute(key, value, account, issuer, vo='def', *, session: "Session"):
     """
     Add an attribute to an account.
 
@@ -207,7 +212,7 @@ def add_account_attribute(key, value, account, issuer, vo='def', session=None):
 
 
 @transactional_session
-def del_account_attribute(key, account, issuer, vo='def', session=None):
+def del_account_attribute(key, account, issuer, vo='def', *, session: "Session"):
     """
     Delete an attribute to an account.
 
@@ -227,7 +232,7 @@ def del_account_attribute(key, account, issuer, vo='def', session=None):
 
 
 @read_session
-def get_usage(rse, account, issuer, vo='def', session=None):
+def get_usage(rse, account, issuer, vo='def', *, session: "Session"):
     """
     Returns current values of the specified counter, or raises CounterNotFound if the counter does not exist.
 
@@ -245,7 +250,7 @@ def get_usage(rse, account, issuer, vo='def', session=None):
 
 
 @read_session
-def get_usage_history(rse, account, issuer, vo='def', session=None):
+def get_usage_history(rse, account, issuer, vo='def', *, session: "Session"):
     """
     Returns historical values of the specified counter, or raises CounterNotFound if the counter does not exist.
 

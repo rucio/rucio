@@ -15,7 +15,7 @@
 
 from json import dumps
 
-from flask import Flask, Blueprint, Response, request, jsonify
+from flask import Flask, Response, request, jsonify
 
 from rucio.api.account_limit import get_rse_account_usage
 from rucio.api.rse import add_rse, update_rse, list_rses, del_rse, add_rse_attribute, list_rse_attributes, \
@@ -27,8 +27,9 @@ from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RSEOper
     InvalidRSEExpression, RSEAttributeNotFound, CounterNotFound, InvalidPath, ReplicaNotFound, InputValidationError
 from rucio.common.utils import Availability, render_json, APIEncoder
 from rucio.rse import rsemanager
-from rucio.web.rest.flaskapi.v1.common import request_auth_env, response_headers, check_accept_header_wrapper_flask, \
+from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class RSEs(ErrorHandlingMethodView):
@@ -1823,14 +1824,12 @@ class Distance(ErrorHandlingMethodView):
                       dest_rse_id:
                         description: The destination rse id.
                         type: string
+                      distance:
+                        description: The distance between RSEs.
+                        type: integer
                       ranking:
-                        description: The ranking.
-                        type: integer
-                      agis_distance:
-                        description: The agis distance.
-                        type: integer
-                      geoip_distance:
-                        description: The geo ip distance.
+                        deprecated: true
+                        description: Same as distance.
                         type: integer
           401:
             description: Invalid Auth Token
@@ -1871,29 +1870,12 @@ class Distance(ErrorHandlingMethodView):
               schema:
                 type: object
                 properties:
-                  ranking:
-                    description: The ranking of the distance.
-                    type: integer
                   distance:
-                    description: The distance between the Rses.
+                    description: The distance between RSEs.
                     type: integer
-                  geoip_distance:
-                    description: The geoip distance between the Rses.
-                    type: integer
-                  active:
-                    description: If the distance is active.
-                    type: boolean
-                  submitted:
-                    description: If the distance is submitted.
-                    type: boolean
-                  finished:
-                    description: If the distance is finished.
-                    type: boolean
-                  failed:
-                    description: If the distance failed.
-                    type: boolean
-                  transfer_speed:
-                    description: The transferspeed between the Rses.
+                  ranking:
+                    deprecated: true
+                    description: Same as distance.
                     type: integer
         responses:
           201:
@@ -1911,26 +1893,18 @@ class Distance(ErrorHandlingMethodView):
             description: Not acceptable
         """
         parameters = json_parameters()
-        kwargs = {
-            'ranking': None,
-            'distance': None,
-            'geoip_distance': None,
-            'active': None,
-            'submitted': None,
-            'finished': None,
-            'failed': None,
-            'transfer_speed': None,
-        }
-        for keyword in kwargs.keys():
-            kwargs[keyword] = param_get(parameters, keyword, default=kwargs[keyword])
+
+        distance = param_get(parameters, 'distance', default=None)
+        if distance is None:
+            distance = param_get(parameters, 'ranking', default=None)
 
         try:
             add_distance(
                 source=source,
                 destination=destination,
+                distance=distance,
                 issuer=request.environ.get('issuer'),
                 vo=request.environ.get('vo'),
-                **kwargs,
             )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
@@ -1967,29 +1941,12 @@ class Distance(ErrorHandlingMethodView):
               schema:
                 type: object
                 properties:
+                  distance:
+                    description: The distance between the RSEs.
+                    type: integer
                   ranking:
-                    description: The ranking of the distance.
-                    type: integer
-                  agis_distance:
-                    description: The distance between the Rses.
-                    type: integer
-                  geoip_distance:
-                    description: The geoip distance between the Rses.
-                    type: integer
-                  active:
-                    description: If the distance is active.
-                    type: boolean
-                  submitted:
-                    description: If the distance is submitted.
-                    type: boolean
-                  finished:
-                    description: If the distance is finished.
-                    type: boolean
-                  failed:
-                    description: If the distance failed.
-                    type: boolean
-                  transfer_speed:
-                    description: The transferspeed between the Rses.
+                    deprecated: true
+                    description: Same as distance.
                     type: integer
         responses:
           201:
@@ -2007,13 +1964,18 @@ class Distance(ErrorHandlingMethodView):
             description: Not acceptable
         """
         parameters = json_parameters()
+
+        distance = param_get(parameters, 'distance', default=None)
+        if distance is None:
+            distance = param_get(parameters, 'ranking', default=None)
+
         try:
             update_distance(
                 source=source,
                 destination=destination,
+                distance=distance,
                 issuer=request.environ.get('issuer'),
                 vo=request.environ.get('vo'),
-                parameters=parameters,
             )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
@@ -2203,7 +2165,7 @@ class QoSPolicy(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('rses', __name__, url_prefix='/rses')
+    bp = AuthenticatedBlueprint('rses', __name__, url_prefix='/rses')
 
     attributes_view = Attributes.as_view('attributes')
     bp.add_url_rule('/<rse>/attr/<key>', view_func=attributes_view, methods=['post', 'delete'])
@@ -2234,7 +2196,6 @@ def blueprint():
     rses_view = RSEs.as_view('rses')
     bp.add_url_rule('/', view_func=rses_view, methods=['get', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

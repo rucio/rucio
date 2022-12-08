@@ -22,15 +22,3 @@ body:
       description: Please outline the change for the proposal in detail.
     validations:
       required: false
-
-  - type: checkboxes
-    attributes:
-      label: Additional Information
-      description: Please select all conditions that apply.
-      options:
-        - label: The `Core` needs to be changed.
-        - label: A `Daemon` needs to be changed.
-        - label: The `REST API` needs to be changed.
-        - label: The `API layer` needs to be changed.
-        - label: The `Client` needs to be changed.
-        - label: The change is incompatible with old Rucio versions.

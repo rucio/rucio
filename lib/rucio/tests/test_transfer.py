@@ -33,7 +33,7 @@ from rucio.daemons.conveyor.common import next_transfers_to_submit, assign_paths
 
 
 @transactional_session
-def __fake_source_ranking(request, source_rse_id, new_ranking, session=None):
+def __fake_source_ranking(request, source_rse_id, new_ranking, *, session=None):
     rowcount = session.query(models.Source).filter(models.Source.rse_id == source_rse_id).update({'ranking': new_ranking})
     if not rowcount:
         models.Source(request_id=request['id'],
@@ -76,22 +76,22 @@ def test_get_hops(rse_factory):
     _, rse6_id = rse_factory.make_mock_rse()
     all_rses = {rse0_id, rse1_id, rse2_id, rse3_id, rse4_id, rse5_id, rse6_id}
 
-    add_distance(rse1_id, rse3_id, ranking=40)
-    add_distance(rse1_id, rse2_id, ranking=10)
+    add_distance(rse1_id, rse3_id, distance=40)
+    add_distance(rse1_id, rse2_id, distance=10)
 
-    add_distance(rse2_id, rse1_id, ranking=10)
-    add_distance(rse2_id, rse4_id, ranking=10)
+    add_distance(rse2_id, rse1_id, distance=10)
+    add_distance(rse2_id, rse4_id, distance=10)
 
-    add_distance(rse3_id, rse1_id, ranking=40)
-    add_distance(rse3_id, rse4_id, ranking=10)
-    add_distance(rse3_id, rse5_id, ranking=50)
+    add_distance(rse3_id, rse1_id, distance=40)
+    add_distance(rse3_id, rse4_id, distance=10)
+    add_distance(rse3_id, rse5_id, distance=50)
 
-    add_distance(rse4_id, rse2_id, ranking=10)
-    add_distance(rse4_id, rse5_id, ranking=10)
+    add_distance(rse4_id, rse2_id, distance=10)
+    add_distance(rse4_id, rse5_id, distance=10)
 
-    add_distance(rse5_id, rse3_id, ranking=50)
-    add_distance(rse5_id, rse4_id, ranking=10)
-    add_distance(rse5_id, rse6_id, ranking=20)
+    add_distance(rse5_id, rse3_id, distance=50)
+    add_distance(rse5_id, rse4_id, distance=10)
+    add_distance(rse5_id, rse6_id, distance=20)
 
     # There must be no paths between an isolated node and other nodes; be it with multipath enabled or disabled
     with pytest.raises(NoDistance):
@@ -167,10 +167,10 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
     dst_rse_name, dst_rse_id = rse_factory.make_posix_rse()
     source_rses = [tape1_rse_id, tape2_rse_id, disk1_rse_id, disk2_rse_id]
     all_rses = source_rses + [dst_rse_id]
-    add_distance(disk1_rse_id, dst_rse_id, ranking=15)
-    add_distance(disk2_rse_id, dst_rse_id, ranking=10)
-    add_distance(tape1_rse_id, dst_rse_id, ranking=15)
-    add_distance(tape2_rse_id, dst_rse_id, ranking=10)
+    add_distance(disk1_rse_id, dst_rse_id, distance=15)
+    add_distance(disk2_rse_id, dst_rse_id, distance=10)
+    add_distance(tape1_rse_id, dst_rse_id, distance=15)
+    add_distance(tape2_rse_id, dst_rse_id, distance=10)
 
     # add same file to all source RSEs
     file = {'scope': mock_scope, 'name': 'lfn.' + generate_uuid(), 'type': 'FILE', 'bytes': 1, 'adler32': 'beefdead'}
@@ -231,8 +231,8 @@ def test_multihop_requests_created(rse_factory, did_factory, root_account, core_
     dst_rse_name, dst_rse_id = rse_factory.make_posix_rse()
     rse_core.add_rse_attribute(intermediate_rse_id, 'available_for_multihop', True)
 
-    add_distance(src_rse_id, intermediate_rse_id, ranking=10)
-    add_distance(intermediate_rse_id, dst_rse_id, ranking=10)
+    add_distance(src_rse_id, intermediate_rse_id, distance=10)
+    add_distance(intermediate_rse_id, dst_rse_id, distance=10)
 
     did = did_factory.upload_test_file(rs0_name)
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -258,8 +258,8 @@ def test_multihop_concurrent_submitters(rse_factory, did_factory, root_account, 
     dst_rse, dst_rse_id = rse_factory.make_posix_rse()
     rse_core.add_rse_attribute(jump_rse_id, 'available_for_multihop', True)
 
-    add_distance(src_rse_id, jump_rse_id, ranking=10)
-    add_distance(jump_rse_id, dst_rse_id, ranking=10)
+    add_distance(src_rse_id, jump_rse_id, distance=10)
+    add_distance(jump_rse_id, dst_rse_id, distance=10)
 
     did = did_factory.upload_test_file(src_rse)
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -310,10 +310,10 @@ def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, c
     rse3_name, rse3_id = rse_factory.make_posix_rse()
     _, rse4_id = rse_factory.make_posix_rse()
 
-    add_distance(rse0_id, rse1_id, ranking=10)
-    add_distance(rse1_id, rse3_id, ranking=10)
-    add_distance(rse2_id, rse3_id, ranking=30)
-    add_distance(rse4_id, rse3_id, ranking=200)
+    add_distance(rse0_id, rse1_id, distance=10)
+    add_distance(rse1_id, rse3_id, distance=10)
+    add_distance(rse2_id, rse3_id, distance=30)
+    add_distance(rse4_id, rse3_id, distance=200)
     rse_core.add_rse_attribute(rse1_id, 'available_for_multihop', True)
 
     # add same file to two source RSEs
@@ -354,7 +354,7 @@ def test_fk_error_on_source_creation(rse_factory, did_factory, root_account):
 
     src_rse, src_rse_id = rse_factory.make_mock_rse()
     dst_rse, dst_rse_id = rse_factory.make_mock_rse()
-    add_distance(src_rse_id, dst_rse_id, ranking=10)
+    add_distance(src_rse_id, dst_rse_id, distance=10)
 
     did = did_factory.random_file_did()
     file = {'scope': did['scope'], 'name': did['name'], 'type': 'FILE', 'bytes': 1, 'adler32': 'beefdead'}

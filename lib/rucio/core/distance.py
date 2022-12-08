@@ -24,30 +24,22 @@ from rucio.db.sqla.session import transactional_session, read_session
 
 if TYPE_CHECKING:
     from typing import List, Dict
+    from sqlalchemy.orm import Session
 
 
 @transactional_session
-def add_distance(src_rse_id, dest_rse_id, ranking=None, agis_distance=None, geoip_distance=None,
-                 active=None, submitted=None, finished=None, failed=None, transfer_speed=None, session=None):
+def add_distance(src_rse_id, dest_rse_id, distance=None, *, session: "Session"):
     """
     Add a src-dest distance.
 
     :param src_rse_id: The source RSE ID.
     :param dest_rse_id: The destination RSE ID.
-    :param ranking: Ranking as an integer.
-    :param agis_distance: AGIS Distance as an integer.
-    :param geoip_distance: GEOIP Distance as an integer.
-    :param active: Active FTS transfers as an integer.
-    :param submitted: Submitted FTS transfers as an integer.
-    :param finished: Finished FTS transfers as an integer.
-    :param failed: Failed FTS transfers as an integer.
-    :param transfer_speed: FTS transfer speed as an integer.
+    :param distance: Distance as an integer.
     :param session: The database session to use.
     """
 
     try:
-        new_distance = Distance(src_rse_id=src_rse_id, dest_rse_id=dest_rse_id, ranking=ranking, agis_distance=agis_distance, geoip_distance=geoip_distance,
-                                active=active, submitted=submitted, finished=finished, failed=failed, transfer_speed=transfer_speed)
+        new_distance = Distance(src_rse_id=src_rse_id, dest_rse_id=dest_rse_id, distance=distance)
         new_distance.save(session=session)
     except IntegrityError:
         raise exception.Duplicate()
@@ -55,24 +47,8 @@ def add_distance(src_rse_id, dest_rse_id, ranking=None, agis_distance=None, geoi
         raise exception.RucioException(error.args)
 
 
-@transactional_session
-def add_distance_short(src_rse_id, dest_rse_id, distance=None, session=None):
-    """
-    Add a src-dest distance.
-
-    :param src_rse_id: The source RSE ID.
-    :param dest_rse_id: The destination RSE ID.
-    :param distance: A dictionary with different values.
-    """
-
-    add_distance(src_rse_id, dest_rse_id, ranking=distance.get('ranking', None), agis_distance=distance.get('agis_distance', None),
-                 geoip_distance=distance.get('geoip_distance', None), active=distance.get('active', None), submitted=distance.get('submitted', None),
-                 finished=distance.get('finished', None), failed=distance.get('failed', None), transfer_speed=distance.get('transfer_speed', None),
-                 session=session)
-
-
 @read_session
-def get_distances(src_rse_id=None, dest_rse_id=None, session=None) -> "List[Dict]":
+def get_distances(src_rse_id=None, dest_rse_id=None, *, session: "Session") -> "List[Dict]":
     """
     Get distances between rses.
 
@@ -94,9 +70,8 @@ def get_distances(src_rse_id=None, dest_rse_id=None, session=None) -> "List[Dict
         tmp = query.all()
         if tmp:
             for t in tmp:
-                t2 = dict(t)
-                t2['distance'] = t2['agis_distance']
-                t2.pop('_sa_instance_state')
+                t2 = t.to_dict()
+                t2['ranking'] = t2['distance']  # Compatibility with old clients
                 distances.append(t2)
         return distances
     except IntegrityError as error:
@@ -104,7 +79,7 @@ def get_distances(src_rse_id=None, dest_rse_id=None, session=None) -> "List[Dict
 
 
 @transactional_session
-def delete_distances(src_rse_id=None, dest_rse_id=None, session=None):
+def delete_distances(src_rse_id=None, dest_rse_id=None, *, session: "Session"):
     """
     Delete distances with the given RSE ids.
 
@@ -127,32 +102,28 @@ def delete_distances(src_rse_id=None, dest_rse_id=None, session=None):
 
 
 @transactional_session
-def update_distances(src_rse_id=None, dest_rse_id=None, parameters=None, session=None):
+def update_distances(src_rse_id=None, dest_rse_id=None, distance=None, *, session: "Session"):
     """
     Update distances with the given RSE ids.
 
     :param src_rse_id: The source RSE ID.
     :param dest_rse_id: The destination RSE ID.
-    :param  parameters: A dictionnary with property
+    :param distance: The new distance to set
     :param session: The database session to use.
     """
-    params = {}
-    for key in parameters:
-        if key in ['ranking', 'agis_distance', 'geoip_distance', 'active', 'submitted', 'finished', 'failed', 'transfer_speed', 'packet_loss', 'latency', 'mbps_file', 'mbps_link', 'queued_total', 'done_1h', 'done_6h']:
-            params[key] = parameters[key]
     try:
         query = session.query(Distance)
         if src_rse_id:
             query = query.filter(Distance.src_rse_id == src_rse_id)
         if dest_rse_id:
             query = query.filter(Distance.dest_rse_id == dest_rse_id)
-        query.update(params)
+        query.update({Distance.distance: distance})
     except IntegrityError as error:
         raise exception.RucioException(error.args)
 
 
 @read_session
-def list_distances(filter_={}, session=None):
+def list_distances(filter_={}, *, session: "Session"):
     """
     Get distances between all the RSEs.
 
@@ -163,7 +134,7 @@ def list_distances(filter_={}, session=None):
 
 
 @read_session
-def export_distances(vo='def', session=None):
+def export_distances(vo='def', *, session: "Session"):
     """
     Export distances between all the RSEs using RSE ids.
     :param vo: The VO to export.
@@ -186,10 +157,9 @@ def export_distances(vo='def', session=None):
             dst_id = result[2]
             if src_id not in distances:
                 distances[src_id] = {}
-            distances[src_id][dst_id] = {}
-            distance['distance'] = distance['agis_distance']
-            distances[src_id][dst_id] = distance.to_dict()
-            del distances[src_id][dst_id]['_sa_instance_state']
+            distance = distance.to_dict()
+            distance['ranking'] = distance['distance']  # Compatibility with old clients
+            distances[src_id][dst_id] = distance
         return distances
     except IntegrityError as error:
         raise exception.RucioException(error.args)

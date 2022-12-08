@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import operator
+from typing import TYPE_CHECKING
 
 import pymongo
 
@@ -22,6 +23,10 @@ from rucio.common import exception
 from rucio.common.types import InternalScope
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
+
+if TYPE_CHECKING:
+    from typing import Optional
+    from sqlalchemy.orm import Session
 
 IMMUTABLE_KEYS = [
     '_id',              # index key
@@ -52,7 +57,7 @@ class MongoDidMeta(DidMetaPlugin):
     def drop_database(self):
         self.client.drop_database(self.db.name)
 
-    def get_metadata(self, scope, name, session=None):
+    def get_metadata(self, scope, name, *, session: "Optional[Session]" = None):
         """
         Get data identifier metadata.
 
@@ -75,7 +80,7 @@ class MongoDidMeta(DidMetaPlugin):
             raise exception.DataIdentifierNotFound("No metadata found for did '%(scope)s:%(name)s'" % locals())
         return doc
 
-    def set_metadata(self, scope, name, key, value, recursive=False, session=None):
+    def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Optional[Session]" = None):
         """
         Set single metadata key.
 
@@ -88,7 +93,7 @@ class MongoDidMeta(DidMetaPlugin):
         """
         self.set_metadata_bulk(scope=scope, name=name, meta={key: value}, recursive=recursive, session=session)
 
-    def set_metadata_bulk(self, scope, name, meta, recursive=False, session=None):
+    def set_metadata_bulk(self, scope, name, meta, recursive=False, *, session: "Optional[Session]" = None):
         """
         Bulk set metadata keys.
 
@@ -119,7 +124,7 @@ class MongoDidMeta(DidMetaPlugin):
             upsert=True
         )
 
-    def delete_metadata(self, scope, name, key, session=None):
+    def delete_metadata(self, scope, name, key, *, session: "Optional[Session]" = None):
         """
         Delete a key from metadata.
 
@@ -134,7 +139,7 @@ class MongoDidMeta(DidMetaPlugin):
             raise exception.DataIdentifierNotFound(e)
 
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
-                  offset=None, long=False, recursive=False, ignore_dids=None, session=None):
+                  offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Optional[Session]" = None):
         if not ignore_dids:
             ignore_dids = set()
 
@@ -182,7 +187,7 @@ class MongoDidMeta(DidMetaPlugin):
                     ignore_dids.add(did_full)
                     yield did['name']
 
-    def manages_key(self, key, session=None):
+    def manages_key(self, key, *, session: "Optional[Session]" = None):
         return True
 
     def get_plugin_name(self):

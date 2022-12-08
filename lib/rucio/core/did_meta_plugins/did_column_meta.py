@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 import operator
 
 from sqlalchemy import update, inspect
@@ -30,6 +31,10 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import stream_session, read_session, transactional_session
 
+if TYPE_CHECKING:
+    from typing import Optional
+    from sqlalchemy.orm import Session
+
 
 class DidColumnMeta(DidMetaPlugin):
     """
@@ -40,7 +45,7 @@ class DidColumnMeta(DidMetaPlugin):
         self.plugin_name = "DID_COLUMN"
 
     @read_session
-    def get_metadata(self, scope, name, session=None):
+    def get_metadata(self, scope, name, *, session: "Session"):
         """
         Get data identifier metadata.
 
@@ -58,11 +63,12 @@ class DidColumnMeta(DidMetaPlugin):
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
-    def set_metadata(self, scope, name, key, value, recursive=False, session=None):
+    @transactional_session
+    def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Session"):
         self.set_metadata_bulk(scope=scope, name=name, metadata={key: value}, recursive=recursive, session=session)
 
     @transactional_session
-    def set_metadata_bulk(self, scope, name, metadata, recursive=False, session=None):
+    def set_metadata_bulk(self, scope, name, metadata, recursive=False, *, session: "Session"):
         did_query = session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').filter_by(scope=scope, name=name)
         if did_query.one_or_none() is None:
             raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
@@ -159,7 +165,7 @@ class DidColumnMeta(DidMetaPlugin):
 
     @stream_session
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
-                  offset=None, long=False, recursive=False, ignore_dids=None, session=None):
+                  offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Session"):
         """
         Search data identifiers.
 
@@ -260,7 +266,7 @@ class DidColumnMeta(DidMetaPlugin):
                     ignore_dids.add(did_full)
                     yield did.name
 
-    def delete_metadata(self, scope, name, key, session=None):
+    def delete_metadata(self, scope, name, key, *, session: "Optional[Session]" = None):
         """
         Deletes the metadata stored for the given key.
 
@@ -270,7 +276,7 @@ class DidColumnMeta(DidMetaPlugin):
         """
         raise NotImplementedError('The DidColumnMeta plugin does not currently support deleting metadata.')
 
-    def manages_key(self, key, session=None):
+    def manages_key(self, key, *, session: "Optional[Session]" = None):
         # Build list of which keys are managed by this plugin.
         #
         all_did_table_columns = []

@@ -29,12 +29,13 @@ from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.stomp_utils import get_stomp_brokers
 from rucio.common.types import InternalScope
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_id
 from rucio.core.volatile_replica import add_volatile_replicas, delete_volatile_replicas
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
+METRICS = MetricManager(module=__name__)
 GRACEFUL_STOP = threading.Event()
 
 
@@ -51,22 +52,22 @@ class AMQConsumer(object):
         self.__conn = conn
         self.__logger = logger
 
+    @METRICS.count_it
     def on_heartbeat_timeout(self):
-        record_counter('daemons.cache.consumer.heartbeat.lost')
         self.__conn.disconnect()
 
+    @METRICS.count_it
     def on_error(self, frame):
         """
         on_error
         """
-        record_counter('daemons.cache.consumer.error')
         self.__logger(logging.ERROR, 'Message receive error: [%s] %s' % (self.__broker, frame.body))
 
+    @METRICS.count_it
     def on_message(self, frame):
         """
         on_message
         """
-        record_counter('daemons.cache.consumer2.message')
         try:
             msg = json.loads(frame.body)
             self.__logger(logging.DEBUG, 'Message received: %s ' % msg)
@@ -145,7 +146,7 @@ def consumer(id_, num_thread=1):
                 host_port = conn.transport._Transport__host_and_ports[0]
 
                 logger(logging.INFO, 'connecting to %s' % host_port[0])
-                record_counter('daemons.messaging.cache.reconnect.{host}', labels={'host': host_port[0]})
+                METRICS.counter('reconnect.{host}').labels(host=host_port[0]).inc()
                 conn.set_listener('rucio-cache-consumer', AMQConsumer(broker=host_port, conn=conn, logger=logger))
                 if not use_ssl:
                     conn.connect(username, password)

@@ -13,26 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 from random import choice
-from string import ascii_uppercase, digits, ascii_lowercase
+from string import ascii_uppercase, ascii_lowercase
 
 import pytest
 
-from rucio.client.rseclient import RSEClient
-from rucio.common.config import config_get_bool
 from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
 from rucio.core import rse
 from rucio.core import rse_expression_parser
-from rucio.tests.common_server import get_vo
-
-
-def rse_name_generator(size=10):
-    return 'MOCK_' + ''.join(choice(ascii_uppercase) for x in range(size))
-
-
-def tag_generator(size_s=10, size_d=2):
-    return ''.join(choice(ascii_uppercase) for x in range(size_s)).join(choice(digits) for x in range(size_d))
 
 
 def attribute_name_generator(size=10):
@@ -40,56 +28,56 @@ def attribute_name_generator(size=10):
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE, test_all_rse fails when run in parallel')
-class TestRSEExpressionParserCore(unittest.TestCase):
+class TestRSEExpressionParserCore:
 
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-            self.filter = {'filter_': self.vo}
-        else:
-            self.vo = {}
-            self.filter = {'filter_': {'vo': 'def'}}
+    @classmethod
+    @pytest.fixture(scope='class')
+    def setup_test_env(cls, rse_factory_unittest, tag_factory_class):
+        already_existing_rses = rse.list_rses()
 
-        self.already_existing_rses = rse.list_rses()
-
-        self.rse1 = rse_name_generator()
-        self.rse2 = rse_name_generator()
-        self.rse3 = rse_name_generator()
-        self.rse4 = rse_name_generator()
-        self.rse5 = rse_name_generator()
-
-        self.rse1_id = rse.add_rse(self.rse1, **self.vo)
-        self.rse2_id = rse.add_rse(self.rse2, **self.vo)
-        self.rse3_id = rse.add_rse(self.rse3, **self.vo)
-        self.rse4_id = rse.add_rse(self.rse4, **self.vo)
-        self.rse5_id = rse.add_rse(self.rse5, **self.vo)
+        rse1, rse1_id = rse_factory_unittest.make_mock_rse()
+        rse2, rse2_id = rse_factory_unittest.make_mock_rse()
+        rse3, rse3_id = rse_factory_unittest.make_mock_rse()
+        rse4, rse4_id = rse_factory_unittest.make_mock_rse()
+        rse5, rse5_id = rse_factory_unittest.make_mock_rse()
 
         # Add Attributes
-        self.attribute = attribute_name_generator()
+        attribute = attribute_name_generator()
 
-        rse.add_rse_attribute(self.rse1_id, self.attribute, "at")
-        rse.add_rse_attribute(self.rse2_id, self.attribute, "de")
-        rse.add_rse_attribute(self.rse3_id, self.attribute, "fr")
-        rse.add_rse_attribute(self.rse4_id, self.attribute, "uk")
-        rse.add_rse_attribute(self.rse5_id, self.attribute, "us")
+        rse.add_rse_attribute(rse1_id, attribute, "at")
+        rse.add_rse_attribute(rse2_id, attribute, "de")
+        rse.add_rse_attribute(rse3_id, attribute, "fr")
+        rse.add_rse_attribute(rse4_id, attribute, "uk")
+        rse.add_rse_attribute(rse5_id, attribute, "us")
 
         # Add numeric Attributes
-        self.attribute_numeric = attribute_name_generator()
+        attribute_numeric = attribute_name_generator()
 
-        rse.add_rse_attribute(self.rse1_id, self.attribute_numeric, 10)
-        rse.add_rse_attribute(self.rse2_id, self.attribute_numeric, 20)
-        rse.add_rse_attribute(self.rse3_id, self.attribute_numeric, 30)
-        rse.add_rse_attribute(self.rse4_id, self.attribute_numeric, 40)
-        rse.add_rse_attribute(self.rse5_id, self.attribute_numeric, 50)
+        rse.add_rse_attribute(rse1_id, attribute_numeric, 10)
+        rse.add_rse_attribute(rse2_id, attribute_numeric, 20)
+        rse.add_rse_attribute(rse3_id, attribute_numeric, 30)
+        rse.add_rse_attribute(rse4_id, attribute_numeric, 40)
+        rse.add_rse_attribute(rse5_id, attribute_numeric, 50)
 
         # Add Tags
-        self.tag1 = tag_generator()
-        self.tag2 = tag_generator()
-        rse.add_rse_attribute(self.rse1_id, self.tag1, True)
-        rse.add_rse_attribute(self.rse2_id, self.tag1, True)
-        rse.add_rse_attribute(self.rse3_id, self.tag1, True)
-        rse.add_rse_attribute(self.rse4_id, self.tag2, True)
-        rse.add_rse_attribute(self.rse5_id, self.tag2, True)
+        tag1 = tag_factory_class.new_tag()
+        tag2 = tag_factory_class.new_tag()
+        rse.add_rse_attribute(rse1_id, tag1, True)
+        rse.add_rse_attribute(rse2_id, tag1, True)
+        rse.add_rse_attribute(rse3_id, tag1, True)
+        rse.add_rse_attribute(rse4_id, tag2, True)
+        rse.add_rse_attribute(rse5_id, tag2, True)
+
+        return (rse1, rse1_id, rse2, rse2_id, rse3, rse3_id, rse4, rse4_id, rse5, rse5_id,
+                attribute, attribute_numeric, tag1, tag2, already_existing_rses)
+
+    @pytest.fixture(autouse=True)
+    def setup_obj(self, setup_test_env, vo):
+        self.filter = {'filter_': {'vo': vo}}
+        (
+            self.rse1, self.rse1_id, self.rse2, self.rse2_id, self.rse3, self.rse3_id, self.rse4, self.rse4_id, self.rse5, self.rse5_id,
+            self.attribute, self.attribute_numeric, self.tag1, self.tag2, self.already_existing_rses,
+        ) = setup_test_env
 
     def test_unconnected_operator(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test invalid rse expression: unconnected operator"""
@@ -187,13 +175,10 @@ class TestRSEExpressionParserCore(unittest.TestCase):
         expected = sorted([self.rse1_id])
         assert value == expected
 
-    def test_list_on_availability(self):
+    def test_list_on_availability(self, rse_factory):
         """ RSE_EXPRESSION_PARSER (CORE) List rses based on availability filter"""
-        rsewrite_name = rse_name_generator()
-        rsenowrite_name = rse_name_generator()
-
-        rsewrite_id = rse.add_rse(rsewrite_name, **self.vo)
-        rsenowrite_id = rse.add_rse(rsenowrite_name, **self.vo)
+        rsewrite_name, rsewrite_id = rse_factory.make_mock_rse()
+        rsenowrite_name, rsenowrite_id = rse_factory.make_mock_rse()
 
         attribute = attribute_name_generator()
 
@@ -233,25 +218,15 @@ class TestRSEExpressionParserCore(unittest.TestCase):
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE')
-class TestRSEExpressionParserClient(unittest.TestCase):
+class TestRSEExpressionParserClient:
 
-    def setUp(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            self.vo = {'vo': get_vo()}
-        else:
-            self.vo = {}
-
-        self.rse1 = rse_name_generator()
-        self.rse2 = rse_name_generator()
-        self.rse3 = rse_name_generator()
-        self.rse4 = rse_name_generator()
-        self.rse5 = rse_name_generator()
-
-        self.rse1_id = rse.add_rse(self.rse1, **self.vo)
-        self.rse2_id = rse.add_rse(self.rse2, **self.vo)
-        self.rse3_id = rse.add_rse(self.rse3, **self.vo)
-        self.rse4_id = rse.add_rse(self.rse4, **self.vo)
-        self.rse5_id = rse.add_rse(self.rse5, **self.vo)
+    @pytest.fixture(autouse=True)
+    def setup_obj(self, rse_factory, tag_factory):
+        self.rse1, self.rse1_id = rse_factory.make_mock_rse()
+        self.rse2, self.rse2_id = rse_factory.make_mock_rse()
+        self.rse3, self.rse3_id = rse_factory.make_mock_rse()
+        self.rse4, self.rse4_id = rse_factory.make_mock_rse()
+        self.rse5, self.rse5_id = rse_factory.make_mock_rse()
 
         # Add Attributes
         self.attribute = attribute_name_generator()
@@ -263,24 +238,22 @@ class TestRSEExpressionParserClient(unittest.TestCase):
         rse.add_rse_attribute(self.rse5_id, self.attribute, "us")
 
         # Add Tags
-        self.tag1 = tag_generator()
-        self.tag2 = tag_generator()
+        self.tag1 = tag_factory.new_tag()
+        self.tag2 = tag_factory.new_tag()
         rse.add_rse_attribute(self.rse1_id, self.tag1, True)
         rse.add_rse_attribute(self.rse2_id, self.tag1, True)
         rse.add_rse_attribute(self.rse3_id, self.tag1, True)
         rse.add_rse_attribute(self.rse4_id, self.tag2, True)
         rse.add_rse_attribute(self.rse5_id, self.tag2, True)
 
-        self.rse_client = RSEClient()
-
-    def test_complicated_expression(self):
+    def test_complicated_expression(self, rse_client):
         """ RSE_EXPRESSION_PARSER (CLIENT) Test some complicated expression"""
-        rses = sorted([item['rse'] for item in self.rse_client.list_rses("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))])
+        rses = sorted([item['rse'] for item in rse_client.list_rses("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute))])
         expected = sorted([self.rse1, self.rse2, self.rse5])
         assert rses == expected
 
-    def test_complicated_expression_1(self):
+    def test_complicated_expression_1(self, rse_client):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 1"""
-        rses = sorted([item['rse'] for item in self.rse_client.list_rses("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1))])
+        rses = sorted([item['rse'] for item in rse_client.list_rses("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1))])
         expected = sorted([self.rse1, self.rse2, self.rse3])
         assert rses == expected

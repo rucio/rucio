@@ -30,7 +30,7 @@ from rucio.common.exception import RequestNotFound, RucioException, UnsupportedO
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks
 from rucio.core.message import add_message, add_messages
-from rucio.core.monitor import record_counter, record_timer
+from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_name, get_rse_vo, RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
@@ -50,12 +50,14 @@ The core request.py is specifically for handling requests.
 Requests accessed by external_id (So called transfers), are covered in the core transfer.py
 """
 
+METRICS = MetricManager(module=__name__)
+
 
 class RequestSource:
-    def __init__(self, rse_data, source_ranking=None, distance_ranking=None, file_path=None, scheme=None, url=None):
+    def __init__(self, rse_data, ranking=None, distance=None, file_path=None, scheme=None, url=None):
         self.rse = rse_data
-        self.distance_ranking = distance_ranking if distance_ranking is not None else 9999
-        self.source_ranking = source_ranking if source_ranking is not None else 0
+        self.distance = distance if distance is not None else 9999
+        self.ranking = ranking if ranking is not None else 0
         self.file_path = file_path
         self.scheme = scheme
         self.url = url
@@ -157,8 +159,9 @@ def should_retry_request(req, retry_protocol_mismatches):
     return False
 
 
+@METRICS.time_it
 @transactional_session
-def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mismatches=False, session=None, logger=logging.log):
+def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mismatches=False, *, session: "Session", logger=logging.log):
     """
     Requeue and archive a failed request.
     TODO: Multiple requeue.
@@ -169,7 +172,6 @@ def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mism
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
-    record_counter('core.request.requeue_request')
     # Probably not needed anymore
     request_id = request['request_id']
     new_req = get_request(request_id, session=session)
@@ -202,8 +204,9 @@ def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mism
     return None
 
 
+@METRICS.count_it
 @transactional_session
-def queue_requests(requests, session=None, logger=logging.log):
+def queue_requests(requests, *, session: "Session", logger=logging.log):
     """
     Submit transfer requests on destination RSEs for data identifiers.
 
@@ -212,8 +215,6 @@ def queue_requests(requests, session=None, logger=logging.log):
     :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:         List of Request-IDs as 32 character hex strings.
     """
-    record_counter('core.request.queue_requests')
-
     logger(logging.DEBUG, "queue requests")
 
     request_clause = []
@@ -355,7 +356,8 @@ def list_transfer_requests_and_source_replicas(
         required_source_rse_attrs: "Optional[List[str]]" = None,
         ignore_availability: bool = False,
         transfertool: "Optional[str]" = None,
-        session: "Optional[Session]" = None,
+        *,
+        session: "Session",
 ) -> "Dict[str, RequestWithSources]":
     """
     List requests with source replicas
@@ -478,7 +480,7 @@ def list_transfer_requests_and_source_replicas(
         models.RSEFileAssociation.path,
         models.Source.ranking.label("source_ranking"),
         models.Source.url.label("source_url"),
-        models.Distance.ranking.label("distance_ranking")
+        models.Distance.distance
     ).order_by(
         sub_requests.c.created_at
     ).outerjoin(
@@ -522,7 +524,7 @@ def list_transfer_requests_and_source_replicas(
 
     requests_by_id = {}
     for (request_id, req_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, source_rse_id, dest_rse_id, account, retry_count,
-         priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance_ranking) in session.execute(stmt):
+         priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance) in session.execute(stmt):
 
         # If we didn't pre-filter using temporary tables on database side, perform the filtering here
         if not use_temp_tables and rses and dest_rse_id not in rses:
@@ -539,7 +541,7 @@ def list_transfer_requests_and_source_replicas(
 
         if replica_rse_id is not None:
             source = RequestSource(rse_data=RseData(id_=replica_rse_id, name=replica_rse_name), file_path=file_path,
-                                   source_ranking=source_ranking, distance_ranking=distance_ranking, url=source_url)
+                                   ranking=source_ranking, distance=distance, url=source_url)
             request.sources.append(source)
             if source_rse_id == replica_rse_id:
                 request.requested_source = source
@@ -547,7 +549,7 @@ def list_transfer_requests_and_source_replicas(
 
 
 @read_session
-def fetch_paths(request_id, session=None):
+def fetch_paths(request_id, *, session: "Session"):
     """
     Find the paths for which the provided request is a constituent hop.
 
@@ -581,10 +583,11 @@ def fetch_paths(request_id, session=None):
     return paths
 
 
+@METRICS.time_it
 @read_session
 def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activity=None,
              total_workers=0, worker_number=0, mode_all=False, hash_variable='id',
-             activity_shares=None, include_dependent=True, transfertool=None, session=None):
+             activity_shares=None, include_dependent=True, transfertool=None, *, session: "Session"):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -607,8 +610,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     """
     request_type_metric_label = '.'.join(a.name for a in request_type) if isinstance(request_type, list) else request_type.name
     state_metric_label = '.'.join(s.name for s in state) if isinstance(state, list) else state.name
-    record_counter('core.request.get_next.{request_type}.{state}', labels={'request_type': request_type_metric_label,
-                                                                           'state': state_metric_label})
+    METRICS.counter('get_next.requests.{request_type}.{state}').labels(request_type=request_type_metric_label, state=state_metric_label).inc()
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
     if type(request_type) is not list:
@@ -679,8 +681,7 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
         if query_result:
             if mode_all:
                 for res in query_result:
-                    res_dict = dict(res)
-                    res_dict.pop('_sa_instance_state')
+                    res_dict = res.to_dict()
                     res_dict['request_id'] = res_dict['id']
                     res_dict['attributes'] = json.loads(str(res_dict['attributes'] or '{}'))
 
@@ -697,9 +698,10 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
     return result
 
 
+@METRICS.count_it
 @transactional_session
 def set_request_state(request_id, state, external_id=None, transferred_at=None, started_at=None, staging_started_at=None,
-                      staging_finished_at=None, source_rse_id=None, err_msg=None, attributes=None, session=None, logger=logging.log):
+                      staging_finished_at=None, source_rse_id=None, err_msg=None, attributes=None, *, session: "Session", logger=logging.log):
     """
     Update the state of a request.
 
@@ -715,8 +717,6 @@ def set_request_state(request_id, state, external_id=None, transferred_at=None, 
     """
 
     # TODO: Should this be a private method?
-
-    record_counter('core.request.set_request_state')
 
     rowcount = 0
     try:
@@ -762,8 +762,9 @@ def set_request_state(request_id, state, external_id=None, transferred_at=None, 
         raise UnsupportedOperation("Request %s state cannot be updated." % request_id)
 
 
+@METRICS.count_it
 @transactional_session
-def set_requests_state_if_possible(request_ids, new_state, session=None, logger=logging.log):
+def set_requests_state_if_possible(request_ids, new_state, *, session: "Session", logger=logging.log):
     """
     Bulk update the state of requests. Skips silently if the request_id does not exist.
 
@@ -772,8 +773,6 @@ def set_requests_state_if_possible(request_ids, new_state, session=None, logger=
     :param session:      Database session to use.
     :param logger:       Optional decorated logger that can be passed from the calling daemons or servers.
     """
-
-    record_counter('core.request.set_requests_state_if_possible')
 
     try:
         for request_id in request_ids:
@@ -785,16 +784,15 @@ def set_requests_state_if_possible(request_ids, new_state, session=None, logger=
         raise RucioException(error.args)
 
 
+@METRICS.count_it
 @transactional_session
-def touch_requests_by_rule(rule_id, session=None):
+def touch_requests_by_rule(rule_id, *, session: "Session"):
     """
     Update the update time of requests in a rule. Fails silently if no requests on this rule.
 
     :param rule_id:  Rule-ID as a 32 character hex string.
     :param session:  Database session to use.
     """
-
-    record_counter('core.request.touch_requests_by_rule')
 
     try:
         stmt = update(
@@ -816,7 +814,7 @@ def touch_requests_by_rule(rule_id, session=None):
 
 
 @read_session
-def get_request(request_id, session=None):
+def get_request(request_id, *, session: "Session"):
     """
     Retrieve a request by its ID.
 
@@ -836,8 +834,7 @@ def get_request(request_id, session=None):
         if not tmp:
             return
         else:
-            tmp = dict(tmp)
-            tmp.pop('_sa_instance_state')
+            tmp = tmp.to_dict()
             tmp['attributes'] = json.loads(str(tmp['attributes'] or '{}'))
             return tmp
     except IntegrityError as error:
@@ -845,7 +842,7 @@ def get_request(request_id, session=None):
 
 
 @read_session
-def get_requests_by_transfer(external_host, transfer_id, session=None):
+def get_requests_by_transfer(external_host, transfer_id, *, session: "Session"):
     """
     Retrieve requests by its transfer ID.
 
@@ -866,8 +863,7 @@ def get_requests_by_transfer(external_host, transfer_id, session=None):
         if tmp:
             result = []
             for t in tmp:
-                t2 = dict(t)
-                t2.pop('_sa_instance_state')
+                t2 = t.to_dict()
                 t2['request_id'] = t2['id']
                 t2['attributes'] = json.loads(str(t2['attributes'] or '{}'))
                 result.append(t2)
@@ -877,8 +873,9 @@ def get_requests_by_transfer(external_host, transfer_id, session=None):
         raise RucioException(error.args)
 
 
+@METRICS.count_it
 @read_session
-def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
+def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Session"):
     """
     Retrieve a request by its DID for a destination RSE.
 
@@ -890,7 +887,6 @@ def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
     :returns:              Request as a dictionary.
     """
 
-    record_counter('core.request.get_request_by_did')
     try:
         stmt = select(
             models.Request
@@ -908,8 +904,7 @@ def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
         if not tmp:
             raise RequestNotFound(f'No request found for DID {scope}:{name} at RSE {rse_id}')
         else:
-            tmp = dict(tmp)
-            tmp.pop('_sa_instance_state')
+            tmp = tmp.to_dict()
 
             tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
             tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
@@ -920,8 +915,9 @@ def get_request_by_did(scope, name, rse_id, request_type=None, session=None):
         raise RucioException(error.args)
 
 
+@METRICS.count_it
 @read_session
-def get_request_history_by_did(scope, name, rse_id, request_type=None, session=None):
+def get_request_history_by_did(scope, name, rse_id, request_type=None, *, session: "Session"):
     """
     Retrieve a historical request by its DID for a destination RSE.
 
@@ -933,7 +929,6 @@ def get_request_history_by_did(scope, name, rse_id, request_type=None, session=N
     :returns:              Request as a dictionary.
     """
 
-    record_counter('core.request.get_request_history_by_did')
     try:
         stmt = select(
             models.RequestHistory
@@ -951,8 +946,7 @@ def get_request_history_by_did(scope, name, rse_id, request_type=None, session=N
         if not tmp:
             raise RequestNotFound(f'No request found for DID {scope}:{name} at RSE {rse_id}')
         else:
-            tmp = dict(tmp)
-            tmp.pop('_sa_instance_state')
+            tmp = tmp.to_dict()
 
             tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
             tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
@@ -977,7 +971,7 @@ def is_intermediate_hop(request):
 
 
 @transactional_session
-def handle_failed_intermediate_hop(request, session=None):
+def handle_failed_intermediate_hop(request, *, session: "Session"):
     """
     Perform housekeeping behind a failed intermediate hop
     """
@@ -1006,8 +1000,9 @@ def handle_failed_intermediate_hop(request, session=None):
         session.execute(stmt)
 
 
+@METRICS.count_it
 @transactional_session
-def archive_request(request_id, session=None):
+def archive_request(request_id, *, session: "Session"):
     """
     Move a request to the history table.
 
@@ -1015,7 +1010,6 @@ def archive_request(request_id, session=None):
     :param session:     Database session to use.
     """
 
-    record_counter('core.request.archive')
     req = get_request(request_id=request_id, session=session)
 
     if req:
@@ -1054,7 +1048,7 @@ def archive_request(request_id, session=None):
         try:
             time_diff = req['updated_at'] - req['created_at']
             time_diff_s = time_diff.seconds + time_diff.days * 24 * 3600
-            record_timer('core.request.archive_request.{activity}', time_diff_s, labels={'activity': req['activity'].replace(' ', '_')})
+            METRICS.timer('archive_request_per_activity.{activity}').labels(activity=req['activity'].replace(' ', '_')).observe(time_diff_s)
             session.execute(
                 delete(
                     models.Source
@@ -1082,8 +1076,9 @@ def archive_request(request_id, session=None):
             raise RucioException(error.args)
 
 
+@METRICS.count_it
 @transactional_session
-def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSFER, session=None, logger=logging.log):
+def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSFER, *, session: "Session", logger=logging.log):
     """
     Cancel a request based on a DID and request type.
 
@@ -1094,8 +1089,6 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
     :param session:       Database session to use.
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     """
-
-    record_counter('core.request.cancel_request_did')
 
     reqs = None
     try:
@@ -1125,7 +1118,7 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
 
 
 @read_session
-def get_sources(request_id, rse_id=None, session=None):
+def get_sources(request_id, rse_id=None, *, session: "Session"):
     """
     Retrieve sources by its ID.
 
@@ -1151,8 +1144,7 @@ def get_sources(request_id, rse_id=None, session=None):
         else:
             result = []
             for t in tmp:
-                t2 = dict(t)
-                t2.pop('_sa_instance_state')
+                t2 = t.to_dict()
                 result.append(t2)
 
             return result
@@ -1161,7 +1153,7 @@ def get_sources(request_id, rse_id=None, session=None):
 
 
 @read_session
-def get_heavy_load_rses(threshold, session=None):
+def get_heavy_load_rses(threshold, *, session: "Session"):
     """
     Retrieve heavy load rses.
 
@@ -1195,7 +1187,7 @@ def get_heavy_load_rses(threshold, session=None):
 
 
 @read_session
-def get_request_stats(state, session=None):
+def get_request_stats(state, *, session: "Session"):
     """
     Retrieve statistics about requests by destination, activity and state.
 
@@ -1239,7 +1231,8 @@ def release_waiting_requests_per_deadline(
         dest_rse_id: "Optional[str]" = None,
         source_rse_id: "Optional[str]" = None,
         deadline: int = 1,
-        session=None,
+        *,
+        session: "Session",
 ):
     """
     Release waiting requests that were waiting too long and exceeded the maximum waiting time to be released.
@@ -1285,7 +1278,8 @@ def release_waiting_requests_per_free_volume(
         dest_rse_id: "Optional[str]" = None,
         source_rse_id: "Optional[str]" = None,
         volume: int = 0,
-        session=None
+        *,
+        session: "Session"
 ):
     """
     Release waiting requests if they fit in available transfer volume. If the DID of a request is attached to a dataset, the volume will be checked for the whole dataset as all requests related to this dataset will be released.
@@ -1355,7 +1349,8 @@ def release_waiting_requests_per_free_volume(
 def create_base_query_grouped_fifo(
         dest_rse_id: "Optional[str]" = None,
         source_rse_id: "Optional[str]" = None,
-        session=None
+        *,
+        session: "Session"
 ):
     """
     Build the sqlalchemy queries to filter relevant requests and to group them in datasets.
@@ -1440,7 +1435,8 @@ def release_waiting_requests_fifo(
         activity: "Optional[str]" = None,
         count: int = 0,
         account: "Optional[InternalAccount]" = None,
-        session=None
+        *,
+        session: "Session"
 ):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
@@ -1510,7 +1506,8 @@ def release_waiting_requests_grouped_fifo(
         count: int = 0,
         deadline: int = 1,
         volume: int = 0,
-        session=None
+        *,
+        session: "Session"
 ):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
@@ -1578,7 +1575,8 @@ def release_all_waiting_requests(
         source_rse_id: "Optional[str]" = None,
         activity: "Optional[str]" = None,
         account: "Optional[InternalAccount]" = None,
-        session=None
+        *,
+        session: "Session"
 ):
     """
     Release all waiting requests per destination RSE.
@@ -1623,7 +1621,8 @@ def release_all_waiting_requests(
 
 @stream_session
 def list_transfer_limits(
-        session=None,
+        *,
+        session: "Session",
 ):
     stmt = select(
         models.TransferLimit
@@ -1637,7 +1636,8 @@ def list_transfer_limits(
 def _sync_rse_transfer_limit(
         limit_id: str,
         desired_rse_ids: "Set[str]",
-        session=None
+        *,
+        session: "Optional[Session]" = None,
 ):
     """
     Ensure that an RSETransferLimit exists in the database for each of the given rses (and only for these rses)
@@ -1675,7 +1675,8 @@ def _sync_rse_transfer_limit(
 @transactional_session
 def re_sync_all_transfer_limits(
         delete_empty: bool = False,
-        session=None
+        *,
+        session: "Session",
 ):
     """
     For each TransferLimit in the database, re-evaluate the rse expression and ensure that the
@@ -1708,7 +1709,8 @@ def set_transfer_limit(
         strategy: "Optional[str]" = None,
         transfers: "Optional[int]" = None,
         waitings: "Optional[int]" = None,
-        session=None
+        *,
+        session: "Session",
 ):
     """
     Create or update a transfer limit
@@ -1792,7 +1794,8 @@ def set_transfer_limit_stats(
         limit_id: str,
         waitings: int,
         transfers: int,
-        session=None
+        *,
+        session: "Session",
 ):
     """
     Set the statistics of the TransferLimit
@@ -1813,7 +1816,8 @@ def delete_transfer_limit(
         rse_expression: str,
         activity: "Optional[str]" = None,
         direction: TransferLimitDirection = TransferLimitDirection.DESTINATION,
-        session=None
+        *,
+        session: "Session",
 ):
 
     if activity is None:
@@ -1848,7 +1852,8 @@ def delete_transfer_limit(
 @transactional_session
 def delete_transfer_limit_by_id(
         limit_id: str,
-        session=None
+        *,
+        session: "Session",
 ):
     stmt = delete(
         models.RSETransferLimit
@@ -1866,7 +1871,7 @@ def delete_transfer_limit_by_id(
 
 
 @transactional_session
-def update_requests_priority(priority, filter_, session=None, logger=logging.log):
+def update_requests_priority(priority, filter_, *, session: "Session", logger=logging.log):
     """
     Update priority of requests.
 
@@ -1926,7 +1931,7 @@ def update_requests_priority(priority, filter_, session=None, logger=logging.log
 
 
 @transactional_session
-def update_request_state(tt_status_report, session=None, logger=logging.log):
+def update_request_state(tt_status_report, *, session: "Session", logger=logging.log):
     """
     Used by poller and consumer to update the internal state of requests,
     after the response by the external transfertool.
@@ -1966,7 +1971,7 @@ def update_request_state(tt_status_report, session=None, logger=logging.log):
 
 
 @read_session
-def add_monitor_message(new_state, request, additional_fields, session=None):
+def add_monitor_message(new_state, request, additional_fields, *, session: "Session"):
     """
     Create a message for hermes from a request
 
@@ -2086,16 +2091,15 @@ def get_transfer_error(state, reason=None):
     return err_msg
 
 
+@METRICS.count_it
 @transactional_session
-def __touch_request(request_id, session=None):
+def __touch_request(request_id, *, session: "Session"):
     """
     Update the timestamp of a request. Fails silently if the request_id does not exist.
 
     :param request_id:  Request-ID as a 32 character hex string.
     :param session:     Database session to use.
     """
-
-    record_counter('core.request.touch_request')
 
     try:
         stmt = update(
@@ -2115,7 +2119,7 @@ def __touch_request(request_id, session=None):
 
 
 @read_session
-def get_source_rse(request_id, src_url, session=None, logger=logging.log):
+def get_source_rse(request_id, src_url, *, session: "Session", logger=logging.log):
     """
     Based on a request, and src_url extract the source rse name and id.
 
@@ -2146,7 +2150,7 @@ def get_source_rse(request_id, src_url, session=None, logger=logging.log):
 
 
 @stream_session
-def list_requests(src_rse_ids, dst_rse_ids, states=None, session=None):
+def list_requests(src_rse_ids, dst_rse_ids, states=None, *, session: "Session"):
     """
     List all requests in a specific state from a source RSE to a destination RSE.
 
@@ -2170,7 +2174,7 @@ def list_requests(src_rse_ids, dst_rse_ids, states=None, session=None):
 
 
 @stream_session
-def list_requests_history(src_rse_ids, dst_rse_ids, states=None, offset=None, limit=None, session=None):
+def list_requests_history(src_rse_ids, dst_rse_ids, states=None, offset=None, limit=None, *, session: "Session"):
     """
     List all historical requests in a specific state from a source RSE to a destination RSE.
 

@@ -94,7 +94,7 @@ class TestJudgeCleaner:
 
         for file in files:
             rse_locks = get_replica_locks(scope=file['scope'], name=file['name'])
-            assert(len(rse_locks) == 5)
+            assert (len(rse_locks) == 5)
 
     def test_judge_expire_rule_with_child_rule(self):
         """ JUDGE CLEANER: Test the judge when deleting expired rules with child rules"""

@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from re import match
+from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -26,9 +27,12 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, KeyType
 from rucio.db.sqla.session import read_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
+def add_key(key, key_type, value_type=None, value_regexp=None, *, session: "Session"):
     """
     Adds a new allowed key.
 
@@ -77,7 +81,7 @@ def add_key(key, key_type, value_type=None, value_regexp=None, session=None):
 
 
 @transactional_session
-def del_key(key, session=None):
+def del_key(key, *, session: "Session"):
     """
     Deletes a key.
 
@@ -88,7 +92,7 @@ def del_key(key, session=None):
 
 
 @read_session
-def list_keys(session=None):
+def list_keys(*, session: "Session"):
     """
     Lists all keys.
 
@@ -104,7 +108,7 @@ def list_keys(session=None):
 
 
 @transactional_session
-def add_value(key, value, session=None):
+def add_value(key, value, *, session: "Session"):
     """
     Adds a new value to a key.
 
@@ -146,7 +150,7 @@ def add_value(key, value, session=None):
 
 
 @read_session
-def list_values(key, session=None):
+def list_values(key, *, session: "Session"):
     """
     Lists all values for a key.
 
@@ -163,7 +167,7 @@ def list_values(key, session=None):
 
 
 @read_session
-def validate_meta(meta, did_type, session=None):
+def validate_meta(meta, did_type, *, session: "Session"):
     """
     Validates metadata for a did.
 

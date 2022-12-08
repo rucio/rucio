@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, Blueprint, request
+from flask import Flask, request
 
 from rucio.api.lock import get_dataset_locks_by_rse, get_dataset_locks, get_dataset_locks_bulk
 from rucio.common.exception import RSENotFound
 from rucio.common.utils import render_json
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
-    request_auth_env, response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parse
+    response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parse
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class LockByRSE(ErrorHandlingMethodView):
@@ -337,7 +338,7 @@ class DatasetLocksForDids(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('locks', __name__, url_prefix='/locks')
+    bp = AuthenticatedBlueprint('locks', __name__, url_prefix='/locks')
 
     lock_by_rse_view = LockByRSE.as_view('lock_by_rse')
     bp.add_url_rule('/<rse>', view_func=lock_by_rse_view, methods=['get', ])
@@ -348,7 +349,6 @@ def blueprint():
     locks_for_dids_view = DatasetLocksForDids.as_view('locks_for_dids')
     bp.add_url_rule('/bulk_locks_for_dids', view_func=locks_for_dids_view, methods=['post', ])
 
-    bp.before_request(request_auth_env)
     bp.after_request(response_headers)
     return bp
 

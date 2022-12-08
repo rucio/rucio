@@ -6,7 +6,7 @@
         "lib/rucio/db",
         "lib/rucio/tests",
     ],
-    "pythonVersion": "3.6",
+    "pythonVersion": "3.10",
     "typeCheckingMode": "basic",
     "useLibraryCodeForTypes": true
 }

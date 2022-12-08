@@ -34,11 +34,12 @@ from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE, FTS_COMPLETE_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
+from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import APIEncoder, chunks, PREFERRED_CHECKSUM
 from rucio.core.request import get_source_rse, get_transfer_error
 from rucio.core.rse import get_rse_supported_checksums_from_attributes
 from rucio.core.oidc import get_token_for_account_operation
-from rucio.core.monitor import record_counter, Timer, MultiCounter
+from rucio.core.monitor import MetricManager
 from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 from rucio.db.sqla.constants import RequestState
 
@@ -50,27 +51,29 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()
 
 REGION_SHORT = make_region_memcached(expiration_time=900)
+METRICS = MetricManager(module=__name__)
 
-SUBMISSION_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_submission', statsd='transfertool.fts3.{host}.submission.{state}',
-                                  documentation='Number of transfers submitted', labelnames=('state', 'host'))
-CANCEL_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_cancel', statsd='transfertool.fts3.{host}.cancel.{state}',
-                              documentation='Number of cancelled transfers', labelnames=('state', 'host'))
-UPDATE_PRIORITY_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_update_priority', statsd='transfertool.fts3.{host}.update_priority.{state}',
-                                       documentation='Number of priority updates', labelnames=('state', 'host'))
-QUERY_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query', statsd='transfertool.fts3.{host}.query.{state}',
-                             documentation='Number of queried transfers', labelnames=('state', 'host'))
-WHOAMI_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_whoami', statsd='transfertool.fts3.{host}.whoami.{state}',
-                              documentation='Number of whoami requests', labelnames=('state', 'host'))
-VERSION_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_version', statsd='transfertool.fts3.{host}.version.{state}',
-                               documentation='Number of version requests', labelnames=('state', 'host'))
-BULK_QUERY_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_bulk_query', statsd='transfertool.fts3.{host}.bulk_query.{state}',
-                                  documentation='Number of bulk queries', labelnames=('state', 'host'))
-QUERY_DETAILS_COUNTER = MultiCounter(prom='rucio_transfertool_fts3_query_details', statsd='transfertool.fts3.{host}.query_details.{state}',
-                                     documentation='Number of detailed status queries', labelnames=('state', 'host'))
+SUBMISSION_COUNTER = METRICS.counter(name='{host}.submission.{state}',
+                                     documentation='Number of transfers submitted', labelnames=('state', 'host'))
+CANCEL_COUNTER = METRICS.counter(name='{host}.cancel.{state}',
+                                 documentation='Number of cancelled transfers', labelnames=('state', 'host'))
+UPDATE_PRIORITY_COUNTER = METRICS.counter(name='{host}.update_priority.{state}',
+                                          documentation='Number of priority updates', labelnames=('state', 'host'))
+QUERY_COUNTER = METRICS.counter(name='{host}.query.{state}',
+                                documentation='Number of queried transfers', labelnames=('state', 'host'))
+WHOAMI_COUNTER = METRICS.counter(name='{host}.whoami.{state}',
+                                 documentation='Number of whoami requests', labelnames=('state', 'host'))
+VERSION_COUNTER = METRICS.counter(name='{host}.version.{state}',
+                                  documentation='Number of version requests', labelnames=('state', 'host'))
+BULK_QUERY_COUNTER = METRICS.counter(name='{host}.bulk_query.{state}',
+                                     documentation='Number of bulk queries', labelnames=('state', 'host'))
+QUERY_DETAILS_COUNTER = METRICS.counter(name='{host}.query_details.{state}',
+                                        documentation='Number of detailed status queries', labelnames=('state', 'host'))
 
 ALLOW_USER_OIDC_TOKENS = config_get_bool('conveyor', 'allow_user_oidc_tokens', False, False)
 REQUEST_OIDC_SCOPE = config_get('conveyor', 'request_oidc_scope', False, 'fts:submit-transfer')
 REQUEST_OIDC_AUDIENCE = config_get('conveyor', 'request_oidc_audience', False, 'fts:example')
+REWRITE_HTTPS_TO_DAVS = config_get_bool('transfers', 'rewrite_https_to_davs', default=False)
 
 # https://fts3-docs.web.cern.ch/fts3-docs/docs/state_machine.html
 FINAL_FTS_JOB_STATES = (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED, FTS_STATE.FINISHEDDIRTY)
@@ -461,18 +464,15 @@ class Fts3TransferStatusReport(TransferStatusReport):
             return False
         dst_file = file_metadata.get('dst_file', {})
         dst_type = file_metadata.get('dst_type', None)
-        record_counter('transfertool.fts3.overwrite.check.{rsetype}.{rse}',
-                       labels={'rse': file_metadata["dst_rse"], 'rsetype': dst_type})
+        METRICS.counter('overwrite.check.{rsetype}.{rse}').labels(rse=file_metadata["dst_rse"], rsetype=dst_type).inc()
 
         if 'Destination file exists and overwrite is not enabled' in (reason or ''):
             if cls._dst_file_set_and_file_correct(request, dst_file):
                 if dst_type == 'DISK' or dst_file.get('file_on_tape'):
-                    record_counter('transfertool.fts3.overwrite.ok.{rsetype}.{rse}',
-                                   labels={'rse': file_metadata["dst_rse"], 'rsetype': dst_type})
+                    METRICS.counter('overwrite.ok.{rsetype}.{rse}').labels(rse=file_metadata["dst_rse"], rsetype=dst_type).inc()
                     return True
 
-        record_counter('transfertool.fts3.overwrite.fail.{rsetype}.{rse}',
-                       labels={'rse': file_metadata["dst_rse"], 'rsetype': dst_type})
+        METRICS.counter('overwrite.fail.{rsetype}.{rse}').labels(rse=file_metadata["dst_rse"], rsetype=dst_type).inc()
         return False
 
 
@@ -811,21 +811,23 @@ class FTS3Transfertool(Transfertool):
             if not transfer_file['sources'] or transfer_file['sources'] == []:
                 raise Exception('No sources defined')
 
-            new_src_urls = []
-            new_dst_urls = []
-            for url in transfer_file['sources']:
-                if url.startswith('https'):
-                    new_src_urls.append(':'.join(['davs'] + url.split(':')[1:]))
-                else:
-                    new_src_urls.append(url)
-            for url in transfer_file['destinations']:
-                if url.startswith('https'):
-                    new_dst_urls.append(':'.join(['davs'] + url.split(':')[1:]))
-                else:
-                    new_dst_urls.append(url)
+            # TODO: remove the following logic in rucio 1.31
+            if REWRITE_HTTPS_TO_DAVS:
+                new_src_urls = []
+                new_dst_urls = []
+                for url in transfer_file['sources']:
+                    if url.startswith('https'):
+                        new_src_urls.append(':'.join(['davs'] + url.split(':')[1:]))
+                    else:
+                        new_src_urls.append(url)
+                for url in transfer_file['destinations']:
+                    if url.startswith('https'):
+                        new_dst_urls.append(':'.join(['davs'] + url.split(':')[1:]))
+                    else:
+                        new_dst_urls.append(url)
 
-            transfer_file['sources'] = new_src_urls
-            transfer_file['destinations'] = new_dst_urls
+                transfer_file['sources'] = new_src_urls
+                transfer_file['destinations'] = new_dst_urls
 
         transfer_id = None
         expected_transfer_id = None
@@ -841,8 +843,8 @@ class FTS3Transfertool(Transfertool):
         params_str = json.dumps(params_dict, cls=APIEncoder)
 
         post_result = None
+        stopwatch = Stopwatch()
         try:
-            timer = Timer()
             post_result = requests.post('%s/jobs' % self.external_host,
                                         verify=self.verify,
                                         cert=self.cert,
@@ -850,7 +852,7 @@ class FTS3Transfertool(Transfertool):
                                         headers=self.headers,
                                         timeout=timeout)
             labels = {'host': self.__extract_host(self.external_host)}
-            timer.record('transfertool.fts3.submit_transfer.{host}', divisor=len(files), labels=labels)
+            METRICS.timer('submit_transfer.{host}').labels(**labels).observe(stopwatch.elapsed / (len(files) or 1))
         except ReadTimeout as error:
             raise TransferToolTimeout(error)
         except json.JSONDecodeError as error:
@@ -874,7 +876,7 @@ class FTS3Transfertool(Transfertool):
 
         if not transfer_id:
             raise TransferToolWrongAnswer('No transfer id returned by %s' % self.external_host)
-        timer.record('core.request.submit_transfers_fts3', divisor=len(transfers))
+        METRICS.timer('submit_transfers_fts3').observe(stopwatch.elapsed / (len(transfers) or 1))
         return transfer_id
 
     def cancel(self, transfer_ids, timeout=None):
@@ -1026,7 +1028,7 @@ class FTS3Transfertool(Transfertool):
                                timeout=timeout)
 
         if jobs is None:
-            record_counter('transfertool.fts3.{host}.bulk_query.failure', labels={'host': self.__extract_host(self.external_host)})
+            BULK_QUERY_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc()
             for transfer_id in requests_by_eid:
                 responses[transfer_id] = Exception('Transfer information returns None: %s' % jobs)
         elif jobs.status_code in (200, 207, 404):

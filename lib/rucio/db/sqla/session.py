@@ -13,18 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import os
 import sys
 
-from functools import wraps
-from inspect import isgeneratorfunction
+from functools import update_wrapper
+from inspect import isgeneratorfunction, getfullargspec
 from threading import Lock
+from typing import TYPE_CHECKING
 from os.path import basename
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, TimeoutError
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import sessionmaker, scoped_session, Session
 from sqlalchemy.pool import QueuePool, SingletonThreadPool, NullPool
 
 from rucio.common.config import config_get
@@ -33,6 +35,13 @@ from rucio.common.utils import retrying
 from rucio.common.extra import import_extras
 
 EXTRA_MODULES = import_extras(['MySQLdb', 'pymysql'])
+
+if TYPE_CHECKING:
+    from typing import Callable, Optional, ParamSpec, TypeVar
+
+    P = ParamSpec('P')
+    R = TypeVar('R')
+
 
 try:
     main_script = os.path.basename(sys.argv[0])
@@ -287,7 +296,41 @@ def retry_if_db_connection_error(exception):
     return False
 
 
-def read_session(function):
+def _update_session_wrapper(wrapper, wrapped):
+    """
+    In addition to the work done by functools.update_wrapper, this function also preservers
+    the signature of the initial function. With the exception that the 'session' parameter
+    is overriden to have a default value of 'None'.
+
+    wrapper is the function to be updated
+    wrapped is the original function
+
+    To simplify the implementation of this function, we require 'session' be a
+    keyword-only argument in the wrapped function.
+    """
+    try:
+        arg_spec = getfullargspec(wrapped)
+        arg_spec.kwonlyargs.index('session')
+    except ValueError:
+        # We require decorated functions to have a 'session' keyword-only attribute.
+        # re-raise ValueError if not
+        raise
+
+    update_wrapper(wrapper, wrapped)
+
+    wrapper.__defaults__ = copy.copy(wrapped.__defaults__)
+    wrapper.__kwdefaults__ = copy.copy(wrapped.__kwdefaults__)
+    wrapper.__annotations__["session"] = "Optional[Session]"
+
+    # Set the default of the keyword-only attribute 'session' to None
+    if not wrapped.__kwdefaults__:
+        wrapper.__kwdefaults__ = {'session': None}
+    elif 'session' not in wrapped.__kwdefaults__:
+        wrapper.__kwdefaults__['session'] = None
+    return wrapper
+
+
+def read_session(function: "Callable[P, R]"):
     '''
     decorator that set the session variable to use inside a function.
     With that decorator it's possible to use the session variable like if a global variable session is declared.
@@ -299,18 +342,16 @@ def read_session(function):
     @retrying(retry_on_exception=retry_if_db_connection_error,
               wait_fixed=500,
               stop_max_attempt_number=2)
-    @wraps(function)
-    def new_funct(*args, **kwargs):
+    def new_funct(*args: "P.args", session: "Optional[Session]" = None, **kwargs):  # pylint:disable=missing-kwoa
         if isgeneratorfunction(function):
             raise RucioException('read_session decorator should not be used with generator. Use stream_session instead.')
 
-        if not kwargs.get('session'):
+        if not session:
             session_scoped = get_session()
             session = session_scoped()
             session.begin()
             try:
-                kwargs['session'] = session
-                return function(*args, **kwargs)
+                return function(*args, session=session, **kwargs)
             except TimeoutError as error:
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
@@ -323,14 +364,13 @@ def read_session(function):
             finally:
                 session_scoped.remove()
         try:
-            return function(*args, **kwargs)
+            return function(*args, session=session, **kwargs)
         except Exception:
             raise
-    new_funct.__doc__ = function.__doc__
-    return new_funct
+    return _update_session_wrapper(new_funct, function)
 
 
-def stream_session(function):
+def stream_session(function: "Callable[P, R]"):
     '''
     decorator that set the session variable to use inside a function.
     With that decorator it's possible to use the session variable like if a global variable session is declared.
@@ -342,55 +382,52 @@ def stream_session(function):
     @retrying(retry_on_exception=retry_if_db_connection_error,
               wait_fixed=500,
               stop_max_attempt_number=2)
-    @wraps(function)
-    def new_funct(*args, **kwargs):
+    def new_funct(*args: "P.args", session: "Optional[Session]" = None, **kwargs):  # pylint:disable=missing-kwoa
 
         if not isgeneratorfunction(function):
             raise RucioException('stream_session decorator should be used only with generator. Use read_session instead.')
 
-        if not kwargs.get('session'):
+        if not session:
             session_scoped = get_session()
+            session = session_scoped()
+            session.begin()
             try:
-                kwargs['session'] = session_scoped
-                for row in function(*args, **kwargs):
+                for row in function(*args, session=session, **kwargs):
                     yield row
             except TimeoutError as error:
-                session_scoped.rollback()  # pylint: disable=maybe-no-member
+                session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except DatabaseError as error:
-                session_scoped.rollback()  # pylint: disable=maybe-no-member
+                session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))
             except:
-                session_scoped.rollback()  # pylint: disable=maybe-no-member
+                session.rollback()  # pylint: disable=maybe-no-member
                 raise
             finally:
                 session_scoped.remove()
         else:
             try:
-                for row in function(*args, **kwargs):
+                for row in function(*args, session=session, **kwargs):
                     yield row
             except:
                 raise
-    new_funct.__doc__ = function.__doc__
-    return new_funct
+    return _update_session_wrapper(new_funct, function)
 
 
-def transactional_session(function):
+def transactional_session(function: "Callable[P, R]"):
     '''
     decorator that set the session variable to use inside a function.
     With that decorator it's possible to use the session variable like if a global variable session is declared.
 
     session is a sqlalchemy session, and you can get one calling get_session().
     '''
-    @wraps(function)
-    def new_funct(*args, **kwargs):
-        if not kwargs.get('session'):
+    def new_funct(*args: "P.args", session: "Optional[Session]" = None, **kwargs):  # pylint:disable=missing-kwoa
+        if not session:
             session_scoped = get_session()
             session = session_scoped()
             session.begin()
             try:
-                kwargs['session'] = session
-                result = function(*args, **kwargs)
+                result = function(*args, session=session, **kwargs)
                 session.commit()  # pylint: disable=maybe-no-member
             except TimeoutError as error:
                 session.rollback()  # pylint: disable=maybe-no-member
@@ -404,7 +441,6 @@ def transactional_session(function):
             finally:
                 session_scoped.remove()  # pylint: disable=maybe-no-member
         else:
-            result = function(*args, **kwargs)
+            result = function(*args, session=session, **kwargs)
         return result
-    new_funct.__doc__ = function.__doc__
-    return new_funct
+    return _update_session_wrapper(new_funct, function)

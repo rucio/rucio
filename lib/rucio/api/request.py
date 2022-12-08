@@ -17,6 +17,8 @@
 Interface for the requests abstraction layer
 """
 
+from typing import TYPE_CHECKING
+
 from rucio.api import permission
 from rucio.common import exception
 from rucio.common.types import InternalAccount, InternalScope
@@ -25,9 +27,12 @@ from rucio.core import request
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 @transactional_session
-def queue_requests(requests, issuer, vo='def', session=None):
+def queue_requests(requests, issuer, vo='def', *, session: "Session"):
     """
     Submit transfer or deletion requests on destination RSEs for data identifiers.
 
@@ -52,7 +57,7 @@ def queue_requests(requests, issuer, vo='def', session=None):
 
 
 @transactional_session
-def cancel_request(request_id, issuer, account, vo='def', session=None):
+def cancel_request(request_id, issuer, account, vo='def', *, session: "Session"):
     """
     Cancel a request.
 
@@ -71,7 +76,7 @@ def cancel_request(request_id, issuer, account, vo='def', session=None):
 
 
 @transactional_session
-def cancel_request_did(scope, name, dest_rse, request_type, issuer, account, vo='def', session=None):
+def cancel_request_did(scope, name, dest_rse, request_type, issuer, account, vo='def', *, session: "Session"):
     """
     Cancel a request based on a DID and request type.
 
@@ -96,7 +101,7 @@ def cancel_request_did(scope, name, dest_rse, request_type, issuer, account, vo=
 
 
 @read_session
-def get_next(request_type, state, issuer, account, vo='def', session=None):
+def get_next(request_type, state, issuer, account, vo='def', *, session: "Session"):
     """
     Retrieve the next request matching the request type and state.
 
@@ -118,7 +123,7 @@ def get_next(request_type, state, issuer, account, vo='def', session=None):
 
 
 @read_session
-def get_request_by_did(scope, name, rse, issuer, vo='def', session=None):
+def get_request_by_did(scope, name, rse, issuer, vo='def', *, session: "Session"):
     """
     Retrieve a request by its DID for a destination RSE.
 
@@ -143,7 +148,7 @@ def get_request_by_did(scope, name, rse, issuer, vo='def', session=None):
 
 
 @read_session
-def get_request_history_by_did(scope, name, rse, issuer, vo='def', session=None):
+def get_request_history_by_did(scope, name, rse, issuer, vo='def', *, session: "Session"):
     """
     Retrieve a historical request by its DID for a destination RSE.
 
@@ -168,7 +173,7 @@ def get_request_history_by_did(scope, name, rse, issuer, vo='def', session=None)
 
 
 @stream_session
-def list_requests(src_rses, dst_rses, states, issuer, vo='def', session=None):
+def list_requests(src_rses, dst_rses, states, issuer, vo='def', *, session: "Session"):
     """
     List all requests in a specific state from a source RSE to a destination RSE.
 
@@ -191,7 +196,7 @@ def list_requests(src_rses, dst_rses, states, issuer, vo='def', session=None):
 
 
 @stream_session
-def list_requests_history(src_rses, dst_rses, states, issuer, vo='def', offset=None, limit=None, session=None):
+def list_requests_history(src_rses, dst_rses, states, issuer, vo='def', offset=None, limit=None, *, session: "Session"):
     """
     List all historical requests in a specific state from a source RSE to a destination RSE.
 

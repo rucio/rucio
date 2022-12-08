@@ -34,7 +34,7 @@ from rucio.common.exception import (SourceNotFound, ServiceUnavailable,
                                     RSENotFound, VONotFound)
 from rucio.common.logging import setup_logging
 from rucio.core.message import add_message
-from rucio.core.monitor import record_counter
+from rucio.core.monitor import MetricManager
 from rucio.core.quarantined_replica import (list_quarantined_replicas,
                                             delete_quarantined_replicas,
                                             list_rses_with_quarantined_replicas)
@@ -50,6 +50,7 @@ if TYPE_CHECKING:
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
+METRICS = MetricManager(module=__name__)
 GRACEFUL_STOP = threading.Event()
 
 
@@ -131,7 +132,7 @@ def run_once(
                     logger(logging.INFO, 'Deletion ATTEMPT of %s:%s as %s on %s', scope, replica['name'], pfn, rse)
                     start = time.time()
                     prot.delete(pfn)
-                    record_counter('daemons.dark_reaper.deleted_replicas')
+                    METRICS.counter('deleted_replicas').inc()
                     duration = time.time() - start
                     logger(logging.INFO, 'Deletion SUCCESS of %s:%s as %s on %s in %s seconds', scope, replica['name'], pfn, rse, duration)
                     payload = {'scope': scope,

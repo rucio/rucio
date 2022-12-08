@@ -198,13 +198,14 @@ class GlobusRSEProtocol(RSEProtocol):
             try:
                 delete_response = send_delete_task(endpoint_id=self.globus_endpoint_id, path=path, logger=self.logger)
             except TransferAPIError as err:
-                print(err)
+                self.logger(logging.WARNING, str(err))
+                raise exception.RucioException(err)
         else:
-            print('No rse attribute found for globus endpoint id.')
+            raise exception.RucioException('No rse attribute found for globus endpoint id.')
 
         if delete_response['code'] != 'Accepted':
-            print('delete_task not accepted by Globus')
-            print('delete_response: %s' % delete_response)
+            self.logger(logging.DEBUG, 'delete_response: %s' % delete_response)
+            raise exception.RucioException('delete_task not accepted by Globus')
 
     def bulk_delete(self, pfns):
         """
@@ -218,13 +219,13 @@ class GlobusRSEProtocol(RSEProtocol):
             try:
                 bulk_delete_response = send_bulk_delete_task(endpoint_id=self.globus_endpoint_id, pfns=pfns, logger=self.logger)
             except TransferAPIError as err:
-                self.logger(logging.WARNING, str(err))
+                raise exception.RucioException(err)
         else:
-            self.logger(logging.WARNING, 'No rse attribute found for globus endpoint id.')
+            raise exception.RucioException('No rse attribute found for globus endpoint id.')
 
         if bulk_delete_response['code'] != 'Accepted':
-            self.logger(logging.WARNING, 'delete_task not accepted by Globus')
-            self.logger(logging.WARNING, 'delete_response: %s' % bulk_delete_response)
+            self.logger(logging.DEBUG, 'delete_response: %s' % bulk_delete_response)
+            raise exception.RucioException('delete_task not accepted by Globus')
 
     def connect(self):
         """

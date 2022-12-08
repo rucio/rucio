@@ -16,9 +16,11 @@
 import datetime
 import hashlib
 import random
+import re
 import sys
 import traceback
 from base64 import b64decode
+from typing import TYPE_CHECKING
 
 import paramiko
 from dogpile.cache.api import NO_VALUE
@@ -36,10 +38,45 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+
+def strip_x509_proxy_attributes(dn: str) -> str:
+    """Strip X509 proxy attributes from a DN.
+
+    When an X509 VOMS proxy certificate is produced, an additional Common Name
+    attribute is added to the subject of the original certificate.  Its value
+    can take different forms.  For proxy versions 3 and later (the default), the
+    value is a numeric.  For previous versions, the value is exclusively one of
+    'limited proxy' or 'proxy', depending on how it was produced (the most
+    trustworthy documentation on this seems to be the VOMS source code itself;
+    refer to the file sslutils.c).  Note that this addition might happen more
+    than once (e.g. if a limited proxy is used to produce a full proxy).
+
+    By default, the Apache server will return the DN in an RFC-compliant format,
+    which can look like this:
+        CN=John Doe,OU=Users,DC=example,DC=com
+    However, in case the LegacyDNStringFormat of mod_ssl is enabled, then it can
+    look like this instead:
+        /DC=com/DC=example/OU=Users/CN=John Doe
+    In the first case, the Common Name attributes added by VOMS are prepended,
+    whereas in the second case, they are appended.
+
+    The motivation for stripping these attributes is to avoid having to store
+    multiple DNs in the database (as different identities).
+    """
+    if dn.startswith('/'):
+        regexp = r'(/CN=(limited proxy|proxy|[0-9]+))+$'
+    else:
+        regexp = r'^(CN=(limited proxy|proxy|[0-9]+),)+'
+
+    return re.sub(regexp, '', dn)
+
 
 def token_key_generator(namespace, fni, **kwargs):
     """ :returns: generate key function """
-    def generate_key(token, session=None):
+    def generate_key(token, *, session: "Session"):
         """ :returns: token """
         return token
     return generate_key
@@ -52,7 +89,7 @@ else:
 
 
 @transactional_session
-def get_auth_token_user_pass(account, username, password, appid, ip=None, session=None):
+def get_auth_token_user_pass(account, username, password, appid, ip=None, *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via username and password.
 
@@ -101,7 +138,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, sessio
 
 
 @transactional_session
-def get_auth_token_x509(account, dn, appid, ip=None, session=None):
+def get_auth_token_x509(account, dn, appid, ip=None, *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via an x509 certificate.
 
@@ -133,7 +170,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, session=None):
 
 
 @transactional_session
-def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
+def get_auth_token_gss(account, gsstoken, appid, ip=None, *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via a GSS token.
 
@@ -165,7 +202,7 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, session=None):
 
 
 @transactional_session
-def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
+def get_auth_token_ssh(account, signature, appid, ip=None, *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via SSH key exchange.
 
@@ -229,7 +266,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, session=None):
 
 
 @transactional_session
-def get_ssh_challenge_token(account, appid, ip=None, session=None):
+def get_ssh_challenge_token(account, appid, ip=None, *, session: "Session"):
     """
     Prepare a challenge token for subsequent SSH public key authentication.
 
@@ -265,7 +302,7 @@ def get_ssh_challenge_token(account, appid, ip=None, session=None):
 
 
 @transactional_session
-def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
+def get_auth_token_saml(account, saml_nameid, appid, ip=None, *, session: "Session"):
     """
     Authenticate a Rucio account temporarily via SAML.
 
@@ -296,7 +333,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, session=None):
 
 
 @transactional_session
-def redirect_auth_oidc(auth_code, fetchtoken=False, session=None):
+def redirect_auth_oidc(auth_code, fetchtoken=False, *, session: "Session"):
     """
     Finds the Authentication URL in the Rucio DB oauth_requests table
     and redirects user's browser to this URL.
@@ -332,7 +369,7 @@ def redirect_auth_oidc(auth_code, fetchtoken=False, session=None):
 
 
 @transactional_session
-def delete_expired_tokens(total_workers, worker_number, limit=1000, session=None):
+def delete_expired_tokens(total_workers, worker_number, limit=1000, *, session: "Session"):
     """
     Delete expired tokens.
 
@@ -372,7 +409,7 @@ def delete_expired_tokens(total_workers, worker_number, limit=1000, session=None
 
 
 @read_session
-def query_token(token, session=None):
+def query_token(token, *, session: "Session"):
     """
     Validate an authentication token using the database. This method will only be called
     if no entry could be found in the according cache.
@@ -406,7 +443,7 @@ def query_token(token, session=None):
 
 
 @transactional_session
-def validate_auth_token(token, session=None):
+def validate_auth_token(token, *, session: "Session"):
     """
     Validate an authentication token.
 
@@ -452,7 +489,7 @@ def token_dictionary(token: models.Token):
 
 
 @transactional_session
-def __delete_expired_tokens_account(account, session=None):
+def __delete_expired_tokens_account(account, *, session: "Session"):
     """"
     Deletes expired tokens from the database.
 
