@@ -171,7 +171,7 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, "[%s] %s %s %s" % (event.timestamp, event.domain, event.stage, event.description))
 
     def monitor_callback(self, src, dst, average, instant, transferred, elapsed):
-        self.logger(logging.DEBUG, "[%4d] %.2fMB (%.2fKB/s)\r" % (elapsed, transferred / 1048576, average / 1024))
+        self.logger(logging.DEBUG, "[%4d] %.2fMiB (%.2fKiB/s)\r" % (elapsed, transferred / 1048576, average / 1024))
 
     def connect(self):
         """
@@ -183,7 +183,7 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, 'connecting to storage')
 
         self.__ctx = gfal2.creat_context()  # pylint: disable=no-member
-        self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
+        self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap", "https", "davs", "root"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
         self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
 
@@ -192,7 +192,6 @@ class Default(protocol.RSEProtocol):
             params = self.__ctx.transfer_parameters()
             params.event_callback = self.event_callback
             params.monitor_callback = self.monitor_callback
-            params.overwrite = True
         else:
             gfal2.set_verbose(gfal2.verbose_level.warning)
 
