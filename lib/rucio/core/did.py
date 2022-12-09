@@ -328,7 +328,7 @@ def _attach_dids_to_dids(
             parent_did = session.execute(stmt).scalar_one()
             if not first_iteration:
                 session.query(children_temp_table).delete()
-            session.bulk_insert_mappings(children_temp_table, [{'scope': file['scope'], 'name': file['name']} for file in attachment['dids']])
+            session.bulk_insert_mappings(children_temp_table, [{'scope': s, 'name': n} for s, n in children])
 
             if parent_did.did_type == DIDType.FILE:
                 # check if parent file has the archive extension
