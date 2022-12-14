@@ -131,6 +131,7 @@ def smart_open(filename):
     it is a bzip2 compressed file and returns a file-like object to
     handle it.
     '''
+    f = None
     if isplaintext(filename):
         f = open(filename, 'rt')
     else:
