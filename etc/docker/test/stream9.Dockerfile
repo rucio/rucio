@@ -136,9 +136,10 @@ FROM python as rucio-runtime
         chmod 0400 etc/ruciouser.key.pem
 
 FROM rucio-runtime as requirements
-    RUN dnf -y update --nobest && \ 
-        dnf -y --skip-broken install make gcc krb5-devel xmlsec1-devel xmlsec1-openssl-devel pkg-config libtool-ltdl-devel && \
-        python3 -m pip --no-cache-dir install --upgrade pip && \
+    
+    RUN dnf -y update --nobest && dnf -y --skip-broken install make gcc krb5-devel xmlsec1-devel xmlsec1-openssl-devel pkg-config libtool-ltdl-devel
+    RUN dnf -y reinstall platform-python-setuptools
+    RUN python3 -m pip --no-cache-dir install --upgrade pip && \
         python3 -m pip --no-cache-dir install --upgrade setuptools wheel && \
         python3 -m pip --no-cache-dir install --upgrade -r requirements.txt   
     
