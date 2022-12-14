@@ -198,8 +198,6 @@ def get_token(token_method, acc=None, vo=None, idt=None, pwd=None):
         vo = request.environ.get('HTTP_X_RUCIO_VO')
     if not idt:
         idt = request.environ.get('SSL_CLIENT_S_DN')
-        if not idt.startswith('/'):
-            idt = '/%s' % '/'.join(idt.split(',')[::-1])
     if not (acc and vo and idt):
         return None
     try:
@@ -306,8 +304,6 @@ def x509token_auth(data=None):
     if request.environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
         return render_template("problem.html", msg="No certificate provided. Please authenticate with a certificate registered in Rucio.")
     dn = request.environ.get('SSL_CLIENT_S_DN')
-    if not dn.startswith('/'):
-        dn = '/%s' % '/'.join(dn.split(',')[::-1])
     if not MULTI_VO:
         ui_vo = 'def'
     elif hasattr(data, 'vo') and data.vo:
