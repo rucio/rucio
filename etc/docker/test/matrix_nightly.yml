@@ -7,11 +7,15 @@ dists:
     deny:
       suites:
         - sqlite
-  - id: fedora32
+  - id: fedora35
+    allow:
+      python:
+        - "3.10"
+  - id: stream8
     allow:
       python:
         - "3.8"
-  - id: fedora33
+  - id: stream9
     allow:
       python:
         - "3.9"
