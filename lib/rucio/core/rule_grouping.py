@@ -941,7 +941,6 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                                 adler32=file['adler32'],
                                                                 ds_scope=dataset['scope'],
                                                                 ds_name=dataset['name'],
-                                                                copy_pin_lifetime=copy_pin_lifetime,
                                                                 session=session))
                 return True
             return False
@@ -1017,7 +1016,6 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                             adler32=file['adler32'],
                                                             ds_scope=dataset['scope'],
                                                             ds_name=dataset['name'],
-                                                            copy_pin_lifetime=copy_pin_lifetime,
                                                             session=session))
             return True
         return False
