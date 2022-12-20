@@ -125,6 +125,10 @@ jobs:
         run: |
           docker exec -t dev_rucio_1 cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
           docker exec -t dev_rucio_1 tools/run_tests_docker.sh -ir
+      - name: Test Protocol WebDAV
+        run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=auto test_rse_protocol_webdav_new.py
+      - name: Test Protocol GFAL2
+        run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=auto test_rse_protocol_gfal2_new.py
       - name: File Upload/Download Test
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_rucio_server.py
       - name: UploadClient Test
