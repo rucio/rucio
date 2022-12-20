@@ -297,7 +297,7 @@ class TemporaryFileFactory:
 
         return self._base_dir
 
-    def _make_temp_file(self, data, size, namelen, use_basedir, path):
+    def _make_temp_file(self, data, size, namelen, use_basedir, path) -> Path:
         fn = ''.join(choice(ascii_uppercase) for x in range(namelen))
         if use_basedir:
             fp = self.base_dir / path / fn if path is not None else self.base_dir / fn
