@@ -23,8 +23,9 @@ from rucio.common.utils import check_policy_package_version
 import importlib
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import Optional, Any, Dict
     from sqlalchemy.orm import Session
+    from rucio.common.types import InternalAccount
 
 # dictionary of permission modules for each VO
 permission_modules = {}
@@ -102,7 +103,7 @@ def load_permission_for_vo(vo):
     permission_modules[vo] = module
 
 
-def has_permission(issuer, action, kwargs, *, session: "Optional[Session]" = None):
+def has_permission(issuer: "InternalAccount", action: "str", kwargs: "Dict[str, Any]", *, session: "Optional[Session]" = None):
     if issuer.vo not in permission_modules:
         load_permission_for_vo(issuer.vo)
     return permission_modules[issuer.vo].has_permission(issuer, action, kwargs, session=session)

@@ -18,7 +18,7 @@ import os
 from re import match
 from typing import TYPE_CHECKING
 
-from sqlalchemy import asc
+from sqlalchemy import asc, select
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common import exception
@@ -31,6 +31,7 @@ from typing import Union
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+    from typing import Optional
 
 
 @transactional_session
@@ -111,7 +112,7 @@ def del_identity(identity: str, type_: IdentityType, *, session: "Session"):
 
 
 @transactional_session
-def add_account_identity(identity: str, type_: IdentityType, account: InternalAccount, email: str, default: bool = False, password: str = None, *, session: "Session"):
+def add_account_identity(identity: str, type_: IdentityType, account: InternalAccount, email: str, default: bool = False, password: "Optional[str]" = None, *, session: "Session"):
     """
     Adds a membership association between identity and account.
 
@@ -126,10 +127,17 @@ def add_account_identity(identity: str, type_: IdentityType, account: InternalAc
     if not account_exists(account, session=session):
         raise exception.AccountNotFound('Account \'%s\' does not exist.' % account)
 
-    id_ = session.query(models.Identity).filter_by(identity=identity, identity_type=type_).first()
+    query = select(
+        models.Identity
+    ).where(
+        models.Identity.identity == identity,
+        models.Identity.identity_type == type_
+    )
+    id_ = session.execute(query).scalars().first()
+
     if id_ is None:
         add_identity(identity=identity, type_=type_, email=email, password=password, session=session)
-        id_ = session.query(models.Identity).filter_by(identity=identity, identity_type=type_).first()
+        id_ = session.execute(query).scalars().first()
 
     iaa = models.IdentityAccountAssociation(identity=id_.identity, identity_type=id_.identity_type, account=account,
                                             is_default=default)

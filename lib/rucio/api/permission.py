@@ -24,10 +24,11 @@ from rucio.db.sqla.session import read_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+    from typing import Any, Dict
 
 
 @read_session
-def has_permission(issuer, action, kwargs, vo='def', *, session: "Session"):
+def has_permission(issuer: "str", action: "str", kwargs: "Dict[str, Any]", vo='def', *, session: "Session"):
     """
     Checks if an account has the specified permission to
     execute an action with parameters.
@@ -57,7 +58,7 @@ def has_permission(issuer, action, kwargs, vo='def', *, session: "Session"):
     if 'account' in kwargs:
         kwargs['account'] = InternalAccount(kwargs['account'], vo=vo)
     if 'accounts' in kwargs:
-        kwargs['accounts'] = [InternalAccount(a, vo=vo) for a in kwargs['accounts']]
+        kwargs['accounts'] = [InternalAccount(str(a), vo=vo) for a in kwargs['accounts']]
     if 'rules' in kwargs:
         for r in kwargs['rules']:
             r['account'] = InternalAccount(r['account'], vo=vo)
@@ -67,6 +68,6 @@ def has_permission(issuer, action, kwargs, vo='def', *, session: "Session"):
                 for r in d['rules']:
                     r['account'] = InternalAccount(r['account'], vo=vo)
 
-    issuer = InternalAccount(issuer, vo=vo)
+    issuer_ia = InternalAccount(issuer, vo=vo)
 
-    return permission.has_permission(issuer=issuer, action=action, kwargs=kwargs, session=session)
+    return permission.has_permission(issuer=issuer_ia, action=action, kwargs=kwargs, session=session)
