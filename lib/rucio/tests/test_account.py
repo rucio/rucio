@@ -14,16 +14,18 @@
 # limitations under the License.
 
 from json import loads
+from datetime import datetime
 
 import pytest
 
 from rucio.api.account import add_account, account_exists, del_account, update_account, get_account_info
 from rucio.common.config import config_get
-from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
+from rucio.common.exception import AccountNotFound, Duplicate, IdentityError, IdentityNotFound, InvalidObject
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import list_identities, add_account_attribute, list_account_attributes, del_account_attribute
-from rucio.core.identity import add_account_identity, add_identity
+from rucio.core.identity import add_account_identity, add_identity, verify_identity
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, IdentityType
 from rucio.tests.common import account_name_generator, headers, auth, vohdr, loginhdr
 
@@ -199,6 +201,172 @@ def test_update_account(rest_client, auth_token):
     body = loads(response.get_data(as_text=True))
     assert body['status'] == 'SUSPENDED'
     assert body['email'] == 'test'
+
+
+def test_detach_identity_of_account(vo, rest_client, db_session, auth_token):
+    """ ACCOUNT (REST): send a DELETE to detach an identity of an account."""
+    # add id
+    identity = uuid()
+    password = 'secret'
+    add_identity(identity, IdentityType.USERPASS, 'email@email.com', password)
+    assert verify_identity(identity, IdentityType.USERPASS, password)
+
+    # adding account 1
+    account1 = account_name_generator()
+    add_account(account1, 'USER', 'rucio@email.com', 'root', vo=vo)
+
+    # adding account 2
+    account2 = account_name_generator()
+    add_account(account2, 'USER', 'rucio@email.com', 'root', vo=vo)
+
+    # attaching id to accounts
+    tokens = {}
+    for account in (account1, account2):
+        add_account_identity(identity, IdentityType.USERPASS,
+                             InternalAccount(account, vo=vo),
+                             'email@email.com')
+        auth_response = rest_client.get('/auth/userpass',
+                                        headers=headers(loginhdr(account, identity, password),
+                                                        vohdr(vo)))
+        assert auth_response.status_code == 200
+        assert 'X-Rucio-Auth-Token' in auth_response.headers
+        tokens[account] = str(auth_response.headers.get('X-Rucio-Auth-Token'))
+        assert len(tokens[account]) != 0
+
+    # detach from accounts
+    # detach from first account
+    data = {'authtype': 'USERPASS', 'identity': identity}
+    response = rest_client.delete(
+        '/accounts/' + account1 + '/identities/detach',
+        headers=headers(auth(tokens[account1])),
+        json=data
+    )
+    assert response.status_code == 200
+    assert not list_identities(InternalAccount(account1, vo=vo))
+
+    # when the first account is detached, the tokens are set to be expired
+    # this means that we get an unauthorised error code
+    data = {'authtype': 'USERPASS', 'identity': identity}
+    response = rest_client.delete(
+        '/accounts/' + account2 + '/identities/detach',
+        headers=headers(auth(tokens[account2])),
+        json=data
+    )
+    assert response.status_code == 401
+    assert list_identities(InternalAccount(account2, vo=vo))
+
+    # trying to detach the second account as root
+    data = {'authtype': 'USERPASS', 'identity': identity}
+    response = rest_client.delete(
+        '/accounts/' + account2 + '/identities/detach',
+        headers=headers(auth(auth_token)),
+        json=data
+    )
+    assert response.status_code == 200
+    assert not list_identities(InternalAccount(account2, vo=vo))
+
+    # check if identity is actually deleted
+    with pytest.raises(IdentityError):
+        verify_identity(identity, IdentityType.USERPASS, password)
+
+    # test if token has been deleted
+    ctime = datetime.utcnow()
+    dbtokens = db_session.query(models.Token).filter_by(identity=identity)
+    for token in dbtokens:
+        assert token.expired_at < ctime
+
+
+def test_newdel_identity(vo, rest_client, db_session) -> None:
+    """ ACCOUNT (REST): send a DELETE to newdelete an identity of an account."""
+    # add id
+    identity = uuid()
+    password = 'secret'
+    add_identity(identity, IdentityType.USERPASS, 'email@email.com', password)
+    assert verify_identity(identity, IdentityType.USERPASS, password)
+
+    # attaching id to accounts
+    accounts, tokens = {}, {}
+    for i in range(3):
+        accounts[i] = account_name_generator()
+        account = accounts[i]
+        add_account(account, 'USER', f'rucio{i}@email.com', 'root', vo=vo)
+        add_account_identity(identity, IdentityType.USERPASS,
+                             InternalAccount(account, vo=vo),
+                             'email@email.com')
+        # getting the auth token
+        auth_response = rest_client.get('/auth/userpass',
+                                        headers=headers(loginhdr(account, identity, password),
+                                                        vohdr(vo)))
+        tokens[i] = str(auth_response.headers.get('X-Rucio-Auth-Token'))
+        assert len(tokens[i]) != 0
+
+    # execute newdel as one of the accounts
+    account, token = accounts[1], tokens[1]
+    data = {'authtype': 'USERPASS', 'identity': identity}
+    response = rest_client.delete(
+        '/accounts/' + account + '/identities/newdel',
+        headers=headers(auth(token)),
+        json=data
+    )
+    assert response.status_code == 200
+
+    # check if detached
+    for account in accounts.values():
+        assert not list_identities(InternalAccount(account, vo=vo))
+
+    # check if identity is actually deleted
+    with pytest.raises(IdentityError):
+        verify_identity(identity, IdentityType.USERPASS, password)
+
+    # test if token has been deleted
+    ctime = datetime.utcnow()
+    dbtokens = db_session.query(models.Token).filter_by(identity=identity)
+    for token in dbtokens:
+        assert token.expired_at < ctime
+
+
+def test_update_password_identity(vo, rest_client, db_session):
+    """ ACCOUNT (REST): send a POST to update pw of an identity of an account."""
+    # add id
+    identity = uuid()
+    password = 'secret'
+    newpsswd = 'ukulele'
+    add_identity(identity, IdentityType.USERPASS, 'carmen@bizet.com', password)
+    assert verify_identity(identity, IdentityType.USERPASS, password)
+
+    # adding an account so we can get an auth token
+    account = account_name_generator()
+    add_account(account, 'USER', 'rucio@email.com', 'root', vo=vo)
+
+    add_account_identity(identity, IdentityType.USERPASS,
+                         InternalAccount(account, vo=vo),
+                         'email@email.com')
+    auth_response = rest_client.get('/auth/userpass',
+                                    headers=headers(loginhdr(account, identity, password),
+                                                    vohdr(vo)))
+    token = str(auth_response.headers.get('X-Rucio-Auth-Token'))
+    assert len(token) != 0
+
+    # change password
+    data = {'authtype': 'USERPASS', 'identity': identity, 'newpass': newpsswd}
+    response = rest_client.post(
+        '/accounts/' + account + '/identities/updatepw',
+        headers=headers(auth(token)),
+        json=data
+    )
+    assert response.status_code == 200
+
+    # test if password is different now
+    assert verify_identity(identity, IdentityType.USERPASS, newpsswd)
+    with pytest.raises(IdentityNotFound):
+        # this is the error raised when pw does not match
+        verify_identity(identity, IdentityType.USERPASS, password)
+
+    # test if token has been deleted
+    ctime = datetime.utcnow()
+    dbtokens = db_session.query(models.Token).filter_by(identity=identity)
+    for token in dbtokens:
+        assert token.expired_at < ctime
 
 
 def test_delete_identity_of_account(vo, rest_client):

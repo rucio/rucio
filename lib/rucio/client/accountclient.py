@@ -176,6 +176,7 @@ class AccountClient(BaseClient):
     def del_identity(self, account, identity, authtype):
         """
         Delete an identity's membership association with an account.
+        DEPRECATION WARNING: This function will soon be renamed to detach_identity
 
         :param account: The account name.
         :param identity: The identity key name. For example x509 DN, or a username.
@@ -189,6 +190,74 @@ class AccountClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
 
         res = self._send_request(url, type_='DEL', data=data)
+
+        if res.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
+            raise exc_cls(exc_msg)
+
+    def detach_identity(self, account: str, identity: str, authtype: str):
+        """
+        Delete an identity's membership association with an account.
+        Deletes the identity (by setting the deleted flag) if there
+        are no more membership associations.
+        Taking over from del_identity
+        TODO: implement this deletion
+
+        :param account: The account name.
+        :param identity: The identity key name. For example x509 DN, or a username.
+        :param authtype: The type of the authentication (x509, gss, userpass).
+        :param default: If True, the account should be used by default with the provided identity.
+        """
+
+        data = dumps({'identity': identity, 'authtype': authtype})
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, 'identities', 'detach'])
+
+        url = build_url(choice(self.list_hosts), path=path)
+
+        res = self._send_request(url, type_='DEL', data=data)
+
+        if res.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
+            raise exc_cls(exc_msg)
+
+    def newdel_identity(self, identity: str, authtype: str):
+        """
+        Delete an identity (by setting the deleted flag).
+        First deletes all the membership associations this identity has.
+
+        :param identity: The identity key name. For example x509 DN, or a username.
+        :param authtype: The type of the authentication (x509, gss, userpass).
+        """
+        data = dumps({'identity': identity, 'authtype': authtype})
+        path = '/'.join([self.ACCOUNTS_BASEURL, 'anyaccount', 'identities', 'newdel'])
+
+        url = build_url(choice(self.list_hosts), path=path)
+
+        res = self._send_request(url, type_='DEL', data=data)
+
+        if res.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
+            raise exc_cls(exc_msg)
+
+    def update_password(self, identity: str, newpass: str):
+        """
+        Updates the password to an identity authorised by USERPASS
+
+        :param identity: The identity key name. For example x509 DN, or a username.
+        :param newpass: The new password.
+        """
+        data = dumps({'identity': identity, 'newpass': newpass})
+        path = '/'.join([self.ACCOUNTS_BASEURL, 'anyaccount', 'identities', 'updatepw'])
+
+        url = build_url(choice(self.list_hosts), path=path)
+
+        res = self._send_request(url, type_='POST', data=data)
 
         if res.status_code == codes.ok:
             return True

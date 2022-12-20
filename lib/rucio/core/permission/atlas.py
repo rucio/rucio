@@ -116,6 +116,9 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: "Dict[str, An
         'add_bad_pfns': perm_add_bad_pfns,
         'del_account_identity': perm_del_account_identity,
         'del_identity': perm_del_identity,
+        'detach_account_identity': perm_detach_account_identity,
+        'newdel_identity': perm_newdel_identity,
+        'update_password_identity': perm_update_password_identity,
         'remove_did_from_followed': perm_remove_did_from_followed,
         'remove_dids_from_followed': perm_remove_dids_from_followed,
         'add_vo': perm_add_vo,
@@ -402,6 +405,49 @@ def perm_del_identity(issuer: "InternalAccount", kwargs: "Dict[str, Any]", *, se
     return _is_root(issuer) or issuer.external in kwargs.get('accounts')  # type: ignore
 
 
+def perm_detach_account_identity(issuer: "InternalAccount", kwargs: "Dict[str, Any]", *, session: "Optional[Session]" = None) -> bool:
+    """
+    Checks if an account can detach an identity to an account.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+
+    return _is_root(issuer) or issuer.external == kwargs.get('account').external  # type: ignore
+
+
+def perm_newdel_identity(issuer: "InternalAccount", kwargs: "Dict[str, Any]", *, session: "Optional[Session]" = None) -> bool:
+    """
+    Checks if an account can newdel an identity.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+
+    TODO: think about whether this is the right permission setting
+    it would allow an account to detach all other accounts
+    """
+
+    return _is_root(issuer) or issuer in kwargs.get('accounts')  # type: ignore
+
+
+def perm_update_password_identity(issuer: "InternalAccount", kwargs: "Dict[str, Any]", *, session: "Optional[Session]" = None) -> bool:
+    """
+    Checks if an account can newdel an identity.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+
+    TODO: think about whether this is the right permission setting
+    it would allow an account to change pw for all other accounts
+    """
+
+    return _is_root(issuer) or issuer in kwargs.get('accounts')  # type: ignore
 
 
 def perm_add_did(issuer: "InternalAccount", kwargs: "Dict[str, Any]", *, session: "Optional[Session]" = None) -> bool:

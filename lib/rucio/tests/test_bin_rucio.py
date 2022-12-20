@@ -161,6 +161,78 @@ class TestBinRucio:
         print(out, err)
         assert '' == out
 
+    def test_detach_identity(self, db_session):
+        """CLIENT(ADMIN): Test detach identity"""
+        tmp_acc = account_name_generator()
+        identity = 'butterfly@puccini.it'
+
+        # create account
+        cmd = f'rucio-admin account add {tmp_acc}'
+        exitcode, out, err = execute(cmd)
+        # add identity to account
+        cmd = f'rucio-admin identity add --account {tmp_acc} --type GSS --id {identity} --email jdoe@CERN.CH'
+        exitcode, out, err = execute(cmd)
+        # detach identity from account
+        cmd = f'rucio-admin identity detach --account {tmp_acc} --type GSS --id {identity}'
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert f'Detached identity: {identity} from account {tmp_acc}\n' == out
+        # list identities for account
+        cmd = f'rucio-admin account list-identities {tmp_acc}'
+        print(self.marker + cmd)
+        print(cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert '' == out
+
+    def test_newdel_identity(self):
+        """CLIENT(ADMIN): Test the newdelete identity function"""
+        acc1, acc2 = account_name_generator(), account_name_generator()
+        identity = 'rinaldo@haendel.co.uk'
+
+        # create accounts and add identity
+        for acc in (acc1, acc2):
+            cmd = f'rucio-admin account add {acc}'
+            exitcode, out, err = execute(cmd)
+
+            cmd = f'rucio-admin identity add --account {acc} --type GSS --id {identity} --email {identity}'
+            exitcode, out, err = execute(cmd)
+
+        # (new)delete identity
+        cmd = f'rucio-admin identity newdelete --type GSS --id {identity}'
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert f'Detached all accounts from {identity} and set delete flag to TRUE.\n' == out
+
+        for acc in (acc1, acc2):
+            cmd = f'rucio-admin account list-identities {acc}'
+            print(self.marker + cmd)
+            print(cmd)
+            exitcode, out, err = execute(cmd)
+            print(out, err)
+            assert '' == out
+
+    def test_identity_update_password(self):
+        """CLIENT(ADMIN): Test the update-password identity function"""
+        tmp_acc = account_name_generator()
+        identity = 'nabucco@verdi.it'
+        oldpass = 'secret'
+        newpass = 'mellon'  # speak friend and enter
+
+        # create account
+        cmd = f'rucio-admin account add {tmp_acc}'
+        exitcode, out, err = execute(cmd)
+        # add identity to account
+        cmd = f'rucio-admin identity add --account {tmp_acc} --type USERPASS --id {identity} --email jdoe@CERN.CH --password {oldpass}'
+        exitcode, out, err = execute(cmd)
+
+        # update password
+        cmd = f'rucio-admin identity update-password --id {identity} --newpass {newpass}'
+        exitcode, out, err = execute(cmd)
+        assert f'Updated the password for identity {identity}.\n' == out
+
     def test_attributes(self):
         """CLIENT(ADMIN): Add/List/Delete attributes"""
         tmp_acc = account_name_generator()

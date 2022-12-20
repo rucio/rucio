@@ -121,6 +121,87 @@ def del_account_identity(identity_key, id_type, account, issuer, vo='def', *, se
     return identity.del_account_identity(identity_key, IdentityType[id_type.upper()], account, session=session)
 
 
+@transactional_session
+def detach_account_identity(identity_key: "str", id_type: "str", account: "str", issuer: "str", vo='def', *, session: "Session") -> None:
+    """
+    Removes a membership association between identity and account.
+    If an identity has no more membership associations, it is soft deleted.
+
+    :param identity_key: The identity key name. For example x509 DN, or a username.
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
+    :param account: The account name.
+    :param issuer: The issuer account.
+    :param vo: the VO to act on.
+    :param session: The database session in use.
+    """
+    kwargs = {'account': account}
+    if not permission.has_permission(
+        issuer=issuer,
+        vo=vo,
+        action='detach_account_identity',
+        kwargs=kwargs,
+        session=session
+    ):  # naively assume that detaching has the same permission level as deleting
+        raise exception.AccessDenied('Account %s can not detach account identity' % (issuer))
+
+    iaccount = InternalAccount(account, vo=vo)
+
+    return identity.detach_account_identity(identity_key, IdentityType[id_type.upper()], iaccount, session=session)
+
+
+@transactional_session
+def newdel_account_identity(identity_key: "str", id_type_: "str", issuer: "str", vo='def', *, session: "Session") -> None:
+    """
+    Soft deletes an identity, removing all membership associations it has first.
+
+    :param identity_key: The identity key name. For example x509 DN, or a username.
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
+    :param issuer: The issuer account.
+    :param session: The database session in use.
+    """
+    id_type = IdentityType[id_type_.upper()]
+    kwargs = {
+        'accounts': identity.list_accounts_for_identity(
+            identity_key, id_type, session=session
+        )
+    }
+    if not permission.has_permission(
+        issuer=issuer, vo=vo, action='newdel_identity',
+        kwargs=kwargs, session=session
+    ):
+        raise exception.AccessDenied(
+            f'Account {issuer} can not delete identity {identity_key}'
+        )
+
+    return identity.newdel_identity(identity_key, id_type, session=session)
+
+
+@transactional_session
+def update_password_identity(identity_key: "str", issuer: "str", newpass: "str", vo='def', *, session: "Session") -> None:
+    """
+    Update the password of an USERPASS-identified identity.
+
+    :param identity_key: The identity key name. For example x509 DN, or a username.
+    :param issuer: The issuer account.
+    :param newpass: The new password string.
+    :param session: The database session in use.
+    """
+    kwargs = {
+        'accounts': identity.list_accounts_for_identity(
+            identity_key, IdentityType['USERPASS'], session=session
+        )
+    }
+    if not permission.has_permission(
+        issuer=issuer, vo=vo, action='newdel_identity',
+        kwargs=kwargs, session=session
+    ):
+        raise exception.AccessDenied(
+            f'Account {issuer} can not change password for identity {identity_key}.'
+        )
+
+    return identity.update_password_identity(identity_key, newpass, session=session)
+
+
 @read_session
 def list_identities(*, session: "Session", **kwargs):
     """

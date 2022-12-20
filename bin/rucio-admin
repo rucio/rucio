@@ -439,12 +439,58 @@ def identity_delete(args):
     """
     %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
-    Revoke an identity's access to an account.
+    Current effect: Revoke an identity's access to an account.
+    Obsolete!!
+    identity_detach will take over this role
+    identity_newdelete will take over this name but have a different effect
 
     """
     client = get_client(args)
     client.del_identity(args.account, args.identity, authtype=args.authtype)
     print('Deleted identity: %s' % args.identity)
+    return SUCCESS
+
+
+@exception_handler
+def identity_detach(args):
+    """
+    %(prog)s detach [options] <field1=value1 field2=value2 ...>
+
+    Revoke an identity's access to an account.
+    Replaces current delete function.
+    If the identity is no longer attached to any account, set the delete flag.
+
+    """
+    client = get_client(args)
+    client.detach_identity(args.account, args.identity, authtype=args.authtype)
+    print(f'Detached identity: {args.identity} from account {args.account}')
+    return SUCCESS
+
+
+@exception_handler
+def identity_newdelete(args):
+    """
+    %(prog)s newdelete [options] <field1=value1 field2=value2 ...>
+
+    Detach all accounts from this identity and set delete flag.
+    """
+    client = get_client(args)
+    client.newdel_identity(args.identity, authtype=args.authtype)
+    print(f'Detached all accounts from {args.identity} and set delete flag to TRUE.')
+    return SUCCESS
+
+
+@exception_handler
+def identity_update_password(args):
+    """
+    %(prog)s update-password [options] <field1=value1 field2=value2 ...>
+
+    Update the password to an identity authorised by USERPASS
+
+    """
+    client = get_client(args)
+    client.update_password(args.identity, args.newpass)
+    print(f'Updated the password for identity {args.identity}.')
     return SUCCESS
 
 
@@ -1693,7 +1739,12 @@ def get_parser():
     identity_delete_parser = identity_subparser.add_parser('delete',
                                                            help="Revoke an identity's access to an account. The mandatory parameters are account, type and identity.",
                                                            formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                           epilog='Usage example\n'
+                                                           epilog='=========================================================================================\n'
+                                                                  'DEPRECATION WARNING: the functionality of "delete" will change in the next major release.\n'
+                                                                  'You can preview this change by using the "newdelete" command instead.\n'
+                                                                  '=========================================================================================\n\n'
+                                                                  '"""""""""""""\n'
+                                                                  'Usage example\n'
                                                                   '"""""""""""""\n'
                                                                   '::\n'
                                                                   '\n'
@@ -1706,6 +1757,62 @@ def get_parser():
     identity_delete_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
     identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML|OIDC]', required=True)
     identity_delete_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
+
+    # The identity_newdelete command
+    identity_newdelete_parser = identity_subparser.add_parser('newdelete',
+                                                              help="Detach an identity from all accounts and set deleted flag. The mandatory parameters are type and identity.",
+                                                              formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                              epilog='===========================================================================================\n'
+                                                                     'DEPRECATION WARNING: in the next major release, this function will be renamed to "delete".\n'
+                                                                     '==========================================================================================\n\n'
+                                                                     '"""""""""""""\n'
+                                                                     'Usage example\n'
+                                                                     '"""""""""""""\n'
+                                                                     '::\n'
+                                                                     '\n'
+                                                                     '    $ rucio-admin identity newdelete --type X509 --id \'/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe\'\n'
+                                                                     '    Detached all accounts from /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe and set delete flag to TRUE.\n'
+                                                                     '\n'
+                                                                     'Note: if the identity was accidentaly deleted, you will need to recreate all associations and unset the deleted flag.\n'
+                                                                     '\n')
+    identity_newdelete_parser.set_defaults(which='identity_newdelete')
+    identity_newdelete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML|OIDC]', required=True)
+    identity_newdelete_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
+
+    # The identity_detach command
+    identity_detach_parser = identity_subparser.add_parser('detach',
+                                                           help="Detach an identity from an account. Set deleted flag if no further associated accounts exist. The mandatory parameters are account, type and identity.",
+                                                           formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                           epilog='"""""""""""""\n'
+                                                                  'Usage example\n'
+                                                                  '"""""""""""""\n'
+                                                                  '::\n'
+                                                                  '\n'
+                                                                  '    $ rucio-admin identity detach --account jdoe --type X509 --id \'/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe\'\n'
+                                                                  '    Detached identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe from account jdoe\n'
+                                                                  '\n'
+                                                                  'Note: if the identity was accidentaly detached, use add option.\n'
+                                                                  '\n')
+    identity_detach_parser.set_defaults(which='identity_detach')
+    identity_detach_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
+    identity_detach_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML|OIDC]', required=True)
+    identity_detach_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
+
+    # The identity_update_password command
+    identity_update_password_parser = identity_subparser.add_parser('update-password',
+                                                                    help="Update the password to an identity authorised by USERPASS. The mandatory parameters are identity and newpass.",
+                                                                    formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                                    epilog='"""""""""""""\n'
+                                                                    'Usage example\n'
+                                                                    '"""""""""""""\n'
+                                                                    '::\n'
+                                                                    '\n'
+                                                                    '    $ rucio-admin identity update-password --id jdoe --newpass verysecret\n'
+                                                                    '    Updated the password for identity jdoe.\n'
+                                                                    '\n')
+    identity_update_password_parser.set_defaults(which='identity_update_password')
+    identity_update_password_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
+    identity_update_password_parser.add_argument('--newpass', dest='newpass', action='store', help='New Password', required=True)
 
     # The RSE subparser
     rse_parser = subparsers.add_parser('rse', help='RSE (Rucio Storage Element) methods')
@@ -2388,6 +2495,9 @@ if __name__ == '__main__':
                 'list_identities': list_identities,
                 'identity_add': identity_add,
                 'identity_delete': identity_delete,
+                'identity_newdelete': identity_newdelete,
+                'identity_detach': identity_detach,
+                'identity_update_password': identity_update_password,
                 'add_rse': add_rse,
                 'update_rse': update_rse,
                 'set_attribute_rse': set_attribute_rse,

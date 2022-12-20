@@ -17,11 +17,12 @@ import copy
 import os
 import sys
 
-from functools import update_wrapper
+from functools import wraps, update_wrapper
 from inspect import isgeneratorfunction, getfullargspec
 from threading import Lock
 from typing import TYPE_CHECKING
 from os.path import basename
+from datetime import datetime
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, TimeoutError
@@ -33,6 +34,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import RucioException, DatabaseException, InputValidationError
 from rucio.common.utils import retrying
 from rucio.common.extra import import_extras
+from rucio.db.sqla import models
 
 EXTRA_MODULES = import_extras(['MySQLdb', 'pymysql'])
 
@@ -441,6 +443,57 @@ def transactional_session(function: "Callable[P, R]"):
             finally:
                 session_scoped.remove()  # pylint: disable=maybe-no-member
         else:
+            result = function(*args, session=session, **kwargs)
+        return result
+    return _update_session_wrapper(new_funct, function)
+
+
+def expire_identity_tokens(function: "Callable[P, R]"):
+    """
+    decorator that sets the expiry dates of all tokens associated
+    to an identity to the current time, effectively expiring them
+
+    it assumes that the first positional argument is the identity
+    """
+
+    def expire(identity: "str", session: "Session") -> None:
+        alltokens = session.query(models.Token).filter_by(identity=identity)
+        ctime = datetime.utcnow()
+        token: models.Token
+        for token in alltokens:
+            token.update({'expired_at': ctime})
+            token.save(session=session)
+        session.commit()
+
+    @wraps(function)
+    def new_funct(*args: "P.args", session: "Optional[Session]" = None, **kwargs: "P.kwargs"):
+        try:
+            identity = args[0]
+        except IndexError:
+            identity = kwargs['identity']
+
+        if not session:
+            session_scoped = get_session()
+            session = session_scoped()
+            session.begin()
+            try:
+                # take identity arg and expire all tokens for this id
+                expire(identity, session)
+                result = function(*args, session=session, **kwargs)
+                session.commit()  # pylint: disable=maybe-no-member
+            except TimeoutError as error:
+                session.rollback()  # pylint: disable=maybe-no-member
+                raise DatabaseException(str(error))
+            except DatabaseError as error:
+                session.rollback()  # pylint: disable=maybe-no-member
+                raise DatabaseException(str(error))
+            except:
+                session.rollback()  # pylint: disable=maybe-no-member
+                raise
+            finally:
+                session_scoped.remove()  # pylint: disable=maybe-no-member
+        else:
+            expire(identity, session)
             result = function(*args, session=session, **kwargs)
         return result
     return _update_session_wrapper(new_funct, function)

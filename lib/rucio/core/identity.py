@@ -16,16 +16,18 @@
 import hashlib
 import os
 from re import match
+import logging
 from typing import TYPE_CHECKING
 
-from sqlalchemy import asc, select
+from sqlalchemy import asc, select, select
 from sqlalchemy.exc import IntegrityError
 
+from rucio.common.utils import date_to_str
 from rucio.common import exception
 from rucio.core.account import account_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import read_session, transactional_session, expire_identity_tokens
 from rucio.common.types import InternalAccount
 from typing import Union
 
@@ -85,6 +87,8 @@ def verify_identity(identity: str, type_: IdentityType, password: Union[str, Non
     id_ = session.query(models.Identity).filter_by(identity=identity, identity_type=type_).first()
     if id_ is None:
         raise exception.IdentityError('Identity pair \'%s\',\'%s\' does not exist!' % (identity, type_))
+    if id_.deleted:
+        raise exception.IdentityError(f'Identity {identity} was deleted on {date_to_str(id_.deleted_at)}.')
     if type_ == IdentityType.USERPASS:
         salted_password = id_.salt + password.encode()
         password = hashlib.sha256(salted_password).hexdigest()
@@ -96,6 +100,7 @@ def verify_identity(identity: str, type_: IdentityType, password: Union[str, Non
 
 
 @transactional_session
+@expire_identity_tokens
 def del_identity(identity: str, type_: IdentityType, *, session: "Session"):
     """
     Deletes a user identity.
@@ -109,6 +114,90 @@ def del_identity(identity: str, type_: IdentityType, *, session: "Session"):
     if id_ is None:
         raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type_))
     id_.delete(session=session)
+
+
+@transactional_session
+@expire_identity_tokens
+def newdel_identity(identity: str, type_: IdentityType, *, session: "Session") -> None:
+    """
+    Soft deletes an identity, removing all membership associations it has first.
+
+    :param identity: The identity key name. For example x509 DN, or a username.
+    :param type_: The type of the authentication (x509, gss, userpass, saml, oidc).
+    :param session: The database session in use.
+    """
+
+    # query all connected accounts
+    query = select(
+        models.IdentityAccountAssociation
+    ).where(
+        models.IdentityAccountAssociation.identity == identity,
+        models.IdentityAccountAssociation.identity_type == type_
+    )
+    connections: "list[models.IdentityAccountAssociation]" = session.execute(query).scalars().all()
+
+    # detach all of these account connections
+    logging.log(logging.DEBUG, f'Detaching {len(connections)} accounts from identity {identity}.')
+    for conn in connections:
+        if conn is None:
+            raise exception.IdentityError(
+                'Identity (\'%s\',\'%s\') does not exist!' % (identity, type_)
+            )
+        conn.delete(session=session)
+
+    # set deleted flag
+    query = select(
+        models.Identity
+    ).where(
+        models.Identity.identity == identity,
+        models.Identity.identity_type == type_
+    )
+
+    idobject: models.Identity = session.execute(query).scalar_one()
+
+    idobject.delete(session=session)
+
+    return
+
+
+@transactional_session
+@expire_identity_tokens
+def update_password_identity(identity: str, newpass: str, *, session: "Session") -> None:
+    """
+    Update the pasword of an USERPASS-identified identity
+
+    :param identity: The identity key name. For example x509 DN, or a username.
+    :param newpass: The new password string.
+    :param session: The database session in use.
+    """
+    if newpass is None:
+        raise exception.IdentityError('You must provide a password!')
+
+    # query the identity object to update
+    query = select(
+        models.Identity
+    ).where(
+        models.Identity.identity == identity,
+        models.Identity.identity_type == IdentityType.USERPASS
+    )
+
+    idobject: models.Identity = session.execute(query).scalars().first()
+
+    # change password
+    salt = os.urandom(255)  # make sure the salt has the length of the hash
+    salted_password = salt + newpass.encode()
+    password = hashlib.sha256(salted_password).hexdigest()  # hash it
+    idobject.update({'salt': salt, 'password': password})
+    try:
+        idobject.save(session=session)
+    except IntegrityError as e:
+        if match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', e.args[0]):
+            raise exception.Duplicate(
+                'Identity pair \'%s\',\'%s\' already exists!' % (identity, IdentityType.USERPASS)
+            )
+        raise exception.DatabaseException(str(e))
+
+    return
 
 
 @transactional_session
@@ -202,6 +291,7 @@ def get_default_account(identity: str, type_: IdentityType, oldest_if_none: bool
 
 
 @transactional_session
+@expire_identity_tokens
 def del_account_identity(identity: str, type_: IdentityType, account: InternalAccount, *, session: "Session"):
     """
     Removes a membership association between identity and account.
@@ -215,6 +305,51 @@ def del_account_identity(identity: str, type_: IdentityType, account: InternalAc
     if aid is None:
         raise exception.IdentityError('Identity (\'%s\',\'%s\') does not exist!' % (identity, type_))
     aid.delete(session=session)
+
+
+@transactional_session
+@expire_identity_tokens
+def detach_account_identity(identity: str, type_: IdentityType, account: InternalAccount, *, session: "Session") -> None:
+    """
+    Removes a membership association between identity and account.
+
+    :param identity: The identity key name. For example x509 DN, or a username.
+    :param type_: The type of the authentication (x509, gss, userpass, saml, oidc).
+    :param account: The account name.
+    :param session: The database session in use.
+    """
+    query = select(
+        models.IdentityAccountAssociation
+    ).where(
+        models.IdentityAccountAssociation.identity == identity,
+        models.IdentityAccountAssociation.identity_type == type_,
+        models.IdentityAccountAssociation.account == account
+    )
+    aid = session.execute(query).scalars().first()
+    if aid is None:
+        raise exception.IdentityError(
+            'Identity (\'%s\',\'%s\') does not exist!' % (identity, type_)
+        )
+    aid.delete(session=session)
+
+    # when the last account has been detached, the id is deleted
+    query = select(
+        models.IdentityAccountAssociation
+    ).where(
+        models.IdentityAccountAssociation.identity == identity,
+        models.IdentityAccountAssociation.identity_type == type_,
+    )
+    if len(session.execute(query).scalars().all()) == 0:
+        query = select(
+            models.Identity
+        ).where(
+            models.Identity.identity == identity,
+            models.Identity.identity_type == type_
+        )
+        idobject: models.Identity = session.execute(query).scalars().first()
+        idobject.delete(session=session)
+
+    return
 
 
 @read_session

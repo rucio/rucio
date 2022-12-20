@@ -22,10 +22,10 @@ from rucio.api.account import add_account, del_account, get_account_info, list_a
     list_account_attributes, add_account_attribute, del_account_attribute, update_account, get_usage_history
 from rucio.api.account_limit import get_local_account_limits, get_local_account_limit, get_local_account_usage, \
     get_global_account_limit, get_global_account_limits, get_global_account_usage
-from rucio.api.identity import add_account_identity, del_account_identity
+from rucio.api.identity import add_account_identity, del_account_identity, detach_account_identity, newdel_account_identity, update_password_identity
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RuleNotFound, RSENotFound, \
+from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RucioException, RuleNotFound, RSENotFound, \
     IdentityError, CounterNotFound, ScopeNotFound, InvalidObject
 from rucio.common.utils import APIEncoder, render_json
 from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
@@ -620,7 +620,7 @@ class GlobalAccountLimits(ErrorHandlingMethodView):
 
 
 class Identities(ErrorHandlingMethodView):
-    def post(self, account):
+    def post(self, account, order=None):
         """
         ---
         summary: Create identity
@@ -631,6 +631,12 @@ class Identities(ErrorHandlingMethodView):
         - name: account
           in: path
           description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        - name: order
+          in: path
+          description: order to update the password or not (no entry in that case)
           schema:
             type: string
           style: simple
@@ -662,6 +668,8 @@ class Identities(ErrorHandlingMethodView):
                     type: string
                     default: false
         responses:
+          200:
+            description: OK (password updated)
           201:
             description: OK
             content:
@@ -680,19 +688,32 @@ class Identities(ErrorHandlingMethodView):
         """
         parameters = json_parameters()
         identity = param_get(parameters, 'identity')
-        authtype = param_get(parameters, 'authtype')
-        email = param_get(parameters, 'email')
         try:
-            add_account_identity(
-                identity_key=identity,
-                id_type=authtype,
-                account=account,
-                email=email,
-                password=param_get(parameters, 'password', default=None),
-                issuer=request.environ.get('issuer'),
-                default=param_get(parameters, 'default', default=False),
-                vo=request.environ.get('vo'),
-            )
+            if order is None:
+                authtype = param_get(parameters, 'authtype')
+                email = param_get(parameters, 'email')
+                add_account_identity(
+                    identity_key=identity,
+                    id_type=authtype,
+                    account=account,
+                    email=email,
+                    password=param_get(parameters, 'password', default=None),
+                    issuer=request.environ.get('issuer'),
+                    default=param_get(parameters, 'default', default=False),
+                    vo=request.environ.get('vo'),
+                )
+                return 'Created', 201
+            elif order == 'updatepw':
+                newpass = param_get(parameters, 'newpass')
+                update_password_identity(
+                    identity,
+                    request.environ.get('issuer'),
+                    newpass,
+                    vo=request.environ.get('vo')
+                )
+                return '', 200
+            else:
+                return generate_http_error_flask(404, RucioException)  # type: ignore
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except Duplicate as error:
@@ -701,8 +722,6 @@ class Identities(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
         except IdentityError as error:
             return generate_http_error_flask(400, error)
-
-        return 'Created', 201
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self, account):
@@ -748,7 +767,7 @@ class Identities(ErrorHandlingMethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, error)
 
-    def delete(self, account):
+    def delete(self, account, order=None):
         """
         ---
         summary: Delete identity
@@ -759,6 +778,12 @@ class Identities(ErrorHandlingMethodView):
         - name: account
           in: path
           description: The account identifier.
+          schema:
+            type: string
+          style: simple
+        - name: order
+          in: path
+          description: order to use legacy delete (no argument), new delete or detach
           schema:
             type: string
           style: simple
@@ -789,7 +814,32 @@ class Identities(ErrorHandlingMethodView):
         identity = param_get(parameters, 'identity')
         authtype = param_get(parameters, 'authtype')
         try:
-            del_account_identity(identity, authtype, account, request.environ.get('issuer'), vo=request.environ.get('vo'))
+            if order is None:
+                del_account_identity(
+                    identity,
+                    authtype,
+                    account,
+                    request.environ.get('issuer'),
+                    vo=request.environ.get('vo')
+                )
+            elif order == 'newdel':
+                newdel_account_identity(
+                    identity,
+                    authtype,
+                    request.environ.get('issuer'),
+                    vo=request.environ.get('vo')
+                )
+            elif order == 'detach':
+                detach_account_identity(
+                    identity,
+                    authtype,
+                    account,
+                    request.environ.get('issuer'),
+                    vo=request.environ.get('vo')
+                )
+            else:
+                return generate_http_error_flask(404, RucioException)  # type: ignore
+
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except (AccountNotFound, IdentityError) as error:
@@ -1054,6 +1104,7 @@ def blueprint(with_doc=False):
     bp.add_url_rule('/<account>/limits/global/<rse_expression>', view_func=global_account_limits_view, methods=['get', ])
     identities_view = Identities.as_view('identities')
     bp.add_url_rule('/<account>/identities', view_func=identities_view, methods=['get', 'post', 'delete'])
+    bp.add_url_rule('/<account>/identities/<order>', view_func=identities_view, methods=['post', 'delete'])
     rules_view = Rules.as_view('rules')
     bp.add_url_rule('/<account>/rules', view_func=rules_view, methods=['get', ])
     usagehistory_view = UsageHistory.as_view('usagehistory')
