@@ -56,6 +56,11 @@ openssl req -new -newkey rsa:2048 -nodes -keyout hostcert_xrd4.key.pem -subj "/C
 openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:xrd4,DNS:localhost,DNS:xrd4.default.svc.cluster.local") -in hostcert_xrd4.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_xrd4.pem -passin env:PASSPHRASE
 
 
+# WebDav Server 1
+openssl req -new -newkey rsa:2048 -nodes -keyout hostcert_web1.key.pem -subj "/CN=web1" > hostcert_web1.csr
+openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:web1,DNS:localhost") -in hostcert_web1.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_web1.pem -passin env:PASSPHRASE
+
+
 # MinIO Server
 openssl req -new -newkey rsa:2048 -nodes -keyout hostcert_minio.key.pem -subj "/CN=minio" > hostcert_minio.csr
 openssl x509 -req -days 9999 -CAcreateserial -extfile <(printf "subjectAltName=DNS:minio,DNS:localhost") -in hostcert_minio.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out hostcert_minio.pem -passin env:PASSPHRASE
