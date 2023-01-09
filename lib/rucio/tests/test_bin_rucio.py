@@ -2057,6 +2057,67 @@ class TestBinRucio:
         assert '--stuck or --suspend must be specified when running --cancel-requests' in err
         assert exitcode != 0
 
+    def test_update_rule_unset_child_rule(self):
+        """CLIENT(USER): update rule unsets a child rule property"""
+
+        # PREPARING FILE AND RSE
+        # add files
+        tmp_file = file_generator()
+        tmp_fname = tmp_file[5:]
+        cmd = f'rucio upload --rse {self.def_rse} --scope {self.user} {tmp_file}'
+        exitcode, out, err = execute(cmd)
+        assert 'ERROR' not in err
+
+        for i in range(2):
+            tmp_rse = rse_name_generator()
+            cmd = f'rucio-admin rse add {tmp_rse}'
+            exitcode, out, err = execute(cmd)
+            assert not err
+
+            self.account_client.set_local_account_limit('root', tmp_rse, -1)
+
+            cmd = (f'rucio-admin rse set-attribute --rse {tmp_rse}'
+                   f' --key spacetoken --value RULELOC{i}')
+            exitcode, out, err = execute(cmd)
+            assert not err
+
+        # PREPARING THE RULES
+        # add rule
+        rule_expr = "spacetoken=RULELOC0"
+        cmd = f"rucio add-rule {self.user}:{tmp_fname} 1 '{rule_expr}'"
+        exitcode, out, err = execute(cmd)
+        assert not err
+        # get the rules for the file
+        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".\
+            format(self.user, tmp_file[5:])
+        exitcode, out, err = execute(cmd)
+        parentrule_id, _ = out.split()
+
+        # LINKING THE RULES (PARENT/CHILD)
+        # move rule
+        new_rule_expr = rule_expr + "|spacetoken=RULELOC1"
+        cmd = f"rucio move-rule {parentrule_id} '{new_rule_expr}'"
+        exitcode, out, err = execute(cmd)
+        childrule_id = out.strip()
+        assert err == ''
+
+        # check if new rule exists for the file
+        cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_fname)
+        exitcode, out, err = execute(cmd)
+        assert re.search(childrule_id, out) is not None
+
+        # DETACHING THE RULES
+        # child-rule-id None means to unset the variable on the parent rule
+        cmd = f"rucio update-rule --child-rule-id None {parentrule_id}"
+        exitcode, out, err = execute(cmd)
+        assert 'ERROR' not in err
+        assert re.search('Updated Rule', out) is not None
+
+        cmd = f"rucio update-rule --child-rule-id None {parentrule_id}"
+        exitcode, out, err = execute(cmd)
+        assert 'ERROR' in err
+        assert re.search('Cannot detach child when no such relationship exists', err) is not None
+
     def test_update_rule_no_child_selfassign(self):
         """CLIENT(USER): do not permit to assign self as own child"""
         tmp_file = file_generator()

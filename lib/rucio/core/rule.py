@@ -27,6 +27,7 @@ from typing import Dict, Any, Optional
 
 from dogpile.cache.api import NO_VALUE
 
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
@@ -1175,7 +1176,7 @@ def get_rule(rule_id, *, session: "Session"):
 
 
 @transactional_session
-def update_rule(rule_id, options, *, session: "Session"):
+def update_rule(rule_id: str, options: Dict[str, Any], *, session: "Session") -> None:
     """
     Update a rules options.
 
@@ -1185,14 +1186,23 @@ def update_rule(rule_id, options, *, session: "Session"):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['comment', 'locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas', 'boost_rule']
+    valid_options = ['comment', 'locked', 'lifetime', 'account', 'state',
+                     'activity', 'source_replica_expression', 'cancel_requests',
+                     'priority', 'child_rule_id', 'eol_at', 'meta',
+                     'purge_replicas', 'boost_rule']
 
     for key in options:
         if key not in valid_options:
             raise InputValidationError('%s is not a valid option to set.' % key)
 
     try:
-        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        query = select(
+            models.ReplicationRule
+        ).where(
+            models.ReplicationRule.id == rule_id
+        )
+        rule: models.ReplicationRule = session.execute(query).scalar_one()
+
         for key in options:
             if key == 'lifetime':
                 # Check SCRATCHDISK Policy
@@ -1210,38 +1220,96 @@ def update_rule(rule_id, options, *, session: "Session"):
                 rule.comments = options['comment']
 
             if key == 'activity':
-                validate_schema('activity', options['activity'], vo=rule.account.vo)
+                validate_schema(
+                    'activity', options['activity'], vo=rule.account.vo
+                )
                 rule.activity = options['activity']
                 # Cancel transfers and re-submit them:
-                for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
-                    transfers_to_cancel = request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                query = select(
+                    models.ReplicaLock
+                ).where(
+                    models.ReplicaLock.rule_id == rule.id,
+                    models.ReplicaLock.state == LockState.REPLICATING
+                )
+                for lock in session.execute(query).scalars().all():
+                    transfers_to_cancel = request_core.cancel_request_did(
+                        scope=lock.scope,
+                        name=lock.name,
+                        dest_rse_id=lock.rse_id,
+                        session=session
+                    )
                     transfer_core.cancel_transfers(transfers_to_cancel)
-                    md5, bytes_, adler32 = session.query(models.RSEFileAssociation.md5, models.RSEFileAssociation.bytes, models.RSEFileAssociation.adler32).filter(models.RSEFileAssociation.scope == lock.scope,
-                                                                                                                                                                   models.RSEFileAssociation.name == lock.name,
-                                                                                                                                                                   models.RSEFileAssociation.rse_id == lock.rse_id).one()
+                    query = select(
+                        models.RSEFileAssociation.md5,
+                        models.RSEFileAssociation.bytes,
+                        models.RSEFileAssociation.adler32
+                    ).where(
+                        models.RSEFileAssociation.scope == lock.scope,
+                        models.RSEFileAssociation.name == lock.name,
+                        models.RSEFileAssociation.rse_id == lock.rse_id
+                    )
+                    md5, bytes_, adler32 = session.execute(query).one()
                     session.flush()
-                    request_core.queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
-                                                                               request_type=RequestType.TRANSFER,
-                                                                               scope=lock.scope, name=lock.name, rule=rule, lock=lock, bytes_=bytes_, md5=md5, adler32=adler32,
-                                                                               ds_scope=rule.scope, ds_name=rule.name, copy_pin_lifetime=None, activity=rule.activity, session=session)], session=session)
+
+                    requests = create_transfer_dict(
+                        dest_rse_id=lock.rse_id,
+                        request_type=RequestType.TRANSFER,
+                        scope=lock.scope,
+                        name=lock.name,
+                        rule=rule,
+                        lock=lock,
+                        bytes_=bytes_,
+                        md5=md5,
+                        adler32=adler32,
+                        ds_scope=rule.scope,
+                        ds_name=rule.name,
+                        copy_pin_lifetime=None,
+                        activity=rule.activity,
+                        session=session
+                    )
+                    request_core.queue_requests([requests], session=session)
 
             elif key == 'account':
                 # Check if the account exists
                 get_account(options['account'], session=session)
                 # Update locks
-                locks = session.query(models.ReplicaLock).filter_by(rule_id=rule.id).all()
+                query = select(
+                    models.ReplicaLock
+                ).where(
+                    models.ReplicaLock.rule_id == rule.id
+                )
                 counter_rses = {}
-                for lock in locks:
+                for lock in session.execute(query).scalars().all():
                     if lock.rse_id in counter_rses:
                         counter_rses[lock.rse_id].append(lock.bytes)
                     else:
                         counter_rses[lock.rse_id] = [lock.bytes]
-                session.query(models.ReplicaLock).filter_by(rule_id=rule.id).update({'account': options['account']})
-                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'account': options['account']})
+                for locktype in (models.ReplicaLock, models.DatasetLock):
+                    query = update(
+                        locktype
+                    ).where(
+                        locktype.rule_id == rule.id
+                    ).values(
+                        account=options['account']
+                    )
+                    session.execute(query)
+
                 # Update counters
                 for rse_id in counter_rses:
-                    account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(counter_rses[rse_id]), bytes_=sum(counter_rses[rse_id]), session=session)
-                    account_counter.increase(rse_id=rse_id, account=options['account'], files=len(counter_rses[rse_id]), bytes_=sum(counter_rses[rse_id]), session=session)
+                    account_counter.decrease(
+                        rse_id=rse_id,
+                        account=rule.account,
+                        files=len(counter_rses[rse_id]),
+                        bytes_=sum(counter_rses[rse_id]),
+                        session=session
+                    )
+                    account_counter.increase(
+                        rse_id=rse_id,
+                        account=options['account'],
+                        files=len(counter_rses[rse_id]),
+                        bytes_=sum(counter_rses[rse_id]),
+                        session=session
+                    )
                 # Update rule
                 rule.account = options['account']
                 session.flush()
@@ -1249,23 +1317,61 @@ def update_rule(rule_id, options, *, session: "Session"):
             elif key == 'state':
                 if options.get('cancel_requests', False):
                     rule_ids_to_stuck = set()
-                    for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
+                    query = select(
+                        models.ReplicaLock
+                    ).where(
+                        models.ReplicaLock.rule_id == rule.id,
+                        models.ReplicaLock.state == LockState.REPLICATING
+                    )
+                    for lock in session.execute(query).scalars().all():
                         # Set locks to stuck:
-                        for lock2 in session.query(models.ReplicaLock).filter_by(scope=lock.scope, name=lock.name, rse_id=lock.rse_id, state=LockState.REPLICATING).all():
+                        query = select(
+                            models.ReplicaLock
+                        ).where(
+                            models.ReplicaLock.scope == lock.scope,
+                            models.ReplicaLock.name == lock.name,
+                            models.ReplicaLock.rse_id == lock.rse_id,
+                            models.ReplicaLock.state == LockState.REPLICATING
+                        )
+                        for lock2 in session.execute(query).scalars().all():
                             lock2.state = LockState.STUCK
                             rule_ids_to_stuck.add(lock2.rule_id)
-                        transfers_to_cancel = request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                        transfers_to_cancel = request_core.cancel_request_did(
+                            scope=lock.scope,
+                            name=lock.name,
+                            dest_rse_id=lock.rse_id,
+                            session=session
+                        )
                         transfer_core.cancel_transfers(transfers_to_cancel)
-                        replica = session.query(models.RSEFileAssociation).filter(
+                        query = select(
+                            models.RSEFileAssociation
+                        ).where(
                             models.RSEFileAssociation.scope == lock.scope,
                             models.RSEFileAssociation.name == lock.name,
-                            models.RSEFileAssociation.rse_id == lock.rse_id).one()
+                            models.RSEFileAssociation.rse_id == lock.rse_id
+                        )
+                        replica = session.execute(query).scalar_one()
                         replica.state = ReplicaState.UNAVAILABLE
                     # Set rules and DATASETLOCKS to STUCK:
                     for rid in rule_ids_to_stuck:
-                        session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rid,
-                                                                     models.ReplicationRule.state != RuleState.SUSPENDED).update({'state': RuleState.STUCK})
-                        session.query(models.DatasetLock).filter_by(rule_id=rid).update({'state': LockState.STUCK})
+                        query = update(
+                            models.ReplicationRule
+                        ).where(
+                            models.ReplicationRule.id == rid,
+                            models.ReplicationRule.state != RuleState.SUSPENDED
+                        ).values(
+                            state=RuleState.STUCK
+                        )
+                        session.execute(query)
+
+                        query = update(
+                            models.DatasetLock
+                        ).where(
+                            models.DatasetLock.rule_id == rid
+                        ).values(
+                            state=LockState.STUCK
+                        )
+                        session.execute(query)
 
                 if options['state'].lower() == 'suspended':
                     rule.state = RuleState.SUSPENDED
@@ -1274,8 +1380,24 @@ def update_rule(rule_id, options, *, session: "Session"):
                     rule.state = RuleState.STUCK
                     rule.stuck_at = datetime.utcnow()
                     if not options.get('cancel_requests', False):
-                        session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).update({'state': LockState.STUCK})
-                        session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                        query = update(
+                            models.ReplicaLock
+                        ).where(
+                            models.ReplicaLock.rule_id == rule.id,
+                            models.ReplicaLock.state == LockState.REPLICATING
+                        ).values(
+                            state=LockState.STUCK
+                        )
+                        session.execute(query)
+
+                        query = update(
+                            models.DatasetLock
+                        ).where(
+                            models.DatasetLock.rule_id == rule_id
+                        ).values(
+                            state=LockState.STUCK
+                        )
+                        session.execute(query)
 
             elif key == 'cancel_requests':
                 pass
@@ -1290,14 +1412,27 @@ def update_rule(rule_id, options, *, session: "Session"):
 
             elif key == 'child_rule_id':
                 # Check if the child rule has the same scope/name as the parent rule
-                child_rule = session.query(models.ReplicationRule).filter_by(id=options[key]).one()
-                if rule.scope != child_rule.scope or rule.name != child_rule.name:
-                    raise InputValidationError('Parent and child rule must be set on the same dataset.')
-
-                if rule.id == options[key]:
-                    raise InputValidationError('Self-referencing parent/child-relationship.')
-                if child_rule.state != RuleState.OK:
-                    rule.child_rule_id = options[key]
+                child_id: Optional[str] = options[key]
+                if child_id is None:
+                    if not rule.child_rule_id:
+                        raise InputValidationError('Cannot detach child when no such relationship exists')
+                    # dissolve relationship
+                    rule.child_rule_id = None  # type: ignore
+                    # remove expiration date
+                    rule.expires_at = None  # type: ignore
+                else:
+                    query = select(
+                        models.ReplicationRule
+                    ).where(
+                        models.ReplicationRule.id == child_id
+                    )
+                    child_rule = session.execute(query).scalar_one()
+                    if rule.scope != child_rule.scope or rule.name != child_rule.name:
+                        raise InputValidationError('Parent and child rule must be set on the same dataset.')
+                    if rule.id == options[key]:
+                        raise InputValidationError('Self-referencing parent/child-relationship.')
+                    if child_rule.state != RuleState.OK:
+                        rule.child_rule_id = child_id  # type: ignore
 
             elif key == 'meta':
                 # Need to json.dump the metadata
@@ -1310,10 +1445,23 @@ def update_rule(rule_id, options, *, session: "Session"):
 
         # `boost_rule` should run after `stuck`, so lets not include it in the loop since the arguments are unordered
         if 'boost_rule' in options:
-            for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.STUCK).all():
+            query = select(
+                models.ReplicaLock
+            ).where(
+                models.ReplicaLock.rule_id == rule.id,
+                models.ReplicaLock.state == LockState.STUCK
+            )
+            for lock in session.execute(query).scalars().all():
                 lock['updated_at'] -= timedelta(days=1)
+
             rule['updated_at'] -= timedelta(days=1)
-            insert_rule_history(rule, recent=True, longterm=False, session=session)
+
+            insert_rule_history(
+                rule,
+                recent=True,
+                longterm=False,
+                session=session
+            )
 
     except IntegrityError as error:
         if match('.*ORA-00001.*', str(error.args[0])) \
