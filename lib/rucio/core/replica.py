@@ -804,6 +804,8 @@ def _build_list_replicas_pfn(
         sign_urls: bool,
         signature_lifetime: int,
         client_location: "Dict[str, Any]",
+        logger = logging.log,
+        *,
         session: "Session",
 ) -> str:
     """
@@ -856,6 +858,21 @@ def _build_list_replicas_pfn(
                         else:
                             # don't forget to mangle gfal-style davs URL into generic https URL
                             pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
+
+    simulate_multirange = get_rse_attribute(rse_id, 'simulate_multirange')
+        
+    if simulate_multirange is not None:
+        try:
+            # cover values that cannot be cast to int
+            simulate_multirange = int(simulate_multirange)
+        except ValueError:
+            simulate_multirange = 1
+            logger(logging.WARNING, 'Value encountered when retrieving RSE attribute "simulate_multirange" not compatible with "int", used default value "1".')
+        if simulate_multirange <= 0:
+            logger(logging.WARNING, f'Value {simulate_multirange} encountered when retrieving RSE attribute "simulate_multirange" is <= 0, used default value "1".')
+            simulate_multirange = 1
+        pfn += f'&#multirange=false&nconnections={simulate_multirange}'
+
     return pfn
 
 
