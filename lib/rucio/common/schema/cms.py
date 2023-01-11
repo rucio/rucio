@@ -445,21 +445,34 @@ def validate_cms_did(obj):
     Special checking for DIDs
     Most of the checking is done with JSON schema, but this check
     makes sure user LFNs are in the correct /store/user/rucio/USERNAME namespace
+    makes sure group LFNs are in the correct /store/group/rucio/GROUPNAME namespace
     """
     if not obj:
         return
 
-    lfn = obj['name']
     did_type = obj['type']
+    lfn = obj['name']
     scope = obj['scope']
-    if scope.startswith('user.') and did_type == 'FILE':
-        _, user = scope.split('.', 1)
-        if not lfn.startswith('/store/user/rucio/%s/' % user):
-            raise InvalidObject("Problem with LFN %(lfn)s : Not allowed for user %(user)s" % locals())
-    if lfn.startswith('/store/user') and not lfn.startswith('/store/user/rucio/'):
-        raise InvalidObject("Problem with LFN %(lfn)s : Legacy user files are not managed with Rucio")
-    if lfn.startswith('/store/user/rucio') and not scope.startswith('user.'):
-        raise InvalidObject("Problem with LFN %(lfn)s : Only user scopes allowed in /store/user/rucio")
-    if scope == 'logs' and did_type == 'FILE':
+
+    if did_type != "FILE":
+        return
+
+    verify_scope_lfn_match(lfn, scope, "user")
+    verify_scope_lfn_match(lfn, scope, "group")
+
+    if scope == 'logs':
         if not lfn.startswith('/store/logs/'):
             raise InvalidObject("Problem with LFN %(lfn)s : Logs must start with /store/logs" % locals())
+
+
+def verify_scope_lfn_match(lfn, scope, scope_type):
+    if lfn.startswith(f'/store/{scope_type}') and not lfn.startswith(f'/store/{scope_type}/rucio/'):
+        raise InvalidObject(f"Problem with LFN {lfn} : Legacy {scope_type} files are not managed with Rucio")
+
+    if lfn.startswith(f'/store/{scope_type}/rucio') and not scope.startswith(f'{scope_type}.'):
+        raise InvalidObject(f"Problem with LFN {lfn}: Only {scope_type} scopes allowed in /store/{scope_type}/rucio")
+
+    if scope.startswith(f'{scope_type}.'):
+        _, account = scope.split('.', 1)
+        if not lfn.startswith(f'/store/{scope_type}/rucio/{account}/'):
+            raise InvalidObject(f"Problem with LFN {lfn} : Not allowed for {scope_type} {account}")
