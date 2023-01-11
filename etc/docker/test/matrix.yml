@@ -7,7 +7,7 @@ dists:
     deny:
       suites:
         - sqlite
-  - id: stream8
+  - id: alma8
     allow:
       python:
         - "3.6"
