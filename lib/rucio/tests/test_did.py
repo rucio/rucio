@@ -14,7 +14,6 @@
 # limitations under the License.
 
 from datetime import datetime, timedelta
-import os
 
 import pytest
 
@@ -529,7 +528,6 @@ class TestDIDClients:
         did_client.close(scope=tmp_scope, name=tmp_dsn)
 
     @pytest.mark.dirty
-    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='REST API only works with ATLAS DID convention')
     @pytest.mark.noparallel(reason='uses pre-defined scope')
     def test_create_sample(self, vo, root_account, did_client, rse_factory):
         """ DATA IDENTIFIERS (CLIENT): Create a sample"""

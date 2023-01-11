@@ -1850,44 +1850,42 @@ class GUIDLookup(ErrorHandlingMethodView):
 
 class Sample(ErrorHandlingMethodView):
 
-    def post(self, input_scope, input_name, output_scope, output_name, nbfiles):
+    def post(self):
         """
         ---
         summary: Create sample
         description: Creates a sample from an input collection.
         tags:
           - Data Identifiers
+        requestBody:
+          description: Parameters (source and destination) for the files in the sample to be created
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - input_scope
+                - input_name
+                - output_scope
+                - output_name
+                - nbfiles
+                properties:
+                  input_scope:
+                    description: The input scope.
+                    type: string
+                  input_name:
+                    description: The input name.
+                    type: string
+                  output_scope:
+                    description: The output scope.
+                    type: string
+                  output_name:
+                    description: The output name.
+                    type: string
+                  nbfiles:
+                    description: The number of files to register in the output dataset.
+                    type: string
         parameters:
-        - name: input_scope
-          in: path
-          description: The input scope.
-          schema:
-            type: string
-          style: simple
-        - name: input_name
-          in: path
-          description: The input name.
-          schema:
-            type: string
-          style: simple
-        - name: output_scope
-          in: path
-          description: The output scope.
-          schema:
-            type: string
-          style: simple
-        - name: output_name
-          in: path
-          description: The output name.
-          schema:
-            type: string
-          style: simple
-        - name: nbfiles
-          in: path
-          description: The number of files to register in the output dataset.
-          schema:
-            type: string
-          style: simple
         responses:
           201:
             description: OK
@@ -1905,14 +1903,15 @@ class Sample(ErrorHandlingMethodView):
           409:
             description: Duplication
         """
+        parameters = json_parameters()
         try:
             create_did_sample(
-                input_scope=input_scope,
-                input_name=input_name,
-                output_scope=output_scope,
-                output_name=output_name,
+                input_scope=parameters['input_scope'],
+                input_name=parameters['input_name'],
+                output_scope=parameters['output_scope'],
+                output_name=parameters['output_name'],
                 issuer=request.environ.get('issuer'),
-                nbfiles=nbfiles,
+                nbfiles=parameters['nbfiles'],
                 vo=request.environ.get('vo'),
             )
         except DataIdentifierNotFound as error:
@@ -2226,7 +2225,7 @@ def blueprint():
     bulkdids_view = BulkDIDS.as_view('bulkdids')
     bp.add_url_rule('', view_func=bulkdids_view, methods=['post', ])
     sample_view = Sample.as_view('sample')
-    bp.add_url_rule('/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample', view_func=sample_view, methods=['post', ])
+    bp.add_url_rule('/sample', view_func=sample_view, methods=['post', ])
     attachements_view = Attachments.as_view('attachments')
     bp.add_url_rule('/attachments', view_func=attachements_view, methods=['post', ])
     new_dids_view = NewDIDs.as_view('new_dids')
