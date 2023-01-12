@@ -108,37 +108,10 @@ rucio-admin account set-limits root XRD4 -1
 rucio-admin account set-limits root SSH1 -1
 rucio-admin account set-limits root WEB1 -1
 
-# Create a default scope for testing
-rucio-admin scope add --account root --scope test
+if [[ $* =~ --no-populate ]]; then
+    echo "Not populating the RSEs"
+else
+    source tools/docker_populate_rses.sh
+fi
 
-# Create initial transfer testing data
-dd if=/dev/urandom of=file1 bs=10M count=1
-dd if=/dev/urandom of=file2 bs=10M count=1
-dd if=/dev/urandom of=file3 bs=10M count=1
-dd if=/dev/urandom of=file4 bs=10M count=1
-
-rucio upload --rse XRD1 --scope test file1
-rucio upload --rse XRD1 --scope test file2
-rucio upload --rse XRD2 --scope test file3
-rucio upload --rse XRD2 --scope test file4
-
-rucio add-dataset test:dataset1
-rucio attach test:dataset1 test:file1 test:file2
-
-rucio add-dataset test:dataset2
-rucio attach test:dataset2 test:file3 test:file4
-
-rucio add-container test:container
-rucio attach test:container test:dataset1 test:dataset2
-
-rucio add-rule test:container 1 XRD3
-
-# Create complication
-rucio add-dataset test:dataset3
-rucio attach test:dataset3 test:file4
-
-# FTS Check
-fts-rest-whoami -v -s https://fts:8446
-
-# Delegate credentials to FTS
-fts-rest-delegate -vf -s https://fts:8446 -H 9999
+echo "docker_activate_rses.sh done"
