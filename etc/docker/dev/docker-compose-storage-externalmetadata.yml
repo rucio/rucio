@@ -136,3 +136,11 @@ services:
       - POSTGRES_DB=metadata
       - POSTGRES_PASSWORD=secret
     command: ["-p", "5433"]
+  web1:
+    image: thephisch/webdavtry:latest
+    restart: always
+    environment:
+      AUTH_TYPE: Basic
+      USERNAME: alice
+      PASSWORD: secret
+      SSL_CERT: selfsigned

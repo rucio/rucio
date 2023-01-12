@@ -77,6 +77,14 @@ services:
     volumes:
       - ../../certs/hostcert_xrd4.pem:/tmp/xrdcert.pem:Z
       - ../../certs/hostcert_xrd4.key.pem:/tmp/xrdkey.pem:Z
+  web1:
+    image: thephisch/webdavtry:latest
+    restart: always
+    environment:
+      AUTH_TYPE: Basic
+      USERNAME: alice
+      PASSWORD: secret
+      SSL_CERT: selfsigned
   minio:
     image: docker.io/minio/minio
     ports:
