@@ -12,81 +12,150 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import pytest
+import hashlib
 import os
 
-import pytest
-
+from rucio.tests.common import skip_rse_tests_with_accounts
+from rucio.tests.temp_factories import TemporaryFileFactory
 from rucio.common.utils import execute
-from rucio.rse import rsemanager as mgr
-from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
-from rucio.tests.rsemgr_api_test import MgrTestCases
+from rucio.rse import rsemanager
+from rucio.rse.protocols.gfal import Default as Protocol
 
 
 @skip_rse_tests_with_accounts
-class TestRseGFAL2(MgrTestCases):
+class TestRseGFAL:
+    def setup_method(self):
+        """
+        GFAL2 (RSE/PROTOCOLS):
+        Setting up a new protocol and connection for each test
+        """
+        info = rsemanager.get_rse_info('WEB1')
 
-    @classmethod
-    @pytest.fixture(scope='class')
-    def setup_rse_and_files(cls, vo, tmp_path_factory):
-        """GFAL2 (RSE/PROTOCOLS): Creating necessary directories and files """
-        rse_name = 'FZK-LCG2_SCRATCHDISK'
-        rse_settings, tmpdir, user = cls.setup_common_test_env(rse_name, vo, tmp_path_factory)
+        # update rse info
+        protocol = info['protocols'][0]
+        protocol['impl'] = 'rucio.rse.protocols.gfal.Default'
+        protocol['extended_attributes'] = {'web_service_path': '/rucio/'}
 
-        data = load_test_conf_file('rse_repository.json')
-        prefix = data[rse_name]['protocols']['supported']['srm']['prefix']
-        hostname = data[rse_name]['protocols']['supported']['srm']['hostname']
-        if hostname.count("://"):
-            hostname = hostname.split("://")[1]
-        if 'port' in data[rse_name]['protocols']['supported']['srm'].keys():
-            port = int(data[rse_name]['protocols']['supported']['srm']['port'])
-        else:
-            port = 0
-        if 'extended_attributes' in data[rse_name]['protocols']['supported']['srm'].keys() and 'web_service_path' in data[rse_name]['protocols']['supported']['srm']['extended_attributes'].keys():
-            web_service_path = data[rse_name]['protocols']['supported']['srm']['extended_attributes']['web_service_path']
-        else:
-            web_service_path = ''
+        self.protocol: Protocol = rsemanager.create_protocol(info, 'write')
+        self.protocol.connect()
 
-        os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % tmpdir)
+    def test_exists(self, file_factory: TemporaryFileFactory):
+        """
+        GFAL2 (RSE/PROTOCOLS):
+        check if a file exists using webdav via gfal protocol.
+        """
+        tmpfile = file_factory.file_generator()
+        status, out, err = execute(
+            f"curl -T {tmpfile} -k https://web1/rucio/{tmpfile.name}"
+        )
+        assert f"Resource /rucio/{tmpfile.name} has been created." in out
 
-        for protocol in rse_settings['protocols']:
-            if protocol['scheme'] != "srm":
-                rse_settings['protocols'].remove(protocol)
-        if len(rse_settings['protocols']) > 0:
-            rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gfal.Default'
+        assert self.protocol.exists(self.protocol.path2pfn(tmpfile.name))
 
-        for f in MgrTestCases.files_remote:
-            tmp = next(iter(mgr.lfns2pfns(rse_settings, {'name': f, 'scope': 'user.%s' % user}, scheme='srm').values()))
-            cmd = 'srmcp -2 --debug=false -retry_num=0  file:///%s/data.raw %s' % (tmpdir, tmp)
-            execute(cmd)
+    def test_get(self, file_factory: TemporaryFileFactory):
+        """
+        GFAL2 (RSE/PROTOCOLS)
+        get a file stored in the RSE using webdav. compare it to
+        """
 
-        yield rse_settings, tmpdir, user
+        tmppath = file_factory.file_generator()
+        dwnpath = 'downloaded.data'
+        status, out, err = execute(
+            f"curl -T {tmppath} -k https://web1/rucio/{tmppath.name}"
+        )
+        assert f"Resource /rucio/{tmppath.name} has been created." in out
 
-        clean_raw = '%s/data.raw' % prefix
-        if int(port) > 0:
-            srm_path = ''.join(["srm://", hostname, ":", port, web_service_path])
-        else:
-            srm_path = ''.join(["srm://", hostname, web_service_path])
+        # Need to use path2pfn here because gfal protocol does not use
+        # path2pfn within 'get' (unlike webdav)
+        self.protocol.get(self.protocol.path2pfn(tmppath.name), dwnpath)
 
-        list_files_cmd_user = 'srmls -2 --debug=false -retry_num=0 -recursion_depth=3 %s%s/user/%s' % (srm_path, prefix, user)
-        clean_files = str(execute(list_files_cmd_user)[1]).split('\n')
-        list_files_cmd_user = 'srmls -2 --debug=false -retry_num=0 -recursion_depth=3 %s%s/group/%s' % (srm_path, prefix, user)
-        clean_files += str(execute(list_files_cmd_user)[1]).split('\n')
-        clean_files.append("1024  " + clean_raw)
-        for files in clean_files:
-            if len(files.strip()) > 0:
-                file = files.split()[1]
-                if not file.endswith("/"):
-                    clean_cmd = 'srmrm -2 --debug=false -retry_num=0 %s/%s' % (srm_path, file)
-                    execute(clean_cmd)
+        # compare file hashes
+        with open(tmppath, mode="rb") as f:
+            localhash = hashlib.sha256(f.read()).hexdigest()
+        with open(dwnpath, mode="rb") as f:
+            downhash = hashlib.sha256(f.read()).hexdigest()
 
-        clean_directory = ['user', 'group']
-        for directory in clean_directory:
-            clean_cmd = 'srmrmdir -2 --debug=false -retry_num=0 -recursive %s%s/%s/%s' % (srm_path, prefix, directory, user)
-            execute(clean_cmd)
+        assert localhash == downhash
 
-    @pytest.fixture(autouse=True)
-    def setup_obj(self, setup_rse_and_files, vo):
-        rse_settings, tmpdir, user = setup_rse_and_files
-        self.init(tmpdir=tmpdir, rse_settings=rse_settings, user=user, vo=vo, impl='gfal')
-        self.setup_scheme('srm')
+        os.remove("downloaded.data")
+
+    def test_put(self, file_factory: TemporaryFileFactory):
+        """
+        WEBDAV (RSE/PROTOCOLS)
+        put a local file into the RSE using webdav.
+        """
+        # create and upload file
+        tmpfile = file_factory.file_generator()
+        # again, the interface is different for gfal and webdav
+        path2pfn = self.protocol.path2pfn(tmpfile.name)
+        self.protocol.put(tmpfile.name, path2pfn, tmpfile.parent)
+        assert self.protocol.exists(path2pfn)
+
+        # TODO: handle put file to existing filename
+
+    def test_delete(self, file_factory: TemporaryFileFactory):
+        """
+        WEBDAV (RSE/PROTOCOLS)
+        delete a remote file using webdav.
+        """
+        # upload file
+        tmpfile = file_factory.file_generator()
+        status, out, err = execute(
+            f"curl -T {tmpfile} -k https://web1/rucio/{tmpfile.name}"
+        )
+        assert f"Resource /rucio/{tmpfile.name} has been created." in out
+
+        # delete file
+        self.protocol.delete(self.protocol.path2pfn(tmpfile.name))
+        assert not self.protocol.exists(self.protocol.path2pfn(tmpfile.name))
+
+    def test_rename(self, file_factory: TemporaryFileFactory):
+        """
+        WEBDAV (RSE/PROTOCOLS)
+        rename a remote file using webdav.
+        """
+        # upload file A
+        tmpfile = file_factory.file_generator()
+        A_name = f"{tmpfile.name}_A"
+        B_name = f"{tmpfile.name}_B"
+        status, out, err = execute(
+            f"curl -T {tmpfile} -k https://web1/rucio/{A_name}"
+        )
+        assert f"Resource /rucio/{A_name} has been created." in out
+
+        # assert file A is present and B not -> use exists for this
+        assert self.protocol.exists(self.protocol.path2pfn(A_name))
+        assert not self.protocol.exists(self.protocol.path2pfn(B_name))
+
+        # rename file A to file B
+        self.protocol.rename(
+            self.protocol.path2pfn(A_name), self.protocol.path2pfn(B_name)
+        )
+
+        # assert file B is present and A not
+        assert not self.protocol.exists(self.protocol.path2pfn(A_name))
+        assert self.protocol.exists(self.protocol.path2pfn(B_name))
+
+    # fail because of gfal checksums, no ADLER32
+    @pytest.mark.xfail
+    def test_stat(self, file_factory: TemporaryFileFactory):
+        """
+        WEBDAV (RSE/PROTOCOLS)
+        gain stats of a remote file using webdav. At the moment, the only stat
+        is the filesize.
+        """
+        tmppath = file_factory.file_generator()
+        status, out, err = execute(
+            f"curl -T {tmppath} -k https://web1/rucio/{tmppath.name}"
+        )
+        assert f"Resource /rucio/{tmppath.name} has been created." in out
+
+        # compare sizes
+        localsize = os.stat(tmppath).st_size
+
+        remotestats = self.protocol.stat(self.protocol.path2pfn(tmppath.name))
+        assert isinstance(remotestats, dict)
+        assert localsize == remotestats["filesize"]
+
+        # add checksum test! but first stat needs to return a checksum too
