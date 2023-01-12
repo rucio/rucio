@@ -46,6 +46,10 @@ from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, headers, auth, Mime, accept, did_name_generator
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from rucio.tests.temp_factories import TemporaryRSEFactory
+
 
 def mocked_VP_requests_get(*args, **kwargs):
     """This method will be used by the mock to replace requests.get to VP server."""
@@ -199,7 +203,7 @@ class TestReplicaCore:
     @pytest.mark.parametrize(
         "params",
         [
-            (False, None, None), 
+            (False, None, None),
             (True, 10, 10),
             (True, -2, 1),
             (True, 0, 1),
@@ -207,7 +211,9 @@ class TestReplicaCore:
             (True, "oops", 1)
         ]
     )
-    def test_list_replicas_sim_multirange(self, params, rse_factory, mock_scope, root_account):
+    def test_list_replicas_sim_multirange(
+        self, params, rse_factory: "TemporaryRSEFactory", mock_scope, root_account
+    ):
         """ REPLICA (CORE): List file replicas for storage that does not support multirange-byte requests should add suffix to PFN"""
 
         # bear in mind that if a bad value is entered as rse_attribute, the default value is 1
@@ -233,7 +239,6 @@ class TestReplicaCore:
             assert f'&#multirange=false&nconnections={expectedconns}' in pfn
         else:
             assert '&#multirange=false&nconnections' not in pfn
-
 
     @pytest.mark.parametrize("file_config_mock", [
         # Run test twice: with, and without, temp tables
