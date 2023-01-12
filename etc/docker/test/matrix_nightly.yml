@@ -15,7 +15,7 @@ dists:
     allow:
       python:
         - "3.8"
-  - id: stream9
+  - id: alma9
     allow:
       python:
         - "3.9"
