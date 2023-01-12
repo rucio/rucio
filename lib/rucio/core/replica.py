@@ -804,7 +804,7 @@ def _build_list_replicas_pfn(
         sign_urls: bool,
         signature_lifetime: int,
         client_location: "Dict[str, Any]",
-        logger = logging.log,
+        logger=logging.log,
         *,
         session: "Session",
 ) -> str:
@@ -813,9 +813,9 @@ def _build_list_replicas_pfn(
     If needed, sign the PFN url
     If relevant, add the server-side root proxy to te pfn url
     """
-    pfn = list(protocol.lfns2pfns(lfns={'scope': scope.external,
-                                        'name': name,
-                                        'path': path}).values())[0]
+    pfn: str = list(protocol.lfns2pfns(lfns={'scope': scope.external,
+                                             'name': name,
+                                             'path': path}).values())[0]
 
     # do we need to sign the URLs?
     if sign_urls and protocol.attributes['scheme'] == 'https':
@@ -841,7 +841,7 @@ def _build_list_replicas_pfn(
                     # print('filename', name)
                     selected_prefix = get_multi_cache_prefix(cache_site, name)
                     if selected_prefix:
-                        pfn = 'root://' + selected_prefix + '//' + pfn.replace('davs://', 'root://')
+                        pfn = f"root://{selected_prefix}//{pfn.replace('davs://', 'root://')}"
                 else:
                     # print('site:', client_location['site'], 'has no cache')
                     # print('lets check if it has defined an internal root proxy ')
@@ -857,10 +857,10 @@ def _build_list_replicas_pfn(
                             pass  # ATLAS HACK
                         else:
                             # don't forget to mangle gfal-style davs URL into generic https URL
-                            pfn = 'root://' + root_proxy_internal + '//' + pfn.replace('davs://', 'https://')
+                            pfn = f"root://{root_proxy_internal}//{pfn.replace('davs://', 'https://')}"
 
     simulate_multirange = get_rse_attribute(rse_id, 'simulate_multirange')
-        
+
     if simulate_multirange is not None:
         try:
             # cover values that cannot be cast to int
