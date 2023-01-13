@@ -46,7 +46,7 @@ from rucio.transfertool.globus import GlobusTransferTool
 from rucio.transfertool.mock import MockTransfertool
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Set, Tuple
+    from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Set, Tuple, Union
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
     from rucio.core.rse import RseData
@@ -189,19 +189,37 @@ class DirectTransferDefinition:
         return source_url
 
     @staticmethod
-    def __rewrite_dest_url(dest_url, dest_sign_url):
+    def __rewrite_dest_url(dest_url: str, rewrite_url: str, values: "Optional[Union[Dict, None]]" = None) -> str:
         """
-        Parametrize destination url for some special cases of destination schemes
+        Parametrize destination url for some special cases
         """
-        if dest_sign_url == 'gcs':
+
+        # FTS specific protocol translations for cloud storage
+        if rewrite_url == 'gcs':
             dest_url = re.sub('davs', 'gclouds', dest_url)
             dest_url = re.sub('https', 'gclouds', dest_url)
-        elif dest_sign_url == 's3':
+        elif rewrite_url == 's3':
             dest_url = re.sub('davs', 's3s', dest_url)
             dest_url = re.sub('https', 's3s', dest_url)
 
+        # Archival colocation hints
+        if rewrite_url == 'archive_metadata' and values is not None:
+            # Consider already existing URL parameters
+            if '?' in dest_url:
+                dest_url += '&'
+            else:
+                dest_url += '?'
+
+            # Then append the metadata
+            dest_url += 'xattr.dataset_scope=%s&xattr.dataset_name=%s&xattr.dataset_length=%s&xattr.dataset_bytes=%s' % (values['scope'],
+                                                                                                                         values['name'],
+                                                                                                                         values['length'],
+                                                                                                                         values['bytes'])
+
+        # FTS can deal with HTTPS for SRM automatically
         if dest_url[:12] == 'srm+https://':
             dest_url = 'srm' + dest_url[9:]
+
         return dest_url
 
     @classmethod
@@ -230,9 +248,8 @@ class DirectTransferDefinition:
         if dst.rse.info['deterministic']:
             dest_url = list(protocol.lfns2pfns(lfns={'scope': rws.scope.external, 'name': rws.name}).values())[0]
         else:
-            # compute dest url in case of non deterministic
-            # naming convention, etc.
-            dsn = get_dsn(rws.scope, rws.name, rws.attributes.get('dsn', None))
+            # compute dest url in case of non deterministic naming convention
+            _, dsn = get_dsn(rws.scope, rws.name, rws.attributes.get('dsn', None))
             # DQ2 path always starts with /, but prefix might not end with /
             naming_convention = dst.rse.attributes.get('naming_convention', None)
             dest_path = construct_surl(dsn, rws.scope.external, rws.name, naming_convention)
@@ -242,8 +259,22 @@ class DirectTransferDefinition:
 
             dest_url = list(protocol.lfns2pfns(lfns={'scope': rws.scope.external, 'name': rws.name, 'path': dest_path}).values())[0]
 
-        dest_sign_url = dst.rse.attributes.get('sign_url', None)
-        dest_url = cls.__rewrite_dest_url(dest_url, dest_sign_url=dest_sign_url)
+        # adapt the protocols of signed URLs for FTS
+        with_signature = dst.rse.attributes.get('sign_url', None)
+        dest_url = cls.__rewrite_dest_url(dest_url, rewrite_url=with_signature)
+
+        # special handling for archive metadata
+        with_metadata = 'archive_metadata' if dst.rse.attributes.get('archive_metadata') else None
+        # only lookup parent dataset info if really necessary
+        if with_metadata:
+            parent_scope, parent_name = get_dsn(rws.scope, rws.name, None)
+            parent_meta = did.get_metadata(parent_scope, parent_name)
+
+            dest_url = cls.__rewrite_dest_url(dest_url, rewrite_url=with_metadata, values={'scope': parent_meta['scope'],
+                                                                                           'name': parent_meta['name'],
+                                                                                           'length': parent_meta['length'],
+                                                                                           'bytes': parent_meta['bytes']})
+
         return dest_url
 
 
@@ -726,12 +757,12 @@ def __create_stagein_definitions(
 
 def get_dsn(scope, name, dsn):
     if dsn:
-        return dsn
+        return None, dsn
     # select a containing dataset
     for parent in did.list_parent_dids(scope, name):
         if parent['type'] == DIDType.DATASET:
-            return parent['name']
-    return 'other'
+            return parent['scope'], parent['name']
+    return None, 'other'
 
 
 def __filter_multihops_with_intermediate_tape(candidate_paths: "Iterable[List[DirectTransferDefinition]]") -> "Generator[List[DirectTransferDefinition]]":

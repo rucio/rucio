@@ -22,6 +22,7 @@ from unittest.mock import patch
 from sqlalchemy import delete
 
 from rucio.common.exception import RequestNotFound
+from rucio.core import did as did_core
 from rucio.core import distance as distance_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
@@ -432,3 +433,43 @@ def test_hop_penalty(rse_factory, did_factory, root_account, file_config_mock, c
     request_core.get_request_by_did(rse_id=rse2_id, **did)
     with pytest.raises(RequestNotFound):
         request_core.get_request_by_did(rse_id=rse5_id, **did)
+
+
+@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [
+    ('transfers', 'use_multihop', False)
+]}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
+    'rucio.core.topology.REGION',
+]}], indirect=True)
+def test_append_archive_metadata(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
+
+    src_rse, src_rse_id = rse_factory.make_posix_rse()
+    dst_rse, dst_rse_id = rse_factory.make_posix_rse()
+
+    rse_core.add_rse_attribute(dst_rse_id, 'archive_metadata', True)
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
+
+    did1 = did_factory.upload_test_file(src_rse)
+    did2 = did_factory.upload_test_file(src_rse)
+    did3 = did_factory.upload_test_file(src_rse)
+    dids = [did1, did2, did3]
+
+    dataset = did_factory.make_dataset()
+    did_core.attach_dids(dids=dids, account=root_account, **dataset)
+    did_core.set_status(dataset['scope'], dataset['name'], open=False)
+
+    rule_core.add_rule(dids=[dataset], account=root_account, copies=1, rse_expression=dst_rse,
+                       grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in (src_rse_id, dst_rse_id)],
+              partition_wait_time=None, transfertools=['mock'], transfertype='single', ignore_availability=True)
+
+    for did in dids:
+        request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+        assert request['state'] == RequestState.SUBMITTED
+        assert f'xattr.dataset_scope={dataset["scope"]}' in request['dest_url']
+        assert f'xattr.dataset_name={dataset["name"]}' in request['dest_url']
+        assert 'xattr.dataset_length=3' in request['dest_url']
+        assert 'xattr.dataset_bytes=6' in request['dest_url']
