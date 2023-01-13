@@ -203,15 +203,19 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def deny_replication_rule(self, rule_id: str):
+    def deny_replication_rule(self, rule_id: str, reason: Optional[str] = None):
         """
         :param rule_id:             Rule to be denied.
+        :param reason:              Reason for denying the rule.
         :raises:                    RuleNotFound
         """
 
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
-        data = dumps({'options': {'approve': False}})
+        options: Dict[str, Union[bool, str]] = {'approve': False}
+        if reason:
+            options['comment'] = reason
+        data = dumps({'options': options})
         r = self._send_request(url, type_='PUT', data=data)
         if r.status_code == codes.ok:
             return True
