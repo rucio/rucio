@@ -30,7 +30,7 @@ from sqlalchemy import and_, or_, select, delete
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get_bool
 from rucio.common.exception import CannotAuthenticate, RucioException
-from rucio.common.utils import chunks, generate_uuid
+from rucio.common.utils import chunks, generate_uuid, date_to_str
 from rucio.core.account import account_exists
 from rucio.core.oidc import validate_jwt
 from rucio.db.sqla import filter_thread_work
@@ -40,6 +40,7 @@ from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+    from typing import Dict, Any, Union
 
 
 def strip_x509_proxy_attributes(dn: str) -> str:
@@ -443,7 +444,7 @@ def query_token(token, *, session: "Session"):
 
 
 @transactional_session
-def validate_auth_token(token, *, session: "Session"):
+def validate_auth_token(token: str, *, session: "Session") -> "Dict[str, Any]":
     """
     Validate an authentication token.
 
@@ -454,17 +455,18 @@ def validate_auth_token(token, *, session: "Session"):
                            lifetime: <token lifetime>,
                            audience: <audience>,
                            authz_scope: <authz_scope> }
-              if successful, None otherwise.
+              if successful
+    :raises: CannotAuthenticate if unsuccessful
     """
     if not token:
-        return None
+        raise CannotAuthenticate("No token was passed!")
 
     # Be gentle with bash variables, there can be whitespace
     token = token.strip()
     cache_key = token.replace(' ', '')
 
     # Check if token ca be found in cache region
-    value = TOKENREGION.get(cache_key)
+    value: "Union[NO_VALUE, Dict[str, Any]]" = TOKENREGION.get(cache_key)
     if value is NO_VALUE:  # no cached entry found
         value = query_token(token, session=session)
         if not value:
@@ -472,15 +474,14 @@ def validate_auth_token(token, *, session: "Session"):
             # & save it in Rucio if scope and audience are correct
             if len(token.split(".")) == 3:
                 value = validate_jwt(token, session=session)
-                if not value:
-                    return None
             else:
-                return None
+                raise CannotAuthenticate(traceback.format_exc())
         # save token in the cache
         TOKENREGION.set(cache_key, value)
-    if value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
+    lifetime = value.get('lifetime', datetime.datetime(1970, 1, 1))
+    if lifetime < datetime.datetime.utcnow():  # check if expired
         TOKENREGION.delete(cache_key)
-        return None
+        raise CannotAuthenticate(f"Token found but expired since {date_to_str(lifetime)}.")
     return value
 
 

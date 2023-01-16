@@ -757,9 +757,8 @@ class TestAuthCoreAPIoidc:
         # mocking the token response
         access_token = rndstr() + '.' + rndstr() + '.' + rndstr()
         # trying to validate a token that does not exist in the Rucio DB
-        value = validate_auth_token(access_token, session=self.db_session)
-        # checking if validation went OK (we bypassed it with the dictionary above)
-        assert value is None
+        with pytest.raises(CannotAuthenticate):
+            validate_auth_token(access_token, session=self.db_session)
         # most importantly, check that the token was saved in Rucio DB
         db_token = get_token_row(access_token, account=self.account, session=self.db_session)
         assert not db_token
