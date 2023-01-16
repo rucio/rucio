@@ -141,14 +141,13 @@ def request_auth_env():
 
     try:
         auth = validate_auth_token(auth_token)
+    except CannotAuthenticate:
+        return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate with given credentials')
     except RucioException as error:
         return generate_http_error_flask(500, error.__class__.__name__, error.args[0])
     except Exception:
         logging.exception('Internal error in validate_auth_token')
         return 'Internal Error', 500
-
-    if auth is None:
-        return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate with given credentials')
 
     flask.request.environ['vo'] = auth.get('vo', 'def')
     flask.request.environ['issuer'] = auth.get('account')

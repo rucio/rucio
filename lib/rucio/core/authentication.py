@@ -28,7 +28,7 @@ from sqlalchemy import and_, or_, select, delete
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get_bool
 from rucio.common.exception import CannotAuthenticate, RucioException
-from rucio.common.utils import chunks, generate_uuid
+from rucio.common.utils import chunks, generate_uuid, date_to_str
 from rucio.core.account import account_exists
 from rucio.core.oidc import validate_jwt
 from rucio.db.sqla import filter_thread_work
@@ -417,10 +417,11 @@ def validate_auth_token(token, session=None):
                            lifetime: <token lifetime>,
                            audience: <audience>,
                            authz_scope: <authz_scope> }
-              if successful, None otherwise.
+              if successful
+    :raises: CannotAuthenticate if unsuccessful
     """
     if not token:
-        return None
+        raise CannotAuthenticate("No token was passed!")
 
     # Be gentle with bash variables, there can be whitespace
     token = token.strip()
@@ -435,15 +436,14 @@ def validate_auth_token(token, session=None):
             # & save it in Rucio if scope and audience are correct
             if len(token.split(".")) == 3:
                 value = validate_jwt(token, session=session)
-                if not value:
-                    return None
             else:
-                return None
+                raise CannotAuthenticate(traceback.format_exc())
         # save token in the cache
         TOKENREGION.set(cache_key, value)
-    if value.get('lifetime', datetime.datetime(1970, 1, 1)) < datetime.datetime.utcnow():  # check if expired
+    lifetime = value.get('lifetime', datetime.datetime(1970, 1, 1))
+    if lifetime < datetime.datetime.utcnow():  # check if expired
         TOKENREGION.delete(cache_key)
-        return None
+        raise CannotAuthenticate(f"Token found but expired since {date_to_str(lifetime)}.")
     return value
 
 
