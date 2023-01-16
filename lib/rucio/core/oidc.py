@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime, timedelta
 from math import floor
 from urllib.parse import urlparse, parse_qs
-from typing import Dict, Tuple, Any, TYPE_CHECKING
+from typing import Dict, Tuple, Any, TYPE_CHECKING, Optional
 
 from jwkest.jws import JWS
 from jwkest.jwt import JWT
@@ -1170,7 +1170,7 @@ def __save_validated_token(token, valid_dict, extra_dict=None, *, session: "Sess
 
 
 @transactional_session
-def validate_jwt(json_web_token: str, *, session: "Session"):
+def validate_jwt(json_web_token: str, *, session: "Session") -> "Dict[str, Any]":
     """
     Verifies signature and validity of a JSON Web Token.
     Gets the issuer public keys from the oidc_client
@@ -1184,7 +1184,8 @@ def validate_jwt(json_web_token: str, *, session: "Session"):
                            lifetime: <token lifetime>,
                            audience: <audience>,
                            authz_scope: <authz_scope> }
-              if successful, None otherwise.
+              if successful.
+    :raises: CannotAuthenticate if unsuccessful
     """
 
     if not OIDC_CLIENTS:
@@ -1196,9 +1197,9 @@ def validate_jwt(json_web_token: str, *, session: "Session"):
     try:
 
         # getting issuer from the token payload
-        token_dict = __get_rucio_jwt_dict(json_web_token, session=session)
+        token_dict: "Optional[Dict[str, Any]]" = __get_rucio_jwt_dict(json_web_token, session=session)
         if not token_dict:
-            return None
+            raise CannotAuthenticate(traceback.format_exc())
         issuer = token_dict['identity'].split(", ")[1].split("=")[1]
         oidc_client = OIDC_CLIENTS[issuer]
         issuer_keys = oidc_client.keyjar.get_issuer_keys(issuer)
@@ -1226,16 +1227,16 @@ def validate_jwt(json_web_token: str, *, session: "Session"):
                 __save_validated_token(json_web_token, token_dict, session=session)
             else:
                 logging.debug("Token audience [%s] or scope [%s] verification failed.", token_dict['audience'], token_dict['authz_scope'])
-                return None
+                raise CannotAuthenticate(traceback.format_exc())
         else:
             logging.debug("Token audience or scope not present.")
-            return None
+            raise CannotAuthenticate(traceback.format_exc())
         METRICS.counter(name='JSONWebToken.saved').inc()
         return token_dict
     except Exception:
         METRICS.counter(name='JSONWebToken.invalid').inc()
         logging.debug(traceback.format_exc())
-        return None
+        raise CannotAuthenticate(traceback.format_exc())
 
 
 def oidc_identity_string(sub: str, iss: str):

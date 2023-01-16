@@ -22,7 +22,7 @@ import time
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token, \
     get_auth_token_saml
-from rucio.common.exception import Duplicate, AccessDenied
+from rucio.common.exception import Duplicate, AccessDenied, CannotAuthenticate
 from rucio.common.types import InternalAccount
 from rucio.common.utils import ssh_sign
 from rucio.core.identity import add_account_identity, del_account_identity
@@ -298,3 +298,10 @@ def test_many_tokens(vo, root_account, db_session):
     # Ensures that the tokens are expired
     time.sleep(1)
     print(get_auth_token_user_pass(account='root', username='ddmlab', password='secret', appid='test', ip='127.0.0.1', vo=vo))
+
+
+def test_non_JWT_validation():
+    """ AUTHENTICATION: passing a fake X-Rucio-Auth-Token that looks like a JWT """
+    from rucio.api.authentication import validate_auth_token
+    with pytest.raises(CannotAuthenticate):
+        validate_auth_token('a.b.c')
