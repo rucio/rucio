@@ -288,12 +288,10 @@ def validate_auth_token(token, session=None):
                            audience: <audience>,
                            authz_scope: <authz_scope>,
                            vo: <vo> }
-              if successful, None otherwise.
     """
 
     auth = authentication.validate_auth_token(token, session=session)
-    if auth is not None:
-        vo = auth['account'].vo
-        auth = api_update_return_dict(auth, session=session)
-        auth['vo'] = vo
+    vo = auth['account'].vo
+    auth = api_update_return_dict(auth, session=session)
+    auth['vo'] = vo
     return auth
