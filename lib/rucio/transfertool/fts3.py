@@ -191,8 +191,6 @@ def build_job_params(transfer_path, bring_online, default_lifetime, archive_time
 
     strict_copy = last_hop.dst.rse.attributes.get('strict_copy', False)
     archive_timeout = last_hop.dst.rse.attributes.get('archive_timeout', None)
-    src_rse_s3_url_style = last_hop.src.rse.attributes.get('s3_url_style', None)
-    dst_rse_s3_url_style = last_hop.dst.rse.attributes.get('s3_url_style', None)
 
     verify_checksum, _checksum_to_use = _checksum_validation_strategy(last_hop, logger=logger)
 
@@ -222,12 +220,12 @@ def build_job_params(transfer_path, bring_online, default_lifetime, archive_time
 
     # assume s3alternate True (path-style URL S3 RSEs)
     job_params['s3alternate'] = True
-    if src_rse_s3_url_style:
-        if src_rse_s3_url_style == "host":
-            job_params['s3alternate'] = False
-    if dst_rse_s3_url_style:
-        if dst_rse_s3_url_style == "host":
-            job_params['s3alternate'] = False
+    src_rse_s3_url_style = first_hop.src.rse.attributes.get('s3_url_style', None)
+    if src_rse_s3_url_style == "host":
+        job_params['s3alternate'] = False
+    dst_rse_s3_url_style = last_hop.dst.rse.attributes.get('s3_url_style', None)
+    if dst_rse_s3_url_style == "host":
+        job_params['s3alternate'] = False
 
     if archive_timeout and last_hop.dst.rse.is_tape():
         try:
