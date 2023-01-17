@@ -15,7 +15,6 @@
 
 import datetime
 import json
-import functools
 import logging
 import traceback
 import uuid
@@ -165,53 +164,59 @@ def _checksum_validation_strategy(
     return strategy, checksum_to_use
 
 
-def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger, multihop=False):
+def build_job_params(transfer_path, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger):
     """
     Prepare the job parameters which will be passed to FTS transfertool
     """
 
+    # The last hop is the main request (the one which triggered the whole transfer),
+    # so most attributes will come from it
+    last_hop = transfer_path[-1]
+    first_hop = transfer_path[0]
+
     overwrite, bring_online_local = True, None
-    if transfer.src.rse.is_tape_or_staging_required():
+    if first_hop.src.rse.is_tape_or_staging_required():
+        # Activate bring_online if it was requested by first hop
+        # We don't allow multihop via a tape, so bring_online should not be set on any other hop
         bring_online_local = bring_online
-    if transfer.dst.rse.is_tape():
+    if last_hop.dst.rse.is_tape():
         overwrite = False
 
     # Get dest space token
-    dest_protocol = transfer.protocol_factory.protocol(transfer.dst.rse, transfer.dst.scheme, transfer.operation_dest)
+    dest_protocol = last_hop.protocol_factory.protocol(last_hop.dst.rse, last_hop.dst.scheme, last_hop.operation_dest)
     dest_spacetoken = None
     if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
             dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
         dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
-    src_spacetoken = None
 
-    strict_copy = transfer.dst.rse.attributes.get('strict_copy', False)
-    archive_timeout = transfer.dst.rse.attributes.get('archive_timeout', None)
-    src_rse_s3_url_style = transfer.src.rse.attributes.get('s3_url_style', None)
-    dst_rse_s3_url_style = transfer.dst.rse.attributes.get('s3_url_style', None)
+    strict_copy = last_hop.dst.rse.attributes.get('strict_copy', False)
+    archive_timeout = last_hop.dst.rse.attributes.get('archive_timeout', None)
+    src_rse_s3_url_style = last_hop.src.rse.attributes.get('s3_url_style', None)
+    dst_rse_s3_url_style = last_hop.dst.rse.attributes.get('s3_url_style', None)
 
-    verify_checksum, _checksum_to_use = _checksum_validation_strategy(transfer, logger=logger)
+    verify_checksum, _checksum_to_use = _checksum_validation_strategy(last_hop, logger=logger)
 
-    job_params = {'account': transfer.rws.account,
+    job_params = {'account': last_hop.rws.account,
                   'verify_checksum': verify_checksum,
-                  'copy_pin_lifetime': transfer.rws.attributes.get('lifetime', default_lifetime),
+                  'copy_pin_lifetime': last_hop.rws.attributes.get('lifetime', default_lifetime),
                   'bring_online': bring_online_local,
                   'job_metadata': {
                       'issuer': 'rucio',
-                      'multi_sources': True if len(transfer.legacy_sources) > 1 else False,
+                      'multi_sources': False,
                   },
-                  'overwrite': transfer.rws.attributes.get('overwrite', overwrite),
-                  'priority': transfer.rws.priority}
+                  'overwrite': last_hop.rws.attributes.get('overwrite', overwrite),
+                  'priority': last_hop.rws.priority}
 
-    if multihop:
+    if len(transfer_path) > 1:
         job_params['multihop'] = True
         job_params['job_metadata']['multihop'] = True
+    elif len(last_hop.legacy_sources) > 1:
+        job_params['job_metadata']['multi_sources'] = True
     if strict_copy:
         job_params['strict_copy'] = strict_copy
     if dest_spacetoken:
         job_params['spacetoken'] = dest_spacetoken
-    if src_spacetoken:
-        job_params['source_spacetoken'] = src_spacetoken
-    if transfer.use_ipv4:
+    if last_hop.use_ipv4:
         job_params['ipv4'] = True
         job_params['ipv6'] = False
 
@@ -224,7 +229,7 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
         if dst_rse_s3_url_style == "host":
             job_params['s3alternate'] = False
 
-    if archive_timeout and transfer.dst.rse.is_tape():
+    if archive_timeout and last_hop.dst.rse.is_tape():
         try:
             archive_timeout = int(archive_timeout)
             if archive_timeout_override is None:
@@ -235,13 +240,24 @@ def job_params_for_fts_transfer(transfer, bring_online, default_lifetime, archiv
             job_params['dst_file_report'] = True
             logger(logging.DEBUG, 'Added archive timeout to transfer.')
         except ValueError:
-            logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', transfer)
+            logger(logging.WARNING, 'Could not set archive_timeout for %s. Must be integer.', last_hop)
             pass
     if max_time_in_queue:
-        if transfer.rws.activity in max_time_in_queue:
-            job_params['max_time_in_queue'] = max_time_in_queue[transfer.rws.activity]
+        if last_hop.rws.activity in max_time_in_queue:
+            job_params['max_time_in_queue'] = max_time_in_queue[last_hop.rws.activity]
         elif 'default' in max_time_in_queue:
             job_params['max_time_in_queue'] = max_time_in_queue['default']
+
+    overwrite_hop = True
+    for transfer_hop in transfer_path[:-1]:
+        # Only allow overwrite if all hops in multihop allow it
+        h_overwrite = transfer_hop.rws.attributes.get('overwrite', True)
+        job_params['overwrite'] = h_overwrite and job_params['overwrite']
+        # Allow overwrite_hop if all intermediate hops allow it (ignoring the last hop)
+        overwrite_hop = h_overwrite and overwrite_hop
+    if not job_params['overwrite'] and overwrite_hop:
+        job_params['overwrite_hop'] = overwrite_hop
+
     return job_params
 
 
@@ -261,52 +277,35 @@ def bulk_group_transfers(transfer_paths, policy='rule', group_bulk=200, source_s
     """
 
     grouped_transfers = {}
-    grouped_jobs = []
+    fts_jobs = []
 
-    _build_job_params = functools.partial(job_params_for_fts_transfer,
-                                          bring_online=bring_online,
-                                          default_lifetime=default_lifetime,
-                                          archive_timeout_override=archive_timeout_override,
-                                          max_time_in_queue=max_time_in_queue,
-                                          logger=logger)
     for transfer_path in transfer_paths:
-        if len(transfer_path) > 1:
-            # for multihop transfers, all the path is submitted as a separate job
-            job_params = _build_job_params(transfer_path[-1], multihop=True)
-
-            overwrite_hop = True
-            for transfer in transfer_path[:-1]:
-                hop_params = _build_job_params(transfer, multihop=True)
-                # Only allow overwrite if all transfers in multihop allow it
-                job_params['overwrite'] = hop_params['overwrite'] and job_params['overwrite']
-                # Allow overwrite_hop if all intermediate hops allow it (ignoring the last hop)
-                overwrite_hop = hop_params['overwrite'] and overwrite_hop
-                # Activate bring_online if it was requested by first hop (it is a multihop starting at a tape)
-                # We don't allow multihop via a tape, so bring_online should not be set on any other hop
-                if transfer is transfer_path[0] and hop_params['bring_online']:
-                    job_params['bring_online'] = hop_params['bring_online']
-            if not job_params['overwrite'] and overwrite_hop:
-                job_params['overwrite_hop'] = overwrite_hop
-
-            group_key = 'multihop_%s' % transfer_path[-1].rws.request_id
-            grouped_transfers[group_key] = {'transfers': transfer_path[0:group_bulk], 'job_params': job_params}
-        elif len(transfer_path[0].legacy_sources) > 1:
-            # for multi-source transfers, no bulk submission.
-            transfer = transfer_path[0]
-            grouped_jobs.append({'transfers': [transfer], 'job_params': _build_job_params(transfer)})
+        job_params = build_job_params(
+            transfer_path=transfer_path,
+            bring_online=bring_online,
+            default_lifetime=default_lifetime,
+            archive_timeout_override=archive_timeout_override,
+            max_time_in_queue=max_time_in_queue,
+            logger=logger
+        )
+        if job_params['job_metadata'].get('multi_sources') or job_params['job_metadata'].get('multihop'):
+            # for multi-hop and multi-source transfers, no bulk submission.
+            fts_jobs.append({'transfers': transfer_path[0:group_bulk], 'job_params': job_params})
         else:
             # it's a single-hop, single-source, transfer. Hence, a candidate for bulk submission.
             transfer = transfer_path[0]
-            job_params = _build_job_params(transfer)
 
             # we cannot group transfers together if their job_key differ
-            job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (job_params['verify_checksum'], job_params.get('spacetoken', None),
-                                                   job_params['copy_pin_lifetime'],
-                                                   job_params['bring_online'], job_params['job_metadata'],
-                                                   job_params.get('source_spacetoken', None),
-                                                   job_params['overwrite'], job_params['priority'])
-            if 'max_time_in_queue' in job_params:
-                job_key = job_key + ',%s' % job_params['max_time_in_queue']
+            job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (
+                job_params['verify_checksum'],
+                job_params.get('spacetoken', ''),
+                job_params['copy_pin_lifetime'],
+                job_params['bring_online'],
+                job_params['job_metadata'],
+                job_params['overwrite'],
+                job_params['priority'],
+                job_params.get('max_time_in_queue', '')
+            )
 
             # Additionally, we don't want to group transfers together if their policy_key differ
             policy_key = ''
@@ -335,9 +334,9 @@ def bulk_group_transfers(transfer_paths, policy='rule', group_bulk=200, source_s
     for group in grouped_transfers.values():
         job_params = group['job_params']
         for transfer_paths in chunks(group['transfers'], group_bulk):
-            grouped_jobs.append({'transfers': transfer_paths, 'job_params': job_params})
+            fts_jobs.append({'transfers': transfer_paths, 'job_params': job_params})
 
-    return grouped_jobs
+    return fts_jobs
 
 
 class Fts3TransferStatusReport(TransferStatusReport):
