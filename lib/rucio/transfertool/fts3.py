@@ -43,6 +43,8 @@ from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, T
 from rucio.db.sqla.constants import RequestState
 
 if TYPE_CHECKING:
+    from typing import List, Set, Union
+
     from rucio.core.transfer import DirectTransferDefinition
     from rucio.core.rse import RseData
 
@@ -77,6 +79,30 @@ REWRITE_HTTPS_TO_DAVS = config_get_bool('transfers', 'rewrite_https_to_davs', de
 # https://fts3-docs.web.cern.ch/fts3-docs/docs/state_machine.html
 FINAL_FTS_JOB_STATES = (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED, FTS_STATE.FINISHEDDIRTY)
 FINAL_FTS_FILE_STATES = (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED, FTS_STATE.NOT_USED)
+
+# In a multi-hop transfer, we must compute a checksum validation strategy valid for the whole path.
+# This state-machine defines how strategies of hops are merged into a path-wide strategy.
+# For example, if HOP1 supports only validation of checksum at source while HOP2 only
+# supports validation at destination, the strategy for the whole path MUST be "none". Otherwise,
+# transfers will fail when FTS will try to validate the checksum.
+PATH_CHECKSUM_VALIDATION_STRATEGY: "Dict[Tuple[str, str], str]" = {
+    ('both', 'both'): 'both',
+    ('both', 'target'): 'target',
+    ('both', 'source'): 'source',
+    ('both', 'none'): 'none',
+    ('target', 'both'): 'target',
+    ('target', 'target'): 'target',
+    ('target', 'source'): 'none',
+    ('target', 'none'): 'none',
+    ('source', 'both'): 'source',
+    ('source', 'target'): 'none',
+    ('source', 'source'): 'source',
+    ('source', 'none'): 'none',
+    ('none', 'both'): 'none',
+    ('none', 'target'): 'none',
+    ('none', 'source'): 'none',
+    ('none', 'none'): 'none',
+}
 
 
 def _configured_source_strategy(activity: str, logger: Callable[..., Any]) -> str:
@@ -116,13 +142,11 @@ def oidc_supported(transfer_hop) -> bool:
     return True
 
 
-def _checksum_validation_strategy(
-    transfer: "DirectTransferDefinition",
-    logger: Callable[..., Any],
-) -> Tuple[str, str]:
+def _available_checksums(
+        transfer: "DirectTransferDefinition",
+) -> "Tuple[Set[str], Set[str]]":
     """
-    Compute the checksum validation strategy (none, source, destination or both) and the checksum
-    to use (in the format accepted by FTS) from the attributes of the source and destination RSE.
+    Get checksums which can be used for file validation on the source and the destination RSE
     """
     src_attributes = transfer.src.rse.attributes
     if src_attributes.get('verify_checksum', True):
@@ -136,20 +160,73 @@ def _checksum_validation_strategy(
     else:
         dst_checksums = set()
 
+    return src_checksums, dst_checksums
+
+
+def _hop_checksum_validation_strategy(
+        transfer: "DirectTransferDefinition",
+        logger: Callable[..., Any],
+) -> "Tuple[str, Set[str]]":
+    """
+    Compute the checksum validation strategy (none, source, destination or both) depending
+    on available source and destination checksums for a single hop transfer
+    """
+    src_checksums, dst_checksums = _available_checksums(transfer)
     intersection = src_checksums.intersection(dst_checksums)
 
     if intersection:
         strategy, possible_checksums = 'both', intersection
     elif dst_checksums:
         # The prioritization of destination over source here is desired, not random
-        logger(logging.INFO, 'No common checksum method. Verifying destination only.')
+        logger(logging.INFO, f'No common checksum method for {transfer}. Verifying destination only.')
         strategy, possible_checksums = 'target', dst_checksums
     elif src_checksums:
-        logger(logging.INFO, 'No common checksum method. Verifying source only.')
+        logger(logging.INFO, f'No common checksum method for {transfer}. Verifying source only.')
         strategy, possible_checksums = 'source', src_checksums
     else:
-        logger(logging.INFO, 'No common checksum method. Not verifying source nor destination.')
+        logger(logging.INFO, f'No common checksum method for {transfer}. Not verifying source nor destination.')
         strategy, possible_checksums = 'none', set()
+    return strategy, possible_checksums
+
+
+def _path_checksum_validation_strategy(
+        transfer_path: "List[DirectTransferDefinition]",
+        logger: Callable[..., Any],
+) -> str:
+    """
+    Compute the checksum validation strategy for the whole transfer path.
+    """
+
+    path_strategy = 'both'
+    for transfer_hop in transfer_path:
+        hop_strategy, _ = _hop_checksum_validation_strategy(transfer_hop, logger)
+
+        path_strategy = PATH_CHECKSUM_VALIDATION_STRATEGY.get((path_strategy, hop_strategy), 'none')
+
+    return path_strategy
+
+
+def _pick_fts_checksum(
+        transfer: "DirectTransferDefinition",
+        path_strategy: "str",
+) -> "Union[str, None]":
+    """
+    Pick the checksum to use for validating file integrity on this particular transfer hop.
+    This function will only work correctly for values of 'path_strategy' which are
+    valid for the englobing multi-hop transfer path.
+
+    Returns the checksum as a string in the format expected by the FTS bulks submission API.
+    """
+    src_checksums, dst_checksums = _available_checksums(transfer)
+
+    if path_strategy == 'both':
+        possible_checksums = src_checksums.intersection(dst_checksums)
+    elif path_strategy == 'target':
+        possible_checksums = dst_checksums
+    elif path_strategy == 'source':
+        possible_checksums = src_checksums
+    else:
+        possible_checksums = set()
 
     checksum_to_use = None
     for checksum_name in possible_checksums:
@@ -161,7 +238,7 @@ def _checksum_validation_strategy(
         if checksum_name == PREFERRED_CHECKSUM:
             break
 
-    return strategy, checksum_to_use
+    return checksum_to_use
 
 
 def build_job_params(transfer_path, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger):
@@ -192,10 +269,8 @@ def build_job_params(transfer_path, bring_online, default_lifetime, archive_time
     strict_copy = last_hop.dst.rse.attributes.get('strict_copy', False)
     archive_timeout = last_hop.dst.rse.attributes.get('archive_timeout', None)
 
-    verify_checksum, _checksum_to_use = _checksum_validation_strategy(last_hop, logger=logger)
-
     job_params = {'account': last_hop.rws.account,
-                  'verify_checksum': verify_checksum,
+                  'verify_checksum': _path_checksum_validation_strategy(transfer_path, logger=logger),
                   'copy_pin_lifetime': last_hop.rws.attributes.get('lifetime', default_lifetime),
                   'bring_online': bring_online_local,
                   'job_metadata': {
@@ -766,9 +841,9 @@ class FTS3Transfertool(Transfertool):
         )
         return jobs
 
-    def __file_from_transfer(self, transfer):
+    def _file_from_transfer(self, transfer, job_params):
         rws = transfer.rws
-        _verify_checksum, checksum_to_use = _checksum_validation_strategy(transfer, logger=self.logger)
+        checksum_to_use = _pick_fts_checksum(transfer, path_strategy=job_params['verify_checksum'])
         t_file = {
             'sources': [s[1] for s in transfer.legacy_sources],
             'destinations': [transfer.dest_url],
@@ -812,7 +887,7 @@ class FTS3Transfertool(Transfertool):
                 files.append(transfer)
                 continue
 
-            files.append(self.__file_from_transfer(transfer))
+            files.append(self._file_from_transfer(transfer, job_params))
 
         # FTS3 expects 'davs' as the scheme identifier instead of https
         for transfer_file in files:
