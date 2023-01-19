@@ -1962,7 +1962,6 @@ class Sample(ErrorHandlingMethodView):
                   nbfiles:
                     description: The number of files to register in the output dataset.
                     type: string
-        parameters:
         responses:
           201:
             description: OK
