@@ -1848,7 +1848,7 @@ class GUIDLookup(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
 
-class Sample(ErrorHandlingMethodView):
+class SampleLegacy(ErrorHandlingMethodView):
 
     def post(self, input_scope, input_name, output_scope, output_name, nbfiles):
         """
@@ -1913,6 +1913,82 @@ class Sample(ErrorHandlingMethodView):
                 output_name=output_name,
                 issuer=request.environ.get('issuer'),
                 nbfiles=nbfiles,
+                vo=request.environ.get('vo'),
+            )
+        except DataIdentifierNotFound as error:
+            return generate_http_error_flask(404, error)
+        except (DuplicateContent, DataIdentifierAlreadyExists, UnsupportedOperation) as error:
+            return generate_http_error_flask(409, error)
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
+
+        return 'Created', 201
+
+
+class Sample(ErrorHandlingMethodView):
+
+    def post(self):
+        """
+        ---
+        summary: Create sample
+        description: Creates a sample from an input collection.
+        tags:
+          - Data Identifiers
+        requestBody:
+          description: Parameters (source and destination) for the files in the sample to be created
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - input_scope
+                - input_name
+                - output_scope
+                - output_name
+                - nbfiles
+                properties:
+                  input_scope:
+                    description: The input scope.
+                    type: string
+                  input_name:
+                    description: The input name.
+                    type: string
+                  output_scope:
+                    description: The output scope.
+                    type: string
+                  output_name:
+                    description: The output name.
+                    type: string
+                  nbfiles:
+                    description: The number of files to register in the output dataset.
+                    type: string
+        parameters:
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ["Created"]
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
+          409:
+            description: Duplication
+        """
+        parameters = json_parameters()
+        try:
+            create_did_sample(
+                input_scope=parameters['input_scope'],
+                input_name=parameters['input_name'],
+                output_scope=parameters['output_scope'],
+                output_name=parameters['output_name'],
+                issuer=request.environ.get('issuer'),
+                nbfiles=parameters['nbfiles'],
                 vo=request.environ.get('vo'),
             )
         except DataIdentifierNotFound as error:
@@ -2225,8 +2301,10 @@ def blueprint():
     bp.add_url_rule('/<path:scope_name>', view_func=dids_view, methods=['get', 'post'])
     bulkdids_view = BulkDIDS.as_view('bulkdids')
     bp.add_url_rule('', view_func=bulkdids_view, methods=['post', ])
-    sample_view = Sample.as_view('sample')
-    bp.add_url_rule('/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample', view_func=sample_view, methods=['post', ])
+    sample_view_legacy = SampleLegacy.as_view('sample')
+    bp.add_url_rule('/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample', view_func=sample_view_legacy, methods=['post', ])
+    sample_view = Sample.as_view('sample_new')
+    bp.add_url_rule('/sample', view_func=sample_view, methods=['post', ])
     attachements_view = Attachments.as_view('attachments')
     bp.add_url_rule('/attachments', view_func=attachements_view, methods=['post', ])
     new_dids_view = NewDIDs.as_view('new_dids')
