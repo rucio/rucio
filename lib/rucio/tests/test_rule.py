@@ -149,6 +149,29 @@ def setup_class(request, vo, root_account, jdoe_account, rse_factory):
 @pytest.mark.usefixtures('setup_class')
 class TestCore:
 
+    def test_add_rule_to_file_ask_approval(self, vo, mock_scope, jdoe_account):
+        """ REPLICATION RULE (CORE): Add a replication rule, asking approval"""
+        rse = rse_name_generator()
+        rse_id = add_rse(rse, vo=vo)
+
+        add_rse_attribute(rse_id, "rule_approvers", jdoe_account)
+
+        files = create_files(1, mock_scope, rse_id)
+        output = add_rule(
+            dids=files,
+            account=jdoe_account,
+            copies=1,
+            rse_expression=str(rse),
+            grouping='NONE',
+            weight=None,
+            lifetime=None,
+            locked=False,
+            subscription_id=None,
+            ask_approval=True
+        )
+        assert len(output) == 1
+        assert isinstance(output[0], str)
+
     def test_add_rule_file_none(self, mock_scope, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule on a group of files, NONE Grouping"""
         files = create_files(3, mock_scope, self.rse1_id)

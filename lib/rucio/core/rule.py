@@ -67,6 +67,7 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+    from typing import List, Tuple
 
 
 REGION = make_region_memcached(expiration_time=900)
@@ -3224,7 +3225,7 @@ def __create_rule_approval_email(rule, *, session: "Session"):
                                          'did_type': rule.did_type,
                                          'length': '0' if did['length'] is None else str(did['length']),
                                          'bytes': '0' if did['bytes'] is None else sizefmt(did['bytes']),
-                                         'closed': not did['open'],
+                                         'open': did.get('open', 'Not Applicable'),
                                          'complete_rses': ', '.join(rses),
                                          'approvers': ','.join([r[0] for r in recipents]),
                                          'approver': recipent[1],
@@ -3248,7 +3249,7 @@ def __create_recipents_list(rse_expression, filter_=None, *, session: "Session")
     :param session:         The database session in use.
     """
 
-    recipents = []  # (eMail, account)
+    recipents: "List[Tuple]" = []  # (eMail, account)
 
     # APPROVERS-LIST
     # If there are accounts in the approvers-list of any of the RSEs only these should be used
