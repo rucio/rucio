@@ -2247,7 +2247,7 @@ def approve_rule(rule_id, approver=None, notify_approvers=True, *, session: "Ses
                 text = template.safe_substitute({'rule_id': str(rule.id),
                                                  'approver': approver})
                 vo = rule.account.vo
-                recipients = __create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
+                recipients = _create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
                 for recipient in recipients:
                     add_message(event_type='email',
                                 payload={'body': text,
@@ -2306,7 +2306,7 @@ def deny_rule(rule_id, approver=None, reason=None, *, session: "Session"):
                                                    'approver': approver,
                                                    'reason': reason})
             vo = rule.account.vo
-            recipients = __create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
+            recipients = _create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
             for recipient in recipients:
                 add_message(event_type='email',
                             payload={'body': email_body,
@@ -3223,7 +3223,7 @@ def __create_rule_approval_email(rule: "models.ReplicationRule", *, session: "Se
             pass
 
     # Resolve recipients:
-    recipients = __create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
+    recipients = _create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
 
     for recipient in recipients:
         text = template.safe_substitute(
@@ -3258,7 +3258,7 @@ def __create_rule_approval_email(rule: "models.ReplicationRule", *, session: "Se
 
 
 @transactional_session
-def __create_recipients_list(rse_expression: str, filter_=None, *, session: "Session"):
+def _create_recipients_list(rse_expression: str, filter_=None, *, session: "Session"):
     """
     Create a list of recipients for a notification email based on rse_expression.
 
