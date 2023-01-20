@@ -40,7 +40,6 @@ def test_config_poolclass():
 
 
 @pytest.mark.noparallel(reason='Changes an internal method of MethodView.')
-@pytest.mark.skipif(os.environ.get('PYTHON') == '3.10', reason="Test is not Python3.10 compliant")
 def test_pooloverload():
     """ DB (WEB): Test response to a DatabaseException due to Pool Overflow """
     from rucio.web.rest.flaskapi.v1.ping import Ping
