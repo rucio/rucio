@@ -3287,17 +3287,19 @@ def __create_recipients_list(rse_expression: str, filter_=None, *, session: "Ses
         for rse in parse_expression(rse_expression, filter_=filter_, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
-                accounts = session.query(
+
+                query = select(
                     models.AccountAttrAssociation.account
-                ).filter_by(
-                    key=f'country-{rse_attr.get("country", "")}',
-                    value='admin'
-                ).all()
-                for account in accounts:
+                ).where(
+                    models.AccountAttrAssociation.key == f'country-{rse_attr.get("country", "")}',
+                    models.AccountAttrAssociation.value == 'admin'
+                )
+
+                for account in session.execute(query).scalars().all():
                     try:
-                        email = get_account(account=account[0], session=session).email
+                        email = get_account(account=account, session=session).email
                         if email:
-                            recipients.append((email, account[0]))
+                            recipients.append((email, account))
                     except Exception:
                         pass
 
@@ -3306,17 +3308,19 @@ def __create_recipients_list(rse_expression: str, filter_=None, *, session: "Ses
         for rse in parse_expression(rse_expression, filter_=filter_, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') == 'GROUPDISK':
-                accounts = session.query(
+
+                query = select(
                     models.AccountAttrAssociation.account
-                ).filter_by(
-                    key=f'group-{rse_attr.get("physgroup", "")}',
-                    value='admin'
-                ).all()
-                for account in accounts:
+                ).where(
+                    models.AccountAttrAssociation.key == f'group-{rse_attr.get("physgroup", "")}',
+                    models.AccountAttrAssociation.value == 'admin'
+                )
+
+                for account in session.execute(query).scalars().all():
                     try:
-                        email = get_account(account=account[0], session=session).email
+                        email = get_account(account=account, session=session).email
                         if email:
-                            recipients.append((email, account[0]))
+                            recipients.append((email, account))
                     except Exception:
                         pass
 
