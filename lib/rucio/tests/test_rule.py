@@ -31,7 +31,7 @@ from rucio.common.policy import get_policy
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account import add_account_attribute, get_usage
+from rucio.core.account import add_account_attribute, get_usage, get_account
 from rucio.core.account_limit import set_local_account_limit, set_global_account_limit
 from rucio.core.did import add_did, attach_dids, set_status
 from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
@@ -49,6 +49,10 @@ from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState, LockState
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import rse_name_generator, account_name_generator, did_name_generator
 from rucio.tests.common_server import get_vo
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Tuple
 
 LOG = getLogger(__name__)
 
@@ -171,6 +175,46 @@ class TestCore:
         )
         assert len(output) == 1
         assert isinstance(output[0], str)
+
+    @pytest.mark.parametrize(
+        "param_type,param_group",
+        [
+            ("LOCALGROUPDISK", ("country", "country")),
+            ("GROUPDISK", ("physgroup", "group"))
+        ]
+    )
+    def test_create_recipients_list(
+        self, param_type: str, param_group: "Tuple[str, str]",
+        vo, random_account, function_scope_prefix
+    ):
+        """
+        REPLICATION RULE (CORE):
+        Test creation of recipients list for rses of types LOCALGROUPDISK,
+        LOCALGROUPTAPE, GROUPDISK.
+        """
+
+        rstring = function_scope_prefix + param_type
+        rsegroup, accountgroup = param_group
+
+        # create rse
+        # rse must NOT have attr 'rule_approvers'
+        rse = rse_name_generator()
+        rse_id = add_rse(rse, vo=vo)
+        add_rse_attribute(rse_id, "type", param_type)
+        add_rse_attribute(rse_id, rsegroup, rstring)
+
+        # create account
+        account: InternalAccount = random_account
+        add_account_attribute(
+            account, f"{accountgroup}-{rstring}", "admin"
+        )
+        email = get_account(account).email
+
+        # import and run relevant function
+        from rucio.core.rule import _create_recipients_list
+        out = _create_recipients_list(str(rse))
+
+        assert out == [(email, account)]
 
     def test_add_rule_file_none(self, mock_scope, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule on a group of files, NONE Grouping"""
