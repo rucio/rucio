@@ -1151,8 +1151,8 @@ class FTSWrapper(FTS3Transfertool):
     def on_receive(job_response):
         pass
 
-    def _FTS3Transfertool__file_from_transfer(self, transfer):
-        file = super()._FTS3Transfertool__file_from_transfer(transfer)
+    def _file_from_transfer(self, transfer, job_params):
+        file = super()._file_from_transfer(transfer, job_params)
         self.on_submit(file)
         return file
 
