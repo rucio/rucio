@@ -83,8 +83,10 @@ def verify_identity(identity: str, type_: IdentityType, password: Union[str, Non
 
     id_ = session.query(models.Identity).filter_by(identity=identity, identity_type=type_).first()
     if id_ is None:
-        raise exception.IdentityError('Identity pair \'%s\',\'%s\' does not exist!' % (identity, type_))
-    if type_ == IdentityType.USERPASS:
+        raise exception.IdentityError('Identity \'%s\' of type \'%s\' does not exist!' % (identity, type_))
+    if type_ == IdentityType.X509:
+        return True
+    elif type_ == IdentityType.USERPASS:
         salted_password = id_.salt + password.encode()
         password = hashlib.sha256(salted_password).hexdigest()
         if password != id_.password:
