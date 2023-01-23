@@ -49,7 +49,7 @@ class CORSMiddleware(object):
     This middleware intercepts the preflight OPTIONS requests and returns a 200 OK response.
     """
 
-    def __init__(self, app: flask.Flask) -> typing.NoReturn:
+    def __init__(self, app: flask.Flask) -> None:
         self.app = app
 
     def __call__(self, environ: typing.Dict, start_response: typing.Callable) -> typing.Union[Response, typing.Iterable[bytes]]:
