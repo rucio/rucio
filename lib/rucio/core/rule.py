@@ -24,6 +24,7 @@ from datetime import datetime, timedelta
 from re import match
 from string import Template
 from typing import Dict, Any, Optional
+from os import path
 
 from dogpile.cache.api import NO_VALUE
 
@@ -67,6 +68,7 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+    from typing import List, Tuple
 
 
 REGION = make_region_memcached(expiration_time=900)
@@ -2245,11 +2247,11 @@ def approve_rule(rule_id, approver=None, notify_approvers=True, *, session: "Ses
                 text = template.safe_substitute({'rule_id': str(rule.id),
                                                  'approver': approver})
                 vo = rule.account.vo
-                recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
-                for recipent in recipents:
+                recipients = _create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
+                for recipient in recipients:
                     add_message(event_type='email',
                                 payload={'body': text,
-                                         'to': [recipent[0]],
+                                         'to': [recipient[0]],
                                          'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                                 session=session)
     except NoResultFound:
@@ -2304,11 +2306,11 @@ def deny_rule(rule_id, approver=None, reason=None, *, session: "Session"):
                                                    'approver': approver,
                                                    'reason': reason})
             vo = rule.account.vo
-            recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
-            for recipent in recipents:
+            recipients = _create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
+            for recipient in recipients:
                 add_message(event_type='email',
                             payload={'body': email_body,
-                                     'to': [recipent[0]],
+                                     'to': [recipient[0]],
                                      'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                             session=session)
     except NoResultFound:
@@ -3170,7 +3172,7 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, *
 
 
 @transactional_session
-def __create_rule_approval_email(rule, *, session: "Session"):
+def __create_rule_approval_email(rule: "models.ReplicationRule", *, session: "Session"):
     """
     Create the rule notification email.
 
@@ -3178,11 +3180,23 @@ def __create_rule_approval_email(rule, *, session: "Session"):
     :param session:   The database session in use.
     """
 
-    with open('%s/rule_approval_request.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+    filepath = path.join(
+        config_get('common', 'mailtemplatedir'), 'rule_approval_request.tmpl'  # type: ignore
+    )
+    with open(filepath, 'r') as templatefile:
         template = Template(templatefile.read())
 
-    did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic_depth=DIDType.FILE, session=session)
-    rses = [rep['rse_id'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
+    did = rucio.core.did.get_did(
+        scope=rule.scope,
+        name=rule.name,
+        dynamic_depth=DIDType.FILE,
+        session=session
+    )
+
+    reps = rucio.core.replica.list_dataset_replicas(
+        scope=rule.scope, name=rule.name, session=session
+    )
+    rses = [rep['rse_id'] for rep in reps if rep['state'] == ReplicaState.AVAILABLE]
 
     # RSE occupancy
     vo = rule.account.vo
@@ -3208,47 +3222,51 @@ def __create_rule_approval_email(rule, *, session: "Session"):
         except Exception:
             pass
 
-    # Resolve recipents:
-    recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
+    # Resolve recipients:
+    recipients = _create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
 
-    for recipent in recipents:
-        text = template.safe_substitute({'rule_id': str(rule.id),
-                                         'created_at': str(rule.created_at),
-                                         'expires_at': str(rule.expires_at),
-                                         'account': rule.account.external,
-                                         'email': get_account(account=rule.account, session=session).email,
-                                         'rse_expression': rule.rse_expression,
-                                         'comment': rule.comments,
-                                         'scope': rule.scope.external,
-                                         'name': rule.name,
-                                         'did_type': rule.did_type,
-                                         'length': '0' if did['length'] is None else str(did['length']),
-                                         'bytes': '0' if did['bytes'] is None else sizefmt(did['bytes']),
-                                         'closed': not did['open'],
-                                         'complete_rses': ', '.join(rses),
-                                         'approvers': ','.join([r[0] for r in recipents]),
-                                         'approver': recipent[1],
-                                         'target_rse': target_rse,
-                                         'free_space': free_space,
-                                         'free_space_after': free_space_after})
+    for recipient in recipients:
+        text = template.safe_substitute(
+            {
+                'rule_id': str(rule.id),
+                'created_at': str(rule.created_at),
+                'expires_at': str(rule.expires_at),
+                'account': rule.account.external,
+                'email': get_account(account=rule.account, session=session).email,
+                'rse_expression': rule.rse_expression,
+                'comment': rule.comments,
+                'scope': rule.scope.external,
+                'name': rule.name,
+                'did_type': rule.did_type,
+                'length': '0' if did['length'] is None else str(did['length']),
+                'bytes': '0' if did['bytes'] is None else sizefmt(did['bytes']),
+                'open': did.get('open', 'Not Applicable'),
+                'complete_rses': ', '.join(rses),
+                'approvers': ','.join([r[0] for r in recipients]),
+                'approver': recipient[1],
+                'target_rse': target_rse,
+                'free_space': free_space,
+                'free_space_after': free_space_after
+            }
+        )
 
         add_message(event_type='email',
                     payload={'body': text,
-                             'to': [recipent[0]],
+                             'to': [recipient[0]],
                              'subject': '[RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                     session=session)
 
 
 @transactional_session
-def __create_recipents_list(rse_expression, filter_=None, *, session: "Session"):
+def _create_recipients_list(rse_expression: str, filter_=None, *, session: "Session"):
     """
-    Create a list of recipents for a notification email based on rse_expression.
+    Create a list of recipients for a notification email based on rse_expression.
 
     :param rse_exoression:  The rse_expression.
     :param session:         The database session in use.
     """
 
-    recipents = []  # (eMail, account)
+    recipients: "List[Tuple]" = []  # (eMail, account)
 
     # APPROVERS-LIST
     # If there are accounts in the approvers-list of any of the RSEs only these should be used
@@ -3260,47 +3278,61 @@ def __create_recipents_list(rse_expression, filter_=None, *, session: "Session")
                 try:
                     email = get_account(account=account, session=session).email
                     if email:
-                        recipents.append((email, account))
+                        recipients.append((email, account))
                 except Exception:
                     pass
 
     # LOCALGROUPDISK/LOCALGROUPTAPE
-    if not recipents:
+    if not recipients:
         for rse in parse_expression(rse_expression, filter_=filter_, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
-                accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
-                                                                                          value='admin').all()
-                for account in accounts:
+
+                query = select(
+                    models.AccountAttrAssociation.account
+                ).where(
+                    models.AccountAttrAssociation.key == f'country-{rse_attr.get("country", "")}',
+                    models.AccountAttrAssociation.value == 'admin'
+                )
+
+                for account in session.execute(query).scalars().all():
                     try:
-                        email = get_account(account=account[0], session=session).email
+                        email = get_account(account=account, session=session).email
                         if email:
-                            recipents.append((email, account[0]))
+                            recipients.append((email, account))
                     except Exception:
                         pass
 
     # GROUPDISK
-    if not recipents:
+    if not recipients:
         for rse in parse_expression(rse_expression, filter_=filter_, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') == 'GROUPDISK':
-                accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='group-%s' % rse_attr.get('physgroup', ''),
-                                                                                          value='admin').all()
-                for account in accounts:
+
+                query = select(
+                    models.AccountAttrAssociation.account
+                ).where(
+                    models.AccountAttrAssociation.key == f'group-{rse_attr.get("physgroup", "")}',
+                    models.AccountAttrAssociation.value == 'admin'
+                )
+
+                for account in session.execute(query).scalars().all():
                     try:
-                        email = get_account(account=account[0], session=session).email
+                        email = get_account(account=account, session=session).email
                         if email:
-                            recipents.append((email, account[0]))
+                            recipients.append((email, account))
                     except Exception:
                         pass
 
     # DDMADMIN as default
-    if not recipents:
-        default_mail_from = config_get('core', 'default_mail_from', raise_exception=False, default=None)
+    if not recipients:
+        default_mail_from = config_get(
+            'core', 'default_mail_from', raise_exception=False, default=None
+        )
         if default_mail_from:
-            recipents = [(default_mail_from, 'ddmadmin')]
+            recipients = [(default_mail_from, 'ddmadmin')]
 
-    return list(set(recipents))
+    return list(set(recipients))
 
 
 def __progress_class(replicating_locks, total_locks):
