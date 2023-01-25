@@ -46,6 +46,10 @@ from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import execute, headers, auth, Mime, accept, did_name_generator
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from rucio.tests.temp_factories import TemporaryRSEFactory
+
 
 def mocked_VP_requests_get(*args, **kwargs):
     """This method will be used by the mock to replace requests.get to VP server."""
@@ -195,6 +199,46 @@ class TestReplicaCore:
             replica_cpt += 1
 
         assert nbfiles == replica_cpt
+
+    @pytest.mark.parametrize(
+        "params",
+        [
+            (False, None, None),
+            (True, 10, 10),
+            (True, -2, 1),
+            (True, 0, 1),
+            (True, 56.7, 1),
+            (True, "oops", 1)
+        ]
+    )
+    def test_list_replicas_sim_multirange(
+        self, params, rse_factory: "TemporaryRSEFactory", mock_scope, root_account
+    ):
+        """ REPLICA (CORE): List file replicas for storage that does not support multirange-byte requests should add suffix to PFN"""
+
+        # bear in mind that if a bad value is entered as rse_attribute, the default value is 1
+        simulate_multirange, nconns, expectedconns = params
+
+        _, rse_id = rse_factory.make_mock_rse()
+
+        if simulate_multirange:
+            add_rse_attribute(
+                rse_id=rse_id, key='simulate_multirange', value=str(nconns)
+            )
+
+        # add files
+        file_name = did_name_generator('testfiles')
+        add_replica(rse_id, mock_scope, file_name, 2, root_account)
+
+        dids = [{'scope': mock_scope, 'name': file_name, 'type': DIDType.FILE}]
+        file = next(list_replicas(dids=dids))
+        pfn = list(file['pfns'].keys())[0]
+        assert pfn[:7] == 'mock://'
+        assert file_name in pfn
+        if simulate_multirange:
+            assert f'&#multirange=false&nconnections={expectedconns}' in pfn
+        else:
+            assert '&#multirange=false&nconnections' not in pfn
 
     @pytest.mark.parametrize("file_config_mock", [
         # Run test twice: with, and without, temp tables

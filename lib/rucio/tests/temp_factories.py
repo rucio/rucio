@@ -31,6 +31,10 @@ from rucio.tests.common import did_name_generator
 from rucio.tests.common_server import cleanup_db_deps
 from sqlalchemy import and_, or_, delete
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Tuple
+
 
 class TemporaryRSEFactory:
     """
@@ -68,7 +72,7 @@ class TemporaryRSEFactory:
             # So running test in parallel results in some tests failing on foreign key errors.
             rse_core.del_rse(rse_id)
 
-    def _make_rse(self, scheme, protocol_impl, parameters=None, add_rse_kwargs=None):
+    def _make_rse(self, scheme, protocol_impl, parameters=None, add_rse_kwargs=None) -> "Tuple[str, str]":
         rse_name = self.name_prefix + ''.join(choice(ascii_uppercase) for _ in range(6))
         if add_rse_kwargs and 'vo' in add_rse_kwargs:
             rse_id = rse_core.add_rse(rse_name, **add_rse_kwargs)
