@@ -17,7 +17,7 @@
 /lib/rucio/client/uploadclient.py       @mlassnig
 /lib/rucio/client/downloadclient.py     @mlassnig
 /lib/rucio/client/                      @mlassnig
-/bin/                                   @mlassnig @joeldierkes
+/bin/                                   @mlassnig
 
 # ----
 
@@ -28,10 +28,11 @@
 /lib/rucio/api/permission.py            @mlassnig
 /lib/rucio/core/account.py              @mlassnig
 /lib/rucio/core/authentication.py       @mlassnig
+/lib/rucio/core/oidc.py                 @dchristidis
 /lib/rucio/daemons/oauthmanager/        @mlassnig
 
 # Consistency checks
-/lib/rucio/daemons/auditor/             @dchristidis
+/lib/rucio/daemons/auditor/             @faluchet
 
 # Data Pre-Placement
 /lib/rucio/daemons/c3po/                @bari12
@@ -84,8 +85,8 @@
 /lib/rucio/core/replica.py              @mlassnig
 
 # REST & API
-/lib/rucio/api/                         @bziemons
-/lib/rucio/web/                         @bziemons
+#/lib/rucio/api/                         @bziemons
+#/lib/rucio/web/                         @bziemons
 
 # Rules
 /lib/rucio/client/ruleclient.py         @bari12
@@ -99,12 +100,12 @@
 /lib/rucio/daemons/transmogrifier/      @cserf
 
 # Testing
-/.github/                               @maany @joeldierkes
-/etc/docker/test/                       @maany @joeldierkes
-/lib/rucio/tests/conftest.py            @maany @joeldierkes
-/lib/rucio/tests/ruciopytest/           @maany @joeldierkes
-/tools/github/                          @maany @joeldierkes
-/tools/test/                            @maany @joeldierkes
+/.github/                               @maany
+/etc/docker/test/                       @maany
+/lib/rucio/tests/conftest.py            @maany
+/lib/rucio/tests/ruciopytest/           @maany
+/tools/github/                          @maany
+/tools/test/                            @maany
 
 # Traces
 /lib/rucio/core/trace.py                @mlassnig
