@@ -29,6 +29,7 @@ from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, get_rse_credentials
 from rucio.common.exception import UnsupportedOperation
 from rucio.core.monitor import MetricManager
+from rucio.core.rse import get_rse_attribute
 
 CREDS_GCS = None
 
@@ -36,7 +37,7 @@ REGION = make_region_memcached(expiration_time=900)
 METRICS = MetricManager(module=__name__)
 
 
-def get_signed_url(rse_id, service, operation, url, lifetime=600):
+def get_signed_url(rse_id: str, service: str, operation: str, url: str, lifetime=600) -> str:
     """
     Get a signed URL for a particular service and operation.
 
@@ -68,7 +69,6 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
             except:
                 raise UnsupportedOperation('Lifetime must be convertible to numeric.')
 
-    signed_url = None
     if service == 'gcs':
         if not CREDS_GCS:
             CREDS_GCS = Credentials.from_service_account_file(config_get('credentials', 'gcs',
@@ -101,21 +101,40 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
         signature = urlencode({'': base64.b64encode(CREDS_GCS.sign_bytes(to_sign))})[1:]
 
         # assemble final signed URL
-        signed_url = 'https://%s%s?GoogleAccessId=%s&Expires=%s&Signature=%s' % (host,
-                                                                                 path,
-                                                                                 CREDS_GCS.service_account_email,
-                                                                                 lifetime,
-                                                                                 signature)
+        signed_url = (
+            f'https://{host}{path}'
+            f'?GoogleAccessId={CREDS_GCS.service_account_email}'
+            f'&Expires={lifetime}&Signature={signature}'
+        )
 
     elif service == 's3':
+
+        # get RSE S3 URL style (path or host)
+        # path-style: https://s3.region-code.amazonaws.com/bucket-name/key-name
+        # host-style: https://bucket-name.s3.region-code.amazonaws.com/key-name
+        s3_url_style = get_rse_attribute(rse_id, 's3_url_style')
+
+        # no S3 URL style specified, assume path-style
+        if s3_url_style is None:
+            s3_url_style = "path"
+
         # split URL to get hostname, bucket and key
         components = urlparse(url)
         host = components.netloc
         pathcomponents = components.path.split('/')
-        if len(pathcomponents) < 3:
-            raise UnsupportedOperation('Not a valid S3 URL')
-        bucket = pathcomponents[1]
-        key = '/'.join(pathcomponents[2:])
+        if s3_url_style == "path":
+            if len(pathcomponents) < 3:
+                raise UnsupportedOperation('Not a valid Path-Style S3 URL')
+            bucket = pathcomponents[1]
+            key = '/'.join(pathcomponents[2:])
+        elif s3_url_style == "host":
+            hostcomponents = host.split('.')
+            bucket = hostcomponents[0]
+            if len(pathcomponents) < 2:
+                raise UnsupportedOperation('Not a valid Host-Style S3 URL')
+            key = '/'.join(pathcomponents[1:])
+        else:
+            raise UnsupportedOperation('Not a valid RSE S3 URL style (allowed values: path|host)')
 
         # remove port number from host if present
         colon = host.find(':')
@@ -144,11 +163,22 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
             s3op = 'delete_object'
 
         with METRICS.timer('signs3'):
-            s3 = boto3.client('s3', endpoint_url='https://' + host + ':' + port, aws_access_key_id=access_key, aws_secret_access_key=secret_key, config=Config(signature_version=signature_version, region_name=region_name))
 
-            signed_url = s3.generate_presigned_url(s3op, Params={'Bucket': bucket, 'Key': key}, ExpiresIn=lifetime)
+            if s3_url_style == "host":
+                s3_url_style = "virtual"
 
-    elif service == 'swift':
+            s3 = boto3.client(service_name='s3',
+                              endpoint_url=f'https://{host}:{port}',
+                              aws_access_key_id=access_key,
+                              aws_secret_access_key=secret_key,
+                              config=Config(signature_version=signature_version,
+                                            region_name=region_name,
+                                            s3={"addressing_style": s3_url_style}))
+
+            signed_url: str = s3.generate_presigned_url(
+                s3op, Params={'Bucket': bucket, 'Key': key}, ExpiresIn=lifetime)
+
+    else:  # service == 'swift'
         # split URL to get hostname and path
         components = urlparse(url)
         host = components.netloc
@@ -183,6 +213,6 @@ def get_signed_url(rse_id, service, operation, url, lifetime=600):
             hmac_body = u'%s\n%s\n%s' % (swiftop, expires, components.path)
             # Python 3 hmac only accepts bytes or bytearray
             sig = hmac.new(bytearray(tempurl_key, 'utf-8'), bytearray(hmac_body, 'utf-8'), sha1).hexdigest()
-            signed_url = 'https://' + host + components.path + '?temp_url_sig=' + sig + '&temp_url_expires=' + str(expires)
+            signed_url = f'https://{host}{components.path}?temp_url_sig={sig}&temp_url_expires={expires}'
 
     return signed_url

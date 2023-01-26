@@ -17,6 +17,7 @@ from json import dumps, loads
 
 from requests.status_codes import codes
 from urllib.parse import quote_plus
+from typing import Dict, List, Any, Optional, Union
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
@@ -29,31 +30,50 @@ class RuleClient(BaseClient):
 
     RULE_BASEURL = 'rules'
 
-    def add_replication_rule(self, dids, copies, rse_expression, weight=None, lifetime=None, grouping='DATASET', account=None,
-                             locked=False, source_replica_expression=None, activity=None, notify='N', purge_replicas=False,
-                             ignore_availability=False, comment=None, ask_approval=False, asynchronous=False, delay_injection=None,
-                             priority=3, meta=None):
+    def add_replication_rule(
+        self,
+        dids: List[str],
+        copies: int,
+        rse_expression: str,
+        priority: int = 3,
+        lifetime: Optional[int] = None,
+        grouping: str = 'DATASET',
+        notify: str = 'N',
+        source_replica_expression: Optional[str] = None,
+        activity: Optional[str] = None,
+        account: Optional[str] = None,
+        meta: Optional[str] = None,
+        ignore_availability: bool = False,
+        purge_replicas: bool = False,
+        ask_approval: bool = False,
+        asynchronous: bool = False,
+        locked: bool = False,
+        delay_injection=None,
+        comment=None,
+        weight=None,
+    ):
         """
         :param dids:                       The data identifier set.
         :param copies:                     The number of replicas.
         :param rse_expression:             Boolean string expression to give the list of RSEs.
-        :param weight:                     If the weighting option of the replication rule is used, the choice of RSEs takes their weight into account.
+        :param priority:                   Priority of the transfers.
         :param lifetime:                   The lifetime of the replication rules (in seconds).
         :param grouping:                   ALL -  All files will be replicated to the same RSE.
                                            DATASET - All files in the same dataset will be replicated to the same RSE.
                                            NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
-        :param account:                    The account owning the rule.
-        :param locked:                     If the rule is locked, it cannot be deleted.
+        :param notify:                     Notification setting for the rule (Y, N, C).
         :param source_replica_expression:  RSE Expression for RSEs to be considered for source replicas.
         :param activity:                   Transfer Activity to be passed to FTS.
-        :param notify:                     Notification setting for the rule (Y, N, C).
-        :param purge_replicas:             When the rule gets deleted purge the associated replicas immediately.
+        :param account:                    The account owning the rule.
+        :param meta:                       Metadata, as dictionary.
         :param ignore_availability:        Option to ignore the availability of RSEs.
+        :param purge_replicas:             When the rule gets deleted purge the associated replicas immediately.
         :param ask_approval:               Ask for approval of this replication rule.
         :param asynchronous:               Create rule asynchronously by judge-injector.
-        :param priority:                   Priority of the transfers.
+        :param locked:                     If the rule is locked, it cannot be deleted.
+        :param delay_injection:
         :param comment:                    Comment about the rule.
-        :param meta:                       Metadata, as dictionary.
+        :param weight:                     If the weighting option of the replication rule is used, the choice of RSEs takes their weight into account.
         """
         path = self.RULE_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
@@ -70,7 +90,9 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def delete_replication_rule(self, rule_id, purge_replicas=None):
+    def delete_replication_rule(
+        self, rule_id: str, purge_replicas: Optional[bool] = None
+    ):
         """
         Deletes a replication rule and all associated locks.
 
@@ -91,7 +113,7 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def get_replication_rule(self, rule_id):
+    def get_replication_rule(self, rule_id: str):
         """
         Get a replication rule.
 
@@ -107,7 +129,7 @@ class RuleClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def update_replication_rule(self, rule_id, options):
+    def update_replication_rule(self, rule_id: str, options: Dict[str, Any]):
         """
         :param rule_id:   The id of the rule to be retrieved.
         :param options:   Options dictionary.
@@ -122,7 +144,9 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def reduce_replication_rule(self, rule_id, copies, exclude_expression=None):
+    def reduce_replication_rule(
+        self, rule_id: str, copies: int, exclude_expression=None
+    ):
         """
         :param rule_id:             Rule to be reduced.
         :param copies:              Number of copies of the new rule.
@@ -139,7 +163,9 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def move_replication_rule(self, rule_id, rse_expression, override):
+    def move_replication_rule(
+        self, rule_id: str, rse_expression: str, override
+    ):
         """
         Move a replication rule to another RSE and, once done, delete the original one.
 
@@ -162,7 +188,7 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def approve_replication_rule(self, rule_id):
+    def approve_replication_rule(self, rule_id: str):
         """
         :param rule_id:             Rule to be approved.
         :raises:                    RuleNotFound
@@ -177,22 +203,28 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def deny_replication_rule(self, rule_id):
+    def deny_replication_rule(self, rule_id: str, reason: Optional[str] = None):
         """
         :param rule_id:             Rule to be denied.
+        :param reason:              Reason for denying the rule.
         :raises:                    RuleNotFound
         """
 
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
-        data = dumps({'options': {'approve': False}})
+        options: Dict[str, Union[bool, str]] = {'approve': False}
+        if reason:
+            options['comment'] = reason
+        data = dumps({'options': options})
         r = self._send_request(url, type_='PUT', data=data)
         if r.status_code == codes.ok:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_replication_rule_full_history(self, scope, name):
+    def list_replication_rule_full_history(
+            self, scope: Union[str, bytes], name: Union[str, bytes]
+    ):
         """
         List the rule history of a DID.
 
@@ -207,7 +239,7 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
         raise exc_cls(exc_msg)
 
-    def examine_replication_rule(self, rule_id):
+    def examine_replication_rule(self, rule_id: str):
         """
         Examine a replication rule for errors during transfer.
 
@@ -222,7 +254,7 @@ class RuleClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(r.headers, r.status_code)
         raise exc_cls(exc_msg)
 
-    def list_replica_locks(self, rule_id):
+    def list_replica_locks(self, rule_id: str):
         """
         List details of all replica locks for a rule.
 

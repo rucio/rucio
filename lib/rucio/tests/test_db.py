@@ -14,7 +14,7 @@
 # limitations under the License.
 
 import pytest
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 from rucio.db.sqla.session import get_session, _get_engine_poolclass, NullPool, QueuePool, SingletonThreadPool
 from rucio.common.exception import InputValidationError
@@ -48,11 +48,12 @@ def test_pooloverload():
     # Create a new ErrorHandlingMethodView as_view
     ping_view = Ping.as_view('ping')
 
-    # need to specify the patch more closely here
-    # for python >= 3.8, which leads to errors
-    flaskmock = Mock()
-    flaskmock.method = 'replacement string!'
-    patch_flask = patch('flask.request', spec=flaskmock)
+    # specification for the mock we create to replace flask.request
+    # without specifying this, _is_async_obj is run which triggers flask RuntimeError
+    class T:
+        method = 'replacement string'
+
+    patch_flask = patch('flask.request', spec=T)
 
     patch_getheaders = patch('rucio.web.rest.flaskapi.v1.ping.Ping.get_headers')
     patch_dispatch = patch(

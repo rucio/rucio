@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import Mock, patch
 from datetime import datetime, timedelta
+from requests.exceptions import SSLError
 
 from http.server import SimpleHTTPRequestHandler
 from http.server import HTTPServer
@@ -25,7 +27,7 @@ import pytest
 from rucio.client.baseclient import BaseClient
 from rucio.client.client import Client
 from rucio.common.config import config_get, config_set
-from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, RucioException
+from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, RucioException, ServerSSLCertificateExpiredException
 from rucio.common.utils import execute
 
 
@@ -155,6 +157,46 @@ class TestBaseClient:
             client._send_request(server.base_url)  # noqa
         # The client did back-off multiple times before succeeding: 2 * 0.25s (authentication) + 2 * 0.25s (request) = 1s
         assert datetime.utcnow() - start_time > timedelta(seconds=0.9)
+
+    def testServerSSLExpiryHandling(self):
+        """
+        CLIENTS (BASECLIENT): Test handling of expired server SSL certs
+
+        Does not actually test the validation of the SSL cert.
+        """
+        from datetime import datetime
+        from rucio.common.utils import date_to_str
+
+        now = datetime.now()
+
+        with patch(
+            'rucio.client.baseclient.BaseClient._BaseClient__check_ssl_expiry',
+            return_value=now
+        ):
+            client = BaseClient(
+                account='root',
+                ca_cert=self.cacert,
+                auth_type='userpass',
+                creds={'username': 'ddmlab', 'password': 'secret'},
+            )
+
+            # forcing an SSLError
+            client.session.get = Mock(side_effect=SSLError)
+            with pytest.raises(ServerSSLCertificateExpiredException):
+                client._send_request(Mock())
+
+            # assume SSL valid, test if warning triggered
+            class Result_Mock():
+                status_code = 200
+                reason = 'no reason'
+            client.session.get = Mock(return_value=Result_Mock())
+            client.logger.warning = Mock()
+            client._send_request(Mock())
+
+            warnstr = ("Server SSL Certificate will expire in less than "
+                       f"{client.sslexpiry_warnlimit_weeks} weeks on "
+                       f"{date_to_str(now)}.")
+            assert warnstr == client.logger.warning.call_args_list[0][0][0]
 
 
 class TestRucioClients:

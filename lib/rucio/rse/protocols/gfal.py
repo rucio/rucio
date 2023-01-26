@@ -445,13 +445,8 @@ class Default(protocol.RSEProtocol):
             params.timeout = int(transfer_timeout)
             watchdog = Timer(params.timeout + 60, self.__gfal2_cancel)
 
-        if not (self.renaming and dest[:5] == 'https'):
-            dir_name = os.path.dirname(dest)
-            # This function will be removed soon. gfal2 will create parent dir automatically.
-            try:
-                ctx.mkdir_rec(str(dir_name), 0o775)
-            except:
-                pass
+        if not (self.renaming and dest.startswith('https')):
+            params.create_parent = True
 
         if not self.renaming:
             params.strict_copy = True

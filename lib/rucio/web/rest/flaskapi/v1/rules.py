@@ -16,12 +16,13 @@
 from json import dumps
 
 from flask import Flask, request, Response
+from typing import Any, Dict
 
 from rucio.api.lock import get_replica_locks_for_rule_id
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, \
     update_replication_rule, reduce_replication_rule, list_replication_rule_history, \
     list_replication_rule_full_history, list_replication_rules, examine_replication_rule, move_replication_rule
-from rucio.common.exception import InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression, \
+from rucio.common.exception import InputValidationError, InsufficientAccountLimit, RuleNotFound, AccessDenied, InvalidRSEExpression, \
     InvalidReplicationRule, DataIdentifierNotFound, InsufficientTargetRSEs, ReplicationRuleCreationTemporaryFailed, \
     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule, InvalidObject, AccountNotFound, \
     RuleReplaceFailed, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, UnsupportedOperation
@@ -151,14 +152,15 @@ class Rule(ErrorHandlingMethodView):
             description: No rule found for the given id
        """
         parameters = json_parameters()
-        options = param_get(parameters, 'options')
+        options: Dict[str, Any] = param_get(parameters, 'options')
         try:
             update_replication_rule(rule_id=rule_id, options=options, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except (RuleNotFound, AccountNotFound) as error:
             return generate_http_error_flask(404, error)
-        except (ScratchDiskLifetimeConflict, UnsupportedOperation) as error:
+        except (ScratchDiskLifetimeConflict,
+                UnsupportedOperation, InputValidationError) as error:
             return generate_http_error_flask(409, error)
 
         return '', 200

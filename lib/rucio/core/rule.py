@@ -24,9 +24,11 @@ from datetime import datetime, timedelta
 from re import match
 from string import Template
 from typing import Dict, Any, Optional
+from os import path
 
 from dogpile.cache.api import NO_VALUE
 
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
@@ -66,6 +68,7 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+    from typing import List, Tuple
 
 
 REGION = make_region_memcached(expiration_time=900)
@@ -1175,7 +1178,7 @@ def get_rule(rule_id, *, session: "Session"):
 
 
 @transactional_session
-def update_rule(rule_id, options, *, session: "Session"):
+def update_rule(rule_id: str, options: Dict[str, Any], *, session: "Session") -> None:
     """
     Update a rules options.
 
@@ -1185,14 +1188,23 @@ def update_rule(rule_id, options, *, session: "Session"):
     :raises:            RuleNotFound if no Rule can be found, InputValidationError if invalid option is used, ScratchDiskLifetimeConflict if wrong ScratchDiskLifetime is used.
     """
 
-    valid_options = ['comment', 'locked', 'lifetime', 'account', 'state', 'activity', 'source_replica_expression', 'cancel_requests', 'priority', 'child_rule_id', 'eol_at', 'meta', 'purge_replicas', 'boost_rule']
+    valid_options = ['comment', 'locked', 'lifetime', 'account', 'state',
+                     'activity', 'source_replica_expression', 'cancel_requests',
+                     'priority', 'child_rule_id', 'eol_at', 'meta',
+                     'purge_replicas', 'boost_rule']
 
     for key in options:
         if key not in valid_options:
             raise InputValidationError('%s is not a valid option to set.' % key)
 
     try:
-        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        query = select(
+            models.ReplicationRule
+        ).where(
+            models.ReplicationRule.id == rule_id
+        )
+        rule: models.ReplicationRule = session.execute(query).scalar_one()
+
         for key in options:
             if key == 'lifetime':
                 # Check SCRATCHDISK Policy
@@ -1210,38 +1222,96 @@ def update_rule(rule_id, options, *, session: "Session"):
                 rule.comments = options['comment']
 
             if key == 'activity':
-                validate_schema('activity', options['activity'], vo=rule.account.vo)
+                validate_schema(
+                    'activity', options['activity'], vo=rule.account.vo
+                )
                 rule.activity = options['activity']
                 # Cancel transfers and re-submit them:
-                for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
-                    transfers_to_cancel = request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                query = select(
+                    models.ReplicaLock
+                ).where(
+                    models.ReplicaLock.rule_id == rule.id,
+                    models.ReplicaLock.state == LockState.REPLICATING
+                )
+                for lock in session.execute(query).scalars().all():
+                    transfers_to_cancel = request_core.cancel_request_did(
+                        scope=lock.scope,
+                        name=lock.name,
+                        dest_rse_id=lock.rse_id,
+                        session=session
+                    )
                     transfer_core.cancel_transfers(transfers_to_cancel)
-                    md5, bytes_, adler32 = session.query(models.RSEFileAssociation.md5, models.RSEFileAssociation.bytes, models.RSEFileAssociation.adler32).filter(models.RSEFileAssociation.scope == lock.scope,
-                                                                                                                                                                   models.RSEFileAssociation.name == lock.name,
-                                                                                                                                                                   models.RSEFileAssociation.rse_id == lock.rse_id).one()
+                    query = select(
+                        models.RSEFileAssociation.md5,
+                        models.RSEFileAssociation.bytes,
+                        models.RSEFileAssociation.adler32
+                    ).where(
+                        models.RSEFileAssociation.scope == lock.scope,
+                        models.RSEFileAssociation.name == lock.name,
+                        models.RSEFileAssociation.rse_id == lock.rse_id
+                    )
+                    md5, bytes_, adler32 = session.execute(query).one()
                     session.flush()
-                    request_core.queue_requests(requests=[create_transfer_dict(dest_rse_id=lock.rse_id,
-                                                                               request_type=RequestType.TRANSFER,
-                                                                               scope=lock.scope, name=lock.name, rule=rule, lock=lock, bytes_=bytes_, md5=md5, adler32=adler32,
-                                                                               ds_scope=rule.scope, ds_name=rule.name, copy_pin_lifetime=None, activity=rule.activity, session=session)], session=session)
+
+                    requests = create_transfer_dict(
+                        dest_rse_id=lock.rse_id,
+                        request_type=RequestType.TRANSFER,
+                        scope=lock.scope,
+                        name=lock.name,
+                        rule=rule,
+                        lock=lock,
+                        bytes_=bytes_,
+                        md5=md5,
+                        adler32=adler32,
+                        ds_scope=rule.scope,
+                        ds_name=rule.name,
+                        copy_pin_lifetime=None,
+                        activity=rule.activity,
+                        session=session
+                    )
+                    request_core.queue_requests([requests], session=session)
 
             elif key == 'account':
                 # Check if the account exists
                 get_account(options['account'], session=session)
                 # Update locks
-                locks = session.query(models.ReplicaLock).filter_by(rule_id=rule.id).all()
+                query = select(
+                    models.ReplicaLock
+                ).where(
+                    models.ReplicaLock.rule_id == rule.id
+                )
                 counter_rses = {}
-                for lock in locks:
+                for lock in session.execute(query).scalars().all():
                     if lock.rse_id in counter_rses:
                         counter_rses[lock.rse_id].append(lock.bytes)
                     else:
                         counter_rses[lock.rse_id] = [lock.bytes]
-                session.query(models.ReplicaLock).filter_by(rule_id=rule.id).update({'account': options['account']})
-                session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'account': options['account']})
+                for locktype in (models.ReplicaLock, models.DatasetLock):
+                    query = update(
+                        locktype
+                    ).where(
+                        locktype.rule_id == rule.id
+                    ).values(
+                        account=options['account']
+                    )
+                    session.execute(query)
+
                 # Update counters
                 for rse_id in counter_rses:
-                    account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(counter_rses[rse_id]), bytes_=sum(counter_rses[rse_id]), session=session)
-                    account_counter.increase(rse_id=rse_id, account=options['account'], files=len(counter_rses[rse_id]), bytes_=sum(counter_rses[rse_id]), session=session)
+                    account_counter.decrease(
+                        rse_id=rse_id,
+                        account=rule.account,
+                        files=len(counter_rses[rse_id]),
+                        bytes_=sum(counter_rses[rse_id]),
+                        session=session
+                    )
+                    account_counter.increase(
+                        rse_id=rse_id,
+                        account=options['account'],
+                        files=len(counter_rses[rse_id]),
+                        bytes_=sum(counter_rses[rse_id]),
+                        session=session
+                    )
                 # Update rule
                 rule.account = options['account']
                 session.flush()
@@ -1249,23 +1319,61 @@ def update_rule(rule_id, options, *, session: "Session"):
             elif key == 'state':
                 if options.get('cancel_requests', False):
                     rule_ids_to_stuck = set()
-                    for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).all():
+                    query = select(
+                        models.ReplicaLock
+                    ).where(
+                        models.ReplicaLock.rule_id == rule.id,
+                        models.ReplicaLock.state == LockState.REPLICATING
+                    )
+                    for lock in session.execute(query).scalars().all():
                         # Set locks to stuck:
-                        for lock2 in session.query(models.ReplicaLock).filter_by(scope=lock.scope, name=lock.name, rse_id=lock.rse_id, state=LockState.REPLICATING).all():
+                        query = select(
+                            models.ReplicaLock
+                        ).where(
+                            models.ReplicaLock.scope == lock.scope,
+                            models.ReplicaLock.name == lock.name,
+                            models.ReplicaLock.rse_id == lock.rse_id,
+                            models.ReplicaLock.state == LockState.REPLICATING
+                        )
+                        for lock2 in session.execute(query).scalars().all():
                             lock2.state = LockState.STUCK
                             rule_ids_to_stuck.add(lock2.rule_id)
-                        transfers_to_cancel = request_core.cancel_request_did(scope=lock.scope, name=lock.name, dest_rse_id=lock.rse_id, session=session)
+                        transfers_to_cancel = request_core.cancel_request_did(
+                            scope=lock.scope,
+                            name=lock.name,
+                            dest_rse_id=lock.rse_id,
+                            session=session
+                        )
                         transfer_core.cancel_transfers(transfers_to_cancel)
-                        replica = session.query(models.RSEFileAssociation).filter(
+                        query = select(
+                            models.RSEFileAssociation
+                        ).where(
                             models.RSEFileAssociation.scope == lock.scope,
                             models.RSEFileAssociation.name == lock.name,
-                            models.RSEFileAssociation.rse_id == lock.rse_id).one()
+                            models.RSEFileAssociation.rse_id == lock.rse_id
+                        )
+                        replica = session.execute(query).scalar_one()
                         replica.state = ReplicaState.UNAVAILABLE
                     # Set rules and DATASETLOCKS to STUCK:
                     for rid in rule_ids_to_stuck:
-                        session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rid,
-                                                                     models.ReplicationRule.state != RuleState.SUSPENDED).update({'state': RuleState.STUCK})
-                        session.query(models.DatasetLock).filter_by(rule_id=rid).update({'state': LockState.STUCK})
+                        query = update(
+                            models.ReplicationRule
+                        ).where(
+                            models.ReplicationRule.id == rid,
+                            models.ReplicationRule.state != RuleState.SUSPENDED
+                        ).values(
+                            state=RuleState.STUCK
+                        )
+                        session.execute(query)
+
+                        query = update(
+                            models.DatasetLock
+                        ).where(
+                            models.DatasetLock.rule_id == rid
+                        ).values(
+                            state=LockState.STUCK
+                        )
+                        session.execute(query)
 
                 if options['state'].lower() == 'suspended':
                     rule.state = RuleState.SUSPENDED
@@ -1274,8 +1382,24 @@ def update_rule(rule_id, options, *, session: "Session"):
                     rule.state = RuleState.STUCK
                     rule.stuck_at = datetime.utcnow()
                     if not options.get('cancel_requests', False):
-                        session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.REPLICATING).update({'state': LockState.STUCK})
-                        session.query(models.DatasetLock).filter_by(rule_id=rule.id).update({'state': LockState.STUCK})
+                        query = update(
+                            models.ReplicaLock
+                        ).where(
+                            models.ReplicaLock.rule_id == rule.id,
+                            models.ReplicaLock.state == LockState.REPLICATING
+                        ).values(
+                            state=LockState.STUCK
+                        )
+                        session.execute(query)
+
+                        query = update(
+                            models.DatasetLock
+                        ).where(
+                            models.DatasetLock.rule_id == rule_id
+                        ).values(
+                            state=LockState.STUCK
+                        )
+                        session.execute(query)
 
             elif key == 'cancel_requests':
                 pass
@@ -1290,14 +1414,27 @@ def update_rule(rule_id, options, *, session: "Session"):
 
             elif key == 'child_rule_id':
                 # Check if the child rule has the same scope/name as the parent rule
-                child_rule = session.query(models.ReplicationRule).filter_by(id=options[key]).one()
-                if rule.scope != child_rule.scope or rule.name != child_rule.name:
-                    raise InputValidationError('Parent and child rule must be set on the same dataset.')
-
-                if rule.id == options[key]:
-                    raise InputValidationError('Self-referencing parent/child-relationship.')
-                if child_rule.state != RuleState.OK:
-                    rule.child_rule_id = options[key]
+                child_id: Optional[str] = options[key]
+                if child_id is None:
+                    if not rule.child_rule_id:
+                        raise InputValidationError('Cannot detach child when no such relationship exists')
+                    # dissolve relationship
+                    rule.child_rule_id = None  # type: ignore
+                    # remove expiration date
+                    rule.expires_at = None  # type: ignore
+                else:
+                    query = select(
+                        models.ReplicationRule
+                    ).where(
+                        models.ReplicationRule.id == child_id
+                    )
+                    child_rule = session.execute(query).scalar_one()
+                    if rule.scope != child_rule.scope or rule.name != child_rule.name:
+                        raise InputValidationError('Parent and child rule must be set on the same dataset.')
+                    if rule.id == options[key]:
+                        raise InputValidationError('Self-referencing parent/child-relationship.')
+                    if child_rule.state != RuleState.OK:
+                        rule.child_rule_id = child_id  # type: ignore
 
             elif key == 'meta':
                 # Need to json.dump the metadata
@@ -1310,10 +1447,23 @@ def update_rule(rule_id, options, *, session: "Session"):
 
         # `boost_rule` should run after `stuck`, so lets not include it in the loop since the arguments are unordered
         if 'boost_rule' in options:
-            for lock in session.query(models.ReplicaLock).filter_by(rule_id=rule.id, state=LockState.STUCK).all():
+            query = select(
+                models.ReplicaLock
+            ).where(
+                models.ReplicaLock.rule_id == rule.id,
+                models.ReplicaLock.state == LockState.STUCK
+            )
+            for lock in session.execute(query).scalars().all():
                 lock['updated_at'] -= timedelta(days=1)
+
             rule['updated_at'] -= timedelta(days=1)
-            insert_rule_history(rule, recent=True, longterm=False, session=session)
+
+            insert_rule_history(
+                rule,
+                recent=True,
+                longterm=False,
+                session=session
+            )
 
     except IntegrityError as error:
         if match('.*ORA-00001.*', str(error.args[0])) \
@@ -2097,11 +2247,11 @@ def approve_rule(rule_id, approver=None, notify_approvers=True, *, session: "Ses
                 text = template.safe_substitute({'rule_id': str(rule.id),
                                                  'approver': approver})
                 vo = rule.account.vo
-                recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
-                for recipent in recipents:
+                recipients = _create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
+                for recipient in recipients:
                     add_message(event_type='email',
                                 payload={'body': text,
-                                         'to': [recipent[0]],
+                                         'to': [recipient[0]],
                                          'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                                 session=session)
     except NoResultFound:
@@ -2156,11 +2306,11 @@ def deny_rule(rule_id, approver=None, reason=None, *, session: "Session"):
                                                    'approver': approver,
                                                    'reason': reason})
             vo = rule.account.vo
-            recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
-            for recipent in recipents:
+            recipients = _create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
+            for recipient in recipients:
                 add_message(event_type='email',
                             payload={'body': email_body,
-                                     'to': [recipent[0]],
+                                     'to': [recipient[0]],
                                      'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                             session=session)
     except NoResultFound:
@@ -3022,7 +3172,7 @@ def __delete_lock_and_update_replica(lock, purge_replicas=False, nowait=False, *
 
 
 @transactional_session
-def __create_rule_approval_email(rule, *, session: "Session"):
+def __create_rule_approval_email(rule: "models.ReplicationRule", *, session: "Session"):
     """
     Create the rule notification email.
 
@@ -3030,11 +3180,23 @@ def __create_rule_approval_email(rule, *, session: "Session"):
     :param session:   The database session in use.
     """
 
-    with open('%s/rule_approval_request.tmpl' % config_get('common', 'mailtemplatedir'), 'r') as templatefile:
+    filepath = path.join(
+        config_get('common', 'mailtemplatedir'), 'rule_approval_request.tmpl'  # type: ignore
+    )
+    with open(filepath, 'r') as templatefile:
         template = Template(templatefile.read())
 
-    did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, dynamic_depth=DIDType.FILE, session=session)
-    rses = [rep['rse_id'] for rep in rucio.core.replica.list_dataset_replicas(scope=rule.scope, name=rule.name, session=session) if rep['state'] == ReplicaState.AVAILABLE]
+    did = rucio.core.did.get_did(
+        scope=rule.scope,
+        name=rule.name,
+        dynamic_depth=DIDType.FILE,
+        session=session
+    )
+
+    reps = rucio.core.replica.list_dataset_replicas(
+        scope=rule.scope, name=rule.name, session=session
+    )
+    rses = [rep['rse_id'] for rep in reps if rep['state'] == ReplicaState.AVAILABLE]
 
     # RSE occupancy
     vo = rule.account.vo
@@ -3060,47 +3222,51 @@ def __create_rule_approval_email(rule, *, session: "Session"):
         except Exception:
             pass
 
-    # Resolve recipents:
-    recipents = __create_recipents_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
+    # Resolve recipients:
+    recipients = _create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
 
-    for recipent in recipents:
-        text = template.safe_substitute({'rule_id': str(rule.id),
-                                         'created_at': str(rule.created_at),
-                                         'expires_at': str(rule.expires_at),
-                                         'account': rule.account.external,
-                                         'email': get_account(account=rule.account, session=session).email,
-                                         'rse_expression': rule.rse_expression,
-                                         'comment': rule.comments,
-                                         'scope': rule.scope.external,
-                                         'name': rule.name,
-                                         'did_type': rule.did_type,
-                                         'length': '0' if did['length'] is None else str(did['length']),
-                                         'bytes': '0' if did['bytes'] is None else sizefmt(did['bytes']),
-                                         'closed': not did['open'],
-                                         'complete_rses': ', '.join(rses),
-                                         'approvers': ','.join([r[0] for r in recipents]),
-                                         'approver': recipent[1],
-                                         'target_rse': target_rse,
-                                         'free_space': free_space,
-                                         'free_space_after': free_space_after})
+    for recipient in recipients:
+        text = template.safe_substitute(
+            {
+                'rule_id': str(rule.id),
+                'created_at': str(rule.created_at),
+                'expires_at': str(rule.expires_at),
+                'account': rule.account.external,
+                'email': get_account(account=rule.account, session=session).email,
+                'rse_expression': rule.rse_expression,
+                'comment': rule.comments,
+                'scope': rule.scope.external,
+                'name': rule.name,
+                'did_type': rule.did_type,
+                'length': '0' if did['length'] is None else str(did['length']),
+                'bytes': '0' if did['bytes'] is None else sizefmt(did['bytes']),
+                'open': did.get('open', 'Not Applicable'),
+                'complete_rses': ', '.join(rses),
+                'approvers': ','.join([r[0] for r in recipients]),
+                'approver': recipient[1],
+                'target_rse': target_rse,
+                'free_space': free_space,
+                'free_space_after': free_space_after
+            }
+        )
 
         add_message(event_type='email',
                     payload={'body': text,
-                             'to': [recipent[0]],
+                             'to': [recipient[0]],
                              'subject': '[RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                     session=session)
 
 
 @transactional_session
-def __create_recipents_list(rse_expression, filter_=None, *, session: "Session"):
+def _create_recipients_list(rse_expression: str, filter_=None, *, session: "Session"):
     """
-    Create a list of recipents for a notification email based on rse_expression.
+    Create a list of recipients for a notification email based on rse_expression.
 
     :param rse_exoression:  The rse_expression.
     :param session:         The database session in use.
     """
 
-    recipents = []  # (eMail, account)
+    recipients: "List[Tuple]" = []  # (eMail, account)
 
     # APPROVERS-LIST
     # If there are accounts in the approvers-list of any of the RSEs only these should be used
@@ -3112,47 +3278,61 @@ def __create_recipents_list(rse_expression, filter_=None, *, session: "Session")
                 try:
                     email = get_account(account=account, session=session).email
                     if email:
-                        recipents.append((email, account))
+                        recipients.append((email, account))
                 except Exception:
                     pass
 
     # LOCALGROUPDISK/LOCALGROUPTAPE
-    if not recipents:
+    if not recipients:
         for rse in parse_expression(rse_expression, filter_=filter_, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
-                accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='country-%s' % rse_attr.get('country', ''),
-                                                                                          value='admin').all()
-                for account in accounts:
+
+                query = select(
+                    models.AccountAttrAssociation.account
+                ).where(
+                    models.AccountAttrAssociation.key == f'country-{rse_attr.get("country", "")}',
+                    models.AccountAttrAssociation.value == 'admin'
+                )
+
+                for account in session.execute(query).scalars().all():
                     try:
-                        email = get_account(account=account[0], session=session).email
+                        email = get_account(account=account, session=session).email
                         if email:
-                            recipents.append((email, account[0]))
+                            recipients.append((email, account))
                     except Exception:
                         pass
 
     # GROUPDISK
-    if not recipents:
+    if not recipients:
         for rse in parse_expression(rse_expression, filter_=filter_, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
             if rse_attr.get('type', '') == 'GROUPDISK':
-                accounts = session.query(models.AccountAttrAssociation.account).filter_by(key='group-%s' % rse_attr.get('physgroup', ''),
-                                                                                          value='admin').all()
-                for account in accounts:
+
+                query = select(
+                    models.AccountAttrAssociation.account
+                ).where(
+                    models.AccountAttrAssociation.key == f'group-{rse_attr.get("physgroup", "")}',
+                    models.AccountAttrAssociation.value == 'admin'
+                )
+
+                for account in session.execute(query).scalars().all():
                     try:
-                        email = get_account(account=account[0], session=session).email
+                        email = get_account(account=account, session=session).email
                         if email:
-                            recipents.append((email, account[0]))
+                            recipients.append((email, account))
                     except Exception:
                         pass
 
     # DDMADMIN as default
-    if not recipents:
-        default_mail_from = config_get('core', 'default_mail_from', raise_exception=False, default=None)
+    if not recipients:
+        default_mail_from = config_get(
+            'core', 'default_mail_from', raise_exception=False, default=None
+        )
         if default_mail_from:
-            recipents = [(default_mail_from, 'ddmadmin')]
+            recipients = [(default_mail_from, 'ddmadmin')]
 
-    return list(set(recipents))
+    return list(set(recipients))
 
 
 def __progress_class(replicating_locks, total_locks):

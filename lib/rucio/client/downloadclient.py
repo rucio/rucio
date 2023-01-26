@@ -22,6 +22,7 @@ import random
 import shutil
 import signal
 import time
+import subprocess
 
 from queue import Queue, Empty, deque
 from threading import Thread
@@ -831,7 +832,13 @@ class DownloadClient:
             try:
                 to_exec = cmd % (os.getpid(), rpc_secret, port)
                 logger(logging.DEBUG, to_exec)
-                rpcproc = execute(to_exec, False)
+                rpcproc = subprocess.Popen(
+                    cmd,
+                    shell=True,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
             except Exception as error:
                 raise RucioException('Failed to execute aria2c!', error)
 

@@ -31,7 +31,7 @@ from rucio.common.policy import get_policy
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account import add_account_attribute, get_usage
+from rucio.core.account import add_account_attribute, get_usage, get_account
 from rucio.core.account_limit import set_local_account_limit, set_global_account_limit
 from rucio.core.did import add_did, attach_dids, set_status
 from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
@@ -49,6 +49,10 @@ from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState, LockState
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import rse_name_generator, account_name_generator, did_name_generator
 from rucio.tests.common_server import get_vo
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Tuple
 
 LOG = getLogger(__name__)
 
@@ -148,6 +152,69 @@ def setup_class(request, vo, root_account, jdoe_account, rse_factory):
 
 @pytest.mark.usefixtures('setup_class')
 class TestCore:
+
+    def test_add_rule_to_file_ask_approval(self, vo, mock_scope, jdoe_account):
+        """ REPLICATION RULE (CORE): Add a replication rule, asking approval"""
+        rse = rse_name_generator()
+        rse_id = add_rse(rse, vo=vo)
+
+        add_rse_attribute(rse_id, "rule_approvers", jdoe_account)
+
+        files = create_files(1, mock_scope, rse_id)
+        output = add_rule(
+            dids=files,
+            account=jdoe_account,
+            copies=1,
+            rse_expression=str(rse),
+            grouping='NONE',
+            weight=None,
+            lifetime=None,
+            locked=False,
+            subscription_id=None,
+            ask_approval=True
+        )
+        assert len(output) == 1
+        assert isinstance(output[0], str)
+
+    @pytest.mark.parametrize(
+        "param_type,param_group",
+        [
+            ("LOCALGROUPDISK", ("country", "country")),
+            ("GROUPDISK", ("physgroup", "group"))
+        ]
+    )
+    def test_create_recipients_list(
+        self, param_type: str, param_group: "Tuple[str, str]",
+        vo, random_account, function_scope_prefix
+    ):
+        """
+        REPLICATION RULE (CORE):
+        Test creation of recipients list for rses of types LOCALGROUPDISK,
+        LOCALGROUPTAPE, GROUPDISK.
+        """
+
+        rstring = function_scope_prefix + param_type
+        rsegroup, accountgroup = param_group
+
+        # create rse
+        # rse must NOT have attr 'rule_approvers'
+        rse = rse_name_generator()
+        rse_id = add_rse(rse, vo=vo)
+        add_rse_attribute(rse_id, "type", param_type)
+        add_rse_attribute(rse_id, rsegroup, rstring)
+
+        # create account
+        account: InternalAccount = random_account
+        add_account_attribute(
+            account, f"{accountgroup}-{rstring}", "admin"
+        )
+        email = get_account(account).email
+
+        # import and run relevant function
+        from rucio.core.rule import _create_recipients_list
+        out = _create_recipients_list(str(rse))
+
+        assert out == [(email, account)]
 
     def test_add_rule_file_none(self, mock_scope, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule on a group of files, NONE Grouping"""
@@ -951,6 +1018,39 @@ class TestCore:
         update_rule(rule_id_1, options={'child_rule_id': rule_id_3})
         with pytest.raises(UnsupportedOperation):
             delete_rule(rule_id_1)
+
+    def test_update_rule_unset_child_rule(self, mock_scope, did_factory, jdoe_account):
+        """ REPLICATION RULE (CORE): Update a replication rule with a child_rule"""
+        files = create_files(3, mock_scope, self.rse1_id)
+        dataset1 = did_factory.random_dataset_did()
+        dataset2 = did_factory.random_dataset_did()
+        add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset1)
+        attach_dids(dids=files, account=jdoe_account, **dataset1)
+        add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset2)
+        attach_dids(dids=files, account=jdoe_account, **dataset2)
+
+        parent_id: str = add_rule(
+            rse_expression=self.rse1,
+            dids=[dataset1], account=jdoe_account, copies=1,
+            grouping='DATASET', weight=None, lifetime=None,
+            locked=False, subscription_id=None
+        )[0]
+
+        # assign a child rule id
+        # with move_rule: this sets an expiry date
+        child_id = move_rule(parent_id, self.rse3)
+        assert child_id
+        assert get_rule(parent_id)['child_rule_id']
+        assert get_rule(parent_id)['expires_at']
+
+        # detach this child
+        update_rule(parent_id, {'child_rule_id': None})
+        assert not get_rule(parent_id)['child_rule_id']
+        assert not get_rule(parent_id)['expires_at']
+
+        # test detaching when there is no more attached child
+        with pytest.raises(InputValidationError):
+            update_rule(parent_id, {'child_rule_id': None})
 
     def test_rule_priority_set_and_update(self, mock_scope, did_factory, jdoe_account):
         files = create_files(1, mock_scope, self.rse1_id)
