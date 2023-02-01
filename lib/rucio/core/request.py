@@ -1629,7 +1629,6 @@ def list_transfer_limits(
     )
     for limit in session.execute(stmt).scalars():
         dict_resp = limit.to_dict()
-        dict_resp.pop('_sa_instance_state')
         yield dict_resp
 
 
