@@ -275,11 +275,12 @@ def parse_and_filter_file(filepath, parser=lambda s: s, filter_=lambda s: s, pre
 
     with dumper.temp_file(cache_dir, final_name=output_name) as (output, _):
         input_ = dumper.smart_open(filepath)
-        for line in input_:
-            if filter_(line):
-                output.write(parser(line) + '\n')
+        if input_ is not None:
+            for line in input_:
+                if filter_(line):
+                    output.write(parser(line) + '\n')
 
-        input_.close()
+            input_.close()
 
     return output_path
 

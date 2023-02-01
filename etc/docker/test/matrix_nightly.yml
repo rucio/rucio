@@ -7,11 +7,16 @@ dists:
     deny:
       suites:
         - sqlite
-  - id: fedora32
+        - py37py38
+  - id: fedora35
+    allow:
+      python:
+        - "3.10"
+  - id: alma8
     allow:
       python:
         - "3.8"
-  - id: fedora33
+  - id: alma9
     allow:
       python:
         - "3.9"
@@ -20,6 +25,7 @@ python:
   - "3.7"
   - "3.8"
   - "3.9"
+  - "3.10"
 suites:
   - id: syntax
     SYNTAX_REPORT: 1

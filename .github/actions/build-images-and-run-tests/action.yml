@@ -19,7 +19,7 @@ runs:
         echo "${{ inputs.cfg  }}"
         docker login https://ghcr.io -u ${{ github.actor }} -p ${{ inputs.github_token }}
         i=0; until [ "$i" -ge 3 ]; do
-          IMAGES=$(echo '${{ inputs.cfg }}' | ./tools/test/build_images.py \
+          IMAGES=$(echo '${{ inputs.cfg }}' | DOCKER_BUILDKIT=1 ./tools/test/build_images.py \
               --cache-repo ghcr.io/${{ github.repository }} \
               --branch "${{ inputs.branch }}" ./etc/docker/test || echo "")
           if [[ -n $IMAGES ]]; then break;
