@@ -514,7 +514,7 @@ def list_transfer_requests_and_source_replicas(
         stmt = stmt.where(
             exists(
                 select(
-                    [1]
+                    1
                 ).where(
                     rse_attr_alias.rse_id == models.RSE.id,
                     rse_attr_alias.key == attribute
@@ -1827,7 +1827,7 @@ def delete_transfer_limit(
         models.RSETransferLimit
     ).where(
         exists(
-            select([1])
+            select(1)
         ).where(
             models.RSETransferLimit.limit_id == models.TransferLimit.id,
             models.TransferLimit.rse_expression == rse_expression,
