@@ -52,7 +52,7 @@ def add_volatile_replicas(rse_id, replicas, *, session: "Session"):
     for replica in replicas:
         file_clause.append(and_(models.DataIdentifier.scope == replica['scope'],
                                 models.DataIdentifier.name == replica['name'],
-                                ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle'))
+                                ~exists(select(1).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle'))
                                 .where(and_(models.RSEFileAssociation.scope == replica['scope'],
                                             models.RSEFileAssociation.name == replica['name'],
                                             models.RSEFileAssociation.rse_id == rse_id))))

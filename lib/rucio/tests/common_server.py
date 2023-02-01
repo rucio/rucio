@@ -99,7 +99,7 @@ def cleanup_db_deps(model, select_rows_stmt, *, session=None):
             ).where(
                 exists(
                     select(
-                        [1]
+                        1
                     ).where(
                         and_(*filters)
                     ).where(

@@ -132,7 +132,7 @@ def list_expired_temporary_dids(rse_id, limit, worker_number=None, total_workers
                           models.TemporaryDataIdentifier.path,
                           models.TemporaryDataIdentifier.bytes).\
         with_hint(models.TemporaryDataIdentifier, "INDEX(tmp_dids TMP_DIDS_EXPIRED_AT_IDX)", 'oracle').\
-        filter(case([(models.TemporaryDataIdentifier.expired_at != is_none, models.TemporaryDataIdentifier.rse_id), ]) == rse_id)
+        filter(case((models.TemporaryDataIdentifier.expired_at != is_none, models.TemporaryDataIdentifier.rse_id)) == rse_id)
 
     query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
@@ -179,7 +179,7 @@ def get_count_of_expired_temporary_dids(rse_id, *, session: "Session"):
     is_none = None
     count = session.query(func.count(models.TemporaryDataIdentifier.scope)).\
         with_hint(models.TemporaryDataIdentifier, "INDEX(tmp_dids TMP_DIDS_EXPIRED_AT_IDX)", 'oracle').\
-        filter(case([(models.TemporaryDataIdentifier.expired_at != is_none, models.TemporaryDataIdentifier.rse_id), ]) == rse_id).\
+        filter(case((models.TemporaryDataIdentifier.expired_at != is_none, models.TemporaryDataIdentifier.rse_id)) == rse_id).\
         one()
 
     return count[0] or 0

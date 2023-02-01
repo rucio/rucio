@@ -397,7 +397,7 @@ def list_rebalance_rule_candidates(rse_id, mode=None, *, session=None):
     # Now build the query
     external_dsl = aliased(models.DatasetLock)
     count_locks = (
-        select([func.count()])
+        select(func.count())
         .where(
             and_(
                 external_dsl.scope == models.DatasetLock.scope,
@@ -417,15 +417,13 @@ def list_rebalance_rule_candidates(rse_id, mode=None, *, session=None):
             models.DataIdentifier.bytes,
             models.DataIdentifier.length,
             case(
-                [
-                    (
-                        or_(
-                            models.DatasetLock.length < 1,
-                            models.DatasetLock.length.is_(None),
-                        ),
-                        0,
-                    )
-                ],
+                (
+                    or_(
+                        models.DatasetLock.length < 1,
+                        models.DatasetLock.length.is_(None),
+                    ),
+                    0,
+                ),
                 else_=cast(
                     models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
                 ),
@@ -447,15 +445,13 @@ def list_rebalance_rule_candidates(rse_id, mode=None, *, session=None):
         .filter(and_(*did_clause))
         .filter(
             case(
-                [
-                    (
-                        or_(
-                            models.DatasetLock.length < 1,
-                            models.DatasetLock.length.is_(None),
-                        ),
-                        0,
-                    )
-                ],
+                (
+                    or_(
+                        models.DatasetLock.length < 1,
+                        models.DatasetLock.length.is_(None),
+                    ),
+                    0,
+                ),
                 else_=cast(
                     models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
                 ),
@@ -466,15 +462,13 @@ def list_rebalance_rule_candidates(rse_id, mode=None, *, session=None):
     )
     summary = query.order_by(
         case(
-            [
-                (
-                    or_(
-                        models.DatasetLock.length < 1,
-                        models.DatasetLock.length.is_(None),
-                    ),
-                    0,
-                )
-            ],
+            (
+                or_(
+                    models.DatasetLock.length < 1,
+                    models.DatasetLock.length.is_(None),
+                ),
+                0,
+            ),
             else_=cast(
                 models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
             ),
