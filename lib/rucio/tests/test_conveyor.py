@@ -879,7 +879,7 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
 
     submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertools=['mock'], transfertype='single', filter_transfertool=None)
 
-    assert request['attributes']['lifetime'] == None
+    assert request['attributes']['lifetime'] is None
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule2_id)[0]['state'] == LockState.REPLICATING
     assert rule_core.get_rule(rule2_id)['state'] == RuleState.REPLICATING
 
