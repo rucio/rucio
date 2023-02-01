@@ -496,15 +496,11 @@ def __delete_expired_tokens_account(account, *, session: "Session"):
     :param account: Account to delete expired tokens.
     :param session: The database session in use.
     """
-    stmt_select = select(models.Token) \
+    stmt_select = select(models.Token.token) \
         .where(and_(models.Token.expired_at < datetime.datetime.utcnow(),
                     models.Token.account == account)) \
         .with_for_update(skip_locked=True)
-    result_select = session.execute(stmt_select)
-
-    tokens = []
-    for t in result_select.columns('token'):
-        tokens.append(t.token)
+    tokens = session.execute(stmt_select).scalars().all()
 
     for t in chunks(tokens, 100):
         stmt_delete = delete(models.Token) \
