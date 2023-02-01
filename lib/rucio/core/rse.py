@@ -1634,7 +1634,7 @@ def fill_rse_expired(rse_id, *, session: "Session"):
         with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
-        filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
+        filter(case((models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ) == rse_id).\
         filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD))))
     result = query.all()
     sum_bytes, sum_files = result[0]

@@ -222,14 +222,14 @@ def get_db_time():
     try:
         storage_date_format = None
         if session_scoped.bind.dialect.name == 'oracle':
-            query = select([text("sys_extract_utc(systimestamp)")])
+            query = select(text("sys_extract_utc(systimestamp)"))
         elif session_scoped.bind.dialect.name == 'mysql':
-            query = select([text("utc_timestamp()")])
+            query = select(text("utc_timestamp()"))
         elif session_scoped.bind.dialect.name == 'sqlite':
-            query = select([text("datetime('now', 'utc')")])
+            query = select(text("datetime('now', 'utc')"))
             storage_date_format = '%Y-%m-%d  %H:%M:%S'
         else:
-            query = select([func.current_date()])
+            query = select(func.current_date())
 
         session = session_scoped()
         session.begin()
