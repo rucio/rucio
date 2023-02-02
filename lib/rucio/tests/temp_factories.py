@@ -36,6 +36,10 @@ if TYPE_CHECKING:
     from typing import Tuple
 
 
+def _to_external(did):
+    return {'scope': did['scope'].external, 'name': did['name']}
+
+
 class TemporaryRSEFactory:
     """
     Factory which keeps track of created RSEs and cleans up everything related to these RSEs at the end
@@ -205,27 +209,29 @@ class TemporaryDidFactory:
         self.created_dids.add((scope, name))
         return did
 
-    def random_file_did(self, scope=None, name_suffix=''):
+    def random_file_did(self, scope=None, name_suffix='', *, external=False):
         did = self._random_did(did_type='file', scope=scope, name_suffix=name_suffix)
-        return did
+        return _to_external(did) if external else did
 
-    def random_dataset_did(self, scope=None):
+    def random_dataset_did(self, scope=None, *, external=False):
         did = self._random_did(did_type='dataset', scope=scope)
-        return did
+        return _to_external(did) if external else did
 
-    def random_container_did(self, scope=None):
+    def random_container_did(self, scope=None, *, external=False):
         did = self._random_did(did_type='container', scope=scope)
-        return did
+        return _to_external(did) if external else did
 
-    def make_dataset(self, scope=None):
+    def make_dataset(self, scope=None, *, external=False):
         did = self.random_dataset_did(scope=scope)
-        self.client.add_dataset(scope=did['scope'].external, name=did['name'])
-        return did
+        external_did = _to_external(did)
+        self.client.add_dataset(**external_did)
+        return external_did if external else did
 
-    def make_container(self, scope=None):
+    def make_container(self, scope=None, *, external=False):
         did = self.random_container_did(scope=scope)
-        self.client.add_container(scope=did['scope'].external, name=did['name'])
-        return did
+        external_did = _to_external(did)
+        self.client.add_container(**external_did)
+        return external_did if external else did
 
     def upload_test_file(self, rse_name, scope=None, name=None, path=None, size=2, return_full_item=False):
         scope = self._sanitize_or_set_scope(scope)
