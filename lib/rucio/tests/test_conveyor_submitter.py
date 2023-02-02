@@ -299,6 +299,7 @@ def test_ignore_availability(rse_factory, did_factory, root_account, core_config
     submitter(once=True, rses=[{'id': rse_id} for rse_id in (src_rse_id, dst_rse_id)], partition_wait_time=None, transfertools=['mock'], transfertype='single', ignore_availability=True)
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     assert request['state'] == RequestState.SUBMITTED
+    assert request['transfertool'] == 'mock'
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
@@ -374,8 +375,10 @@ def test_globus(rse_factory, did_factory, root_account):
         assert job_did2['metadata']['name'] == did2['name']
     request = request_core.get_request_by_did(rse_id=rse2_id, **did1)
     assert request['state'] == RequestState.SUBMITTED
+    assert request['transfertool'] == 'globus'
     request = request_core.get_request_by_did(rse_id=rse4_id, **did2)
     assert request['state'] == RequestState.SUBMITTED
+    assert request['transfertool'] == 'globus'
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
