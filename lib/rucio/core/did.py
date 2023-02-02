@@ -39,7 +39,7 @@ from rucio.core.monitor import MetricManager
 from rucio.core.naming_convention import validate_name
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState, BadFilesStatus
+from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState, BadFilesStatus, OBSOLETE
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.db.sqla.util import temp_table_mngr
 
@@ -1290,14 +1290,29 @@ def _delete_dids(
             models.ReplicationRule.rse_expression,
             models.ReplicationRule.locks_ok_cnt,
             models.ReplicationRule.locks_replicating_cnt,
-            models.ReplicationRule.locks_stuck_cnt
-        ).join_from(
+            models.ReplicationRule.locks_stuck_cnt,
+            temp_table.scope,
+            temp_table.name
+        ).outerjoin_from(
             temp_table,
             models.ReplicationRule,
             and_(models.ReplicationRule.scope == temp_table.scope,
                  models.ReplicationRule.name == temp_table.name)
         )
-        for (rule_id, scope, name, rse_expression, locks_ok_cnt, locks_replicating_cnt, locks_stuck_cnt) in session.execute(stmt):
+        for (rule_id, scope, name, rse_expression, locks_ok_cnt, locks_replicating_cnt, locks_stuck_cnt, didscope, didname) in session.execute(stmt):
+            # no rule was found: still need to set tombstone on replicas.
+            if rule_id is None:
+                logger(logging.DEBUG, f'Setting tombstones for replicas of DID {didscope}:{didname} with no rule.')
+                query = update(
+                    models.RSEFileAssociation
+                ).filter(
+                    models.RSEFileAssociation.scope == didscope,
+                    models.RSEFileAssociation.name == didname
+                ).values(
+                    tombstone=OBSOLETE
+                )
+                session.execute(query)
+                continue
             logger(logging.DEBUG, 'Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
 
             # Propagate purge_replicas from did to rules
@@ -1621,6 +1636,8 @@ def _delete_dids_wo_temp_tables(
         add_message('ERASE', message, session=session)
     # Delete rules on did
     skip_deletion = False  # Skip deletion in case of expiration of a rule
+    dids_delete_from = {(d['scope'], d['name']) for d in dids}
+    dids_with_rules_deleted = set()
     if rule_id_clause:
         with METRICS.timer('delete_dids.rules'):
             stmt = select(
@@ -1650,6 +1667,20 @@ def _delete_dids_wo_temp_tables(
                     skip_deletion = True
                 else:
                     rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, delete_parent=True, nowait=True, session=session)
+                dids_with_rules_deleted.add((scope, name))
+
+    for scope, name in dids_delete_from - dids_with_rules_deleted:
+        # no rules! still need to set tombstone on all replicas
+        logger(logging.DEBUG, f'Setting tombstones for replicas of DID {scope}:{name} with no rule.')
+        query = update(
+            models.RSEFileAssociation
+        ).filter(
+            models.RSEFileAssociation.scope == scope,
+            models.RSEFileAssociation.name == name
+        ).values(
+            tombstone=OBSOLETE
+        )
+        session.execute(query)
 
     if skip_deletion:
         return

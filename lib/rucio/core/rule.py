@@ -28,7 +28,7 @@ from os import path
 
 from dogpile.cache.api import NO_VALUE
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update, exists
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
@@ -888,6 +888,32 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, n
         # Remove locks, set tombstone if applicable
         transfers_to_delete = []  # [{'scope': , 'name':, 'rse_id':}]
         account_counter_decreases = {}  # {'rse_id': [file_size, file_size, file_size]}
+
+        if locks.first() is None:
+            stmt = select(
+                models.ReplicationRule.rse_expression
+            ).where(
+                models.ReplicationRule.id == rule_id
+            )
+            allowed_rse_ids = [rse['id'] for rse in parse_expression(session.execute(stmt).scalar_one())]
+            stmt = update(
+                models.RSEFileAssociation
+            ).where(
+                exists(select([1])).where(
+                    models.ReplicationRule.scope == models.DataIdentifierAssociation.scope,
+                    models.ReplicationRule.name == models.DataIdentifierAssociation.name,
+                    models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                    models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                    models.ReplicationRule.id == rule_id,
+                    models.RSEFileAssociation.rse_id.in_(allowed_rse_ids),
+                    models.RSEFileAssociation.lock_cnt == 0
+                )
+            ).values(
+                tombstone=OBSOLETE
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
 
         for lock in locks:
             if __delete_lock_and_update_replica(lock=lock, purge_replicas=rule.purge_replicas,
