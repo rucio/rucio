@@ -33,7 +33,7 @@ from sqlalchemy import and_, or_, delete
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from typing import Tuple
+    from typing import Tuple, Dict, Any
 
 
 class TemporaryRSEFactory:
@@ -198,7 +198,7 @@ class TemporaryDidFactory:
             scope = InternalScope(scope, vo=self.vo)
         return scope
 
-    def _random_did(self, did_type, scope, name_suffix=''):
+    def _random_did(self, did_type, scope, name_suffix='') -> "Dict[str, Any]":
         scope = self._sanitize_or_set_scope(scope)
         name = did_name_generator(did_type=did_type, name_prefix=self.name_prefix, name_suffix=name_suffix)
         did = {'scope': scope, 'name': name}

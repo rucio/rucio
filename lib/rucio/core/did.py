@@ -1710,7 +1710,6 @@ def _delete_dids_wo_temp_tables(
             file_replicas_clause = [and_(models.RSEFileAssociation.scope == child_scope,
                                          models.RSEFileAssociation.name == child_name)
                                     for child_scope, child_name in session.execute(stmt)]
-            none_value = None  # Hack to get pep8 happy
             for chunk in chunks(file_replicas_clause, 100):
                 stmt = update(
                     models.RSEFileAssociation
@@ -1720,7 +1719,7 @@ def _delete_dids_wo_temp_tables(
                     or_(*chunk)
                 ).where(
                     models.RSEFileAssociation.lock_cnt == 0,
-                    models.RSEFileAssociation.tombstone != none_value,
+                    models.RSEFileAssociation.tombstone != null()
                 ).execution_options(
                     synchronize_session=False
                 ).values(
