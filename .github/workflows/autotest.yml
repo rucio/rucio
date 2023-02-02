@@ -92,7 +92,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get install -y npm libkrb5-dev libxmlsec1-dev 
-          npm install --global pyright
+          npm install --global pyright@"<1.1.292 || >1.1.292"  # TODO: remove version range: https://github.com/microsoft/pyright/issues/4564
           python -m pip --no-cache-dir install --upgrade -r requirements.txt
       - name: Make pyright report of current commit
         run: |
