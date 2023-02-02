@@ -177,7 +177,7 @@ def test_archive_on_dataset_level(rse_factory, did_factory, root_account):
     assert not metadata['is_archive']
 
 
-def test_root_priority_is_highest(rse_factory, mock_scope, root_account, did_client, replica_client):
+def test_root_priority_is_highest(rse_factory, did_factory, mock_scope, root_account, did_client, replica_client):
     """ ARCHIVE (CORE): Ensure that the root protocol is prioritized for archives"""
 
     # Add 2 RSEs. Set the root protocol to have the lowest priority overall
@@ -209,17 +209,17 @@ def test_root_priority_is_highest(rse_factory, mock_scope, root_account, did_cli
                                'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
     # register archive
-    archive = {'scope': mock_scope, 'name': 'cube.1.zip', 'type': 'FILE', 'bytes': 2596, 'adler32': 'beefdead'}
-    add_replicas(rse_id=rse1_id, files=[archive], account=root_account)
-    add_replicas(rse_id=rse2_id, files=[archive], account=root_account)
+    archive = {**did_factory.random_file_did(name_suffix='.zip', external=True), 'type': 'FILE', 'bytes': 2596, 'adler32': 'beefdead'}
+    replica_client.add_replicas(rse=rse1, files=[archive])
+    replica_client.add_replicas(rse=rse2, files=[archive])
 
     # archived files with replicas
-    archived_file = [{'scope': mock_scope, 'name': 'zippedfile-%i-%s' % (i, str(generate_uuid())), 'type': 'FILE',
-                      'bytes': 4322, 'adler32': 'beefbeef'} for i in range(2)]
-    did_client.add_files_to_archive(scope=mock_scope.external, name=archive['name'], files=archived_file)
+    archived_dids = [did_factory.random_file_did(external=True) for _ in range(2)]
+    archived_files = [{**did, 'type': 'FILE', 'bytes': 4322, 'adler32': 'beefbeef'} for did in archived_dids]
+    did_client.add_files_to_archive(scope=mock_scope.external, name=archive['name'], files=archived_files)
 
     both_rses = '%s|%s' % (rse1, rse2)
-    replicas = list(replica_client.list_replicas(dids=[{'scope': f['scope'].external, 'name': f['name']} for f in archived_file], rse_expression=both_rses))
+    replicas = list(replica_client.list_replicas(dids=archived_dids, rse_expression=both_rses))
 
     for replica in replicas:
         # The root protocol pfn must have the smallest (best) priority
@@ -235,3 +235,17 @@ def test_root_priority_is_highest(rse_factory, mock_scope, root_account, did_cli
 
         assert replica['pfns'][root_pfn]['domain'] == 'zip'
         assert replica['pfns'][posix_pfn]['domain'] == 'zip'
+
+    # setting schemes=['file'] must still return "xroot" replicas for the archived constituent,
+    # but the filter must be correctly respected for non-archive constituents
+    non_archived_did = did_factory.random_file_did(external=True)
+    replica_client.add_replicas(rse=rse1, files=[{**non_archived_did, 'type': 'FILE', 'bytes': 10, 'adler32': 'beefdead'}])
+    replicas = list(replica_client.list_replicas(dids=[archived_dids[0], non_archived_did], rse_expression=rse1, schemes=['file']))
+    assert len(replicas) == 2
+    for replica in replicas:
+        if replica['name'] == non_archived_did['name']:
+            assert len(replica['pfns']) == 1
+            assert next(iter(replica['pfns'])).startswith('file')
+        else:
+            assert len(replica['pfns']) == 2
+            assert next(iter(replica['pfns'])).startswith('root')

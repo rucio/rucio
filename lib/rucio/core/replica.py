@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import copy
 import heapq
 import logging
 import math
@@ -763,7 +763,7 @@ def _get_list_replicas_protocols(
         'lan': {p['scheme']: p['domains']['lan']['read'] for p in rse_info['protocols'] if p['domains']['lan']['read'] > 0},
     }
 
-    rse_schemes = schemes or []
+    rse_schemes = copy.copy(schemes) if schemes else []
     if not rse_schemes:
         try:
             for domain in domains:
@@ -891,7 +891,8 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
             except Exception:
                 pass  # do not hard fail if site cannot be resolved or is empty
 
-    file, protocols_by_rse_id, pfns_cache = {}, {}, {}
+    file, pfns_cache = {}, {}
+    protocols_cache = defaultdict(dict)
 
     for _, replica_group in groupby(replicas, key=lambda x: (x[0], x[1])):  # Group by scope/name
         file = {}
@@ -899,6 +900,8 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
         for scope, name, archive_scope, archive_name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_group:
             if isinstance(archive_scope, str):
                 archive_scope = InternalScope(archive_scope, fromExternal=False)
+
+            is_archive = bool(archive_scope and archive_name)
 
             # it is the first row in the scope/name group
             if not file:
@@ -919,7 +922,8 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                 continue
 
             # It's the first time we see this RSE, initialize the protocols needed for PFN generation
-            if rse_id not in protocols_by_rse_id:
+            protocols = protocols_cache.get(rse_id, {}).get(is_archive)
+            if not protocols:
                 # select the lan door in autoselect mode, otherwise use the wan door
                 domain = input_domain
                 if domain is None:
@@ -927,24 +931,21 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                     if local_rses and rse_id in local_rses:
                         domain = 'lan'
 
-                # FIXME: if a list_replicas call iterates over both non-archive and archive replicas
-                # on the same rse_id, the protocols will not be correctly initialized for whatever comes
-                # second. This is because of the "additional_schemes" logic:
                 protocols = _get_list_replicas_protocols(
                     rse_id=rse_id,
                     domain=domain,
                     schemes=schemes,
                     # We want 'root' for archives even if it wasn't included into 'schemes'
-                    additional_schemes=['root'] if archive_scope and archive_name else [],
+                    additional_schemes=['root'] if is_archive else [],
                     session=session,
                 )
-                protocols_by_rse_id[rse_id] = protocols
+                protocols_cache[rse_id][is_archive] = protocols
 
             # build the pfns
-            for domain, protocol, priority in protocols_by_rse_id[rse_id]:
+            for domain, protocol, priority in protocols:
                 # If the current "replica" is a constituent inside an archive, we must construct the pfn for the
                 # parent (archive) file and append the xrdcl.unzip query string to it.
-                if archive_scope and archive_name:
+                if is_archive:
                     t_scope = archive_scope
                     t_name = archive_name
                 else:
@@ -973,7 +974,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                     )
 
                     client_extract = False
-                    if archive_scope and archive_name:
+                    if is_archive:
                         domain = 'zip'
                         pfn = add_url_query(pfn, {'xrdcl.unzip': name})
                         if protocol.attributes['scheme'] == 'root':
@@ -1036,7 +1037,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
 @stream_session
 def list_replicas(
         dids: "Sequence[Dict[str, Any]]",
-        schemes: "Optional[str]" = None,
+        schemes: "Optional[List[str]]" = None,
         unavailable: bool = False,
         request_id: "Optional[str]" = None,
         ignore_availability: bool = True,
@@ -1094,7 +1095,7 @@ def list_replicas(
 
 def _list_replicas_with_temp_tables(
         dids: "Sequence[Dict[str, Any]]",
-        schemes: "Optional[str]" = None,
+        schemes: "Optional[List[str]]" = None,
         unavailable: bool = False,
         request_id: "Optional[str]" = None,
         ignore_availability: bool = True,
@@ -4422,7 +4423,7 @@ def _list_replicas_for_files_wo_temp_tables(file_clause, state_clause, files_wo_
 
 def _list_replicas_wo_temp_tables(
         dids: "Sequence[Dict[str, Any]]",
-        schemes: "Optional[str]" = None,
+        schemes: "Optional[List[str]]" = None,
         unavailable: bool = False,
         request_id: "Optional[str]" = None,
         ignore_availability: bool = True,
