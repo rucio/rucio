@@ -400,15 +400,25 @@ def ensure_db_sources(
 
 
 @transactional_session
-def set_transfers_state(transfers, state, submitted_at, external_host, external_id, *, session: "Session", logger):
+def set_transfers_state(
+        transfers,
+        state: "RequestState",
+        submitted_at: datetime.datetime,
+        external_host: str,
+        external_id: str,
+        transfertool: str,
+        *,
+        session: "Session",
+        logger
+):
     """
     Update the transfer info of a request.
     :param transfers:  Dictionary containing request transfer info.
     :param session:    Database session to use.
     """
 
-    logger(logging.INFO, 'Setting state(%s), external_host(%s) and eid(%s) for transfers: %s',
-           state.name, external_host, external_id, ', '.join(t.rws.request_id for t in transfers))
+    logger(logging.INFO, 'Setting state(%s), transfertool(%s), external_host(%s) and eid(%s) for transfers: %s',
+           state.name, transfertool, external_host, external_id, ', '.join(t.rws.request_id for t in transfers))
     try:
         for transfer in transfers:
             rws = transfer.rws
@@ -422,11 +432,12 @@ def set_transfers_state(transfers, state, submitted_at, external_host, external_
                 synchronize_session=False
             ).values(
                 {
-                    'state': state,
-                    'external_id': external_id,
-                    'external_host': external_host,
-                    'source_rse_id': transfer.src.rse.id,
-                    'submitted_at': submitted_at,
+                    models.Request.state: state,
+                    models.Request.external_id: external_id,
+                    models.Request.external_host: external_host,
+                    models.Request.source_rse_id: transfer.src.rse.id,
+                    models.Request.submitted_at: submitted_at,
+                    models.Request.transfertool: transfertool,
                 }
             )
             rowcount = session.execute(stmt).rowcount
