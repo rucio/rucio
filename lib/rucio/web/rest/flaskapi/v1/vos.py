@@ -28,16 +28,22 @@ class VOs(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
     def get(self):
-        """ List all VOs.
-
-        .. :quickref: VOs; List all VOs.
-
-        :resheader Content-Type: application/x-json-stream
-        :status 200: VOs found.
-        :status 401: Invalid Auth Token.
-        :status 409: Unsupported operation.
-        :returns: A list containing all VOs.
-
+        """
+        ---
+        summary: List all VOs
+        tags:
+          - Virtual Organisation
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+          401:
+            description: Invalid Auth Token
+          409:
+            description: Unsupported Operation
         """
         try:
             def generate(issuer, vo):
@@ -55,16 +61,32 @@ class VO(ErrorHandlingMethodView):
     """ Add and update a VO. """
 
     def post(self, vo):
-        """ Add a VO with a given name.
-
-        .. :quickref: VO; Add a VOs.
-
-        :param vo: VO to be added.
-        :<json string description: Desciption of VO.
-        :<json string email: Admin email for VO.
-        :status 201: VO created successfully.
-        :status 401: Invalid Auth Token.
-        :status 409: Unsupported operation.
+        """
+        ---
+        summary: Add a VO with a given name
+        tags:
+          - Virtual Organisation
+        requestBody:
+          'application/json':
+            schema:
+              type: object
+              required:
+              - description
+              - email
+              properties:
+                description:
+                  description: Description of VO.
+                  type: string
+                email:
+                  description: Admin email for VO.
+                  type: string
+        responses:
+          201:
+            description: VO Created successfully.
+          401:
+            description: Invalid Auth Token
+          409:
+            description: Unsupported Operation
         """
         parameters = json_parameters(optional=True)
         kwargs = {'description': None, 'email': None}
@@ -83,17 +105,41 @@ class VO(ErrorHandlingMethodView):
         return 'Created', 201
 
     def put(self, vo):
-        """ Update the details for a given VO
-
-        .. :quickref: VO; Update a VOs.
-
-        :param vo: VO to be updated.
-        :<json string description: Desciption of VO.
-        :<json string email: Admin email for VO.
-        :status 200: VO updated successfully.
-        :status 401: Invalid Auth Token.
-        :status 404: VO not found.
-        :status 409: Unsupported operation.
+        """
+        ---
+        summary: Update the details for a given VO
+        tags:
+          - Virtual Organisation
+        parameters:
+        - name: vo
+          in: path
+          description: The VO to be updated
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          'application/json':
+            schema:
+              type: object
+              required:
+              - description
+              - email
+              properties:
+                description:
+                  description: Description of VO.
+                  type: string
+                email:
+                  description: Admin email for VO.
+                  type: string
+        responses:
+          200:
+            description: VO updated successfully.
+          401:
+            description: Invalid Auth Token.
+          404:
+            description: VO not found.
+          409:
+            description: Unsupported Operation.
         """
         parameters = json_parameters()
         try:
@@ -112,20 +158,52 @@ class RecoverVO(ErrorHandlingMethodView):
     """ Recover root identity for a VO. """
 
     def post(self, vo):
-        """ Recover root identity for a given VO
-
-        .. :quickref: RecoverVO; Recover VO root identity.
-
-        :param vo: VO to be recovered.
-        :<json string identity: Identity key to use.
-        :<json string authtype: Type of identity.
-        :<json string email: Admin email for VO.
-        :<json string email: Password for identity.
-        :<json bool default: Whether to use identity as account default.
-        :status 201: VO recovered successfully.
-        :status 401: Invalid Auth Token.
-        :status 404: Account not found.
-        :status 409: Unsupported operation.
+        """
+        ---
+        summary: Recover root identity for a given VO
+        tags:
+          - Virtual Organisation
+        parameters:
+        - name: vo
+          in: path
+          description: The VO to be recovered.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          'application/json':
+            schema:
+              type: object
+              required:
+              - identity
+              - authtype
+              - email
+              properties:
+                identity:
+                  description: Identity key to use.
+                  type: string
+                authtype:
+                  description: Type of identity.
+                  type: string
+                email:
+                  description: Admin email for VO.
+                  type: string
+                password:
+                  description: Password for identity.
+                  type: string
+                default:
+                  description: Whether to use identity as account default.
+                  type: bool
+                  default: false
+        responses:
+          201:
+            description: VO recovered successfully.
+          401:
+            description: Invalid Auth Token.
+          404:
+            description: Account not found.
+          409:
+            description: Unsupported Operation.
         """
         parameters = json_parameters()
         identity = param_get(parameters, 'identity')
