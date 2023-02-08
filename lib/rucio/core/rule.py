@@ -47,7 +47,8 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     ReplicationRuleCreationTemporaryFailed, InsufficientTargetRSEs, RucioException,
                                     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule,
                                     InvalidObject, RSEWriteBlocked, RuleReplaceFailed, RequestNotFound,
-                                    ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy, InvalidValueForKey)
+                                    ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy, InvalidValueForKey,
+                                    InvalidSourceReplicaExpression)
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import str_to_date, sizefmt, chunks
@@ -151,7 +152,10 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                         raise ManualRuleApprovalBlocked()
 
             if source_replica_expression:
-                source_rses = parse_expression(source_replica_expression, filter_={'vo': vo}, session=session)
+                try:
+                    source_rses = parse_expression(source_replica_expression, filter_={'vo': vo}, session=session)
+                except InvalidRSEExpression:
+                    raise InvalidSourceReplicaExpression
             else:
                 source_rses = []
 
