@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import namedtuple
 import json
 import random
 import string
@@ -26,7 +27,7 @@ from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get_bool
 from rucio.common.exception import (RucioException, RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEWriteBlocked,
                                     RSEOverQuota, RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError,
-                                    UnsupportedOperation, InvalidValueForKey)
+                                    UnsupportedOperation, InvalidValueForKey, InvalidSourceReplicaExpression)
 from rucio.common.policy import get_policy
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
@@ -37,7 +38,7 @@ from rucio.core.did import add_did, attach_dids, set_status
 from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
 from rucio.core.replica import add_replica, get_replica
 from rucio.core.request import get_request_by_did
-from rucio.core.rse import add_rse_attribute, add_rse, update_rse, get_rse_id, del_rse_attribute, set_rse_limits
+from rucio.core.rse import add_rse_attribute, add_rse, update_rse, get_rse_id, del_rse, del_rse_attribute, set_rse_limits
 from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule, move_rule, list_rules
 from rucio.core.scope import add_scope
@@ -53,8 +54,10 @@ from rucio.tests.common_server import get_vo
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Tuple
+    from rucio.tests.temp_factories import TemporaryDidFactory, TemporaryRSEFactory
 
 LOG = getLogger(__name__)
+RSE_namedtuple = namedtuple('RSE_namedtuple', ['name', 'id'])
 
 
 def create_files(nrfiles, scope, rse_id, bytes_=1):
@@ -152,6 +155,74 @@ def setup_class(request, vo, root_account, jdoe_account, rse_factory):
 
 @pytest.mark.usefixtures('setup_class')
 class TestCore:
+
+    @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+        'rucio.core.rse_expression_parser.REGION'
+    ]}], indirect=True)
+    @pytest.mark.parametrize(
+        "delete_rse", [True, False]
+    )
+    def test_move_rule_invalid_source_replica_expression(
+        self,
+        caches_mock,
+        delete_rse: bool,
+        did_factory: "TemporaryDidFactory",
+        rse_factory: "TemporaryRSEFactory",
+        root_account: "InternalAccount"
+    ):
+        """
+        REPLICATION RULE (CORE): Move a rule using an invalid source replica expression.
+
+        Parametrised so that there are two different ways for the source replica
+        expression to become invalid:
+        1) by deleting the source RSE
+        2) by referring to the source RSE via an RSE attribute and then deleting
+            said RSE attribute from the source RSE
+        in both cases the source replica expression is invalidated since it
+        evaluates to an empty set.
+        """
+
+        from dogpile.cache.api import NO_VALUE
+        from hashlib import sha256
+
+        # create RSEs A, B, C (structured into namedtuples)
+        rseA, rseB, rseC = (
+            RSE_namedtuple(*rse_factory.make_mock_rse()) for _ in range(3)
+        )
+        rsekey, rseval = tag_generator(), tag_generator()
+        add_rse_attribute(rseA.id, rsekey, rseval)
+
+        # create DID (dataset is easiest)
+        dataset = did_factory.make_dataset()
+
+        # create source replica expression
+        if delete_rse:
+            source_replica_expression = rseA.name
+        else:
+            source_replica_expression = f"{rsekey}={rseval}"
+
+        # add rule binding DID to RSE-B, source replica expression matches RSE-A
+        rule = {
+            "account": root_account,
+            "copies": 1,
+            "rse_expression": rseB.name,
+            "source_replica_expression": source_replica_expression
+        }
+        ruledict = add_rules([dataset], [rule])
+        rule_id = ruledict[(dataset["scope"], dataset["name"])][0]
+
+        # delete RSE-A (or otherwise unmatching from source replica expr)
+        if delete_rse:
+            del_rse(rseA.id)
+        else:
+            del_rse_attribute(rseA.id, rsekey)
+
+        # must remove cached entries for the Source Replica Expression
+        caches_mock[0].set(sha256(source_replica_expression.encode()).hexdigest(), NO_VALUE)
+
+        # move-rule asserts correct error
+        with pytest.raises(InvalidSourceReplicaExpression):
+            move_rule(rule_id, rseC.name)
 
     def test_add_rule_to_file_ask_approval(self, vo, mock_scope, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule, asking approval"""

@@ -1069,3 +1069,14 @@ class PolicyPackageVersionError(RucioException):
         super(PolicyPackageVersionError, self).__init__(*args, **kwargs)
         self._message = 'Policy package %s is not compatible with this Rucio version' % package
         self.error_code = 103
+
+
+class InvalidSourceReplicaExpression(RucioException):
+    """
+    Source Replica Expression Considered Invalid
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(InvalidSourceReplicaExpression, self).__init__(*args, **kwargs)
+        self._message = 'Provided Source Replica expression is considered invalid.'
+        self.error_code = 104
