@@ -21,6 +21,10 @@ import os
 import json
 import sys
 
+try:
+    import yaml
+except ImportError:
+    yaml = None
 import configparser
 
 
@@ -70,7 +74,7 @@ def merge_configs(source_file_paths, dest_file_path, use_env=True, logger=loggin
     """
     Merge multiple configuration sources into one rucio.cfg.
     On conflicting values, relies on the default python's ConfigParser behavior: the value from last source wins.
-    Sources can be either .ini or .json files. Json is supported as a compromise solution for easier integration
+    Sources can be .ini, .yaml, or .json files. Json is supported as a compromise solution for easier integration
     with kubernetes (because both python and helm natively support it).
     If use_env=True, env variables starting with RUCIO_CFG_ are also merged as the last (highest priority) source.
     """
@@ -93,6 +97,10 @@ def merge_configs(source_file_paths, dest_file_path, use_env=True, logger=loggin
                 if file_path.suffix == '.json':
                     with open(file_path, 'r') as f:
                         file_config = fix_multi_word_sections(json.load(f))
+                        parser.read_dict(file_config)
+                elif yaml and file_path.suffix in ['.yaml', '.yml']:
+                    with open(file_path, 'r') as f:
+                        file_config = fix_multi_word_sections(yaml.safe_load(f))
                         parser.read_dict(file_config)
                 elif path.is_file() or file_path.suffix in ['.ini', '.cfg', '.config']:
                     local_parser = configparser.ConfigParser()
@@ -131,7 +139,7 @@ def merge_configs(source_file_paths, dest_file_path, use_env=True, logger=loggin
 logging.getLogger().setLevel(logging.INFO)
 parser = argparse.ArgumentParser(description="Merge multiple rucio configuration sources into one rucio.cfg")
 parser.add_argument("--use-env", action="store_true", default=False, help='Also source config from RUCIO_CFG_* env variables')
-parser.add_argument('-s', '--source', type=str, nargs='*', help='Source config file paths (in .json or .ini format)')
+parser.add_argument('-s', '--source', type=str, nargs='*', help='Source config file paths (in .json, .yaml or .ini format)')
 parser.add_argument('-d', '--destination', default=None, help='Destination file path')
 args = parser.parse_args()
 

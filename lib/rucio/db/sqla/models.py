@@ -14,10 +14,9 @@
 # limitations under the License.
 
 import datetime
-import sys
 import uuid
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, Float, Integer, SmallInteger, String as _String, Text, event, UniqueConstraint, inspect
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, Float, Integer, SmallInteger, String, Text, event, UniqueConstraint, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
@@ -35,28 +34,8 @@ from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability
                                      BadPFNStatus, TransferLimitDirection)
 from rucio.db.sqla.session import BASE, get_engine
 from rucio.db.sqla.types import GUID, BooleanString, JSON
-from rucio.db.sqla.types import InternalAccountString as _InternalAccountString
-from rucio.db.sqla.types import InternalScopeString as _InternalScopeString
-
-
-# Recipe to force str instead if unicode
-# https://groups.google.com/forum/#!msg/sqlalchemy/8Xn31vBfGKU/bAGLNKapvSMJ
-def String(*arg, **kw):
-    if sys.version_info[0] < 3:
-        kw['convert_unicode'] = 'force'
-    return _String(*arg, **kw)
-
-
-def InternalScopeString(*arg, **kw):
-    if sys.version_info[0] < 3:
-        kw['convert_unicode'] = 'force'
-    return _InternalScopeString(*arg, **kw)
-
-
-def InternalAccountString(*arg, **kw):
-    if sys.version_info[0] < 3:
-        kw['convert_unicode'] = 'force'
-    return _InternalAccountString(*arg, **kw)
+from rucio.db.sqla.types import InternalAccountString
+from rucio.db.sqla.types import InternalScopeString
 
 
 @compiles(Boolean, "oracle")

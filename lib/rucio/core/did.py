@@ -486,7 +486,7 @@ def __add_files_to_archive(parent_did, files_temp_table, files, account, ignore_
                 models.DataIdentifier
             ).where(
                 exists(
-                    select([1])
+                    select(1)
                 ).where(
                     models.DataIdentifier.scope == files_temp_table.scope,
                     models.DataIdentifier.name == files_temp_table.name
@@ -513,7 +513,7 @@ def __add_files_to_archive(parent_did, files_temp_table, files, account, ignore_
             models.DataIdentifier
         ).where(
             exists(
-                select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX) */", dialect="oracle")
+                select(1).prefix_with("/*+ INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX) */", dialect="oracle")
             ).where(
                 models.DataIdentifierAssociation.child_scope == parent_did.scope,
                 models.DataIdentifierAssociation.child_name == parent_did.name,
@@ -604,9 +604,10 @@ def __add_files_to_dataset(parent_did, files_temp_table, files, account, rse_id,
             raise exception.UnsupportedOperation('Data identifier %s:%s of type %s cannot be added to a dataset ' % (row.scope, row.name, row.did_type))
 
         # Check meta-data, if provided
+        row_dict = row._asdict()
         for key in ['bytes', 'adler32', 'md5']:
-            if key in file and str(file[key]) != str(row[key]):
-                raise exception.FileConsistencyMismatch(key + " mismatch for '%(scope)s:%(name)s': " % row + str(file.get(key)) + '!=' + str(row[key]))
+            if key in file and str(file[key]) != str(row_dict[key]):
+                raise exception.FileConsistencyMismatch(key + " mismatch for '%(scope)s:%(name)s': " % row + str(file.get(key)) + '!=' + str(row_dict[key]))
 
         if ignore_duplicate and row.contents_scope is not None:
             continue
@@ -621,13 +622,13 @@ def __add_files_to_dataset(parent_did, files_temp_table, files, account, rse_id,
         files_to_add[(row.scope, row.name)] = {
             'scope': parent_did.scope,
             'name': parent_did.name,
-            'child_scope': row['scope'],
-            'child_name': row['name'],
-            'bytes': row['bytes'],
-            'adler32': row['adler32'],
-            'md5': row['md5'],
-            'guid': row['guid'],
-            'events': row['events'],
+            'child_scope': row.scope,
+            'child_name': row.name,
+            'bytes': row.bytes,
+            'adler32': row.adler32,
+            'md5': row.md5,
+            'guid': row.guid,
+            'events': row.events,
             'did_type': DIDType.DATASET,
             'child_type': DIDType.FILE,
             'rule_evaluation': True,
@@ -894,7 +895,7 @@ def __add_files_to_archive_without_temp_tables(scope, name, files, account, igno
             models.DataIdentifier
         ).where(
             exists(
-                select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX) */", dialect="oracle")
+                select(1).prefix_with("/*+ INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX) */", dialect="oracle")
             ).where(
                 models.DataIdentifierAssociation.child_scope == scope,
                 models.DataIdentifierAssociation.child_name == name,
@@ -1343,7 +1344,7 @@ def _delete_dids(
             models.DidMeta
         ).where(
             exists(
-                select([1])
+                select(1)
             ).where(
                 models.DidMeta.scope == temp_table.scope,
                 models.DidMeta.name == temp_table.name
@@ -1375,7 +1376,7 @@ def _delete_dids(
         # update bad files passed directly as input
         stmt = bad_replica_stmt.where(
             exists(
-                select([1])
+                select(1)
             ).where(
                 models.BadReplicas.scope == temp_table.scope,
                 models.BadReplicas.name == temp_table.name
@@ -1413,7 +1414,7 @@ def _delete_dids(
         # update bad files from datasets
         stmt = bad_replica_stmt.where(
             exists(
-                select([1])
+                select(1)
             ).where(
                 models.BadReplicas.scope == resolved_files_temp_table.scope,
                 models.BadReplicas.name == resolved_files_temp_table.name
@@ -1428,7 +1429,7 @@ def _delete_dids(
                     models.RSEFileAssociation
                 ).where(
                     exists(
-                        select([1])
+                        select(1)
                     ).where(
                         models.RSEFileAssociation.scope == resolved_files_temp_table.scope,
                         models.RSEFileAssociation.name == resolved_files_temp_table.name
@@ -1449,7 +1450,7 @@ def _delete_dids(
                 models.DataIdentifierAssociation
             ).where(
                 exists(
-                    select([1])
+                    select(1)
                 ).where(
                     models.DataIdentifierAssociation.scope == temp_table.scope,
                     models.DataIdentifierAssociation.name == temp_table.name
@@ -1466,7 +1467,7 @@ def _delete_dids(
                 models.CollectionReplica
             ).where(
                 exists(
-                    select([1])
+                    select(1)
                 ).where(
                     models.CollectionReplica.scope == temp_table.scope,
                     models.CollectionReplica.name == temp_table.name
@@ -1493,7 +1494,7 @@ def _delete_dids(
                 models.DidsFollowed
             ).where(
                 exists(
-                    select([1])
+                    select(1)
                 ).where(
                     models.DidsFollowed.scope == temp_table.scope,
                     models.DidsFollowed.name == temp_table.name
@@ -1505,7 +1506,7 @@ def _delete_dids(
 
         with METRICS.timer('delete_dids.dids'):
             dids_to_delete_filter = exists(
-                select([1])
+                select(1)
             ).where(
                 models.DataIdentifier.scope == temp_table.scope,
                 models.DataIdentifier.name == temp_table.name,
@@ -1533,7 +1534,7 @@ def _delete_dids(
             models.DataIdentifier
         ).where(
             exists(
-                select([1])
+                select(1)
             ).where(
                 models.DataIdentifier.scope == temp_table.scope,
                 models.DataIdentifier.name == temp_table.name
@@ -1714,7 +1715,7 @@ def _delete_dids_wo_temp_tables(
     if dataset_clause:
         for dataset in dataset_clause:
             sub_query = select(
-                [1]
+                1
             ).where(
                 models.BadReplicas.scope == models.DataIdentifierAssociation.child_scope,
                 models.BadReplicas.name == models.DataIdentifierAssociation.child_name
@@ -1959,7 +1960,7 @@ def list_new_dids(did_type, thread=None, total_threads=None, chunk_size=1000, *,
     """
 
     sub_query = select(
-        [1]
+        1
     ).prefix_with(
         "/*+ INDEX(RULES RULES_SCOPE_NAME_IDX) */", dialect='oracle'
     ).where(
@@ -3057,7 +3058,7 @@ def touch_dids(dids, *, session: "Session"):
                 did_type=did['type']
             ).values(
                 accessed_at=did.get('accessed_at') or now,
-                access_cnt=case([(models.DataIdentifier.access_cnt == none_value, 1)],
+                access_cnt=case((models.DataIdentifier.access_cnt == none_value, 1),
                                 else_=(models.DataIdentifier.access_cnt + 1))
             ).execution_options(
                 synchronize_session=False

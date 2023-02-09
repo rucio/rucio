@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import copy
 import heapq
 import logging
 import math
@@ -164,8 +164,8 @@ def __exist_replicas(rse_id, replicas, *, session: "Session"):
                                       models.RSEFileAssociation.name,
                                       models.RSEFileAssociation.rse_id,
                                       models.RSEFileAssociation.bytes,
-                                      func.max(case([(models.BadReplicas.state == BadFilesStatus.SUSPICIOUS, 0),
-                                                     (models.BadReplicas.state == BadFilesStatus.BAD, 1)],
+                                      func.max(case((models.BadReplicas.state == BadFilesStatus.SUSPICIOUS, 0),
+                                                    (models.BadReplicas.state == BadFilesStatus.BAD, 1),
                                                     else_=0))).\
                     with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PATH_IDX", 'oracle').\
                     outerjoin(models.BadReplicas,
@@ -763,7 +763,7 @@ def _get_list_replicas_protocols(
         'lan': {p['scheme']: p['domains']['lan']['read'] for p in rse_info['protocols'] if p['domains']['lan']['read'] > 0},
     }
 
-    rse_schemes = schemes or []
+    rse_schemes = copy.copy(schemes) if schemes else []
     if not rse_schemes:
         try:
             for domain in domains:
@@ -891,7 +891,8 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
             except Exception:
                 pass  # do not hard fail if site cannot be resolved or is empty
 
-    file, protocols_by_rse_id, pfns_cache = {}, {}, {}
+    file, pfns_cache = {}, {}
+    protocols_cache = defaultdict(dict)
 
     for _, replica_group in groupby(replicas, key=lambda x: (x[0], x[1])):  # Group by scope/name
         file = {}
@@ -899,6 +900,8 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
         for scope, name, archive_scope, archive_name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_group:
             if isinstance(archive_scope, str):
                 archive_scope = InternalScope(archive_scope, fromExternal=False)
+
+            is_archive = bool(archive_scope and archive_name)
 
             # it is the first row in the scope/name group
             if not file:
@@ -919,7 +922,8 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                 continue
 
             # It's the first time we see this RSE, initialize the protocols needed for PFN generation
-            if rse_id not in protocols_by_rse_id:
+            protocols = protocols_cache.get(rse_id, {}).get(is_archive)
+            if not protocols:
                 # select the lan door in autoselect mode, otherwise use the wan door
                 domain = input_domain
                 if domain is None:
@@ -927,24 +931,21 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                     if local_rses and rse_id in local_rses:
                         domain = 'lan'
 
-                # FIXME: if a list_replicas call iterates over both non-archive and archive replicas
-                # on the same rse_id, the protocols will not be correctly initialized for whatever comes
-                # second. This is because of the "additional_schemes" logic:
                 protocols = _get_list_replicas_protocols(
                     rse_id=rse_id,
                     domain=domain,
                     schemes=schemes,
                     # We want 'root' for archives even if it wasn't included into 'schemes'
-                    additional_schemes=['root'] if archive_scope and archive_name else [],
+                    additional_schemes=['root'] if is_archive else [],
                     session=session,
                 )
-                protocols_by_rse_id[rse_id] = protocols
+                protocols_cache[rse_id][is_archive] = protocols
 
             # build the pfns
-            for domain, protocol, priority in protocols_by_rse_id[rse_id]:
+            for domain, protocol, priority in protocols:
                 # If the current "replica" is a constituent inside an archive, we must construct the pfn for the
                 # parent (archive) file and append the xrdcl.unzip query string to it.
-                if archive_scope and archive_name:
+                if is_archive:
                     t_scope = archive_scope
                     t_name = archive_name
                 else:
@@ -973,7 +974,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                     )
 
                     client_extract = False
-                    if archive_scope and archive_name:
+                    if is_archive:
                         domain = 'zip'
                         pfn = add_url_query(pfn, {'xrdcl.unzip': name})
                         if protocol.attributes['scheme'] == 'root':
@@ -1036,7 +1037,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
 @stream_session
 def list_replicas(
         dids: "Sequence[Dict[str, Any]]",
-        schemes: "Optional[str]" = None,
+        schemes: "Optional[List[str]]" = None,
         unavailable: bool = False,
         request_id: "Optional[str]" = None,
         ignore_availability: bool = True,
@@ -1094,7 +1095,7 @@ def list_replicas(
 
 def _list_replicas_with_temp_tables(
         dids: "Sequence[Dict[str, Any]]",
-        schemes: "Optional[str]" = None,
+        schemes: "Optional[List[str]]" = None,
         unavailable: bool = False,
         request_id: "Optional[str]" = None,
         ignore_availability: bool = True,
@@ -1288,13 +1289,13 @@ def _list_replicas_with_temp_tables(
         """
         stmt = select(
             func.sum(
-                case([(models.DataIdentifier.did_type == DIDType.FILE, 1)], else_=0)
+                case((models.DataIdentifier.did_type == DIDType.FILE, 1), else_=0)
             ).label('num_files'),
             func.sum(
-                case([(models.DataIdentifier.did_type.in_([DIDType.CONTAINER, DIDType.DATASET]), 1)], else_=0)
+                case((models.DataIdentifier.did_type.in_([DIDType.CONTAINER, DIDType.DATASET]), 1), else_=0)
             ).label('num_collections'),
             func.sum(
-                case([(models.DataIdentifier.constituent == true(), 1)], else_=0)
+                case((models.DataIdentifier.constituent == true(), 1), else_=0)
             ).label('num_constituents'),
         ).join_from(
             temp_table,
@@ -1361,7 +1362,7 @@ def _list_replicas_with_temp_tables(
             resolved_files_temp_table.name.label('name'),
         ).where(
             exists(
-                select([1])
+                select(1)
             ).where(
                 replicas_subquery.c.scope == resolved_files_temp_table.scope,
                 replicas_subquery.c.name == resolved_files_temp_table.name
@@ -1716,7 +1717,7 @@ def __delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sess
     stmt = delete(
         models.Source,
     ).where(
-        exists(select([1])
+        exists(select(1)
                .where(and_(models.Source.scope == scope_name_temp_table.scope,
                            models.Source.name == scope_name_temp_table.name,
                            models.Source.rse_id == rse_id)))
@@ -1741,7 +1742,7 @@ def __delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sess
     stmt = delete(
         models.RSEFileAssociation,
     ).where(
-        exists(select([1])
+        exists(select(1)
                .where(and_(models.RSEFileAssociation.scope == scope_name_temp_table.scope,
                            models.RSEFileAssociation.name == scope_name_temp_table.name,
                            models.RSEFileAssociation.rse_id == rse_id)))
@@ -1756,7 +1757,7 @@ def __delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sess
     stmt = update(
         models.BadReplicas,
     ).where(
-        exists(select([1])
+        exists(select(1)
                .where(and_(models.BadReplicas.scope == scope_name_temp_table.scope,
                            models.BadReplicas.name == scope_name_temp_table.name,
                            models.BadReplicas.rse_id == rse_id)))
@@ -1807,10 +1808,10 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
             and_(models.DataIdentifier.scope == file['scope'],
                  models.DataIdentifier.name == file['name'],
                  models.DataIdentifier.availability != DIDAvailability.LOST,
-                 ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
+                 ~exists(select(1).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
                      and_(models.RSEFileAssociation.scope == file['scope'],
                           models.RSEFileAssociation.name == file['name'])),
-                 ~exists(select([1]).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
+                 ~exists(select(1).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
                      and_(models.ConstituentAssociation.child_scope == file['scope'],
                           models.ConstituentAssociation.child_name == file['name']))))
 
@@ -1908,10 +1909,10 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                 did_condition.append(
                     and_(models.DataIdentifier.scope == parent_scope,
                          models.DataIdentifier.name == parent_name,
-                         ~exists([1]).where(
+                         ~exists(1).where(
                              and_(models.DataIdentifierAssociation.child_scope == parent_scope,
                                   models.DataIdentifierAssociation.child_name == parent_name)),
-                         ~exists([1]).where(
+                         ~exists(1).where(
                              and_(models.DataIdentifierAssociation.scope == parent_scope,
                                   models.DataIdentifierAssociation.name == parent_name))))
             else:
@@ -1919,10 +1920,10 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                     and_(models.DataIdentifier.scope == parent_scope,
                          models.DataIdentifier.name == parent_name,
                          models.DataIdentifier.is_open == False,  # NOQA
-                         ~exists([1]).where(
+                         ~exists(1).where(
                              and_(models.DataIdentifierAssociation.child_scope == parent_scope,
                                   models.DataIdentifierAssociation.child_name == parent_name)),
-                         ~exists([1]).where(
+                         ~exists(1).where(
                              and_(models.DataIdentifierAssociation.scope == parent_scope,
                                   models.DataIdentifierAssociation.name == parent_name))))
 
@@ -1954,7 +1955,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                     messages.append(message)
                     incomplete_dids.append(ScopeName(scope=parent_scope, name=parent_name))
 
-            content_to_delete_filter = exists(select([1])
+            content_to_delete_filter = exists(select(1)
                                               .where(and_(association_temp_table.scope == models.DataIdentifierAssociation.scope,
                                                           association_temp_table.name == models.DataIdentifierAssociation.name,
                                                           association_temp_table.child_scope == models.DataIdentifierAssociation.child_scope,
@@ -2002,7 +2003,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
     stmt = delete(
         models.CollectionReplica,
     ).where(
-        exists(select([1])
+        exists(select(1)
                .where(and_(models.CollectionReplica.scope == scope_name_temp_table2.scope,
                            models.CollectionReplica.name == scope_name_temp_table2.name)))
     ).execution_options(
@@ -2016,7 +2017,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
     stmt = update(
         models.DataIdentifier
     ).where(
-        exists(select([1])
+        exists(select(1)
                .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
                            models.DataIdentifier.name == scope_name_temp_table.name)))
     ).where(
@@ -2095,7 +2096,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         stmt = delete(
             models.ConstituentAssociation
         ).where(
-            exists(select([1])
+            exists(select(1)
                    .where(and_(association_temp_table.scope == models.ConstituentAssociation.scope,
                                association_temp_table.name == models.ConstituentAssociation.name,
                                association_temp_table.child_scope == models.ConstituentAssociation.child_scope,
@@ -2119,7 +2120,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
     stmt = delete(
         models.ReplicationRule,
     ).where(
-        exists(select([1])
+        exists(select(1)
                .where(and_(models.ReplicationRule.scope == scope_name_temp_table.scope,
                            models.ReplicationRule.name == scope_name_temp_table.name)))
     ).where(
@@ -2139,7 +2140,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         stmt = delete(
             models.DidMeta,
         ).where(
-            exists(select([1])
+            exists(select(1)
                    .where(and_(models.DidMeta.scope == scope_name_temp_table.scope,
                                models.DidMeta.name == scope_name_temp_table.name)))
         ).execution_options(
@@ -2151,7 +2152,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         session.bulk_insert_mappings(models.Message, chunk)
 
     # Delete dids
-    dids_to_delete_filter = exists(select([1])
+    dids_to_delete_filter = exists(select(1)
                                    .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
                                                models.DataIdentifier.name == scope_name_temp_table.name)))
     archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
@@ -2202,7 +2203,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         stmt = update(
             models.DataIdentifier,
         ).where(
-            exists(select([1])
+            exists(select(1)
                    .where(and_(models.DataIdentifier.scope == scope_name_temp_table2.scope,
                                models.DataIdentifier.name == scope_name_temp_table2.name)))
         ).execution_options(
@@ -2308,7 +2309,7 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, sessio
         dst_replica_condition.append(
             and_(models.DataIdentifierAssociation.child_scope == file['scope'],
                  models.DataIdentifierAssociation.child_name == file['name'],
-                 exists(select([1]).prefix_with("/*+ INDEX(COLLECTION_REPLICAS COLLECTION_REPLICAS_PK) */", dialect='oracle')).where(
+                 exists(select(1).prefix_with("/*+ INDEX(COLLECTION_REPLICAS COLLECTION_REPLICAS_PK) */", dialect='oracle')).where(
                      and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
                           models.CollectionReplica.name == models.DataIdentifierAssociation.name,
                           models.CollectionReplica.rse_id == rse_id))))
@@ -2321,14 +2322,14 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, sessio
         parent_condition.append(
             and_(models.DataIdentifierAssociation.child_scope == file['scope'],
                  models.DataIdentifierAssociation.child_name == file['name'],
-                 ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                 ~exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
                      and_(models.DataIdentifier.scope == file['scope'],
                           models.DataIdentifier.name == file['name'],
                           models.DataIdentifier.availability == DIDAvailability.LOST)),
-                 ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
+                 ~exists(select(1).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
                      and_(models.RSEFileAssociation.scope == file['scope'],
                           models.RSEFileAssociation.name == file['name'])),
-                 ~exists(select([1]).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
+                 ~exists(select(1).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
                      and_(models.ConstituentAssociation.child_scope == file['scope'],
                           models.ConstituentAssociation.child_name == file['name']))))
 
@@ -2337,10 +2338,10 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, sessio
             and_(models.DataIdentifier.scope == file['scope'],
                  models.DataIdentifier.name == file['name'],
                  models.DataIdentifier.availability != DIDAvailability.LOST,
-                 ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
+                 ~exists(select(1).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
                      and_(models.RSEFileAssociation.scope == file['scope'],
                           models.RSEFileAssociation.name == file['name'])),
-                 ~exists(select([1]).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
+                 ~exists(select(1).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
                      and_(models.ConstituentAssociation.child_scope == file['scope'],
                           models.ConstituentAssociation.child_name == file['name']))))
 
@@ -2348,11 +2349,11 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, sessio
         archive_contents_condition.append(
             and_(models.ConstituentAssociation.scope == file['scope'],
                  models.ConstituentAssociation.name == file['name'],
-                 ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                 ~exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
                      and_(models.DataIdentifier.scope == file['scope'],
                           models.DataIdentifier.name == file['name'],
                           models.DataIdentifier.availability == DIDAvailability.LOST)),
-                 ~exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
+                 ~exists(select(1).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
                      and_(models.RSEFileAssociation.scope == file['scope'],
                           models.RSEFileAssociation.name == file['name']))))
 
@@ -2400,11 +2401,11 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, sessio
                 clt_is_not_archive_condition.append(
                     and_(models.DataIdentifierAssociation.scope == parent_scope,
                          models.DataIdentifierAssociation.name == parent_name,
-                         exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                         exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
                              and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.scope,
                                   models.DataIdentifier.name == models.DataIdentifierAssociation.name,
                                   models.DataIdentifier.is_archive == true())),
-                         ~exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                         ~exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
                              and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
                                   models.DataIdentifier.name == models.DataIdentifierAssociation.child_name,
                                   models.DataIdentifier.is_archive == true()))))
@@ -2416,10 +2417,10 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, sessio
                 clt_replica_condition.append(
                     and_(models.CollectionReplica.scope == parent_scope,
                          models.CollectionReplica.name == parent_name,
-                         exists(select([1]).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
+                         exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
                              and_(models.DataIdentifier.scope == parent_scope,
                                   models.DataIdentifier.name == parent_name)),
-                         ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
+                         ~exists(select(1).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
                              and_(models.DataIdentifierAssociation.scope == parent_scope,
                                   models.DataIdentifierAssociation.name == parent_name))))
 
@@ -2427,7 +2428,7 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, sessio
                 tmp_parent_condition.append(
                     and_(models.DataIdentifierAssociation.child_scope == parent_scope,
                          models.DataIdentifierAssociation.child_name == parent_name,
-                         ~exists(select([1]).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
+                         ~exists(select(1).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
                              and_(models.DataIdentifierAssociation.scope == parent_scope,
                                   models.DataIdentifierAssociation.name == parent_name))))
 
@@ -2437,10 +2438,10 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, sessio
                     did_condition.append(
                         and_(models.DataIdentifier.scope == parent_scope,
                              models.DataIdentifier.name == parent_name,
-                             ~exists([1]).where(
+                             ~exists(1).where(
                                  and_(models.DataIdentifierAssociation.child_scope == parent_scope,
                                       models.DataIdentifierAssociation.child_name == parent_name)),
-                             ~exists([1]).where(
+                             ~exists(1).where(
                                  and_(models.DataIdentifierAssociation.scope == parent_scope,
                                       models.DataIdentifierAssociation.name == parent_name))))
                 else:
@@ -2448,10 +2449,10 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, sessio
                         and_(models.DataIdentifier.scope == parent_scope,
                              models.DataIdentifier.name == parent_name,
                              models.DataIdentifier.is_open == False,  # NOQA
-                             ~exists([1]).where(
+                             ~exists(1).where(
                                  and_(models.DataIdentifierAssociation.child_scope == parent_scope,
                                       models.DataIdentifierAssociation.child_name == parent_name)),
-                             ~exists([1]).where(
+                             ~exists(1).where(
                                  and_(models.DataIdentifierAssociation.scope == parent_scope,
                                       models.DataIdentifierAssociation.name == parent_name))))
 
@@ -2465,7 +2466,7 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, sessio
                     distinct().\
                     with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').\
                     filter(or_(*chunk)).\
-                    filter(exists(select([1]).
+                    filter(exists(select(1).
                                   prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).
                            where(and_(models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
                                       models.DataIdentifierAssociation.name == models.DataIdentifier.name,
@@ -2683,7 +2684,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
     ).where(
         models.RSEFileAssociation.lock_cnt == 0,
         # The following CASE is to mimic the Oracle's functional "tombstone" index. Otherwise the optimiser doesn't use the index.
-        case([(models.RSEFileAssociation.tombstone != null(), models.RSEFileAssociation.rse_id), ]) == rse_id,
+        case((models.RSEFileAssociation.tombstone != null(), models.RSEFileAssociation.rse_id)) == rse_id,
         models.RSEFileAssociation.tombstone == OBSOLETE if only_delete_obsolete else models.RSEFileAssociation.tombstone < datetime.utcnow(),
     ).where(
         or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
@@ -2745,8 +2746,8 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             models.RSEFileAssociation,
             models.DataIdentifier.datatype,
         ).having(
-            case([(func.count(replicas_alias.scope) > 0, True),  # Can delete this replica if it's not the last replica
-                  (func.count(models.Request.scope) == 0, True)],  # If it's the last replica, only can delete if there are no requests using it
+            case((func.count(replicas_alias.scope) > 0, True),  # Can delete this replica if it's not the last replica
+                 (func.count(models.Request.scope) == 0, True),  # If it's the last replica, only can delete if there are no requests using it
                  else_=False).label("can_delete"),
         ).order_by(
             models.RSEFileAssociation.tombstone,
@@ -2773,7 +2774,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
         stmt = update(
             models.RSEFileAssociation
         ).where(
-            exists(select([1]).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')
+            exists(select(1).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')
                    .where(and_(models.RSEFileAssociation.scope == temp_table_cls.scope,
                                models.RSEFileAssociation.name == temp_table_cls.name,
                                models.RSEFileAssociation.rse_id == rse_id)))
@@ -2817,10 +2818,10 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
                                          models.RSEFileAssociation.name == models.DataIdentifier.name)).\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
-        filter(case([(models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ]) == rse_id).\
+        filter(case((models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id)) == rse_id).\
         filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
                    and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
-        filter(~exists(select([1]).prefix_with("/*+ INDEX(SOURCES SOURCES_SC_NM_DST_IDX) */", dialect='oracle')
+        filter(~exists(select(1).prefix_with("/*+ INDEX(SOURCES SOURCES_SC_NM_DST_IDX) */", dialect='oracle')
                        .where(and_(models.RSEFileAssociation.scope == models.Source.scope,
                                    models.RSEFileAssociation.name == models.Source.name,
                                    models.RSEFileAssociation.rse_id == models.Source.rse_id)))).\
@@ -2922,9 +2923,9 @@ def update_replicas_states(replicas, nowait=False, *, session: "Session"):
         if replica['state'] == ReplicaState.BEING_DELETED:
             query = query.filter_by(lock_cnt=0)
             # Exclude replicas use as sources
-            stmt = exists([1]).where(and_(models.RSEFileAssociation.scope == models.Source.scope,
-                                          models.RSEFileAssociation.name == models.Source.name,
-                                          models.RSEFileAssociation.rse_id == models.Source.rse_id))
+            stmt = exists(1).where(and_(models.RSEFileAssociation.scope == models.Source.scope,
+                                        models.RSEFileAssociation.name == models.Source.name,
+                                        models.RSEFileAssociation.rse_id == models.Source.rse_id))
             query = query.filter(not_(stmt))
             values['tombstone'] = OBSOLETE
         elif replica['state'] == ReplicaState.AVAILABLE:
@@ -2974,9 +2975,9 @@ def touch_replica(replica, *, session: "Session"):
             prefix_with("/*+ index(REPLICAS REPLICAS_PK) */", dialect='oracle').\
             execution_options(synchronize_session=False).\
             values(accessed_at=accessed_at,
-                   tombstone=case([(and_(models.RSEFileAssociation.tombstone != none_value,
-                                         models.RSEFileAssociation.tombstone != OBSOLETE),
-                                    accessed_at)],
+                   tombstone=case((and_(models.RSEFileAssociation.tombstone != none_value,
+                                        models.RSEFileAssociation.tombstone != OBSOLETE),
+                                   accessed_at),
                                   else_=models.RSEFileAssociation.tombstone))
         session.execute(stmt)
 
@@ -4046,28 +4047,28 @@ def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logg
 
     # Only return replicas that have at least one copy on another RSE
     if available_elsewhere == SuspiciousAvailability["EXIST_COPIES"].value:
-        available_replica = exists(select([1]).where(and_(replicas_alias.state == ReplicaState.AVAILABLE,
-                                                          replicas_alias.scope == bad_replicas_alias.scope,
-                                                          replicas_alias.name == bad_replicas_alias.name,
-                                                          replicas_alias.rse_id != bad_replicas_alias.rse_id)))
+        available_replica = exists(select(1).where(and_(replicas_alias.state == ReplicaState.AVAILABLE,
+                                                        replicas_alias.scope == bad_replicas_alias.scope,
+                                                        replicas_alias.name == bad_replicas_alias.name,
+                                                        replicas_alias.rse_id != bad_replicas_alias.rse_id)))
         query = query.filter(available_replica)
 
     # Only return replicas that are the last remaining copy
     if available_elsewhere == SuspiciousAvailability["LAST_COPY"].value:
-        last_replica = ~exists(select([1]).where(and_(replicas_alias.state == ReplicaState.AVAILABLE,
-                                                      replicas_alias.scope == bad_replicas_alias.scope,
-                                                      replicas_alias.name == bad_replicas_alias.name,
-                                                      replicas_alias.rse_id != bad_replicas_alias.rse_id)))
+        last_replica = ~exists(select(1).where(and_(replicas_alias.state == ReplicaState.AVAILABLE,
+                                                    replicas_alias.scope == bad_replicas_alias.scope,
+                                                    replicas_alias.name == bad_replicas_alias.name,
+                                                    replicas_alias.rse_id != bad_replicas_alias.rse_id)))
         query = query.filter(last_replica)
 
     # it is required that the selected replicas
     # do not occur as BAD/DELETED/LOST/RECOVERED/...
     # in the bad_replicas table during the same time window.
-    other_states_present = exists(select([1]).where(and_(models.BadReplicas.scope == bad_replicas_alias.scope,
-                                                         models.BadReplicas.name == bad_replicas_alias.name,
-                                                         models.BadReplicas.created_at >= younger_than,
-                                                         models.BadReplicas.rse_id == bad_replicas_alias.rse_id,
-                                                         models.BadReplicas.state.in_(exclude_states_clause))))
+    other_states_present = exists(select(1).where(and_(models.BadReplicas.scope == bad_replicas_alias.scope,
+                                                       models.BadReplicas.name == bad_replicas_alias.name,
+                                                       models.BadReplicas.created_at >= younger_than,
+                                                       models.BadReplicas.rse_id == bad_replicas_alias.rse_id,
+                                                       models.BadReplicas.state.in_(exclude_states_clause))))
     query = query.filter(not_(other_states_present))
 
     # finally, the results are grouped by RSE, scope, name and required to have
@@ -4422,7 +4423,7 @@ def _list_replicas_for_files_wo_temp_tables(file_clause, state_clause, files_wo_
 
 def _list_replicas_wo_temp_tables(
         dids: "Sequence[Dict[str, Any]]",
-        schemes: "Optional[str]" = None,
+        schemes: "Optional[List[str]]" = None,
         unavailable: bool = False,
         request_id: "Optional[str]" = None,
         ignore_availability: bool = True,
