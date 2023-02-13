@@ -22,15 +22,21 @@ from rucio.core.account import get_usage
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids, detach_dids
 from rucio.core.lock import get_replica_locks, get_dataset_locks
+from rucio.core.replica import add_replica
 from rucio.core.rse import add_rse_attribute
 from rucio.core.rule import add_rule, get_rule
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.judge.evaluator import re_evaluator
-from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.constants import DIDType, LockState
 from rucio.db.sqla.models import UpdatedDID
 from rucio.db.sqla.session import transactional_session
+from rucio.tests.common import RSE_namedtuple
 from rucio.tests.common_server import get_vo
 from rucio.tests.test_rule import create_files, tag_generator
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from rucio.tests.temp_factories import TemporaryDidFactory, TemporaryRSEFactory
 
 
 @pytest.fixture(scope="class")
@@ -372,3 +378,61 @@ class TestJudgeEvaluator:
         # Check if the Locks are created properly
         for file in more_files:
             assert len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2
+
+
+def test_judge_double_container_with_existing_rule(
+    did_factory: "TemporaryDidFactory",
+    rse_factory: "TemporaryRSEFactory",
+    root_account: "InternalAccount"
+):
+    """
+    JUDGE EVALUATOR:
+    Test the judge in attaching to a file structure with two nested
+    containers. The root container has a rule.
+    """
+    RSE = RSE_namedtuple(*rse_factory.make_mock_rse())
+
+    # create container C1 with rule
+    C1 = did_factory.make_container()
+
+    add_rule(
+        dids=[C1],
+        account=root_account,
+        copies=1,
+        rse_expression=RSE.name,
+        grouping='DATASET',
+        weight=None,
+        lifetime=None,
+        locked=False,
+        subscription_id=None
+    )
+
+    # create setup: C2->D->F
+    C2 = did_factory.make_container()
+    D = did_factory.make_dataset()
+    F = did_factory.random_file_did()
+    add_replica(rse_id=RSE.id, account=root_account, bytes_=10, **F)
+
+    attach_dids(dids=[F], account=root_account, **D)
+    attach_dids(dids=[D], account=root_account, **C2)
+
+    # attach setup to C1 (result: C1->C2->D->F)
+    attach_dids(dids=[C2], account=root_account, **C1)
+
+    # fake judge
+    re_evaluator(once=True, did_limit=1000)
+
+    # assertions
+    replicalocks = get_replica_locks(**F)
+    assert len(replicalocks) == 1
+    assert replicalocks[0].state == LockState.OK
+    datasetlocks = list(get_dataset_locks(**D))
+    assert len(datasetlocks) == 1
+    assert datasetlocks[0]["state"] == LockState.OK
+
+    # detach again
+    detach_dids(dids=[C2], **C1)
+    re_evaluator(once=True, did_limit=1000)
+
+    assert not get_replica_locks(**F)
+    assert not get_replica_locks(**D)
