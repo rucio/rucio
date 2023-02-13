@@ -62,7 +62,6 @@ class AccessDenied(RucioException):
     """
     AccessDenied
     """
-
     def __init__(self, *args, **kwargs):
         super(AccessDenied, self).__init__(*args, **kwargs)
         self._message = "Access to the requested resource denied."
@@ -73,7 +72,6 @@ class AccountNotFound(RucioException):
     """
     AccountNotFound
     """
-
     def __init__(self, *args, **kwargs):
         super(AccountNotFound, self).__init__(*args, **kwargs)
         self._message = "Account does not exist."
@@ -84,7 +82,6 @@ class CannotAuthenticate(RucioException):
     """
     CannotAuthenticate
     """
-
     def __init__(self, *args, **kwargs):
         super(CannotAuthenticate, self).__init__(*args, **kwargs)
         self._message = "Cannot authenticate."
@@ -95,7 +92,6 @@ class ClientParameterMismatch(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ClientParameterMismatch, self).__init__(*args, **kwargs)
         self._message = "Client parameters don\'t match."
@@ -106,7 +102,6 @@ class ClientProtocolNotSupported(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ClientProtocolNotSupported, self).__init__(*args, **kwargs)
         self._message = "Client protocol not supported."
@@ -117,7 +112,6 @@ class ConfigNotFound(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ConfigNotFound, self).__init__(*args, **kwargs)
         self._message = "Configuration not found."
@@ -128,7 +122,6 @@ class ConfigurationError(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ConfigurationError, self).__init__(*args, **kwargs)
         self._message = "Error during configuration."
@@ -139,7 +132,6 @@ class CounterNotFound(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(CounterNotFound, self).__init__(*args, **kwargs)
         self._message = "The requested counter does not exist."
@@ -150,7 +142,6 @@ class DatabaseException(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(DatabaseException, self).__init__(*args, **kwargs)
         self._message = "Database exception."
@@ -161,7 +152,6 @@ class DataIdentifierAlreadyExists(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(DataIdentifierAlreadyExists, self).__init__(*args, **kwargs)
         self._message = "Data Identifier Already Exists."
@@ -172,7 +162,6 @@ class DataIdentifierNotFound(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(DataIdentifierNotFound, self).__init__(*args, **kwargs)
         self._message = "Data identifier not found."
@@ -183,7 +172,6 @@ class DestinationNotAccessible(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(DestinationNotAccessible, self).__init__(*args, **kwargs)
         self._message = "Access to local destination denied."
@@ -194,7 +182,6 @@ class Duplicate(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(Duplicate, self).__init__(*args, **kwargs)
         self._message = "An object with the same identifier already exists."
@@ -205,7 +192,6 @@ class DuplicateContent(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(DuplicateContent, self).__init__(*args, **kwargs)
         self._message = "Data identifier already added to the destination content."
@@ -216,7 +202,6 @@ class DuplicateRule(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(DuplicateRule, self).__init__(*args, **kwargs)
         self._message = "A duplicate rule for this account, did, rse_expression, copies already exists."
@@ -227,7 +212,6 @@ class ErrorLoadingCredentials(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ErrorLoadingCredentials, self).__init__(*args, **kwargs)
         self._message = "Unable to to load user credentials."
@@ -238,7 +222,6 @@ class FileAlreadyExists(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(FileAlreadyExists, self).__init__(*args, **kwargs)
         self._message = "The file already exists."
@@ -249,7 +232,6 @@ class FileConsistencyMismatch(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(FileConsistencyMismatch, self).__init__(*args, **kwargs)
         self._message = "Error related to file consistency."
@@ -260,7 +242,6 @@ class FileReplicaAlreadyExists(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(FileReplicaAlreadyExists, self).__init__(*args, **kwargs)
         self._message = "File name in specified scope already exists"
@@ -271,7 +252,6 @@ class ReplicaNotFound(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ReplicaNotFound, self).__init__(*args, **kwargs)
         self._message = "Replica not found"
@@ -282,7 +262,6 @@ class ReplicaUnAvailable(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ReplicaUnAvailable, self).__init__(*args, **kwargs)
         self._message = "Replica unavailable"
@@ -293,7 +272,6 @@ class FullStorage(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(FullStorage, self).__init__(*args, **kwargs)
         self._message = "The Referenced storage is out of disk space."
@@ -304,7 +282,6 @@ class IdentityError(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(IdentityError, self).__init__(*args, **kwargs)
         self._message = "Identity error."
@@ -322,7 +299,6 @@ class InputValidationError(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(InputValidationError, self).__init__(*args, **kwargs)
         self._message = "There is an error with one of the input parameters."
@@ -333,7 +309,6 @@ class InsufficientAccountLimit(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(InsufficientAccountLimit, self).__init__(*args, **kwargs)
         self._message = "There is not enough quota left to fulfil the operation."
@@ -344,7 +319,6 @@ class InsufficientTargetRSEs(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(InsufficientTargetRSEs, self).__init__(*args, **kwargs)
         self._message = "There are not enough target RSEs to fulfil the request at this time."
@@ -355,7 +329,6 @@ class InvalidMetadata(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(InvalidMetadata, self).__init__(*args, **kwargs)
         self._message = "Provided metadata is considered invalid."
@@ -366,7 +339,6 @@ class InvalidObject(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(InvalidObject, self).__init__(*args, **kwargs)
         self._message = "Provided object does not match schema."
@@ -377,7 +349,6 @@ class InvalidReplicationRule(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(InvalidReplicationRule, self).__init__(*args, **kwargs)
         self._message = "Provided replication rule is considered invalid."
@@ -388,7 +359,6 @@ class InvalidRSEExpression(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(InvalidRSEExpression, self).__init__(*args, **kwargs)
         self._message = "Provided RSE expression is considered invalid."
@@ -399,7 +369,6 @@ class InvalidRuleWeight(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(InvalidRuleWeight, self).__init__(*args, **kwargs)
         self._message = "An invalid weight value/type is used for an RSE."
@@ -410,7 +379,6 @@ class InvalidType(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(InvalidType, self).__init__(*args, **kwargs)
         self._message = "Provided type is considered invalid."
@@ -421,7 +389,6 @@ class InvalidValueForKey(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(InvalidValueForKey, self).__init__(*args, **kwargs)
         self._message = "Invalid value for the key."
@@ -432,7 +399,6 @@ class InvalidRequest(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(InvalidRequest, self).__init__(*args, **kwargs)
         self._message = "Request is considered invalid."
@@ -443,7 +409,6 @@ class InvalidPath(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(InvalidPath, self).__init__(*args, **kwargs)
         self._message = "The path provided is invalid."
@@ -454,7 +419,6 @@ class KeyNotFound(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(KeyNotFound, self).__init__(*args, **kwargs)
         self._message = "Key does not exist."
@@ -465,7 +429,6 @@ class LifetimeExceptionDuplicate(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(LifetimeExceptionDuplicate, self).__init__(*args, **kwargs)
         self._message = "An exception already exists."
@@ -476,7 +439,6 @@ class LifetimeExceptionNotFound(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(LifetimeExceptionNotFound, self).__init__(*args, **kwargs)
         self._message = "Exception does not exist."
@@ -487,7 +449,6 @@ class ManualRuleApprovalBlocked(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ManualRuleApprovalBlocked, self).__init__(*args, **kwargs)
         self._message = "Manual rule approval is blocked on this RSE."
@@ -498,7 +459,6 @@ class MissingClientParameter(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(MissingClientParameter, self).__init__(*args, **kwargs)
         self._message = "Client parameters are missing."
@@ -509,7 +469,6 @@ class MissingDependency(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(MissingDependency, self).__init__(*args, **kwargs)
         self._message = "One dependency is missing."
@@ -520,7 +479,6 @@ class MissingSourceReplica(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(MissingSourceReplica, self).__init__(*args, **kwargs)
         self._message = "Source replicas are missing to fulfil the request at this moment."
@@ -531,7 +489,6 @@ class NameTypeError(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(NameTypeError, self).__init__(*args, **kwargs)
         self._message = "Name is of the wrong type"
@@ -542,7 +499,6 @@ class NoAuthInformation(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(NoAuthInformation, self).__init__(*args, **kwargs)
         self._message = "No authentication information passed."
@@ -553,7 +509,6 @@ class NoFilesDownloaded(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(NoFilesDownloaded, self).__init__(*args, **kwargs)
         self._message = "None of the requested files have been downloaded."
@@ -564,7 +519,6 @@ class NotAllFilesDownloaded(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(NotAllFilesDownloaded, self).__init__(*args, **kwargs)
         self._message = "Not all of the requested files have been downloaded."
@@ -575,7 +529,6 @@ class ReplicationRuleCreationTemporaryFailed(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ReplicationRuleCreationTemporaryFailed, self).__init__(*args, **kwargs)
         self._message = "The creation of the replication rule failed at this time. Please try again later."
@@ -593,7 +546,6 @@ class RSEAccessDenied(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(RSEAccessDenied, self).__init__(*args, **kwargs)
         self._message = "Referenced RSE not reachable."
@@ -604,7 +556,6 @@ class RSEWriteBlocked(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(RSEWriteBlocked, self).__init__(*args, **kwargs)
         self._message = "RSE excluded; not available for writing."
@@ -615,7 +566,6 @@ class RSENotConnected(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(RSENotConnected, self).__init__(*args, **kwargs)
         self._message = "Connection to RSE not established."
@@ -626,7 +576,6 @@ class RSENotFound(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(RSENotFound, self).__init__(*args, **kwargs)
         self._message = "RSE does not exist."
@@ -637,7 +586,6 @@ class RSEProtocolNotSupported(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(RSEProtocolNotSupported, self).__init__(*args, **kwargs)
         self._message = "RSE does not support requested protocol."
@@ -648,7 +596,6 @@ class RSEProtocolPriorityError(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(RSEProtocolPriorityError, self).__init__(*args, **kwargs)
         self._message = "RSE does not support provided protocol priority for protocol."
@@ -659,7 +606,6 @@ class RSEProtocolDomainNotSupported(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(RSEProtocolDomainNotSupported, self).__init__(*args, **kwargs)
         self._message = "RSE does not support requested protocol scope."
@@ -670,7 +616,6 @@ class RSEOperationNotSupported(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(RSEOperationNotSupported, self).__init__(*args, **kwargs)
         self._message = "RSE does not support requested operation."
@@ -681,7 +626,6 @@ class RSEFileNameNotSupported(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(RSEFileNameNotSupported, self).__init__(*args, **kwargs)
         self._message = "RSE does not support provided filename."
@@ -692,7 +636,6 @@ class RSEOverQuota(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(RSEOverQuota, self).__init__(*args, **kwargs)
         self._message = "Quota of Referenced RSE is exceeded."
@@ -703,7 +646,6 @@ class ResourceTemporaryUnavailable(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ResourceTemporaryUnavailable, self).__init__(*args, **kwargs)
         self._message = "The resource is temporary not available."
@@ -714,7 +656,6 @@ class RuleNotFound(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(RuleNotFound, self).__init__(*args, **kwargs)
         self._message = "No replication rule found."
@@ -725,7 +666,6 @@ class RuleReplaceFailed(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(RuleReplaceFailed, self).__init__(*args, **kwargs)
         self._message = "The replace operation for the rule failed."
@@ -736,7 +676,6 @@ class ScratchDiskLifetimeConflict(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ScratchDiskLifetimeConflict, self).__init__(*args, **kwargs)
         self._message = "The requested replication rule exceeds the maximum SCRATCHDISK lifetime of 15 days."
@@ -747,7 +686,6 @@ class ServiceUnavailable(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ServiceUnavailable, self).__init__(*args, **kwargs)
         self._message = "The requested service is not available at the moment."
@@ -758,7 +696,6 @@ class ScopeAccessDenied(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ScopeAccessDenied, self).__init__(*args, **kwargs)
         self._message = "Access to Referenced scope denied."
@@ -769,7 +706,6 @@ class ScopeNotFound(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ScopeNotFound, self).__init__(*args, **kwargs)
         self._message = "Scope does not exist."
@@ -780,7 +716,6 @@ class SourceAccessDenied(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(SourceAccessDenied, self).__init__(*args, **kwargs)
         self._message = "Access to local source file denied."
@@ -791,7 +726,6 @@ class SourceNotFound(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(SourceNotFound, self).__init__(*args, **kwargs)
         self._message = "Source file not found."
@@ -802,7 +736,6 @@ class StagingAreaRuleRequiresLifetime(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(StagingAreaRuleRequiresLifetime, self).__init__(*args, **kwargs)
         self._message = "A rule involving a staging area requires a lifetime!"
@@ -813,7 +746,6 @@ class SubscriptionDuplicate(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(SubscriptionDuplicate, self).__init__(*args, **kwargs)
         self._message = "A subscription with the same identifier already exists."
@@ -824,7 +756,6 @@ class SubscriptionNotFound(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(SubscriptionNotFound, self).__init__(*args, **kwargs)
         self._message = "Subscription not found."
@@ -835,7 +766,6 @@ class UnsupportedDIDType(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(UnsupportedDIDType, self).__init__(*args, **kwargs)
         self._message = "Unsupported DID type for this operation. Only DATASET or FILE is allowed."
@@ -846,7 +776,6 @@ class UnsupportedOperation(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(UnsupportedOperation, self).__init__(*args, **kwargs)
         self._message = "The resource doesn't support the requested operation."
@@ -857,7 +786,6 @@ class UnsupportedStatus(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(UnsupportedStatus, self).__init__(*args, **kwargs)
         self._message = "Unsupported data identifier status."
@@ -868,7 +796,6 @@ class UnsupportedValueType(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(UnsupportedValueType, self).__init__(*args, **kwargs)
         self._message = "Unsupported type for the value. List of supported types: %s." % str(AUTHORIZED_VALUE_TYPES)
@@ -879,7 +806,6 @@ class MissingModuleException(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(MissingModuleException, self).__init__(*args, **kwargs)
         self._message = "The module is not installed."
@@ -890,7 +816,6 @@ class ServerConnectionException(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(ServerConnectionException, self).__init__(*args, **kwargs)
         self._message = "Cannot connect to the Rucio server."
@@ -901,7 +826,6 @@ class NoFilesUploaded(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(NoFilesUploaded, self).__init__(*args, **kwargs)
         self._message = "None of the given files have been uploaded."
@@ -912,7 +836,6 @@ class NotAllFilesUploaded(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(NotAllFilesUploaded, self).__init__(*args, **kwargs)
         self._message = "Not all of the given files have been uploaded."
@@ -923,7 +846,6 @@ class RSEChecksumUnavailable(RucioException):
     """
     Cannot retrieve checksum from RSE
     """
-
     def __init__(self, *args, **kwargs):
         super(RSEChecksumUnavailable, self).__init__(*args, **kwargs)
         self._message = "RSE checksum unavailable."
@@ -934,7 +856,6 @@ class UndefinedPolicy(RucioException):
     """
     Cannot find a defined policy in the Rucio config
     """
-
     def __init__(self, *args, **kwargs):
         super(UndefinedPolicy, self).__init__(*args, **kwargs)
         self._message = "No policy is defined."
@@ -945,7 +866,6 @@ class TransferToolTimeout(RucioException):
     """
     Timeout from the transfer tool
     """
-
     def __init__(self, *args, **kwargs):
         super(TransferToolTimeout, self).__init__(*args, **kwargs)
         self._message = "Timeout from the transfer tool."
@@ -956,7 +876,6 @@ class TransferToolWrongAnswer(RucioException):
     """
     Wrong answer returned by the transfer tool
     """
-
     def __init__(self, *args, **kwargs):
         super(TransferToolWrongAnswer, self).__init__(*args, **kwargs)
         self._message = "Wrong answer returned by the transfer tool."
@@ -967,7 +886,6 @@ class RSEAttributeNotFound(RucioException):
     """
     RSE attribute not found.
     """
-
     def __init__(self, *args, **kwargs):
         super(RSEAttributeNotFound, self).__init__(*args, **kwargs)
         self._message = "RSE attribute not found."
@@ -978,7 +896,6 @@ class UnsupportedKeyType(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(UnsupportedKeyType, self).__init__(*args, **kwargs)
         self._message = "Unsupported type for the key."
@@ -989,7 +906,6 @@ class MetalinkJsonParsingError(RucioException):
     """
     Failed to parse input with metalink and json
     """
-
     def __init__(self, data, metalink_err, json_err, *args, **kwargs):
         super(MetalinkJsonParsingError, self).__init__(*args, **kwargs)
         self._message = 'Failed parsing of %s. MetalinkError: %s. JsonError: %s' % (data, metalink_err, json_err)
@@ -1000,7 +916,6 @@ class ReplicaIsLocked(RucioException):
     """
     Replica has one or more locks.
     """
-
     def __init__(self, *args, **kwargs):
         super(ReplicaIsLocked, self).__init__(*args, **kwargs)
         self._message = 'Replica is locked'
@@ -1011,7 +926,6 @@ class UnsupportedRequestedContentType(RucioException):
     """
     The requested content type is not supported by the API endpoint.
     """
-
     def __init__(self, *args, **kwargs):
         super(UnsupportedRequestedContentType, self).__init__(*args, **kwargs)
         self._message = 'The requested content type is not supported.'
@@ -1022,7 +936,6 @@ class DuplicateFileTransferSubmission(RucioException):
     """
     A transfer for the same file is already submitted to the Transfer Tool.
     """
-
     def __init__(self, *args, **kwargs):
         super(DuplicateFileTransferSubmission, self).__init__(*args, **kwargs)
         self._message = 'One or more files are already submitted to the transfer tool'
@@ -1033,7 +946,6 @@ class DIDError(RucioException):
     """
     An operation related to DID type went wrong
     """
-
     def __init__(self, *args, **kwargs):
         super(DIDError, self).__init__(*args, **kwargs)
         self._message = 'Error using DID type'
@@ -1044,7 +956,6 @@ class NoDistance(RucioException):
     """
     No distance can be found between 2 RSEs
     """
-
     def __init__(self, *args, **kwargs):
         super(NoDistance, self).__init__(*args, **kwargs)
         self._message = 'Cannot found a distance between 2 RSEs'
@@ -1055,7 +966,6 @@ class PolicyPackageNotFound(RucioException):
     """
     The policy package specified in the config file cannot be loaded.
     """
-
     def __init__(self, *args, **kwargs):
         super(PolicyPackageNotFound, self).__init__(*args, **kwargs)
         self._message = 'The specified policy package cannot be loaded'
@@ -1066,7 +976,6 @@ class CannotAuthorize(RucioException):
     """
     Failed to authorize an operation.
     """
-
     def __init__(self, *args, **kwargs):
         super(CannotAuthorize, self).__init__(*args, **kwargs)
         self._message = 'Can not authorize operation.'
@@ -1077,7 +986,6 @@ class SubscriptionWrongParameter(RucioException):
     """
     RucioException
     """
-
     def __init__(self, *args, **kwargs):
         super(SubscriptionWrongParameter, self).__init__(*args, **kwargs)
         self._message = "Subscription wrong parameters"
@@ -1088,7 +996,6 @@ class VONotFound(RucioException):
     """
     Requested VO does not exist.
     """
-
     def __init__(self, *args, **kwargs):
         super(VONotFound, self).__init__(*args, **kwargs)
         self._message = 'The requested VO does not exist'
@@ -1099,7 +1006,6 @@ class UnsupportedAccountName(RucioException):
     """
     Requested account name is not supported for users.
     """
-
     def __init__(self, *args, **kwargs):
         super(UnsupportedAccountName, self).__init__(*args, **kwargs)
         self._message = 'The requested account name cannot be used'
@@ -1110,7 +1016,6 @@ class DuplicateCriteriaInDIDFilter(RucioException):
     """
     Duplicate criteria found in DID filter.
     """
-
     def __init__(self, *args, **kwargs):
         super(DuplicateCriteriaInDIDFilter, self).__init__(*args, **kwargs)
         self._message = 'Duplicate criteria for key/operator in filter expression: {}'.format(args[0])
@@ -1121,7 +1026,6 @@ class DIDFilterSyntaxError(RucioException):
     """
     DID filter is not parsable.
     """
-
     def __init__(self, *args, **kwargs):
         super(DIDFilterSyntaxError, self).__init__(*args, **kwargs)
         self._message = 'Syntax error in filter expression.'
@@ -1132,7 +1036,6 @@ class InvalidAlgorithmName(RucioException):
     """
     The given algorithm name is not valid for the VO.
     """
-
     def __init__(self, algorithm, vo, *args, **kwargs):
         super(InvalidAlgorithmName, self).__init__(*args, **kwargs)
         self.message = 'Algorithm name %s is not valid for VO %s' % (algorithm, vo)
@@ -1143,7 +1046,6 @@ class FilterEngineGenericError(RucioException):
     """
     Generic Filter Engine error.
     """
-
     def __init__(self, *args, **kwargs):
         super(FilterEngineGenericError, self).__init__(*args, **kwargs)
         self._message = 'Generic filter engine error.'
