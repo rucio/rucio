@@ -604,10 +604,9 @@ def __add_files_to_dataset(parent_did, files_temp_table, files, account, rse_id,
             raise exception.UnsupportedOperation('Data identifier %s:%s of type %s cannot be added to a dataset ' % (row.scope, row.name, row.did_type))
 
         # Check meta-data, if provided
-        row_dict = row._asdict()
         for key in ['bytes', 'adler32', 'md5']:
-            if key in file and str(file[key]) != str(row_dict[key]):
-                raise exception.FileConsistencyMismatch(key + " mismatch for '%(scope)s:%(name)s': " % row + str(file.get(key)) + '!=' + str(row_dict[key]))
+            if key in file and str(file[key]) != str(row[key]):
+                raise exception.FileConsistencyMismatch(key + " mismatch for '%(scope)s:%(name)s': " % row + str(file.get(key)) + '!=' + str(row[key]))
 
         if ignore_duplicate and row.contents_scope is not None:
             continue
@@ -622,13 +621,13 @@ def __add_files_to_dataset(parent_did, files_temp_table, files, account, rse_id,
         files_to_add[(row.scope, row.name)] = {
             'scope': parent_did.scope,
             'name': parent_did.name,
-            'child_scope': row.scope,
-            'child_name': row.name,
-            'bytes': row.bytes,
-            'adler32': row.adler32,
-            'md5': row.md5,
-            'guid': row.guid,
-            'events': row.events,
+            'child_scope': row['scope'],
+            'child_name': row['name'],
+            'bytes': row['bytes'],
+            'adler32': row['adler32'],
+            'md5': row['md5'],
+            'guid': row['guid'],
+            'events': row['events'],
             'did_type': DIDType.DATASET,
             'child_type': DIDType.FILE,
             'rule_evaluation': True,
