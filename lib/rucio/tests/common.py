@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import namedtuple
 import contextlib
 import itertools
 import json
@@ -226,3 +227,6 @@ def load_test_conf_file(file_name):
     config_dir = next(filter(lambda d: os.path.exists(os.path.join(d, file_name)), get_config_dirs()))
     with open(os.path.join(config_dir, file_name)) as f:
         return json.load(f)
+
+
+RSE_namedtuple = namedtuple('RSE_namedtuple', ['name', 'id'])
