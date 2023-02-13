@@ -23,17 +23,13 @@ import os
 import random
 import sys
 import time
-import socket
-import ssl
-from datetime import datetime, timedelta
-from re import search
 from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
 
 from dogpile.cache import make_region
 from requests import Session, Response
-from requests.exceptions import ConnectionError, SSLError
+from requests.exceptions import ConnectionError
 from requests.status_codes import codes
 from configparser import NoOptionError, NoSectionError
 from urllib.parse import urlparse
@@ -43,16 +39,14 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import (CannotAuthenticate, ClientProtocolNotSupported,
                                     NoAuthInformation, MissingClientParameter,
-                                    MissingModuleException, ServerConnectionException, ServerSSLCertificateExpiredException)
+                                    MissingModuleException, ServerConnectionException)
 from rucio.common.extra import import_extras
-from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign, setup_logger, date_to_str
+from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, ssh_sign, setup_logger
 
-EXTRA_MODULES = import_extras(['requests_kerberos', 'cryptography'])
+EXTRA_MODULES = import_extras(['requests_kerberos'])
 
 if EXTRA_MODULES['requests_kerberos']:
     from requests_kerberos import HTTPKerberosAuth  # pylint: disable=import-error
-if EXTRA_MODULES['cryptography']:
-    from cryptography import x509  # pylint: disable=import-error
 
 LOG = setup_logger(module_name=__name__)
 
@@ -141,8 +135,6 @@ class BaseClient(object):
         self.auth_oidc_refresh_active = config_get_bool('client', 'auth_oidc_refresh_active', False, False)
         # defining how many minutes before token expires, oidc refresh (if active) should start
         self.auth_oidc_refresh_before_exp = config_get_int('client', 'auth_oidc_refresh_before_exp', False, 20)
-        self.sslexpiry_warnlimit_weeks: int = config_get_int('client', 'sslexpiry_warnlimit_weeks', False, 2)
-        self.sslexpiry_warnclient: bool = config_get_bool('client', 'sslexpiry_warnclient', False, True)
 
         if auth_type is None:
             self.logger.debug('No auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
@@ -398,7 +390,6 @@ class BaseClient(object):
             self.logger.debug("Request data (length=%d): [%s]" % (len(data), text))
 
         result = None
-        SSLvalid: bool = False
         for retry in range(self.AUTH_RETRIES + 1):
             try:
                 if type_ == 'GET':
@@ -419,13 +410,6 @@ class BaseClient(object):
                 if result.status_code // 100 != 2 and result.text:
                     # do not do this for successful requests because the caller may be expecting streamed response
                     self.logger.debug("Response text (length=%d): [%s]" % (len(result.text), result.text))
-                SSLvalid = True
-            except SSLError as error:
-                # SSLError is a subclass of ConnectionError
-                self.logger.error(f'SSLError: {error}')
-                if retry > self.request_retries:
-                    raise
-                continue
             except ConnectionError as error:
                 self.logger.error('ConnectionError: ' + str(error))
                 if retry > self.request_retries:
@@ -448,18 +432,8 @@ class BaseClient(object):
             else:
                 break
 
-        ssl_expirydate = self.__check_ssl_expiry()
-
-        # something within the request has failed, do error handling
         if result is None:
-            if not SSLvalid:
-                raise ServerSSLCertificateExpiredException(date_to_str(ssl_expirydate))
-            else:
-                raise ServerConnectionException
-
-        # check if ssl expires soon and if client warning is requested
-        if ssl_expirydate < datetime.now() + timedelta(weeks=self.sslexpiry_warnlimit_weeks) and self.sslexpiry_warnclient:
-            self.logger.warning(f'Server SSL Certificate will expire in less than {self.sslexpiry_warnlimit_weeks} weeks on {date_to_str(ssl_expirydate)}.')
+            raise ServerConnectionException
         return result
 
     def __get_token_userpass(self):
@@ -953,32 +927,3 @@ class BaseClient(object):
 
         if not self.__read_token():
             self.__get_token()
-
-    def __check_ssl_expiry(self) -> datetime:
-        context = ssl.create_default_context()
-        # override context so that it can get expired cert
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-
-        # strip https:// and possibly :443
-        # this assumes hostnames are always like https://rucio:443 or https://rucio
-        regexpr = '(?<=://)(.+(?=:)|.+(?=$))'
-        match = search(regexpr, self.host)  # type: ignore
-        if not match:
-            raise ValueError(f"Could not extract hostname from {self.host}")
-        hostname = str(match[0])
-
-        with socket.create_connection((hostname, 443)) as sock:
-            with context.wrap_socket(sock, server_hostname=hostname) as ssock:
-                # get cert in DER format
-                data: bytes = ssock.getpeercert(True)  # type: ignore
-
-                # convert cert to PEM format
-                pem_data = ssl.DER_cert_to_PEM_cert(data)
-
-                # pem_data in string. convert to bytes using str.encode()
-                # extract cert info from PEM format
-                cert_data = x509.load_pem_x509_certificate(str.encode(pem_data))
-
-                # assuming no certificates fail because they are not valid YET
-                return cert_data.not_valid_after
