@@ -58,8 +58,6 @@ ca_cert = /opt/rucio/etc/web/ca.crt
 account = root
 request_retries = 3
 protocol_stat_retries = 6
-sslexpiry_warnlimit_weeks = 2
-sslexpiry_warnclient = True
 
 [upload]
 #transfer_timeout = 3600
