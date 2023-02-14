@@ -21,7 +21,7 @@ from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import get_usage
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids, detach_dids
-from rucio.core.lock import get_replica_locks, get_dataset_locks
+from rucio.core.lock import get_dataset_locks, get_replica_locks, get_replica_locks_for_rule_id
 from rucio.core.replica import add_replica
 from rucio.core.rse import add_rse_attribute
 from rucio.core.rule import add_rule, get_rule
@@ -378,6 +378,85 @@ class TestJudgeEvaluator:
         # Check if the Locks are created properly
         for file in more_files:
             assert len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2
+
+
+def test_judge_double_rule_on_container(
+    did_factory: "TemporaryDidFactory",
+    rse_factory: "TemporaryRSEFactory",
+    root_account: "InternalAccount"
+):
+    """
+    JUDGE EVALUATOR:
+    Test the judge evaluator on a container with two rules. The order in which
+    rules and datasets are added is relevant to the testcase.
+
+    1. A container C is created and a first dataset D1 is added to C.
+    2. A first rule A is created on the container C.
+    3. Then another dataset D2 is added to the container C.
+    4. Then a rule B is created on the container C.
+    5. Run judge-evaluator.
+
+    NOTE I am unsure whether the judge-evaluator is expected to run here.
+
+    We assert that both rules must be in state OK. Both rules must be applied to
+    each DID that can be traced back to the parent container C.
+    """
+    # create RSE, setup
+    RSE = RSE_namedtuple(*rse_factory.make_mock_rse())
+    rsekey, rseval = tag_generator(), tag_generator()
+    add_rse_attribute(RSE.id, rsekey, rseval)
+
+    # 1. create container C, add dataset D1 (with file F1)
+    C = did_factory.make_container()
+    D1 = did_factory.make_dataset()
+    attach_dids(dids=[D1], account=root_account, **C)
+    F1 = did_factory.random_file_did()
+    add_replica(rse_id=RSE.id, account=root_account, bytes_=10, **F1)
+    attach_dids(dids=[F1], account=root_account, **D1)
+
+    # 2. Add rule A to container C
+    # > bind C to RSE using RSE name
+    A, = add_rule(
+        dids=[C],
+        account=root_account,
+        copies=1,
+        rse_expression=RSE.name,
+        grouping="DATASET",
+        weight=None,
+        lifetime=None,
+        locked=False,
+        subscription_id=None
+    )
+
+    # 3. Add dataset D2 to container C (with file F2)
+    D2 = did_factory.make_dataset()
+    attach_dids(dids=[D2], account=root_account, **C)
+    F2 = did_factory.random_file_did()
+    add_replica(rse_id=RSE.id, account=root_account, bytes_=10, **F2)
+    attach_dids(dids=[F2], account=root_account, **D2)
+
+    # 4. Add rule B to container C
+    # > bind C to RSE using RSE attribute
+    B, = add_rule(
+        dids=[C],
+        account=root_account,
+        copies=1,
+        rse_expression=f"{rsekey}={rseval}",
+        grouping="DATASET",
+        weight=None,
+        lifetime=None,
+        locked=False,
+        subscription_id=None
+    )
+
+    # 5. Run fake judge-evaluator
+    re_evaluator(once=True, did_limit=1000)
+
+    # Assertions
+    for ruleid in (A, B):
+        locks = get_replica_locks_for_rule_id(ruleid)
+        assert len(locks) == 2  # 2 locks
+        assert all([lock["state"] == LockState.OK for lock in locks])  # all OK
 
 
 def test_judge_double_container_with_existing_rule(
