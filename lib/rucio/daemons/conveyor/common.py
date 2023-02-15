@@ -493,8 +493,15 @@ def _submit_transfers(transfertool_obj, transfers, job_params, submitter='submit
 
     if state_to_set:
         try:
-            transfer_core.set_transfers_state(transfers, state=state_to_set, external_host=transfertool_obj.external_host,
-                                              external_id=eid, submitted_at=datetime.datetime.utcnow(), logger=logger)
+            transfer_core.set_transfers_state(
+                transfers,
+                state=state_to_set,
+                external_host=transfertool_obj.external_host,
+                external_id=eid,
+                submitted_at=datetime.datetime.utcnow(),
+                transfertool=transfertool_obj.external_name,
+                logger=logger
+            )
         except Exception:
             logger(logging.ERROR, 'Failed to register transfer state with error', exc_info=True)
             if eid is not None:
