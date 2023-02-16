@@ -23,7 +23,7 @@ from rucio.daemons.conveyor.preparer import run, stop
 def main(args):
     signal.signal(signal.SIGTERM, stop)
     try:
-        run(once=args.run_once, threads=args.threads, sleep_time=args.sleep_time, bulk=args.bulk)
+        run(once=args.run_once, threads=args.threads, sleep_time=args.sleep_time, bulk=args.bulk, ignore_availability=args.ignore_availability)
     except KeyboardInterrupt:
         stop()
 
@@ -34,4 +34,5 @@ if __name__ == "__main__":
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
     parser.add_argument("--sleep-time", action="store", default=60, type=int, help='Concurrency control: thread sleep time after each chunk of work')
     parser.add_argument("--bulk", action="store", default=100, type=int, help='Limit of requests per chunk')
+    parser.add_argument('--ignore-availability', action="store_true", default=False, help='If True, will also try to submit transfers having blocklisted RSEs as sources')
     main(args=parser.parse_args())
