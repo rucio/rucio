@@ -1485,10 +1485,10 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
 @pytest.mark.parametrize("file_config_mock", [{
     "overrides": [('conveyor', 'use_preparer', 'true')]
 }], indirect=True)
-@pytest.mark.parametrize("core_config_mock", [{
-    "table_content": [('throttler', 'mode', 'DEST_PER_ALL_ACT')]
-}], indirect=True)
-def test_preparer_ignore_availability(rse_factory, did_factory, root_account, file_config_mock, core_config_mock, metrics_mock):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.topology.REGION',
+]}], indirect=True)
+def test_preparer_ignore_availability(rse_factory, did_factory, root_account, file_config_mock, caches_mock):
     """
     Integration test of the preparer/throttler workflow.
     """
@@ -1498,6 +1498,8 @@ def test_preparer_ignore_availability(rse_factory, did_factory, root_account, fi
         dst_rse, dst_rse_id = rse_factory.make_posix_rse()
 
         distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
+        for rse_id in [src_rse_id, dst_rse_id]:
+            rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
         did = did_factory.upload_test_file(src_rse)
         rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
@@ -1508,9 +1510,9 @@ def test_preparer_ignore_availability(rse_factory, did_factory, root_account, fi
     src_rse_id, dst_rse_id, did = __setup_test()
     preparer(once=True, sleep_time=1, bulk=100, partition_wait_time=0, ignore_availability=False)
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-    assert request['state'] == RequestState.PREPARING
+    assert request['state'] == RequestState.NO_SOURCES
 
     src_rse_id, dst_rse_id, did = __setup_test()
     preparer(once=True, sleep_time=1, bulk=100, partition_wait_time=0, ignore_availability=True)
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-    assert request['state'] == RequestState.NO_SOURCES
+    assert request['state'] == RequestState.QUEUED
