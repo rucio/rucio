@@ -709,7 +709,7 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
     # One RSE has limits set: the requests will be moved to WAITING status; the other RSE has no limits: go directly to queued
-    preparer(once=True, sleep_time=1, bulk=100, partition_wait_time=0)
+    preparer(once=True, sleep_time=1, bulk=100, partition_wait_time=0, ignore_availability=False)
     request = request_core.get_request_by_did(rse_id=dst_rse_id1, **did1)
     assert request['state'] == RequestState.WAITING
     request = request_core.get_request_by_did(rse_id=dst_rse_id1, **did2)
@@ -1549,3 +1549,40 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
     request = __wait_for_request_state(dst_rse_id=dst_rse3_id, state=RequestState.FAILED, **did)
     assert 'Source and destination checksums do not match' in request['err_msg']
     assert request['state'] == RequestState.FAILED
+
+
+@pytest.mark.noparallel(reason="runs multiple conveyor daemons")
+@pytest.mark.parametrize("file_config_mock", [{
+    "overrides": [('conveyor', 'use_preparer', 'true')]
+}], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.topology.REGION',
+]}], indirect=True)
+def test_preparer_ignore_availability(rse_factory, did_factory, root_account, file_config_mock, caches_mock):
+    """
+    Integration test of the preparer/throttler workflow.
+    """
+
+    def __setup_test():
+        src_rse, src_rse_id = rse_factory.make_posix_rse()
+        dst_rse, dst_rse_id = rse_factory.make_posix_rse()
+
+        distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
+        for rse_id in [src_rse_id, dst_rse_id]:
+            rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+        did = did_factory.upload_test_file(src_rse)
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+        rse_core.update_rse(src_rse_id, {'availability_read': False})
+
+        return src_rse_id, dst_rse_id, did
+
+    src_rse_id, dst_rse_id, did = __setup_test()
+    preparer(once=True, sleep_time=1, bulk=100, partition_wait_time=0, ignore_availability=False)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.NO_SOURCES
+
+    src_rse_id, dst_rse_id, did = __setup_test()
+    preparer(once=True, sleep_time=1, bulk=100, partition_wait_time=0, ignore_availability=True)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.QUEUED
