@@ -16,6 +16,7 @@
 import datetime
 import json
 import logging
+import pathlib
 import traceback
 import uuid
 from typing import Any, Callable, Dict, Tuple, TYPE_CHECKING
@@ -43,7 +44,7 @@ from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, T
 from rucio.db.sqla.constants import RequestState
 
 if TYPE_CHECKING:
-    from typing import List, Set, Union
+    from typing import List, Optional, Set, Union
 
     from rucio.core.transfer import DirectTransferDefinition
     from rucio.core.rse import RseData
@@ -75,6 +76,7 @@ ALLOW_USER_OIDC_TOKENS = config_get_bool('conveyor', 'allow_user_oidc_tokens', F
 REQUEST_OIDC_SCOPE = config_get('conveyor', 'request_oidc_scope', False, 'fts:submit-transfer')
 REQUEST_OIDC_AUDIENCE = config_get('conveyor', 'request_oidc_audience', False, 'fts:example')
 REWRITE_HTTPS_TO_DAVS = config_get_bool('transfers', 'rewrite_https_to_davs', default=False)
+VO_CERTS_PATH = config_get('conveyor', 'vo_certs_path', False, None)
 
 # https://fts3-docs.web.cern.ch/fts3-docs/docs/state_machine.html
 FINAL_FTS_JOB_STATES = (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHED, FTS_STATE.FINISHEDDIRTY)
@@ -103,6 +105,23 @@ PATH_CHECKSUM_VALIDATION_STRATEGY: "Dict[Tuple[str, str], str]" = {
     ('none', 'source'): 'none',
     ('none', 'none'): 'none',
 }
+
+
+def _pick_cert_file(vo: "Optional[str]") -> "Optional[str]":
+    cert = None
+    if vo:
+        vo_cert = config_get('vo_certs', vo, False, None)
+        if vo_cert:
+            cert = vo_cert
+        elif VO_CERTS_PATH:
+            vo_cert = pathlib.Path(VO_CERTS_PATH) / vo
+            if vo_cert.exists():
+                cert = str(vo_cert)
+    if not cert:
+        usercert = config_get('conveyor', 'usercert', False, None)
+        if usercert:
+            cert = usercert
+    return cert
 
 
 def _configured_source_strategy(activity: str, logger: Callable[..., Any]) -> str:
@@ -744,10 +763,6 @@ class FTS3Transfertool(Transfertool):
         self.default_lifetime = default_lifetime
         self.archive_timeout_override = archive_timeout_override
 
-        usercert = config_get('conveyor', 'usercert', False, None)
-        if vo:
-            usercert = config_get('vo_certs', vo, False, usercert)
-
         # token for OAuth 2.0 OIDC authorization scheme (working only with dCache + davs/https protocols as of Sep 2019)
         self.token = None
         if oidc_account:
@@ -771,7 +786,8 @@ class FTS3Transfertool(Transfertool):
                 self.verify = False
                 self.headers['Authorization'] = 'Bearer ' + self.token
             else:
-                self.cert = (usercert, usercert)
+                cert = _pick_cert_file(vo=vo)
+                self.cert = (cert, cert)
                 self.verify = False
         else:
             self.cert = None
