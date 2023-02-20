@@ -122,11 +122,11 @@ def submitter(once=False, rses=None, partition_wait_time=10,
     except NoOptionError:
         partition_hash_var = None
     try:
-        scheme = config_get('conveyor', 'scheme')
+        scheme = config_get_list('conveyor', 'scheme')
     except NoOptionError:
         scheme = None
     try:
-        failover_scheme = config_get('conveyor', 'failover_scheme')
+        failover_scheme = config_get_list('conveyor', 'failover_scheme')
     except NoOptionError:
         failover_scheme = None
     try:
