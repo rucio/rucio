@@ -18,6 +18,7 @@ Core tracer module
 """
 
 import json
+import requests
 import logging.handlers
 import random
 import socket
@@ -26,7 +27,7 @@ import stomp
 import ipaddress
 from jsonschema import validate, ValidationError, draft7_format_checker
 
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get, config_get_int, config_get_options
 from rucio.common.exception import InvalidObject
 from rucio.common.logging import rucio_log_formatter
 from rucio.common.schema.generic import UUID, TIME_ENTRY, IPv4orIPv6
@@ -296,7 +297,7 @@ def date_handler(obj):
 @METRICS.count_it
 def trace(payload):
     """
-    Write a trace to the buffer log file and send it to active mq.
+    Write a trace to the buffer log file and send it to active mq (and elatic).
 
     :param payload: Python dictionary with trace report.
     """
@@ -336,6 +337,19 @@ def trace(payload):
     except Exception as error:
         LOGGER.error(error)
 
+    to_elastic = config_get('trace', 'to_elastic', raise_exception=False)
+    if to_elastic:
+        try:
+            state = submit_to_elastic(
+                messages=[payload]
+            )
+            if state in [200, 204]:
+                LOGGER.info("trace successfully submitted to elastic")
+            else:
+                LOGGER.error("Failure to submit trace to elastic. Returned status: %s" %(str(state)))
+                LOGGER.error('OK')
+        except Exception as error:
+            LOGGER.error("Error sending trace to Elastic : %s", str(error))
 
 def validate_schema(obj):
     """
@@ -360,3 +374,31 @@ def validate_schema(obj):
             LOGGER.error(error)
         else:
             raise InvalidObject(error)
+
+def submit_to_elastic(messages: "List[Dict]") -> int:
+    """
+    Aggregate a list of message to ElasticSearch
+    :param messages:           The list of messages.
+    :returns:                  HTTP status code. 200 and 204 OK. Rest is failure.
+    """
+    elastic_url = config_get('trace', 'elastic_url')
+    elastic_index = config_get('trace', 'elastic_index')
+    trace_options = config_get_options('trace')
+    if 'ca_cert' in trace_options:
+        ca_cert = config_get('trace', 'ca_cert')
+    auth = False
+    if ('elastic_user' in trace_options) and ('elastic_pass' in trace_options):
+        auth = requests.auth.HTTPBasicAuth(config_get('trace', 'elastic_user'), config_get('trace', 'elastic_pass'))
+    endpoint = elastic_url + '/' + elastic_index + '/record/' + '_bulk/'
+    text = ''
+    for message in messages:
+        text += '{"index":{ }}\n%s\n' %json.dumps(message)
+    if ca_cert:
+        res =requests.post(
+        endpoint, data=text, headers={"Content-Type": "application/json"}, verify=ca_cert, auth=auth
+        )
+    else:
+        res = requests.post(
+        endpoint, data=text, headers={"Content-Type": "application/json"}
+        )
+    return res.status_code
