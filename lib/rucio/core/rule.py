@@ -1550,7 +1550,7 @@ def reduce_rule(rule_id, copies, exclude_expression=None, *, session: "Session")
 
 
 @transactional_session
-def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, Any]] = None, *, session: "Session"):
+def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, Any]] = None, vo: str = 'def', *, session: "Session"):
     """
     Move a replication rule to another RSE and, once done, delete the original one.
 
@@ -1601,6 +1601,8 @@ def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, An
                 raise UnsupportedOperation('Not allowed to override option %s' % key)
             elif key not in options:
                 raise UnsupportedOperation('Non-valid override option %s' % key)
+            elif key == "account":
+                options["account"] = InternalAccount(override["account"], vo=vo)
             else:
                 options[key] = override[key]
 

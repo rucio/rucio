@@ -329,4 +329,4 @@ def move_replication_rule(rule_id, rse_expression, override, issuer, vo='def', *
     if not has_permission(issuer=issuer, vo=vo, action='move_rule', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not move this replication rule.' % (issuer))
 
-    return rule.move_rule(**kwargs, session=session)
+    return rule.move_rule(**kwargs, vo=vo, session=session)
