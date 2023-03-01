@@ -583,7 +583,7 @@ class FTS3CompletionMessageTransferStatusReport(Fts3TransferStatusReport):
         reason = fts_message.get('t__error_message', None)
         # job_state = fts_message.get('t_final_transfer_state', None)
         new_state = None
-        if str(fts_message['t_final_transfer_state']) == FTS_COMPLETE_STATE.OK:  # pylint:disable=no-member
+        if str(fts_message['t_final_transfer_state']) == FTS_COMPLETE_STATE.OK and not fts_message.get('is_archiving'):  # pylint:disable=no-member
             new_state = RequestState.DONE
         elif str(fts_message['t_final_transfer_state']) == FTS_COMPLETE_STATE.ERROR:
             request = self.request(session)
