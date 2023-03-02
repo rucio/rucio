@@ -36,7 +36,7 @@ ACCOUNT_TYPE = {"description": "Account type",
 
 ACTIVITY = {"description": "Activity name",
             "type": "string",
-            "enum": ["Data Brokering", "Data Consolidation", "Data rebalancing", "Data Rebalancing",
+            "enum": ["Data Brokering", "Data Consolidation", "Data Rebalancing",
                      "Debug", "Express", "Functional Test", "Functional Test XrootD",
                      "Functional Test WebDAV", "Group Subscriptions",
                      "Production Input", "Production Output",
