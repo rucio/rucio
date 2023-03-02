@@ -20,7 +20,7 @@ import logging
 import pytest
 import json
 from rucio.common.schema.generic import IPv4orIPv6
-from rucio.core.trace import SCHEMAS, validate_schema
+from rucio.core.trace import SCHEMAS, validate_schema, submit_to_elastic
 from rucio.common.exception import InvalidObject
 
 
@@ -95,3 +95,17 @@ def test_non_existant_event_type_validation_rejection(caplog):
     obj = json.dumps({"eventType": f"{event_type}"})
     validate_schema(obj)
     assert f"schema for eventType {event_type} is not currently supported" in caplog.text
+
+
+def test_submit_to_elastic():
+    payload = {'uuid': str(uuid.uuid4()),  # str, because not JSON serializable
+               'string': 'deadbeef',
+               'hex': 0xDEADBEEF,
+               'int': 3,
+               'float': 3.45,
+               'long': 314314314314314314,
+               'timestamp': time.time(),
+               'datetime_str': str(datetime.datetime.utcnow()),  # str, because not JSON serializable
+               'boolean': True}
+    ret = submit_to_elastic(messages=[payload])
+    assert ret in [201, 200]

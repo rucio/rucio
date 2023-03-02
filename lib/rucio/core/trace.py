@@ -22,6 +22,7 @@ import requests
 import logging.handlers
 import random
 import socket
+from typing import TYPE_CHECKING
 
 import stomp
 import ipaddress
@@ -32,6 +33,9 @@ from rucio.common.exception import InvalidObject
 from rucio.common.logging import rucio_log_formatter
 from rucio.common.schema.generic import UUID, TIME_ENTRY, IPv4orIPv6
 from rucio.core.monitor import MetricManager
+if TYPE_CHECKING:
+    from typing import List, Dict
+
 
 
 METRICS = MetricManager(module=__name__)
@@ -346,10 +350,11 @@ def trace(payload):
             if state in [200, 204]:
                 LOGGER.info("trace successfully submitted to elastic")
             else:
-                LOGGER.error("Failure to submit trace to elastic. Returned status: %s" %(str(state)))
+                LOGGER.error("Failure to submit trace to elastic. Returned status: %s" % (str(state)))
                 LOGGER.error('OK')
         except Exception as error:
             LOGGER.error("Error sending trace to Elastic : %s", str(error))
+
 
 def validate_schema(obj):
     """
@@ -375,6 +380,7 @@ def validate_schema(obj):
         else:
             raise InvalidObject(error)
 
+
 def submit_to_elastic(messages: "List[Dict]") -> int:
     """
     Aggregate a list of message to ElasticSearch
@@ -384,6 +390,7 @@ def submit_to_elastic(messages: "List[Dict]") -> int:
     elastic_url = config_get('trace', 'elastic_url')
     elastic_index = config_get('trace', 'elastic_index')
     trace_options = config_get_options('trace')
+    ca_cert = False
     if 'ca_cert' in trace_options:
         ca_cert = config_get('trace', 'ca_cert')
     auth = False
@@ -394,7 +401,7 @@ def submit_to_elastic(messages: "List[Dict]") -> int:
     for message in messages:
         text += '{"index":{ }}\n%s\n' %json.dumps(message)
     if ca_cert:
-        res =requests.post(
+        res = requests.post(
         endpoint, data=text, headers={"Content-Type": "application/json"}, verify=ca_cert, auth=auth
         )
     else:
