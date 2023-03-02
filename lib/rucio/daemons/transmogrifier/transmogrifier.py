@@ -242,6 +242,7 @@ def get_subscriptions(logger: LoggerFunction = logging.log) -> list[dict]:
                     break
                 if rule.get("copies") == "*":
                     rule["copies"] = len(list_rses_from_expression)
+                    rule["wild_card"] = True
                     overwrite_rules = True
             if skip_sub:
                 continue
@@ -487,7 +488,8 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
 
     worker_number, total_workers, logger = heartbeat_handler.live()
     stopwatch = Stopwatch()
-    blocklisted_rse_id = [rse["id"] for rse in list_rses({"availability_write": False})]
+    block_listed = {rse['rse']: rse["id"] for rse in list_rses({"availability_write": False})}
+    blocklisted_rse_id = list(block_listed.values())
     identifiers = []
     #  List all the active subscriptions
     subscriptions = get_subscriptions(logger=logger)
@@ -595,20 +597,23 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     nb_rule = 0
                     #  Try to create the rule
                     logger(logging.DEBUG, 'selected_rses : %s' % selected_rses)
-                    try:
-                        for rse in selected_rses:
-                            if isinstance(selected_rses, dict):
-                                #  selected_rses is a dictionary only when split_rule is True or for chained subscriptions
-                                source_replica_expression = selected_rses[rse].get(
-                                    "source_replica_expression",
-                                    None,
-                                )
-                                weight = selected_rses[rse].get("weight", None)
-                            logger(
-                                logging.INFO,
-                                "Will insert one rule for %s:%s on %s"
-                                % (did["scope"], did["name"], rse),
+                    for rse in selected_rses:
+                        if isinstance(selected_rses, dict):
+                            #  selected_rses is a dictionary only when split_rule is True or for chained subscriptions
+                            source_replica_expression = selected_rses[rse].get(
+                                "source_replica_expression",
+                                None,
                             )
+                            weight = selected_rses[rse].get("weight", None)
+                        logger(
+                            logging.INFO,
+                            "Will insert one rule for %s:%s on %s"
+                            % (did["scope"], did["name"], rse),
+                        )
+                        if rse in block_listed and rule_dict.get("wild_card"):
+                            logger(logging.INFO, "RSE %s is unavailable and wild_card number of copies is used. Skipping rule creation" % rse)
+                            continue
+                        try:
                             rule_ids = add_rule(
                                 dids=[
                                     {
@@ -640,24 +645,25 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                             if split_rule:
                                 success = True
 
-                        METRICS.counter("addnewrule.done").inc(nb_rule)
-                        METRICS.counter("addnewrule.activity.{activity}").labels(activity="".join(rule_dict.get("activity").split())).inc(nb_rule)
-                        success = True
-                    except (
-                        InvalidReplicationRule,
-                        InvalidRuleWeight,
-                        InvalidRSEExpression,
-                        StagingAreaRuleRequiresLifetime,
-                        DuplicateRule,
-                    ) as error:
-                        # Errors that won't be retried
-                        success = True
-                        logger(logging.ERROR, str(error))
-                        METRICS.counter("addnewrule.errortype.{exception}").labels(exception=str(error.__class__.__name__)).inc()
-                    except Exception:
-                        # Errors that will be retried
-                        METRICS.counter("addnewrule.errortype.{exception}").labels(exception="unknown").inc()
-                        logger(logging.ERROR, "Unexpected error", exc_info=True)
+                        except (
+                            InvalidReplicationRule,
+                            InvalidRuleWeight,
+                            InvalidRSEExpression,
+                            StagingAreaRuleRequiresLifetime,
+                            DuplicateRule,
+                        ) as error:
+                            # Errors that won't be retried
+                            success = True
+                            logger(logging.ERROR, str(error))
+                            METRICS.counter("addnewrule.errortype.{exception}").labels(exception=str(error.__class__.__name__)).inc()
+                        except Exception:
+                            # Errors that will be retried
+                            METRICS.counter("addnewrule.errortype.{exception}").labels(exception="unknown").inc()
+                            logger(logging.ERROR, "Unexpected error", exc_info=True)
+
+                    METRICS.counter("addnewrule.done").inc(nb_rule)
+                    METRICS.counter("addnewrule.activity.{activity}").labels(activity="".join(rule_dict.get("activity").split())).inc(nb_rule)
+                    success = True
 
                     did_success = did_success and success
                     if not success:
