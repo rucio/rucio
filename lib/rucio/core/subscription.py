@@ -173,8 +173,17 @@ def update_subscription(name: str,
     SubscriptionHistory = models.SubscriptionHistory
     try:
         subscription = session.query(models.Subscription).filter_by(account=account, name=name).one()
+
+        # To avoid update in the subscription history table whenever last processed field is changed
+        current_subscription_state = subscription.to_dict()
+        new_subscription_state = values.copy()
+
+        for key in ["updated_at", "last_processed"]:
+            new_subscription_state.pop(key, "None")
+            current_subscription_state.pop(key, "None")
+
         subscription.update(values)
-        if keep_history:
+        if keep_history and current_subscription_state != new_subscription_state:
             subscription_history = SubscriptionHistory(id=subscription.id,
                                                        name=subscription.name,
                                                        filter=subscription.filter,
@@ -264,7 +273,9 @@ def list_subscription_rule_states(name=None, account=None, *, session: "Session"
     subscription = aliased(models.Subscription)
     rule = aliased(models.ReplicationRule)
     # count needs a label to allow conversion to dict (label name can be changed)
-    query = session.query(subscription.account, subscription.name, rule.state, func.count().label('count')).join(rule, subscription.id == rule.subscription_id)
+    query = session.query(
+        subscription.account, subscription.name, rule.state, func.count().label('count')).join(
+        rule, subscription.id == rule.subscription_id)
 
     try:
         if name:
