@@ -10,7 +10,7 @@ dataclasses==0.8.0; python_version == '3.6'
 paramiko~=3.0.0                                             # ssh_extras; SSH2 protocol library (also needed in the server)
 kerberos~=1.3.1                                             # kerberos_extras for client and server
 pykerberos~=1.2.4                                           # kerberos_extras for client and server
-requests-kerberos>=0.12.0                                   # kerberos_extras for client and server
+requests-kerberos>=0.14.0                                   # kerberos_extras for client and server
 python-swiftclient~=3.13.1                                  # swift_extras
 argcomplete~=1.12.3                                         # argcomplete_extras; Bash tab completion for argparse
 python-magic~=0.4.25                                        # dumper_extras; File type identification using libmagic
