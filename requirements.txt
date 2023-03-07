@@ -17,7 +17,7 @@ python-magic~=0.4.27                                        # dumper_extras; Fil
 
 # All dependencies needed to run rucio server/daemons should be defined here
 SQLAlchemy==1.4.46                                          # DB backend
-alembic~=1.7.6                                              # Lightweight database migration tool for SQLAlchemy
+alembic~=1.7.7                                              # Lightweight database migration tool for SQLAlchemy
 pymemcache==3.5.2                                           # A comprehensive, fast, pure-Python memcached client (Used by Dogpile)
 python-dateutil==2.8.2                                      # Extensions to the standard datetime module
 stomp.py==6.1.1                                             # ActiveMQ Messaging Protocol
