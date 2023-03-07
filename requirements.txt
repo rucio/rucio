@@ -16,7 +16,7 @@ argcomplete~=2.1.1                                          # argcomplete_extras
 python-magic~=0.4.27                                        # dumper_extras; File type identification using libmagic
 
 # All dependencies needed to run rucio server/daemons should be defined here
-SQLAlchemy==1.4.31                                          # DB backend
+SQLAlchemy==1.4.46                                          # DB backend
 alembic~=1.7.6                                              # Lightweight database migration tool for SQLAlchemy
 pymemcache==3.5.2                                           # A comprehensive, fast, pure-Python memcached client (Used by Dogpile)
 python-dateutil==2.8.2                                      # Extensions to the standard datetime module
