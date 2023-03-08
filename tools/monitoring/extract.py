@@ -104,11 +104,9 @@ class AMQConsumer(stomp.ConnectionListener):
 if __name__ == "__main__":
 
   logging.basicConfig(level=0)
-  if not borker_use_ssl:
-    conn = stomp.Connection(host_and_ports=[(broker,broker_port)],use_ssl=False,reconnect_attempts_max=5)
-  else:
-    conn = stomp.Connection(host_and_ports=[(broker,broker_port)],use_ssl=True,ssl_key_file=ssl_key_file, ssl_cert_file=ssl_cert_file,reconnect_attempts_max=1)
-
+  conn = stomp.Connection(host_and_ports=[(broker,broker_port)],reconnect_attempts_max=5)
+  if borker_use_ssl:
+    conn.set_ssl(key_file=ssl_key_file, cert_file=ssl_cert_file)
 
   conn.set_listener('', AMQConsumer(conn, chunksize, subscription_id))
   conn.connect(wait=True)

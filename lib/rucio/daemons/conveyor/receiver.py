@@ -142,18 +142,16 @@ def receiver(id_, total_threads=1, full_mode=False, all_vos=False):
     for broker in brokers_resolved:
         if not use_ssl:
             logging.info('setting up username/password authentication: %s' % broker)
-            con = stomp.Connection12(host_and_ports=[(broker, port)],
-                                     use_ssl=False,
-                                     vhost=vhost,
-                                     reconnect_attempts_max=999)
         else:
             logging.info('setting up ssl cert/key authentication: %s' % broker)
-            con = stomp.Connection12(host_and_ports=[(broker, port)],
-                                     use_ssl=True,
-                                     ssl_key_file=config_get('messaging-fts3', 'ssl_key_file'),
-                                     ssl_cert_file=config_get('messaging-fts3', 'ssl_cert_file'),
-                                     vhost=vhost,
-                                     reconnect_attempts_max=999)
+        con = stomp.Connection12(host_and_ports=[(broker, port)],
+                                 vhost=vhost,
+                                 reconnect_attempts_max=999)
+        if use_ssl:
+            con.set_ssl(
+                key_file=config_get('messaging-fts3', 'ssl_key_file'),
+                cert_file=config_get('messaging-fts3', 'ssl_cert_file'),
+            )
         conns.append(con)
 
     logging.info('receiver started')
