@@ -158,25 +158,23 @@ def setup_activemq(logger: "Callable"):
                 "[broker] setting up username/password authentication: %s",
                 broker,
             )
-            con = stomp.Connection12(
-                host_and_ports=[(broker, port)],
-                vhost=vhost,
-                keepalive=True,
-                timeout=broker_timeout,
-            )
         else:
             logger(
                 logging.INFO,
                 "[broker] setting up ssl cert/key authentication: %s",
                 broker,
             )
-            con = stomp.Connection12(
-                host_and_ports=[(broker, port)],
-                use_ssl=True,
-                ssl_key_file=config_get("messaging-hermes", "ssl_key_file"),
-                ssl_cert_file=config_get("messaging-hermes", "ssl_cert_file"),
-                vhost=vhost,
-                keepalive=True,
+
+        con = stomp.Connection12(
+            host_and_ports=[(broker, port)],
+            vhost=vhost,
+            keepalive=True,
+            timeout=broker_timeout,
+        )
+        if use_ssl:
+            con.set_ssl(
+                key_file=config_get("messaging-hermes", "ssl_key_file"),
+                cert_file=config_get("messaging-hermes", "ssl_cert_file"),
             )
 
         con.set_listener(

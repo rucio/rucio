@@ -20,7 +20,7 @@ SQLAlchemy==1.4.46                                          # DB backend
 alembic~=1.7.7                                              # Lightweight database migration tool for SQLAlchemy
 pymemcache==3.5.2                                           # A comprehensive, fast, pure-Python memcached client (Used by Dogpile)
 python-dateutil==2.8.2                                      # Extensions to the standard datetime module
-stomp.py==7.0.0                                             # ActiveMQ Messaging Protocol
+stomp.py==8.1.0                                             # ActiveMQ Messaging Protocol
 statsd==3.3.0                                               # Needed to log into graphite with more than 1 Hz
 geoip2==4.5.0                                               # GeoIP2 API (for IPv6 support)
 google-auth==2.6.0                                          # Google authentication library for Python
