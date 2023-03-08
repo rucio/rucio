@@ -49,7 +49,7 @@ pylint==2.13.9
 astroid<=2.11.7
 virtualenv==20.16.2                                         # Virtual Python Environment builder
 xmltodict==0.12.0                                           # Makes working with XML feel like you are working with JSON
-pytz==2021.3                                                # World timezone definitions, modern and historical
+pytz==2022.7.1                                              # World timezone definitions, modern and historical
 pydoc-markdown~=3.13.0                                      # Used for generating Markdown documentation for docusaurus
 sh~=1.14.2                                                  # Convenience library for running subprocesses in Python
 apispec==5.1.1                                              # Generate OpenApi definition out of pydoc comments
