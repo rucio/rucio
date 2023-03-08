@@ -602,7 +602,13 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter and receiver")
-def test_receiver_archiving(vo, did_factory, replica_client, root_account):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse.REGION',
+    'rucio.core.rse_expression_parser.REGION',
+    'rucio.core.config.REGION',
+    'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
+]}], indirect=True)
+def test_receiver_archiving(vo, did_factory, root_account, caches_mock):
     """
     Ensure that receiver doesn't mark archiving requests as DONE
     """
