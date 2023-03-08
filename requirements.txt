@@ -35,7 +35,7 @@ cx_oracle==8.3.0                                            # oracle_extras
 psycopg2-binary==2.9.5                                      # postgresql_extras
 PyMySQL==1.0.2                                              # mysql_extras
 PyYAML==5.4.1                                               # globus_extras and used for reading test configuration files
-globus-sdk==3.5.0                                           # globus_extras
+globus-sdk==3.16.0                                          # globus_extras
 python3-saml==1.14.0                                        # saml_extras
 pymongo==4.0.1                                              # pymongo (metadata plugin)
 
