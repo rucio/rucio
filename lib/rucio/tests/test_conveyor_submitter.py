@@ -209,7 +209,12 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     'rucio.daemons.reaper.reaper.REGION',
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
 ]}], indirect=True)
-def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_factory, root_account):
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
+def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_factory, root_account, file_config_mock):
     """ Test that sources on a file block it from deletion """
 
     _, reaper_region, _ = caches_mock

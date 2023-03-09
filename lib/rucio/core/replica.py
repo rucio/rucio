@@ -2731,7 +2731,8 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             replicas_alias,
             and_(models.RSEFileAssociation.scope == replicas_alias.scope,
                  models.RSEFileAssociation.name == replicas_alias.name,
-                 models.RSEFileAssociation.rse_id != replicas_alias.rse_id)
+                 models.RSEFileAssociation.rse_id != replicas_alias.rse_id,
+                 replicas_alias.state == ReplicaState.AVAILABLE)
         ).with_hint(
             models.Request, "INDEX(requests REQUESTS_SCOPE_NAME_RSE_IDX)", 'oracle'
         ).outerjoin(
@@ -2836,9 +2837,12 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
         # Check if more than one replica is available
         replica_cnt = session.query(func.count(models.RSEFileAssociation.scope)).\
             with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
-            filter(and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id != rse_id)).one()
+            filter(and_(models.RSEFileAssociation.scope == scope,
+                        models.RSEFileAssociation.name == name,
+                        models.RSEFileAssociation.rse_id != rse_id,
+                        models.RSEFileAssociation.state == ReplicaState.AVAILABLE)).one()
 
-        if replica_cnt[0] > 1:
+        if replica_cnt[0] > 0:
             if tombstone != OBSOLETE and only_delete_obsolete:
                 break
 
