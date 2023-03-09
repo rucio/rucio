@@ -200,7 +200,7 @@ class Accounts(ErrorHandlingMethodView):
     """ Retrieve list of accounts mapped to an identity. """
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, identity_key, type):
+    def get(self, identity_key, type_):
         """
         ---
         summary: List
@@ -236,7 +236,7 @@ class Accounts(ErrorHandlingMethodView):
           401:
             description: Not acceptable
         """
-        accounts = list_accounts_for_identity(identity_key, type)
+        accounts = list_accounts_for_identity(identity_key, type_)
         return jsonify(accounts)
 
 
