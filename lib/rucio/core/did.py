@@ -287,7 +287,7 @@ def attach_dids_to_dids(
     :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
-    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False, session=session)
+    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=True, session=session)
     if use_temp_tables:
         return _attach_dids_to_dids(attachments=attachments, account=account, ignore_duplicate=ignore_duplicate, session=session)
     else:
@@ -1212,7 +1212,7 @@ def delete_dids(
     :param session:       The database session in use.
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     """
-    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False, session=session)
+    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=True, session=session)
     if use_temp_tables:
         return _delete_dids(dids, account, expire_rules, session=session, logger=logger)
     else:
