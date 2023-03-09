@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
 import threading
 import time
 from datetime import datetime, timedelta
@@ -41,7 +41,7 @@ from rucio.daemons.conveyor.preparer import preparer
 from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.conveyor.stager import stager
 from rucio.daemons.conveyor.throttler import throttler
-from rucio.daemons.conveyor.receiver import receiver, graceful_stop as receiver_graceful_stop
+from rucio.daemons.conveyor.receiver import receiver, graceful_stop as receiver_graceful_stop, Receiver
 from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RequestState, RequestType, ReplicaState, RSEType, RuleState
@@ -597,6 +597,75 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
         receiver_graceful_stop.set()
         receiver_thread.join(timeout=5)
         receiver_graceful_stop.clear()
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.dirty(reason="leaves files in XRD containers")
+@pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter and receiver")
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse.REGION',
+    'rucio.core.rse_expression_parser.REGION',
+    'rucio.core.config.REGION',
+    'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
+]}], indirect=True)
+def test_receiver_archiving(vo, did_factory, root_account, caches_mock):
+    """
+    Ensure that receiver doesn't mark archiving requests as DONE
+    """
+
+    src_rse = 'XRD3'
+    src_rse_id = rse_core.get_rse_id(rse=src_rse, vo=vo)
+    dst_rse = 'XRD4'
+    dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
+    all_rses = [src_rse_id, dst_rse_id]
+
+    received_messages = {}
+
+    class ReceiverWrapper(Receiver):
+        """
+        Wrap receiver to record the last handled message for each given request_id
+        """
+        def _perform_request_update(self, msg, *, session=None, logger=logging.log):
+            ret = super()._perform_request_update(msg, session=session, logger=logger)
+            received_messages[msg['file_metadata']['request_id']] = msg
+            return ret
+
+    with patch('rucio.daemons.conveyor.receiver.Receiver', ReceiverWrapper):
+        receiver_thread = threading.Thread(target=receiver, kwargs={'id_': 0, 'full_mode': True, 'all_vos': True, 'total_threads': 1})
+        receiver_thread.start()
+        # Fake that destination RSE is a tape
+        rse_core.update_rse(rse_id=dst_rse_id, parameters={'rse_type': RSEType.TAPE})
+        try:
+            rse_core.add_rse_attribute(dst_rse_id, 'archive_timeout', 60)
+
+            did = did_factory.upload_test_file(src_rse)
+            rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+            submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+
+            # Wait for the reception of the FTS Completion message for the submitted request
+            request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+            for i in range(MAX_POLL_WAIT_SECONDS):
+                if request['id'] in received_messages:
+                    break
+                if i == MAX_POLL_WAIT_SECONDS - 1:
+                    assert False  # Waited too long; fail the test
+                time.sleep(1)
+            assert __wait_for_fts_state(request, expected_state='ARCHIVING') == 'ARCHIVING'
+
+            # Receiver must not mark "ARCHIVING" requests as "DONE"
+            request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+            assert request['state'] == RequestState.SUBMITTED
+            # Poller should also correctly handle "ARCHIVING" transfers and not mark them as DONE
+            poller(once=True, older_than=0, partition_wait_time=0)
+            request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+            assert request['state'] == RequestState.SUBMITTED
+        finally:
+            rse_core.update_rse(rse_id=dst_rse_id, parameters={'rse_type': RSEType.DISK})
+            rse_core.del_rse_attribute(dst_rse_id, 'archive_timeout')
+
+            receiver_graceful_stop.set()
+            receiver_thread.join(timeout=5)
+            receiver_graceful_stop.clear()
 
 
 @skip_rse_tests_with_accounts

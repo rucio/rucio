@@ -95,3 +95,6 @@ class TestRseXROOTD(MgrTestCases):
     def setup_obj(self, setup_rse_and_files, vo):
         rse_settings, tmpdir, user = setup_rse_and_files
         self.init(tmpdir=tmpdir, rse_settings=rse_settings, user=user, vo=vo)
+
+    def test_delete_mgr_ok_dir(self):
+        raise pytest.skip("Not implemented")
