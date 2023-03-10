@@ -131,7 +131,6 @@ class Attributes(ErrorHandlingMethodView):
             description: Attribute already exists
         """
         parameters = json_parameters()
-        
         value = param_get(parameters, 'value')
         try:
             add_account_attribute(key=key, value=value, account=account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
