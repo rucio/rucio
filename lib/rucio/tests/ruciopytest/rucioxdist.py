@@ -146,14 +146,14 @@ class NoParallelXDist:
     def pytest_collection_modifyitems(
             self,
             config,
-            items,  # type: Sequence[Union[pytest.Item, pytest.Collector]]
+            items: "Sequence[Union[pytest.Item, pytest.Collector]]",
     ):
         if hasattr(config, 'workerinput') or config.getoption('numprocesses', 0) > 1:
             # then xdist is running tests parallel
             config.noparallel_tests = 0
 
             def count_and_sort_noparallel(
-                    node  # type: Union[pytest.Item, pytest.Collector]
+                    node: "Union[pytest.Item, pytest.Collector]"
             ):
                 # sort noparallel tests before any other
                 noparallelmark = list(node.iter_markers('noparallel'))
