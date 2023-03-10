@@ -24,7 +24,8 @@ import socket
 
 import stomp
 import ipaddress
-from jsonschema import validate, ValidationError, draft7_format_checker
+# TODO: adapt the draft7_format_checker import when dropping (sys.version_info) 3.6 support.
+from jsonschema import validate, ValidationError, draft7_format_checker  # pylint: disable=no-name-in-module
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import InvalidObject
