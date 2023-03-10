@@ -16,6 +16,7 @@
 import pytest
 from unittest.mock import patch
 
+from sqlalchemy import text
 from rucio.db.sqla.session import get_session, _get_engine_poolclass, NullPool, QueuePool, SingletonThreadPool
 from rucio.common.exception import InputValidationError
 
@@ -24,9 +25,9 @@ def test_db_connection():
     """ DB (CORE): Test db connection """
     session = get_session()
     if session.bind.dialect.name == 'oracle':
-        session.execute('select 1 from dual')
+        session.execute(text('select 1 from dual'))
     else:
-        session.execute('select 1')
+        session.execute(text('select 1'))
     session.close()
 
 
