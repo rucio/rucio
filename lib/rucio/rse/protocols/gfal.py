@@ -436,14 +436,16 @@ class Default(protocol.RSEProtocol):
         :raises RucioException: if it failed to copy the file.
         """
         ctx = self.__ctx
+        if transfer_timeout:
+            ctx.set_opt_integer("HTTP PLUGIN", "OPERATION_TIMEOUT", transfer_timeout)
+            ctx.set_opt_integer("SRM PLUGIN", "OPERATION_TIMEOUT", transfer_timeout)
+            ctx.set_opt_integer("GRIDFTP PLUGIN", "OPERATION_TIMEOUT", transfer_timeout)
+            watchdog = Timer(int(transfer_timeout) + 60, self.__gfal2_cancel)
         params = ctx.transfer_parameters()
         if src_spacetoken:
             params.src_spacetoken = str(src_spacetoken)
         if dest_spacetoken:
             params.dst_spacetoken = str(dest_spacetoken)
-        if transfer_timeout:
-            params.timeout = int(transfer_timeout)
-            watchdog = Timer(params.timeout + 60, self.__gfal2_cancel)
 
         if not (self.renaming and dest[:5] == 'https'):
             dir_name = os.path.dirname(dest)
@@ -458,6 +460,7 @@ class Default(protocol.RSEProtocol):
 
         try:
             if transfer_timeout:
+                params.timeout = int(transfer_timeout)
                 watchdog.start()
             ret = ctx.filecopy(params, str(src), str(dest))
             if transfer_timeout:
