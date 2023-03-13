@@ -440,11 +440,8 @@ class Default(protocol.RSEProtocol):
             ctx.set_opt_integer("HTTP PLUGIN", "OPERATION_TIMEOUT", transfer_timeout)
             ctx.set_opt_integer("SRM PLUGIN", "OPERATION_TIMEOUT", transfer_timeout)
             ctx.set_opt_integer("GRIDFTP PLUGIN", "OPERATION_TIMEOUT", transfer_timeout)
-            params = ctx.transfer_parameters()
-            params.timeout = int(transfer_timeout)
-            watchdog = Timer(params.timeout + 60, self.__gfal2_cancel)
-        else:
-            params = ctx.transfer_parameters()
+            watchdog = Timer(int(transfer_timeout) + 60, self.__gfal2_cancel)
+        params = ctx.transfer_parameters()
         if src_spacetoken:
             params.src_spacetoken = str(src_spacetoken)
         if dest_spacetoken:
@@ -458,6 +455,7 @@ class Default(protocol.RSEProtocol):
 
         try:
             if transfer_timeout:
+                params.timeout = int(transfer_timeout)
                 watchdog.start()
             ret = ctx.filecopy(params, str(src), str(dest))
             if transfer_timeout:
