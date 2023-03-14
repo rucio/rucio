@@ -1237,30 +1237,6 @@ def delete_metadata(args):
 
 
 @exception_handler
-def list_dids_by_meta(args):
-    """
-    %(prog)s list-dids-by-meta [options] <field1=value1 field2=value2 ...>
-
-    List dids by metadata key values
-    """
-    client = get_client(args)
-    select = {}
-    for key_value in args.key_values:
-        if len(key_value.split('=')) != 2:
-            logger.error("Usage: rucio list-dids-by-meta key1=value1 key2=value2 ......")
-            return FAILURE
-        else:
-            key, value = key_value.split('=')
-            select[key] = value
-    dids = client.list_dids_by_meta(scope=args.scope, select=select)
-    if not dids:
-        print('No DIDs found.')
-    for did in dids:
-        print('%s:%s' % (did['scope'], did['name']))
-    return SUCCESS
-
-
-@exception_handler
 def add_rule(args):
     """
     %(prog)s add-rule <did> <copies> <rse-expression> [options]
