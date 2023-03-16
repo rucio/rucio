@@ -437,9 +437,9 @@ class Default(protocol.RSEProtocol):
         """
         ctx = self.__ctx
         if transfer_timeout:
-            ctx.set_opt_integer("HTTP PLUGIN", "OPERATION_TIMEOUT", transfer_timeout)
-            ctx.set_opt_integer("SRM PLUGIN", "OPERATION_TIMEOUT", transfer_timeout)
-            ctx.set_opt_integer("GRIDFTP PLUGIN", "OPERATION_TIMEOUT", transfer_timeout)
+            ctx.set_opt_integer("HTTP PLUGIN", "OPERATION_TIMEOUT", int(transfer_timeout))
+            ctx.set_opt_integer("SRM PLUGIN", "OPERATION_TIMEOUT", int(transfer_timeout))
+            ctx.set_opt_integer("GRIDFTP PLUGIN", "OPERATION_TIMEOUT", int(transfer_timeout))
             watchdog = Timer(int(transfer_timeout) + 60, self.__gfal2_cancel)
         params = ctx.transfer_parameters()
         if src_spacetoken:
