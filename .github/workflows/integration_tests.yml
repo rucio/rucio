@@ -131,6 +131,8 @@ jobs:
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_upload.py
       - name: File Upload/Download Test using 'impl' parameter
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_impl_upload_download.py
+      - name: Test gfal2 implementation on xrootd protocol
+        run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_rse_protocol_gfal2_impl.py
       - name: Test Protocol XrootD
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short test_rse_protocol_xrootd.py
       - name: Test Protocol SSH (scp)
