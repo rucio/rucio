@@ -2679,12 +2679,9 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
     stmt = select(
         models.RSEFileAssociation.scope,
         models.RSEFileAssociation.name,
-    ).with_hint(
-        models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle'
     ).where(
         models.RSEFileAssociation.lock_cnt == 0,
-        # The following CASE is to mimic the Oracle's functional "tombstone" index. Otherwise the optimiser doesn't use the index.
-        case((models.RSEFileAssociation.tombstone != null(), models.RSEFileAssociation.rse_id)) == rse_id,
+        models.RSEFileAssociation.rse_id == rse_id,
         models.RSEFileAssociation.tombstone == OBSOLETE if only_delete_obsolete else models.RSEFileAssociation.tombstone < datetime.utcnow(),
     ).where(
         or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
@@ -2806,7 +2803,6 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
     :returns: a list of dictionary replica.
     """
 
-    none_value = None  # Hack to get pep8 happy...
     query = session.query(models.RSEFileAssociation.scope,
                           models.RSEFileAssociation.name,
                           models.RSEFileAssociation.path,
@@ -2814,12 +2810,12 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
                           models.RSEFileAssociation.tombstone,
                           models.RSEFileAssociation.state,
                           models.DataIdentifier.datatype).\
-        with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
+        with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_RSE_ID_TOMBSTONE_IDX)", 'oracle').\
         join(models.DataIdentifier, and_(models.RSEFileAssociation.scope == models.DataIdentifier.scope,
                                          models.RSEFileAssociation.name == models.DataIdentifier.name)).\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
-        filter(case((models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id)) == rse_id).\
+        filter(models.RSEFileAssociation.rse_id == rse_id).\
         filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
                    and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
         filter(~exists(select(1).prefix_with("/*+ INDEX(SOURCES SOURCES_SC_NM_DST_IDX) */", dialect='oracle')
