@@ -595,7 +595,7 @@ def __add_files_to_dataset(parent_did, files_temp_table, files, account, rse_id,
         file = files[row.scope, row.name]
 
         if row.did_scope is None:
-            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % row)
+            raise exception.DataIdentifierNotFound(f"Data identifier '{row.scope}:{row.name}' not found")
 
         if row.availability == DIDAvailability.LOST:
             raise exception.UnsupportedOperation('File %s:%s is LOST and cannot be attached' % (row.scope, row.name))
@@ -607,7 +607,7 @@ def __add_files_to_dataset(parent_did, files_temp_table, files, account, rse_id,
         row_dict = row._asdict()
         for key in ['bytes', 'adler32', 'md5']:
             if key in file and str(file[key]) != str(row_dict[key]):
-                raise exception.FileConsistencyMismatch(key + " mismatch for '%(scope)s:%(name)s': " % row + str(file.get(key)) + '!=' + str(row_dict[key]))
+                raise exception.FileConsistencyMismatch(key + " mismatch for '%(scope)s:%(name)s': " % row_dict + str(file.get(key)) + '!=' + str(row_dict[key]))
 
         if ignore_duplicate and row.contents_scope is not None:
             continue
