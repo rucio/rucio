@@ -27,7 +27,7 @@ import time
 
 from rucio.common.config import config_get
 from rucio.core.message import add_message, retrieve_messages, truncate_messages
-from rucio.daemons.hermes import hermes, hermes2
+from rucio.daemons.hermes import hermes, hermes_legacy
 from rucio.tests.common import rse_name_generator, skip_missing_elasticsearch_influxdb_in_env
 
 
@@ -75,8 +75,8 @@ class MyListener(object):
     ],
     indirect=True,
 )
-def test_hermes(core_config_mock, caches_mock):
-    """HERMES (DAEMON): Test the messaging daemon."""
+def test_hermes_legacy(core_config_mock, caches_mock):
+    """HERMES LEGACY (DAEMON): Test the messaging daemon."""
     truncate_messages()
     for i in range(1, 4):
         add_message("test-type_%i" % i, {"test": i})
@@ -98,7 +98,7 @@ def test_hermes(core_config_mock, caches_mock):
             },
         )
 
-    hermes.run(once=True, send_email=False)
+    hermes_legacy.run(once=True, send_email=False)
 
 
 @pytest.mark.noparallel(reason="fails when run in parallel")
@@ -143,7 +143,7 @@ def test_hermes(core_config_mock, caches_mock):
     ],
     indirect=True,
 )
-def test_hermes2(core_config_mock, caches_mock):
+def test_hermes(core_config_mock, caches_mock):
     """HERMES (DAEMON): Test the messaging daemon."""
     truncate_messages()
     mock_rse = rse_name_generator()
@@ -217,12 +217,12 @@ def test_hermes2(core_config_mock, caches_mock):
     assert service_dict["activemq"] == 3
     assert service_dict["email"] == 3
 
-    # Run Hermes2
+    # Run Hermes
     # The messages of event_type email should be submitted and removed from the list
     # The messages of event-type blahblah should be removed from the list for service influx since this event-type is not supported by influx
     # The messages of event-type blahblah should be submitted to elastic
     # The messages of event-type blahblah should be submitted to ActiveMQ
-    hermes2.hermes2(once=True)
+    hermes.hermes(once=True)
     service_dict = {"influx": 0, "elastic": 0, "email": 0, "activemq": 0}
     messages = retrieve_messages(50, old_mode=False)
     for message in messages:
@@ -253,8 +253,8 @@ def test_hermes2(core_config_mock, caches_mock):
     assert service_dict["activemq"] == 3
     assert service_dict["email"] == 0
 
-    # Run Hermes2
-    hermes2.hermes2(once=True)
+    # Run Hermes
+    hermes.hermes(once=True)
     service_dict = {"influx": 0, "elastic": 0, "email": 0, "activemq": 0}
     messages = retrieve_messages(50, old_mode=False)
     for message in messages:
