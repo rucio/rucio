@@ -15,28 +15,40 @@
 # limitations under the License.
 
 """
-Hermes2 is a daemon that gets the messages and sends them to external services (influxDB, ES, ActiveMQ).
+OBSOLETE Hermes-Legacy is a daemon to deliver messages to an asynchronous broker.
 """
 
 import argparse
 import signal
 
-from rucio.daemons.hermes.hermes2 import run, stop
+from rucio.daemons.hermes.hermes_legacy import run, stop
 
 
 def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="Hermes2 is a daemon that get the messages and sends them to external services (influxDB, ES, ActiveMQ).", formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''
+    parser = argparse.ArgumentParser(description="The OBSOLETE Hermes-Legacy daemon is responsible for delivering messages via STOMP to a messagebroker and via SMTP as email.", formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''
+Create a test message::
+
+  $ python
+  from rucio.core.message import add_message
+  add_message(event_type='NEW_DID', payload='There is a new DID')
+
 Run the daemon::
 
-  $ rucio-hermes2 --run-once
+  $ rucio-hermes-legacy --run-once
+
+---
+WARNING: OBSOLETE! DO NOT USE! Migrate to rucio-hermes instead!
+---
     ''')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: number of threads')
     parser.add_argument("--bulk", action="store", default=1000, type=int, help='Bulk control: number of requests per cycle')
-    parser.add_argument("--sleep-time", action="store", default=10, type=int, help='Delay control: second control per cycle')
+    parser.add_argument("--broker-timeout", action="store", default=3, type=int, help='Broker control: timeout second per cycle')
+    parser.add_argument("--broker-retry", action="store", default=3, type=int, help='Broker control: number of retries per cycle')
+    parser.add_argument("--sleep-time", action="store", default=60, type=int, help='Delay control: second control per cycle')
     return parser
 
 
@@ -50,6 +62,8 @@ if __name__ == "__main__":
         run(once=args.run_once,
             threads=args.threads,
             bulk=args.bulk,
+            broker_timeout=args.broker_timeout,
+            broker_retry=args.broker_retry,
             sleep_time=args.sleep_time)
     except KeyboardInterrupt:
         stop()
