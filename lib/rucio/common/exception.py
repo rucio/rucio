@@ -1080,3 +1080,13 @@ class InvalidSourceReplicaExpression(RucioException):
         super(InvalidSourceReplicaExpression, self).__init__(*args, **kwargs)
         self._message = 'Provided Source Replica expression is considered invalid.'
         self.error_code = 104
+
+
+class DeprecationError(RucioException):
+    """
+    Function has been deprecated.
+    """
+    def __init__(self, *args, **kwargs):
+        super(DeprecationError, self).__init__(*args, **kwargs)
+        self._message = 'Command or function has been deprecated.'
+        self.error_code = 105

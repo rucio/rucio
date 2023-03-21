@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import logging
-import operator
 import random
 from datetime import datetime, timedelta
 from enum import Enum
@@ -37,7 +36,6 @@ from rucio.core import did_meta_plugins, config as config_core
 from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
 from rucio.core.naming_convention import validate_name
-from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState, BadFilesStatus
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
@@ -2845,106 +2843,9 @@ def set_status(scope, name, *, session: "Session", **kwargs):
                 rucio.core.rule.generate_rule_notifications(rule=rule, session=session)
 
 
-@stream_session
+@read_session
 def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=None,
               offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Session"):
-    """
-    Search data identifiers.
-
-    :param scope: the scope name.
-    :param filters: dictionary of attributes by which the results should be filtered.
-    :param did_type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
-    :param ignore_case: ignore case distinctions.
-    :param limit: limit number.
-    :param offset: offset number.
-    :param long: Long format option to display more information for each DID.
-    :param recursive: Recursively list DIDs content.
-    :param ignore_dids: List of DIDs to refrain from yielding.
-    :param session: The database session in use.
-    """
-    if not ignore_dids:
-        ignore_dids = set()
-
-    # mapping for semantic <type> to a (set of) recognised DIDType(s).
-    type_to_did_type_mapping = {
-        'all': [DIDType.CONTAINER, DIDType.DATASET, DIDType.FILE],
-        'collection': [DIDType.CONTAINER, DIDType.DATASET],
-        'container': [DIDType.CONTAINER],
-        'dataset': [DIDType.DATASET],
-        'file': [DIDType.FILE]
-    }
-
-    # backwards compatability for filters as single {}.
-    if isinstance(filters, dict):
-        filters = [filters]
-
-    # for each or_group, make sure there is a mapped "did_type" filter.
-    # if type maps to many DIDTypes, the corresponding or_group will be copied the required number of times to satisfy all the logical possibilities.
-    filters_tmp = []
-    for or_group in filters:
-        if 'type' not in or_group:
-            or_group_type = did_type.lower()
-        else:
-            or_group_type = or_group.pop('type').lower()
-        if or_group_type not in type_to_did_type_mapping.keys():
-            raise exception.UnsupportedOperation('{} is not a valid type. Valid types are {}'.format(or_group_type, type_to_did_type_mapping.keys()))
-
-        for mapped_did_type in type_to_did_type_mapping[or_group_type]:
-            or_group['did_type'] = mapped_did_type
-            filters_tmp.append(or_group.copy())
-    filters = filters_tmp
-
-    # instantiate fe and create sqla query
-    fe = FilterEngine(filters, model_class=models.DataIdentifier)
-    query = fe.create_sqla_query(
-        additional_model_attributes=[
-            models.DataIdentifier.scope,
-            models.DataIdentifier.name,
-            models.DataIdentifier.did_type,
-            models.DataIdentifier.bytes,
-            models.DataIdentifier.length
-        ], additional_filters=[
-            (models.DataIdentifier.scope, operator.eq, scope),
-            (models.DataIdentifier.suppressed, operator.ne, true()),
-        ],
-        session=session
-    )
-    query.with_hint(models.DataIdentifier, 'NO_EXPAND', 'oracle')
-
-    if limit:
-        query = query.limit(limit)
-    if recursive:
-        # Get attached DIDs and save in list because query has to be finished before starting a new one in the recursion
-        collections_content = []
-        for did in query.yield_per(100):
-            if (did.did_type == DIDType.CONTAINER or did.did_type == DIDType.DATASET):
-                collections_content += [d for d in list_content(scope=did.scope, name=did.name)]
-
-        # Replace any name filtering with recursed DID names.
-        for did in collections_content:
-            for or_group in filters:
-                or_group['name'] = did['name']
-            for result in list_dids(scope=did['scope'], filters=filters, recursive=True, did_type=did_type, limit=limit, offset=offset, long=long, ignore_dids=ignore_dids,
-                                    session=session):
-                yield result
-
-    if long:
-        for did in query.yield_per(5):              # don't unpack this as it makes it dependent on query return order!
-            did_full = "{}:{}".format(did.scope, did.name)
-            if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
-                ignore_dids.add(did_full)
-                yield {'scope': did.scope, 'name': did.name, 'did_type': str(did.did_type), 'bytes': did.bytes, 'length': did.length}
-    else:
-        for did in query.yield_per(5):              # don't unpack this as it makes it dependent on query return order!
-            did_full = "{}:{}".format(did.scope, did.name)
-            if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
-                ignore_dids.add(did_full)
-                yield did.name
-
-
-@read_session
-def list_dids_extended(scope, filters, did_type='collection', ignore_case=False, limit=None,
-                       offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Session"):
     """
     Search data identifiers.
 

@@ -19,7 +19,7 @@ from json import dumps
 
 from flask import Flask, Response, request
 
-from rucio.api.did import add_did, add_dids, list_content, list_content_history, list_dids, list_dids_extended, \
+from rucio.api.did import add_did, add_dids, list_content, list_content_history, list_dids, \
     list_files, scope_list, get_did, set_metadata, get_metadata, get_metadata_bulk, set_status, attach_dids, \
     detach_dids, attach_dids_to_dids, get_dataset_by_guid, list_parent_dids, create_did_sample, list_new_dids, \
     resurrect, get_users_following_did, remove_did_from_followed, add_did_to_followed, delete_metadata, \
@@ -235,132 +235,6 @@ class Search(ErrorHandlingMethodView):
         try:
             def generate(vo):
                 for did in list_dids(scope=scope, filters=filters, did_type=did_type, limit=limit, long=long, recursive=recursive, vo=vo):
-                    yield dumps(did) + '\n'
-            return try_stream(generate(vo=request.environ.get('vo')))
-        except UnsupportedOperation as error:
-            return generate_http_error_flask(409, error)
-        except KeyNotFound as error:
-            return generate_http_error_flask(404, error)
-
-
-class SearchExtended(ErrorHandlingMethodView):
-
-    @check_accept_header_wrapper_flask(['application/x-json-stream'])
-    def get(self, scope):
-        """
-        ---
-        summary: List Data identifier with plugin metadata
-        description: List all data identifiers in a scope which match a given metadata. Extended Version to included meteadata from various plugins.
-        tags:
-          - Data Identifiers
-        parameters:
-        - name: scope
-          in: path
-          description: The scope of the data identifiers.
-          schema:
-            type: string
-          style: simple
-        - name: type
-          in: query
-          description: The did type to search for.
-          schema:
-            type: string
-            enum: ['all', 'collection', 'container', 'dataset', 'file']
-            default: 'collection'
-        - name: limit
-          in: query
-          description: The maximum number od dids returned.
-          schema:
-            type: integer
-        - name: long
-          in: query
-          description: Provides a longer output, otherwise just prints names.
-          schema:
-            type: boolean
-            default: false
-        - name: recursive
-          in: query
-          description: Recursively list chilred.
-          schema:
-            type: boolean
-        - name: created_before
-          in: query
-          description: Date string in RFC-1123 format where the creation date was earlier.
-          schema:
-            type: string
-        - name: created_after
-          in: query
-          description: Date string in RFC-1123 format where the creation date was later.
-          schema:
-            type: string
-        - name: length
-          in: query
-          description:  Exact number of attached DIDs.
-          schema:
-            type: integer
-        - name: length.gt
-          in: query
-          description: Number of attached DIDs greater than.
-          schema:
-            type: integer
-        - name: length.lt
-          in: query
-          description: Number of attached DIDs less than.
-          schema:
-            type: integer
-        - name: length.gte
-          in: query
-          description: Number of attached DIDs greater than or equal to
-          schema:
-            type: integer
-        - name: length.lte
-          in: query
-          description: Number of attached DIDs less than or equal to.
-          schema:
-            type: integer
-        - name: name
-          in: query
-          description: Name or pattern of a did.
-          schema:
-            type: string
-        responses:
-          200:
-            description: OK
-            content:
-              application/x-json-stream:
-                schema:
-                  description: Line separated name of DIDs or dictionaries of DIDs for long option.
-                  type: array
-                  items:
-                    type: object
-                    description: the name of a DID or a dictionarie of a DID for long option.
-          401:
-            description: Invalid Auth Token
-          404:
-            description: Invalid key in filter.
-          406:
-            description: Not acceptable
-          409:
-            description: Wrong did type
-        """
-        filters = request.args.get('filters', default=None)
-        if filters is not None:
-            filters = ast.literal_eval(filters)
-        else:
-            # backwards compatability for created*, length* and name filters passed through as request args
-            filters = {}
-            for arg, value in request.args.copy().items():
-                if arg not in ['type', 'limit', 'long', 'recursive']:
-                    filters[arg] = value
-            filters = [filters]
-
-        did_type = request.args.get('type', default=None)
-        limit = request.args.get('limit', default=None)
-        long = request.args.get('long', type=['True', '1'].__contains__, default=False)
-        recursive = request.args.get('recursive', type='True'.__eq__, default=False)
-        try:
-            def generate(vo):
-                for did in list_dids_extended(scope=scope, filters=filters, did_type=did_type, limit=limit, long=long, recursive=recursive, vo=vo):
                     yield dumps(did) + '\n'
             return try_stream(generate(vo=request.environ.get('vo')))
         except UnsupportedOperation as error:
@@ -2273,8 +2147,6 @@ def blueprint():
     bp.add_url_rule('/<guid>/guid', view_func=guid_lookup_view, methods=['get', ])
     search_view = Search.as_view('search')
     bp.add_url_rule('/<scope>/dids/search', view_func=search_view, methods=['get', ])
-    search_extended_view = SearchExtended.as_view('search_extended')
-    bp.add_url_rule('/<scope>/dids/search_extended', view_func=search_extended_view, methods=['get', ])
     dids_view = DIDs.as_view('dids')
     bp.add_url_rule('/<path:scope_name>/status', view_func=dids_view, methods=['put', ])
     files_view = Files.as_view('files')

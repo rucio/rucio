@@ -457,7 +457,7 @@ class TestDidMetaClient:
 
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='fails when run in parallel')
-    def test_list_dids_extended(self, did_client, db_session):
+    def test_list_dids(self, did_client, db_session):
         """ META (CLIENTS) : Get all dids matching the values of the provided metadata keys """
 
         # Test did Columns use case
@@ -485,7 +485,7 @@ class TestDidMetaClient:
         dataset_meta['datatype'] = 'NTUP_SMWZ'
         did_client.add_dataset(scope=tmp_scope, name=tmp_dsn3, meta=dataset_meta)
 
-        dids = did_client.list_dids_extended(tmp_scope, {'project': 'data12_8TeV', 'version': 'f392_m920'})
+        dids = did_client.list_dids(tmp_scope, {'project': 'data12_8TeV', 'version': 'f392_m920'})
         results = []
         for d in dids:
             results.append(d)
@@ -493,7 +493,7 @@ class TestDidMetaClient:
             assert dsn in results
         dsns.remove(tmp_dsn1)
 
-        dids = did_client.list_dids_extended(tmp_scope, {'project': 'data12_8TeV', 'run_number': 400001})
+        dids = did_client.list_dids(tmp_scope, {'project': 'data12_8TeV', 'run_number': 400001})
         results = []
         for d in dids:
             results.append(d)
@@ -501,7 +501,7 @@ class TestDidMetaClient:
             assert dsn in results
         dsns.remove(tmp_dsn2)
 
-        dids = did_client.list_dids_extended(tmp_scope, {'project': 'data12_8TeV', 'stream_name': 'physics_Egamma', 'datatype': 'NTUP_SMWZ'})
+        dids = did_client.list_dids(tmp_scope, {'project': 'data12_8TeV', 'stream_name': 'physics_Egamma', 'datatype': 'NTUP_SMWZ'})
         results = []
         for d in dids:
             results.append(d)
@@ -547,21 +547,21 @@ class TestDidMetaClient:
             did_client.set_metadata(scope=tmp_scope, name=did4, key=key3, value=value_unique)
 
             # Key not there
-            dids = did_client.list_dids_extended(tmp_scope, {'key45': 'value'})
+            dids = did_client.list_dids(tmp_scope, {'key45': 'value'})
             results = []
             for d in dids:
                 results.append(d)
             assert len(results) == 0
 
             # Value not there
-            dids = did_client.list_dids_extended(tmp_scope, {key1: 'value_not_there'})
+            dids = did_client.list_dids(tmp_scope, {key1: 'value_not_there'})
             results = []
             for d in dids:
                 results.append(d)
             assert len(results) == 0
 
             # key1 = value1
-            dids = did_client.list_dids_extended(tmp_scope, {key1: value1})
+            dids = did_client.list_dids(tmp_scope, {key1: value1})
             results = []
             for d in dids:
                 results.append(d)
@@ -571,7 +571,7 @@ class TestDidMetaClient:
             assert did4 in results
 
             # key1, key2
-            dids = did_client.list_dids_extended(tmp_scope, {key1: value1, key2: value2})
+            dids = did_client.list_dids(tmp_scope, {key1: value1, key2: value2})
             results = []
             for d in dids:
                 results.append(d)
@@ -580,14 +580,14 @@ class TestDidMetaClient:
             assert did4 in results
 
             # key1, key2, key 3
-            dids = did_client.list_dids_extended(tmp_scope, {key1: value1, key2: value2, key3: value3})
+            dids = did_client.list_dids(tmp_scope, {key1: value1, key2: value2, key3: value3})
             results = []
             for d in dids:
                 results.append(d)
             assert len(results) == 0
 
             # key3 = unique value
-            dids = did_client.list_dids_extended(tmp_scope, {key3: value_unique})
+            dids = did_client.list_dids(tmp_scope, {key3: value_unique})
             results = []
             for d in dids:
                 results.append(d)
