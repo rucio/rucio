@@ -1,5 +1,16 @@
 version: "3.5"
 services:
+  rucioclient:
+    image: docker.io/rucio/rucio-dev
+    command: ["sleep", "infinity"]
+    volumes:
+      - ../../../tools:/opt/rucio/tools:Z
+      - ../../../bin:/opt/rucio/bin:Z
+      - ../../../lib:/opt/rucio/lib:Z
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RDBMS=postgres14
   rucio:
     image: docker.io/rucio/rucio-dev
     ports:

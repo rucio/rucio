@@ -30,7 +30,7 @@ from rucio.common.config import config_get
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (InvalidRSEExpression,
                                     RequestNotFound, RSEProtocolNotSupported,
-                                    RucioException, UnsupportedOperation)
+                                    RucioException)
 from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.account import list_accounts
@@ -506,36 +506,6 @@ def mark_transfer_lost(request, *, session: "Session", logger=logging.log):
     set_request_state(request['id'], state=new_state, external_id=request['external_id'], err_msg=err_msg, session=session, logger=logger)
 
     request_core.add_monitor_message(new_state=new_state, request=request, additional_fields={'reason': reason}, session=session)
-
-
-@METRICS.count_it
-@transactional_session
-def set_transfer_update_time(external_host, transfer_id, update_time=datetime.datetime.utcnow(), *, session: "Session"):
-    """
-    Update the state of a request. Fails silently if the transfer_id does not exist.
-    :param external_host:  Selected external host as string in format protocol://fqdn:port
-    :param transfer_id:    External transfer job id as a string.
-    :param update_time:    Time stamp.
-    :param session:        Database session to use.
-    """
-
-    try:
-        stmt = update(
-            models.Request
-        ).where(
-            models.Request.external_id == transfer_id,
-            models.Request.state == RequestState.SUBMITTED
-        ).execution_options(
-            synchronize_session=False
-        ).values(
-            updated_at=update_time
-        )
-        rowcount = session.execute(stmt).rowcount
-    except IntegrityError as error:
-        raise RucioException(error.args)
-
-    if not rowcount:
-        raise UnsupportedOperation("Transfer %s doesn't exist or its status is not submitted." % transfer_id)
 
 
 @METRICS.count_it

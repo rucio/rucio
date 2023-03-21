@@ -15,8 +15,8 @@
 
 import json
 import os
-import sys
 from datetime import datetime
+from unittest import mock
 
 from rucio.common.dumper.consistency import Consistency
 from rucio.common.dumper.consistency import _try_to_advance
@@ -25,12 +25,6 @@ from rucio.common.dumper.consistency import gnu_sort
 from rucio.common.dumper.consistency import min3
 from rucio.common.dumper.consistency import parse_and_filter_file
 from rucio.tests.common import make_temp_file
-
-if sys.version_info >= (3, 3):
-    from unittest import mock
-else:
-    import mock
-
 
 RSEPROTOCOL = {
     "hostname": "example.com",

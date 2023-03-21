@@ -26,7 +26,7 @@ from dogpile.cache.api import NO_VALUE
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
-from sqlalchemy.sql.expression import or_, and_, false, func, case, select
+from sqlalchemy.sql.expression import or_, and_, false, func, select
 
 from rucio.common import exception, utils
 from rucio.common.cache import make_region_memcached
@@ -1629,12 +1629,11 @@ def fill_rse_expired(rse_id, *, session: "Session"):
 
     :returns: True if successful, except otherwise.
     """
-    none_value = None  # Hack to get pep8 happy...
     query = session.query(func.sum(models.RSEFileAssociation.bytes).label("bytes"), func.count().label("length")).\
-        with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
+        with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_RSE_ID_TOMBSTONE_IDX)", 'oracle').\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
-        filter(case((models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id), ) == rse_id).\
+        filter(models.RSEFileAssociation.rse_id == rse_id).\
         filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD))))
     result = query.all()
     sum_bytes, sum_files = result[0]

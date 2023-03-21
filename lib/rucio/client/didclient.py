@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from datetime import datetime
-from json import dumps, loads
+from json import dumps
 
 from requests.status_codes import codes
 from urllib.parse import quote_plus
@@ -663,9 +663,16 @@ class DIDClient(BaseClient):
         :param account: The account.
         :param nbfiles: The number of files to register in the output dataset.
         """
-        path = '/'.join([self.DIDS_BASEURL, quote_plus(input_scope), quote_plus(input_name), quote_plus(output_scope), quote_plus(output_name), str(nbfiles), 'sample'])
+        path = '/'.join([self.DIDS_BASEURL, 'sample'])
+        data = dumps({
+            'input_scope': input_scope,
+            'input_name': input_name,
+            'output_scope': output_scope,
+            'output_name': output_name,
+            'nbfiles': str(nbfiles)
+        })
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='POST', data=dumps({}))
+        r = self._send_request(url, type_='POST', data=data)
         if r.status_code == codes.created:
             return True
         else:
@@ -715,22 +722,3 @@ class DIDClient(BaseClient):
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
-
-    def list_dids_by_meta(self, scope=None, select={}):
-        """
-        Gets all dids matching the values of the provided metadata keys
-        :param scope: the scope of the search
-        :param select: the key value pairs to search with(query in json format)
-        """
-        path = '/'.join([self.DIDS_BASEURL, 'list_dids_by_meta'])
-        payload = {}
-        if scope is not None:
-            payload['scope'] = scope
-        payload['select'] = dumps(select)
-        url = build_url(choice(self.list_hosts), path=path, params=payload)
-        r = self._send_request(url, type_='GET')
-        if r.status_code == codes.ok:
-            return loads(next(self._load_json_data(r)))
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)

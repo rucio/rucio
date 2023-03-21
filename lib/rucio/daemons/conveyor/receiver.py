@@ -17,7 +17,6 @@
 Conveyor is a daemon to manage file transfers.
 """
 
-import datetime
 import json
 import logging
 import socket
@@ -34,7 +33,6 @@ from rucio.common.logging import setup_logging
 from rucio.common.policy import get_policy
 from rucio.core import request as request_core
 from rucio.core.monitor import MetricManager
-from rucio.core.transfer import set_transfer_update_time
 from rucio.daemons.common import HeartbeatHandler
 from rucio.db.sqla.session import transactional_session
 from rucio.transfertool.fts3 import FTS3CompletionMessageTransferStatusReport
@@ -47,12 +45,11 @@ graceful_stop = threading.Event()
 
 class Receiver(object):
 
-    def __init__(self, broker, id_, total_threads, full_mode=False, all_vos=False):
+    def __init__(self, broker, id_, total_threads, all_vos=False):
         self.__all_vos = all_vos
         self.__broker = broker
         self.__id = id_
         self.__total_threads = total_threads
-        self.__full_mode = full_mode
 
     @METRICS.count_it
     def on_error(self, frame):
@@ -85,26 +82,18 @@ class Receiver(object):
             if tt_status_report.get_db_fields_to_update(session=session, logger=logger):
                 logging.info('RECEIVED %s', tt_status_report)
 
-                if self.__full_mode:
-                    ret = request_core.update_request_state(tt_status_report, session=session, logger=logger)
-                    METRICS.counter('update_request_state.{updated}').labels(updated=ret).inc()
-                else:
-                    try:
-                        logging.debug("Update request %s update time" % request_id)
-                        set_transfer_update_time(external_host, tt_status_report.external_id, datetime.datetime.utcnow() - datetime.timedelta(hours=24), session=session)
-                        METRICS.counter('set_transfer_update_time').inc()
-                    except Exception as error:
-                        logging.debug("Failed to update transfer's update time: %s" % str(error))
+                ret = request_core.update_request_state(tt_status_report, session=session, logger=logger)
+                METRICS.counter('update_request_state.{updated}').labels(updated=ret).inc()
         except Exception:
             logging.critical(traceback.format_exc())
 
 
-def receiver(id_, total_threads=1, full_mode=False, all_vos=False):
+def receiver(id_, total_threads=1, all_vos=False):
     """
     Main loop to consume messages from the FTS3 producer.
     """
 
-    logging.info('receiver starting in full mode: %s' % full_mode)
+    logging.info('receiver starting')
 
     logger_prefix = executable = 'conveyor-receiver'
 
@@ -142,18 +131,16 @@ def receiver(id_, total_threads=1, full_mode=False, all_vos=False):
     for broker in brokers_resolved:
         if not use_ssl:
             logging.info('setting up username/password authentication: %s' % broker)
-            con = stomp.Connection12(host_and_ports=[(broker, port)],
-                                     use_ssl=False,
-                                     vhost=vhost,
-                                     reconnect_attempts_max=999)
         else:
             logging.info('setting up ssl cert/key authentication: %s' % broker)
-            con = stomp.Connection12(host_and_ports=[(broker, port)],
-                                     use_ssl=True,
-                                     ssl_key_file=config_get('messaging-fts3', 'ssl_key_file'),
-                                     ssl_cert_file=config_get('messaging-fts3', 'ssl_cert_file'),
-                                     vhost=vhost,
-                                     reconnect_attempts_max=999)
+        con = stomp.Connection12(host_and_ports=[(broker, port)],
+                                 vhost=vhost,
+                                 reconnect_attempts_max=999)
+        if use_ssl:
+            con.set_ssl(
+                key_file=config_get('messaging-fts3', 'ssl_key_file'),
+                cert_file=config_get('messaging-fts3', 'ssl_cert_file'),
+            )
         conns.append(con)
 
     logging.info('receiver started')
@@ -171,8 +158,7 @@ def receiver(id_, total_threads=1, full_mode=False, all_vos=False):
                     METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0].split('.')[0]).inc()
 
                     conn.set_listener('rucio-messaging-fts3', Receiver(broker=conn.transport._Transport__host_and_ports[0],
-                                                                       id_=id_, total_threads=total_threads,
-                                                                       full_mode=full_mode, all_vos=all_vos))
+                                                                       id_=id_, total_threads=total_threads, all_vos=all_vos))
                     if not use_ssl:
                         conn.connect(username, password, wait=True)
                     else:
@@ -197,7 +183,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, total_threads=1, full_mode=False):
+def run(once=False, total_threads=1):
     """
     Starts up the receiver thread
     """
@@ -208,7 +194,6 @@ def run(once=False, total_threads=1, full_mode=False):
 
     logging.info('starting receiver thread')
     threads = [threading.Thread(target=receiver, kwargs={'id_': i,
-                                                         'full_mode': full_mode,
                                                          'total_threads': total_threads}) for i in range(0, total_threads)]
 
     [thread.start() for thread in threads]

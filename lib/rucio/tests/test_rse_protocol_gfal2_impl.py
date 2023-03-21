@@ -25,17 +25,15 @@ from rucio.tests.rsemgr_api_test import MgrTestCases
 
 @pytest.mark.noparallel(reason='creates and removes a test directory with a fixed name')
 @skip_rse_tests_with_accounts
-class TestRseXROOTD(MgrTestCases):
+class TestRseGFAL2Impl(MgrTestCases):
 
     @classmethod
     @pytest.fixture(scope='class')
     def setup_rse_and_files(cls, vo, tmp_path_factory):
-        """XROOTD (RSE/PROTOCOLS): Creating necessary directories and files """
+        """GFAL2 (RSE/PROTOCOLS): Creating necessary directories and files """
 
         cmd = "rucio list-rses --rses 'test_container_xrd=True'"
-        print(cmd)
         exitcode, out, err = execute(cmd)
-        print(out, err)
         rses = out.split()
 
         data = load_test_conf_file('rse_repository.json')
@@ -47,7 +45,7 @@ class TestRseXROOTD(MgrTestCases):
         else:
             rse_name = 'XRD1'
             hostname = 'xrd1'
-            prefix = '/rucio/'
+            prefix = '//rucio/'
 
         try:
             os.mkdir(prefix)
@@ -55,6 +53,7 @@ class TestRseXROOTD(MgrTestCases):
             print(e)
 
         rse_settings, tmpdir, user = cls.setup_common_test_env(rse_name, vo, tmp_path_factory)
+        rse_settings['protocols'][0]['impl'] = 'rucio.rse.protocols.gfal.Default'
 
         protocol = rsemanager.create_protocol(rse_settings, 'write')
         protocol.connect()

@@ -70,11 +70,11 @@ class GUID(TypeDecorator):
         if value is None:
             return value
         elif dialect.name == 'oracle':
-            return str(uuid.UUID(bytes=value)).replace('-', '').lower()
+            return str(value if isinstance(value, uuid.UUID) else uuid.UUID(bytes=value)).replace('-', '').lower()
         elif dialect.name == 'mysql':
-            return str(uuid.UUID(bytes=value)).replace('-', '').lower()
+            return str(value if isinstance(value, uuid.UUID) else uuid.UUID(bytes=value)).replace('-', '').lower()
         else:
-            return str(uuid.UUID(value)).replace('-', '').lower()
+            return str(value if isinstance(value, uuid.UUID) else uuid.UUID(value)).replace('-', '').lower()
 
 
 class BooleanString(TypeDecorator):

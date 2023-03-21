@@ -318,6 +318,9 @@ def move_replication_rule(rule_id, rse_expression, override, issuer, vo='def', *
     :param vo:                         The VO to act on.
     :raises:                           RuleNotFound, RuleReplaceFailed, InvalidRSEExpression, AccessDenied
     """
+    override = override.copy()
+    if 'account' in override:
+        override['account'] = InternalAccount(override['account'], vo=vo)
     kwargs = {
         'rule_id': rule_id,
         'rse_expression': rse_expression,
