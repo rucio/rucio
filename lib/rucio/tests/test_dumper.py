@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import bz2
 import json
 import os
-import sys
 import tempfile
 from datetime import datetime
+from io import StringIO
+from unittest import mock
 
-import bz2
 import pytest
 import requests
 
@@ -28,14 +29,6 @@ from rucio.common import dumper
 from rucio.tests.common import make_temp_file
 from rucio.tests.common import mock_open
 from rucio.tests.mocks import gfal2
-
-from io import StringIO
-
-if sys.version_info >= (3, 3):
-    from unittest import mock
-else:
-    import mock
-
 
 DATE_SECONDS = "2015-03-10 14:00:35"
 DATE_TENTHS = "2015-03-10T14:00:35.5"

@@ -16,6 +16,7 @@
 import itertools
 import os
 import shutil
+import tempfile
 import os.path
 from uuid import uuid4 as uuid
 
@@ -335,3 +336,29 @@ class MgrTestCases:
         pfn = list(mgr.lfns2pfns(self.rse_settings, {'name': '2_rse_remote_change_scope.raw', 'scope': 'user.%s' % self.user}, impl=self.impl).values())[0]
         pfn_new = list(mgr.lfns2pfns(self.rse_settings, {'name': '2_rse_remote_change_scope.raw', 'scope': 'group.%s' % self.user}, impl=self.impl).values())[0]
         mgr.rename(self.rse_settings, {'name': pfn, 'new_name': pfn_new}, impl=self.impl)
+
+    def test_download_protocol_ok_single_pfn(self):
+        """(RSE/PROTOCOLS): Check a single file download using PFN (Success)"""
+        filename = '1_rse_remote_get.raw'
+        pfn = list(mgr.lfns2pfns(self.rse_settings, {'name': filename, 'scope': 'user.%s' % self.user}, impl=self.impl).values())[0]
+        protocol = mgr.create_protocol(self.rse_settings, 'write', impl=self.impl)
+        protocol.connect()
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            protocol.get(pfn, dest='%s/%s' % (tmpdirname, filename), transfer_timeout=None)
+            assert filename in os.listdir(tmpdirname)
+            assert os.path.isfile('%s/%s' % (tmpdirname, filename))
+            size = os.stat('%s/%s' % (tmpdirname, filename)).st_size
+            assert size == 1048576
+
+    def test_download_protocol_ok_single_pfn_timeout(self):
+        """(RSE/PROTOCOLS): Check a single file download using PFN and timeout parameter (Success)"""
+        filename = '1_rse_remote_get.raw'
+        pfn = list(mgr.lfns2pfns(self.rse_settings, {'name': filename, 'scope': 'user.%s' % self.user}, impl=self.impl).values())[0]
+        protocol = mgr.create_protocol(self.rse_settings, 'write', impl=self.impl)
+        protocol.connect()
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            protocol.get(pfn, dest='%s/%s' % (tmpdirname, filename), transfer_timeout='10')
+            assert filename in os.listdir(tmpdirname)
+            assert os.path.isfile('%s/%s' % (tmpdirname, filename))
+            size = os.stat('%s/%s' % (tmpdirname, filename)).st_size
+            assert size == 1048576

@@ -36,20 +36,14 @@ def get_stomp_brokers(brokers, port, use_ssl, vhost, reconnect_attempts, ssl_key
     logger(logging.DEBUG, 'broker resolved to %s', brokers_resolved)
     conns = []
     for broker in brokers_resolved:
-        if not use_ssl:
-            conns.append(Connection(host_and_ports=[(broker, port)],
-                                    use_ssl=False,
-                                    vhost=vhost,
-                                    timeout=timeout,
-                                    heartbeats=(0, 1000),
-                                    reconnect_attempts_max=reconnect_attempts))
-        else:
-            conns.append(Connection(host_and_ports=[(broker, port)],
-                                    use_ssl=True,
-                                    ssl_key_file=ssl_key_file,
-                                    ssl_cert_file=ssl_cert_file,
-                                    vhost=vhost,
-                                    timeout=timeout,
-                                    heartbeats=(0, 1000),
-                                    reconnect_attempts_max=reconnect_attempts))
+        conn = Connection(
+            host_and_ports=[(broker, port)],
+            vhost=vhost,
+            timeout=timeout,
+            heartbeats=(0, 1000),
+            reconnect_attempts_max=reconnect_attempts
+        )
+        if use_ssl:
+            conn.set_ssl(key_file=ssl_key_file, cert_file=ssl_cert_file)
+        conns.append(conn)
     return conns

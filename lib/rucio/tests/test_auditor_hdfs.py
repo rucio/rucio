@@ -15,17 +15,12 @@
 
 import os
 import string
-import sys
 from datetime import datetime
+from unittest import mock
 
 import pytest
 
 from rucio.daemons.auditor import hdfs
-
-if sys.version_info >= (3, 3):
-    from unittest import mock
-else:
-    import mock
 
 
 class FakeHDFSGet(object):

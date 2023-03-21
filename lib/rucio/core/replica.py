@@ -1078,7 +1078,7 @@ def list_replicas(
     # For historical reasons:
     # - list_replicas([some_file_did]), must return the file even if it doesn't have replicas
     # - list_replicas([some_collection_did]) must only return files with replicas
-    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False, session=session)
+    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=True, session=session)
     if use_temp_tables:
         yield from _list_replicas_with_temp_tables(
             dids, schemes, unavailable, request_id, ignore_availability, all_states, pfns, rse_expression, client_location,
@@ -1690,7 +1690,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sessio
     :param ignore_availability: Ignore the RSE blocklisting.
     :param session: The database session in use.
     """
-    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False, session=session)
+    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=True, session=session)
     if use_temp_tables:
         __delete_replicas(rse_id, files, ignore_availability=ignore_availability, session=session)
     else:
@@ -2679,12 +2679,9 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
     stmt = select(
         models.RSEFileAssociation.scope,
         models.RSEFileAssociation.name,
-    ).with_hint(
-        models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle'
     ).where(
         models.RSEFileAssociation.lock_cnt == 0,
-        # The following CASE is to mimic the Oracle's functional "tombstone" index. Otherwise the optimiser doesn't use the index.
-        case((models.RSEFileAssociation.tombstone != null(), models.RSEFileAssociation.rse_id)) == rse_id,
+        models.RSEFileAssociation.rse_id == rse_id,
         models.RSEFileAssociation.tombstone == OBSOLETE if only_delete_obsolete else models.RSEFileAssociation.tombstone < datetime.utcnow(),
     ).where(
         or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
@@ -2731,7 +2728,8 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             replicas_alias,
             and_(models.RSEFileAssociation.scope == replicas_alias.scope,
                  models.RSEFileAssociation.name == replicas_alias.name,
-                 models.RSEFileAssociation.rse_id != replicas_alias.rse_id)
+                 models.RSEFileAssociation.rse_id != replicas_alias.rse_id,
+                 replicas_alias.state == ReplicaState.AVAILABLE)
         ).with_hint(
             models.Request, "INDEX(requests REQUESTS_SCOPE_NAME_RSE_IDX)", 'oracle'
         ).outerjoin(
@@ -2805,7 +2803,6 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
     :returns: a list of dictionary replica.
     """
 
-    none_value = None  # Hack to get pep8 happy...
     query = session.query(models.RSEFileAssociation.scope,
                           models.RSEFileAssociation.name,
                           models.RSEFileAssociation.path,
@@ -2813,12 +2810,12 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
                           models.RSEFileAssociation.tombstone,
                           models.RSEFileAssociation.state,
                           models.DataIdentifier.datatype).\
-        with_hint(models.RSEFileAssociation, "INDEX_RS_ASC(replicas REPLICAS_TOMBSTONE_IDX)  NO_INDEX_FFS(replicas REPLICAS_TOMBSTONE_IDX)", 'oracle').\
+        with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_RSE_ID_TOMBSTONE_IDX)", 'oracle').\
         join(models.DataIdentifier, and_(models.RSEFileAssociation.scope == models.DataIdentifier.scope,
                                          models.RSEFileAssociation.name == models.DataIdentifier.name)).\
         filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
         filter(models.RSEFileAssociation.lock_cnt == 0).\
-        filter(case((models.RSEFileAssociation.tombstone != none_value, models.RSEFileAssociation.rse_id)) == rse_id).\
+        filter(models.RSEFileAssociation.rse_id == rse_id).\
         filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
                    and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
         filter(~exists(select(1).prefix_with("/*+ INDEX(SOURCES SOURCES_SC_NM_DST_IDX) */", dialect='oracle')
@@ -2836,9 +2833,12 @@ def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=Non
         # Check if more than one replica is available
         replica_cnt = session.query(func.count(models.RSEFileAssociation.scope)).\
             with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
-            filter(and_(models.RSEFileAssociation.scope == scope, models.RSEFileAssociation.name == name, models.RSEFileAssociation.rse_id != rse_id)).one()
+            filter(and_(models.RSEFileAssociation.scope == scope,
+                        models.RSEFileAssociation.name == name,
+                        models.RSEFileAssociation.rse_id != rse_id,
+                        models.RSEFileAssociation.state == ReplicaState.AVAILABLE)).one()
 
-        if replica_cnt[0] > 1:
+        if replica_cnt[0] > 0:
             if tombstone != OBSOLETE and only_delete_obsolete:
                 break
 
@@ -3634,7 +3634,7 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
         schema = ''
         if BASE.metadata.schema:
             schema = BASE.metadata.schema + '.'
-        session.execute('DELETE FROM {schema}updated_col_rep A WHERE A.rowid > ANY (SELECT B.rowid FROM {schema}updated_col_rep B WHERE A.scope = B.scope AND A.name=B.name AND A.did_type=B.did_type AND (A.rse_id=B.rse_id OR (A.rse_id IS NULL and B.rse_id IS NULL)))'.format(schema=schema))  # NOQA: E501
+        session.execute(text('DELETE FROM {schema}updated_col_rep A WHERE A.rowid > ANY (SELECT B.rowid FROM {schema}updated_col_rep B WHERE A.scope = B.scope AND A.name=B.name AND A.did_type=B.did_type AND (A.rse_id=B.rse_id OR (A.rse_id IS NULL and B.rse_id IS NULL)))'.format(schema=schema)))  # NOQA: E501
     elif session.bind.dialect.name == 'mysql':
         subquery1 = session.query(func.max(models.UpdatedCollectionReplica.id).label('max_id')).\
             group_by(models.UpdatedCollectionReplica.scope,

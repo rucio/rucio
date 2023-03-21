@@ -573,7 +573,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
         # List and mark BEING_DELETED the files to delete
         del_start_time = time.time()
         try:
-            use_temp_tables = config_get_bool('core', 'use_temp_tables', default=False)
+            use_temp_tables = config_get_bool('core', 'use_temp_tables', default=True)
             with METRICS.timer('list_unlocked_replicas'):
                 if only_delete_obsolete:
                     logger(logging.DEBUG, 'Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', rse.name)

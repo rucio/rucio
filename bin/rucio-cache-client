@@ -76,7 +76,8 @@ def cache_operation(args):
         validate_files(payload["files"])
     else:
         validate(payload, get_schema_value('CACHE_DELETE_REPLICAS'))
-    conn = stomp.Connection([(args.broker, args.port)], use_ssl=True, ssl_key_file=args.ssl_key_file, ssl_cert_file=args.ssl_cert_file, ssl_version=ssl.PROTOCOL_TLSv1)
+    conn = stomp.Connection([(args.broker, args.port)])
+    conn.set_ssl(key_file=args.ssl_key_file, cert_file=args.ssl_cert_file, ssl_version=ssl.PROTOCOL_TLSv1)
 
     conn.connect()
     message = {'id': int(random.random() * 1000), 'payload': payload}

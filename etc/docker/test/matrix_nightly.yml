@@ -35,7 +35,7 @@ suites:
   - id: client_syntax
     RUN_HTTPD: false
   - id: client
-    RDBMS: sqlite
+    RDBMS: postgres14
   - id: remote_dbs
     RDBMS:
       - oracle

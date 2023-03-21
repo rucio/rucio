@@ -14,9 +14,5 @@
 # limitations under the License.
 
 import gettext
-import sys
 
-if sys.version_info < (3,):
-    gettext.install('rucio', unicode=1)  # pylint: disable=unexpected-keyword-arg
-else:
-    gettext.install('rucio')
+gettext.install('rucio')

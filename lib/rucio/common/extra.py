@@ -21,8 +21,7 @@ if TYPE_CHECKING:
     from typing import List, Dict, Any
 
 
-def import_extras(module_list):
-    # type: (List[str]) -> Dict[str, Any]
+def import_extras(module_list: "List[str]") -> "Dict[str, Any]":
     out = dict()
     for mod in module_list:
         out[mod] = None

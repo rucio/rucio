@@ -17,19 +17,14 @@ import bz2
 import collections
 import multiprocessing
 import os
-import sys
 import tempfile
 from datetime import datetime
 from datetime import timedelta
+from unittest import mock
 
 import pytest
 
 from rucio.daemons import auditor
-
-if sys.version_info >= (3, 3):
-    from unittest import mock
-else:
-    import mock
 
 
 def test_auditor_guess_replica_info():
