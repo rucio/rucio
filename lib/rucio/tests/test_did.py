@@ -22,7 +22,7 @@ from rucio.api import scope
 from rucio.db.sqla.util import json_implemented
 from rucio.common import exception
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
-                                    InvalidPath, KeyNotFound, UnsupportedOperation,
+                                    InvalidPath, UnsupportedOperation,
                                     UnsupportedStatus, ScopeNotFound, FileAlreadyExists, FileConsistencyMismatch)
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
@@ -450,9 +450,6 @@ class TestDIDClients:
             results.append(d)
         for dsn in dsns:
             assert dsn in results
-
-        with pytest.raises(KeyNotFound):
-            did_client.list_dids(tmp_scope, {'NotReallyAKey': 'NotReallyAValue'})
 
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined scope')

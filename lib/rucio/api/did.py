@@ -64,38 +64,6 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
         yield api_update_return_dict(d, session=session)
 
 
-@stream_session
-def list_dids_extended(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def', *, session: "Session"):
-    """
-    List dids in a scope.
-
-    :param scope: The scope name.
-    :param pattern: The wildcard pattern.
-    :param did_type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container
-    :param ignore_case: Ignore case distinctions.
-    :param limit: The maximum number of DIDs returned.
-    :param offset: Offset number.
-    :param long: Long format option to display more information for each DID.
-    :param recursive: Recursively list DIDs content.
-    :param session: The database session in use.
-    """
-    validate_schema(name='did_filters', obj=filters, vo=vo)
-    scope = InternalScope(scope, vo=vo)
-
-    # replace account and scope in filters with internal representation
-    for or_group in filters:
-        if 'account' in or_group:
-            or_group['account'] = InternalAccount(or_group['account'], vo=vo)
-        if 'scope' in or_group:
-            or_group['account'] = InternalScope(or_group['scope'], vo=vo)
-
-    result = did.list_dids_extended(scope=scope, filters=filters, did_type=did_type, ignore_case=ignore_case,
-                                    limit=limit, offset=offset, long=long, recursive=recursive, session=session)
-
-    for d in result:
-        yield api_update_return_dict(d, session=session)
-
-
 @transactional_session
 def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None, vo='def', *, session: "Session"):
     """
