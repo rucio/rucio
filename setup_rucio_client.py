@@ -39,6 +39,7 @@ description = "Rucio Client Lite Package"
 data_files = [
     ('', ['requirements.txt']),
     ('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template', 'etc/rucio.cfg.atlas.client.template']),
+    ('rucio_client/', ['tools/merge_rucio_configs.py']),
 ]
 scripts = ['bin/rucio', 'bin/rucio-admin']
 
