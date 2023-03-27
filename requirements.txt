@@ -31,7 +31,7 @@ statsd==4.0.1; python_version >= '3.9'                      # Needed to log into
 statsd==3.3.0; python_version < '3.9'
 geoip2==4.6.0                                               # GeoIP2 API (for IPv6 support)
 google-auth==2.16.2                                         # Google authentication library for Python
-redis==4.5.1; python_version >= '3.9'                       # Python client for Redis key-value store
+redis==4.5.3; python_version >= '3.9'                       # Python client for Redis key-value store
 redis==4.3.4; python_version < '3.9'
 Flask==2.2.3; python_version >= '3.9'                       # Python web framework
 Flask==2.0.3; python_version < '3.9'
