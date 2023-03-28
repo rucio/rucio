@@ -47,6 +47,7 @@ from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.constants import SuspiciousAvailability
 from rucio.core.credential import get_signed_url
 from rucio.core import config as config_core
+from rucio.core.message import add_messages
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
@@ -2149,7 +2150,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         session.execute(stmt)
 
     for chunk in chunks(messages, 100):
-        session.bulk_insert_mappings(models.Message, chunk)
+        add_messages(chunk, session=session)
 
     # Delete dids
     dids_to_delete_filter = exists(select(1)
@@ -2598,7 +2599,7 @@ def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, sessio
             delete(synchronize_session=False)
 
     for chunk in chunks(messages, 100):
-        session.bulk_insert_mappings(models.Message, chunk)
+        add_messages(chunk, session=session)
 
     for chunk in chunks(deleted_dids, 100):
         stmt = delete(models.DataIdentifier).\
