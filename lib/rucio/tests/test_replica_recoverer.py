@@ -100,6 +100,7 @@ class TestReplicaRecoverer:
         # testtypenopolicy: Files either have no policy or no recognised policy and are ignored by default
 
         # Set fictional datatypes
+        set_metadata(mock_scope, self.tmp_file3.name, 'datatype', 'RAW')
         set_metadata(mock_scope, self.tmp_file4.name, 'datatype', 'testtypedeclarebad')
         set_metadata(mock_scope, self.tmp_file5.name, 'datatype', 'testtypenopolicy')
         set_metadata(mock_scope, self.tmp_file6.name, 'datatype', 'testtypeignore')
@@ -292,36 +293,30 @@ class TestReplicaRecoverer:
         # is used (currently only) from the tested replica_recoverer itself.
 
         # Write policy file to include test policies
-        try:
-            json_file = open("/opt/rucio/etc/suspicious_replica_recoverer.json", "r+")
-        except:
-            print("JSON file couldn't be opened. Looked for it at /opt/rucio/etc/suspicious_replica_recoverer.json")
-
-        json_data = json.load(json_file)
-        for i in json_data:
-            # if ("datatype_action" in i) and (i["datatype_action"] == "declare bad"):
-            #     i["datatype"].append("testtypedeclarebad")
-            # if ("datatype_action" in i) and (i["datatype_action"] == "ignore"):
-            #     i["datatype"].append("testtypeignore")
-            # if ("scope_action" in i) and (i["scope_action"] == "declare bad"):
-            #     i["scope"].append(str(self.scope_declarebad))
-            #     i["scope_wildcard"].append(str(self.scope_declarebad)[:-1])
-            # if ("scope_action" in i) and (i["scope_action"] == "ignore"):
-            #     i["scope"].append(str(self.scope_ignore))
-            #     i["scope_wildcard"].append(str(self.scope_ignore)[:-1])
-            if ("action" in i) and ("datatype" in i) and ("scope" in i) and ("scope_wildcard" in i) and (i["action"] == "declare bad"):
-                i["datatype"].append("testtypedeclarebad")
-                i["scope"].append(str(self.scope_declarebad))
-                i["scope_wildcard"].append(str(self.scope_declarebad)[:-1])
-            if ("action" in i) and ("datatype" in i) and ("scope" in i) and ("scope_wildcard" in i) and (i["action"] == "ignore"):
-                i["datatype"].append("testtypeignore")
-                i["scope"].append(str(self.scope_ignore))
-                i["scope_wildcard"].append(str(self.scope_ignore)[:-1])
-        json_file.seek(0)
-        json.dump(json_data, json_file)
-        json_file.truncate()
-
-        print("json_data:", json_data)
+        json_data = []
+        with open("/opt/rucio/etc/test_replica_recoverer.json", mode="w") as json_file:
+            # Any combination of datatype and scope can be given any action.
+            # For the test, the actions for json_testentry1 and json_testentry2 have been arbitrarily chosen.
+            # Entries that are higher up in the JSON file have priority over those that are below them.
+            json_HITS = {"action": "declare bad", "datatype": ["HITS"], "scope": []}
+            json_RAW = {"action": "ignore", "datatype": ["RAW"], "scope": []}
+            # json_testentry1 and json_testentry2 need to be above the other entries, otherwise
+            # they will always "lose" to an entry with either "datatype": [] or "scope": [].
+            json_testentry1 = {"action": "ignore", "datatype": ["testtypedeclarebad"], "scope": [str(self.scope_ignore)]}
+            json_testentry2 = {"action": "declare bad", "datatype": ["testtypeignore"], "scope": [str(self.scope_declarebad)]}
+            json_testentry3 = {"action": "declare bad", "datatype": ["testtypedeclarebad"], "scope": []}
+            json_testentry4 = {"action": "ignore", "datatype": ["testtypeignore"], "scope": []}
+            json_testentry5 = {"action": "declare bad", "datatype": [], "scope": [str(self.scope_declarebad)]}
+            json_testentry6 = {"action": "ignore", "datatype": [], "scope": [str(self.scope_ignore)]}
+            json_data.append(json_HITS)
+            json_data.append(json_RAW)
+            json_data.append(json_testentry1)
+            json_data.append(json_testentry2)
+            json_data.append(json_testentry3)
+            json_data.append(json_testentry4)
+            json_data.append(json_testentry5)
+            json_data.append(json_testentry6)
+            json.dump(json_data, json_file)
 
     def test_replica_recoverer(self, vo):
         """ REPLICA RECOVERER: Testing declaration of suspicious replicas as bad if they are found available on other RSEs.
@@ -365,29 +360,29 @@ class TestReplicaRecoverer:
 
             Concluding:
 
-            - checks that tmp_file1, tmp_file4, tmp_file7 and tmp_file10 were declared as 'BAD' on rse4suspicious
+            - checks that tmp_file1, tmp_file4, tmp_file7, tmp_file9 and tmp_file10 were declared as 'BAD' on rse4suspicious
 
         """
 
         try:
-            run(once=True, younger_than=1, nattempts=2, limit_suspicious_files_on_rse=11, sleep_time=0, active_mode=True)
+            run(once=True, younger_than=1, nattempts=2, limit_suspicious_files_on_rse=11, json_file_name="/opt/rucio/etc/test_replica_recoverer.json", sleep_time=0, active_mode=True)
         except KeyboardInterrupt:
             stop()
 
         # Checking the outcome:
-        # We expect to see three changes: tmp_file1, tmp_file4, tmp_file7 and tmp_file10 should be declared as bad on rse4suspicious
+        # We expect to see four changes: tmp_file1, tmp_file4, tmp_file7 and tmp_file9 should be declared as bad on rse4suspicious
         # ----------------------------------------------------------------------------------------------------------------------------------------------------
         # Name         State(s) declared on rse4recovery       State(s) declared on rse4suspicious        Scope                     Metadata "datatype"
         # ----------------------------------------------------------------------------------------------------------------------------------------------------
-        # tmp_file1    available                                suspicious (available)                    mock_scope
+        # tmp_file1    available                                suspicious + bad (unavailable)            mock_scope
         # tmp_file2    available                                suspicious + bad (unavailable)            mock_scope
         # tmp_file3    unavailable                              suspicious (available)                    mock_scope                  RAW
-        # tmp_file4    unavailable                              suspicious (available)                    mock_scope                  testtypedeclarebad
+        # tmp_file4    unavailable                              suspicious + bad (unavailable)            mock_scope                  testtypedeclarebad
         # tmp_file5    unavailable                              suspicious (available)                    mock_scope                  testtypenopolicy
         # tmp_file6    unavailable                              suspicious (available)                    mock_scope                  testtypeignore
-        # tmp_file7    unavailable                              suspicious (available)                    scope_declarebad            testtypenopolicy
+        # tmp_file7    unavailable                              suspicious + bad (unavailable)            scope_declarebad            testtypenopolicy
         # tmp_file8    unavailable                              suspicious (available)                    scope_nopolicy              testtypenopolicy
-        # tmp_file9    unavailable                              suspicious (available)                    scope_declarebad            testtypeignore
+        # tmp_file9    unavailable                              suspicious + bad (unavailable)            scope_declarebad            testtypeignore
         # tmp_file10   unavailable                              suspicious (available)                    scope_ignore                testtypedeclarebad
         # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -416,8 +411,7 @@ class TestReplicaRecoverer:
                 # The 'states' key doesn't exist if the replica isn't available on at least one RSE
                 assert not replica.get('states')
             if replica['name'] == self.tmp_file9.name:
-                assert replica['states'][self.rse4suspicious_id] == 'AVAILABLE'
-                assert (self.rse4recovery_id in replica['states']) is False
+                assert not replica.get('states')
 
         for replica in replicalist_nopolicy:
             if replica['name'] == self.tmp_file8.name:
@@ -426,8 +420,8 @@ class TestReplicaRecoverer:
 
         for replica in replicalist_ignore:
             if replica['name'] == self.tmp_file10.name:
-                # The 'states' key doesn't exist if the replica isn't available on at least one RSE
-                assert not replica.get('states')
+                assert replica['states'][self.rse4suspicious_id] == 'AVAILABLE'
+                assert (self.rse4recovery_id in replica['states']) is False
 
         # Checking if replicas were declared as 'BAD'
         bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4suspicious_id, younger_than=self.from_date, vo=vo)
@@ -438,10 +432,11 @@ class TestReplicaRecoverer:
         assert (self.tmp_file3.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file4.name, self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist
         assert (self.tmp_file5.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
+        assert (self.tmp_file6.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file7.name, self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist
         assert (self.tmp_file8.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
-        assert (self.tmp_file9.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
-        assert (self.tmp_file10.name, self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist
+        assert (self.tmp_file9.name, self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist
+        assert (self.tmp_file10.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
 
         bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4recovery_id, younger_than=self.from_date, vo=vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
@@ -451,6 +446,7 @@ class TestReplicaRecoverer:
         assert (self.tmp_file3.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file4.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file5.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
+        assert (self.tmp_file6.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file7.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file8.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file9.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist

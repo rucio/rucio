@@ -2,13 +2,11 @@
     {
         "action": "declare bad",
         "datatype": ["HITS"],
-        "scope": [],
-        "scope_wildcard": []
+        "scope": []
     },
     {
         "action": "ignore",
         "datatype": ["RAW"],
-        "scope": [],
-        "scope_wildcard": []
+        "scope": []
     }
 ]
