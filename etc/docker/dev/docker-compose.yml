@@ -17,6 +17,14 @@ services:
       - "127.0.0.1:9300:9300"
       - "127.0.0.1:61613:61613"
     volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:z
+      - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:z
+      - ../../certs/ruciouser.pem:/opt/rucio/etc/usercert.pem:z
+      - ../../certs/ruciouser.key.pem:/opt/rucio/etc/userkey.pem:z
+      - ../../certs/ruciouser.certkey.pem:/opt/rucio/etc/usercertkey.pem:z
+      - ../../certs/ssh/ruciouser_sshkey.pub:/root/.ssh/ruciouser_sshkey.pub:z
+      - ../../certs/ssh/ruciouser_sshkey:/root/.ssh/ruciouser_sshkey:z
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
