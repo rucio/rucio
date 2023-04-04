@@ -32,6 +32,14 @@ services:
       - "127.0.0.1:61613:61613"
       - "127.0.0.1:2222:22"
     volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:z
+      - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:z
+      - ../../certs/ruciouser.pem:/opt/rucio/etc/usercert.pem:z
+      - ../../certs/ruciouser.key.pem:/opt/rucio/etc/userkey.pem:z
+      - ../../certs/ruciouser.certkey.pem:/opt/rucio/etc/usercertkey.pem:z
+      - ../../certs/ssh/ruciouser_sshkey.pub:/root/.ssh/ruciouser_sshkey.pub:z
+      - ../../certs/ssh/ruciouser_sshkey:/root/.ssh/ruciouser_sshkey:z
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
@@ -72,6 +80,10 @@ services:
   fts:
     image: docker.io/rucio/fts
     network_mode: "service:rucio"
+    volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/hostcert_fts.pem:/etc/grid-security/hostcert.pem:Z
+      - ../../certs/hostcert_fts.key.pem:/etc/grid-security/hostkey.pem:Z
   ftsdb:
     image: docker.io/mysql:8
     network_mode: "service:rucio"
@@ -87,6 +99,7 @@ services:
     environment:
       - XRDPORT=1094
     volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_xrd1.pem:/tmp/xrdcert.pem:Z
       - ../../certs/hostcert_xrd1.key.pem:/tmp/xrdkey.pem:Z
   xrd2:
@@ -95,6 +108,7 @@ services:
     environment:
       - XRDPORT=1095
     volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_xrd2.pem:/tmp/xrdcert.pem:Z
       - ../../certs/hostcert_xrd2.key.pem:/tmp/xrdkey.pem:Z
   xrd3:
@@ -103,6 +117,7 @@ services:
     environment:
       - XRDPORT=1096
     volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_xrd3.pem:/tmp/xrdcert.pem:Z
       - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem:Z
   xrd4:
@@ -111,6 +126,7 @@ services:
     environment:
       - XRDPORT=1097
     volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_xrd4.pem:/tmp/xrdcert.pem:Z
       - ../../certs/hostcert_xrd4.key.pem:/tmp/xrdkey.pem:Z
   minio:
