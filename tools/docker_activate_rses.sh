@@ -31,8 +31,8 @@ echo "Creating RSEs"
 # |      |<----->|      |
 # +------+   2   +------+
 
-# Step zero, get a compliant proxy
-xrdgsiproxy init -bits 2048 -valid 9999:00 -cert /opt/rucio/etc/usercert.pem  -key /opt/rucio/etc/userkey.pem
+# Step zero, get a compliant proxy. The key must NOT be group/other readable
+(KEY=$(mktemp); cat /opt/rucio/etc/userkey.pem > "$KEY"; xrdgsiproxy init -valid 9999:00 -cert /opt/rucio/etc/usercert.pem -key "$KEY"; rm -f "$KEY")
 
 # First, create the RSEs
 rucio-admin rse add XRD1
