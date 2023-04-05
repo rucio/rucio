@@ -191,23 +191,6 @@ class GlobusTransferTool(Transfertool):
         return response
 
     def bulk_update(self, resps, request_ids):
-        """
-        bulk update request_state for globus transfers
-
-        :param resps: dictionary containing task IDs and current status
-        # TODO: do we need request IDs?
-        :param request_ids original list of rucio request IDs
-
-        counter = 0
-        for task_id in resps:
-            requests = get_requests_by_transfer(external_host=None, transfer_id=task_id, session=None)
-            logging.debug('requests: %s' % requests)
-            for request_id in requests:
-                transfer_core.update_transfer_state(external_host=None, transfer_id=request_id, state=resps[task_id][file_state])
-                counter += 1
-
-        return counter
-        """
         pass
 
     def cancel(self):

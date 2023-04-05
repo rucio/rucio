@@ -842,38 +842,6 @@ def get_request(request_id, *, session: "Session"):
         raise RucioException(error.args)
 
 
-@read_session
-def get_requests_by_transfer(external_host, transfer_id, *, session: "Session"):
-    """
-    Retrieve requests by its transfer ID.
-
-    :param request_host:  Name of the external host.
-    :param transfer_id:   External transfer job id as a string.
-    :param session:       Database session to use.
-    :returns:             List of Requests.
-    """
-
-    try:
-        stmt = select(
-            models.Request
-        ).where(
-            models.Request.external_id == transfer_id
-        )
-        tmp = session.execute(stmt).scalars().all()
-
-        if tmp:
-            result = []
-            for t in tmp:
-                t2 = t.to_dict()
-                t2['request_id'] = t2['id']
-                t2['attributes'] = json.loads(str(t2['attributes'] or '{}'))
-                result.append(t2)
-            return result
-        return
-    except IntegrityError as error:
-        raise RucioException(error.args)
-
-
 @METRICS.count_it
 @read_session
 def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Session"):
