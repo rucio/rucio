@@ -3540,7 +3540,8 @@ def list_dataset_replicas_vp(scope, name, deep=False, *, session: "Session", log
         # and can be accessed from WAN
         accessible_replica_exists = False
         for reply in list_dataset_replicas(scope=scope, name=name, deep=deep, session=session):
-            print(">>>>>", reply['state'], "<<<<<<<")
+            if reply['state'] == 'UNAVAILABLE':
+                continue
             rse_info = rsemgr.get_rse_info(rse=reply['rse'], vo=scope.vo, session=session)
             if rse_info['rse_type'] == 'TAPE':
                 continue
