@@ -226,7 +226,7 @@ def list_heartbeats(*, session: "Session"):
     for r in range(len(result)):
         o = result[r]
         json_result.append({
-            "readable": o[0],
+            "executable": o[0],
             "hostname": o[1],
             "pid": o[2],
             "thread_name": o[3],
