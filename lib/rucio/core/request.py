@@ -960,11 +960,6 @@ def is_intermediate_hop(request):
     """
     Check if the request is an intermediate hop in a multi-hop transfer.
     """
-    if (request['attributes'] or {}).get('next_hop_request_id'):
-        # This is only needed during the migration. When pre- 1.28 requests still exist
-        # in the database and we have to handle them correctly.
-        # TODO: remove this if
-        return True
     if (request['attributes'] or {}).get('is_intermediate_hop'):
         return True
     return False
