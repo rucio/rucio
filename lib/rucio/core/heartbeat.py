@@ -225,7 +225,6 @@ def list_heartbeats(*, session: "Session"):
     json_result = []
     for r in range(len(result)):
         o = result[r]
-        print(o)
         json_result.append({
             "readable": o[0],
             "hostname": o[1],
