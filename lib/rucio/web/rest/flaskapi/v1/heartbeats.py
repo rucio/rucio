@@ -80,7 +80,8 @@ class Heartbeat(ErrorHandlingMethodView):
                     description: Ignore specified heartbeats older than specified nr of seconds.
                     type: integer
                   payload:
-                    description: Payload identifier which can be further used to identify the work a certain thread is executing.
+                    description: Payload identifier which can be further used to identify the work
+                                 certain thread is executing.
                     type: string
         responses:
           200:
@@ -109,6 +110,8 @@ class Heartbeat(ErrorHandlingMethodView):
             return generate_http_error_flask(401, error)
         except KeyNotFound as error:
             return generate_http_error_flask(404, error)
+
+        return 'OK', 200
 
 
 def blueprint():
