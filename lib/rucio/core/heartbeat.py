@@ -133,15 +133,15 @@ def live(executable, hostname, pid, thread=None, older_than=600, hash_executable
     query = session.query(Heartbeats.hostname,
                           Heartbeats.pid,
                           Heartbeats.thread_id)\
-                   .with_hint(Heartbeats, "index(HEARTBEATS HEARTBEATS_PK)", 'oracle')\
-                   .filter(Heartbeats.executable == hash_executable)\
-                   .filter(Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))\
-                   .group_by(Heartbeats.hostname,
-                             Heartbeats.pid,
-                             Heartbeats.thread_id)\
-                   .order_by(Heartbeats.hostname,
-                             Heartbeats.pid,
-                             Heartbeats.thread_id)
+        .with_hint(Heartbeats, "index(HEARTBEATS HEARTBEATS_PK)", 'oracle')\
+        .filter(Heartbeats.executable == hash_executable)\
+        .filter(Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))\
+        .group_by(Heartbeats.hostname,
+                  Heartbeats.pid,
+                  Heartbeats.thread_id)\
+        .order_by(Heartbeats.hostname,
+                  Heartbeats.pid,
+                  Heartbeats.thread_id)
     result = query.all()
 
     # there is no universally applicable rownumber in SQLAlchemy
@@ -217,11 +217,25 @@ def list_heartbeats(*, session: "Session"):
                           Heartbeats.pid,
                           Heartbeats.thread_name,
                           Heartbeats.updated_at,
-                          Heartbeats.created_at).order_by(Heartbeats.readable,
-                                                          Heartbeats.hostname,
-                                                          Heartbeats.thread_name)
-
-    return query.all()
+                          Heartbeats.created_at,
+                          Heartbeats.payload).order_by(Heartbeats.readable,
+                                                       Heartbeats.hostname,
+                                                       Heartbeats.thread_name)
+    result = query.all()
+    json_result = []
+    for r in range(len(result)):
+        o = result[r]
+        print(o)
+        json_result.append({
+            "readable": o[0],
+            "hostname": o[1],
+            "pid": o[2],
+            "thread_name": o[3],
+            "updated_at": o[4],
+            "created_at": o[5],
+            "payload": o[6]
+        })
+    return json_result
 
 
 @read_session
@@ -241,10 +255,10 @@ def list_payload_counts(executable, older_than=600, hash_executable=None, *, ses
         hash_executable = calc_hash(executable)
     query = session.query(Heartbeats.payload,
                           func.count(Heartbeats.payload))\
-                   .filter(Heartbeats.executable == hash_executable)\
-                   .filter(Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))\
-                   .group_by(Heartbeats.payload)\
-                   .order_by(Heartbeats.payload)
+        .filter(Heartbeats.executable == hash_executable)\
+        .filter(Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))\
+        .group_by(Heartbeats.payload)\
+        .order_by(Heartbeats.payload)
 
     return dict(query.all())
 
