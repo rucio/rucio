@@ -112,12 +112,14 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account, file
     {
         "table_content": [
             ('transfers', 'use_multihop', True),
+            ('transfers', 'multihop_rse_expression', '*'),
             ('core', 'use_temp_tables', False),
         ]
     },
     {
         "table_content": [
             ('transfers', 'use_multihop', True),
+            ('transfers', 'multihop_rse_expression', '*'),
             ('core', 'use_temp_tables', True),
         ]
     }
@@ -138,9 +140,6 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
 
     jump_rses = [jump_rse1_id, jump_rse2_id, jump_rse3_id]
     all_rses = jump_rses + [src_rse_id, dst_rse_id]
-
-    for rse_id in jump_rses:
-        rse_core.add_rse_attribute(rse_id, 'available_for_multihop', True)
 
     rse_tombstone_delay = 3600
     rse_multihop_tombstone_delay = 12 * 3600
