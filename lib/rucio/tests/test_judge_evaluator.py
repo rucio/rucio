@@ -106,13 +106,13 @@ class TestJudgeEvaluator:
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         attach_dids(scope, dataset, files, self.jdoe)
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
 
         files = create_files(3, scope, self.rse1_id)
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Fake judge
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
 
         # Check if the Locks are created properly
         for file in files:
@@ -133,7 +133,7 @@ class TestJudgeEvaluator:
         add_rule(dids=[{'scope': scope, 'name': parent_container}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
         attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset}], self.jdoe)
         # Fake judge
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
 
         # Check if the Locks are created properly
         for file in files:
@@ -169,7 +169,7 @@ class TestJudgeEvaluator:
                  weight=None, lifetime=None, locked=False, subscription_id=None
                  )
 
-        re_evaluator(once=True, did_limit=1000)         # to clear any history
+        re_evaluator(once=True, did_limit=None)         # to clear any history
 
         # create another dataset, populate it with "new" files and declare that they reside in a T2 RSE
         new_files = create_files(5, scope, self.rse4_id)        # rse4 has T2 tag
@@ -181,7 +181,7 @@ class TestJudgeEvaluator:
         attach_dids(scope, parent_container, [{'scope': scope, 'name': dataset2}], self.jdoe)
 
         # re-run the evaluator
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
 
         # check if the evaluator created locks to move the new files to the same RSE where old files are
         for file in new_files:
@@ -193,7 +193,7 @@ class TestJudgeEvaluator:
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_account_counter_judge_evaluate_attach(self):
         """ JUDGE EVALUATOR: Test if the account counter is updated correctly when a file is added to a DS"""
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
         account_update(once=True)
 
         scope = InternalScope('mock', **self.vo)
@@ -208,7 +208,7 @@ class TestJudgeEvaluator:
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Fake judge
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
         account_update(once=True)
 
         account_counter_after = get_usage(self.rse1_id, self.jdoe)
@@ -218,7 +218,7 @@ class TestJudgeEvaluator:
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_account_counter_judge_evaluate_detach(self):
         """ JUDGE EVALUATOR: Test if the account counter is updated correctly when a file is removed from a DS"""
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
         account_update(once=True)
 
         scope = InternalScope('mock', **self.vo)
@@ -237,7 +237,7 @@ class TestJudgeEvaluator:
         detach_dids(scope, dataset, [files[0]])
 
         # Fake judge
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
         account_update(once=True)
 
         account_counter_after = get_usage(self.rse1_id, self.jdoe)
@@ -247,7 +247,7 @@ class TestJudgeEvaluator:
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_judge_evaluate_detach_datasetlock(self):
         """ JUDGE EVALUATOR: Test if the a datasetlock is detached correctly when removing a dataset from a container"""
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
 
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes_=100)
@@ -269,7 +269,7 @@ class TestJudgeEvaluator:
         detach_dids(scope, container, [{'scope': scope, 'name': dataset}])
 
         # Fake judge
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
 
         locks = [ds_lock for ds_lock in get_dataset_locks(scope=scope, name=dataset)]
         assert len(locks) == 0
@@ -277,7 +277,7 @@ class TestJudgeEvaluator:
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_judge_evaluate_detach(self):
         """ JUDGE EVALUATOR: Test if the detach is done correctly"""
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
 
         scope = InternalScope('mock', **self.vo)
         container = 'container_' + str(uuid())
@@ -308,14 +308,14 @@ class TestJudgeEvaluator:
         rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         # Fake judge
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
 
         assert get_rule(rule_id)['locks_ok_cnt'] == 9
 
         detach_dids(scope, dataset, [files[0]])
 
         # Fake judge
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
 
         assert get_rule(rule_id)['locks_ok_cnt'] == 8
 
@@ -332,13 +332,13 @@ class TestJudgeEvaluator:
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.root, copies=1, rse_expression=self.rse5, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         attach_dids(scope, dataset, files, self.jdoe)
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
 
         files = create_files(3, scope, self.rse1_id)
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Fake judge
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
 
         # Check if the Locks are created properly
         for file in files:
@@ -365,7 +365,7 @@ class TestJudgeEvaluator:
         add_rule(dids=[{'scope': scope, 'name': parent_parent_container}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         # Fake judge
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
 
         # Check if the Locks are created properly
         for file in files:
@@ -374,7 +374,7 @@ class TestJudgeEvaluator:
         # create more files and attach them
         more_files = create_files(3, scope, self.rse1_id)
         attach_dids(scope, dataset, more_files, self.jdoe)
-        re_evaluator(once=True, did_limit=1000)
+        re_evaluator(once=True, did_limit=None)
         # Check if the Locks are created properly
         for file in more_files:
             assert len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2
@@ -450,7 +450,7 @@ def test_judge_double_rule_on_container(
     )
 
     # 5. Run fake judge-evaluator
-    re_evaluator(once=True, did_limit=1000)
+    re_evaluator(once=True, did_limit=None)
 
     # Assertions
     for ruleid in (A, B):
@@ -499,7 +499,7 @@ def test_judge_double_container_with_existing_rule(
     attach_dids(dids=[C2], account=root_account, **C1)
 
     # fake judge
-    re_evaluator(once=True, did_limit=1000)
+    re_evaluator(once=True, did_limit=None)
 
     # assertions
     replicalocks = get_replica_locks(**F)
@@ -511,7 +511,7 @@ def test_judge_double_container_with_existing_rule(
 
     # detach again
     detach_dids(dids=[C2], **C1)
-    re_evaluator(once=True, did_limit=1000)
+    re_evaluator(once=True, did_limit=None)
 
     assert not get_replica_locks(**F)
     assert not get_replica_locks(**D)

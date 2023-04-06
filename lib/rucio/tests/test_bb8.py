@@ -247,7 +247,7 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
 
     # Now run BB8
 
-    re_evaluator(once=True, sleep_time=30, did_limit=100)
+    re_evaluator(once=True, sleep_time=30, did_limit=None)
     bb8_run(once=True, rse_expression='%s=true' % str(T1), move_subscriptions=False, use_dump=False, sleep_time=300, threads=1, dry_run=False)
 
     for rule_id in rules:
