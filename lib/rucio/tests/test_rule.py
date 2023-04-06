@@ -808,7 +808,7 @@ class TestCore:
         set_status(open=False, **dataset)
         assert (False is check_dataset_ok_callback(dataset['scope'], dataset['name'], self.rse2, self.rse2_id, rule_id))
 
-        re_evaluator(once=True)
+        re_evaluator(once=True, did_limit=None)
 
         successful_transfer(scope=mock_scope, name=files[0]['name'], rse_id=self.rse2_id, nowait=False)
         successful_transfer(scope=mock_scope, name=files[1]['name'], rse_id=self.rse2_id, nowait=False)
@@ -829,7 +829,7 @@ class TestCore:
         assert (False is check_rule_progress_callback(dataset['scope'], dataset['name'], 0, rule_id))
 
         attach_dids(dids=files, account=jdoe_account, **dataset)
-        re_evaluator(once=True)
+        re_evaluator(once=True, did_limit=None)
 
         set_status(open=False, **dataset)
         assert (False is check_rule_progress_callback(dataset['scope'], dataset['name'], 0, rule_id))

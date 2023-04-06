@@ -76,7 +76,7 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
                        grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)
     rule = rule_client.get_replication_rule(rule_id[0])
 
-    re_evaluator(once=True)
+    re_evaluator(once=True, did_limit=None)
 
     assert rule['locks_ok_cnt'] == 0
     assert rule['locks_replicating_cnt'] == 1
