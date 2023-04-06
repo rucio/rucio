@@ -178,7 +178,7 @@ class TestJudgeRepairer:
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Fake judge
-        re_evaluator(once=True, did_limit=10000)
+        re_evaluator(once=True, did_limit=None)
 
         # Check if the Locks are created properly
         for file in files:
