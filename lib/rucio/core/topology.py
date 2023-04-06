@@ -23,10 +23,9 @@ from sqlalchemy import select, false
 
 from rucio.common.utils import PriorityQueue
 from rucio.common.cache import make_region_memcached
-from rucio.common.config import config_get_int
+from rucio.common.config import config_get_int, config_get
 from rucio.common.exception import NoDistance, RSEProtocolNotSupported, InvalidRSEExpression
 from rucio.core.rse import RseCollection, list_rses
-from rucio.core.config import get as core_config_get
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
@@ -65,14 +64,17 @@ class Topology:
     @read_session
     def create_from_config(cls, ignore_availability: bool = False, *, session: "Session", logger: "LoggerFunction" = logging.log):
 
-        include_multihop = core_config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
+        include_multihop = config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
+        multihop_rse_expression = config_get('transfers', 'multihop_rse_expression', default='available_for_multihop=true', expiration_time=600, session=session)
 
         multihop_rses = set()
         if include_multihop:
             try:
-                multihop_rses = {rse['id'] for rse in parse_expression('available_for_multihop=true', session=session)}
+                multihop_rses = {rse['id'] for rse in parse_expression(multihop_rse_expression, session=session)}
             except InvalidRSEExpression:
                 pass
+            if multihop_rse_expression and multihop_rse_expression.strip() and not multihop_rses:
+                logger(logging.WARNING, 'multihop_rse_expression is not empty, but returned no RSEs')
 
         restricted_read_rses = set()
         try:
