@@ -26,6 +26,7 @@ from flask import request, render_template, redirect, make_response
 from rucio.api import authentication as auth, identity
 from rucio.api.account import account_exists, get_account_info, list_account_attributes
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.exception import CannotAuthenticate
 from rucio.common.extra import import_extras
 from rucio.core import identity as identity_core, vo as vo_core
 from rucio.db.sqla.constants import AccountType, IdentityType
@@ -200,18 +201,16 @@ def validate_webui_token(from_cookie=True, session_token=None):
     Validates token and returns token validation dictionary.
     :param from_cookie: Token is looked up in cookies if True, otherwise session_token must be provided
     :param session_token:  token string
-    :returns: None or token validation dictionary
+    :returns: token validation dictionary
+    :raises: CannotAuthenticate
     """
     if from_cookie:
         session_token = request.cookies.get('x-rucio-auth-token')
     if session_token:
         session_token = unquote(session_token)
     valid_token_dict = auth.validate_auth_token(session_token)
-    if not valid_token_dict or not session_token:
-        return None
-    else:
-        valid_token_dict['token'] = session_token  # pylint: disable=E1137
-        return valid_token_dict
+    valid_token_dict['token'] = session_token  # pylint: disable=E1137
+    return valid_token_dict
 
 
 def access_granted(valid_token_dict, template, title):
@@ -235,8 +234,9 @@ def finalize_auth(token, identity_type, cookie_dict_extra=None):
     :returns: redirects to the final page or renders a page with an error message.
     """
     cookie = []
-    valid_token_dict = validate_webui_token(from_cookie=False, session_token=token)
-    if not valid_token_dict:
+    try:
+        valid_token_dict = validate_webui_token(from_cookie=False, session_token=token)
+    except CannotAuthenticate:
         return render_template("problem.html", msg="It was not possible to validate and finalize your login with the provided token: " + token)
     try:
         attribs = list_account_attributes(valid_token_dict['account'], valid_token_dict['vo'])
@@ -578,8 +578,9 @@ def authenticate(template, title):
     """
     global AUTH_ISSUERS, SAML_SUPPORT, AUTH_TYPE
     cookie = []
-    valid_token_dict = validate_webui_token()
-    if not valid_token_dict:
+    try:
+        valid_token_dict = validate_webui_token()
+    except CannotAuthenticate:
         cookie.append({'key': 'rucio-requested-path', 'value': request.environ.get('REQUEST_URI')})
     else:
         return access_granted(valid_token_dict, template, title)
