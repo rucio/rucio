@@ -161,10 +161,12 @@ class Topology:
                 if adjacent_node not in remaining_sources and adjacent_node not in self.multihop_rses:
                     continue
 
-                try:
-                    hop_penalty = int(self.rse_collection[adjacent_node].attributes.get('hop_penalty', HOP_PENALTY))
-                except ValueError:
-                    hop_penalty = HOP_PENALTY
+                hop_penalty = 0
+                if current_node != dest_rse_id:
+                    try:
+                        hop_penalty = int(self.rse_collection[current_node].attributes.get('hop_penalty', HOP_PENALTY))
+                    except ValueError:
+                        hop_penalty = HOP_PENALTY
                 new_adjacent_distance = current_distance + link_distance + hop_penalty
                 if next_hop.get(adjacent_node, {}).get('cumulated_distance', 9999) <= new_adjacent_distance:
                     continue
