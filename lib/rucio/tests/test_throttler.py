@@ -54,9 +54,9 @@ def transfer_limit_factory(db_session):
 
 @pytest.fixture
 def connected_rse_pair(vo, rse_factory, db_session):
-    source_rse, source_rse_id = rse_factory.make_mock_rse()
-    dest_rse, dest_rse_id = rse_factory.make_mock_rse()
-    add_distance(source_rse_id, dest_rse_id, distance=10)
+    source_rse, source_rse_id = rse_factory.make_mock_rse(session=db_session)
+    dest_rse, dest_rse_id = rse_factory.make_mock_rse(session=db_session)
+    add_distance(source_rse_id, dest_rse_id, distance=10, session=db_session)
 
     return source_rse, source_rse_id, dest_rse, dest_rse_id
 
@@ -362,16 +362,16 @@ class TestSimpleLimits:
         if db_session.bind.dialect.name == 'mysql':
             return True
 
-        source_rse, source_rse_id = rse_factory.make_mock_rse()
-        _, dest_rse_id = rse_factory.make_mock_rse()
-        _, dest_rse_id2 = rse_factory.make_mock_rse()
-        _, dest_rse_id3 = rse_factory.make_mock_rse()
+        source_rse, source_rse_id = rse_factory.make_mock_rse(session=db_session)
+        _, dest_rse_id = rse_factory.make_mock_rse(session=db_session)
+        _, dest_rse_id2 = rse_factory.make_mock_rse(session=db_session)
+        _, dest_rse_id3 = rse_factory.make_mock_rse(session=db_session)
         for rse_id in (dest_rse_id, dest_rse_id2, dest_rse_id3):
-            add_distance(source_rse_id, rse_id, distance=10)
+            add_distance(source_rse_id, rse_id, distance=10, session=db_session)
         # two waiting requests and no active requests but threshold is 1 for one activity
         # one waiting request and no active requests but threshold is 0 for other activity -> release only 1 request for one activity
-        transfer_limit_factory(source_rse, activity=self.user_activity, max_transfers=1, strategy='fifo', direction=TransferLimitDirection.SOURCE)
-        transfer_limit_factory(source_rse, activity=self.user_activity2, max_transfers=0, strategy='fifo', direction=TransferLimitDirection.SOURCE)
+        transfer_limit_factory(source_rse, activity=self.user_activity, max_transfers=1, strategy='fifo', direction=TransferLimitDirection.SOURCE, session=db_session)
+        transfer_limit_factory(source_rse, activity=self.user_activity2, max_transfers=0, strategy='fifo', direction=TransferLimitDirection.SOURCE, session=db_session)
         name1, name2, name3 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[
@@ -437,11 +437,11 @@ class TestSimpleLimits:
 
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
-        _, source_rse_id2 = rse_factory.make_mock_rse()
-        dest_rse2, dest_rse_id2 = rse_factory.make_mock_rse()
-        add_distance(source_rse_id, dest_rse_id2, distance=10)
-        add_distance(source_rse_id2, dest_rse_id, distance=10)
-        add_distance(source_rse_id2, dest_rse_id2, distance=10)
+        _, source_rse_id2 = rse_factory.make_mock_rse(session=db_session)
+        dest_rse2, dest_rse_id2 = rse_factory.make_mock_rse(session=db_session)
+        add_distance(source_rse_id, dest_rse_id2, distance=10, session=db_session)
+        add_distance(source_rse_id2, dest_rse_id, distance=10, session=db_session)
+        add_distance(source_rse_id2, dest_rse_id2, distance=10, session=db_session)
 
         # two waiting requests and no active requests but threshold 1 for one dest RSE
         # one waiting request and no active requests but threshold 0 for another dest RSE -> release only 1 request on one dest RSE
@@ -489,8 +489,8 @@ class TestSimpleLimits:
 
         source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
 
-        _, dest_rse_id2 = rse_factory.make_mock_rse()
-        add_distance(source_rse_id, dest_rse_id2, distance=10)
+        _, dest_rse_id2 = rse_factory.make_mock_rse(session=db_session)
+        add_distance(source_rse_id, dest_rse_id2, distance=10, session=db_session)
 
         transfer_limit_factory(source_rse, self.all_activities, volume=10, max_transfers=1, deadline=0, direction=TransferLimitDirection.SOURCE, strategy='grouped_fifo', session=db_session)
         name1, name2, name3, name4 = _add_test_replicas_and_request(
@@ -568,18 +568,18 @@ class TestOverlappingLimits:
         if db_session.bind.dialect.name == 'mysql':
             return True
 
-        source_rse, source_rse_id = rse_factory.make_mock_rse()
-        dest_rse, dest_rse_id = rse_factory.make_mock_rse()
-        _, dest_rse_id2 = rse_factory.make_mock_rse()
-        _, dest_rse_id3 = rse_factory.make_mock_rse()
+        source_rse, source_rse_id = rse_factory.make_mock_rse(session=db_session)
+        dest_rse, dest_rse_id = rse_factory.make_mock_rse(session=db_session)
+        _, dest_rse_id2 = rse_factory.make_mock_rse(session=db_session)
+        _, dest_rse_id3 = rse_factory.make_mock_rse(session=db_session)
         for rse_id in (dest_rse_id, dest_rse_id2, dest_rse_id3):
-            add_distance(source_rse_id, rse_id, distance=10)
+            add_distance(source_rse_id, rse_id, distance=10, session=db_session)
         # two waiting requests and no active requests but threshold is 1 for one activity
         # one waiting request and no active requests but threshold is 0 for other activity -> release only 1 request for one activity
-        transfer_limit_factory(source_rse, activity=self.user_activity, max_transfers=1, strategy='fifo', direction=TransferLimitDirection.SOURCE)
-        transfer_limit_factory(source_rse, activity=self.all_activities, max_transfers=3, strategy='fifo', direction=TransferLimitDirection.SOURCE)
-        transfer_limit_factory(dest_rse, activity=self.user_activity2, max_transfers=1, strategy='fifo', direction=TransferLimitDirection.DESTINATION)
-        transfer_limit_factory(dest_rse, activity=self.all_activities, max_transfers=4, strategy='fifo', direction=TransferLimitDirection.DESTINATION)
+        transfer_limit_factory(source_rse, activity=self.user_activity, max_transfers=1, strategy='fifo', direction=TransferLimitDirection.SOURCE, session=db_session)
+        transfer_limit_factory(source_rse, activity=self.all_activities, max_transfers=3, strategy='fifo', direction=TransferLimitDirection.SOURCE, session=db_session)
+        transfer_limit_factory(dest_rse, activity=self.user_activity2, max_transfers=1, strategy='fifo', direction=TransferLimitDirection.DESTINATION, session=db_session)
+        transfer_limit_factory(dest_rse, activity=self.all_activities, max_transfers=4, strategy='fifo', direction=TransferLimitDirection.DESTINATION, session=db_session)
         name1, name2, name3, name4, name5 = _add_test_replicas_and_request(
             scope=mock_scope, account=root_account, session=db_session,
             request_configs=[

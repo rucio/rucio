@@ -67,8 +67,8 @@ class TestCoreAccountLimits:
         rse4, _ = rse_factory.make_mock_rse()
         limit1 = 10
         limit2 = 20
-        account_limit.set_global_account_limit(account, f'{rse1}|{rse2}', limit1)
-        account_limit.set_global_account_limit(account, f'{rse3}|{rse4}', limit2)
+        account_limit.set_global_account_limit(account, f'{rse1}|{rse2}', limit1, session=db_session)
+        account_limit.set_global_account_limit(account, f'{rse3}|{rse4}', limit2, session=db_session)
         results = account_limit.get_global_account_usage(account=account, session=db_session)
         assert len(results) == 2
 

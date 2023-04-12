@@ -43,13 +43,13 @@ from rucio.tests.common import vohdr, hdrdict, headers, auth
 def test_queue_requests_state(vo, file_config_mock, rse_factory, mock_scope, root_account, db_session):
     """ REQUEST (CORE): test queuing requests """
 
-    source_rse, source_rse_id = rse_factory.make_mock_rse()
-    source_rse2, source_rse_id2 = rse_factory.make_mock_rse()
-    dest_rse, dest_rse_id = rse_factory.make_mock_rse()
-    dest_rse2, dest_rse_id2 = rse_factory.make_mock_rse()
+    source_rse, source_rse_id = rse_factory.make_mock_rse(session=db_session)
+    source_rse2, source_rse_id2 = rse_factory.make_mock_rse(session=db_session)
+    dest_rse, dest_rse_id = rse_factory.make_mock_rse(session=db_session)
+    dest_rse2, dest_rse_id2 = rse_factory.make_mock_rse(session=db_session)
 
     user_activity = 'User Subscription'
-    use_preparer = config_get_bool('conveyor', 'use_preparer')
+    use_preparer = config_get_bool('conveyor', 'use_preparer', session=db_session)
     target_state = RequestState.PREPARING if use_preparer else RequestState.QUEUED
 
     name = generate_uuid()
@@ -126,10 +126,10 @@ class TestRequestCoreList:
 
     def test_list_requests(self, rse_factory, db_session):
         """ REQUEST (CORE): list requests """
-        _, source_rse_id = rse_factory.make_mock_rse()
-        _, source_rse_id2 = rse_factory.make_mock_rse()
-        _, dest_rse_id = rse_factory.make_mock_rse()
-        _, dest_rse_id2 = rse_factory.make_mock_rse()
+        _, source_rse_id = rse_factory.make_mock_rse(session=db_session)
+        _, source_rse_id2 = rse_factory.make_mock_rse(session=db_session)
+        _, dest_rse_id = rse_factory.make_mock_rse(session=db_session)
+        _, dest_rse_id2 = rse_factory.make_mock_rse(session=db_session)
         models.Request(state=constants.RequestState.WAITING, source_rse_id=source_rse_id, dest_rse_id=dest_rse_id).save(session=db_session)
         models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=source_rse_id2, dest_rse_id=dest_rse_id).save(session=db_session)
         models.Request(state=constants.RequestState.SUBMITTED, source_rse_id=source_rse_id, dest_rse_id=dest_rse_id2).save(session=db_session)
@@ -149,10 +149,10 @@ class TestRequestCoreList:
 class TestRequestHistoryCoreList:
 
     def test_list_requests_history(self, rse_factory, db_session):
-        _, source_rse_id = rse_factory.make_mock_rse()
-        _, source_rse_id2 = rse_factory.make_mock_rse()
-        _, dest_rse_id = rse_factory.make_mock_rse()
-        _, dest_rse_id2 = rse_factory.make_mock_rse()
+        _, source_rse_id = rse_factory.make_mock_rse(session=db_session)
+        _, source_rse_id2 = rse_factory.make_mock_rse(session=db_session)
+        _, dest_rse_id = rse_factory.make_mock_rse(session=db_session)
+        _, dest_rse_id2 = rse_factory.make_mock_rse(session=db_session)
         """ REQUEST (CORE): list requests history"""
         models.RequestHistory(state=constants.RequestState.WAITING, source_rse_id=source_rse_id, dest_rse_id=dest_rse_id).save(session=db_session)
         models.RequestHistory(state=constants.RequestState.SUBMITTED, source_rse_id=source_rse_id2, dest_rse_id=dest_rse_id).save(session=db_session)
@@ -172,20 +172,20 @@ class TestRequestHistoryCoreList:
 
 def test_list_requests(vo, rest_client, auth_token, rse_factory, tag_factory, db_session):
     """ REQUEST (REST): list requests """
-    source_rse, source_rse_id = rse_factory.make_mock_rse()
-    source_rse2, source_rse_id2 = rse_factory.make_mock_rse()
-    source_rse3, source_rse_id3 = rse_factory.make_mock_rse()
-    dest_rse, dest_rse_id = rse_factory.make_mock_rse()
-    dest_rse2, dest_rse_id2 = rse_factory.make_mock_rse()
+    source_rse, source_rse_id = rse_factory.make_mock_rse(session=db_session)
+    source_rse2, source_rse_id2 = rse_factory.make_mock_rse(session=db_session)
+    source_rse3, source_rse_id3 = rse_factory.make_mock_rse(session=db_session)
+    dest_rse, dest_rse_id = rse_factory.make_mock_rse(session=db_session)
+    dest_rse2, dest_rse_id2 = rse_factory.make_mock_rse(session=db_session)
     source_site = tag_factory.new_tag()
     source_site2 = tag_factory.new_tag()
     dst_site = tag_factory.new_tag()
     dst_site2 = tag_factory.new_tag()
-    add_rse_attribute(source_rse_id, 'site', source_site)
-    add_rse_attribute(source_rse_id2, 'site', source_site2)
-    add_rse_attribute(source_rse_id3, 'site', source_site)
-    add_rse_attribute(dest_rse_id, 'site', dst_site)
-    add_rse_attribute(dest_rse_id2, 'site', dst_site2)
+    add_rse_attribute(source_rse_id, 'site', source_site, session=db_session)
+    add_rse_attribute(source_rse_id2, 'site', source_site2, session=db_session)
+    add_rse_attribute(source_rse_id3, 'site', source_site, session=db_session)
+    add_rse_attribute(dest_rse_id, 'site', dst_site, session=db_session)
+    add_rse_attribute(dest_rse_id2, 'site', dst_site2, session=db_session)
 
     name1 = generate_uuid()
     name2 = generate_uuid()
@@ -294,20 +294,20 @@ def test_list_requests(vo, rest_client, auth_token, rse_factory, tag_factory, db
 
 def test_list_requests_history(vo, rest_client, auth_token, rse_factory, tag_factory, db_session):
     """ REQUEST (REST): list requests history """
-    source_rse, source_rse_id = rse_factory.make_mock_rse()
-    source_rse2, source_rse_id2 = rse_factory.make_mock_rse()
-    source_rse3, source_rse_id3 = rse_factory.make_mock_rse()
-    dest_rse, dest_rse_id = rse_factory.make_mock_rse()
-    dest_rse2, dest_rse_id2 = rse_factory.make_mock_rse()
+    source_rse, source_rse_id = rse_factory.make_mock_rse(session=db_session)
+    source_rse2, source_rse_id2 = rse_factory.make_mock_rse(session=db_session)
+    source_rse3, source_rse_id3 = rse_factory.make_mock_rse(session=db_session)
+    dest_rse, dest_rse_id = rse_factory.make_mock_rse(session=db_session)
+    dest_rse2, dest_rse_id2 = rse_factory.make_mock_rse(session=db_session)
     source_site = tag_factory.new_tag()
     source_site2 = tag_factory.new_tag()
     dst_site = tag_factory.new_tag()
     dst_site2 = tag_factory.new_tag()
-    add_rse_attribute(source_rse_id, 'site', source_site)
-    add_rse_attribute(source_rse_id2, 'site', source_site2)
-    add_rse_attribute(source_rse_id3, 'site', source_site)
-    add_rse_attribute(dest_rse_id, 'site', dst_site)
-    add_rse_attribute(dest_rse_id2, 'site', dst_site2)
+    add_rse_attribute(source_rse_id, 'site', source_site, session=db_session)
+    add_rse_attribute(source_rse_id2, 'site', source_site2, session=db_session)
+    add_rse_attribute(source_rse_id3, 'site', source_site, session=db_session)
+    add_rse_attribute(dest_rse_id, 'site', dst_site, session=db_session)
+    add_rse_attribute(dest_rse_id2, 'site', dst_site2, session=db_session)
 
     name1 = generate_uuid()
     name2 = generate_uuid()

@@ -90,8 +90,10 @@ class TestCoreAccountCounter:
 
     def test_inc_dec_get_counter(self, jdoe_account, rse_factory, db_session):
         """ACCOUNT COUNTER (CORE): Increase, decrease and get counter """
+        db_session.commit()
         account_update(once=True)
-        _, rse_id = rse_factory.make_mock_rse()
+        _, rse_id = rse_factory.make_mock_rse(session=db_session)
+        db_session.commit()
         account = jdoe_account
         account_counter.del_counter(rse_id=rse_id, account=account)
         account_counter.add_counter(rse_id=rse_id, account=account)

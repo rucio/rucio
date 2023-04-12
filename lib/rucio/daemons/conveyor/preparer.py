@@ -157,13 +157,13 @@ def run_once(
             reqs_no_source.update(reqs_no_transfertool)
             if reqs_no_source:
                 logger(logging.INFO, "Marking requests as no-sources: %s", reqs_no_source)
-                set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
+                set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger, session=session)
             if reqs_only_tape_source:
                 logger(logging.INFO, "Marking requests as only-tape-sources: %s", reqs_only_tape_source)
-                set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
+                set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger, session=session)
             if reqs_scheme_mismatch:
                 logger(logging.INFO, "Marking requests as scheme-mismatch: %s", reqs_scheme_mismatch)
-                set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
+                set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger, session=session)
     except RucioException:
         logger(logging.ERROR, 'errored with a RucioException, retrying later', exc_info=True)
         updated_msg = 'errored'
