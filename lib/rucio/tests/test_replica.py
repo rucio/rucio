@@ -882,7 +882,7 @@ def test_client_list_replicas_on_did_without_replicas(rse_factory, did_factory, 
     # assert list(replica_client.list_replicas(dids=[container]))
 
 
-def test_client_list_blocklisted_replicas(rse_factory, did_factory, replica_client, did_client):
+def test_client_list_blocklisted_replicas(rse_factory, did_factory, replica_client, did_client, rse_client):
     """ REPLICA (CLIENT): Blocklisted replicas are filtered in list replicas"""
 
     rse, _ = rse_factory.make_posix_rse()
@@ -897,14 +897,14 @@ def test_client_list_blocklisted_replicas(rse_factory, did_factory, replica_clie
     did_client.add_datasets_to_container(dsns=[dataset], **container)
 
     # availability_write will not have any impact on listing replicas
-    did_factory.client.update_rse(rse, {'availability_write': False})
+    rse_client.update_rse(rse, {'availability_write': False})
     for did in (file, dataset, container):
         replicas = list(replica_client.list_replicas(dids=[did]))
         assert len(replicas) == 1
         assert len(replicas[0]['rses']) == 1
 
     # if availability_read is set to false, the replicas from the given rse will not be listed
-    did_factory.client.update_rse(rse, {'availability_read': False})
+    rse_client.update_rse(rse, {'availability_read': False})
     replicas = list(replica_client.list_replicas(dids=[file], ignore_availability=False))
     assert len(replicas) == 1
     assert not replicas[0]['rses'] and not replicas[0]['pfns']

@@ -128,10 +128,10 @@ class TestReplicaRecoverer:
         rse_expression_parser.REGION.invalidate()
 
         # Gather replica info
-        replicalist_mock = list_replicas(dids=self.listdids_mock)
-        replicalist_declarebad = list_replicas(dids=self.listdids_declarebad)
-        replicalist_nopolicy = list_replicas(dids=self.listdids_nopolicy)
-        replicalist_ignore = list_replicas(dids=self.listdids_ignore)
+        replicalist_mock = list(list_replicas(dids=self.listdids_mock))
+        replicalist_declarebad = list(list_replicas(dids=self.listdids_declarebad))
+        replicalist_nopolicy = list(list_replicas(dids=self.listdids_nopolicy))
+        replicalist_ignore = list(list_replicas(dids=self.listdids_ignore))
 
         # Changing the replica statuses as follows:
         # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -213,10 +213,10 @@ class TestReplicaRecoverer:
                 update_replica_state(self.rse4recovery_id, self.scope_ignore, self.tmp_file10.name, ReplicaState.UNAVAILABLE)
 
         # Gather replica info after setting initial replica statuses
-        replicalist_mock = list_replicas(dids=self.listdids_mock)
-        replicalist_declarebad = list_replicas(dids=self.listdids_declarebad)
-        replicalist_nopolicy = list_replicas(dids=self.listdids_nopolicy)
-        replicalist_ignore = list_replicas(dids=self.listdids_ignore)
+        replicalist_mock = list(list_replicas(dids=self.listdids_mock))
+        replicalist_declarebad = list(list_replicas(dids=self.listdids_declarebad))
+        replicalist_nopolicy = list(list_replicas(dids=self.listdids_nopolicy))
+        replicalist_ignore = list(list_replicas(dids=self.listdids_ignore))
 
         # Checking if the status changes were effective
         for replica in replicalist_mock:
@@ -392,10 +392,10 @@ class TestReplicaRecoverer:
         # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
         # Gather replica info after replica_recoverer has run.
-        replicalist_mock = list_replicas(dids=self.listdids_mock)
-        replicalist_declarebad = list_replicas(dids=self.listdids_declarebad)
-        replicalist_nopolicy = list_replicas(dids=self.listdids_nopolicy)
-        replicalist_ignore = list_replicas(dids=self.listdids_ignore)
+        replicalist_mock = list(list_replicas(dids=self.listdids_mock))
+        replicalist_declarebad = list(list_replicas(dids=self.listdids_declarebad))
+        replicalist_nopolicy = list(list_replicas(dids=self.listdids_nopolicy))
+        replicalist_ignore = list(list_replicas(dids=self.listdids_ignore))
 
         for replica in replicalist_mock:
             if replica['name'] == self.tmp_file1.name or replica['name'] == self.tmp_file2.name:
