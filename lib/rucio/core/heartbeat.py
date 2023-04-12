@@ -217,12 +217,19 @@ def list_heartbeats(*, session: "Session"):
                           Heartbeats.pid,
                           Heartbeats.thread_name,
                           Heartbeats.updated_at,
-                          Heartbeats.created_at).order_by(Heartbeats.readable,
+                          Heartbeats.created_at,
+                          Heartbeats.payload).order_by(Heartbeats.readable,
                                                           Heartbeats.hostname,
                                                           Heartbeats.thread_name)
 
-    return query.all()
-
+    result = query.all()
+    json_result = []
+    for r in range(len(result)):
+        d = {} 
+        for column in result[r].__table__.columns: 
+            d[column.name] = getattr(result[r], column.name) 
+        json_result.append(d)
+    return json_result
 
 @read_session
 def list_payload_counts(executable, older_than=600, hash_executable=None, *, session: "Session"):

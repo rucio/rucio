@@ -109,7 +109,7 @@ class Heartbeat(ErrorHandlingMethodView):
             return generate_http_error_flask(401, error)
         except KeyNotFound as error:
             return generate_http_error_flask(404, error)
-
+        return 'OK', 200
 
 def blueprint():
     bp = AuthenticatedBlueprint('heartbeats', __name__, url_prefix='/heartbeats')
