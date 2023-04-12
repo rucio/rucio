@@ -25,7 +25,9 @@ from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalScope
 from rucio.common.utils import execute, generate_uuid
 from rucio.core import rse as rse_core
+from rucio.core import did as did_core
 from rucio.db.sqla import models
+from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import did_name_generator
 from rucio.tests.common_server import cleanup_db_deps
@@ -45,10 +47,11 @@ class TemporaryRSEFactory:
     Factory which keeps track of created RSEs and cleans up everything related to these RSEs at the end
     """
 
-    def __init__(self, vo, name_prefix, **kwargs):
+    def __init__(self, vo, name_prefix, db_session=None, **kwargs):
         self.vo = vo
         self.name_prefix = name_prefix.upper().replace('_', '-')
         self.created_rses = set()
+        self.db_session = db_session
 
     def __enter__(self):
         return self
@@ -56,11 +59,11 @@ class TemporaryRSEFactory:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.cleanup()
 
-    def cleanup(self):
+    def cleanup(self, session=None):
         if not self.created_rses:
             return
 
-        self._cleanup_db_deps()
+        self._cleanup_db_deps(session=session or self.db_session)
 
     @transactional_session
     def _cleanup_db_deps(self, *, session=None):
@@ -76,12 +79,13 @@ class TemporaryRSEFactory:
             # So running test in parallel results in some tests failing on foreign key errors.
             rse_core.del_rse(rse_id)
 
-    def _make_rse(self, scheme, protocol_impl, parameters=None, add_rse_kwargs=None) -> "Tuple[str, str]":
+    def _make_rse(self, scheme, protocol_impl, parameters=None, add_rse_kwargs=None, session=None) -> "Tuple[str, str]":
+        session = session or self.db_session
         rse_name = self.name_prefix + ''.join(choice(ascii_uppercase) for _ in range(6))
         if add_rse_kwargs and 'vo' in add_rse_kwargs:
-            rse_id = rse_core.add_rse(rse_name, **add_rse_kwargs)
+            rse_id = rse_core.add_rse(rse_name, session=session, **add_rse_kwargs)
         else:
-            rse_id = rse_core.add_rse(rse_name, vo=self.vo, **(add_rse_kwargs or {}))
+            rse_id = rse_core.add_rse(rse_name, vo=self.vo, session=session, **(add_rse_kwargs or {}))
         if scheme and protocol_impl:
             prefix = '/test_%s/' % rse_id
             if protocol_impl == 'rucio.rse.protocols.posix.Default':
@@ -108,27 +112,27 @@ class TemporaryRSEFactory:
                 }
             }
             protocol_parameters.update(parameters or {})
-            rse_core.add_protocol(rse_id=rse_id, parameter=protocol_parameters)
+            rse_core.add_protocol(rse_id=rse_id, parameter=protocol_parameters, session=session)
         self.created_rses.add(rse_id)
         return rse_name, rse_id
 
     def make_rse(self, scheme=None, protocol_impl=None, **kwargs):
         return self._make_rse(scheme=scheme, protocol_impl=protocol_impl, add_rse_kwargs=kwargs)
 
-    def make_posix_rse(self, **kwargs):
-        return self._make_rse(scheme='file', protocol_impl='rucio.rse.protocols.posix.Default', add_rse_kwargs=kwargs)
+    def make_posix_rse(self, session=None, **kwargs):
+        return self._make_rse(scheme='file', protocol_impl='rucio.rse.protocols.posix.Default', add_rse_kwargs=kwargs, session=session)
 
-    def make_mock_rse(self, **kwargs):
-        return self._make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.mock.Default', add_rse_kwargs=kwargs)
+    def make_mock_rse(self, session=None, **kwargs):
+        return self._make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.mock.Default', add_rse_kwargs=kwargs, session=session)
 
-    def make_xroot_rse(self, **kwargs):
-        return self._make_rse(scheme='root', protocol_impl='rucio.rse.protocols.xrootd.Default', add_rse_kwargs=kwargs)
+    def make_xroot_rse(self, session=None, **kwargs):
+        return self._make_rse(scheme='root', protocol_impl='rucio.rse.protocols.xrootd.Default', add_rse_kwargs=kwargs, session=session)
 
-    def make_srm_rse(self, **kwargs):
+    def make_srm_rse(self, session=None, **kwargs):
         parameters = {
             "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "RUCIODISK"},
         }
-        return self._make_rse(scheme='srm', protocol_impl='rucio.rse.protocols.srm.Default', parameters=parameters, add_rse_kwargs=kwargs)
+        return self._make_rse(scheme='srm', protocol_impl='rucio.rse.protocols.srm.Default', parameters=parameters, add_rse_kwargs=kwargs, session=session)
 
 
 class TemporaryDidFactory:
@@ -137,11 +141,13 @@ class TemporaryDidFactory:
     All files related to the same test will have the same uuid in the name for easier debugging.
     """
 
-    def __init__(self, default_scope, vo, name_prefix, file_factory):
+    def __init__(self, default_scope, vo, name_prefix, file_factory, default_account, db_session=None):
+        self.default_account = default_account
         self.default_scope = default_scope
         self.vo = vo
         self.name_prefix = name_prefix
         self.file_factory = file_factory
+        self.db_session = db_session
 
         self._client = None
         self._upload_client = None
@@ -155,22 +161,20 @@ class TemporaryDidFactory:
         self.cleanup()
 
     @property
-    def client(self):
-        if not self._client:
-            self._client = Client(vo=self.vo)
-        return self._client
-
-    @property
     def upload_client(self):
         if not self._upload_client:
-            self._upload_client = UploadClient(self.client)
+            client = Client(vo=self.vo)
+            self._upload_client = UploadClient(client)
         return self._upload_client
 
-    @transactional_session
-    def cleanup(self, *, session=None):
+    def cleanup(self, session=None):
         if not self.created_dids:
             return
 
+        self._cleanup_db_deps(session=session or self.db_session)
+
+    @transactional_session
+    def _cleanup_db_deps(self, *, session=None):
         select_dids_stmt = or_(and_(models.DataIdentifier.scope == scope,
                                     models.DataIdentifier.name == name)
                                for scope, name in self.created_dids)
@@ -221,17 +225,19 @@ class TemporaryDidFactory:
         did = self._random_did(did_type='container', scope=scope)
         return _to_external(did) if external else did
 
-    def make_dataset(self, scope=None, *, external=False):
+    def make_dataset(self, scope=None, account=None, session=None, *, external=False):
+        account = account or self.default_account
+        session = session or self.db_session
         did = self.random_dataset_did(scope=scope)
-        external_did = _to_external(did)
-        self.client.add_dataset(**external_did)
-        return external_did if external else did
+        did_core.add_did(**did, did_type=DIDType.DATASET, account=account, session=session)
+        return _to_external(did) if external else did
 
-    def make_container(self, scope=None, *, external=False):
+    def make_container(self, scope=None, account=None, session=None, *, external=False):
+        account = account or self.default_account
+        session = session or self.db_session
         did = self.random_container_did(scope=scope)
-        external_did = _to_external(did)
-        self.client.add_container(**external_did)
-        return external_did if external else did
+        did_core.add_did(**did, did_type=DIDType.CONTAINER, account=account, session=session)
+        return _to_external(did) if external else did
 
     def upload_test_file(self, rse_name, scope=None, name=None, path=None, size=2, return_full_item=False):
         scope = self._sanitize_or_set_scope(scope)

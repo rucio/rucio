@@ -562,12 +562,12 @@ def test_nrandom_respected(rse_factory, did_factory, download_client, root_accou
         assert len(result) == nrandom
 
 
-def test_download_blocklisted_replicas(rse_factory, did_factory, download_client):
+def test_download_blocklisted_replicas(rse_factory, did_factory, download_client, rse_client):
     rse, _ = rse_factory.make_posix_rse()
     did = did_factory.upload_test_file(rse)
     did_str = '%s:%s' % (did['scope'], did['name'])
 
-    did_factory.client.update_rse(rse, {'availability_read': False})
+    rse_client.update_rse(rse, {'availability_read': False})
 
     with TemporaryDirectory() as tmp_dir:
         with pytest.raises(NoFilesDownloaded):
