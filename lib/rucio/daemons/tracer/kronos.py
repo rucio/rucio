@@ -25,14 +25,13 @@ import functools
 from json import loads as jloads, dumps as jdumps
 from threading import Event, Thread
 from time import time
-from typing import Dict
 
 import rucio.db.sqla.util
 from rucio.daemons.common import HeartbeatHandler, run_daemon
-from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.exception import RSENotFound, DatabaseException
 from rucio.common.logging import setup_logging
-from rucio.common.stomp_utils import get_stomp_brokers
+from rucio.common.stomp_utils import StompConnectionManager
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.did import touch_dids, list_parent_dids
@@ -51,7 +50,7 @@ METRICS = MetricManager(module=__name__)
 graceful_stop = Event()
 
 
-class AMQConsumer(object):
+class AMQConsumer:
     """ActiveMQ message consumer"""
 
     def __init__(self, broker, conn, queue, chunksize, subscription_id, excluded_usrdns, dataset_queue, bad_files_patterns, logger=logging.log):
@@ -298,7 +297,7 @@ def kronos_file(once: bool = False, dataset_queue: Queue = None, sleep_time: int
     """
     Main loop to consume tracer reports.
     """
-    return_values = {}
+    stomp_conn_mngr = StompConnectionManager()
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
@@ -308,19 +307,15 @@ def kronos_file(once: bool = False, dataset_queue: Queue = None, sleep_time: int
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
             run_once_kronos_file,
-            return_values=return_values,
+            stomp_conn_mngr=stomp_conn_mngr,
             dataset_queue=dataset_queue,
             sleep_time=sleep_time,
         )
     )
-    for conn in return_values['conns']:
-        try:
-            conn.disconnect()
-        except Exception:
-            pass
+    stomp_conn_mngr.disconnect()
 
 
-def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, return_values: Dict, dataset_queue: Queue, sleep_time: int, **kwargs):
+def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: StompConnectionManager, dataset_queue: Queue, sleep_time: int, **kwargs):
     """
     Run the amq consumer once.
     """
@@ -342,10 +337,8 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, return_values: Dic
     except Exception as error:
         logger.error(f'Failed to get bad_file_patterns {str(error)}')
         bad_files_patterns = []
-    try:
-        use_ssl = config_get_bool('tracer-kronos', 'use_ssl')
-    except Exception:
-        pass
+
+    use_ssl = config_get_bool('tracer-kronos', 'use_ssl', default=True, raise_exception=False)
     if not use_ssl:
         username = config_get('tracer-kronos', 'username')
         password = config_get('tracer-kronos', 'password')
@@ -353,12 +346,13 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, return_values: Dic
     excluded_usrdns = set(config_get('tracer-kronos', 'excluded_usrdns').split(','))
     vhost = config_get('tracer-kronos', 'broker_virtual_host', raise_exception=False)
 
-    brokers_alias = [b.strip() for b in config_get('tracer-kronos', 'brokers').split(',')]
+    brokers_alias = config_get_list('tracer-kronos', 'brokers')
     port = config_get_int('tracer-kronos', 'port')
     reconnect_attempts = config_get_int('tracer-kronos', 'reconnect_attempts')
     ssl_key_file = config_get('tracer-kronos', 'ssl_key_file', raise_exception=False)
     ssl_cert_file = config_get('tracer-kronos', 'ssl_cert_file', raise_exception=False)
-    conns = return_values['conns'] = get_stomp_brokers(
+
+    created_conns, _ = stomp_conn_mngr.re_configure(
         brokers=brokers_alias,
         port=port,
         use_ssl=use_ssl,
@@ -367,10 +361,10 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, return_values: Dic
         ssl_key_file=ssl_key_file,
         ssl_cert_file=ssl_cert_file,
         timeout=sleep_time,
-        logger=logger
+        logger=logger,
     )
 
-    for conn in conns:
+    for conn in created_conns:
         if not conn.is_connected():
             logger(logging.INFO, 'connecting to %s' % str(conn.transport._Transport__host_and_ports[0]))
             METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0]).inc()
