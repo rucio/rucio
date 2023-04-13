@@ -361,6 +361,7 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
         ssl_key_file=ssl_key_file,
         ssl_cert_file=ssl_cert_file,
         timeout=sleep_time,
+        heartbeats=(0, 5000),
         logger=logger,
     )
 
