@@ -18,32 +18,124 @@ Common utility functions for stomp connections
 """
 
 import socket
+from typing import TYPE_CHECKING
 
 from stomp import Connection
 
 import logging
 
+if TYPE_CHECKING:
+    from typing import Any, Callable, List, Sequence, Tuple
 
-def get_stomp_brokers(brokers, port, use_ssl, vhost, reconnect_attempts, ssl_key_file, ssl_cert_file, timeout,
-                      logger=logging.log):
-    logger(logging.DEBUG, 'resolving broker dns alias: %s' % brokers)
+    LoggerFunction = Callable[..., Any]
 
-    brokers_resolved = []
-    for broker in brokers:
-        addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
-        brokers_resolved.extend(ai[4][0] for ai in addrinfos)
 
-    logger(logging.DEBUG, 'broker resolved to %s', brokers_resolved)
-    conns = []
-    for broker in brokers_resolved:
-        conn = Connection(
-            host_and_ports=[(broker, port)],
-            vhost=vhost,
-            timeout=timeout,
+def resolve_ips(fqdns: "Sequence[str]", logger: "LoggerFunction" = logging.log):
+    logger(logging.DEBUG, 'resolving dns aliases: %s' % fqdns)
+    resolved = []
+    for fqdn in fqdns:
+        addrinfos = socket.getaddrinfo(fqdn, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+        resolved.extend(ai[4][0] for ai in addrinfos)
+    logger(logging.DEBUG, 'dns aliases resolved to %s', resolved)
+    return resolved
+
+
+class StompConnectionManager:
+
+    def __init__(self):
+        self._brokers = None
+        self._port = None
+        self._use_ssl = None
+        self._vhost = None
+        self._reconnect_attempts = None
+        self._ssl_key_file = None
+        self._timeout = None
+        self._heartbeats = None
+
+        self._connections = {}
+
+    def disconnect(self):
+        for conn in self._connections.values():
+            if not conn.is_connected():
+                conn.disconnect()
+
+    def re_configure(
+            self,
+            brokers: "Sequence[str]",
+            port: int,
+            use_ssl: bool,
+            vhost,
+            reconnect_attempts: int,
+            ssl_key_file,
+            ssl_cert_file,
+            timeout,
             heartbeats=(0, 1000),
-            reconnect_attempts_max=reconnect_attempts
-        )
-        if use_ssl:
-            conn.set_ssl(key_file=ssl_key_file, cert_file=ssl_cert_file)
-        conns.append(conn)
-    return conns
+            logger: "LoggerFunction" = logging.log
+    ) -> "Tuple[List, List]":
+
+        configuration_changed = any([
+            self._brokers != brokers,
+            self._port != port,
+            self._use_ssl != use_ssl,
+            self._vhost != vhost,
+            self._reconnect_attempts != reconnect_attempts,
+            self._ssl_key_file != ssl_key_file,
+            self._timeout != timeout,
+            self._heartbeats != heartbeats,
+        ])
+        if configuration_changed:
+            self._brokers = brokers
+            self._port = port
+            self._use_ssl = use_ssl
+            self._vhost = vhost
+            self._reconnect_attempts = reconnect_attempts
+            self._ssl_key_file = ssl_key_file
+            self._timeout = timeout
+            self._heartbeats = heartbeats
+
+        current_remotes = set(self._connections)
+        desired_remotes = set((ip, port) for ip in resolve_ips(brokers, logger=logger))
+
+        if configuration_changed:
+            # Re-create all connections
+            to_delete = current_remotes
+            to_create = desired_remotes
+        else:
+            to_delete = current_remotes.difference(desired_remotes)
+            to_create = desired_remotes.difference(current_remotes)
+
+            for remote in current_remotes.intersection(desired_remotes):
+                conn = self._connections[remote]
+
+                if not conn.is_connected():
+                    # Re-create stalled connections
+                    to_delete.add(remote)
+                    to_create.add(remote)
+
+        deleted_conns = []
+        for remote in to_delete:
+            conn = self._connections.pop(remote)
+            if conn.is_connected():
+                conn.disconnect()
+            deleted_conns.append(to_delete)
+
+        created_conns = []
+        for remote in to_create:
+            conn = Connection(
+                host_and_ports=[remote],
+                vhost=vhost,
+                timeout=timeout,
+                heartbeats=heartbeats,
+                reconnect_attempts_max=reconnect_attempts
+            )
+            if use_ssl:
+                conn.set_ssl(key_file=ssl_key_file, cert_file=ssl_cert_file)
+            self._connections[remote] = conn
+            created_conns.append(conn)
+
+        if not to_delete and not to_create:
+            logger(logging.INFO, "Stomp connections didn't change")
+        else:
+            logger(logging.INFO, f"Stomp connections refreshed. Deleted: {list(to_delete)}. Added: {list(to_create)}")
+
+        return created_conns, deleted_conns

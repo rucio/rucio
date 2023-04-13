@@ -25,9 +25,9 @@ from traceback import format_exc
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_int, config_get_bool
+from rucio.common.config import config_get, config_get_int, config_get_bool, config_get_list
 from rucio.common.logging import setup_logging, formatted_logger
-from rucio.common.stomp_utils import get_stomp_brokers
+from rucio.common.stomp_utils import StompConnectionManager
 from rucio.common.types import InternalScope
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_id
@@ -105,17 +105,9 @@ def consumer(id_, num_thread=1):
 
     logger(logging.INFO, 'Rucio Cache consumer starting')
 
-    try:
-        brokers_alias = [b.strip() for b in config_get('messaging-cache', 'brokers').split(',')]
-    except:
-        raise Exception('Could not load rucio cache brokers from configuration')
+    brokers = config_get_list('messaging-cache', 'brokers')
 
-    use_ssl = True
-    try:
-        use_ssl = config_get_bool('messaging-cache', 'use_ssl')
-    except Exception:
-        pass
-
+    use_ssl = config_get_bool('messaging-cache', 'use_ssl', default=True, raise_exception=False)
     if not use_ssl:
         username = config_get('messaging-cache', 'username')
         password = config_get('messaging-cache', 'password')
@@ -128,15 +120,18 @@ def consumer(id_, num_thread=1):
     ssl_key_file = config_get('messaging-cache', 'ssl_key_file', raise_exception=False)
     ssl_cert_file = config_get('messaging-cache', 'ssl_cert_file', raise_exception=False)
 
-    conns = get_stomp_brokers(brokers=brokers_alias,
-                              port=port,
-                              use_ssl=use_ssl,
-                              vhost=vhost,
-                              reconnect_attempts=reconnect_attempts,
-                              ssl_key_file=ssl_key_file,
-                              ssl_cert_file=ssl_cert_file,
-                              timeout=None,
-                              logger=logger)
+    stomp_conn_mngr = StompConnectionManager()
+    conns, _ = stomp_conn_mngr.re_configure(
+        brokers=brokers,
+        port=port,
+        use_ssl=use_ssl,
+        vhost=vhost,
+        reconnect_attempts=reconnect_attempts,
+        ssl_key_file=ssl_key_file,
+        ssl_cert_file=ssl_cert_file,
+        timeout=None,
+        logger=logger
+    )
 
     logger(logging.INFO, 'consumer started')
 
@@ -157,13 +152,7 @@ def consumer(id_, num_thread=1):
         time.sleep(1)
 
     logger(logging.INFO, 'graceful stop requested')
-
-    for conn in conns:
-        try:
-            conn.disconnect()
-        except:
-            pass
-
+    stomp_conn_mngr.disconnect()
     logger(logging.INFO, 'graceful stop done')
 
 
