@@ -225,9 +225,9 @@ def list_heartbeats(*, session: "Session"):
     result = query.all()
     json_result = []
     for r in range(len(result)):
-        d = {} 
-        for column in result[r].__table__.columns: 
-            d[column.name] = getattr(result[r], column.name) 
+        d = {}
+        for column in result[r].keys():
+            d[column] = getattr(result[r], column)
         json_result.append(d)
     return json_result
 
