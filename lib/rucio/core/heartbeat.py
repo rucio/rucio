@@ -217,11 +217,19 @@ def list_heartbeats(*, session: "Session"):
                           Heartbeats.pid,
                           Heartbeats.thread_name,
                           Heartbeats.updated_at,
-                          Heartbeats.created_at).order_by(Heartbeats.readable,
+                          Heartbeats.created_at,                          
+                          Heartbeats.payload).order_by(Heartbeats.readable,
                                                           Heartbeats.hostname,
                                                           Heartbeats.thread_name)
 
-    return query.all()
+    result = query.all()
+    json_result = []
+    for r in range(len(result)):
+        d = {}
+        for column in result[r].keys():
+            d[column] = getattr(result[r], column)
+        json_result.append(d)
+    return json_result
 
 
 @read_session
