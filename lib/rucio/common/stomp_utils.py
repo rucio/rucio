@@ -18,6 +18,7 @@ Common utility functions for stomp connections
 """
 
 import socket
+from time import monotonic
 from typing import TYPE_CHECKING
 
 from stomp import Connection
@@ -54,6 +55,23 @@ class StompConnectionManager:
 
         self._connections = {}
 
+    def is_stalled(self, connection: Connection, *, logger: "LoggerFunction" = logging.log):
+        if not connection.is_connected():
+            return True
+
+        if self._heartbeats and getattr(connection, 'received_heartbeat') and connection.received_heartbeat:
+            heartbeat_period_seconds = max(0, self._heartbeats[0], self._heartbeats[1]) / 1000
+
+            if not heartbeat_period_seconds:
+                return False
+
+            now = monotonic()
+            if connection.received_heartbeat + 10 * heartbeat_period_seconds < now:
+                logger(logging.WARNING, "Stomp connection missed heartbeats for a long time")
+                return True
+
+        return False
+
     def disconnect(self):
         for conn in self._connections.values():
             if not conn.is_connected():
@@ -70,6 +88,7 @@ class StompConnectionManager:
             ssl_cert_file,
             timeout,
             heartbeats=(0, 1000),
+            *,
             logger: "LoggerFunction" = logging.log
     ) -> "Tuple[List, List]":
 
@@ -107,7 +126,7 @@ class StompConnectionManager:
             for remote in current_remotes.intersection(desired_remotes):
                 conn = self._connections[remote]
 
-                if not conn.is_connected():
+                if self.is_stalled(conn, logger=logger):
                     # Re-create stalled connections
                     to_delete.add(remote)
                     to_create.add(remote)
