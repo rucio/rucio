@@ -16,6 +16,7 @@
 import os
 import random
 import re
+import tempfile
 from datetime import datetime, timedelta
 from os import remove, unlink, listdir, rmdir, stat, path, environ
 
@@ -26,6 +27,7 @@ from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
+from rucio.client.configclient import ConfigClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import generate_uuid, get_tmp_dir, md5, render_json
@@ -67,6 +69,7 @@ class TestBinRucio:
         self.did_client = DIDClient()
         self.replica_client = ReplicaClient()
         self.rule_client = RuleClient()
+        self.config_client = ConfigClient()
         self.account_client = AccountLimitClient()
         rse_factory = None
         if environ.get('SUITE', 'remote_dbs') != 'client':
@@ -2327,3 +2330,18 @@ class TestBinRucio:
         print(out, err)
         assert exitcode == 0
         assert not err
+
+    @pytest.mark.noparallel(reason='Modify config')
+    def test_lifetime_cli(self):
+        """ CLIENT(USER): Check CLI to declare lifetime exceptions """
+        # Setup data for CLI check
+        tmp_dsn_name = 'container' + rse_name_generator()
+        tmp_dsn_did = self.user + ':' + tmp_dsn_name
+        self.did_client.add_did(scope=self.user, name=tmp_dsn_name, did_type='DATASET')
+        self.did_client.set_metadata(scope=self.user, name=tmp_dsn_name, key='eol_at', value=(datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%d'))
+        self.config_client.set_config_option(section='lifetime_model', option='cutoff_date', value=(datetime.utcnow() + timedelta(days=1)).strftime('%Y-%m-%d'))
+        with tempfile.NamedTemporaryFile(mode="w+") as fp:
+            fp.write(f'{tmp_dsn_did}\n' * 2)
+            fp.seek(0)
+            exitcode, out, err = execute("rucio add-lifetime-exception --inputfile %s --reason 'For testing purpose; please ignore.' --expiration 2124-01-01" % fp.name)
+            assert 'does not exist' not in err
