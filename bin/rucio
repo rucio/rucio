@@ -1723,7 +1723,7 @@ def add_lifetime_exception(args):
         logger.error('inputfile is mandatory')
         return FAILURE
     with open(args.inputfile) as infile:
-        dids = list(filter(None, [line.strip() for line in infile]))
+        dids = list(set(line.strip() for line in infile))
 
     dids_list = []
     containers = []
