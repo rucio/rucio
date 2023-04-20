@@ -835,7 +835,19 @@ def perm_set_rse_usage(issuer, kwargs, *, session: "Optional[Session]" = None):
     :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer)
+    if _is_root(issuer):
+        return True
+
+    # Allow only site capacity managers to set usage
+    rse_id = kwargs.get('rse_id', None)
+    rse_attr = list_rse_attributes(rse_id=rse_id, session=session)
+    site_capacity_manager = rse_attr.get('site_capacity_manager', None)
+
+    if site_capacity_manager:
+        site_capacity_managers = site_capacity_manager.split(',')
+        if issuer.external in site_capacity_managers:
+            return True
+    return False
 
 
 def perm_set_rse_limits(issuer, kwargs, *, session: "Optional[Session]" = None):
@@ -847,7 +859,19 @@ def perm_set_rse_limits(issuer, kwargs, *, session: "Optional[Session]" = None):
     :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
+        return True
+
+    # Allow only site capacity managers to set usage
+    rse_id = kwargs.get('rse_id', None)
+    rse_attr = list_rse_attributes(rse_id=rse_id, session=session)
+    site_capacity_manager = rse_attr.get('site_capacity_manager', None)
+
+    if site_capacity_manager:
+        site_capacity_managers = site_capacity_manager.split(',')
+        if issuer.external in site_capacity_managers:
+            return True
+    return False
 
 
 def perm_set_local_account_limit(issuer, kwargs, *, session: "Optional[Session]" = None):
