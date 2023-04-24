@@ -108,7 +108,7 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict, session
             'list_heartbeats': perm_list_heartbeats,
             'resurrect': perm_resurrect,
             'update_lifetime_exceptions': perm_update_lifetime_exceptions,
-            'get_ssh_challenge_token': perm_get_ssh_challenge_token,
+            'get_auth_token_ssh': perm_get_auth_token_ssh,
             'get_signed_url': perm_get_signed_url,
             'add_bad_pfns': perm_add_bad_pfns,
             'del_account_identity': perm_del_account_identity,
@@ -960,9 +960,9 @@ def perm_update_lifetime_exceptions(issuer: "InternalAccount", kwargs: dict, ses
     return perm_default(issuer, kwargs, session=session)
 
 
-def perm_get_ssh_challenge_token(issuer: "InternalAccount", kwargs: dict, session: "Optional[Session]" = None) -> bool:
+def perm_get_auth_token_ssh(issuer: "InternalAccount", kwargs: dict, *, session: "Optional[Session]" = None) -> bool:
     """
-    Checks if an account can request a challenge token.
+    Checks if an account can request an ssh token.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
