@@ -27,6 +27,7 @@ from rucio.db.sqla.constants import IdentityType
 if TYPE_CHECKING:
     from typing import Optional
     from sqlalchemy.orm import Session
+    from rucio.common.types import InternalAccount
 
 
 def has_permission(issuer, action, kwargs, *, session: "Optional[Session]" = None):
@@ -108,7 +109,7 @@ def has_permission(issuer, action, kwargs, *, session: "Optional[Session]" = Non
             'list_heartbeats': perm_list_heartbeats,
             'resurrect': perm_resurrect,
             'update_lifetime_exceptions': perm_update_lifetime_exceptions,
-            'get_ssh_challenge_token': perm_get_ssh_challenge_token,
+            'get_auth_token_ssh': perm_get_auth_token_ssh,
             'get_signed_url': perm_get_signed_url,
             'add_bad_pfns': perm_add_bad_pfns,
             'del_account_identity': perm_del_account_identity,
@@ -1043,9 +1044,9 @@ def perm_update_lifetime_exceptions(issuer, kwargs, *, session: "Optional[Sessio
     return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
-def perm_get_ssh_challenge_token(issuer, kwargs, *, session: "Optional[Session]" = None):
+def perm_get_auth_token_ssh(issuer: "InternalAccount", kwargs: dict, *, session: "Optional[Session]" = None) -> bool:
     """
-    Checks if an account can request a challenge token.
+    Checks if an account can request an ssh token.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
