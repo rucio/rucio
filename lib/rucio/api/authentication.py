@@ -246,7 +246,7 @@ def get_ssh_challenge_token(account, appid, ip=None, vo='def', *, session: "Sess
     """
 
     kwargs = {'account': account}
-    if not permission.has_permission(issuer=account, vo=vo, action='get_ssh_challenge_token', kwargs=kwargs, session=session):
+    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs, session=session):
         raise exception.AccessDenied('User can not get challenge token for account %s' % account)
 
     account = InternalAccount(account, vo=vo)
