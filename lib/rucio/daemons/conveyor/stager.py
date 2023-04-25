@@ -22,15 +22,13 @@ import logging
 import threading
 from typing import TYPE_CHECKING
 
-from configparser import NoOptionError
-
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
 from rucio.core.monitor import MetricManager
-from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit
+from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit, get_max_time_in_queue_conf
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -92,33 +90,12 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
     Main loop to submit a new transfer primitive to a transfertool.
     """
 
-    try:
-        scheme = config_get('conveyor', 'scheme')
-    except NoOptionError:
-        scheme = None
+    scheme = config_get('conveyor', 'scheme', default=None, raise_exception=False)
+    failover_scheme = config_get('conveyor', 'failover_scheme', default=None, raise_exception=False)
+    bring_online = config_get_int('conveyor', 'bring_online', default=43200, raise_exception=False)
 
-    try:
-        failover_scheme = config_get('conveyor', 'failover_scheme')
-    except NoOptionError:
-        failover_scheme = None
-
-    try:
-        bring_online = config_get_int('conveyor', 'bring_online')
-    except NoOptionError:
-        bring_online = 43200
-
-    try:
-        max_time_in_queue = {}
-        timelife_conf = config_get('conveyor', 'max_time_in_queue')
-        timelife_confs = timelife_conf.split(",")
-        for conf in timelife_confs:
-            act, timelife = conf.split(":")
-            max_time_in_queue[act.strip()] = int(timelife.strip())
-    except NoOptionError:
-        max_time_in_queue = {}
-    if 'default' not in max_time_in_queue:
-        max_time_in_queue['default'] = 168
-    logging.debug("Maximum time in queue for different activities: %s" % max_time_in_queue)
+    max_time_in_queue = get_max_time_in_queue_conf()
+    logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)
 
     logger_prefix = executable = 'conveyor-stager'
     if activities:

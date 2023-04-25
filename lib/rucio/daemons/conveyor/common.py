@@ -514,6 +514,22 @@ def _submit_transfers(transfertool_obj, transfers, job_params, submitter='submit
                     logger(logging.ERROR, 'Failed to cancel transfers %s on %s with error' % (eid, transfertool_obj), exc_info=True)
 
 
+def get_max_time_in_queue_conf() -> "Dict[str, int]":
+    """
+    Retrieve and parse the max_time_in_queue configuration value into a dictionary: {"activity": int}
+    """
+    max_time_in_queue = {}
+    timelife_conf = config_get('conveyor', 'max_time_in_queue', default=None, raise_exception=False)
+    if timelife_conf:
+        timelife_confs = timelife_conf.split(",")
+        for conf in timelife_confs:
+            act, timelife = conf.split(":")
+            max_time_in_queue[act.strip()] = int(timelife.strip())
+    if 'default' not in max_time_in_queue:
+        max_time_in_queue['default'] = 168
+    return max_time_in_queue
+
+
 def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None, logger=logging.log):
     """
     Get a list of rses for conveyor
