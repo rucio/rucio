@@ -22,8 +22,6 @@ import logging
 import threading
 from typing import TYPE_CHECKING
 
-from configparser import NoOptionError
-
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
@@ -32,7 +30,7 @@ from rucio.common.schema import get_schema_value
 from rucio.common.stopwatch import Stopwatch
 from rucio.core.monitor import MetricManager
 from rucio.core.transfer import transfer_path_str
-from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit
+from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit, get_max_time_in_queue_conf
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -122,41 +120,18 @@ def submitter(once=False, rses=None, partition_wait_time=10,
     Main loop to submit a new transfer primitive to a transfertool.
     """
 
-    try:
-        partition_hash_var = config_get('conveyor', 'partition_hash_var')
-    except NoOptionError:
-        partition_hash_var = None
-    try:
-        scheme = config_get('conveyor', 'scheme')
-    except NoOptionError:
-        scheme = None
-    try:
-        failover_scheme = config_get('conveyor', 'failover_scheme')
-    except NoOptionError:
-        failover_scheme = None
-    try:
-        timeout = config_get('conveyor', 'submit_timeout')
+    partition_hash_var = config_get('conveyor', 'partition_hash_var', default=None, raise_exception=False)
+
+    scheme = config_get('conveyor', 'scheme', default=None, raise_exception=False)
+    failover_scheme = config_get('conveyor', 'failover_scheme', default=None, raise_exception=False)
+
+    timeout = config_get('conveyor', 'submit_timeout', default=None, raise_exception=False)
+    if timeout is not None:
         timeout = float(timeout)
-    except NoOptionError:
-        timeout = None
 
-    try:
-        bring_online = config_get_int('conveyor', 'bring_online')
-    except NoOptionError:
-        bring_online = 43200
+    bring_online = config_get_int('conveyor', 'bring_online', default=43200, raise_exception=False)
 
-    try:
-        max_time_in_queue = {}
-        timelife_conf = config_get('conveyor', 'max_time_in_queue')
-        timelife_confs = timelife_conf.split(",")
-        for conf in timelife_confs:
-            act, timelife = conf.split(":")
-            max_time_in_queue[act.strip()] = int(timelife.strip())
-    except NoOptionError:
-        max_time_in_queue = {}
-
-    if 'default' not in max_time_in_queue:
-        max_time_in_queue['default'] = 168
+    max_time_in_queue = get_max_time_in_queue_conf()
     logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)
 
     logger_prefix = executable = "conveyor-submitter"

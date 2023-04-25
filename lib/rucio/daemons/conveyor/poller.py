@@ -29,7 +29,6 @@ from itertools import groupby
 from typing import TYPE_CHECKING
 
 from requests.exceptions import RequestException
-from configparser import NoOptionError
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
@@ -126,11 +125,9 @@ def poller(once=False, activities=None, sleep_time=60,
     Main loop to check the status of a transfer primitive with a transfertool.
     """
 
-    try:
-        timeout = config_get('conveyor', 'poll_timeout')
+    timeout = config_get('conveyor', 'poll_timeout', default=None, raise_exception=False)
+    if timeout:
         timeout = float(timeout)
-    except NoOptionError:
-        timeout = None
 
     multi_vo = config_get_bool('common', 'multi_vo', False, None)
     oidc_account = config_get('conveyor', 'poller_oidc_account', False, None)
