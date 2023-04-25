@@ -1111,7 +1111,7 @@ def _list_replicas_with_temp_tables(
         resolve_parents: bool = False,
         nrandom: "Optional[int]" = None,
         updated_after: "Optional[datetime]" = None,
-        by_rse_name: bool = True,
+        by_rse_name: bool = False,
         *,
         session: "Session",
 ):
@@ -4441,7 +4441,7 @@ def _list_replicas_wo_temp_tables(
         resolve_parents: bool = False,
         nrandom: "Optional[int]" = None,
         updated_after: "Optional[datetime]" = None,
-        by_rse_name: bool = True,
+        by_rse_name: bool = False,
         *,
         session: "Session",
 ):
