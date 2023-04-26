@@ -75,7 +75,7 @@ def run_once(bulk, group_bulk, rse_ids, scheme, failover_scheme, transfertool_kw
         logger(logging.INFO, 'Starting to submit transfers for %s (%s)' % (activity, transfertool_obj))
         for job in grouped_jobs:
             worker_number, total_workers, logger = heartbeat_handler.live()
-            submit_transfer(transfertool_obj=transfertool_obj, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter', logger=logger)
+            submit_transfer(transfertool_obj=transfertool_obj, transfers=job['transfers'], job_params=job['job_params'], logger=logger)
 
     queue_empty = False
     if total_transfers < group_bulk:

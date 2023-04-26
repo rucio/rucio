@@ -101,7 +101,7 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
         for job in grouped_jobs:
             worker_number, total_workers, logger = heartbeat_handler.live()
             logger(logging.DEBUG, 'submitjob: transfers=%s, job_params=%s' % ([str(t) for t in job['transfers']], job['job_params']))
-            submit_transfer(transfertool_obj=transfertool_obj, transfers=job['transfers'], job_params=job['job_params'], submitter='transfer_submitter',
+            submit_transfer(transfertool_obj=transfertool_obj, transfers=job['transfers'], job_params=job['job_params'],
                             timeout=timeout, logger=logger)
 
     queue_empty = False
@@ -193,10 +193,10 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     graceful_stop.set()
 
 
-def run(once=False, group_bulk=1, group_policy='rule', mock=False,
+def run(once=False, group_bulk=1, group_policy='rule',
         rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
         activities=None, exclude_activities=None, ignore_availability=False, sleep_time=600, max_sources=4,
-        archive_timeout_override=None, total_threads=1):
+        archive_timeout_override=None, total_threads=1, **_kwargs):
     """
     Starts up the conveyer threads.
     """
