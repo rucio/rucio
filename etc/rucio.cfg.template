@@ -91,7 +91,7 @@ userpass_pwd = 2ccee6f6dd1bc2269cddd7cd5e47578e98e430539807c36df23fab7dd13e7583
 userpass_email = ph-adp-ddm-lab@cern.ch
 
 # Default DDMLAB client certificate from /opt/rucio/etc/web/client.crt
-x509_identity = /C=CH/ST=Geneva/O=CERN/OU=PH-ADP-CO/CN=DDMLAB Client Certificate/emailAddress=ph-adp-ddm-lab@cern.ch
+x509_identity = emailAddress=ph-adp-ddm-lab@cern.ch,CN=DDMLAB Client Certificate,OU=PH-ADP-CO,O=CERN,ST=Geneva,C=CH
 x509_email = ph-adp-ddm-lab@cern.ch
 
 # Default DDMLAB cern account
@@ -169,7 +169,7 @@ chunksize = 10
 subscription_id = rucio-tracer-listener
 use_ssl = False
 reconnect_attempts = 100
-excluded_usrdns = /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=gangarbt/CN=722147/CN=Robot: Ganga Robot/CN=proxy
+excluded_usrdns = CN=proxy,CN=Robot: Ganga Robot,CN=722147,CN=gangarbt,OU=Users,OU=Organic Units,DC=cern,DC=ch
 username = _________
 password = _________
 dataset_wait = 60

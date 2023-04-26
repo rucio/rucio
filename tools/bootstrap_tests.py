@@ -142,11 +142,11 @@ if __name__ == '__main__':
         print('Scope archive already added' % locals())
 
     # add your accounts here, if you test against CERN authed nodes
-    additional_test_accounts = [('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=mlassnig/CN=663551/CN=Mario Lassnig', 'x509', 'mario.lassnig@cern.ch'),
-                                ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=barisits/CN=692443/CN=Martin Barisits', 'x509', 'martin.barisits@cern.ch'),
-                                ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=tbeerman/CN=722011/CN=Thomas Beermann', 'x509', 'thomas.beermann@cern.ch'),
-                                ('/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=ruciobuildbot/CN=692443/CN=Robot: Rucio build bot', 'x509', 'rucio.build.bot@cern.ch'),
-                                ('/CN=docker client', 'x509', 'dummy@cern.ch'),
+    additional_test_accounts = [('CN=Mario Lassnig,CN=663551,CN=mlassnig,OU=Users,OU=Organic Units,DC=cern,DC=ch', 'x509', 'mario.lassnig@cern.ch'),
+                                ('CN=Martin Barisits,CN=692443,CN=barisits,OU=Users,OU=Organic Units,DC=cern,DC=ch', 'x509', 'martin.barisits@cern.ch'),
+                                ('CN=Thomas Beermann,CN=722011,CN=tbeerman,OU=Users,OU=Organic Units,DC=cern,DC=ch', 'x509', 'thomas.beermann@cern.ch'),
+                                ('CN=Robot: Rucio build bot,CN=692443,CN=ruciobuildbot,OU=Users,OU=Organic Units,DC=cern,DC=ch', 'x509', 'rucio.build.bot@cern.ch'),
+                                ('CN=docker client', 'x509', 'dummy@cern.ch'),
                                 ('mlassnig@CERN.CH', 'GSS', 'mario.lassnig@cern.ch')]
 
     for account in additional_test_accounts:

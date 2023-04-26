@@ -1545,9 +1545,9 @@ def get_parser():
                                                                          '::\n'
                                                                          '\n'
                                                                          '    $ rucio-admin account list-identities jdoe\n'
-                                                                         '    Identity: /C=DE/O=GermanGrid/OU=Desy/CN=Joe Doe, type: X509\n'
+                                                                         '    Identity: CN=Joe Doe,OU=Desy,O=GermanGrid,C=DE, type: X509\n'
                                                                          '    Identity: jdoe@CERN.CH,  type: GSS\n'
-                                                                         '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707654/CN=Joe Doe, type: X509\n'
+                                                                         '    Identity: CN=Joe Doe,CN=707654,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch, type: X509\n'
                                                                          '\n')
     list_account_identities_parser.set_defaults(which='list_identities')
     list_account_identities_parser.add_argument('account', action='store', help='Account name')
@@ -1665,11 +1665,11 @@ def get_parser():
                                                                '\n'
                                                                'To add an identity of X509 type::\n'
                                                                '\n'
-                                                               '    $ rucio-admin identity add --account jdoe --type X509 --id \'/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe\' --email jdoe@cern.ch\n'
-                                                               '    Added new identity to account: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe-jdoe\n'
+                                                               '    $ rucio-admin identity add --account jdoe --type X509 --id \'CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch\' --email jdoe@cern.ch\n'
+                                                               '    Added new identity to account: CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch\n'
                                                                '    \n'
                                                                '    $ rucio-admin account list-identities jdoe\n'
-                                                               '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,   type: X509\n'
+                                                               '    Identity: CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch,   type: X509\n'
                                                                '\n'
                                                                'Note: please keep the DN inside quota marks.\n'
                                                                '\n'
@@ -1680,7 +1680,7 @@ def get_parser():
                                                                '    \n'
                                                                '    $ rucio-admin account list-identities jdoe\n'
                                                                '    Identity: jdoe@CERN.CH,    type: GSS\n'
-                                                               '    Identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe,   type: X509\n'
+                                                               '    Identity: CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch,   type: X509\n'
                                                                '\n')
     identity_add_parser.set_defaults(which='identity_add')
     identity_add_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
@@ -1697,8 +1697,8 @@ def get_parser():
                                                                   '"""""""""""""\n'
                                                                   '::\n'
                                                                   '\n'
-                                                                  '    $ rucio-admin identity delete --account jdoe --type X509 --id \'/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe\'\n'
-                                                                  '    Deleted identity: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=jdoe/CN=707658/CN=Joe Doe\n'
+                                                                  '    $ rucio-admin identity delete --account jdoe --type X509 --id \'CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch\'\n'
+                                                                  '    Deleted identity: CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch\n'
                                                                   '\n'
                                                                   'Note: if the identity was accidentaly deleted, use add option.\n'
                                                                   '\n')
