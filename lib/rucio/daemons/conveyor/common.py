@@ -420,7 +420,7 @@ def __create_missing_replicas_and_requests(
     return creation_successful, must_skip_submission
 
 
-def submit_transfer(transfertool_obj, transfers, job_params, submitter='submitter', timeout=None, logger=logging.log):
+def submit_transfer(transfertool_obj, transfers, job_params, timeout=None, logger=logging.log):
     """
     Submit a transfer or staging request
 
@@ -444,15 +444,15 @@ def submit_transfer(transfertool_obj, transfers, job_params, submitter='submitte
             return
 
     try:
-        _submit_transfers(transfertool_obj, transfers, job_params, submitter, timeout, logger)
+        _submit_transfers(transfertool_obj, transfers, job_params, timeout, logger)
     except DuplicateFileTransferSubmission as error:
         logger(logging.WARNING, 'Failed to bulk submit a job because of duplicate file : %s', str(error))
         logger(logging.INFO, 'Submitting files one by one')
         for transfer in transfers:
-            _submit_transfers(transfertool_obj, [transfer], job_params, submitter, timeout, logger)
+            _submit_transfers(transfertool_obj, [transfer], job_params, timeout, logger)
 
 
-def _submit_transfers(transfertool_obj, transfers, job_params, submitter='submitter', timeout=None, logger=logging.log):
+def _submit_transfers(transfertool_obj, transfers, job_params, timeout=None, logger=logging.log):
     """
     helper function for submit_transfers. Performs the actual submission of one or more transfers.
 
