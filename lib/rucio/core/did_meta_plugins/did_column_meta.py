@@ -75,7 +75,16 @@ class DidColumnMeta(DidMetaPlugin):
 
         remainder = {}
         for key, value in metadata.items():
-            if key == 'lifetime':
+            if key == 'eol_at' and isinstance(value, str):
+                try:
+                    eol_at = datetime.strptime(value, '%Y-%M-%d')
+                    rowcount = did_query.update({'eol_at': eol_at}, synchronize_session='fetch')
+                except TypeError as error:
+                    raise exception.InvalidValueForKey(error)
+                if not rowcount:
+                    # check for did presence
+                    raise exception.UnsupportedOperation('%s for %s:%s cannot be updated' % (key, scope, name))
+            elif key == 'lifetime':
                 try:
                     expired_at = None
                     if value is not None:
