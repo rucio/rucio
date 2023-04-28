@@ -50,7 +50,7 @@ TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
 
 def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availability, rse_ids,
              scheme, failover_scheme, partition_hash_var, timeout, transfertool_kwargs,
-             heartbeat_handler, activity):
+             heartbeat_handler, activity, request_type, metrics):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     stopwatch = Stopwatch()
@@ -66,15 +66,15 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
         filter_transfertool=filter_transfertool,
         transfertools=transfertools,
         older_than=None,
-        request_type=[RequestType.TRANSFER],
+        request_type=request_type,
         ignore_availability=ignore_availability,
         logger=logger,
     )
     stopwatch.stop()
     total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
 
-    METRICS.timer('get_transfers.time_per_transfer').observe(stopwatch.elapsed / (total_transfers or 1))
-    METRICS.counter('get_transfers.total_transfers').inc(total_transfers)
+    metrics.timer('get_transfers.time_per_transfer').observe(stopwatch.elapsed / (total_transfers or 1))
+    metrics.counter('get_transfers.total_transfers').inc(total_transfers)
     logger(logging.INFO, 'Got %s transfers for %s in %s seconds', total_transfers, activity, stopwatch.elapsed)
 
     for builder, transfer_paths in transfers.items():
@@ -95,7 +95,7 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
         logger(logging.DEBUG, 'Starting to group transfers for %s (%s)', activity, transfertool_obj)
         stopwatch.restart()
         grouped_jobs = transfertool_obj.group_into_submit_jobs(transfer_paths)
-        METRICS.timer('bulk_group_transfer').observe(stopwatch.elapsed / (len(transfer_paths) or 1))
+        metrics.timer('bulk_group_transfer').observe(stopwatch.elapsed / (len(transfer_paths) or 1))
 
         logger(logging.DEBUG, 'Starting to submit transfers for %s (%s)', activity, transfertool_obj)
         for job in grouped_jobs:
@@ -115,10 +115,14 @@ def submitter(once=False, rses=None, partition_wait_time=10,
               bulk=100, group_bulk=1, group_policy='rule', source_strategy=None,
               activities=None, sleep_time=600, max_sources=4, archive_timeout_override=None,
               filter_transfertool=FILTER_TRANSFERTOOL, transfertools=TRANSFER_TOOLS,
-              transfertype=TRANSFER_TYPE, ignore_availability=False):
+              transfertype=TRANSFER_TYPE, ignore_availability=False,
+              executable='conveyor-submitter', request_type=None, default_lifetime=172800, metrics=METRICS):
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
+
+    if not request_type:
+        request_type = [RequestType.TRANSFER]
 
     partition_hash_var = config_get('conveyor', 'partition_hash_var', default=None, raise_exception=False)
 
@@ -134,7 +138,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
     max_time_in_queue = get_max_time_in_queue_conf()
     logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)
 
-    logger_prefix = executable = "conveyor-submitter"
+    logger_prefix = executable
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
@@ -152,7 +156,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
             'source_strategy': source_strategy,
             'max_time_in_queue': max_time_in_queue,
             'bring_online': bring_online,
-            'default_lifetime': 172800,
+            'default_lifetime': default_lifetime,
             'archive_timeout_override': archive_timeout_override,
         },
         GlobusTransferTool: {
@@ -181,6 +185,8 @@ def submitter(once=False, rses=None, partition_wait_time=10,
             rse_ids=rse_ids,
             timeout=timeout,
             transfertool_kwargs=transfertool_kwargs,
+            request_type=request_type,
+            metrics=metrics,
         ),
         activities=activities,
     )
