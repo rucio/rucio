@@ -243,6 +243,19 @@ def get_client(args):
     return client
 
 
+def __resolve_containers_to_datasets(scope, name, client):
+    """
+    Helper function to resolve a container into its dataset content.
+    """
+    datasets = []
+    for did in client.list_content(scope, name):
+        if did['type'] == 'DATASET':
+            datasets.append({'scope': did['scope'], 'name': did['name']})
+        elif did['type'] == 'CONTAINER':
+            datasets.extend(__resolve_containers_to_datasets(did['scope'], did['name'], client))
+    return datasets
+
+
 @exception_handler
 def ping(args):
     """
@@ -1728,7 +1741,11 @@ def add_lifetime_exception(args):
     dids_list = []
     containers = []
     datasets = []
-    error_types = ['Total DIDs', 'DID not submitted because it is a file', 'DID not submitted because it is a container', 'DID not submitted because it is not part of the lifetime campaign', 'DID successfully submitted']
+    error_types = ['Total DIDs',
+                   'DID not submitted because it is a file',
+                   'DID that are containers and were resolved',
+                   'DID not submitted because it is not part of the lifetime campaign',
+                   'DID successfully submitted including the one from containers resolved']
     for did in dids:
         scope, name = get_scope(did, client)
         dids_list.append({'scope': scope, 'name': name})
@@ -1760,11 +1777,20 @@ def add_lifetime_exception(args):
         logger.warning('%s:%s does not exist' % (scope, name))
 
     if containers:
-        logger.error('One or more DIDs are containers. They must be resolved into a list of datasets to request exception. Full list below')
+        logger.warning('One or more DIDs are containers. They will be resolved into a list of datasets to request exception. Full list below')
         for container in containers:
-            logger.error('%s:%s' % (container['scope'], container['name']))
-        logger.error('Please take action. Submission aborted')
-        return FAILURE
+            logger.info('Resolving %s:%s into datasets :' % (container['scope'], container['name']))
+            list_datasets = __resolve_containers_to_datasets(container['scope'], container['name'], client)
+            for chunk in chunks(list_datasets, chunk_limit):
+                for meta in client.get_metadata_bulk(chunk):
+                    scope, name = meta['scope'], meta['name']
+                    logger.debug('%s:%s' % (scope, name))
+                    if not meta['eol_at']:
+                        logger.warning('%s:%s is not affected by the lifetime model' % (scope, name))
+                        summary[3] += 1
+                    else:
+                        logger.info('%s:%s will be declared' % (scope, name))
+                        datasets.append({'scope': scope, 'name': name})
 
     if not datasets:
         logger.error('Nothing to submit')
