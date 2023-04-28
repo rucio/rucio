@@ -29,10 +29,13 @@ from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
 from rucio.common.stopwatch import Stopwatch
 from rucio.core.monitor import MetricManager
-from rucio.core.transfer import transfer_path_str
-from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit
+from rucio.core.request import list_transfer_requests_and_source_replicas
+from rucio.core.topology import Topology
+from rucio.core.transfer import DEFAULT_MULTIHOP_TOMBSTONE_DELAY, list_transfer_admin_accounts, transfer_path_str,\
+    TRANSFERTOOL_CLASSES_BY_NAME, ProtocolFactory
+from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, pick_and_prepare_submission_path
 from rucio.daemons.common import run_daemon
-from rucio.db.sqla.constants import RequestType
+from rucio.db.sqla.constants import RequestType, RequestState
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 
@@ -53,21 +56,45 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
              heartbeat_handler, activity, request_type, metrics):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
+    topology = Topology.create_from_config(ignore_availability=ignore_availability)
+    protocol_factory = ProtocolFactory()
+    default_tombstone_delay = config_get_int('transfers', 'multihop_tombstone_delay', default=DEFAULT_MULTIHOP_TOMBSTONE_DELAY, expiration_time=600)
+
+    admin_accounts = list_transfer_admin_accounts()
     stopwatch = Stopwatch()
-    transfers = next_transfers_to_submit(
+
+    required_source_rse_attrs = None
+    # if filter_transfertool specified, select only the source rses which are configured for this transfertool
+    if filter_transfertool:
+        # if multihop is configured, we want all possible source rses. To allow multi-hopping between transfertools
+        if not topology.multihop_rses:
+            required_source_rse_attrs = TRANSFERTOOL_CLASSES_BY_NAME[filter_transfertool].required_rse_attrs
+
+    # retrieve (from the database) the transfer requests with their possible source replicas
+    requests_with_sources = list_transfer_requests_and_source_replicas(
         total_workers=total_workers,
         worker_number=worker_number,
         partition_hash_var=partition_hash_var,
-        failover_schemes=failover_scheme,
         limit=bulk,
         activity=activity,
-        rses=rse_ids,
-        schemes=scheme,
-        filter_transfertool=filter_transfertool,
-        transfertools=transfertools,
         older_than=None,
+        rses=rse_ids,
         request_type=request_type,
+        request_state=RequestState.QUEUED,
         ignore_availability=ignore_availability,
+        transfertool=filter_transfertool,
+        required_source_rse_attrs=required_source_rse_attrs,
+    )
+
+    transfers = pick_and_prepare_submission_path(
+        requests_with_sources=requests_with_sources,
+        topology=topology,
+        protocol_factory=protocol_factory,
+        default_tombstone_delay=default_tombstone_delay,
+        admin_accounts=admin_accounts,
+        failover_schemes=failover_scheme,
+        schemes=scheme,
+        transfertools=transfertools,
         logger=logger,
     )
     stopwatch.stop()

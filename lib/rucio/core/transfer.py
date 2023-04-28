@@ -769,6 +769,7 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
 @transactional_session
 def build_transfer_paths(
         topology: "Topology",
+        protocol_factory: "ProtocolFactory",
         requests_with_sources: "Iterable[RequestWithSources]",
         admin_accounts: "Optional[Set[InternalAccount]]" = None,
         schemes: "Optional[List[str]]" = None,
@@ -798,8 +799,6 @@ def build_transfer_paths(
 
     if admin_accounts is None:
         admin_accounts = set()
-
-    protocol_factory = ProtocolFactory()
 
     # Do not print full source RSE list for DIDs which have many sources. Otherwise we fill the monitoring
     # storage with data which has little to no benefit. This log message is unlikely to help debugging
