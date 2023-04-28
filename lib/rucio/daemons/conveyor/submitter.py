@@ -30,7 +30,7 @@ from rucio.common.schema import get_schema_value
 from rucio.common.stopwatch import Stopwatch
 from rucio.core.monitor import MetricManager
 from rucio.core.transfer import transfer_path_str
-from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit, get_max_time_in_queue_conf
+from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, next_transfers_to_submit
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -38,7 +38,7 @@ from rucio.transfertool.globus import GlobusTransferTool
 
 if TYPE_CHECKING:
     from types import FrameType
-    from typing import Optional
+    from typing import Optional, Dict
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
@@ -111,6 +111,22 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
     return queue_empty
 
 
+def _get_max_time_in_queue_conf() -> "Dict[str, int]":
+    """
+    Retrieve and parse the max_time_in_queue configuration value into a dictionary: {"activity": int}
+    """
+    max_time_in_queue = {}
+    timelife_conf = config_get('conveyor', 'max_time_in_queue', default='', raise_exception=False)
+    if timelife_conf:
+        timelife_confs = timelife_conf.split(",")
+        for conf in timelife_confs:
+            act, timelife = conf.split(":")
+            max_time_in_queue[act.strip()] = int(timelife.strip())
+    if 'default' not in max_time_in_queue:
+        max_time_in_queue['default'] = 168
+    return max_time_in_queue
+
+
 def submitter(once=False, rses=None, partition_wait_time=10,
               bulk=100, group_bulk=1, group_policy='rule', source_strategy=None,
               activities=None, sleep_time=600, max_sources=4, archive_timeout_override=None,
@@ -135,7 +151,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
 
     bring_online = config_get_int('conveyor', 'bring_online', default=43200, raise_exception=False)
 
-    max_time_in_queue = get_max_time_in_queue_conf()
+    max_time_in_queue = _get_max_time_in_queue_conf()
     logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)
 
     logger_prefix = executable
