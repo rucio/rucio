@@ -19,12 +19,14 @@ import pytest
 import hashlib
 import re
 
-from rucio.core.request import get_request_by_did
+from rucio.core.request import get_request_by_did, list_transfer_requests_and_source_replicas
+from rucio.core.topology import Topology
+from rucio.core.transfer import ProtocolFactory
 from rucio.core.rule import add_rule
 from rucio.common.utils import generate_uuid
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.conveyor import submitter, poller, finisher
-from rucio.daemons.conveyor.common import next_transfers_to_submit
+from rucio.daemons.conveyor.common import build_transfer_paths
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.utils import run_cmd_process
@@ -81,7 +83,9 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
     assert rule['locks_ok_cnt'] == 0
     assert rule['locks_replicating_cnt'] == 1
 
-    [[_, [transfer_path]]] = next_transfers_to_submit(rses=[rse1_id, rse2_id]).items()
+    topology = Topology.create_from_config()
+    requests = list_transfer_requests_and_source_replicas(rses=[rse1_id, rse2_id]).values()
+    [[_, [transfer_path]]] = build_transfer_paths(topology=topology, protocol_factory=ProtocolFactory(), requests_with_sources=requests).items()
     assert transfer_path[0].rws.rule_id == rule_id[0]
     src_url = transfer_path[0].legacy_sources[0][1]
     dest_url = transfer_path[0].dest_url

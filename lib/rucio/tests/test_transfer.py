@@ -20,32 +20,21 @@ from rucio.common.exception import NoDistance
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replicas
 from rucio.core.request import list_transfer_requests_and_source_replicas
-from rucio.core.transfer import build_transfer_paths
+from rucio.core.transfer import build_transfer_paths, ProtocolFactory
 from rucio.core.topology import get_hops, Topology
 from rucio.core import rule as rule_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
-from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType, RequestState
-from rucio.db.sqla.session import transactional_session, get_session
+from rucio.db.sqla.session import get_session
 from rucio.common.utils import generate_uuid
-from rucio.daemons.conveyor.common import next_transfers_to_submit, assign_paths_to_transfertool_and_create_hops
+from rucio.daemons.conveyor.common import assign_paths_to_transfertool_and_create_hops, pick_and_prepare_submission_path
 
 
-@transactional_session
-def __fake_source_ranking(request, source_rse_id, new_ranking, *, session=None):
-    rowcount = session.query(models.Source).filter(models.Source.rse_id == source_rse_id).update({'ranking': new_ranking})
-    if not rowcount:
-        models.Source(request_id=request['id'],
-                      scope=request['scope'],
-                      name=request['name'],
-                      rse_id=source_rse_id,
-                      dest_rse_id=request['dest_rse_id'],
-                      ranking=new_ranking,
-                      bytes=request['bytes'],
-                      url=None,
-                      is_using=False). \
-            save(session=session, flush=False)
+def _prepare_submission(rses):
+    topology = Topology.create_from_config()
+    requests_with_sources = list_transfer_requests_and_source_replicas(topology=topology, rses=rses)
+    pick_and_prepare_submission_path(requests_with_sources, topology=topology, protocol_factory=ProtocolFactory(), default_tombstone_delay=0)
 
 
 def test_get_hops(rse_factory):
@@ -179,38 +168,50 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
         add_replicas(rse_id=rse_id, files=[file], account=root_account)
 
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
-    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    requests = list_transfer_requests_and_source_replicas(rses=all_rses)
+    assert len(requests) == 1
+    [rws] = requests.values()
+    disk1_source = next(iter(s for s in rws.sources if s.rse.name == disk1_rse_name))
+    disk2_source = next(iter(s for s in rws.sources if s.rse.name == disk2_rse_name))
+    tape2_source = next(iter(s for s in rws.sources if s.rse.name == tape2_rse_name))
+
+    topology = Topology.create_from_config()
 
     # On equal priority and distance, disk should be preferred over tape. Both disk sources will be returned
-    [[_, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
+    [[_, [transfer]]] = pick_and_prepare_submission_path(topology=topology, protocol_factory=ProtocolFactory(),
+                                                         requests_with_sources=requests).items()
     assert len(transfer[0].legacy_sources) == 2
     assert transfer[0].legacy_sources[0][0] in (disk1_rse_name, disk2_rse_name)
 
     # Change the rating of the disk RSEs. Disk still preferred, because it must fail twice before tape is tried
-    __fake_source_ranking(request, disk1_rse_id, -1)
-    __fake_source_ranking(request, disk2_rse_id, -1)
-    [[_, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
+    disk1_source.ranking = -1
+    disk2_source.ranking = -1
+    [[_, [transfer]]] = pick_and_prepare_submission_path(topology=topology, protocol_factory=ProtocolFactory(),
+                                                         requests_with_sources=requests).items()
     assert len(transfer[0].legacy_sources) == 2
     assert transfer[0].legacy_sources[0][0] in (disk1_rse_name, disk2_rse_name)
 
     # Change the rating of the disk RSEs again. Tape RSEs must now be preferred.
     # Multiple tape sources are not allowed. Only one tape RSE source must be returned.
-    __fake_source_ranking(request, disk1_rse_id, -2)
-    __fake_source_ranking(request, disk2_rse_id, -2)
-    [[_, transfers]] = next_transfers_to_submit(rses=all_rses).items()
+    disk1_source.ranking = -2
+    disk2_source.ranking = -2
+    [[_, transfers]] = pick_and_prepare_submission_path(topology=topology, protocol_factory=ProtocolFactory(),
+                                                         requests_with_sources=requests).items()
     assert len(transfers) == 1
     transfer = transfers[0]
     assert len(transfer[0].legacy_sources) == 1
     assert transfer[0].legacy_sources[0][0] in (tape1_rse_name, tape2_rse_name)
 
     # On equal source ranking, but different distance; the smaller distance is preferred
-    [[_, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
+    [[_, [transfer]]] = pick_and_prepare_submission_path(topology=topology, protocol_factory=ProtocolFactory(),
+                                                         requests_with_sources=requests).items()
     assert len(transfer[0].legacy_sources) == 1
     assert transfer[0].legacy_sources[0][0] == tape2_rse_name
 
     # On different source ranking, the bigger ranking is preferred
-    __fake_source_ranking(request, tape2_rse_id, -1)
-    [[_, [transfer]]] = next_transfers_to_submit(rses=all_rses).items()
+    tape2_source.ranking = -1
+    [[_, [transfer]]] = pick_and_prepare_submission_path(topology=topology, protocol_factory=ProtocolFactory(),
+                                                         requests_with_sources=requests).items()
     assert len(transfer[0].legacy_sources) == 1
     assert transfer[0].legacy_sources[0][0] == tape1_rse_name
 
@@ -237,7 +238,7 @@ def test_multihop_requests_created(rse_factory, did_factory, root_account, core_
     did = did_factory.upload_test_file(rs0_name)
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    [[_, [transfer]]] = next_transfers_to_submit(rses=rse_factory.created_rses).items()
+    _prepare_submission(rses=[src_rse_id, dst_rse_id])
     # the intermediate request was correctly created
     assert request_core.get_request_by_did(rse_id=intermediate_rse_id, **did)
 
@@ -267,7 +268,7 @@ def test_multihop_concurrent_submitters(rse_factory, did_factory, root_account, 
     nb_threads = 9
     nb_executions = 18
     with ThreadPoolExecutor(max_workers=nb_threads) as executor:
-        futures = [executor.submit(next_transfers_to_submit, rses=rse_factory.created_rses) for _ in range(nb_executions)]
+        futures = [executor.submit(_prepare_submission, rses=rse_factory.created_rses) for _ in range(nb_executions)]
         for f in futures:
             try:
                 f.result()
@@ -309,12 +310,15 @@ def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, c
     _, rse2_id = rse_factory.make_posix_rse()
     rse3_name, rse3_id = rse_factory.make_posix_rse()
     _, rse4_id = rse_factory.make_posix_rse()
+    all_rses = [rse0_id, rse1_id, rse2_id, rse3_id, rse4_id]
 
     add_distance(rse0_id, rse1_id, distance=10)
     add_distance(rse1_id, rse3_id, distance=10)
     add_distance(rse2_id, rse3_id, distance=30)
     add_distance(rse4_id, rse3_id, distance=200)
     rse_core.add_rse_attribute(rse1_id, 'available_for_multihop', True)
+
+    topology = Topology.create_from_config()
 
     # add same file to two source RSEs
     file = {'scope': mock_scope, 'name': 'lfn.' + generate_uuid(), 'type': 'FILE', 'bytes': 1, 'adler32': 'beefdead'}
@@ -324,12 +328,6 @@ def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, c
 
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=rse3_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    # The singlehop must be prioritized
-    [[_, [transfer]]] = next_transfers_to_submit(rses=rse_factory.created_rses).items()
-    assert len(transfer) == 1
-    assert transfer[0].src.rse.id == rse2_id
-    assert transfer[0].dst.rse.id == rse3_id
-
     # add same file to two source RSEs
     file = {'scope': mock_scope, 'name': 'lfn.' + generate_uuid(), 'type': 'FILE', 'bytes': 1, 'adler32': 'beefdead'}
     did = {'scope': file['scope'], 'name': file['name']}
@@ -338,10 +336,28 @@ def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, c
 
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=rse3_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
+    requests = list_transfer_requests_and_source_replicas(rses=all_rses)
+    assert len(requests) == 2
+    rws_sh_prio = next(iter(rws for rws in requests.values() if rse2_id in (s.rse.id for s in rws.sources)))
+    rws_mh_prio = next(iter(rws for rws in requests.values() if rse4_id in (s.rse.id for s in rws.sources)))
+
+    # The singlehop must be prioritized
+    _, candidate_paths = build_transfer_paths(topology=topology, protocol_factory=ProtocolFactory(), rws=rws_sh_prio)
+    assert len(candidate_paths) == 2
+    assert len(candidate_paths[0]) == 1
+    assert len(candidate_paths[1]) == 2
+    assert candidate_paths[0][0].src.rse.id == rse2_id
+    assert candidate_paths[0][0].dst.rse.id == rse3_id
+
     # The multihop must be prioritized
-    [[_, transfers]] = next_transfers_to_submit(rses=rse_factory.created_rses).items()
-    transfer = next(iter(t for t in transfers if t[0].rws.name == file['name']))
-    assert len(transfer) == 2
+    _, candidate_paths = build_transfer_paths(topology=topology, protocol_factory=ProtocolFactory(), rws=rws_mh_prio)
+    assert len(candidate_paths) == 2
+    assert len(candidate_paths[0]) == 2
+    assert len(candidate_paths[1]) == 1
+    assert candidate_paths[0][0].src.rse.id == rse0_id
+    assert candidate_paths[0][0].dst.rse.id == rse1_id
+    assert candidate_paths[0][1].src.rse.id == rse1_id
+    assert candidate_paths[0][1].dst.rse.id == rse3_id
 
 
 def test_fk_error_on_source_creation(rse_factory, did_factory, root_account):

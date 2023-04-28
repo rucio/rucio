@@ -26,7 +26,7 @@ from rucio.common.exception import RucioException
 from rucio.common.logging import setup_logging
 from rucio.core import transfer as transfer_core
 from rucio.core.request import set_requests_state_if_possible, list_transfer_requests_and_source_replicas
-from rucio.core.transfer import prepare_transfers, list_transfer_admin_accounts, build_transfer_paths
+from rucio.core.transfer import prepare_transfers, list_transfer_admin_accounts, build_transfer_paths, ProtocolFactory
 from rucio.core.topology import Topology
 from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.daemons.common import run_daemon
@@ -139,6 +139,7 @@ def run_once(
         )
         ret = build_transfer_paths(
             topology=topology,
+            protocol_factory=ProtocolFactory(),
             requests_with_sources=list(requests_with_sources.values()),
             admin_accounts=admin_accounts,
             preparer_mode=True,
