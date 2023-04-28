@@ -28,6 +28,7 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.configclient import ConfigClient
+from rucio.client.lifetimeclient import LifetimeClient
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import generate_uuid, get_tmp_dir, md5, render_json
@@ -70,6 +71,7 @@ class TestBinRucio:
         self.replica_client = ReplicaClient()
         self.rule_client = RuleClient()
         self.config_client = ConfigClient()
+        self.lifetime_client = LifetimeClient()
         self.account_client = AccountLimitClient()
         rse_factory = None
         if environ.get('SUITE', 'remote_dbs') != 'client':
@@ -2289,8 +2291,8 @@ class TestBinRucio:
         print(cmd)
         exitcode, out, err = execute(cmd)
         print(exitcode, out, err)
-        assert exitcode == 1
-        assert "One or more DIDs are containers" in err
+        assert exitcode == 0
+        assert "One or more DIDs are containers. They will be resolved into a list of datasets" in err
 
         try:
             remove(filename)
@@ -2345,3 +2347,29 @@ class TestBinRucio:
             fp.seek(0)
             exitcode, out, err = execute("rucio add-lifetime-exception --inputfile %s --reason 'For testing purpose; please ignore.' --expiration 2124-01-01" % fp.name)
             assert 'does not exist' not in err
+
+    def test_lifetime_container_resolution(self):
+        """ CLIENT(USER): Check that the CLI to declare lifetime exceptions resolve contaiers"""
+        # Setup data for CLI check
+        tmp_dsn_name1 = 'dataset' + rse_name_generator()
+        tmp_dsn_name2 = 'dataset' + rse_name_generator()
+        tmp_cnt_name = 'container' + rse_name_generator()
+        tmp_cnt_did = self.user + ':' + tmp_cnt_name
+        # Create 2 datasets and 1 container and attach dataset to container
+        self.did_client.add_did(scope=self.user, name=tmp_dsn_name1, did_type='DATASET')
+        self.did_client.add_did(scope=self.user, name=tmp_dsn_name2, did_type='DATASET')
+        self.did_client.add_did(scope=self.user, name=tmp_cnt_name, did_type='CONTAINER')
+        self.did_client.attach_dids(scope=self.user, name=tmp_cnt_name, dids=[{'scope': self.user, 'name': tmp_dsn_name1}, {'scope': self.user, 'name': tmp_dsn_name2}])
+        # Set eol_at for the first dataset but not to the second one
+        self.did_client.set_metadata(scope=self.user, name=tmp_dsn_name1, key='eol_at', value=(datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%d'))
+        self.config_client.set_config_option(section='lifetime_model', option='cutoff_date', value=(datetime.utcnow() + timedelta(days=1)).strftime('%Y-%m-%d'))
+        with tempfile.NamedTemporaryFile(mode="w+") as fp:
+            fp.write(f'{tmp_cnt_did}')
+            fp.seek(0)
+            exitcode, out, err = execute("rucio add-lifetime-exception --inputfile %s --reason 'For testing purpose; please ignore.' --expiration 2124-01-01" % fp.name)
+            print(exitcode, out, err)
+            assert '%s:%s is not affected by the lifetime model' % (self.user, tmp_dsn_name2)
+            assert '%s:%s will be declared' % (self.user, tmp_dsn_name1)
+        list_exceptions = [(excep['scope'], excep['name']) for excep in self.lifetime_client.list_exceptions()]
+        assert (self.user, tmp_dsn_name1) in list_exceptions
+        assert (self.user, tmp_dsn_name2) not in list_exceptions
