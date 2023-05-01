@@ -33,7 +33,7 @@ geoip2==4.6.0                                               # GeoIP2 API (for IP
 google-auth==2.16.2                                         # Google authentication library for Python
 redis==4.5.4; python_version >= '3.9'                       # Python client for Redis key-value store
 redis==4.3.4; python_version < '3.9'
-Flask==2.2.3; python_version >= '3.9'                       # Python web framework
+Flask==2.3.2; python_version >= '3.9'                       # Python web framework
 Flask==2.0.3; python_version < '3.9'
 oic==1.5.0; python_version >= '3.9'                         # for authentication via OpenID Connect protocol
 oic==1.3.0; python_version < '3.9'
