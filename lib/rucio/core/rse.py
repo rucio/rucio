@@ -17,7 +17,7 @@ from datetime import datetime
 import json
 from io import StringIO
 from re import match
-from typing import Any, Dict, List, Optional, Iterable, Union, TYPE_CHECKING
+from typing import Any, Dict, Generic, List, Optional, Iterable, Type, TypeVar, Union, TYPE_CHECKING
 
 import sqlalchemy
 from dogpile.cache.api import NO_VALUE
@@ -38,6 +38,7 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+T = TypeVar('T', bound="RseData")
 
 RSE_SETTINGS = ["continent", "city", "region_code", "country_name", "time_zone", "ISP", "ASN"]
 REGION = make_region_memcached(expiration_time=900)
@@ -62,6 +63,10 @@ class RseData:
         if self._name is None:
             raise ValueError(f'name not loaded for rse {self}')
         return self._name
+
+    @name.setter
+    def name(self, name):
+        self._name = name
 
     @property
     def columns(self) -> 'Dict[str, Any]':
@@ -207,25 +212,41 @@ class RseData:
                 rse_data._limits = limits
 
 
-class RseCollection:
+class RseCollection(Generic[T]):
     """
-    Container which stores
+    Container which keeps track of information loaded from the database for a group of RSEs.
     """
 
-    def __init__(self):
-        self.rse_id_to_data_map = {}
+    def __init__(self, rse_ids: "Optional[Iterable[str]]" = None, rse_data_cls: "Type[T]" = RseData):
+        self._rse_data_cls = rse_data_cls
+        self.rse_id_to_data_map: "Dict[str, T]" = {}
+        if rse_ids is not None:
+            for rse_id in rse_ids:
+                self.rse_id_to_data_map[rse_id] = self._rse_data_cls(rse_id)
 
     def __getitem__(self, item):
-        return self.get(item)
+        return self.get_or_create(item)
 
-    def get(self, rse_id: str):
+    def __setitem__(self, key, value):
+        rse_id = key
+        rse_data = value
+        self.rse_id_to_data_map[rse_id] = rse_data
+
+    def __contains__(self, item):
+        if isinstance(item, RseData):
+            return item.id in self.rse_id_to_data_map
+        if isinstance(item, str):
+            return item in self.rse_id_to_data_map
+        return False
+
+    def get(self, rse_id: str) -> "Optional[T]":
+        return self.rse_id_to_data_map.get(rse_id)
+
+    def get_or_create(self, rse_id: str) -> "T":
         rse_data = self.rse_id_to_data_map.get(rse_id)
         if rse_data is None:
-            self.rse_id_to_data_map[rse_id] = rse_data = RseData(rse_id)
+            self.rse_id_to_data_map[rse_id] = rse_data = self._rse_data_cls(rse_id)
         return rse_data
-
-    def setdefault(self, rse_id: str, rse_data: RseData):
-        return self.rse_id_to_data_map.setdefault(rse_id, rse_data)
 
     @transactional_session
     def ensure_loaded(
@@ -241,7 +262,7 @@ class RseCollection:
             session: "Session",
     ):
         RseData.bulk_load(
-            rse_datas=(self.rse_id_to_data_map.setdefault(rse_id, RseData(rse_id)) for rse_id in rse_ids),
+            rse_datas=(self.rse_id_to_data_map.setdefault(rse_id, self._rse_data_cls(rse_id)) for rse_id in rse_ids),
             load_name=load_name,
             load_columns=load_columns,
             load_attributes=load_attributes,

@@ -56,7 +56,7 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
              heartbeat_handler, activity, request_type, metrics):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
-    topology = Topology.create_from_config(ignore_availability=ignore_availability)
+    topology = Topology(ignore_availability=ignore_availability).configure_multihop(logger=logger)
     protocol_factory = ProtocolFactory()
     default_tombstone_delay = config_get_int('transfers', 'multihop_tombstone_delay', default=DEFAULT_MULTIHOP_TOMBSTONE_DELAY, expiration_time=600)
 
@@ -67,11 +67,12 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
     # if filter_transfertool specified, select only the source rses which are configured for this transfertool
     if filter_transfertool:
         # if multihop is configured, we want all possible source rses. To allow multi-hopping between transfertools
-        if not topology.multihop_rses:
+        if not topology.multihop_enabled:
             required_source_rse_attrs = TRANSFERTOOL_CLASSES_BY_NAME[filter_transfertool].required_rse_attrs
 
     # retrieve (from the database) the transfer requests with their possible source replicas
     requests_with_sources = list_transfer_requests_and_source_replicas(
+        rse_collection=topology,
         total_workers=total_workers,
         worker_number=worker_number,
         partition_hash_var=partition_hash_var,

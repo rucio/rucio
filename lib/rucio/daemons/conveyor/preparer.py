@@ -127,15 +127,16 @@ def run_once(
     requests_handled = 0
     try:
         admin_accounts = list_transfer_admin_accounts()
-        topology = Topology.create_from_config(logger=logger, ignore_availability=ignore_availability)
+        topology = Topology(ignore_availability=ignore_availability).configure_multihop(logger=logger, session=session)
         requests_with_sources = list_transfer_requests_and_source_replicas(
+            rse_collection=topology,
             total_workers=total_workers,
             worker_number=worker_number,
             limit=bulk,
             request_state=RequestState.PREPARING,
             request_type=[RequestType.TRANSFER, RequestType.STAGEIN],
+            ignore_availability=ignore_availability,
             session=session,
-            ignore_availability=ignore_availability
         )
         ret = build_transfer_paths(
             topology=topology,

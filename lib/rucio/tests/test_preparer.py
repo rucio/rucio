@@ -20,7 +20,7 @@ from rucio.core.distance import get_distances, add_distance
 from rucio.core.replica import add_replicas
 from rucio.core.request import list_transfer_requests_and_source_replicas, set_transfer_limit, list_transfer_limits
 from rucio.core.transfer import get_supported_transfertools
-from rucio.core.rse import add_rse_attribute, RseData
+from rucio.core.rse import add_rse_attribute, RseData, RseCollection
 from rucio.daemons.conveyor import preparer
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState
@@ -85,7 +85,11 @@ def mock_request_no_source(db_session, dest_rse, dataset, root_account):
 
 
 def test_listing_preparing_transfers(mock_request, db_session):
-    req_sources = list_transfer_requests_and_source_replicas(request_state=RequestState.PREPARING, session=db_session)
+    req_sources = list_transfer_requests_and_source_replicas(
+        rse_collection=RseCollection(),
+        request_state=RequestState.PREPARING,
+        session=db_session
+    )
 
     assert len(req_sources) != 0
     found_requests = list(filter(lambda rws: rws.request_id == mock_request['id'], req_sources.values()))
