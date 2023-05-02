@@ -555,20 +555,18 @@ def __create_transfer_definitions(
     Find the all paths from sources towards the destination of the given transfer request.
     Create the transfer definitions for each point-to-point transfer (multi-source, when possible)
     """
-    inbound_links_by_node = {}
-    shortest_paths = topology.search_shortest_paths(source_rse_ids=[s.rse.id for s in sources], dest_rse_id=rws.dest_rse.id,
-                                                    operation_src=operation_src, operation_dest=operation_dest, domain=domain,
-                                                    limit_dest_schemes=limit_dest_schemes,
-                                                    inbound_links_by_node=inbound_links_by_node, session=session)
+    shortest_paths = topology.search_shortest_paths(src_nodes=[s.rse for s in sources], dst_node=rws.dest_rse,
+                                                    operation_src=operation_src, operation_dest=operation_dest,
+                                                    domain=domain, limit_dest_schemes=limit_dest_schemes, session=session)
 
     transfers_by_source = {}
-    sources_by_rse_id = {s.rse.id: s for s in sources}
-    paths_by_source = {sources_by_rse_id[rse_id]: path for rse_id, path in shortest_paths.items()}
+    sources_by_rse = {s.rse: s for s in sources}
+    paths_by_source = {sources_by_rse[rse]: path for rse, path in shortest_paths.items()}
     for source, list_hops in paths_by_source.items():
         transfer_path = []
         for hop in list_hops:
-            hop_src_rse = topology.rse_collection[hop['source_rse_id']]
-            hop_dst_rse = topology.rse_collection[hop['dest_rse_id']]
+            hop_src_rse = hop['source_rse']
+            hop_dst_rse = hop['dest_rse']
             src = RequestSource(
                 rse_data=hop_src_rse,
                 file_path=source.file_path if hop_src_rse == source.rse else None,
@@ -627,14 +625,14 @@ def __create_transfer_definitions(
             # Multiple single-hop DISK rses can be used together in "multi-source" transfers
             #
             # Try adding additional single-hop DISK rses sources to the transfer
-            inbound_links = inbound_links_by_node[transfer_path[0].dst.rse.id]
             main_source_schemes = __add_compatible_schemes(schemes=[transfer_path[0].dst.scheme], allowed_schemes=SUPPORTED_PROTOCOLS)
             added_sources = 0
             for source in sorted(multi_source_sources, key=lambda s: (-s.ranking, s.distance)):
                 if added_sources >= 5:
                     break
 
-                if source.rse.id not in inbound_links:
+                edge = topology.edge(source.rse, transfer_path[0].dst.rse)
+                if not edge:
                     # There is no direct connection between this source and the destination
                     continue
 
@@ -661,7 +659,7 @@ def __create_transfer_definitions(
                         rse_data=source.rse,
                         file_path=source.file_path,
                         ranking=source.ranking,
-                        distance=inbound_links[source.rse.id],
+                        distance=edge.cost,
                         scheme=matching_scheme[1],
                     )
                 )
@@ -809,13 +807,10 @@ def build_transfer_paths(
     reqs_unsupported_transfertool = set()
     for rws in requests_with_sources:
 
-        rws.dest_rse = topology.rse_collection.setdefault(rws.dest_rse.id, rws.dest_rse)
-        rws.dest_rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
-
+        rws.dest_rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, load_columns=True, session=session)
         all_sources = rws.sources
         for source in all_sources:
-            source.rse = topology.rse_collection.setdefault(source.rse.id, source.rse)
-            source.rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
+            source.rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, load_columns=True, session=session)
 
         transfer_schemes = schemes
         if rws.previous_attempt_id and failover_schemes:
@@ -835,10 +830,10 @@ def build_transfer_paths(
                '... and %d others' % (len(all_sources) - num_sources_in_logs) if len(all_sources) > num_sources_in_logs else '')
 
         # Check if destination is blocked
-        if rws.dest_rse.id in topology.unavailable_write_rses:
+        if not (topology.ignore_availability or rws.dest_rse.columns['availability_write']):
             logger(logging.WARNING, '%s: dst RSE is blocked for write. Will skip the submission of new jobs', rws.request_id)
             continue
-        if rws.account not in admin_accounts and rws.dest_rse.id in topology.restricted_write_rses:
+        if rws.account not in admin_accounts and rws.dest_rse.attributes.get('restricted_write'):
             logger(logging.WARNING, '%s: dst RSE is restricted for write. Will skip the submission', rws.request_id)
             continue
 
@@ -867,9 +862,10 @@ def build_transfer_paths(
             filtered_sources = filter(lambda s: s.rse.id in allowed_source_rses, filtered_sources)
         filtered_sources = filter(lambda s: s.rse.name is not None, filtered_sources)
         if rws.account not in admin_accounts:
-            filtered_sources = filter(lambda s: s.rse.id not in topology.restricted_read_rses, filtered_sources)
+            filtered_sources = filter(lambda s: not s.rse.attributes.get('restricted_read'), filtered_sources)
         # Ignore blocklisted RSEs
-        filtered_sources = filter(lambda s: s.rse.id not in topology.unavailable_read_rses, filtered_sources)
+        if not topology.ignore_availability:
+            filtered_sources = filter(lambda s: s.rse.columns['availability_read'], filtered_sources)
         # For staging requests, the staging_buffer attribute must be correctly set
         if rws.request_type == RequestType.STAGEIN:
             filtered_sources = filter(lambda s: s.rse.attributes.get('staging_buffer') == rws.dest_rse.name, filtered_sources)

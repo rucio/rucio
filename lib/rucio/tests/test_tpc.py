@@ -83,9 +83,10 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
     assert rule['locks_ok_cnt'] == 0
     assert rule['locks_replicating_cnt'] == 1
 
-    topology = Topology.create_from_config()
-    requests = list_transfer_requests_and_source_replicas(rses=[rse1_id, rse2_id]).values()
-    [[_, [transfer_path]]] = build_transfer_paths(topology=topology, protocol_factory=ProtocolFactory(), requests_with_sources=requests).items()
+    topology = Topology()
+    requests = list_transfer_requests_and_source_replicas(rse_collection=topology, rses=[rse1_id, rse2_id]).values()
+    paths, *_ = build_transfer_paths(topology=topology, protocol_factory=ProtocolFactory(), requests_with_sources=requests)
+    [[_, [transfer_path]]] = paths.items()
     assert transfer_path[0].rws.rule_id == rule_id[0]
     src_url = transfer_path[0].legacy_sources[0][1]
     dest_url = transfer_path[0].dest_url

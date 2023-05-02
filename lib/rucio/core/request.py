@@ -42,6 +42,7 @@ RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Optional, Sequence, Set, Union
+    from rucio.core.rse import RseCollection
 
     from sqlalchemy.orm import Session
 
@@ -344,6 +345,7 @@ def queue_requests(requests, *, session: "Session", logger=logging.log):
 
 @read_session
 def list_transfer_requests_and_source_replicas(
+        rse_collection: "RseCollection",
         total_workers: int = 0,
         worker_number: int = 0,
         partition_hash_var: "Optional[str]" = None,
@@ -361,6 +363,7 @@ def list_transfer_requests_and_source_replicas(
 ) -> "Dict[str, RequestWithSources]":
     """
     List requests with source replicas
+    :param rse_collection: the RSE collection being used
     :param total_workers: Number of total workers.
     :param worker_number: Id of the executing worker.
     :param partition_hash_var: The hash variable used for partitioning thread work
@@ -534,13 +537,15 @@ def list_transfer_requests_and_source_replicas(
         if not request:
             request = RequestWithSources(id_=request_id, request_type=req_type, rule_id=rule_id, scope=scope, name=name,
                                          md5=md5, adler32=adler32, byte_count=byte_count, activity=activity, attributes=attributes,
-                                         previous_attempt_id=previous_attempt_id, dest_rse_data=RseData(id_=dest_rse_id),
+                                         previous_attempt_id=previous_attempt_id, dest_rse_data=rse_collection[dest_rse_id],
                                          account=account, retry_count=retry_count, priority=priority, transfertool=transfertool,
                                          requested_at=requested_at)
             requests_by_id[request_id] = request
 
         if replica_rse_id is not None:
-            source = RequestSource(rse_data=RseData(id_=replica_rse_id, name=replica_rse_name), file_path=file_path,
+            replica_rse = rse_collection[replica_rse_id]
+            replica_rse.name = replica_rse_name
+            source = RequestSource(rse_data=replica_rse, file_path=file_path,
                                    ranking=source_ranking, distance=distance, url=source_url)
             request.sources.append(source)
             if source_rse_id == replica_rse_id:
