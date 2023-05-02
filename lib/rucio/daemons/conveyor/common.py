@@ -337,11 +337,6 @@ def __create_missing_replicas_and_requests(
             logger(logging.ERROR, '%s: Problem adding replicas on %s : %s', initial_request_id, rws.dest_rse, str(error))
 
         rws.attributes['is_intermediate_hop'] = True
-        # next_hop_request_id and initial_request_id are not used anymore in rucio >=1.28, but are needed
-        # for running at the same time 1.27 and 1.28 on the same database.
-        # TODO: remove following two rows
-        rws.attributes['next_hop_request_id'] = transfer_path[i + 1].rws.request_id
-        rws.attributes['initial_request_id'] = initial_request_id
         rws.attributes['source_replica_expression'] = hop.src.rse.name
         req_to_queue = {'dest_rse_id': rws.dest_rse.id,
                         'state': RequestState.QUEUED,
