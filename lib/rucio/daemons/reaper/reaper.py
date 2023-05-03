@@ -328,64 +328,46 @@ def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "Callable[...,
     :returns: needed_free_space, only_delete_obsolete.
     """
 
+    needed_free_space = 0
     # First of all check if greedy mode is enabled for this RSE
     if greedy:
         return 1000000000000, False
 
     rse.ensure_loaded(load_limits=True, load_usage=True, load_attributes=True)
+    available_sources = [key['source'] for key in rse.usage]
 
     # Get RSE limits
     min_free_space = rse.limits.get('MinFreeSpace', 0)
 
-    # Check from which sources to get used and total spaces
-    # Default is storage
+    # Check from which sources to get used and total spaces (default storage)
+    # If specified sources do not exist, only delete obsolete
     source_for_total_space = rse.attributes.get('source_for_total_space', 'storage')
+    if source_for_total_space not in available_sources:
+        logger(logging.WARNING, 'RSE: %s, \'%s\' requested for source_for_total_space but cannot be found. Will only delete obsolete',
+               rse.name, source_for_total_space)
+        return 0, True
     source_for_used_space = rse.attributes.get('source_for_used_space', 'storage')
+    if source_for_used_space not in available_sources:
+        logger(logging.WARNING, 'RSE: %s, \'%s\' requested for source_for_used_space but cannot be found. Will only delete obsolete',
+               rse.name, source_for_used_space)
+        return 0, True
 
     logger(logging.DEBUG, 'RSE: %s, source_for_total_space: %s, source_for_used_space: %s',
            rse.name, source_for_total_space, source_for_used_space)
 
-    # Get total, used and obsolete space
-    total_space_entry = None
-    used_space_entry = None
-    obsolete_entry = None
-    for entry in rse.usage:
-        if total_space_entry and used_space_entry and obsolete_entry:
-            break
-
-        entry_source = entry['source']
-        if not total_space_entry and entry_source == source_for_total_space:
-            total_space_entry = entry
-        if not used_space_entry and entry_source == source_for_used_space:
-            used_space_entry = entry
-        if not obsolete_entry and entry_source == 'obsolete':
-            obsolete_entry = entry
-
-    obsolete = 0
-    if obsolete_entry:
-        obsolete = obsolete_entry['used']
-
-    # If no information is available about disk space, do nothing except if there are replicas with Epoch tombstone
-    needed_free_space = 0
-    if not total_space_entry:
-        if not obsolete:
-            return needed_free_space, False
-        return obsolete, True
-    if not used_space_entry:
-        return needed_free_space, False
-
-    # Extract the total and used space
-    total, used = total_space_entry['total'], used_space_entry['used']
+    # Get total and used space
+    total = [key['total'] for key in rse.usage if key['source'] == source_for_total_space][0]
+    used = [key['used'] for key in rse.usage if key['source'] == source_for_used_space][0]
 
     free = total - used
     if min_free_space:
         needed_free_space = min_free_space - free
 
     # If needed_free_space negative, nothing to delete except if some Epoch tombstoned replicas
-    if needed_free_space <= 0:
-        return obsolete, True
-    else:
+    if needed_free_space > 0:
         return needed_free_space, False
+
+    return 0, True
 
 
 def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=False, greedy=False,

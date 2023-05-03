@@ -21,6 +21,7 @@ from sqlalchemy import and_, or_
 from rucio.api import replica as replica_api
 from rucio.api import rse as rse_api
 from rucio.db.sqla import models
+from rucio.db.sqla.constants import OBSOLETE
 from rucio.db.sqla.session import get_session
 from rucio.common.exception import ReplicaNotFound, DataIdentifierNotFound
 from rucio.common.types import InternalAccount, InternalScope
@@ -490,3 +491,41 @@ def test_run_on_non_existing_scheme(vo, caches_mock, file_config_mock):
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='https')
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 250
     assert cache_region.get('pause_deletion_%s' % rse_id)
+
+
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_reaper_without_rse_usage(vo, caches_mock, file_config_mock):
+    """ REAPER (DAEMON): Mock test the reaper daemon and check it deletes obsolete replicas even if no rse_usage is set."""
+    [cache_region] = caches_mock
+    scope = InternalScope('data13_hip', vo=vo)
+
+    nb_files = 250
+    nb_epoch_tombstone = 10
+    file_size = 200  # 2G
+    rse_name, rse_id, dids = __add_test_rse_and_replicas(vo=vo, scope=scope, rse_name=rse_name_generator(),
+                                                         names=['lfn' + generate_uuid() for _ in range(nb_files)], file_size=file_size)
+
+    rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=50 * file_size)
+    assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
+
+    # Check first if the reaper does not delete anything if there's nothing obsolete
+    cache_region.invalidate()
+    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
+    assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
+
+    # Now set Epoch tombstone for a few replicas
+    for did in dids[:nb_epoch_tombstone]:
+        print(did)
+        replica_core.set_tombstone(rse_id, did['scope'], did['name'], tombstone=OBSOLETE)
+
+    # The reaper should delete the replica with Epoch tombstone even if the rse_usage is not set
+    cache_region.invalidate()
+    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
+    assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == nb_files - nb_epoch_tombstone
