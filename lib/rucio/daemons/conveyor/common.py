@@ -339,6 +339,7 @@ def __create_missing_replicas_and_requests(
         rws.attributes['is_intermediate_hop'] = True
         rws.attributes['source_replica_expression'] = hop.src.rse.name
         req_to_queue = {'dest_rse_id': rws.dest_rse.id,
+                        'source_rse_id': hop.src.rse.id,
                         'state': RequestState.QUEUED,
                         'scope': rws.scope,
                         'name': rws.name,
