@@ -1197,6 +1197,7 @@ def get_request_stats(state, *, session: "Session"):
             models.Request.source_rse_id,
             models.Request.activity,
             func.count(1).label('counter'),
+            func.sum(models.Request.bytes).label('bytes')
         ).with_hint(
             models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle'
         ).where(
