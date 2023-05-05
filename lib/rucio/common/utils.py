@@ -1668,7 +1668,6 @@ class PriorityQueue:
     def __init__(self):
         self.heap = []
         self.container = {}
-        self.empty_slots = []
 
     def __len__(self):
         return len(self.heap)
