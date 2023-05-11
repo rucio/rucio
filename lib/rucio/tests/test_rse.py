@@ -72,23 +72,23 @@ class TestRSECoreApi:
         rse_id = add_rse(rse_name, **properties)
         assert rse_exists(rse=rse_name, vo=vo)
         rse = get_rse(rse_id=rse_id)
-        assert rse.rse == rse_name
-        assert rse.deterministic == properties['deterministic']
-        assert rse.volatile == properties['volatile']
-        assert rse.city == properties['city']
-        assert rse.region_code == properties['region_code']
-        assert rse.country_name == properties['country_name']
-        assert rse.continent == properties['continent']
-        assert rse.time_zone == properties['time_zone']
-        assert rse.ISP == properties['ISP']
-        assert rse.staging_area == properties['staging_area']
-        assert rse.rse_type == RSEType.DISK
-        assert rse.longitude == properties['longitude']
-        assert rse.latitude == properties['latitude']
-        assert rse.ASN == properties['ASN']
-        assert rse.availability_read == properties['availability_read']
-        assert rse.availability_write == properties['availability_write']
-        assert rse.availability_delete == properties['availability_delete']
+        assert rse['rse'] == rse_name
+        assert rse['deterministic'] == properties['deterministic']
+        assert rse['volatile'] == properties['volatile']
+        assert rse['city'] == properties['city']
+        assert rse['region_code'] == properties['region_code']
+        assert rse['country_name'] == properties['country_name']
+        assert rse['continent'] == properties['continent']
+        assert rse['time_zone'] == properties['time_zone']
+        assert rse['ISP'] == properties['ISP']
+        assert rse['staging_area'] == properties['staging_area']
+        assert rse['rse_type'] == RSEType.DISK
+        assert rse['longitude'] == properties['longitude']
+        assert rse['latitude'] == properties['latitude']
+        assert rse['ASN'] == properties['ASN']
+        assert rse['availability_read'] == properties['availability_read']
+        assert rse['availability_write'] == properties['availability_write']
+        assert rse['availability_delete'] == properties['availability_delete']
         assert not rse_exists(invalid_rse, vo=vo)
 
         with pytest.raises(Duplicate):
@@ -279,23 +279,23 @@ def test_create_rse_success(vo, rest_client, auth_token):
     response = rest_client.post('/rses/' + rse_name, headers=headers(auth(auth_token), hdrdict(headers_dict)), json=properties)
     assert response.status_code == 201
     rse = get_rse(rse_id=get_rse_id(rse=rse_name, vo=vo))
-    assert rse.rse == rse_name
-    assert rse.deterministic == properties['deterministic']
-    assert rse.volatile == properties['volatile']
-    assert rse.city == properties['city']
-    assert rse.region_code == properties['region_code']
-    assert rse.country_name == properties['country_name']
-    assert rse.continent == properties['continent']
-    assert rse.time_zone == properties['time_zone']
-    assert rse.ISP == properties['ISP']
-    assert rse.staging_area == properties['staging_area']
-    assert rse.rse_type == RSEType.DISK
-    assert rse.longitude == properties['longitude']
-    assert rse.latitude == properties['latitude']
-    assert rse.ASN == properties['ASN']
-    assert rse.availability_read == properties['availability_read']
-    assert rse.availability_write == properties['availability_write']
-    assert rse.availability_delete == properties['availability_delete']
+    assert rse['rse'] == rse_name
+    assert rse['deterministic'] == properties['deterministic']
+    assert rse['volatile'] == properties['volatile']
+    assert rse['city'] == properties['city']
+    assert rse['region_code'] == properties['region_code']
+    assert rse['country_name'] == properties['country_name']
+    assert rse['continent'] == properties['continent']
+    assert rse['time_zone'] == properties['time_zone']
+    assert rse['ISP'] == properties['ISP']
+    assert rse['staging_area'] == properties['staging_area']
+    assert rse['rse_type'] == RSEType.DISK
+    assert rse['longitude'] == properties['longitude']
+    assert rse['latitude'] == properties['latitude']
+    assert rse['ASN'] == properties['ASN']
+    assert rse['availability_read'] == properties['availability_read']
+    assert rse['availability_write'] == properties['availability_write']
+    assert rse['availability_delete'] == properties['availability_delete']
 
     response = rest_client.post('/rses/' + rse_name, headers=headers(auth(auth_token), hdrdict(headers_dict)))
     assert response.status_code == 409
@@ -411,23 +411,23 @@ class TestRSEClient:
         ret = rucio_client.add_rse(rse_name, **properties)
         assert ret
         rse = get_rse(rse_id=get_rse_id(rse=rse_name, vo=vo))
-        assert rse.rse == rse_name
-        assert rse.deterministic == properties['deterministic']
-        assert rse.volatile == properties['volatile']
-        assert rse.city == properties['city']
-        assert rse.region_code == properties['region_code']
-        assert rse.country_name == properties['country_name']
-        assert rse.continent == properties['continent']
-        assert rse.time_zone == properties['time_zone']
-        assert rse.ISP == properties['ISP']
-        assert rse.staging_area == properties['staging_area']
-        assert rse.rse_type == RSEType.TAPE
-        assert rse.longitude == properties['longitude']
-        assert rse.latitude == properties['latitude']
-        assert rse.ASN == properties['ASN']
-        assert rse.availability_read == properties['availability_read']
-        assert rse.availability_write == properties['availability_write']
-        assert rse.availability_delete == properties['availability_delete']
+        assert rse['rse'] == rse_name
+        assert rse['deterministic'] == properties['deterministic']
+        assert rse['volatile'] == properties['volatile']
+        assert rse['city'] == properties['city']
+        assert rse['region_code'] == properties['region_code']
+        assert rse['country_name'] == properties['country_name']
+        assert rse['continent'] == properties['continent']
+        assert rse['time_zone'] == properties['time_zone']
+        assert rse['ISP'] == properties['ISP']
+        assert rse['staging_area'] == properties['staging_area']
+        assert rse['rse_type'] == RSEType.TAPE
+        assert rse['longitude'] == properties['longitude']
+        assert rse['latitude'] == properties['latitude']
+        assert rse['ASN'] == properties['ASN']
+        assert rse['availability_read'] == properties['availability_read']
+        assert rse['availability_write'] == properties['availability_write']
+        assert rse['availability_delete'] == properties['availability_delete']
 
         with pytest.raises(Duplicate):
             rucio_client.add_rse(rse_name)
