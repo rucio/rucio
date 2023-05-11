@@ -38,7 +38,7 @@ from rucio.common.cache import make_region_memcached
 from rucio.common.exception import (DatabaseException, RSENotFound,
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
-                                    VONotFound)
+                                    VONotFound, RSEProtocolNotSupported)
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
 from rucio.common.stopwatch import Stopwatch
@@ -238,14 +238,18 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
     return deleted_files
 
 
-def _rse_deletion_hostname(rse: RseData) -> "Optional[str]":
+def _rse_deletion_hostname(rse: RseData, scheme: "Optional[str]") -> "Optional[str]":
     """
     Retrieves the hostname of the default deletion protocol
     """
     rse.ensure_loaded(load_info=True)
     for prot in rse.info['protocols']:
-        if prot['domains']['wan']['delete'] == 1:
-            return prot['hostname']
+        if scheme:
+            if prot['scheme'] == scheme and prot['domains']['wan']['delete'] != 0:
+                return prot['hostname']
+        else:
+            if prot['domains']['wan']['delete'] == 1:
+                return prot['hostname']
     return None
 
 
@@ -559,9 +563,12 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
             percent = needed_free_space / tot_needed_free_space * 100
         logger(logging.DEBUG, 'Working on %s. Percentage of the total space needed %.2f', rse.name, percent)
 
-        rse_hostname = _rse_deletion_hostname(rse)
+        rse_hostname = _rse_deletion_hostname(rse, scheme)
         if not rse_hostname:
-            logger(logging.WARNING, 'No default delete protocol for %s', rse.name)
+            if scheme:
+                logger(logging.WARNING, 'Protocol %s not supported on %s', scheme, rse.name)
+            else:
+                logger(logging.WARNING, 'No default delete protocol for %s', rse.name)
             REGION.set('pause_deletion_%s' % rse.id, True)
             continue
 
@@ -641,6 +648,8 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
                 delete_replicas(rse_id=rse.id, files=deleted_files)
                 logger(logging.DEBUG, 'delete_replicas successed on %s : %s replicas in %s seconds', rse.name, len(deleted_files), time.time() - del_start)
                 METRICS.counter('deletion.done').inc(len(deleted_files))
+        except RSEProtocolNotSupported:
+            logger(logging.WARNING, 'Protocol %s not supported on %s', scheme, rse.name)
         except Exception:
             logger(logging.CRITICAL, 'Exception', exc_info=True)
 
