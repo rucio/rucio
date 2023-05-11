@@ -339,46 +339,6 @@ def rse_exists(rse, vo='def', include_deleted=False, *, session: "Session"):
     return True if session.execute(stmt).scalar() else False
 
 
-@read_session
-def sort_rses(rses, *, session: "Session"):
-    """
-    Sort a list of RSES by free space (ascending order).
-
-    :param rses: List of RSEs.
-    :param session: The database session in use.
-
-    :returns: Sorted list of RSEs
-    """
-    if not rses:
-        raise exception.InputValidationError('The list rses should not be empty!')
-
-    if len(rses) == 1:
-        return rses
-
-    condition = []
-    for rse in rses:
-        condition.append(models.RSE.id == rse['id'])
-
-    stmt = select(
-        models.RSE.rse,
-        models.RSE.staging_area,
-        models.RSEUsage.rse_id
-    ).join(
-        models.RSEUsage,
-        and_(
-            models.RSEUsage.rse_id == models.RSE.id,
-            models.RSEUsage.source == 'storage',
-            models.RSE.deleted == false()
-        )
-    ).where(
-        or_(*condition)
-    ).order_by(
-        models.RSEUsage.free.asc()
-    )
-    return [{'rse': rse, 'staging_area': staging_area, 'id': rse_id}
-            for rse, staging_area, rse_id in session.execute(stmt)]
-
-
 @transactional_session
 def del_rse(rse_id, *, session: "Session"):
     """
