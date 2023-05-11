@@ -416,7 +416,8 @@ def _format_get_rse(db_rse, rse_attributes: Optional[Dict[str, Any]] = None, *, 
     """
     Given a models.RSE object, return it formatted as expected by callers of get_rse
     """
-    db_rse['type'] = db_rse.rse_type
+    result = db_rse.to_dict()
+    result['type'] = db_rse.rse_type
     if rse_attributes is not None:
         rse_settings = {key: rse_attributes[key] for key in RSE_SETTINGS if key in rse_attributes}
     else:
@@ -427,8 +428,8 @@ def _format_get_rse(db_rse, rse_attributes: Optional[Dict[str, Any]] = None, *, 
                  models.RSEAttrAssociation.key.in_(RSE_SETTINGS)),
         )
         rse_settings = {row.key: row.value for row in session.execute(stmt).scalars()}
-    db_rse.update(rse_settings)
-    return db_rse
+    result.update(rse_settings)
+    return result
 
 
 @read_session
@@ -1188,39 +1189,39 @@ def get_rse_protocols(rse_id, schemes=None, *, session: "Session"):
     if not _rse:
         raise exception.RSENotFound('RSE with id \'%s\' not found' % rse_id)
 
-    lfn2pfn_algorithm = get_rse_attribute(_rse.id, 'lfn2pfn_algorithm', session=session)
+    lfn2pfn_algorithm = get_rse_attribute(_rse['id'], 'lfn2pfn_algorithm', session=session)
     # Resolve LFN2PFN default algorithm as soon as possible.  This way, we can send back the actual
     # algorithm name in response to REST queries.
     if not lfn2pfn_algorithm:
         lfn2pfn_algorithm = get_lfn2pfn_algorithm_default()
 
     # Copy verify_checksum from the attributes, later: assume True if not specified
-    verify_checksum = get_rse_attribute(_rse.id, 'verify_checksum', session=session)
+    verify_checksum = get_rse_attribute(_rse['id'], 'verify_checksum', session=session)
 
     # Copy sign_url from the attributes
-    sign_url = get_rse_attribute(_rse.id, 'sign_url', session=session)
+    sign_url = get_rse_attribute(_rse['id'], 'sign_url', session=session)
 
-    info = {'availability_delete': _rse.availability_delete,
-            'availability_read': _rse.availability_read,
-            'availability_write': _rse.availability_write,
+    info = {'availability_delete': _rse['availability_delete'],
+            'availability_read': _rse['availability_read'],
+            'availability_write': _rse['availability_write'],
             'credentials': None,
-            'deterministic': _rse.deterministic,
+            'deterministic': _rse['deterministic'],
             'domain': utils.rse_supported_protocol_domains(),
-            'id': _rse.id,
+            'id': _rse['id'],
             'lfn2pfn_algorithm': lfn2pfn_algorithm,
             'protocols': list(),
-            'qos_class': _rse.qos_class,
-            'rse': _rse.rse,
-            'rse_type': _rse.rse_type.name,
+            'qos_class': _rse['qos_class'],
+            'rse': _rse['rse'],
+            'rse_type': _rse['rse_type'].name,
             'sign_url': sign_url,
-            'staging_area': _rse.staging_area,
+            'staging_area': _rse['staging_area'],
             'verify_checksum': verify_checksum if verify_checksum is not None else True,
-            'volatile': _rse.volatile}
+            'volatile': _rse['volatile']}
 
     for op in utils.rse_supported_protocol_operations():
         info['%s_protocol' % op] = 1  # 1 indicates the default protocol
 
-    terms = [models.RSEProtocols.rse_id == _rse.id]
+    terms = [models.RSEProtocols.rse_id == _rse['id']]
     if schemes:
         if not type(schemes) is list:
             schemes = [schemes]

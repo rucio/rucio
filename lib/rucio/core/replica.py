@@ -1599,16 +1599,16 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
 
     replica_rse = get_rse(rse_id=rse_id, session=session)
 
-    if replica_rse.volatile is True:
-        raise exception.UnsupportedOperation('Cannot add replicas on volatile RSE %s ' % (replica_rse.rse))
+    if replica_rse['volatile'] is True:
+        raise exception.UnsupportedOperation('Cannot add replicas on volatile RSE %s ' % (replica_rse['rse']))
 
-    if not replica_rse.availability_write and not ignore_availability:
-        raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for writing' % replica_rse.rse)
+    if not replica_rse['availability_write'] and not ignore_availability:
+        raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable for writing' % replica_rse['rse'])
 
     for file in files:
         if 'pfn' not in file:
-            if not replica_rse.deterministic:
-                raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %s ' % (replica_rse.rse))
+            if not replica_rse['deterministic']:
+                raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %s ' % (replica_rse['rse']))
 
     replicas = __bulk_add_file_dids(files=files, account=account,
                                     dataset_meta=dataset_meta,
@@ -1623,7 +1623,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     if pfns:
         rse_settings = rsemgr.get_rse_info(rse_id=rse_id, session=session)
         for scheme in pfns.keys():
-            if not replica_rse.deterministic:
+            if not replica_rse['deterministic']:
                 p = rsemgr.create_protocol(rse_settings=rse_settings, operation='write', scheme=scheme)
                 pfns[scheme] = p.parse_pfns(pfns=pfns[scheme])
                 for file in files:
@@ -1704,9 +1704,9 @@ def __delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sess
 
     replica_rse = get_rse(rse_id=rse_id, session=session)
 
-    if not replica_rse.availability_delete and not ignore_availability:
+    if not replica_rse['availability_delete'] and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
-                                                     'for deleting' % replica_rse.rse)
+                                                     'for deleting' % replica_rse['rse'])
     tt_mngr = temp_table_mngr(session)
     scope_name_temp_table = tt_mngr.create_scope_name_table()
     scope_name_temp_table2 = tt_mngr.create_scope_name_table()
@@ -2229,9 +2229,9 @@ def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=Tru
     """
     replica_rse = get_rse(rse_id=rse_id, session=session)
 
-    if not replica_rse.availability_delete and not ignore_availability:
+    if not replica_rse['availability_delete'] and not ignore_availability:
         raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
-                                                     'for deleting' % replica_rse.rse)
+                                                     'for deleting' % replica_rse['rse'])
 
     replica_condition, src_condition, bad_replica_condition = [], [], []
     for file in files:
