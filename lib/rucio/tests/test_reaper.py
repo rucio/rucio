@@ -459,3 +459,34 @@ def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock
         print(did)
         deleted_dids.append(did)
     assert len(deleted_dids) == len(dids)
+
+
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with, and without, temp tables
+    {"overrides": [('core', 'use_temp_tables', 'True')]},
+    {"overrides": [('core', 'use_temp_tables', 'False')]},
+], indirect=True)
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+def test_run_on_non_existing_scheme(vo, caches_mock, file_config_mock):
+    """ REAPER (DAEMON): Mock test the reaper daemon with a speficied scheme."""
+    [cache_region] = caches_mock
+    scope = InternalScope('data13_hip', vo=vo)
+
+    nb_files = 250
+    file_size = 200  # 2G
+    rse_name, rse_id, dids = __add_test_rse_and_replicas(vo=vo, scope=scope, rse_name=rse_name_generator(),
+                                                         names=['lfn' + generate_uuid() for _ in range(nb_files)], file_size=file_size)
+
+    rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=50 * file_size)
+    assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
+
+    # Now put it over threshold and delete
+    # Nothing should be deleted since the protocol doesn't exists for this RSE
+    # The reaper will set a flag pause_deletion_<rse_id>
+    cache_region.invalidate()
+    rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
+    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='https')
+    assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 250
+    assert cache_region.get('pause_deletion_%s' % rse_id)
