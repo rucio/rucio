@@ -21,7 +21,7 @@ from flask import Flask, Response
 from rucio.api import request
 from rucio.common.exception import RequestNotFound
 from rucio.common.utils import APIEncoder, render_json
-from rucio.core.rse import get_rses_with_attribute_value, get_rse_name
+from rucio.core.rse import get_rses_with_attribute_value
 from rucio.db.sqla.constants import RequestState
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
     response_headers, generate_http_error_flask, ErrorHandlingMethodView
@@ -562,14 +562,14 @@ class RequestList(ErrorHandlingMethodView):
         src_rses = []
         dst_rses = []
         if src_site:
-            src_rses = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site', vo=flask.request.environ.get('vo'))
+            src_rses = get_rses_with_attribute_value(key='site', value=src_site, vo=flask.request.environ.get('vo'))
             if not src_rses:
                 return generate_http_error_flask(404, 'NotFound', f'Could not resolve site name {src_site} to RSE')
-            src_rses = [get_rse_name(rse['rse_id']) for rse in src_rses]
-            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site', vo=flask.request.environ.get('vo'))
+            src_rses = [rse['rse_name'] for rse in src_rses]
+            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, vo=flask.request.environ.get('vo'))
             if not dst_rses:
                 return generate_http_error_flask(404, 'NotFound', f'Could not resolve site name {dst_site} to RSE')
-            dst_rses = [get_rse_name(rse['rse_id']) for rse in dst_rses]
+            dst_rses = [rse['rse_name'] for rse in dst_rses]
         else:
             dst_rses = [dst_rse]
             src_rses = [src_rse]
@@ -799,14 +799,14 @@ class RequestHistoryList(ErrorHandlingMethodView):
         src_rses = []
         dst_rses = []
         if src_site:
-            src_rses = get_rses_with_attribute_value(key='site', value=src_site, lookup_key='site', vo=flask.request.environ.get('vo'))
+            src_rses = get_rses_with_attribute_value(key='site', value=src_site, vo=flask.request.environ.get('vo'))
             if not src_rses:
                 return generate_http_error_flask(404, 'NotFound', f'Could not resolve site name {src_site} to RSE')
-            src_rses = [get_rse_name(rse['rse_id']) for rse in src_rses]
-            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, lookup_key='site', vo=flask.request.environ.get('vo'))
+            src_rses = [rse['rse_name'] for rse in src_rses]
+            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, vo=flask.request.environ.get('vo'))
             if not dst_rses:
                 return generate_http_error_flask(404, 'NotFound', f'Could not resolve site name {dst_site} to RSE')
-            dst_rses = [get_rse_name(rse['rse_id']) for rse in dst_rses]
+            dst_rses = [rse['rse_name'] for rse in dst_rses]
         else:
             dst_rses = [dst_rse]
             src_rses = [src_rse]
