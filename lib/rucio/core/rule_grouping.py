@@ -1114,7 +1114,7 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
     else:
         lock.repair_cnt += 1
 
-    if get_rse(rse_id=lock.rse_id, session=session).staging_area:
+    if get_rse(rse_id=lock.rse_id, session=session)['staging_area']:
         copy_pin_lifetime = rule.expires_at - datetime.utcnow()
         copy_pin_lifetime = copy_pin_lifetime.seconds + copy_pin_lifetime.days * 24 * 3600
         transfers_to_create.append(create_transfer_dict(dest_rse_id=lock.rse_id,

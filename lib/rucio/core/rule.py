@@ -2362,7 +2362,7 @@ def examine_rule(rule_id, *, session: "Session"):
 
                     for replica in available_replicas:
                         sources.append((get_rse_name(rse_id=replica.rse_id, session=session),
-                                        True if get_rse(rse_id=replica.rse_id, session=session).availability_read else False))
+                                        True if get_rse(rse_id=replica.rse_id, session=session)['availability_read'] else False))
 
                 result['transfers'].append({'scope': lock.scope,
                                             'name': lock.name,
