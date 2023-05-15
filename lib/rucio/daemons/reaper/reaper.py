@@ -334,7 +334,9 @@ def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "Callable[...,
         return 1000000000000, False
 
     rse.ensure_loaded(load_limits=True, load_usage=True, load_attributes=True)
-    available_sources = [key['source'] for key in rse.usage]
+    available_sources = {}
+    available_sources['total'] = {key['source']: key['total'] for key in rse.usage}
+    available_sources['used'] = {key['source']: key['used'] for key in rse.usage}
 
     # Get RSE limits
     min_free_space = rse.limits.get('MinFreeSpace', 0)
@@ -342,12 +344,12 @@ def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "Callable[...,
     # Check from which sources to get used and total spaces (default storage)
     # If specified sources do not exist, only delete obsolete
     source_for_total_space = rse.attributes.get('source_for_total_space', 'storage')
-    if source_for_total_space not in available_sources:
+    if source_for_total_space not in available_sources['total']:
         logger(logging.WARNING, 'RSE: %s, \'%s\' requested for source_for_total_space but cannot be found. Will only delete obsolete',
                rse.name, source_for_total_space)
         return 0, True
     source_for_used_space = rse.attributes.get('source_for_used_space', 'storage')
-    if source_for_used_space not in available_sources:
+    if source_for_used_space not in available_sources['used']:
         logger(logging.WARNING, 'RSE: %s, \'%s\' requested for source_for_used_space but cannot be found. Will only delete obsolete',
                rse.name, source_for_used_space)
         return 0, True
@@ -356,8 +358,8 @@ def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "Callable[...,
            rse.name, source_for_total_space, source_for_used_space)
 
     # Get total and used space
-    total = [key['total'] for key in rse.usage if key['source'] == source_for_total_space][0]
-    used = [key['used'] for key in rse.usage if key['source'] == source_for_used_space][0]
+    total = available_sources['total'][source_for_total_space]
+    used = available_sources['used'][source_for_used_space]
 
     free = total - used
     if min_free_space:
