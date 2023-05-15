@@ -543,6 +543,7 @@ def __create_transfer_definitions(
         protocol_factory: ProtocolFactory,
         rws: RequestWithSources,
         sources: "List[RequestSource]",
+        max_sources: int,
         multi_source_sources: "List[RequestSource]",
         limit_dest_schemes: "List[str]",
         operation_src: str,
@@ -628,7 +629,7 @@ def __create_transfer_definitions(
             main_source_schemes = __add_compatible_schemes(schemes=[transfer_path[0].dst.scheme], allowed_schemes=SUPPORTED_PROTOCOLS)
             added_sources = 0
             for source in sorted(multi_source_sources, key=lambda s: (-s.ranking, s.distance)):
-                if added_sources >= 5:
+                if added_sources >= max_sources:
                     break
 
                 edge = topology.edge(source.rse, transfer_path[0].dst.rse)
@@ -772,6 +773,7 @@ def build_transfer_paths(
         admin_accounts: "Optional[Set[InternalAccount]]" = None,
         schemes: "Optional[List[str]]" = None,
         failover_schemes: "Optional[List[str]]" = None,
+        max_sources: int = 4,
         transfertools: "Optional[List[str]]" = None,
         requested_source_only: bool = False,
         preparer_mode: bool = False,
@@ -900,6 +902,7 @@ def build_transfer_paths(
             paths = __create_transfer_definitions(topology=topology,
                                                   rws=rws,
                                                   sources=candidate_sources,
+                                                  max_sources=max_sources,
                                                   multi_source_sources=[] if preparer_mode else filtered_sources,
                                                   limit_dest_schemes=[],
                                                   operation_src='third_party_copy_read',

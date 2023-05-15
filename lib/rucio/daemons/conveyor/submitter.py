@@ -52,7 +52,7 @@ TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
 
 
 def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availability, rse_ids,
-             scheme, failover_scheme, partition_hash_var, timeout, transfertool_kwargs,
+             scheme, failover_scheme, max_sources, partition_hash_var, timeout, transfertool_kwargs,
              heartbeat_handler, activity, request_type, metrics):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
@@ -95,9 +95,11 @@ def run_once(bulk, group_bulk, filter_transfertool, transfertools, ignore_availa
         admin_accounts=admin_accounts,
         failover_schemes=failover_scheme,
         schemes=scheme,
+        max_sources=max_sources,
         transfertools=transfertools,
         logger=logger,
     )
+
     stopwatch.stop()
     total_transfers = len(list(hop for paths in transfers.values() for path in paths for hop in path))
 
@@ -225,6 +227,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
             ignore_availability=ignore_availability,
             scheme=scheme,
             failover_scheme=failover_scheme,
+            max_sources=max_sources,
             partition_hash_var=partition_hash_var,
             rse_ids=rse_ids,
             timeout=timeout,

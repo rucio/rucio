@@ -107,8 +107,8 @@ Note that attempting the use the ``--vos`` argument when in single-VO mode will 
                         help='If True, will also try to submit transfers having blocklisted RSEs as sources')
     parser.add_argument('--sleep-time', action="store", default=600, type=int,
                         help='Seconds to sleep if few requests')
-    parser.add_argument('--max-sources', action="store", default=4, type=int,
-                        help='Maximum source replicas per FTS job')
+    parser.add_argument('--max-sources', action="store", default=5, type=int,
+                        help='Maximum source replicas per multi-source FTS job')
     parser.add_argument('--archive-timeout-override', action="store", default=None, type=int, metavar="INTEGER_SECONDS",
                         help='Override the archive_timeout parameter for any transfers with it set (0 to unset)')
     return parser

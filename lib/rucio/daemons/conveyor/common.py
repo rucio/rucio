@@ -51,7 +51,7 @@ METRICS = MetricManager(module=__name__)
 
 
 def pick_and_prepare_submission_path(requests_with_sources, topology, protocol_factory, default_tombstone_delay=transfer_core.DEFAULT_MULTIHOP_TOMBSTONE_DELAY,
-                                     admin_accounts=None, schemes=None, failover_schemes=None, transfertools=None, logger=logging.log):
+                                     admin_accounts=None, schemes=None, failover_schemes=None, max_sources=4, transfertools=None, logger=logging.log):
     """
     For each transfer, pick a (sub)path; and a transfertool to be used to submit that (sub)path
     """
@@ -63,6 +63,7 @@ def pick_and_prepare_submission_path(requests_with_sources, topology, protocol_f
         protocol_factory=protocol_factory,
         schemes=schemes,
         failover_schemes=failover_schemes,
+        max_sources=max_sources,
         admin_accounts=admin_accounts,
         transfertools=transfertools,
         logger=logger,
