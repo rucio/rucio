@@ -281,6 +281,25 @@ def test_ignore_availability(rse_factory, did_factory, root_account, core_config
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+def test_scheme_missmatch(rse_factory, did_factory, root_account):
+    """
+    Ensure that the requests are marked MISSMATCH_SCHEME when there is a path, but with wrong schemes.
+    """
+    src_rse, src_rse_id = rse_factory.make_posix_rse()
+    dst_rse, dst_rse_id = rse_factory.make_mock_rse()
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
+
+    did = did_factory.upload_test_file(src_rse)
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in (src_rse_id, dst_rse_id)], partition_wait_time=None, transfertools=['mock'], transfertype='single')
+
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.MISMATCH_SCHEME
+
+
+@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
 def test_globus(rse_factory, did_factory, root_account):
     """
     Test bulk submissions with globus transfertool.

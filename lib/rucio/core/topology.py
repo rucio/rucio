@@ -16,7 +16,7 @@
 import itertools
 import logging
 import weakref
-from typing import TYPE_CHECKING, Any, Callable, Generic, Iterable, Dict, List, Optional, Set, Type, TypeVar
+from typing import TYPE_CHECKING, cast, Any, Callable, Generic, Iterable, Iterator, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
 
 from dogpile.cache.api import NoValue
 from sqlalchemy import select, false
@@ -31,15 +31,29 @@ from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
-
 LoggerFunction = Callable[..., Any]
+_Number = Union[float, int]
 TN = TypeVar("TN", bound="Node")
 TE = TypeVar("TE", bound="Edge")
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from typing import Protocol
+
+    class _StateProvider(Protocol):
+        @property
+        def cost(self) -> _Number:
+            ...
+
+        @property
+        def enabled(self) -> bool:
+            ...
+
+
 REGION = make_region_memcached(expiration_time=600)
 DEFAULT_HOP_PENALTY = 10
+INF = float('inf')
 
 
 class Node(RseData):
@@ -51,15 +65,18 @@ class Node(RseData):
         self.in_edges_fully_loaded = False
         self.out_edges_fully_loaded = False
 
+        self.cost: _Number = 0
+        self.enabled: bool = True
         self.used_for_multihop = False
 
 
-class Edge:
-    def __init__(self, src_node: Node, dst_node: Node):
+class Edge(Generic[TN]):
+    def __init__(self, src_node: TN, dst_node: TN):
         self._src_node = weakref.ref(src_node)
         self._dst_node = weakref.ref(dst_node)
 
-        self.cost = 0
+        self.cost: _Number = 1
+        self.enabled: bool = True
 
         self.add_to_nodes()
 
@@ -72,7 +89,7 @@ class Edge:
         self.dst_node.in_edges.pop(self.src_node, None)
 
     @property
-    def src_node(self) -> Node:
+    def src_node(self) -> TN:
         node = self._src_node()
         if node is None:
             # This shouldn't happen if the Node list is correctly managed by the Topology object.
@@ -80,7 +97,7 @@ class Edge:
         return node
 
     @property
-    def dst_node(self) -> Node:
+    def dst_node(self) -> TN:
         node = self._dst_node()
         if node is None:
             # This shouldn't happen if the Node list is correctly managed by the Topology object.
@@ -175,91 +192,137 @@ class Topology(RseCollection, Generic[TN, TE]):
     ) -> Dict[TN, List[Dict[str, Any]]]:
         """
         Find the shortest paths from multiple sources towards dest_rse_id.
-        Does a Backwards Dijkstra's algorithm: start from destination and follow inbound links towards the sources.
-        If multihop is disabled, stop after analysing direct connections to dest_rse. Otherwise, stops when all
-        sources where found or the graph was traversed in integrality.
         """
 
         for rse in itertools.chain(src_nodes, [dst_node], self._multihop_nodes):
             rse.ensure_loaded(load_attributes=True, load_info=True, session=session)
+        self._load_inbound_edges(itertools.chain([dst_node], self._multihop_nodes), session=session)
 
-        # Filter out island source RSEs
-        self._load_outgoing_edges(src_nodes, session=session)
-        nodes_to_find = {node for node in src_nodes if node.out_edges}
+        if self._multihop_nodes:
+            # Filter out island source RSEs
+            self._load_outgoing_edges(src_nodes, session=session)
+            nodes_to_find = {node for node in src_nodes if node.out_edges}
+        else:
+            nodes_to_find = set(src_nodes)
 
-        next_hop: Dict[Node, Dict[str, Any]] = {dst_node: {'cumulated_distance': 0}}
-        priority_q = PriorityQueue()
+        class _NodeStateProvider:
+            _hop_penalty = self._hop_penalty
 
-        priority_q[dst_node] = 0
-        while priority_q:
-            current_node = priority_q.pop()
-
-            nodes_to_find.discard(current_node)
-            if not nodes_to_find:
-                # We found the shortest paths to all desired sources
-                break
-
-            current_distance = next_hop[current_node]['cumulated_distance']
-            if not current_node.in_edges_fully_loaded:
-                self._load_inbound_edges([current_node], session=session)
-            for adjacent_node, edge in current_node.in_edges.items():
-
-                if adjacent_node not in nodes_to_find and not adjacent_node.used_for_multihop:
-                    continue
-
-                hop_penalty = 0
-                if current_node != dst_node:
+            def __init__(self, node: TN):
+                self.enabled: bool = True
+                self.cost: _Number = 0
+                if node != dst_node:
                     try:
-                        hop_penalty = int(current_node.attributes.get('hop_penalty', self._hop_penalty))
+                        self.cost = int(node.attributes.get('hop_penalty', self._hop_penalty))
                     except ValueError:
-                        hop_penalty = self._hop_penalty
-                new_adjacent_distance = current_distance + edge.cost + hop_penalty
-                if next_hop.get(adjacent_node, {}).get('cumulated_distance', 9999) <= new_adjacent_distance:
-                    continue
+                        self.cost = self._hop_penalty
 
+        scheme_missmatch_found = {}
+
+        class _EdgeStateProvider:
+            def __init__(self, edge: TE):
+                self.edge = edge
+                self.chosen_scheme = {}
+
+            @property
+            def cost(self) -> _Number:
+                return self.edge.cost
+
+            @property
+            def enabled(self) -> bool:
                 try:
                     matching_scheme = rsemgr.find_matching_scheme(
-                        rse_settings_src=adjacent_node.info,
-                        rse_settings_dest=current_node.info,
+                        rse_settings_src=self.edge.src_node.info,
+                        rse_settings_dest=self.edge.dst_node.info,
                         operation_src=operation_src,
                         operation_dest=operation_dest,
                         domain=domain,
-                        scheme=limit_dest_schemes if adjacent_node == dst_node and limit_dest_schemes else None
+                        scheme=limit_dest_schemes if self.edge.dst_node == dst_node and limit_dest_schemes else None,
                     )
-                    next_hop[adjacent_node] = {
-                        'source_rse': adjacent_node,
-                        'dest_rse': current_node,
+                    self.chosen_scheme = {
                         'source_scheme': matching_scheme[1],
                         'dest_scheme': matching_scheme[0],
                         'source_scheme_priority': matching_scheme[3],
                         'dest_scheme_priority': matching_scheme[2],
-                        'hop_distance': edge.cost,
-                        'cumulated_distance': new_adjacent_distance,
                     }
-                    priority_q[adjacent_node] = new_adjacent_distance
+                    return True
                 except RSEProtocolNotSupported:
-                    if next_hop.get(adjacent_node) is None:
-                        next_hop[adjacent_node] = {}
+                    scheme_missmatch_found[self.edge.src_node] = True
+                    return False
 
-            if not self._multihop_nodes:
-                # Stop after the first iteration, which finds direct connections to destination
+        paths = {dst_node: []}
+        for node, distance, _, edge_to_next_hop, edge_state in self.dijkstra_spf(dst_node=dst_node,
+                                                                                 nodes_to_find=nodes_to_find,
+                                                                                 node_state_provider=_NodeStateProvider,
+                                                                                 edge_state_provider=_EdgeStateProvider):
+            nh_node = edge_to_next_hop.dst_node
+            edge_state = cast(_EdgeStateProvider, edge_state)
+            hop = {
+                'source_rse': node,
+                'dest_rse': nh_node,
+                'hop_distance': edge_state.cost,
+                'cumulated_distance': distance,
+                **edge_state.chosen_scheme,
+            }
+            paths[node] = [hop] + paths[nh_node]
+
+            nodes_to_find.discard(node)
+            if not nodes_to_find:
+                # We found the shortest paths to all desired nodes
                 break
 
-        paths = {}
+        result = {}
         for node in src_nodes:
-            hop = next_hop.get(node)
-            if hop is None:
-                continue
+            path = paths.get(node)
+            if path is not None:
+                result[node] = path
+            elif scheme_missmatch_found.get(node):
+                result[node] = []
+        return result
 
-            path = []
-            while hop.get('dest_rse'):
-                path.append(hop)
-                hop = next_hop[hop['dest_rse']]
-            paths[node] = path
-        return paths
+    def dijkstra_spf(
+            self,
+            dst_node: TN,
+            nodes_to_find: Optional[Set[TN]] = None,
+            node_state_provider: "Callable[[TN], _StateProvider]" = lambda x: x,
+            edge_state_provider: "Callable[[TE], _StateProvider]" = lambda x: x,
+    ) -> "Iterator[Tuple[TN, _Number, _StateProvider, TE, _StateProvider]]":
+        """
+        Does a Backwards Dijkstra's algorithm: start from destination and follow inbound links to other nodes.
+        If multihop is disabled, stop after analysing direct connections to dest_rse.
+        If the optional nodes_to_find parameter is set, will restrict search only towards these nodes.
+        Otherwise, traverse the graph in integrality.
+
+        Will yield nodes in order of their distance from the destination.
+        """
+
+        priority_q = PriorityQueue()
+        priority_q[dst_node] = 0
+        next_hops: Dict[TN, Tuple[_Number, _StateProvider, Optional[TE], Optional[_StateProvider]]] =\
+            {dst_node: (0, node_state_provider(dst_node), None, None)}
+        while priority_q:
+            node = priority_q.pop()
+            node_dist, node_state, edge_to_nh, edge_to_nh_state = next_hops[node]
+
+            if edge_to_nh is not None and edge_to_nh_state is not None:  # skip dst_node
+                yield node, node_dist, node_state, edge_to_nh, edge_to_nh_state
+
+            if self._multihop_nodes or edge_to_nh is None:
+                # If multihop is disabled, only examine neighbors of dst_node
+
+                for adjacent_node, edge in node.in_edges.items():
+
+                    if nodes_to_find is None or adjacent_node in nodes_to_find or adjacent_node.used_for_multihop:
+
+                        edge_state = edge_state_provider(edge)
+                        new_adjacent_dist = node_dist + node_state.cost + edge_state.cost
+                        if new_adjacent_dist < next_hops.get(adjacent_node, (INF, ))[0] and edge_state.enabled:
+                            adj_node_state = node_state_provider(adjacent_node)
+                            next_hops[adjacent_node] = new_adjacent_dist, adj_node_state, edge, edge_state
+                            priority_q[adjacent_node] = new_adjacent_dist
 
     @read_session
-    def _load_outgoing_edges(self, nodes: Iterable[Node], *, session: "Session"):
+    def _load_outgoing_edges(self, nodes: Iterable[TN], *, session: "Session"):
         """
         Loads the outgoing edges of the distance graph for given RSEs
         """
@@ -311,7 +374,7 @@ class Topology(RseCollection, Generic[TN, TE]):
             src_node.out_edges_fully_loaded = True
 
     @read_session
-    def _load_inbound_edges(self, nodes: Iterable[Node], *, session: "Session"):
+    def _load_inbound_edges(self, nodes: Iterable[TN], *, session: "Session"):
         """
         Loads the inbound edges of the distance graph for the given RSEs
         """
