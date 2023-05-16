@@ -18,11 +18,9 @@ import logging
 import weakref
 from typing import TYPE_CHECKING, cast, Any, Callable, Generic, Iterable, Iterator, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
 
-from dogpile.cache.api import NoValue
-from sqlalchemy import select, false
+from sqlalchemy import and_, select
 
 from rucio.common.utils import PriorityQueue
-from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get_int, config_get
 from rucio.common.exception import NoDistance, RSEProtocolNotSupported, InvalidRSEExpression
 from rucio.core.rse import RseCollection, RseData
@@ -51,7 +49,6 @@ if TYPE_CHECKING:
             ...
 
 
-REGION = make_region_memcached(expiration_time=600)
 DEFAULT_HOP_PENALTY = 10
 INF = float('inf')
 
@@ -62,8 +59,6 @@ class Node(RseData):
 
         self.in_edges = weakref.WeakKeyDictionary()
         self.out_edges = weakref.WeakKeyDictionary()
-        self.in_edges_fully_loaded = False
-        self.out_edges_fully_loaded = False
 
         self.cost: _Number = 0
         self.enabled: bool = True
@@ -127,9 +122,18 @@ class Topology(RseCollection, Generic[TN, TE]):
         super().__init__(rse_ids=rse_ids, rse_data_cls=node_cls)
         self._edge_cls = edge_cls
         self._edges = {}
+        self._edges_loaded = False
         self._multihop_nodes = set()
         self._hop_penalty = DEFAULT_HOP_PENALTY
         self.ignore_availability = ignore_availability
+
+    def get_or_create(self, rse_id: str) -> "TN":
+        rse_data = self.rse_id_to_data_map.get(rse_id)
+        if rse_data is None:
+            self.rse_id_to_data_map[rse_id] = rse_data = self._rse_data_cls(rse_id)
+            # A new node added. Edges which were already loaded are probably incomplete now.
+            self._edges_loaded = False
+        return rse_data
 
     def edge(self, src_node: TN, dst_node: TN) -> "Optional[TE]":
         return self._edges.get((src_node, dst_node))
@@ -179,6 +183,45 @@ class Topology(RseCollection, Generic[TN, TE]):
         return self
 
     @read_session
+    def ensure_edges_loaded(self, *, session: "Session"):
+        """
+        Ensure that all edges are loaded for the (sub-)set of nodes known by this topology object
+        """
+        if self._edges_loaded:
+            return
+
+        stmt = select(
+            models.Distance
+        ).where(
+            and_(
+                models.Distance.src_rse_id.in_(self.rse_id_to_data_map.keys()),
+                models.Distance.dest_rse_id.in_(self.rse_id_to_data_map.keys()),
+            )
+        )
+
+        loaded_edges = set()
+        for distance in session.execute(stmt).scalars():
+            if distance.distance is None:
+                continue
+
+            src_node = self[distance.src_rse_id]
+            dst_node = self[distance.dest_rse_id]
+            edge = self.get_or_create_edge(src_node, dst_node)
+
+            sanitized_dist = int(distance.distance) if distance.distance >= 0 else 0
+            edge.cost = sanitized_dist
+
+            loaded_edges.add((src_node, dst_node))
+
+        if len(loaded_edges) != len(self._edges):
+            # Remove edges which don't exist in the database anymore
+            to_remove = set(self._edges).difference(loaded_edges)
+            for src_node, dst_node in to_remove:
+                self.delete_edge(src_node, dst_node)
+
+        self._edges_loaded = True
+
+    @read_session
     def search_shortest_paths(
             self,
             src_nodes: List[TN],
@@ -196,11 +239,10 @@ class Topology(RseCollection, Generic[TN, TE]):
 
         for rse in itertools.chain(src_nodes, [dst_node], self._multihop_nodes):
             rse.ensure_loaded(load_attributes=True, load_info=True, session=session)
-        self._load_inbound_edges(itertools.chain([dst_node], self._multihop_nodes), session=session)
+        self.ensure_edges_loaded(session=session)
 
         if self._multihop_nodes:
             # Filter out island source RSEs
-            self._load_outgoing_edges(src_nodes, session=session)
             nodes_to_find = {node for node in src_nodes if node.out_edges}
         else:
             nodes_to_find = set(src_nodes)
@@ -320,108 +362,6 @@ class Topology(RseCollection, Generic[TN, TE]):
                             adj_node_state = node_state_provider(adjacent_node)
                             next_hops[adjacent_node] = new_adjacent_dist, adj_node_state, edge, edge_state
                             priority_q[adjacent_node] = new_adjacent_dist
-
-    @read_session
-    def _load_outgoing_edges(self, nodes: Iterable[TN], *, session: "Session"):
-        """
-        Loads the outgoing edges of the distance graph for given RSEs
-        """
-
-        distances = {}
-        cache_misses = []
-        for node in nodes:
-            cached_value = REGION.get('outgoing_edges_%s' % str(node.id))
-            if isinstance(cached_value, NoValue):
-                cache_misses.append(node.id)
-                distances[node.id] = {}
-            else:
-                distances[node.id] = cached_value
-
-        if cache_misses:
-            stmt = select(
-                models.Distance
-            ).join(
-                models.RSE,
-                models.RSE.id == models.Distance.dest_rse_id
-            ).where(
-                models.Distance.src_rse_id.in_(cache_misses),
-                models.RSE.deleted == false()
-            )
-            for distance in session.execute(stmt).scalars():
-                if distance.distance is None:
-                    continue
-                sanitized_dist = distance.distance if distance.distance >= 0 else 0
-                distances[distance.src_rse_id][distance.dest_rse_id] = sanitized_dist
-
-        for rse_id in cache_misses:
-            REGION.set('outgoing_edges_%s' % str(rse_id), distances[rse_id])
-
-        for src_rse_id, out_distances in distances.items():
-            src_node = self.get_or_create(src_rse_id)
-
-            for dst_rse_id, distance in out_distances.items():
-                dst_node = self.get_or_create(dst_rse_id)
-
-                edge = self.get_or_create_edge(src_node, dst_node)
-                edge.cost = distance
-
-            if len(out_distances) != len(src_node.out_edges):
-                # Remove edges which don't exist in the database anymore
-                to_remove = {node for node in src_node.out_edges if node.id not in out_distances}
-                for dst_node in to_remove:
-                    self.delete_edge(src_node, dst_node)
-
-            src_node.out_edges_fully_loaded = True
-
-    @read_session
-    def _load_inbound_edges(self, nodes: Iterable[TN], *, session: "Session"):
-        """
-        Loads the inbound edges of the distance graph for the given RSEs
-        """
-        distances = {}
-        cache_misses = []
-        for node in nodes:
-            cached_value = REGION.get('inbound_edges_%s' % str(node.id))
-            if isinstance(cached_value, NoValue):
-                cache_misses.append(node.id)
-                distances[node.id] = {}
-            else:
-                distances[node.id] = cached_value
-
-        if cache_misses:
-            stmt = select(
-                models.Distance
-            ).join(
-                models.RSE,
-                models.RSE.id == models.Distance.src_rse_id
-            ).where(
-                models.Distance.dest_rse_id.in_(cache_misses),
-                models.RSE.deleted == false()
-            )
-            for distance in session.execute(stmt).scalars():
-                if distance.distance is None:
-                    continue
-                sanitized_dist = distance.distance if distance.distance >= 0 else 0
-                distances[distance.dest_rse_id][distance.src_rse_id] = sanitized_dist
-
-        for rse_id in cache_misses:
-            REGION.set('inbound_edges_%s' % str(rse_id), distances[rse_id])
-
-        for dst_rse_id, in_distances in distances.items():
-            dst_node = self.get_or_create(dst_rse_id)
-
-            for src_rse_id, distance in in_distances.items():
-                src_node = self.get_or_create(src_rse_id)
-                edge = self.get_or_create_edge(src_node, dst_node)
-                edge.cost = distance
-
-            if len(in_distances) != len(dst_node.in_edges):
-                # Remove edges which don't exist in the database anymore
-                to_remove = {node for node in dst_node.in_edges if node.id not in in_distances}
-                for src_node in to_remove:
-                    self.delete_edge(src_node, dst_node)
-
-            dst_node.in_edges_fully_loaded = True
 
 
 @transactional_session

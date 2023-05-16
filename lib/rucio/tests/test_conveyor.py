@@ -1542,10 +1542,7 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
 @pytest.mark.parametrize("file_config_mock", [{
     "overrides": [('conveyor', 'use_preparer', 'true')]
 }], indirect=True)
-@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.topology.REGION',
-]}], indirect=True)
-def test_preparer_ignore_availability(rse_factory, did_factory, root_account, file_config_mock, caches_mock):
+def test_preparer_ignore_availability(rse_factory, did_factory, root_account, file_config_mock):
     """
     Integration test of the preparer/throttler workflow.
     """
