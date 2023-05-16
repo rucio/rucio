@@ -278,7 +278,6 @@ def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_f
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
-    'rucio.core.topology.REGION',
 ]}], indirect=True)
 def test_ignore_availability(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
 
