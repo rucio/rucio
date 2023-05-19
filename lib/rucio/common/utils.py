@@ -1841,7 +1841,8 @@ def check_policy_package_version(package):
         # package is not versioned
         return
     supported_version = module.SUPPORTED_VERSION if isinstance(module.SUPPORTED_VERSION, list) else [module.SUPPORTED_VERSION]
-    current_version = ".".join(version_string().split(".")[:2])
+    components = 2 if version_string().startswith("1.") else 1
+    current_version = ".".join(version_string().split(".")[:components])
     if current_version not in supported_version:
         raise PolicyPackageVersionError(package)
 
