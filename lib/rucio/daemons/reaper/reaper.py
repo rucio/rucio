@@ -19,7 +19,6 @@ Reaper is a daemon to manage file deletion.
 
 import functools
 import logging
-import os
 import random
 import threading
 import time
@@ -94,8 +93,7 @@ def get_rses_to_process(rses, include_rses, exclude_rses, vos):
             vos = [v['vo'] for v in list_vos()]
         logging.log(logging.INFO, 'Reaper: This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
 
-    pid = os.getpid()
-    cache_key = 'rses_to_process_%s' % pid
+    cache_key = 'rses_to_process_1%s2%s3%s' % (str(rses), str(include_rses), str(exclude_rses))
     if multi_vo:
         cache_key += '@%s' % '-'.join(vo for vo in vos)
 
