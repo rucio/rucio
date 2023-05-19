@@ -57,7 +57,7 @@ class UserPass(ErrorHandlingMethodView):
         headers['Access-Control-Allow-Headers'] = request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')
         headers['Access-Control-Allow-Methods'] = '*'
         headers['Access-Control-Allow-Credentials'] = 'true'
-        headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token, X-Rucio-Auth-Account, X-Rucio-Auth-Accounts'
+        headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token, X-Rucio-Auth-Token-Expires, X-Rucio-Auth-Account, X-Rucio-Auth-Accounts'
         return headers
 
     def options(self):
@@ -942,7 +942,7 @@ class x509(ErrorHandlingMethodView):
         headers['Access-Control-Allow-Headers'] = request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')
         headers['Access-Control-Allow-Methods'] = '*'
         headers['Access-Control-Allow-Credentials'] = 'true'
-        headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token, X-Rucio-Auth-Account, X-Rucio-Auth-Accounts'
+        headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token, X-Rucio-Auth-Token-Expires, X-Rucio-Auth-Account, X-Rucio-Auth-Accounts'
         return headers
 
     def options(self):
@@ -1018,6 +1018,10 @@ class x509(ErrorHandlingMethodView):
                 description: The time when the token expires
                 schema:
                   type: string
+              X-Rucio-Auth-Account:
+                description: The rucio account corresponding to the provided identity
+                schema:
+                  type: string
           206:
             description: Partial content containing X-Rucio-Auth-Accounts header
             headers:
@@ -1085,9 +1089,9 @@ class x509(ErrorHandlingMethodView):
                 exc_msg=f'Cannot authenticate to account {account} with given credentials',
                 headers=headers
             )
-
         headers['X-Rucio-Auth-Token'] = result['token']
         headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result['expires_at'])
+        headers['X-Rucio-Auth-Account'] = account
         return '', 200, headers
 
 
