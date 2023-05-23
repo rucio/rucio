@@ -162,3 +162,10 @@ services:
       - "127.0.0.1:2222:22"
     volumes:
       - ../../certs/ssh/ruciouser_sshkey.pub:/tmp/sshkey.pub:Z
+  web1:
+    image: docker.io/rucio/rucio-webdav-test
+    ports:
+      - "127.0.0.1:9002:443"
+    volumes:
+      - ../../certs/hostcert_web1.key.pem:/web1key.pem:Z
+      - ../../certs/hostcert_web1.pem:/web1cert.pem:Z

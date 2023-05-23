@@ -166,3 +166,10 @@ services:
     image: docker.io/grafana/grafana:latest
     ports:
       - "127.0.0.1:3000:3000"
+  web1:
+    image: docker.io/rucio/rucio-webdav-test
+    ports:
+      - "127.0.0.1:9002:443"
+    volumes:
+      - ../../certs/hostcert_web1.key.pem:/web1key.pem:Z
+      - ../../certs/hostcert_web1.pem:/web1cert.pem:Z
