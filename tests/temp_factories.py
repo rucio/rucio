@@ -107,6 +107,8 @@ class TemporaryRSEFactory:
                     }
                 }
             }
+            if scheme == 'srm':
+                protocol_parameters["extended_attributes"] = {"web_service_path": "/srm/managerv2?SFN=", "space_token": "RUCIODISK"}
             protocol_parameters.update(parameters or {})
             rse_core.add_protocol(rse_id=rse_id, parameter=protocol_parameters, session=session)
         self.created_rses.add(rse_id)
