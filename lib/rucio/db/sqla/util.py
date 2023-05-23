@@ -26,7 +26,7 @@ from dogpile.cache.api import NoValue
 from sqlalchemy import func, inspect, Column, PrimaryKeyConstraint
 from sqlalchemy.dialects.postgresql.base import PGInspector
 from sqlalchemy.exc import IntegrityError, DatabaseError
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.schema import CreateSchema, MetaData, Table, CreateTable, DropTable, ForeignKeyConstraint, DropConstraint
 from sqlalchemy.sql.ddl import DropSchema
 from sqlalchemy.sql.expression import select, text
