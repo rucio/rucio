@@ -26,9 +26,8 @@ from stomp import Connection
 import logging
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, List, Sequence, Tuple
-
-    LoggerFunction = Callable[..., Any]
+    from typing import List, Sequence, Tuple
+    from rucio.common.types import LoggerFunction
 
 
 def resolve_ips(fqdns: "Sequence[str]", logger: "LoggerFunction" = logging.log):

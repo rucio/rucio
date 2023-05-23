@@ -13,6 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any, Callable
+
+    LoggerFunction = Callable[..., Any]
+
+
 class InternalType(object):
     '''
     Base for Internal representations of string types
