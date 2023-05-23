@@ -25,8 +25,7 @@ from os.path import basename
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, TimeoutError
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session, Session
+from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session, Session
 from sqlalchemy.pool import QueuePool, SingletonThreadPool, NullPool
 
 from rucio.common.config import config_get
