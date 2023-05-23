@@ -803,11 +803,12 @@ def test_client_add_list_replicas(rse_factory, replica_client, mock_scope):
         assert rse2 in replicas[i]['rses']
 
 
-def test_client_add_replica_scope_not_found(replica_client):
+def test_client_add_replica_scope_not_found(rse_factory, replica_client):
     """ REPLICA (CLIENT): Add replica with missing scope """
+    rse, _ = rse_factory.make_mock_rse()
     files = [{'scope': 'nonexistingscope', 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb'}]
     with pytest.raises(ScopeNotFound):
-        replica_client.add_replicas(rse='MOCK', files=files)
+        replica_client.add_replicas(rse=rse, files=files)
 
 
 def test_client_access_denied_on_delete_replicas(rse_factory, mock_scope, replica_client):
@@ -1057,18 +1058,21 @@ class TestReplicaMetalink:
 
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_client_list_replicas_metalink_4(self, did_client, replica_client):
+    def test_client_list_replicas_metalink_4(self, rse_factory, did_client, replica_client):
         """ REPLICA (METALINK): List replicas as metalink version 4 """
         fname = did_name_generator('file')
 
-        rses = ['MOCK', 'MOCK3', 'MOCK4']
+        rses = []
+        for _ in range(3):
+            rse, _ = rse_factory.make_rse(scheme='https', protocol_impl='rucio.rse.protocols.gfal.Default')
+            rses.append(rse)
         dsn = did_name_generator('dataset')
         files = [{'scope': 'mock', 'name': fname, 'bytes': 1, 'adler32': '0cc737eb'}]
 
         did_client.add_dataset(scope='mock', name=dsn)
-        did_client.add_files_to_dataset('mock', name=dsn, files=files, rse='MOCK')
-        for r in rses:
-            replica_client.add_replicas(r, files)
+        did_client.add_files_to_dataset('mock', name=dsn, files=files, rse=rses[0])
+        for rse in rses:
+            replica_client.add_replicas(rse, files)
 
         ml = xmltodict.parse(replica_client.list_replicas(files,
                                                           metalink=4,

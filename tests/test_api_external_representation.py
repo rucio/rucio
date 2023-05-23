@@ -36,7 +36,6 @@ from rucio.api.subscription import add_subscription, list_subscriptions, list_su
 from rucio.common.config import config_get_bool
 from rucio.common.types import InternalScope
 from rucio.common.utils import api_update_return_dict, generate_uuid
-from rucio.core.rse import get_rse_id
 from rucio.core.vo import add_vo, vo_exists
 from rucio.daemons.abacus import rse as abacus_rse
 from rucio.daemons.judge import cleaner
@@ -93,34 +92,31 @@ class TestApiExternalRepresentation:
     @classmethod
     def setUpClass(cls):
         # Get test RSEs
-        cls.rse_name = 'MOCK'
-        cls.rse_id = get_rse_id(rse=cls.rse_name, vo=cls.vo)
-        cls.rse2_name = 'MOCK2'
-        cls.rse2_id = get_rse_id(rse=cls.rse2_name, vo=cls.vo)
-
         cls.rse3_name = rse_name_generator()
         cls.rse3_id = api_rse.add_rse(cls.rse3_name, 'root', vo=cls.vo2 if cls.vo2 else cls.vo)
         cls.rse4_name = rse_name_generator()
         cls.rse4_id = api_rse.add_rse(cls.rse4_name, 'root', vo=cls.vo2 if cls.vo2 else cls.vo)
         api_rse.add_distance(cls.rse3_name, cls.rse4_name, issuer='root', distance=3, vo=cls.vo2 or cls.vo)
 
-    def test_api_update_return_dict(self, account, account_name, scope_name, scope):
+    def test_api_update_return_dict(self, rse_factory, account, account_name, scope_name, scope):
         """ API: Test the conversion of dictionaries to external representation """
+        rse1, rse1_id = rse_factory.make_rse()
+        rse2, rse2_id = rse_factory.make_rse()
         test_dict = {'account': account,
                      'scope': scope,
-                     'rse_expression': 'MOCK|MOCK2',
-                     'rse_id': self.rse_id,
-                     'src_rse_id': self.rse_id,
-                     'source_rse_id': self.rse_id,
-                     'dest_rse_id': self.rse_id,
-                     'destination_rse_id': self.rse_id}
+                     'rse_expression': f'{rse1}|{rse2}',
+                     'rse_id': rse1_id,
+                     'src_rse_id': rse1_id,
+                     'source_rse_id': rse1_id,
+                     'dest_rse_id': rse1_id,
+                     'destination_rse_id': rse1_id}
         value = api_update_return_dict(test_dict)
-        expected = {'account': account_name, 'scope': scope_name, 'rse_expression': 'MOCK|MOCK2',
-                    'rse_id': self.rse_id, 'rse': self.rse_name,
-                    'src_rse_id': self.rse_id, 'src_rse': self.rse_name,
-                    'source_rse_id': self.rse_id, 'source_rse': self.rse_name,
-                    'dest_rse_id': self.rse_id, 'dest_rse': self.rse_name,
-                    'destination_rse_id': self.rse_id, 'destination_rse': self.rse_name}
+        expected = {'account': account_name, 'scope': scope_name, 'rse_expression': f'{rse1}|{rse2}',
+                    'rse_id': rse1_id, 'rse': rse1,
+                    'src_rse_id': rse1_id, 'src_rse': rse1,
+                    'source_rse_id': rse1_id, 'source_rse': rse1,
+                    'dest_rse_id': rse1_id, 'dest_rse': rse1,
+                    'destination_rse_id': rse1_id, 'destination_rse': rse1}
         assert value == expected
 
     def test_api_account(self, vo, vo2, account, account_name):
@@ -134,20 +130,22 @@ class TestApiExternalRepresentation:
             assert account.internal not in out
         assert '@' not in ' '.join(out)
 
-    def test_api_account_limit(self, vo, vo2, account_name):
+    def test_api_account_limit(self, rse_factory, vo, vo2, account_name):
         """ ACCOUNT_LIMIT (API): Test external representation of account limits """
         # Add mock account limits
-        rse_expr = '{}|{}'.format(self.rse_name, self.rse2_name)
-        api_acc_lim.set_local_account_limit(account_name, self.rse_name, 10000, issuer='root', vo=vo)
+        rse1, rse1_id = rse_factory.make_rse()
+        rse2, rse2_id = rse_factory.make_rse()
+        rse_expr = f'{rse1}|{rse2}'
+        api_acc_lim.set_local_account_limit(account_name, rse1, 10000, issuer='root', vo=vo)
         api_acc_lim.set_global_account_limit(account_name, rse_expr, 20000, issuer='root', vo=vo)
 
         out = api_acc_lim.get_local_account_limits(account_name, vo=vo)
-        assert self.rse_name in out
-        assert self.rse_id not in out
+        assert rse1 in out
+        assert rse1_id not in out
 
-        out = api_acc_lim.get_local_account_limit(account_name, self.rse_name, vo=vo)
-        assert self.rse_name in out
-        assert self.rse_id not in out
+        out = api_acc_lim.get_local_account_limit(account_name, rse1, vo=vo)
+        assert rse1 in out
+        assert rse1_id not in out
 
         out = api_acc_lim.get_global_account_limits(account_name, vo=vo)
         assert rse_expr in out
@@ -159,15 +157,15 @@ class TestApiExternalRepresentation:
         if vo2:
             assert 'vo={}&({})'.format(vo, rse_expr) not in out
 
-        out = api_acc_lim.get_local_account_usage(account_name, self.rse_name, issuer='root', vo=vo)
+        out = api_acc_lim.get_local_account_usage(account_name, rse1, issuer='root', vo=vo)
         out = list(out)
         assert 0 != len(out)
-        assert self.rse_id in [usage['rse_id'] for usage in out if 'rse_id' in usage]
+        assert rse1_id in [usage['rse_id'] for usage in out if 'rse_id' in usage]
         for usage in out:
             if 'rse_id' in usage:
                 assert 'rse' in usage
-                if usage['rse_id'] == self.rse_id:
-                    assert self.rse_name == usage["rse"]
+                if usage['rse_id'] == rse1_id:
+                    assert rse1 == usage["rse"]
 
         out = api_acc_lim.get_global_account_usage(account_name, rse_expr, issuer='root', vo=vo)
         out = list(out)
@@ -205,9 +203,11 @@ class TestApiExternalRepresentation:
         for user in out:
             assert user['user'] == account_name
 
-    def test_api_exporter(self, vo, vo2):
+    def test_api_exporter(self, vo, rse_factory, vo2):
         """ EXPORTER (API): Test external representation of exported data """
 
+        rse1, rse1_id = rse_factory.make_rse()
+        rse2, rse2_id = rse_factory.make_rse()
         out = export_data('root', vo=vo2 if vo2 else vo)
         rses = out['rses']
         assert self.rse3_name in rses
@@ -221,15 +221,15 @@ class TestApiExternalRepresentation:
 
         # check for interference from other VOs
         if vo2:
-            assert self.rse_name not in rses
-            assert self.rse_id not in rses
-            assert self.rse2_name not in rses
-            assert self.rse2_id not in rses
+            assert rse1 not in rses
+            assert rse1_id not in rses
+            assert rse2 not in rses
+            assert rse2_id not in rses
 
-            assert self.rse_name not in distances
-            assert self.rse_id not in distances
-            assert self.rse2_name not in distances
-            assert self.rse2_id not in distances
+            assert rse1 not in distances
+            assert rse1_id not in distances
+            assert rse2 not in distances
+            assert rse2_id not in distances
 
     def test_api_identity(self, vo, vo2, account, account_name):
         """ IDENTITY (API): Test external representation of identity accounts """
@@ -243,20 +243,26 @@ class TestApiExternalRepresentation:
         if vo2:
             assert account.internal not in out
 
-    def test_api_replica(self, vo, vo2, account_name, scope_name, scope):
+    def test_api_replica(self, vo, rse_factory, vo2, account_name, scope_name, scope):
         """ REPLICA (API): Test external representation of replicas """
 
         did = did_name_generator('file')
         did_parent = did_name_generator('dataset')
-        pfn = 'srm://mock2.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/%s/%s' % (scope_name, generate_uuid())
-        add_replicas(self.rse2_name, files=[{'scope': scope_name, 'name': did, 'bytes': 100, 'pfn': pfn}], issuer='root', vo=vo)
+        rse2, rse2_id = rse_factory.make_rse(scheme='srm', protocol_impl='rucio.rse.protocols.gfal.Default', deterministic=False)
+        protocols = api_rse.get_rse_protocols(rse2, issuer='root', vo=vo)
+        pfn = 'srm://%s:%s/srm/managerv2?SFN=%s%s/%s' % (protocols['protocols'][0]['hostname'],
+                                                         protocols['protocols'][0]['port'],
+                                                         protocols['protocols'][0]['prefix'],
+                                                         scope_name,
+                                                         generate_uuid())
+        add_replicas(rse2, files=[{'scope': scope_name, 'name': did, 'bytes': 100, 'pfn': pfn}], issuer='root', vo=vo)
 
         add_did(scope_name, did_parent, 'dataset', issuer='root', account=account_name, vo=vo)
         attachment = {'scope': scope_name, 'name': did_parent,
                       'dids': [{'scope': scope_name, 'name': did}]}
         attach_dids_to_dids([attachment], issuer='root', vo=vo)
 
-        out = get_did_from_pfns([pfn], self.rse2_name, vo=vo)
+        out = get_did_from_pfns([pfn], rse2, vo=vo)
         out = list(out)
         assert 0 != len(out)
         did_found = False
@@ -281,15 +287,17 @@ class TestApiExternalRepresentation:
                         assert scope.internal not in parent
         assert parents_found
 
-    def test_api_request(self, vo, account_name, scope_name):
+    def test_api_request(self, vo, rse_factory, account_name, scope_name):
         """ REQUEST (API): Test external representation of requests """
 
+        rse1, rse1_id = rse_factory.make_rse()
+        rse2, rse2_id = rse_factory.make_rse()
         did = did_name_generator('dataset')
-        add_did(scope_name, did, 'dataset', issuer='root', account=account_name, rse=self.rse_name, vo=vo)
+        add_did(scope_name, did, 'dataset', issuer='root', account=account_name, rse=rse1, vo=vo)
 
         requests = [{
-            'dest_rse_id': self.rse2_id,
-            'source_rse_id': self.rse_id,
+            'dest_rse_id': rse2_id,
+            'source_rse_id': rse1_id,
             'request_type': constants.RequestType.TRANSFER,
             'request_id': generate_uuid(),
             'name': did,
@@ -312,16 +320,16 @@ class TestApiExternalRepresentation:
         for r in reqs:
             assert r['scope'] == scope_name
             assert r['account'] == account_name
-            assert r['source_rse'] == self.rse_name
-            assert r['dest_rse'] == self.rse2_name
+            assert r['source_rse'] == rse1
+            assert r['dest_rse'] == rse2
 
-        out = get_request_by_did(scope_name, did, self.rse2_name, issuer='root', vo=vo)
+        out = get_request_by_did(scope_name, did, rse2, issuer='root', vo=vo)
         assert out['scope'] == scope_name
         assert out['account'] == account_name
-        assert out['dest_rse'] == self.rse2_name
-        assert out['source_rse'] == self.rse_name
+        assert out['dest_rse'] == rse2
+        assert out['source_rse'] == rse1
 
-        out = list_requests([self.rse_name], [self.rse2_name], [constants.RequestState.QUEUED], issuer='root', vo=vo)
+        out = list_requests([rse1], [rse2], [constants.RequestState.QUEUED], issuer='root', vo=vo)
         out = list(out)
         assert 0 != len(out)
         assert scope_name in [req['scope'] for req in out]
@@ -329,16 +337,18 @@ class TestApiExternalRepresentation:
             if req['scope'] == scope_name:
                 assert req['scope'] == scope_name
                 assert req['account'] == account_name
-                assert req['dest_rse'] == self.rse2_name
-                assert req['source_rse'] == self.rse_name
+                assert req['dest_rse'] == rse2
+                assert req['source_rse'] == rse1
 
     @pytest.mark.noparallel(reason='runs the reaper on a pre-defined rse, might interfere with other tests')
-    def test_api_rse(self, vo, vo2, account, account_name, scope_name):
+    def test_api_rse(self, vo, rse_factory, vo2, account, account_name, scope_name):
         """ RSE (API): Test external representation of RSEs """
 
-        out = api_rse.get_rse(self.rse_name, vo=vo)
-        assert out['rse'] == self.rse_name
-        assert out['id'] == self.rse_id
+        rse1, rse1_id = rse_factory.make_rse()
+        rse2, rse2_id = rse_factory.make_rse()
+        out = api_rse.get_rse(rse1, vo=vo)
+        assert out['rse'] == rse1
+        assert out['id'] == rse1_id
 
         out = api_rse.list_rses(vo=vo2 if vo2 else vo)
         out = list(out)
@@ -354,18 +364,18 @@ class TestApiExternalRepresentation:
                 assert rse['rse'] == self.rse4_name
 
         key = "KEY_" + generate_uuid()
-        api_rse.add_rse_attribute(self.rse_name, key, 1, issuer='root', vo=vo)
+        api_rse.add_rse_attribute(rse1, key, 1, issuer='root', vo=vo)
         out = api_rse.get_rses_with_attribute(key)
         out = list(out)
         assert 0 != len(out)
         for rse in out:
-            assert rse['rse'] == self.rse_name
+            assert rse['rse'] == rse1
 
-        out = api_rse.get_rse_protocols(self.rse_name, issuer='root', vo=vo)
-        assert out['rse'] == self.rse_name
+        out = api_rse.get_rse_protocols(rse1, issuer='root', vo=vo)
+        assert out['rse'] == rse1
 
         # add some account and RSE counters
-        rse_mock, rse_mock_id = self.rse_factory.make_mock_rse()
+        rse_mock, rse_mock_id = rse_factory.make_mock_rse()
         account_counter.del_counter(rse_id=rse_mock_id, account=account)
         account_counter.add_counter(rse_id=rse_mock_id, account=account)
         account_counter.increase(rse_id=rse_mock_id, account=account, files=1, bytes_=10)
@@ -393,11 +403,11 @@ class TestApiExternalRepresentation:
             reaper.run(once=True, include_rses=rse_mock, greedy=True)
         abacus_rse.run(once=True)
 
-        out = api_rse.parse_rse_expression('%s|%s' % (self.rse_name, self.rse2_name), vo=vo)
-        assert self.rse_name in out
-        assert self.rse2_name in out
-        assert self.rse_id not in out
-        assert self.rse2_id not in out
+        out = api_rse.parse_rse_expression(f'{rse1}|{rse2}', vo=vo)
+        assert rse1 in out
+        assert rse2 in out
+        assert rse1_id not in out
+        assert rse2_id not in out
 
     def test_api_scope(self, vo, vo2, account_name, scope_name, scope):
         """ SCOPE (API): Test external representation of scopes """
