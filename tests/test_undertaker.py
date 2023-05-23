@@ -23,7 +23,7 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_dids, attach_dids, list_expired_dids, get_did, set_metadata
 from rucio.core.replica import add_replicas, get_replica
-from rucio.core.rse import get_rse_id, add_rse
+from rucio.core.rse import add_rse
 from rucio.core.rule import add_rules, list_rules
 from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.daemons.undertaker.undertaker import undertaker
@@ -37,14 +37,13 @@ LOG = getLogger(__name__)
 @pytest.mark.noparallel(reason='uses pre-defined rses; runs undertaker, which impacts other tests')
 class TestUndertaker:
 
-    def test_undertaker(self, vo, mock_scope, root_account):
+    def test_undertaker(self, vo, rse_factory, mock_scope, root_account):
         """ UNDERTAKER (CORE): Test the undertaker. """
         jdoe = InternalAccount('jdoe', vo=vo)
 
         nbdatasets = 5
         nbfiles = 5
-        rse = 'MOCK'
-        rse_id = get_rse_id('MOCK', vo=vo)
+        rse, rse_id = rse_factory.make_rse()
 
         set_local_account_limit(jdoe, rse_id, -1)
 
@@ -84,19 +83,20 @@ class TestUndertaker:
         for replica in replicas:
             assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse_id)['tombstone'] is not None
 
-    def test_list_expired_dids_with_locked_rules(self, vo, mock_scope, root_account):
+    def test_list_expired_dids_with_locked_rules(self, rse_factory, vo, mock_scope, root_account):
         """ UNDERTAKER (CORE): Test that the undertaker does not list expired dids with locked rules"""
         jdoe = InternalAccount('jdoe', vo=vo)
 
         # Add quota
-        set_local_account_limit(jdoe, get_rse_id('MOCK', vo=vo), -1)
+        rse, rse_id = rse_factory.make_rse()
+        set_local_account_limit(jdoe, rse_id, -1)
 
         dsn = {'name': did_name_generator('dataset'),
                'scope': mock_scope,
                'type': 'DATASET',
                'lifetime': -1,
                'rules': [{'account': jdoe, 'copies': 1,
-                          'rse_expression': 'MOCK', 'locked': True,
+                          'rse_expression': rse, 'locked': True,
                           'grouping': 'DATASET'}]}
 
         add_dids(dids=[dsn], account=root_account)
@@ -184,7 +184,7 @@ def test_removal_all_replicas2(rse_factory, root_account, mock_scope, core_confi
     add_rules(dids=dsns1, rules=[{'account': root_account, 'copies': 1, 'rse_expression': rse1, 'grouping': 'DATASET'}])
     add_rules(dids=dsns1, rules=[{'account': root_account, 'copies': 1, 'rse_expression': rse2, 'grouping': 'DATASET', 'lifetime': -86400}])
 
-    # Clean the rules on MOCK2. Replicas are tombstoned with non Epoch
+    # Clean the rules on rse2. Replicas are tombstoned with non Epoch
     rule_cleaner(once=True)
     for replica in replicas:
         assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse2_id)['tombstone'] is not None

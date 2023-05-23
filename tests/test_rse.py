@@ -301,12 +301,11 @@ def test_create_rse_success(vo, rest_client, auth_token):
     assert response.status_code == 409
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-def xtest_tag_rses(rest_client, auth_token):
+def xtest_tag_rses(rse_factory, rest_client, auth_token):
     """ RSE (REST): send a POST to tag a RSE """
     headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
-    data = {'rse': 'MOCK'}
+    rse, _ = rse_factory.make_rse()
+    data = {'rse': rse}
     response = rest_client.post('/rses/', headers=headers(auth(auth_token), hdrdict(headers_dict)), json=data)
     assert response.status_code == 201
 
@@ -315,11 +314,10 @@ def xtest_tag_rses(rest_client, auth_token):
     assert response.status_code == 201
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-def xtest_list_rse_tags(rest_client, auth_token):
+def xtest_list_rse_tags(rse_factory, rest_client, auth_token):
     """ RSE (REST): Test the listing of RSE tags """
     headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
+    rse, _ = rse_factory.make_rse()
     data = {'rse': 'MOCK'}
     response = rest_client.post('/rses/', headers=headers(auth(auth_token), hdrdict(headers_dict)), json=data)
     assert response.status_code == 201
@@ -332,12 +330,11 @@ def xtest_list_rse_tags(rest_client, auth_token):
     assert response.status_code == 200
 
 
-@pytest.mark.dirty
-@pytest.mark.noparallel(reason='uses pre-defined RSE')
-def test_get_rse_account_usage(rest_client, auth_token):
+def test_get_rse_account_usage(rse_factory, rest_client, auth_token):
     """ RSE (REST): Test of RSE account usage and limit """
     headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
-    response = rest_client.get('/rses/MOCK/accounts/usage', headers=headers(auth(auth_token), hdrdict(headers_dict)))
+    rse, _ = rse_factory.make_rse()
+    response = rest_client.get(f'/rses/{rse}/accounts/usage', headers=headers(auth(auth_token), hdrdict(headers_dict)))
     assert response.status_code == 200
 
 
@@ -1406,11 +1403,11 @@ class TestRSEClient:
             assert usage['files'] == 50
             break
 
-    @pytest.mark.noparallel(reason='uses pre-defined RSE')
-    def test_set_rse_limits(self, rucio_client):
+    def test_set_rse_limits(self, rse_factory, rucio_client):
         """ RSE (CLIENTS): Test the update of RSE limits."""
-        assert rucio_client.set_rse_limits(rse='MOCK', name='MinFreeSpace', value=1000000)
-        limits = rucio_client.get_rse_limits(rse='MOCK')
+        rse, _ = rse_factory.make_posix_rse()
+        assert rucio_client.set_rse_limits(rse=rse, name='MinFreeSpace', value=1000000)
+        limits = rucio_client.get_rse_limits(rse=rse)
         assert limits['MinFreeSpace'] == 1000000
 
     def test_rsemgr_possible_protocols(self):
