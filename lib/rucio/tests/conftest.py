@@ -27,6 +27,21 @@ _del_test_prefix = functools.partial(re.compile(r'^[Tt][Ee][Ss][Tt]_?').sub, '')
 # local imports in the fixtures to make this file loadable in e.g. client tests
 
 
+def pytest_make_parametrize_id(config, val, argname):
+    if argname == 'file_config_mock':
+        cfg = {}
+        for section, option, value in val['overrides']:
+            cfg.setdefault(section, {})[option] = value
+        return argname + str(cfg)
+    if argname == 'core_config_mock':
+        cfg = {}
+        for section, option, value in val['table_content']:
+            cfg.setdefault(section, {})[option] = value
+        return argname + str(cfg)
+    # return None to let pytest handle the formatting
+    return None
+
+
 @pytest.fixture(scope='session')
 def session_scope_prefix():
     """
