@@ -85,10 +85,10 @@ class DIDClient(BaseClient):
 
         :param scope: The scope name.
         :param name: The data identifier name.
-        :paran type: The data identifier type (file|dataset|container).
+        :param type: The data identifier type (file|dataset|container).
         :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
-        :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
-        :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+        :param meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
+        :param rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
         :param lifetime: DID's lifetime (in seconds).
         :param dids: The content.
         :param rse: The RSE name when registering replicas.
@@ -136,8 +136,8 @@ class DIDClient(BaseClient):
         :param scope: The scope name.
         :param name: The data identifier name.
         :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
-        :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
-        :rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+        :param meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
+        :param rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
         :param lifetime: DID's lifetime (in seconds).
         :param files: The content.
         :param rse: The RSE name when registering replicas.
@@ -222,7 +222,7 @@ class DIDClient(BaseClient):
             attachments is: [attachment, attachment, ...]
             attachment is: {'scope': scope, 'name': name, 'dids': dids}
             dids is: [{'scope': scope, 'name': name}, ...]
-            :param ignore_duplicate: If True, ignore duplicate entries.
+        :param ignore_duplicate: If True, ignore duplicate entries.
         """
         path = '/'.join([self.DIDS_BASEURL, 'attachments'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -306,7 +306,7 @@ class DIDClient(BaseClient):
 
         :param scope: The scope name.
         :param name: The dataset name.
-        :param dsns: The content.
+        :param cnts: The content.
         """
         return self.attach_dids(scope=scope, name=name, dids=cnts)
 
