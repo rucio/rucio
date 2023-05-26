@@ -96,6 +96,7 @@ FROM python as rucio-runtime
     COPY bin bin
     COPY lib lib
     COPY etc etc
+    COPY tests tests
     COPY .flake8 .pep8 .pycodestyle pylintrc setup.py setup_rucio.py setup_rucio_client.py setup_webui.py requirements.txt setuputil.py ./
     
     RUN dnf install -y epel-release.noarch && \
@@ -164,7 +165,7 @@ FROM rucio-runtime as final
     COPY --from=mod_wsgi /etc/httpd/conf.modules.d/05-wsgi-python.conf  /etc/httpd/conf.modules.d/05-wsgi-python.conf 
 
     WORKDIR /opt/rucio
-    RUN cp -r /usr/local/src/rucio/{lib,bin,tools,etc} ./
+    RUN cp -r /usr/local/src/rucio/{lib,bin,tools,etc,tests} ./
 
     RUN ldconfig
    

@@ -17,18 +17,17 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-RUCIO_LIB="$(dirname "$0")/../lib"
-cd "$RUCIO_LIB/rucio/tests"
+RUCIO_DIR="$(dirname "$0")/../"
+cd "$RUCIO_DIR"
 if [[ ${#@} -eq 0 ]]; then
   # no extra arguments
-  echo "Running pytest in lib/rucio/tests"
+  echo "Running pytest in tests"
   ARGS=(".")
 else
   echo "Running pytest with extra arguments: $@"
   ARGS=($@)
 fi
 
-export PYTHONPATH="$RUCIO_LIB"
 export PYTEST_DISABLE_PLUGIN_AUTOLOAD="True"
 
 NO_XDIST="${NO_XDIST:-False}"
@@ -52,7 +51,7 @@ if [[ "$NO_XDIST" == "False" ]]; then
   NO_XDIST="$(python -c 'import xdist; print(False)' ||:)"
 fi
 
-XDIST_ARGS=("-p" "ruciopytest.plugin")
+XDIST_ARGS=("-p" "tests.ruciopytest.plugin")
 if [[ "$NO_XDIST" == "False" ]]; then
   if [[ "${GITHUB_ACTIONS:-false}" == "true" ]]; then
     # run on 3 processes instead of 2 on GitHub Actions
@@ -60,7 +59,7 @@ if [[ "$NO_XDIST" == "False" ]]; then
   else
     PROCESS_COUNT="auto"
   fi
-  XDIST_ARGS=("-p" "xdist" "-p" "ruciopytest.plugin" "--dist=rucio" "--numprocesses=$PROCESS_COUNT")
+  XDIST_ARGS=("-p" "xdist" "-p" "tests.ruciopytest.plugin" "--dist=rucio" "--numprocesses=$PROCESS_COUNT")
   echo "Running pytest with pytest-xdist: ${XDIST_ARGS[@]}"
 fi
 

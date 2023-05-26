@@ -25,7 +25,7 @@ def pytest_configure(config):
         'noparallel(reason): marks test being unable to run in parallel to other tests, i.e. changing global state',
     )
     if config.pluginmanager.hasplugin('xdist'):
-        from rucio.tests.ruciopytest.rucioxdist import NoParallelXDist
+        from .rucioxdist import NoParallelXDist
 
         config.pluginmanager.register(NoParallelXDist(config))
 

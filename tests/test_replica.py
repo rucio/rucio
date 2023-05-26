@@ -49,7 +49,7 @@ from rucio.tests.common import execute, headers, auth, Mime, accept, did_name_ge
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from rucio.tests.temp_factories import TemporaryRSEFactory
+    from .temp_factories import TemporaryRSEFactory
 
 
 def mocked_VP_requests_get(*args, **kwargs):

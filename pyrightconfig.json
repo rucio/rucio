@@ -3,8 +3,7 @@
         "lib"
     ],
     "exclude": [
-        "lib/rucio/db",
-        "lib/rucio/tests",
+        "lib/rucio/db"
     ],
     "pythonVersion": "3.10",
     "typeCheckingMode": "basic",

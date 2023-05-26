@@ -30,7 +30,7 @@ from rucio.core import rse_expression_parser, replica_sorter
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, del_rse, add_rse_attribute, add_protocol, del_rse_attribute
 from rucio.tests.common import rse_name_generator, headers, auth, vohdr, Mime, accept
-from rucio.tests.inputs import GEOIP_LITE2_CITY_TEST_DB
+from .inputs import GEOIP_LITE2_CITY_TEST_DB
 
 LOCATION_TO_IP = {
     'Switzerland': '2a02:d000::1',

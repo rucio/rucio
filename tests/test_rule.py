@@ -54,7 +54,7 @@ from rucio.tests.common_server import get_vo
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Tuple
-    from rucio.tests.temp_factories import TemporaryDidFactory, TemporaryRSEFactory
+    from .temp_factories import TemporaryDidFactory, TemporaryRSEFactory
 
 LOG = getLogger(__name__)
 RSE_namedtuple = namedtuple('RSE_namedtuple', ['name', 'id'])

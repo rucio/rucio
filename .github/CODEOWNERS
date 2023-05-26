@@ -102,8 +102,8 @@
 # Testing
 /.github/                               @maany
 /etc/docker/test/                       @maany
-/lib/rucio/tests/conftest.py            @maany
-/lib/rucio/tests/ruciopytest/           @maany
+/tests/conftest.py                      @maany
+/tests/ruciopytest/                     @maany
 /tools/github/                          @maany
 /tools/test/                            @maany
 

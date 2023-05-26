@@ -32,11 +32,11 @@ from rucio.db.sqla.models import UpdatedDID
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import RSE_namedtuple
 from rucio.tests.common_server import get_vo
-from rucio.tests.test_rule import create_files, tag_generator
+from .test_rule import create_files, tag_generator
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from rucio.tests.temp_factories import TemporaryDidFactory, TemporaryRSEFactory
+    from .temp_factories import TemporaryDidFactory, TemporaryRSEFactory
 
 
 @pytest.fixture(scope="class")
