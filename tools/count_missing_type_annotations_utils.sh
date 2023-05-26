@@ -48,7 +48,7 @@ create_missing_python_type_annotations_report() {
 
     flake8 lib/rucio \
         --ignore=ANN101 \
-        --exclude tools,lib/rucio/tests,lib/rucio/db,lib/rucio/client,lib/rucio/common,lib/rucio/rse,bin \
+        --exclude tools,lib/rucio/db,lib/rucio/client,lib/rucio/common,lib/rucio/rse,bin \
         --output-file $1 \
         --select ANN || true
 }

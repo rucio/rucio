@@ -75,7 +75,7 @@ class TestBinRucio:
         self.account_client = AccountLimitClient()
         rse_factory = None
         if environ.get('SUITE', 'remote_dbs') != 'client':
-            from rucio.tests.temp_factories import TemporaryRSEFactory
+            from .temp_factories import TemporaryRSEFactory
 
             rse_factory = TemporaryRSEFactory(vo=vo, name_prefix=function_scope_prefix)
             self.def_rse, self.def_rse_id = rse_factory.make_posix_rse()

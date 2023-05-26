@@ -41,7 +41,7 @@ from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType, DIDType
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import rse_name_generator, hdrdict, auth, headers, did_name_generator
-from rucio.tests.test_rule import create_files
+from .test_rule import create_files
 
 
 class TestRSECoreApi:

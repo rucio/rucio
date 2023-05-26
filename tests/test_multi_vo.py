@@ -57,8 +57,8 @@ from rucio.core.vo import map_vo
 from rucio.daemons.automatix.automatix import automatix
 from rucio.db.sqla import models, session as db_session
 from rucio.tests.common import execute, headers, hdrdict, vohdr, auth, loginhdr, get_long_vo
-from rucio.tests.test_authentication import PRIVATE_KEY, PUBLIC_KEY
-from rucio.tests.test_oidc import get_mock_oidc_client, NEW_TOKEN_DICT
+from .test_authentication import PRIVATE_KEY, PUBLIC_KEY
+from .test_oidc import get_mock_oidc_client, NEW_TOKEN_DICT
 
 LOG = getLogger(__name__)
 

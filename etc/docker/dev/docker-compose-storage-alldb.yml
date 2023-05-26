@@ -15,6 +15,7 @@ services:
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
+      - ../../../tests:/opt/rucio/tests:Z
     environment:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
@@ -35,6 +36,7 @@ services:
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
+      - ../../../tests:/opt/rucio/tests:Z
     environment:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem

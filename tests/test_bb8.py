@@ -32,7 +32,7 @@ from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.undertaker import undertaker
 from rucio.db.sqla.constants import RuleState
-from rucio.tests.test_rule import create_files, tag_generator
+from .test_rule import create_files, tag_generator
 
 
 @pytest.mark.noparallel(reason='uses daemons')

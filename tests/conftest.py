@@ -267,7 +267,7 @@ def containerized_rses(rucio_client):
 
 @pytest.fixture
 def rse_factory(request, vo, function_scope_prefix):
-    from rucio.tests.temp_factories import TemporaryRSEFactory
+    from .temp_factories import TemporaryRSEFactory
 
     session = None
     if 'db_session' in request.fixturenames:
@@ -282,7 +282,7 @@ def rse_factory_unittest(request, vo, class_scope_prefix):
     """
     unittest classes can get access to rse_factory fixture via this fixture
     """
-    from rucio.tests.temp_factories import TemporaryRSEFactory
+    from .temp_factories import TemporaryRSEFactory
 
     with TemporaryRSEFactory(vo=vo, name_prefix=class_scope_prefix) as factory:
         request.cls.rse_factory = factory
@@ -291,7 +291,7 @@ def rse_factory_unittest(request, vo, class_scope_prefix):
 
 @pytest.fixture
 def did_factory(request, vo, mock_scope, function_scope_prefix, file_factory, root_account):
-    from rucio.tests.temp_factories import TemporaryDidFactory
+    from .temp_factories import TemporaryDidFactory
 
     session = None
     if 'db_session' in request.fixturenames:
@@ -304,7 +304,7 @@ def did_factory(request, vo, mock_scope, function_scope_prefix, file_factory, ro
 
 @pytest.fixture
 def file_factory(tmp_path_factory):
-    from rucio.tests.temp_factories import TemporaryFileFactory
+    from .temp_factories import TemporaryFileFactory
 
     with TemporaryFileFactory(pytest_path_factory=tmp_path_factory) as factory:
         yield factory

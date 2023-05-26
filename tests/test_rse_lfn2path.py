@@ -157,7 +157,7 @@ class TestDeterministicTranslation:
         """LFN2PFN: Test ability to provide LFN2PFN functions via module (Success)"""
         if not config.config_has_section('policy'):
             config.config_add_section('policy')
-        config.config_set('policy', 'lfn2pfn_module', 'rucio.tests.lfn2pfn_module_test')
+        config.config_set('policy', 'lfn2pfn_module', 'tests.lfn2pfn_module_test')
         RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
         translator = RSEDeterministicTranslation(
             rse=self.rse,

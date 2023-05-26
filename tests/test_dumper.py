@@ -28,7 +28,7 @@ from rucio.common import config
 from rucio.common import dumper
 from rucio.tests.common import make_temp_file
 from rucio.tests.common import mock_open
-from rucio.tests.mocks import gfal2
+from .mocks import gfal2
 
 DATE_SECONDS = "2015-03-10 14:00:35"
 DATE_TENTHS = "2015-03-10T14:00:35.5"
