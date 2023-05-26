@@ -440,7 +440,7 @@ def test_get_pfn_to_rse(rse_factory, rse_client, vo):
     # Adding replicas to deterministic RSE
     rse1, rse1_id = rse_factory.make_rse(scheme='file', protocol_impl='rucio.rse.protocols.posix.Default', vo=vo)
     protocols = [{'scheme': 'MOCK',
-                  'hostname': 'localhost',
+                  'hostname': 'get-pfn-to-rse',
                   'port': 17,
                   'prefix': '/the/one/with/all/the/files',
                   'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -451,7 +451,7 @@ def test_get_pfn_to_rse(rse_factory, rse_client, vo):
                   },
                   'extended_attributes': 'TheOneWithAllTheRest'},
                  {'scheme': 'MOCK',
-                  'hostname': 'localhost',
+                  'hostname': 'get-pfn-to-rse',
                   'port': 18,
                   'prefix': '/the/one/with/all/the/files',
                   'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
@@ -463,10 +463,10 @@ def test_get_pfn_to_rse(rse_factory, rse_client, vo):
     for prot in protocols:
         rse_client.add_protocol(rse1, prot)
 
-    pfn = 'MOCK://localhost:17/the/one/with/all/the/files/file1'
-    pfn_no_port = 'MOCK://localhost/the/one/with/all/the/files/file1'
-    pfn_other_port = 'MOCK://localhost:18/the/one/with/all/the/files/file1'
-    pfn_non_existing_port = 'MOCK://localhost:19/the/one/with/all/the/files/file1'
+    pfn = 'MOCK://get-pfn-to-rse:17/the/one/with/all/the/files/file1'
+    pfn_no_port = 'MOCK://get-pfn-to-rse/the/one/with/all/the/files/file1'
+    pfn_other_port = 'MOCK://get-pfn-to-rse:18/the/one/with/all/the/files/file1'
+    pfn_non_existing_port = 'MOCK://get-pfn-to-rse:19/the/one/with/all/the/files/file1'
 
     res = get_pfn_to_rse([pfn], vo=vo)
     assert res == ('MOCK', {rse1_id: [pfn]}, {})
