@@ -33,9 +33,10 @@ from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla.models import Request, Source
 from rucio.db.sqla.constants import RequestState
 from rucio.db.sqla.session import read_session, transactional_session
+from tests.ruciopytest import NoParallelGroups
 
 
-@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+@pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER])
 def test_request_submitted_in_order(rse_factory, did_factory, root_account):
 
     src_rses = [rse_factory.make_posix_rse() for _ in range(2)]
@@ -93,7 +94,7 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
     assert requests_id_in_submission_order == [r['id'] for r in requests]
 
 
-@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+@pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER])
 @pytest.mark.parametrize("core_config_mock", [
     # Run test twice: with, and without, temp tables
     {
@@ -177,7 +178,7 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     assert metrics_mock.get_sample_value('rucio_daemons_conveyor_common_submit_transfer_total') == 1
 
 
-@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+@pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER])
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION',
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
@@ -241,7 +242,7 @@ def test_source_avoid_deletion(caches_mock, rse_factory, did_factory, root_accou
     assert len(replica['pfns']) == 1
 
 
-@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+@pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER])
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
 ]}], indirect=True)
@@ -290,7 +291,7 @@ def test_scheme_missmatch(rse_factory, did_factory, root_account):
     assert request['state'] == RequestState.MISMATCH_SCHEME
 
 
-@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+@pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER])
 def test_globus(rse_factory, did_factory, root_account):
     """
     Test bulk submissions with globus transfertool.
@@ -369,7 +370,7 @@ def test_globus(rse_factory, did_factory, root_account):
     assert request['transfertool'] == 'globus'
 
 
-@pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
+@pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER])
 @pytest.mark.parametrize("file_config_mock", [{"overrides": [
     ('transfers', 'hop_penalty', '5'),
 ]}], indirect=True)
