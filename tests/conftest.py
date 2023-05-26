@@ -26,6 +26,17 @@ import pytest
 _del_test_prefix = functools.partial(re.compile(r'^[Tt][Ee][Ss][Tt]_?').sub, '')
 # local imports in the fixtures to make this file loadable in e.g. client tests
 
+pytest_plugins = ('tests.ruciopytest.artifacts_plugin', )
+
+
+def pytest_configure(config):
+    config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
+    config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests' )
+
+    if config.pluginmanager.hasplugin("xdist"):
+        from .ruciopytest import xdist_noparallel_scheduler
+        config.pluginmanager.register(xdist_noparallel_scheduler)
+
 
 def pytest_make_parametrize_id(config, val, argname):
     if argname == 'file_config_mock':

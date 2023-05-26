@@ -18,32 +18,7 @@ import os
 import pytest
 
 
-def pytest_configure(config):
-    config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
-    config.addinivalue_line(
-        'markers',
-        'noparallel(reason): marks test being unable to run in parallel to other tests, i.e. changing global state',
-    )
-    if config.pluginmanager.hasplugin('xdist'):
-        from .rucioxdist import NoParallelXDist
-
-        config.pluginmanager.register(NoParallelXDist(config))
-
-
 def pytest_addoption(parser, pluginmanager):
-    if pluginmanager.hasplugin('xdist'):
-        group = parser.getgroup('xdist', 'distributed and subprocess testing')
-        option_appended = False
-        for opt in group.options:
-            if '--dist' in opt.names():
-                option_choices = opt._attrs['choices']
-                option_choices.append('rucio')
-                option_appended = True
-                break
-
-        if not option_appended:
-            raise pytest.UsageError('rucio pytest plugin must be loaded after xdist plugin')
-
     # Initialization hook to add --artifacts option, can be used by integration or TPC tests to further check non-dev container states
     parser.addoption(
         "--export-artifacts-from",
