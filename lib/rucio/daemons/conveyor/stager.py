@@ -20,6 +20,7 @@ Conveyor stager is a daemon to manage stagein file transfers.
 import functools
 import logging
 import threading
+from typing import TYPE_CHECKING
 
 from configparser import NoOptionError
 
@@ -33,6 +34,10 @@ from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, ne
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
@@ -156,7 +161,7 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
     )
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

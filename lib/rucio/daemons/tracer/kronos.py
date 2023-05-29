@@ -25,6 +25,7 @@ import functools
 from json import loads as jloads, dumps as jdumps
 from threading import Event, Thread
 from time import time
+from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.daemons.common import HeartbeatHandler, run_daemon
@@ -42,6 +43,10 @@ from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType, BadFilesStatus
 
 from queue import Queue
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
@@ -475,7 +480,7 @@ def run_once_kronos_dataset(dataset_queue: Queue, return_values: dict, heartbeat
     logger(logging.INFO, 'update done for %d collection replicas, %d failed (%ds)' % (total, failed, time() - start))
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

@@ -40,6 +40,9 @@ from rucio.db.sqla.session import get_session
 
 
 if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
+
     from rucio.daemons.common import HeartbeatHandler
     from rucio.common.types import InternalAccount
 
@@ -302,7 +305,7 @@ def run(threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int =
             thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.is_alive()]
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

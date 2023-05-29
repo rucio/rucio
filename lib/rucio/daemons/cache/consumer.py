@@ -22,6 +22,7 @@ import logging
 import threading
 import time
 from traceback import format_exc
+from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common import exception
@@ -32,6 +33,10 @@ from rucio.common.types import InternalScope
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_id
 from rucio.core.volatile_replica import add_volatile_replicas, delete_volatile_replicas
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
@@ -156,7 +161,7 @@ def consumer(id_, num_thread=1):
     logger(logging.INFO, 'graceful stop done')
 
 
-def stop():
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

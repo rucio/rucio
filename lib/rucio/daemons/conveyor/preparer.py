@@ -32,6 +32,7 @@ from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
+    from types import FrameType
     from typing import Optional, List
     from sqlalchemy.orm import Session
     from rucio.daemons.common import HeartbeatHandler
@@ -39,7 +40,7 @@ if TYPE_CHECKING:
 graceful_stop = threading.Event()
 
 
-def stop():
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """
