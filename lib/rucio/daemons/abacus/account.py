@@ -20,6 +20,7 @@ Abacus-Account is a daemon to update Account counters.
 import logging
 import threading
 import time
+from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common import exception
@@ -27,6 +28,10 @@ from rucio.common.logging import setup_logging
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.account_counter import get_updated_account_counters, update_account_counter, fill_account_counter_history_table
 from rucio.daemons.common import run_daemon
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 graceful_stop = threading.Event()
 
@@ -68,7 +73,7 @@ def run_once(heartbeat_handler, **_kwargs):
         logger(logging.DEBUG, 'update of account-rse counter "%s-%s" took %f' % (account_rse_id[0], account_rse_id[1], time.time() - start_time))
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

@@ -24,6 +24,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from random import randint
 from re import match
+from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import DatabaseError
 
@@ -34,6 +35,10 @@ from rucio.common.exception import (DatabaseException, RuleNotFound, RSEWriteBlo
 from rucio.core.monitor import MetricManager
 from rucio.core.rule import inject_rule, get_injected_rules, update_rule
 from rucio.daemons.common import run_daemon
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
@@ -121,7 +126,7 @@ def run_once(paused_rules, heartbeat_handler, **_kwargs):
             update_rule(rule_id=rule_id, options={'state': 'SUSPENDED'})
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

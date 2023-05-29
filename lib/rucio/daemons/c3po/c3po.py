@@ -21,8 +21,10 @@ import logging
 from datetime import datetime
 from hashlib import md5
 from json import dumps
+from queue import Queue
 from threading import Event, Thread
 from time import sleep
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from requests import post
@@ -39,7 +41,9 @@ from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.collectors.jedi_did import JediDIDCollector
 from rucio.daemons.c3po.collectors.workload import WorkloadCollector
 
-from queue import Queue
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 GRACEFUL_STOP = Event()
 
@@ -249,7 +253,7 @@ def place_replica(once=False,
         logging.critical(e)
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

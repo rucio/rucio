@@ -40,6 +40,9 @@ from rucio.daemons.common import run_daemon
 
 
 if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
+
     from rucio.daemons.common import HeartbeatHandler
 
 METRICS = MetricManager(module=__name__)
@@ -272,7 +275,7 @@ def run(
         [thread.join(timeout=3.14) for thread in threads]
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

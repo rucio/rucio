@@ -18,8 +18,8 @@
 """
 
 import calendar
-import functools
 import datetime
+import functools
 import json
 import logging
 import random
@@ -29,9 +29,9 @@ import socket
 import sys
 import threading
 import time
-from typing import TYPE_CHECKING
 from configparser import NoOptionError, NoSectionError
 from email.mime.text import MIMEText
+from typing import TYPE_CHECKING
 
 import requests
 import stomp
@@ -39,18 +39,20 @@ import stomp
 import rucio.db.sqla.util
 from rucio.common.config import (
     config_get,
-    config_get_int,
     config_get_bool,
+    config_get_int,
     config_get_list,
 )
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
-from rucio.core.message import retrieve_messages, delete_messages
+from rucio.core.message import delete_messages, retrieve_messages
 from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
-    from typing import Callable, List, Dict
+    from types import FrameType
+    from typing import Callable, Dict, List, Optional
+
     from rucio.daemons.common import HeartbeatHandler
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -686,7 +688,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     return must_sleep
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

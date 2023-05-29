@@ -25,6 +25,7 @@ import traceback
 from datetime import datetime, timedelta
 from random import randint
 from re import match
+from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm.exc import FlushError
@@ -36,6 +37,10 @@ from rucio.common.types import InternalScope
 from rucio.core.monitor import MetricManager
 from rucio.core.rule import re_evaluate_did, get_updated_dids, delete_updated_did
 from rucio.daemons.common import run_daemon
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
@@ -137,7 +142,7 @@ def run_once(paused_dids, did_limit, heartbeat_handler, **_kwargs):
             logger(logging.WARNING, 'Flush error for %s:%s', did.scope, did.name)
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

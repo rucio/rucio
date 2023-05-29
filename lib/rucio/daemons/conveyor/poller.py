@@ -26,6 +26,7 @@ import re
 import threading
 import time
 from itertools import groupby
+from typing import TYPE_CHECKING
 
 from requests.exceptions import RequestException
 from configparser import NoOptionError
@@ -44,6 +45,10 @@ from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.daemons.common import run_daemon
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 graceful_stop = threading.Event()
 METRICS = MetricManager(module=__name__)
@@ -162,7 +167,7 @@ def poller(once=False, activities=None, sleep_time=60,
     )
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

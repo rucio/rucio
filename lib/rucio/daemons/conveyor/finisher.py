@@ -23,6 +23,7 @@ import logging
 import os
 import re
 import threading
+from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError
@@ -44,6 +45,10 @@ from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager
 
 from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 graceful_stop = threading.Event()
 
@@ -139,7 +144,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
     )
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

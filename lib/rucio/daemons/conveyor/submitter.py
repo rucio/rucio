@@ -20,6 +20,7 @@ Conveyor transfer submitter is a daemon to manage non-tape file transfers.
 import functools
 import logging
 import threading
+from typing import TYPE_CHECKING
 
 from configparser import NoOptionError
 
@@ -36,6 +37,10 @@ from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
@@ -206,7 +211,7 @@ def submitter(once=False, rses=None, partition_wait_time=10,
     )
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

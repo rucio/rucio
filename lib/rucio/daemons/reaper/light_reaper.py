@@ -26,6 +26,7 @@ import sys
 import threading
 import time
 import traceback
+from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get_bool
@@ -40,6 +41,10 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.temporary_did import (list_expired_temporary_dids, delete_temporary_dids)
 from rucio.core.vo import list_vos
 from rucio.rse import rsemanager as rsemgr
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
@@ -164,7 +169,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
     return
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

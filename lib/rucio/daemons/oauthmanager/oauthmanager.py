@@ -31,6 +31,7 @@ import logging
 import threading
 import traceback
 from re import match
+from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import DatabaseError
 
@@ -43,6 +44,10 @@ from rucio.core.monitor import MetricManager
 from rucio.core.oidc import delete_expired_oauthrequests, refresh_jwt_tokens
 from rucio.daemons.common import run_daemon
 from rucio.daemons.common import HeartbeatHandler
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
@@ -187,7 +192,7 @@ def run(once: bool = False, threads: int = 1, max_rows: int = 100, sleep_time: i
             _ = [t.join(timeout=3.14) for t in threads]
 
 
-def stop() -> None:
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """
