@@ -36,6 +36,9 @@ from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import LifetimeExceptionsState
 
 if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
+
     from rucio.daemons.common import HeartbeatHandler
 
 GRACEFUL_STOP = threading.Event()
@@ -233,7 +236,7 @@ def run(
         thread_list = [t.join(timeout=3.14) for t in thread_list if t and t.is_alive()]
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

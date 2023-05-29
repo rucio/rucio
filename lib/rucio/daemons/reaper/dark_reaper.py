@@ -45,7 +45,9 @@ from rucio.daemons.common import run_daemon
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
+    from types import FrameType
     from typing import Sequence, Optional
+
     from rucio.daemons.common import HeartbeatHandler
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -184,7 +186,7 @@ def run_once(
     return must_sleep
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

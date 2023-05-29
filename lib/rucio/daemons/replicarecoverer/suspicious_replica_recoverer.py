@@ -20,31 +20,38 @@ or if they are the last remaining copy, on how many suspicious replicas are on a
 Consequently, automatic replica recovery is triggered via necromancer daemon, which creates a rule for such bad replica(s).
 """
 
+import functools
+import json
 import logging
+import re
 import threading
 import time
 from datetime import datetime, timedelta
 from sys import argv
-from typing import List, Any, Optional
-import re
-
-import functools
-import json
+from typing import TYPE_CHECKING, Any, List, Optional
 
 import rucio.db.sqla.util
-from rucio.db.sqla.util import get_db_time
 from rucio.common.config import config_get_bool
+from rucio.common.constants import SuspiciousAvailability
 from rucio.common.exception import DatabaseException, VONotFound
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
-from rucio.common.constants import SuspiciousAvailability
 from rucio.core.did import get_metadata
-from rucio.core.replica import list_replicas, get_suspicious_files, add_bad_pfns, declare_bad_file_replicas, get_suspicious_reason
+from rucio.core.replica import (
+    add_bad_pfns,
+    declare_bad_file_replicas,
+    get_suspicious_files,
+    get_suspicious_reason,
+    list_replicas,
+)
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import add_rule
 from rucio.core.vo import list_vos
-from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.common import run_daemon
+from rucio.db.sqla.util import get_db_time
 
+if TYPE_CHECKING:
+    from types import FrameType
 
 GRACEFUL_STOP = threading.Event()
 
@@ -472,7 +479,7 @@ def run(once: bool = False, younger_than: int = 3, nattempts: int = 10, vos: Lis
         t.join(timeout=3.14)
 
 
-def stop():
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

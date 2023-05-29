@@ -23,6 +23,7 @@ import socket
 import threading
 import time
 import traceback
+from typing import TYPE_CHECKING
 
 import stomp
 
@@ -36,6 +37,10 @@ from rucio.core.monitor import MetricManager
 from rucio.daemons.common import HeartbeatHandler
 from rucio.db.sqla.session import transactional_session
 from rucio.transfertool.fts3 import FTS3CompletionMessageTransferStatusReport
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
@@ -175,7 +180,7 @@ def receiver(id_, total_threads=1, all_vos=False):
                 pass
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

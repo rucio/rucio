@@ -18,6 +18,7 @@ import os
 import socket
 import threading
 import time
+from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common import exception
@@ -25,6 +26,10 @@ from rucio.common.logging import setup_logging
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.did import create_reports
 from rucio.core.heartbeat import live, die, sanity_check
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 graceful_stop = threading.Event()
 
@@ -57,7 +62,7 @@ def aggregate_events(once=False):
     logging.info('follower: graceful stop done')
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

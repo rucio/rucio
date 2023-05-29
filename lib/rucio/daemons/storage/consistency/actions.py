@@ -27,6 +27,7 @@ import socket
 import time
 import threading
 import traceback
+from typing import TYPE_CHECKING
 
 from datetime import datetime
 
@@ -48,6 +49,10 @@ from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla.constants import (ReplicaState, BadFilesStatus)
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import FlushError
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
@@ -683,7 +688,7 @@ def actions_loop(once, scope, rses, sleep_time, dark_min_age, dark_threshold_per
     die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

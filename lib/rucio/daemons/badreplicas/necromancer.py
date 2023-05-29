@@ -38,6 +38,9 @@ from rucio.core.rule import (update_rules_for_lost_replica, update_rules_for_bad
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
+
     from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
@@ -191,7 +194,7 @@ def run(threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int =
             thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.is_alive()]
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

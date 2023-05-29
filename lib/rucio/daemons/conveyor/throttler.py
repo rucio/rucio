@@ -21,6 +21,7 @@ import math
 import threading
 import traceback
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 from sqlalchemy import null
 
@@ -34,6 +35,10 @@ from rucio.core.transfer import applicable_rse_transfer_limits
 from rucio.core.rse import RseCollection
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RequestState, TransferLimitDirection
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 graceful_stop = threading.Event()
 METRICS = MetricManager(module=__name__)
@@ -60,7 +65,7 @@ def throttler(once=False, sleep_time=600, partition_wait_time=10):
     )
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

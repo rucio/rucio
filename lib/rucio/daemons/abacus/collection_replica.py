@@ -20,12 +20,17 @@ import functools
 import logging
 import threading
 import time
+from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.core.replica import get_cleaned_updated_collection_replicas, update_collection_replica
 from rucio.daemons.common import run_daemon
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 graceful_stop = threading.Event()
 
@@ -77,7 +82,7 @@ def run_once(heartbeat_handler, limit, **_kwargs):
     return must_sleep
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """

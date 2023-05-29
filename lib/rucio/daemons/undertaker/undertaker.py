@@ -25,7 +25,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from random import randint
 from re import match
-from typing import Tuple, Dict
+from typing import TYPE_CHECKING, Tuple, Dict
 
 from sqlalchemy.exc import DatabaseError
 
@@ -37,6 +37,10 @@ from rucio.common.utils import chunks
 from rucio.core.did import list_expired_dids, delete_dids
 from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon, HeartbeatHandler
+
+if TYPE_CHECKING:
+    from types import FrameType
+    from typing import Optional
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
@@ -104,7 +108,7 @@ def run_once(paused_dids: Dict[Tuple, datetime], chunk_size: int, heartbeat_hand
         logging.critical(traceback.format_exc())
 
 
-def stop(signum=None, frame=None):
+def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
     """
     Graceful exit.
     """
