@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 from tempfile import TemporaryDirectory, TemporaryFile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 from urllib.parse import urlparse
 
 import geoip2.database
@@ -158,6 +158,79 @@ def __get_distance(se1, client_location, ignore_error):
     return cache_val
 
 
+def __download_custom_distance_table() -> None:
+    """
+    Downloads and parses the custom distance table specified by custom_distance_download_url
+    in the config file. Each line of this CSV file should contain a site name, a RSE name,
+    and a numerical distance value. Any additional fields are silently ignored.
+    """
+    db_path = Path('/tmp/rucio_custom_distance_table.csv')
+    db_expire_delay = timedelta(days=config_get_int('core', 'custom_distance_expire_delay', raise_exception=False, default=30))
+
+    # check if need to download the file
+    must_download = False
+    if not db_path.is_file():
+        print('%s does not exist. Downloading it.' % db_path)
+        must_download = True
+    elif db_expire_delay and datetime.fromtimestamp(db_path.stat().st_mtime) < datetime.now() - db_expire_delay:
+        print('%s is too old. Re-downloading it.' % db_path)
+        must_download = True
+
+    if must_download:
+        download_url = config_get('core', 'custom_distance_download_url', raise_exception=False, default=None)
+        if download_url is None:
+            raise Exception('Cannot download custom distance table: no URL provided')
+        result = requests.get(download_url, stream=True, verify=False)
+        if result and result.status_code in [200, ]:
+            with open(db_path, mode='w') as file_obj:
+                file_obj.write(result.text)
+        else:
+            raise Exception('Cannot download custom distance table: %s, Code: %s, Error: %s' % (download_url,
+                                                                                                result.status_code,
+                                                                                                result.text))
+
+    # parse the local file and add its contents to REGION
+    with open(db_path, mode='r') as f:
+        lines = f.readlines()
+        for line in lines:
+            if line.strip() == "":
+                # ignore blank lines
+                continue
+            bits = line.split(",")
+            if len(bits) < 3:
+                raise Exception('Custom distance table must have at least 3 values per line')
+            # ignore additional fields after first 3 (DUNE has some)
+            site = bits[0].strip()
+            rse = bits[1].strip()
+            distance = float(bits[2].strip())
+            if distance < 0.0 or distance > 1.0:
+                raise Exception('Distances in custom distance table must be in range 0-1')
+            cache_key = f'replica_sorter:__get_distance_custom|site_distance|{rse}|{site}'
+            REGION.set(cache_key, distance)
+
+
+def __get_distance_custom(rse: Union[tuple, str], client_location: dict) -> float:
+    """
+    Return the distance from a client to a RSE by looking up in custom distance table
+    :param rse: RSE name, or tuple containing replica information with RSE name third
+    :param client_location: location dictionary containing {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
+    :returns: numerical distance value
+    """
+    # get RSE name out of tuple if necessary
+    if isinstance(rse, tuple) and len(rse) == 4:
+        rse = rse[2]
+    cache_key = f'replica_sorter:__get_distance_custom|site_distance|{rse}|{client_location["site"]}'
+    cache_val = REGION.get(cache_key)
+    if not isinstance(cache_val, float):
+        # download the table and add all its values to the cache
+        __download_custom_distance_table()
+        cache_val = REGION.get(cache_key)
+        if not isinstance(cache_val, float):
+            # assume maximum distance if not specified in table
+            cache_val = 1.0
+    return cache_val
+
+
 def site_selector(replicas, site, vo):
     """
     Return a list of replicas located on one site.
@@ -204,6 +277,8 @@ def sort_replicas(dictreplica: "Dict", client_location: "Dict", selection: "Opti
     # all sorts must be stable to preserve the priority (the Python standard sorting functions always are stable)
     if selection == 'geoip':
         replicas = sort_geoip(dictreplica, client_location, ignore_error=True)
+    elif selection == 'custom_table':
+        replicas = sort_custom(dictreplica, client_location)
     elif selection == 'closeness':
         replicas = sort_closeness(dictreplica, client_location)
     elif selection == 'dynamic':
@@ -239,6 +314,20 @@ def sort_geoip(dictreplica: "Dict", client_location: "Dict", ignore_error: bool 
 
     def distance(pfn):
         return __get_distance(urlparse(pfn).hostname, client_location, ignore_error)
+
+    return list(sorted(dictreplica, key=distance))
+
+
+def sort_custom(dictreplica: "Dict", client_location: "Dict") -> "List":
+    """
+    Return a list of replicas sorted according to the custom distance table.
+    :param dictreplica: A dict with replicas as keys (URIs).
+    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
+    :param ignore_error: Ignore exception when the GeoLite DB cannot be retrieved
+    """
+
+    def distance(pfn: str) -> float:
+        return __get_distance_custom(dictreplica[pfn], client_location)
 
     return list(sorted(dictreplica, key=distance))
 
