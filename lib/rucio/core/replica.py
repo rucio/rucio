@@ -3633,10 +3633,10 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
                                                                                  models.CollectionReplica.rse_id == models.UpdatedCollectionReplica.rse_id))).delete(synchronize_session=False)
 
     # Delete duplicates
+    schema = ''
+    if BASE.metadata.schema:
+        schema = BASE.metadata.schema + '.'
     if session.bind.dialect.name == 'oracle':
-        schema = ''
-        if BASE.metadata.schema:
-            schema = BASE.metadata.schema + '.'
         session.execute(text('DELETE FROM {schema}updated_col_rep A WHERE A.rowid > ANY (SELECT B.rowid FROM {schema}updated_col_rep B WHERE A.scope = B.scope AND A.name=B.name AND A.did_type=B.did_type AND (A.rse_id=B.rse_id OR (A.rse_id IS NULL and B.rse_id IS NULL)))'.format(schema=schema)))  # NOQA: E501
     elif session.bind.dialect.name == 'mysql':
         subquery1 = session.query(func.max(models.UpdatedCollectionReplica.id).label('max_id')).\
@@ -3646,6 +3646,7 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
         subquery2 = session.query(subquery1.c.max_id).subquery()
         session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.notin_(subquery2)).delete(synchronize_session=False)
     else:
+        session.execute(text('DELETE FROM {schema}updated_col_rep WHERE id IN (SELECT id FROM (SELECT id, row_number() over(partition by scope, name order by created_at) AS row_num FROM {schema}updated_col_rep) t WHERE t.row_num>1)'.format(schema=schema)))
         replica_update_requests = session.query(models.UpdatedCollectionReplica)
         update_requests_with_rse_id = []
         update_requests_without_rse_id = []
