@@ -422,7 +422,7 @@ class MetricManager:
             return _decorator(original_function)
         return _decorator
 
-    def push_metrics_to_gw(self, job: "Optional[str]" = None, grouping_key: "Optional[Sequence[str]]" = None):
+    def push_metrics_to_gw(self, job: "Optional[str]" = None, grouping_key: "Optional[Sequence[str]]" = None) -> None:
         """
         Push the metrics out to the prometheus push gateways. This is useful for short-running programs which don't
         live long enough to be reliably scraped in the prometheus pull model.
