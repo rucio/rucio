@@ -327,7 +327,7 @@ class MetricManager:
     """
 
     def __init__(self, prefix: "Optional[str]" = None, module: "Optional[str]" = None,
-                 registry: "Optional[CollectorRegistry]" = None, push_gateways: "Optional[List[str]]" = None):
+                 registry: "Optional[CollectorRegistry]" = None, push_gateways: "Optional[Sequence[str]]" = None):
         if prefix:
             self.prefix = prefix
         elif module:
@@ -422,7 +422,7 @@ class MetricManager:
             return _decorator(original_function)
         return _decorator
 
-    def push_metrics_to_gw(self, job=None, grouping_key=None):
+    def push_metrics_to_gw(self, job: "Optional[str]" = None, grouping_key: "Optional[Sequence[str]]" = None):
         """
         Push the metrics out to the prometheus push gateways. This is useful for short-running programs which don't
         live long enough to be reliably scraped in the prometheus pull model.
