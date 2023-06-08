@@ -38,7 +38,7 @@ from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import retrying
 
 if TYPE_CHECKING:
-    from typing import Callable, Dict, Iterable, Optional, Sequence, TypeVar
+    from typing import Any, Callable, Dict, Iterable, Optional, Sequence, TypeVar
 
     T = TypeVar('T')
 
