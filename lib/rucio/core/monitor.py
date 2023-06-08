@@ -430,7 +430,7 @@ class MetricManager:
 
         if not job:
             job = Path(main.__file__).stem
-        grouping_key = grouping_key or []
+        grouping_key = grouping_key or {}
 
         for server in self.push_gateways:
             try:
