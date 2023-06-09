@@ -342,6 +342,9 @@ class MetricManager:
             return f'{self.prefix}.{name}'
         return name
 
+    def get_registry(self) -> CollectorRegistry:
+        return self.registry
+
     def counter(
             self,
             name: str,
