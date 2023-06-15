@@ -15,12 +15,14 @@
 
 from dogpile.cache.api import NoValue
 from sqlalchemy import func
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, TypeVar, Union
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.exception import ConfigNotFound
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
+
+T = TypeVar('T')
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -29,6 +31,21 @@ if TYPE_CHECKING:
 REGION = make_region_memcached(expiration_time=900)
 
 SECTIONS_CACHE_KEY = 'sections'
+
+
+def _convert_type(value) -> Union[bool, int, float, str]:
+    if value.lower() in ['true', 'yes', 'on']:
+        return True
+    elif value.lower() in ['false', 'no', 'off']:
+        return False
+
+    for conv in (int, float):
+        try:
+            return conv(value)
+        except:
+            pass
+
+    return value
 
 
 def _has_section_cache_key(section):
@@ -52,7 +69,12 @@ def _value_cache_key(section, option):
 
 
 @read_session
-def sections(use_cache=True, expiration_time=900, *, session: "Session"):
+def sections(
+        *,
+        use_cache: bool = True,
+        expiration_time: int = 900,
+        session: "Session"
+):
     """
     Return a list of the sections available.
 
@@ -74,7 +96,7 @@ def sections(use_cache=True, expiration_time=900, *, session: "Session"):
 
 
 @transactional_session
-def add_section(section, *, session: "Session"):
+def add_section(section: str, *, session: "Session"):
     """
     Add a section to the configuration.
     :param session: The database session in use.
@@ -85,7 +107,13 @@ def add_section(section, *, session: "Session"):
 
 
 @read_session
-def has_section(section, use_cache=True, expiration_time=900, *, session: "Session"):
+def has_section(
+        section: str,
+        *,
+        use_cache: bool = True,
+        expiration_time: int = 900,
+        session: "Session"
+) -> bool:
     """
     Indicates whether the named section is present in the configuration.
 
@@ -107,7 +135,13 @@ def has_section(section, use_cache=True, expiration_time=900, *, session: "Sessi
 
 
 @read_session
-def options(section, use_cache=True, expiration_time=900, *, session: "Session"):
+def options(
+        section: str,
+        *,
+        use_cache: bool = True,
+        expiration_time: int = 900,
+        session: "Session"
+) -> List[str]:
     """
     Returns a list of options available in the specified section.
 
@@ -129,7 +163,14 @@ def options(section, use_cache=True, expiration_time=900, *, session: "Session")
 
 
 @read_session
-def has_option(section, option, use_cache=True, expiration_time=900, *, session: "Session"):
+def has_option(
+        section,
+        option,
+        *,
+        use_cache=True,
+        expiration_time=900,
+        session: "Session"
+):
     """
     Check if the given section exists and contains the given option.
 
@@ -152,7 +193,16 @@ def has_option(section, option, use_cache=True, expiration_time=900, *, session:
 
 
 @read_session
-def get(section, option, default=None, use_cache=True, expiration_time=900, *, session: "Session"):
+def get(
+        section: str,
+        option: str,
+        *,
+        default: Optional[T] = None,
+        use_cache: bool = True,
+        expiration_time: int = 900,
+        convert_type_fnc: Callable[[str], T] = _convert_type,
+        session: "Session"
+) -> T:
     """
     Get an option value for the named section. Value can be auto-coerced to string, int, float, bool, None.
 
@@ -164,6 +214,7 @@ def get(section, option, default=None, use_cache=True, expiration_time=900, *, s
     :param default: The default value if no value is found.
     :param use_cache: Boolean if the cache should be used.
     :param expiration_time: Time after that the cached value gets ignored.
+    :param convert_type_fnc: A function used to parse the string config value into the desired destination type
     :param session: The database session in use.
     :returns: The auto-coerced value.
     """
@@ -174,7 +225,7 @@ def get(section, option, default=None, use_cache=True, expiration_time=900, *, s
     if isinstance(value, NoValue):
         tmp = session.query(models.Config.value).filter_by(section=section, opt=option).first()
         if tmp is not None:
-            value = __convert_type(tmp[0])
+            value = convert_type_fnc(tmp[0])
             write_to_cache(value_key, tmp[0])
         elif default is None:
             raise ConfigNotFound
@@ -182,18 +233,26 @@ def get(section, option, default=None, use_cache=True, expiration_time=900, *, s
             value = default
             write_to_cache(value_key, str(value))  # Also write default to cache
     else:
-        value = __convert_type(value)
+        value = convert_type_fnc(value)
     return value
 
 
 @read_session
-def items(section, use_cache=True, expiration_time=900, *, session: "Session"):
+def items(
+        section: str,
+        use_cache: bool = True,
+        expiration_time: int = 900,
+        *,
+        convert_type_fnc: Callable[[str], T] = _convert_type,
+        session: "Session"
+) -> List[Tuple[str, T]]:
     """
     Return a list of (option, value) pairs for each option in the given section. Values are auto-coerced as in get().
 
     :param section: The name of the section.
     :param use_cache: Boolean if the cache should be used.
     :param expiration_time: Time after that the cached value gets ignored.
+    :param convert_type_fnc: A function used to parse the string config value into the desired destination type
     :param session: The database session in use.
     :returns: [('option', auto-coerced value), ...]
     """
@@ -204,11 +263,17 @@ def items(section, use_cache=True, expiration_time=900, *, session: "Session"):
     if isinstance(items, NoValue):
         items = session.query(models.Config.opt, models.Config.value).filter_by(section=section).all()
         write_to_cache(items_key, items)
-    return [(item[0], __convert_type(item[1])) for item in items]
+    return [(item[0], convert_type_fnc(item[1])) for item in items]
 
 
 @transactional_session
-def set(section, option, value, *, session: "Session"):
+def set(
+        section: str,
+        option: str,
+        value: Any,
+        *,
+        session: "Session"
+):
     """
     Set the given option to the specified value. If the option doesn't exist, it is created.
 
@@ -244,7 +309,7 @@ def set(section, option, value, *, session: "Session"):
 
 
 @transactional_session
-def remove_section(section, *, session: "Session"):
+def remove_section(section: str, *, session: "Session") -> bool:
     """
     Remove the specified section from the specified section.
 
@@ -271,7 +336,7 @@ def remove_section(section, *, session: "Session"):
 
 
 @transactional_session
-def remove_option(section, option, *, session: "Session"):
+def remove_option(section: str, option: str, *, session: "Session") -> bool:
     """
     Remove the specified option from the configuration.
 
@@ -299,24 +364,6 @@ def remove_option(section, option, *, session: "Session"):
         delete_from_cache(key=_has_option_cache_key(section, option))
         delete_from_cache(key=_value_cache_key(section, option))
         return True
-
-
-def __convert_type(value):
-    '''
-    __convert_type
-    '''
-    if value.lower() in ['true', 'yes', 'on']:
-        return True
-    elif value.lower() in ['false', 'no', 'off']:
-        return False
-
-    for conv in (int, float):
-        try:
-            return conv(value)
-        except:
-            pass
-
-    return value
 
 
 def read_from_cache(key, expiration_time=900):
