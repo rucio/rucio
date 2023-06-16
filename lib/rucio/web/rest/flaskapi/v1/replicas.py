@@ -26,7 +26,7 @@ from rucio.api.replica import add_replicas, list_replicas, list_dataset_replicas
     get_suspicious_files, declare_suspicious_file_replicas, list_bad_replicas_status, get_bad_replicas_summary, \
     list_datasets_per_rse, set_tombstone, list_dataset_replicas_vp
 from rucio.api.quarantined_replica import quarantine_file_replicas
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_int
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, InvalidType, DataIdentifierNotFound, \
     Duplicate, InvalidPath, ResourceTemporaryUnavailable, RSENotFound, ReplicaNotFound, InvalidObject, ScopeNotFound, ReplicaIsLocked
@@ -653,7 +653,7 @@ class ListReplicas(ErrorHandlingMethodView):
             signature_lifetime = param_get(parameters, 'signature_lifetime')
         else:
             # hardcoded default of 10 minutes if config is not parseable
-            signature_lifetime = config_get('credentials', 'signature_lifetime', raise_exception=False, default=600)
+            signature_lifetime = config_get_int('credentials', 'signature_lifetime', raise_exception=False, default=600)
         resolve_archives = param_get(parameters, 'resolve_archives', default=True)
         resolve_parents = param_get(parameters, 'resolve_parents', default=False)
         updated_after = param_get(parameters, 'updated_after', default=None)
@@ -689,7 +689,8 @@ class ListReplicas(ErrorHandlingMethodView):
                                            all_states=all_states,
                                            rse_expression=rse_expression,
                                            client_location=client_location,
-                                           domain=domain, signature_lifetime=signature_lifetime,
+                                           domain=domain,
+                                           signature_lifetime=signature_lifetime,
                                            resolve_archives=resolve_archives,
                                            resolve_parents=resolve_parents,
                                            nrandom=nrandom,

@@ -26,7 +26,7 @@ import re
 import threading
 import time
 from itertools import groupby
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
@@ -47,7 +47,6 @@ from rucio.transfertool.globus import GlobusTransferTool
 
 if TYPE_CHECKING:
     from types import FrameType
-    from typing import Optional
 
 graceful_stop = threading.Event()
 METRICS = MetricManager(module=__name__)
@@ -58,7 +57,7 @@ TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)  # NOTE: Thi
 FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
 
 
-def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, activity, heartbeat_handler, oidc_account: str):
+def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, activity, heartbeat_handler, oidc_account: Optional[str]):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))

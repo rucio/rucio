@@ -82,7 +82,7 @@ if PROMETHEUS_MULTIPROC_DIR:
 
 
 SERVER = config_get('monitor', 'carbon_server', raise_exception=False, default=None)
-PORT = config_get('monitor', 'carbon_port', raise_exception=False, default=8125)
+PORT = config_get_int('monitor', 'carbon_port', raise_exception=False, default=8125)
 SCOPE = config_get('monitor', 'user_scope', raise_exception=False, default='rucio')
 STATSD_CLIENT = None
 if SERVER is not None:

@@ -41,7 +41,7 @@ import rucio.core.did
 import rucio.core.lock
 from rucio.common import exception
 from rucio.common.cache import make_region_memcached
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.constants import SuspiciousAvailability
@@ -1842,7 +1842,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
             parents_to_analyze.add(ScopeName(scope=parent_scope, name=parent_name))
 
             # 3) Schedule removal of the entry from the DIDs table
-            remove_open_did = config_get('reaper', 'remove_open_did', default=False, session=session)
+            remove_open_did = config_get_bool('reaper', 'remove_open_did', default=False, session=session)
             if remove_open_did:
                 did_condition.append(
                     and_(models.DataIdentifier.scope == parent_scope,

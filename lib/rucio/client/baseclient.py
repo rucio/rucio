@@ -282,7 +282,7 @@ class BaseClient(object):
         self.__authenticate()
 
         try:
-            self.request_retries = int(config_get('client', 'request_retries'))
+            self.request_retries = config_get_int('client', 'request_retries')
         except (NoOptionError, RuntimeError):
             LOG.debug('request_retries not specified in config file. Taking default.')
         except ValueError:
