@@ -225,7 +225,7 @@ def list_heartbeats(*, session: "Session"):
     result = query.all()
     json_result = []
     for element in result:
-        json_result.append(dict(element))
+        json_result.append(element._asdict())
     return json_result
 
 
