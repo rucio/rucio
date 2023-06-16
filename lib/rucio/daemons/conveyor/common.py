@@ -24,7 +24,7 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get_bool
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
                                     DuplicateFileTransferSubmission, VONotFound, DatabaseException)
 from rucio.common.stopwatch import Stopwatch
@@ -481,7 +481,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None,
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     :return:              List of working rses
     """
-    multi_vo = config_get('common', 'multi_vo', raise_exception=False, default=False)
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
     if not multi_vo:
         if vos:
             logger(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')

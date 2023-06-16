@@ -25,7 +25,7 @@ import pytest
 import stomp
 import time
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_int
 from rucio.core.message import add_message, retrieve_messages, truncate_messages
 from rucio.daemons.hermes import hermes
 from rucio.tests.common import rse_name_generator, skip_missing_elasticsearch_influxdb_in_env
@@ -104,7 +104,7 @@ def test_hermes(core_config_mock, caches_mock):
 
     # Start consumer
     host = config_get("messaging-hermes", "brokers")
-    port = config_get("messaging-hermes", "port")
+    port = config_get_int("messaging-hermes", "port")
     user = config_get("messaging-hermes", "username")
     password = config_get("messaging-hermes", "password")
     destination = config_get("messaging-hermes", "destination")

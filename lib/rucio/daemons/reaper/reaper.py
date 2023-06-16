@@ -28,11 +28,11 @@ from datetime import datetime, timedelta
 from math import log2
 from typing import TYPE_CHECKING
 
-from dogpile.cache.api import NO_VALUE
+from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.cache import make_region_memcached
 from rucio.common.exception import (DatabaseException, RSENotFound,
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
@@ -100,7 +100,7 @@ def get_rses_to_process(rses, include_rses, exclude_rses, vos):
         cache_key += '@%s' % '-'.join(vo for vo in vos)
 
     result = REGION.get(cache_key)
-    if result is not NO_VALUE:
+    if not isinstance(result, NoValue):
         return result
 
     all_rses = []
@@ -253,7 +253,7 @@ def _rse_deletion_hostname(rse: RseData, scheme: "Optional[str]") -> "Optional[s
     return None
 
 
-def get_max_deletion_threads_by_hostname(hostname):
+def get_max_deletion_threads_by_hostname(hostname: str) -> int:
     """
     Internal method to check RSE usage and limits.
 
@@ -262,12 +262,12 @@ def get_max_deletion_threads_by_hostname(hostname):
     :returns: The maximum deletion thread for the SE.
     """
     result = REGION.get('max_deletion_threads_%s' % hostname)
-    if result is NO_VALUE:
+    if isinstance(result, NoValue):
         try:
-            max_deletion_thread = config_get('reaper', 'max_deletion_threads_%s' % hostname)
+            max_deletion_thread = config_get_int('reaper', 'max_deletion_threads_%s' % hostname)
         except (NoOptionError, NoSectionError, RuntimeError):
             try:
-                max_deletion_thread = config_get('reaper', 'nb_workers_by_hostname')
+                max_deletion_thread = config_get_int('reaper', 'nb_workers_by_hostname')
             except (NoOptionError, NoSectionError, RuntimeError):
                 max_deletion_thread = 5
         REGION.set('max_deletion_threads_%s' % hostname, max_deletion_thread)
@@ -313,7 +313,7 @@ def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: "Callab
     """
     cache_key = 'rse_usage_%s' % rse.id
     result = REGION.get(cache_key)
-    if result is NO_VALUE:
+    if isinstance(result, NoValue):
         result = __check_rse_usage(rse=rse, greedy=greedy, logger=logger)
         REGION.set(cache_key, result)
     return result
@@ -435,11 +435,11 @@ def run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
     logger(logging.INFO, 'Reaper started')
 
     # try to get auto exclude parameters from the config table. Otherwise use CLI parameters.
-    auto_exclude_threshold = config_get('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold, raise_exception=False)
-    auto_exclude_timeout = config_get('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout, raise_exception=False)
+    auto_exclude_threshold = config_get_int('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold, raise_exception=False)
+    auto_exclude_timeout = config_get_int('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout, raise_exception=False)
     # Check if there is a Judge Evaluator backlog
-    max_evaluator_backlog_count = config_get('reaper', 'max_evaluator_backlog_count', default=None, raise_exception=False)
-    max_evaluator_backlog_duration = config_get('reaper', 'max_evaluator_backlog_duration', default=None, raise_exception=False)
+    max_evaluator_backlog_count = config_get_int('reaper', 'max_evaluator_backlog_count', default=None, raise_exception=False)
+    max_evaluator_backlog_duration = config_get_int('reaper', 'max_evaluator_backlog_duration', default=None, raise_exception=False)
     if max_evaluator_backlog_count or max_evaluator_backlog_duration:
         backlog = get_evaluation_backlog()
         count_is_hit = max_evaluator_backlog_count and backlog[0] and backlog[0] > max_evaluator_backlog_count
@@ -530,13 +530,13 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
     paused_rses = []
     for rse, needed_free_space, only_delete_obsolete, enable_greedy in rses_with_params:
         result = REGION.get('pause_deletion_%s' % rse.id, expiration_time=120)
-        if result is not NO_VALUE:
+        if not isinstance(result, NoValue):
             paused_rses.append(rse.name)
             logger(logging.DEBUG, 'Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', rse.name)
             continue
 
         result = REGION.get('temporary_exclude_%s' % rse.id, expiration_time=auto_exclude_timeout)
-        if result is not NO_VALUE:
+        if not isinstance(result, NoValue):
             logger(logging.WARNING, 'Too many failed attempts for %s in last cycle. RSE is temporarly excluded.', rse.name)
             EXCLUDED_RSE_GAUGE.labels(rse=rse.name).set(1)
             continue

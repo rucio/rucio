@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Mapping
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
+from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list, config_get_float
 from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
 from rucio.common.stopwatch import Stopwatch
@@ -191,9 +191,7 @@ def submitter(
     scheme = config_get('conveyor', 'scheme', default=None, raise_exception=False)
     failover_scheme = config_get('conveyor', 'failover_scheme', default=None, raise_exception=False)
 
-    timeout = config_get('conveyor', 'submit_timeout', default=None, raise_exception=False)
-    if timeout is not None:
-        timeout = float(timeout)
+    timeout = config_get_float('conveyor', 'submit_timeout', default=None, raise_exception=False)
 
     bring_online = config_get_int('conveyor', 'bring_online', default=43200, raise_exception=False)
 

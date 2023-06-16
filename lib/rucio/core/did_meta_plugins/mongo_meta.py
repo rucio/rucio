@@ -42,7 +42,7 @@ class MongoDidMeta(DidMetaPlugin):
         if host is None:
             host = config.config_get('metadata', 'mongo_service_host')
         if port is None:
-            port = config.config_get('metadata', 'mongo_service_port')
+            port = config.config_get_int('metadata', 'mongo_service_port')
         if db is None:
             db = config.config_get('metadata', 'mongo_db')
         if collection is None:

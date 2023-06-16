@@ -54,10 +54,11 @@ AUTH_ISSUERS = []
 if not AUTH_TYPE:
     IDPSECRETS = config_get('oidc', 'idpsecrets', False, None)
     try:
-        with open(IDPSECRETS) as client_secret_file:
-            client_secrets = load(client_secret_file)
-            for iss in client_secrets:
-                AUTH_ISSUERS.append(iss.upper())
+        if IDPSECRETS:
+            with open(IDPSECRETS) as client_secret_file:
+                client_secrets = load(client_secret_file)
+                for iss in client_secrets:
+                    AUTH_ISSUERS.append(iss.upper())
     except:
         AUTH_ISSUERS = []
 

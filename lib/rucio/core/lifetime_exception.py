@@ -22,7 +22,7 @@ from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_int, config_get_list
 from rucio.common.exception import RucioException, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, UnsupportedOperation, ConfigNotFound
 from rucio.common.utils import generate_uuid, str_to_date
 import rucio.common.policy
@@ -99,7 +99,7 @@ def add_exception(
     result = dict()
     result['exceptions'] = dict()
     try:
-        max_extension = config_get('lifetime_model', 'max_extension', default=None, session=session)
+        max_extension = config_get_int('lifetime_model', 'max_extension', session=session)
         if max_extension:
             if not expires_at:
                 expires_at = datetime.utcnow() + timedelta(days=max_extension)
@@ -112,7 +112,7 @@ def add_exception(
         max_extension = None
 
     try:
-        cutoff_date = config_get('lifetime_model', 'cutoff_date', default=None, session=session)
+        cutoff_date = config_get('lifetime_model', 'cutoff_date', session=session)
     except (ConfigNotFound, NoSectionError):
         raise UnsupportedOperation('Cannot submit exception at that date.')
     try:
@@ -223,9 +223,7 @@ def __add_exception(
     text += '\n'
     text += 'Approve:   https://rucio-ui.cern.ch/lifetime_exception?id=%s&action=approve\n' % str(exception_id)
     text += 'Deny:      https://rucio-ui.cern.ch/lifetime_exception?id=%s&action=deny\n' % str(exception_id)
-    approvers_email = config_get('lifetime_model', 'approvers_email', default=[], session=session)
-    if approvers_email:
-        approvers_email = approvers_email.split(',')  # pylint: disable=no-member
+    approvers_email = config_get_list('lifetime_model', 'approvers_email', default=[], session=session)
 
     add_message(event_type='email',
                 payload={'body': text, 'to': approvers_email,
