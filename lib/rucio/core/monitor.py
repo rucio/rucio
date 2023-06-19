@@ -17,6 +17,7 @@
 Graphite and prometheus metrics
 """
 
+import __main__ as main
 import atexit
 import logging
 import os
@@ -25,18 +26,19 @@ from abc import abstractmethod
 from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING
 from threading import Lock
 
-from prometheus_client import start_http_server, Counter, Gauge, Histogram, REGISTRY, CollectorRegistry, generate_latest, values, multiprocess
+from prometheus_client import (Counter, Gauge, Histogram, REGISTRY, CollectorRegistry, generate_latest, multiprocess,
+                               push_to_gateway, start_http_server, values)
 from statsd import StatsClient
+from typing import TYPE_CHECKING
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import retrying
 
 if TYPE_CHECKING:
-    from typing import Callable, Dict, Iterable, Optional, Sequence, TypeVar
+    from typing import Any, Callable, Dict, Iterable, Optional, Sequence, TypeVar
 
     T = TypeVar('T')
 
@@ -275,12 +277,14 @@ def _fetch_or_create_counter(
         name: str,
         labelnames: "Optional[Sequence[str]]" = None,
         documentation: "Optional[str]" = None,
+        registry: "Optional[CollectorRegistry]" = None,
 ) -> _MultiCounter:
     return _fetch_or_create_metric(
         name=name,
         labelnames=labelnames,
         container=COUNTERS,
-        factory=lambda _name, _labelnames: _MultiCounter(statsd=_name, labelnames=_labelnames, documentation=documentation)
+        factory=lambda _name, _labelnames: _MultiCounter(statsd=_name, labelnames=_labelnames,
+                                                         documentation=documentation, registry=registry)
     )
 
 
@@ -288,12 +292,14 @@ def _fetch_or_create_gauge(
         name: str,
         labelnames: "Optional[Sequence[str]]" = None,
         documentation: "Optional[str]" = None,
+        registry: "Optional[CollectorRegistry]" = None,
 ) -> _MultiGauge:
     return _fetch_or_create_metric(
         name=name,
         labelnames=labelnames,
         container=GAUGES,
-        factory=lambda _name, _labelnames: _MultiGauge(statsd=_name, labelnames=_labelnames, documentation=documentation)
+        factory=lambda _name, _labelnames: _MultiGauge(statsd=_name, labelnames=_labelnames,
+                                                       documentation=documentation, registry=registry)
     )
 
 
@@ -301,13 +307,15 @@ def _fetch_or_create_timer(
         name: str,
         labelnames: "Optional[Sequence[str]]" = None,
         documentation: "Optional[str]" = None,
-        buckets: "Iterable[float]" = _HISTOGRAM_DEFAULT_BUCKETS
+        registry: "Optional[CollectorRegistry]" = None,
+        buckets: "Iterable[float]" = _HISTOGRAM_DEFAULT_BUCKETS,
 ) -> _MultiTiming:
     return _fetch_or_create_metric(
         name=name,
         labelnames=labelnames,
         container=TIMINGS,
-        factory=lambda _name, _labels: _MultiTiming(statsd=_name, labelnames=_labels, documentation=documentation, buckets=buckets)
+        factory=lambda _name, _labels: _MultiTiming(statsd=_name, labelnames=_labels, documentation=documentation,
+                                                    registry=registry, buckets=buckets)
     )
 
 
@@ -317,18 +325,25 @@ class MetricManager:
     Wrapper for metrics which prefixes them automatically with the given prefix or,
     alternatively, with the path of the module.
     """
-    def __init__(self, prefix: "Optional[str]" = None, module: "Optional[str]" = None):
+
+    def __init__(self, prefix: "Optional[str]" = None, module: "Optional[str]" = None,
+                 registry: "Optional[CollectorRegistry]" = None, push_gateways: "Optional[Sequence[str]]" = None):
         if prefix:
             self.prefix = prefix
         elif module:
             self.prefix = module
         else:
             self.prefix = None
+        self.registry = registry or REGISTRY
+        self.push_gateways = push_gateways or []
 
     def full_name(self, name: str):
         if self.prefix:
             return f'{self.prefix}.{name}'
         return name
+
+    def get_registry(self) -> CollectorRegistry:
+        return self.registry
 
     def counter(
             self,
@@ -409,3 +424,19 @@ class MetricManager:
         if original_function:
             return _decorator(original_function)
         return _decorator
+
+    def push_metrics_to_gw(self, job: "Optional[str]" = None, grouping_key: "Optional[Dict[str, Any]]" = None) -> None:
+        """
+        Push the metrics out to the prometheus push gateways. This is useful for short-running programs which don't
+        live long enough to be reliably scraped in the prometheus pull model.
+        """
+
+        if not job:
+            job = Path(main.__file__).stem
+        grouping_key = grouping_key or {}
+
+        for server in self.push_gateways:
+            try:
+                push_to_gateway(server.strip(), job=job, registry=self.registry, grouping_key=grouping_key)
+            except:
+                continue
