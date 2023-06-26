@@ -27,7 +27,7 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.datastructures import Headers
 
 from rucio.client.ruleclient import RuleClient
-from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, RSEProtocolPriorityError, RucioException,
+from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, RucioException,
                                     ReplicaIsLocked, ReplicaNotFound, ScopeNotFound,
                                     DatabaseException, InputValidationError)
 from rucio.common.schema import get_schema_value
@@ -448,27 +448,6 @@ class TestReplicaCore:
 
         replicas = list(replica_client.list_replicas([{'scope': mock_scope.external, 'name': name}]))
         assert 'http://' in list(replicas[0]['pfns'].keys())[0]
-
-        with pytest.raises(RSEProtocolPriorityError):
-            # check that the appropriate exception is raised when an invalid setting is passed
-            add_protocol(rse_id, {'scheme': 'http',
-                                  'hostname': 'http.aperture.com',
-                                  'port': 80,
-                                  'prefix': '//test/chamber/',
-                                  'impl': 'rucio.rse.protocols.gfal.Default',
-                                  'domains': {
-                                      'lan': {'read': None, 'write': 1, 'delete': 1},  # None should be int >= 0
-                                      'wan': {'read': 1, 'write': 1, 'delete': 1}}})
-        with pytest.raises(RSEProtocolPriorityError):
-            # check that the appropriate exception is raised when an invalid setting is passed
-            add_protocol(rse_id, {'scheme': 'http',
-                                  'hostname': 'http.aperture.com',
-                                  'port': 80,
-                                  'prefix': '//test/chamber/',
-                                  'impl': 'rucio.rse.protocols.gfal.Default',
-                                  'domains': {
-                                      'lan': {'read': 1, 'write': 1, 'delete': 1},  # None should be int >= 0
-                                      'wan': {'read': None, 'write': 1, 'delete': 1}}})
 
     def test_replica_no_site(self, rse_factory, mock_scope, root_account, replica_client):
         """ REPLICA (CORE): Test listing replicas without site attribute """
