@@ -1285,7 +1285,7 @@ def add_protocol(rse_id, parameter, *, session: "Session"):
     parameter['hostname'] = parameter.get('hostname', 'localhost')
 
     # Transform nested domains to match DB schema e.g. [domains][lan][read] => [read_lan]
-    if 'domains' in parameter.keys():
+    if 'domains' in parameter:
         for s in parameter['domains']:
             if s not in utils.rse_supported_protocol_domains():
                 raise exception.RSEProtocolDomainNotSupported('The protocol domain \'%s\' is not defined in the schema.' % s)
