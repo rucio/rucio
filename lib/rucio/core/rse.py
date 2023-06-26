@@ -1293,10 +1293,7 @@ def add_protocol(rse_id, parameter, *, session: "Session"):
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
                 op_name = op if op.startswith('third_party_copy') else ''.join([op, '_', s]).lower()
-                try:
-                    if parameter['domains'][s][op] < 0:
-                        raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (parameter['domains'][s][op], op, s))
-                except TypeError:
+                if parameter['domains'][s][op] < 0:
                     raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (parameter['domains'][s][op], op, s))
                 parameter[op_name] = parameter['domains'][s][op]
         del parameter['domains']
