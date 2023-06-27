@@ -1288,14 +1288,14 @@ def add_protocol(rse_id, parameter, *, session: "Session"):
     if 'domains' in parameter:
         for domain in parameter['domains']:
             if domain not in utils.rse_supported_protocol_domains():
-                raise exception.RSEProtocolDomainNotSupported('The protocol domain \'%s\' is not defined in the schema.' % domain)
+                raise exception.RSEProtocolDomainNotSupported(f"The protocol domain '{domain}' is not defined in the schema.")
             for op in parameter['domains'][domain]:
                 if op not in utils.rse_supported_protocol_operations():
-                    raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
-                op_name = op if op.startswith('third_party_copy') else ''.join([op, '_', domain]).lower()
+                    raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
+                op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = parameter['domains'][domain][op]
                 if priority < 0:
-                    raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (priority, op, domain))
+                    raise exception.RSEProtocolPriorityError("The provided priority ({priority}) for operation '{op}' in domain '{domain}' is not supported.")
                 parameter[op_name] = priority
         del parameter['domains']
 
@@ -1499,11 +1499,11 @@ def update_protocols(
     if 'domains' in data:
         for domain in data['domains']:
             if domain not in utils.rse_supported_protocol_domains():
-                raise exception.RSEProtocolDomainNotSupported('The protocol domain \'%s\' is not defined in the schema.' % domain)
+                raise exception.RSEProtocolDomainNotSupported(f"The protocol domain '{domain}' is not defined in the schema.")
             for op in data['domains'][domain]:
                 if op not in utils.rse_supported_protocol_operations():
-                    raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
-                op_name = op if op.startswith('third_party_copy') else ''.join([op, '_', domain]).lower()
+                    raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
+                op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = data['domains'][domain][op]
                 stmt = select(
                     func.count(models.RSEProtocols.rse_id)
@@ -1513,7 +1513,7 @@ def update_protocols(
                 )
                 no = session.execute(stmt).scalar()
                 if not 0 <= priority <= no:
-                    raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (priority, op, domain))
+                    raise exception.RSEProtocolPriorityError(f"The provided priority ({priority}) for operation '{op}' in domain '{domain}' is not supported.")
                 data[op_name] = priority
         del data['domains']
 
