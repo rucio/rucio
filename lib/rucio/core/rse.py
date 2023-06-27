@@ -1293,9 +1293,10 @@ def add_protocol(rse_id, parameter, *, session: "Session"):
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
                 op_name = op if op.startswith('third_party_copy') else ''.join([op, '_', domain]).lower()
-                if parameter['domains'][domain][op] < 0:
-                    raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (parameter['domains'][domain][op], op, domain))
-                parameter[op_name] = parameter['domains'][domain][op]
+                priority = parameter['domains'][domain][op]
+                if priority < 0:
+                    raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (priority, op, domain))
+                parameter[op_name] = priority
         del parameter['domains']
 
     if ('extended_attributes' in parameter) and parameter['extended_attributes']:
@@ -1505,6 +1506,7 @@ def update_protocols(
                 op_name = op
                 if not op.startswith('third_party_copy'):
                     op_name = ''.join([op, '_', domain])
+                priority = data['domains'][domain][op]
                 stmt = select(
                     func.count(models.RSEProtocols.rse_id)
                 ).where(
@@ -1512,9 +1514,9 @@ def update_protocols(
                     getattr(models.RSEProtocols, op_name) >= 0
                 )
                 no = session.execute(stmt).scalar()
-                if not 0 <= data['domains'][domain][op] <= no:
-                    raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (data['domains'][domain][op], op, domain))
-                data[op_name] = data['domains'][domain][op]
+                if not 0 <= priority <= no:
+                    raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (priority, op, domain))
+                data[op_name] = priority
         del data['domains']
 
     if 'extended_attributes' in data:
