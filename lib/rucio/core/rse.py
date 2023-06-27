@@ -1503,9 +1503,7 @@ def update_protocols(
             for op in data['domains'][domain]:
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
-                op_name = op
-                if not op.startswith('third_party_copy'):
-                    op_name = ''.join([op, '_', domain])
+                op_name = op if op.startswith('third_party_copy') else ''.join([op, '_', domain]).lower()
                 priority = data['domains'][domain][op]
                 stmt = select(
                     func.count(models.RSEProtocols.rse_id)
