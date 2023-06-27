@@ -1286,16 +1286,16 @@ def add_protocol(rse_id, parameter, *, session: "Session"):
 
     # Transform nested domains to match DB schema e.g. [domains][lan][read] => [read_lan]
     if 'domains' in parameter:
-        for s in parameter['domains']:
-            if s not in utils.rse_supported_protocol_domains():
-                raise exception.RSEProtocolDomainNotSupported('The protocol domain \'%s\' is not defined in the schema.' % s)
-            for op in parameter['domains'][s]:
+        for domain in parameter['domains']:
+            if domain not in utils.rse_supported_protocol_domains():
+                raise exception.RSEProtocolDomainNotSupported('The protocol domain \'%s\' is not defined in the schema.' % domain)
+            for op in parameter['domains'][domain]:
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
-                op_name = op if op.startswith('third_party_copy') else ''.join([op, '_', s]).lower()
-                if parameter['domains'][s][op] < 0:
-                    raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (parameter['domains'][s][op], op, s))
-                parameter[op_name] = parameter['domains'][s][op]
+                op_name = op if op.startswith('third_party_copy') else ''.join([op, '_', domain]).lower()
+                if parameter['domains'][domain][op] < 0:
+                    raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (parameter['domains'][domain][op], op, domain))
+                parameter[op_name] = parameter['domains'][domain][op]
         del parameter['domains']
 
     if ('extended_attributes' in parameter) and parameter['extended_attributes']:
@@ -1496,15 +1496,15 @@ def update_protocols(
 
     # Transform nested domains to match DB schema e.g. [domains][lan][read] => [read_lan]
     if 'domains' in data:
-        for s in data['domains']:
-            if s not in utils.rse_supported_protocol_domains():
-                raise exception.RSEProtocolDomainNotSupported('The protocol domain \'%s\' is not defined in the schema.' % s)
-            for op in data['domains'][s]:
+        for domain in data['domains']:
+            if domain not in utils.rse_supported_protocol_domains():
+                raise exception.RSEProtocolDomainNotSupported('The protocol domain \'%s\' is not defined in the schema.' % domain)
+            for op in data['domains'][domain]:
                 if op not in utils.rse_supported_protocol_operations():
                     raise exception.RSEOperationNotSupported('Operation \'%s\' not defined in schema.' % (op))
                 op_name = op
                 if not op.startswith('third_party_copy'):
-                    op_name = ''.join([op, '_', s])
+                    op_name = ''.join([op, '_', domain])
                 stmt = select(
                     func.count(models.RSEProtocols.rse_id)
                 ).where(
@@ -1512,9 +1512,9 @@ def update_protocols(
                     getattr(models.RSEProtocols, op_name) >= 0
                 )
                 no = session.execute(stmt).scalar()
-                if not 0 <= data['domains'][s][op] <= no:
-                    raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (data['domains'][s][op], op, s))
-                data[op_name] = data['domains'][s][op]
+                if not 0 <= data['domains'][domain][op] <= no:
+                    raise exception.RSEProtocolPriorityError('The provided priority (%s)for operation \'%s\' in domain \'%s\' is not supported.' % (data['domains'][domain][op], op, domain))
+                data[op_name] = data['domains'][domain][op]
         del data['domains']
 
     if 'extended_attributes' in data:
