@@ -1293,7 +1293,15 @@ def get_rse_info(rse_id, *, session: "Session"):
 
 
 @transactional_session
-def update_protocols(rse_id, scheme, data, hostname, port, *, session: "Session"):
+def update_protocols(
+    rse_id: str,
+    scheme: str,
+    data: Dict[str, Any],
+    hostname: str,
+    port: int,
+    *,
+    session: "Session"
+):
     """
     Update an existing protocol entry for an RSE.
 
@@ -1379,7 +1387,14 @@ def update_protocols(rse_id, scheme, data, hostname, port, *, session: "Session"
 
 
 @transactional_session
-def del_protocols(rse_id, scheme, hostname=None, port=None, *, session: "Session"):
+def del_protocols(
+    rse_id: str,
+    scheme: str,
+    hostname: Optional[str] = None,
+    port: Optional[int] = None,
+    *,
+    session: "Session"
+):
     """
     Delete one or more existing protocol entries for an RSE.
 
