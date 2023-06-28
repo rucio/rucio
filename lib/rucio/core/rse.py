@@ -1295,23 +1295,22 @@ def get_rse_info(rse_id, *, session: "Session"):
 @transactional_session
 def update_protocols(rse_id, scheme, data, hostname, port, *, session: "Session"):
     """
-    Updates an existing protocol entry for an RSE. If necessary, priorities for read,
-    write, and delete operations of other protocol entires will be updated too.
+    Update an existing protocol entry for an RSE.
 
-    :param rse_id: the id of the new rse.
+    :param rse_id: the ID of the RSE.
     :param scheme: Protocol identifer.
     :param data: Dict with new values (keys must match column names in the database).
     :param hostname: Hostname defined for the scheme, used if more than one scheme
                      is registered with the same identifier.
-    :param port: The port registered for the hostename, used if more than one scheme
-                 is regsitered with the same identifier and hostname.
+    :param port: The port registered for the hostname, used if more than one scheme
+                 is registered with the same identifier and hostname.
     :param session: The database session in use.
 
     :raises RSENotFound: If RSE is not found.
-    :raises RSEProtocolNotSupported: If no macthing protocol was found for the given RSE.
+    :raises RSEProtocolNotSupported: If no matching protocol was found for the given RSE.
     :raises RSEOperationNotSupported: If no protocol supported the requested operation for the given RSE.
     :raises RSEProtocolDomainNotSupported: If an undefined domain was provided.
-    :raises RSEProtocolPriorityError: If the provided priority for the protocol is to big or below zero.
+    :raises RSEProtocolPriorityError: If the provided priority for the protocol is too big or below zero.
     :raises KeyNotFound: Invalid data for update provided.
     :raises Duplicate: If protocol with identifier, hostname and port already exists
                        for the given RSE.
@@ -1382,18 +1381,18 @@ def update_protocols(rse_id, scheme, data, hostname, port, *, session: "Session"
 @transactional_session
 def del_protocols(rse_id, scheme, hostname=None, port=None, *, session: "Session"):
     """
-    Deletes an existing protocol entry for an RSE.
+    Delete one or more existing protocol entries for an RSE.
 
-    :param rse_id: the id of the new rse.
-    :param scheme: Protocol identifer.
+    :param rse_id: the ID of the RSE.
+    :param scheme: Protocol identifier.
     :param hostname: Hostname defined for the scheme, used if more than one scheme
                      is registered with the same identifier.
-    :param port: The port registered for the hostename, used if more than one scheme
-                     is regsitered with the same identifier and hostname.
+    :param port: The port registered for the hostname, used if more than one scheme
+                     is registered with the same identifier and hostname.
     :param session: The database session in use.
 
     :raises RSENotFound: If RSE is not found.
-    :raises RSEProtocolNotSupported: If no macthing scheme was found for the given RSE.
+    :raises RSEProtocolNotSupported: If no matching scheme was found for the given RSE.
     """
     try:
         rse_name = get_rse_name(rse_id=rse_id, session=session, include_deleted=False)
