@@ -24,7 +24,7 @@ from dogpile.cache.api import NO_VALUE
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
-from sqlalchemy.sql.expression import or_, and_, asc, desc, true, false, func, select, delete
+from sqlalchemy.sql.expression import or_, and_, desc, true, false, func, select, delete
 
 from rucio.common import exception, utils
 from rucio.common.cache import make_region_memcached
@@ -1366,63 +1366,6 @@ def update_protocols(rse_id, scheme, data, hostname, port, *, session: "Session"
         if up is None:
             msg = 'RSE \'%s\' does not support protocol \'%s\' for hostname \'%s\' on port \'%s\'' % (rse, scheme, hostname, port)
             raise exception.RSEProtocolNotSupported(msg)
-
-        # Preparing gaps if priority is updated
-        for domain in utils.rse_supported_protocol_domains():
-            for op in utils.rse_supported_protocol_operations():
-                op_name = op
-                if not op.startswith('third_party_copy'):
-                    op_name = ''.join([op, '_', domain])
-                if op_name in data:
-                    stmt = None
-                    if (not getattr(up, op_name)) and data[op_name]:  # reactivate protocol e.g. from 0 to 1
-                        stmt = select(
-                            models.RSEProtocols
-                        ).where(
-                            models.RSEProtocols.rse_id == rse_id,
-                            getattr(models.RSEProtocols, op_name) >= data[op_name]
-                        ).order_by(
-                            asc(getattr(models.RSEProtocols, op_name))
-                        )
-                        val = data[op_name] + 1
-                    elif getattr(up, op_name) and (not data[op_name]):  # deactivate protocol e.g. from 1 to 0
-                        stmt = select(
-                            models.RSEProtocols
-                        ).where(
-                            models.RSEProtocols.rse_id == rse_id,
-                            getattr(models.RSEProtocols, op_name) > getattr(up, op_name)
-                        ).order_by(
-                            asc(getattr(models.RSEProtocols, op_name))
-                        )
-                        val = getattr(up, op_name)
-                    elif getattr(up, op_name) > data[op_name]:  # shift forward e.g. from 5 to 2
-                        stmt = select(
-                            models.RSEProtocols
-                        ).where(
-                            models.RSEProtocols.rse_id == rse_id,
-                            getattr(models.RSEProtocols, op_name) >= data[op_name],
-                            getattr(models.RSEProtocols, op_name) < getattr(up, op_name)
-                        ).order_by(
-                            asc(getattr(models.RSEProtocols, op_name))
-                        )
-                        val = data[op_name] + 1
-                    elif getattr(up, op_name) < data[op_name]:  # shift backward e.g. from 1 to 3
-                        stmt = select(
-                            models.RSEProtocols
-                        ).where(
-                            models.RSEProtocols.rse_id == rse_id,
-                            getattr(models.RSEProtocols, op_name) <= data[op_name],
-                            getattr(models.RSEProtocols, op_name) > getattr(up, op_name)
-                        ).order_by(
-                            asc(getattr(models.RSEProtocols, op_name))
-                        )
-                        val = getattr(up, op_name)
-
-                    if stmt is not None:
-                        for p in session.execute(stmt).scalars():
-                            p.update({op_name: val})
-                            val += 1
-
         up.update(data, flush=True, session=session)
     except (IntegrityError, OperationalError) as error:
         if 'UNIQUE'.lower() in error.args[0].lower() or 'Duplicate' in error.args[0]:  # Covers SQLite, Oracle and MySQL error
@@ -1476,24 +1419,6 @@ def del_protocols(rse_id, scheme, hostname=None, port=None, *, session: "Session
 
     for row in p:
         row.delete(session=session)
-
-    # Filling gaps in protocol priorities
-    for domain in utils.rse_supported_protocol_domains():
-        for op in utils.rse_supported_protocol_operations():
-            op_name = ''.join([op, '_', domain])
-            if getattr(models.RSEProtocols, op_name, None):
-                stmt = select(
-                    models.RSEProtocols
-                ).where(
-                    models.RSEProtocols.rse_id == rse_id,
-                    getattr(models.RSEProtocols, op_name) > 0
-                ).order_by(
-                    asc(getattr(models.RSEProtocols, op_name))
-                )
-                i = 1
-                for p in session.execute(stmt).scalars():
-                    p.update({op_name: i})
-                    i += 1
 
 
 MUTABLE_RSE_PROPERTIES = {
