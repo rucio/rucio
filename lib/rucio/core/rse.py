@@ -1414,9 +1414,9 @@ def del_protocols(
     except exception.RSENotFound:
         raise exception.RSENotFound('RSE \'%s\' not found' % rse_id)
     terms = [models.RSEProtocols.rse_id == rse_id, models.RSEProtocols.scheme == scheme]
-    if hostname:
+    if hostname is not None:
         terms.append(models.RSEProtocols.hostname == hostname)
-        if port:
+        if port is not None:
             terms.append(models.RSEProtocols.port == port)
     stmt = select(
         models.RSEProtocols
