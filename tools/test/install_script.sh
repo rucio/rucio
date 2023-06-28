@@ -20,7 +20,6 @@ echo "* Using $(which python) $(python --version 2>&1) and $(which pip) $(pip --
 
 if [ "$SUITE" == "client" -o "$SUITE" == "client_syntax" ]; then
     cd /usr/local/src/rucio
-    python setup_rucio_client.py install
     cp etc/docker/test/extra/rucio_client.cfg etc/rucio.cfg
 
 elif [ "$SUITE" == "syntax" -o "$SUITE" == "docs" ]; then
