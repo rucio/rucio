@@ -129,20 +129,7 @@ def __get_source(request_id, src_rse_id, scope, name, *, session=None):
     'rucio.core.config.REGION',
     'rucio.daemons.reaper.reaper.REGION',
 ]}], indirect=True)
-@pytest.mark.parametrize("file_config_mock", [
-    # Run test twice: with, and without, temp tables
-    {
-        "overrides": [
-            ('core', 'use_temp_tables', 'True'),
-        ]
-    },
-    {
-        "overrides": [
-            ('core', 'use_temp_tables', 'False'),
-        ]
-    }
-], indirect=True)
-def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, core_config_mock, caches_mock, metrics_mock, file_config_mock):
+def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, core_config_mock, caches_mock, metrics_mock):
     """
     Ensure that intermediate replicas created by the submitter are protected from deletion even if their tombstone is
     set to epoch.

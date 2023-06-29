@@ -47,12 +47,7 @@ class TestDIDCore:
         for d in list_dids(scope=InternalScope('data13_hip', vo=vo), filters={'name': '*'}, did_type='collection'):
             print(d)
 
-    @pytest.mark.parametrize("file_config_mock", [
-        # Run test twice: with, and without, temp tables
-        {"overrides": [('core', 'use_temp_tables', 'True')]},
-        {"overrides": [('core', 'use_temp_tables', 'False')]},
-    ], indirect=True)
-    def test_delete_dids(self, mock_scope, root_account, file_config_mock):
+    def test_delete_dids(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Delete dids """
         dsns = [{'name': did_name_generator('dataset'),
                  'scope': mock_scope,
@@ -95,12 +90,7 @@ class TestDIDCore:
         assert 100 == get_did_access_cnt(scope=mock_scope, name=tmp_dsn1)
         assert get_did_access_cnt(scope=mock_scope, name=tmp_dsn2) is None
 
-    @pytest.mark.parametrize("file_config_mock", [
-        # Run test twice: with, and without, temp tables
-        {"overrides": [('core', 'use_temp_tables', 'True')]},
-        {"overrides": [('core', 'use_temp_tables', 'False')]},
-    ], indirect=True)
-    def test_update_dids(self, vo, mock_scope, root_account, rse_factory, file_config_mock):
+    def test_update_dids(self, vo, mock_scope, root_account, rse_factory):
         """ DATA IDENTIFIERS (CORE): Update file size and checksum"""
         rse, rse_id = rse_factory.make_mock_rse()
         dsn = did_name_generator('dataset')
@@ -122,12 +112,7 @@ class TestDIDCore:
         set_metadata(scope=mock_scope, name=lfn, key='bytes', value=724963577)
         assert get_metadata(scope=mock_scope, name=lfn)['bytes'] == 724963577
 
-    @pytest.mark.parametrize("file_config_mock", [
-        # Run test twice: with, and without, temp tables
-        {"overrides": [('core', 'use_temp_tables', 'True')]},
-        {"overrides": [('core', 'use_temp_tables', 'False')]},
-    ], indirect=True)
-    def test_get_did_with_dynamic(self, root_account, rse_factory, did_factory, file_config_mock):
+    def test_get_did_with_dynamic(self, root_account, rse_factory, did_factory):
         """ DATA IDENTIFIERS (CORE): Get did with dynamic resolve of size"""
         rse_name, rse_id = rse_factory.make_mock_rse()
 
@@ -165,12 +150,7 @@ class TestDIDCore:
         assert did1['length'] == 0
         assert did1['bytes'] == 0
 
-    @pytest.mark.parametrize("file_config_mock", [
-        # Run test twice: with, and without, temp tables
-        {"overrides": [('core', 'use_temp_tables', 'True')]},
-        {"overrides": [('core', 'use_temp_tables', 'False')]},
-    ], indirect=True)
-    def test_reattach_dids(self, vo, mock_scope, root_account, rse_factory, file_config_mock):
+    def test_reattach_dids(self, vo, mock_scope, root_account, rse_factory):
         """ DATA IDENTIFIERS (CORE): Repeatedly attach and detach DIDs """
         rse, rse_id = rse_factory.make_mock_rse()
         parent_name = did_name_generator('dataset')
@@ -241,12 +221,7 @@ class TestDIDCore:
 
         assert rows == 0
 
-    @pytest.mark.parametrize("file_config_mock", [
-        # Run test twice: with, and without, temp tables
-        {"overrides": [('core', 'use_temp_tables', 'True')]},
-        {"overrides": [('core', 'use_temp_tables', 'False')]},
-    ], indirect=True)
-    def test_circular_attach(self, root_account, rse_factory, did_factory, file_config_mock):
+    def test_circular_attach(self, root_account, rse_factory, did_factory):
         """ Ensure that it's not possible to create a circular attachment of containers"""
         container1 = did_factory.make_container()
         container2 = did_factory.make_container()

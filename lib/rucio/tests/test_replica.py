@@ -240,12 +240,7 @@ class TestReplicaCore:
         else:
             assert '&#multirange=false&nconnections' not in pfn
 
-    @pytest.mark.parametrize("file_config_mock", [
-        # Run test twice: with, and without, temp tables
-        {"overrides": [('core', 'use_temp_tables', 'True')]},
-        {"overrides": [('core', 'use_temp_tables', 'False')]},
-    ], indirect=True)
-    def test_delete_replicas(self, rse_factory, mock_scope, root_account, file_config_mock):
+    def test_delete_replicas(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Delete replicas """
         _, rse1_id = rse_factory.make_mock_rse()
         _, rse2_id = rse_factory.make_mock_rse()
@@ -678,12 +673,7 @@ class TestReplicaCore:
     @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
         'rucio.core.rse_expression_parser.REGION',
     ]}], indirect=True)
-    @pytest.mark.parametrize("file_config_mock", [
-        # Run test twice: with, and without, temp tables
-        {"overrides": [('core', 'use_temp_tables', 'True')]},
-        {"overrides": [('core', 'use_temp_tables', 'False')]},
-    ], indirect=True)
-    def test_list_replicas_rse_filter(self, rse_factory, mock_scope, root_account, file_config_mock, caches_mock):
+    def test_list_replicas_rse_filter(self, rse_factory, mock_scope, root_account, caches_mock):
         """ REPLICA (CORE): test rse filter for list replicas """
         nbrses = 10
         nbfiles = 2

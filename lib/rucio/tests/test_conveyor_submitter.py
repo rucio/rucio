@@ -36,20 +36,7 @@ from rucio.db.sqla.session import read_session, transactional_session
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
-@pytest.mark.parametrize("file_config_mock", [
-    # Run test twice: with, and without, temp tables
-    {
-        "overrides": [
-            ('core', 'use_temp_tables', 'True'),
-        ]
-    },
-    {
-        "overrides": [
-            ('core', 'use_temp_tables', 'False'),
-        ]
-    }
-], indirect=True)
-def test_request_submitted_in_order(rse_factory, did_factory, root_account, file_config_mock):
+def test_request_submitted_in_order(rse_factory, did_factory, root_account):
 
     src_rses = [rse_factory.make_posix_rse() for _ in range(2)]
     dst_rses = [rse_factory.make_posix_rse() for _ in range(3)]
@@ -113,16 +100,8 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account, file
         "table_content": [
             ('transfers', 'use_multihop', True),
             ('transfers', 'multihop_rse_expression', '*'),
-            ('core', 'use_temp_tables', False),
         ]
     },
-    {
-        "table_content": [
-            ('transfers', 'use_multihop', True),
-            ('transfers', 'multihop_rse_expression', '*'),
-            ('core', 'use_temp_tables', True),
-        ]
-    }
 ], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
@@ -208,12 +187,7 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     'rucio.daemons.reaper.reaper.REGION',
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
 ]}], indirect=True)
-@pytest.mark.parametrize("file_config_mock", [
-    # Run test twice: with, and without, temp tables
-    {"overrides": [('core', 'use_temp_tables', 'True')]},
-    {"overrides": [('core', 'use_temp_tables', 'False')]},
-], indirect=True)
-def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_factory, root_account, file_config_mock):
+def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_factory, root_account):
     """ Test that sources on a file block it from deletion """
 
     _, reaper_region, _ = caches_mock
