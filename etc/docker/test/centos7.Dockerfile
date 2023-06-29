@@ -31,7 +31,7 @@ RUN yum install -y epel-release.noarch && \
     yum clean all
 
 WORKDIR /usr/local/src
-https://github.com/bari12/rucio/pull/new/patch-0-Testing__Fix_current_centos7_py3_7_issue
+
 RUN if [ "$PYTHON" == "3.6" ] ; then \
         python3.6 -m pip --no-cache-dir install --upgrade pip && \
         python3.6 -m pip --no-cache-dir install --upgrade setuptools wheel && \
