@@ -47,7 +47,7 @@ from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import list_payload_counts
 from rucio.core.message import add_message
 from rucio.core.oidc import get_token_for_account_operation
-from rucio.core.replica import list_and_mark_unlocked_replicas, list_and_mark_unlocked_replicas_no_temp_table, delete_replicas
+from rucio.core.replica import list_and_mark_unlocked_replicas, delete_replicas
 from rucio.core.rse import list_rses, RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
@@ -564,24 +564,15 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
         # List and mark BEING_DELETED the files to delete
         del_start_time = time.time()
         try:
-            use_temp_tables = config_get_bool('core', 'use_temp_tables', default=True)
             with METRICS.timer('list_unlocked_replicas'):
                 if only_delete_obsolete:
                     logger(logging.DEBUG, 'Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', rse.name)
-                if use_temp_tables:
-                    replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
-                                                               bytes_=needed_free_space,
-                                                               rse_id=rse.id,
-                                                               delay_seconds=delay_seconds,
-                                                               only_delete_obsolete=only_delete_obsolete,
-                                                               session=None)
-                else:
-                    replicas = list_and_mark_unlocked_replicas_no_temp_table(limit=chunk_size,
-                                                                             bytes_=needed_free_space,
-                                                                             rse_id=rse.id,
-                                                                             delay_seconds=delay_seconds,
-                                                                             only_delete_obsolete=only_delete_obsolete,
-                                                                             session=None)
+                replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
+                                                           bytes_=needed_free_space,
+                                                           rse_id=rse.id,
+                                                           delay_seconds=delay_seconds,
+                                                           only_delete_obsolete=only_delete_obsolete,
+                                                           session=None)
             logger(logging.DEBUG, 'list_and_mark_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', rse.name, needed_free_space, time.time() - del_start_time, len(replicas))
             if (len(replicas) == 0 and enable_greedy) or (len(replicas) < chunk_size and not enable_greedy):
                 logger(logging.DEBUG, 'Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', rse.name, chunk_size, len(replicas))

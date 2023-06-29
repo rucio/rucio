@@ -37,12 +37,7 @@ LOG = getLogger(__name__)
 @pytest.mark.noparallel(reason='uses pre-defined rses; runs undertaker, which impacts other tests')
 class TestUndertaker:
 
-    @pytest.mark.parametrize("file_config_mock", [
-        # Run test twice: with, and without, temp tables
-        {"overrides": [('core', 'use_temp_tables', 'True')]},
-        {"overrides": [('core', 'use_temp_tables', 'False')]},
-    ], indirect=True)
-    def test_undertaker(self, vo, mock_scope, root_account, file_config_mock):
+    def test_undertaker(self, vo, mock_scope, root_account):
         """ UNDERTAKER (CORE): Test the undertaker. """
         jdoe = InternalAccount('jdoe', vo=vo)
 
@@ -89,12 +84,7 @@ class TestUndertaker:
         for replica in replicas:
             assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse_id)['tombstone'] is not None
 
-    @pytest.mark.parametrize("file_config_mock", [
-        # Run test twice: with, and without, temp tables
-        {"overrides": [('core', 'use_temp_tables', 'True')]},
-        {"overrides": [('core', 'use_temp_tables', 'False')]},
-    ], indirect=True)
-    def test_list_expired_dids_with_locked_rules(self, vo, mock_scope, root_account, file_config_mock):
+    def test_list_expired_dids_with_locked_rules(self, vo, mock_scope, root_account):
         """ UNDERTAKER (CORE): Test that the undertaker does not list expired dids with locked rules"""
         jdoe = InternalAccount('jdoe', vo=vo)
 
@@ -114,12 +104,7 @@ class TestUndertaker:
         for did in list_expired_dids(limit=1000):
             assert (did['scope'], did['name']) != (dsn['scope'], dsn['name'])
 
-    @pytest.mark.parametrize("file_config_mock", [
-        # Run test twice: with, and without, temp tables
-        {"overrides": [('core', 'use_temp_tables', 'True')]},
-        {"overrides": [('core', 'use_temp_tables', 'False')]},
-    ], indirect=True)
-    def test_atlas_archival_policy(self, vo, mock_scope, root_account, file_config_mock):
+    def test_atlas_archival_policy(self, vo, mock_scope, root_account):
         """ UNDERTAKER (CORE): Test the atlas archival policy. """
         if get_policy() != 'atlas':
             LOG.info("Skipping atlas-specific test")
@@ -169,12 +154,7 @@ class TestUndertaker:
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.config.REGION',
 ]}], indirect=True)
-@pytest.mark.parametrize("file_config_mock", [
-    # Run test twice: with, and without, temp tables
-    {"overrides": [('core', 'use_temp_tables', 'True')]},
-    {"overrides": [('core', 'use_temp_tables', 'False')]},
-], indirect=True)
-def test_removal_all_replicas2(rse_factory, root_account, mock_scope, core_config_mock, caches_mock, file_config_mock):
+def test_removal_all_replicas2(rse_factory, root_account, mock_scope, core_config_mock, caches_mock):
     """ UNDERTAKER (CORE): Test the undertaker is setting Epoch tombstone on all the replicas. """
     rse1, rse1_id = rse_factory.make_posix_rse()
     rse2, rse2_id = rse_factory.make_posix_rse()

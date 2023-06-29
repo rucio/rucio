@@ -401,12 +401,7 @@ def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_
         assert list(rep.keys())[0] == ReplicaState.AVAILABLE
 
 
-@pytest.mark.parametrize("file_config_mock", [
-    # Run test twice: with, and without, temp tables
-    {"overrides": [('core', 'use_temp_tables', 'True')]},
-    {"overrides": [('core', 'use_temp_tables', 'False')]},
-], indirect=True)
-def test_add_and_delete_bad_replicas(rse_factory, mock_scope, root_account, did_client, vo, file_config_mock):
+def test_add_and_delete_bad_replicas(rse_factory, mock_scope, root_account, did_client, vo):
     """ REPLICA (CORE): Add bad replicas and delete them"""
     # Adding replicas to deterministic RSE
     nbfiles = 5

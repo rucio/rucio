@@ -441,8 +441,7 @@ def list_transfer_requests_and_source_replicas(
     else:
         sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
 
-    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=True, session=session)
-    if rses and use_temp_tables:
+    if rses:
         temp_table_cls = temp_table_mngr(session).create_id_table()
 
         session.bulk_insert_mappings(temp_table_cls, [{'id': rse_id} for rse_id in rses])
@@ -525,10 +524,6 @@ def list_transfer_requests_and_source_replicas(
     requests_by_id = {}
     for (request_id, req_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, source_rse_id, dest_rse_id, account, retry_count,
          priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance) in session.execute(stmt):
-
-        # If we didn't pre-filter using temporary tables on database side, perform the filtering here
-        if not use_temp_tables and rses and dest_rse_id not in rses:
-            continue
 
         request = requests_by_id.get(request_id)
         if not request:
