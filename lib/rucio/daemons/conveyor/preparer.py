@@ -27,7 +27,7 @@ from rucio.common.logging import setup_logging
 from rucio.core import transfer as transfer_core
 from rucio.core.request import set_requests_state_if_possible, list_transfer_requests_and_source_replicas
 from rucio.core.transfer import prepare_transfers, list_transfer_admin_accounts, build_transfer_paths, ProtocolFactory
-from rucio.core.topology import Topology
+from rucio.core.topology import Topology, ExpiringObjectCache
 from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.daemons.common import run_daemon
 
@@ -57,9 +57,11 @@ def run(once=False, threads=1, sleep_time=10, bulk=100, ignore_availability: boo
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
+    cached_topology = ExpiringObjectCache(ttl=300, new_obj_fnc=lambda: Topology(ignore_availability=ignore_availability))
+
     def preparer_kwargs():
         # not sure if this is needed for threading.Thread, but it always returns a fresh dictionary
-        return {'once': once, 'sleep_time': sleep_time, 'bulk': bulk, 'ignore_availability': ignore_availability}
+        return {'once': once, 'sleep_time': sleep_time, 'bulk': bulk, 'ignore_availability': ignore_availability, 'cached_topology': cached_topology}
 
     threads = [threading.Thread(target=preparer, name=f'conveyor-preparer-{i}', kwargs=preparer_kwargs(), daemon=True) for i in range(threads)]
     for thr in threads:
@@ -85,7 +87,7 @@ def run(once=False, threads=1, sleep_time=10, bulk=100, ignore_availability: boo
     logging.info('conveyor-preparer: stopped')
 
 
-def preparer(once, sleep_time, bulk, ignore_availability: bool, partition_wait_time: int = 10):
+def preparer(once, sleep_time, bulk, ignore_availability: bool, partition_wait_time: int = 10, cached_topology=None):
     # Make an initial heartbeat so that all instanced daemons have the correct worker number on the next try
     logger_prefix = executable = 'conveyor-preparer'
     transfertools = config_get_list('conveyor', 'transfertool', False, None)
@@ -102,6 +104,7 @@ def preparer(once, sleep_time, bulk, ignore_availability: bool, partition_wait_t
             transfertools=transfertools,
             bulk=bulk,
             ignore_availability=ignore_availability,
+            cached_topology=cached_topology,
         ),
         activities=None,
     )
@@ -113,6 +116,7 @@ def run_once(
         heartbeat_handler: "Optional[HeartbeatHandler]" = None,
         session: "Optional[Session]" = None,
         ignore_availability: bool = False,
+        cached_topology=None,
         **kwargs
 ) -> bool:
     if heartbeat_handler:
@@ -127,7 +131,8 @@ def run_once(
     requests_handled = 0
     try:
         admin_accounts = list_transfer_admin_accounts()
-        topology = Topology(ignore_availability=ignore_availability).configure_multihop(logger=logger, session=session)
+        topology = cached_topology.get() if cached_topology else Topology(ignore_availability=ignore_availability)
+        topology.configure_multihop(logger=logger, session=session)
         requests_with_sources = list_transfer_requests_and_source_replicas(
             rse_collection=topology,
             total_workers=total_workers,

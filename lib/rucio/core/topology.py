@@ -12,9 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import datetime
 import itertools
 import logging
+import threading
 import weakref
 from typing import TYPE_CHECKING, cast, Any, Callable, Generic, Iterable, Iterator, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
 
@@ -127,12 +128,17 @@ class Topology(RseCollection, Generic[TN, TE]):
         self._hop_penalty = DEFAULT_HOP_PENALTY
         self.ignore_availability = ignore_availability
 
+        self._lock = threading.RLock()
+
     def get_or_create(self, rse_id: str) -> "TN":
         rse_data = self.rse_id_to_data_map.get(rse_id)
         if rse_data is None:
-            self.rse_id_to_data_map[rse_id] = rse_data = self._rse_data_cls(rse_id)
-            # A new node added. Edges which were already loaded are probably incomplete now.
-            self._edges_loaded = False
+            with self._lock:
+                rse_data = self.rse_id_to_data_map.get(rse_id)
+                if not rse_data:
+                    self.rse_id_to_data_map[rse_id] = rse_data = self._rse_data_cls(rse_id)
+                    # A new node added. Edges which were already loaded are probably incomplete now.
+                    self._edges_loaded = False
         return rse_data
 
     def edge(self, src_node: TN, dst_node: TN) -> "Optional[TE]":
@@ -141,12 +147,16 @@ class Topology(RseCollection, Generic[TN, TE]):
     def get_or_create_edge(self, src_node: TN, dst_node: TN) -> "TE":
         edge = self._edges.get((src_node, dst_node))
         if not edge:
-            self._edges[src_node, dst_node] = edge = self._edge_cls(src_node, dst_node)
+            with self._lock:
+                edge = self._edges.get((src_node, dst_node))
+                if not edge:
+                    self._edges[src_node, dst_node] = edge = self._edge_cls(src_node, dst_node)
         return edge
 
     def delete_edge(self, src_node: TN, dst_node: TN):
-        edge = self._edges[src_node, dst_node]
-        edge.remove_from_nodes()
+        with self._lock:
+            edge = self._edges[src_node, dst_node]
+            edge.remove_from_nodes()
 
     @property
     def multihop_enabled(self) -> bool:
@@ -154,6 +164,10 @@ class Topology(RseCollection, Generic[TN, TE]):
 
     @read_session
     def configure_multihop(self, multihop_rse_ids: Optional[Set[str]] = None, *, session: "Session", logger: LoggerFunction = logging.log):
+        with self._lock:
+            return self._configure_multihop(multihop_rse_ids=multihop_rse_ids, session=session, logger=logger)
+
+    def _configure_multihop(self, multihop_rse_ids: Optional[Set[str]] = None, *, session: "Session", logger: LoggerFunction = logging.log):
 
         if multihop_rse_ids is None:
             include_multihop = config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
@@ -190,6 +204,10 @@ class Topology(RseCollection, Generic[TN, TE]):
         if self._edges_loaded:
             return
 
+        with self._lock:
+            return self._ensure_edges_loaded(session=session)
+
+    def _ensure_edges_loaded(self, *, session: "Session"):
         stmt = select(
             models.Distance
         ).where(
@@ -362,6 +380,30 @@ class Topology(RseCollection, Generic[TN, TE]):
                             adj_node_state = node_state_provider(adjacent_node)
                             next_hops[adjacent_node] = new_adjacent_dist, adj_node_state, edge, edge_state
                             priority_q[adjacent_node] = new_adjacent_dist
+
+
+class ExpiringObjectCache:
+    """
+    Thread-safe container which builds and object with the function passed in parameter and
+    caches it for the TTL duration.
+    """
+
+    def __init__(self, ttl, new_obj_fnc):
+        self._lock = threading.Lock()
+        self._object = None
+        self._creation_time = None
+        self._new_obj_fnc = new_obj_fnc
+        self._ttl = ttl
+
+    def get(self, logger=logging.log):
+        with self._lock:
+            if not self._object \
+                    or not self._creation_time \
+                    or datetime.datetime.utcnow() - self._creation_time > datetime.timedelta(seconds=self._ttl):
+                self._object = self._new_obj_fnc()
+                self._creation_time = datetime.datetime.utcnow()
+                logger(logging.INFO, "Refreshed topology object")
+            return self._object
 
 
 @transactional_session
