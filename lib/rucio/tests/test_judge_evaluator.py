@@ -128,6 +128,10 @@ class TestJudgeEvaluator:
         attach_dids(scope, dataset, files, self.jdoe)
 
         parent_container = 'dataset_' + str(uuid())
+
+        # Fake judge to clean out queue
+        re_evaluator(once=True, did_limit=None)
+
         add_did(scope, parent_container, DIDType.CONTAINER, self.jdoe)
         # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': parent_container}], account=self.jdoe, copies=2, rse_expression=self.T1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)
