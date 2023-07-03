@@ -32,7 +32,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import and_, or_, text, true, null, tuple_, false
+from sqlalchemy.sql.expression import and_, or_, true, null, tuple_, false
 
 from rucio.core.account import has_account_attribute
 import rucio.core.did
@@ -1769,19 +1769,11 @@ def get_injected_rules(total_workers, worker_number, limit=100, blocked_rules=[]
     :param session:            Database session in use.
     """
 
-    if session.bind.dialect.name == 'oracle':
-        query = session.query(models.ReplicationRule.id).\
-            with_hint(models.ReplicationRule, "index(rules RULES_INJECTIONSTATE_IDX)", 'oracle').\
-            filter(text("(CASE when rules.state='I' THEN rules.state ELSE null END)= 'I' ")).\
-            filter(models.ReplicationRule.state == RuleState.INJECT).\
-            order_by(models.ReplicationRule.created_at).\
-            filter(models.ReplicationRule.created_at <= datetime.utcnow())
-    else:
-        query = session.query(models.ReplicationRule.id).\
-            with_hint(models.ReplicationRule, "index(rules RULES_INJECTIONSTATE_IDX)", 'oracle').\
-            filter(models.ReplicationRule.state == RuleState.INJECT).\
-            order_by(models.ReplicationRule.created_at).\
-            filter(models.ReplicationRule.created_at <= datetime.utcnow())
+    query = session.query(models.ReplicationRule.id).\
+        with_hint(models.ReplicationRule, "index(rules RULES_STATE_IDX)", 'oracle').\
+        filter(models.ReplicationRule.state == RuleState.INJECT).\
+        order_by(models.ReplicationRule.created_at).\
+        filter(models.ReplicationRule.created_at <= datetime.utcnow())
 
     query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
@@ -1812,25 +1804,14 @@ def get_stuck_rules(total_workers, worker_number, delta=600, limit=10, blocked_r
     :param blocked_rules:      Blocked rules to filter out.
     :param session:            Database session in use.
     """
-    if session.bind.dialect.name == 'oracle':
-        query = session.query(models.ReplicationRule.id).\
-            with_hint(models.ReplicationRule, "index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
-            filter(text("(CASE when rules.state='S' THEN rules.state ELSE null END)= 'S' ")).\
-            filter(models.ReplicationRule.state == RuleState.STUCK).\
-            filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
-            filter(or_(models.ReplicationRule.expires_at == null(),
-                       models.ReplicationRule.expires_at > datetime.utcnow(),
-                       models.ReplicationRule.locked == true())).\
-            order_by(models.ReplicationRule.updated_at)  # NOQA
-    else:
-        query = session.query(models.ReplicationRule.id).\
-            with_hint(models.ReplicationRule, "index(rules RULES_STUCKSTATE_IDX)", 'oracle').\
-            filter(models.ReplicationRule.state == RuleState.STUCK).\
-            filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
-            filter(or_(models.ReplicationRule.expires_at == null(),
-                       models.ReplicationRule.expires_at > datetime.utcnow(),
-                       models.ReplicationRule.locked == true())).\
-            order_by(models.ReplicationRule.updated_at)
+    query = session.query(models.ReplicationRule.id).\
+        with_hint(models.ReplicationRule, "index(rules RULES_STATE_IDX)", 'oracle').\
+        filter(models.ReplicationRule.state == RuleState.STUCK).\
+        filter(models.ReplicationRule.updated_at < datetime.utcnow() - timedelta(seconds=delta)).\
+        filter(or_(models.ReplicationRule.expires_at == null(),
+                   models.ReplicationRule.expires_at > datetime.utcnow(),
+                   models.ReplicationRule.locked == true())).\
+        order_by(models.ReplicationRule.updated_at)
 
     query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
