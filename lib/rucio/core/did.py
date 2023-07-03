@@ -324,6 +324,8 @@ def _attach_dids_to_dids(
                 models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
             )
             parent_did = session.execute(stmt).scalar_one()
+            update_parent = False
+
             if not first_iteration:
                 session.query(children_temp_table).delete()
             session.bulk_insert_mappings(children_temp_table, [{'scope': s, 'name': n} for s, n in children])
@@ -351,6 +353,7 @@ def _attach_dids_to_dids(
                                               ignore_duplicate=ignore_duplicate,
                                               rse_id=attachment.get('rse_id'),
                                               session=session)
+                update_parent = len(cont) > 0
 
             elif parent_did.did_type == DIDType.CONTAINER:
                 __add_collections_to_container(parent_did=parent_did,
@@ -358,8 +361,9 @@ def _attach_dids_to_dids(
                                                collections=children,
                                                account=account,
                                                session=session)
+                update_parent = True
 
-            if cont:
+            if update_parent:
                 # cont contains the parent of the files and is only filled if the files does not exist yet
                 parent_dids.append({'scope': parent_did.scope,
                                     'name': parent_did.name,
