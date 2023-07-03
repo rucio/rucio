@@ -946,7 +946,7 @@ class RSEFileAssociation(BASE, ModelBase):
                    CheckConstraint('lock_cnt IS NOT NULL', name='REPLICAS_LOCK_CNT_NN'),
                    Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
                    Index('REPLICAS_PATH_IDX', 'path', mysql_length=get_schema_value('NAME_LENGTH')),
-                   Index('REPLICAS_STATE_IDX', 'state'),  # Under Oracle this is a FB Index
+                   Index('REPLICAS_STATE_IDX', 'state'),
                    Index('REPLICAS_RSE_ID_IDX', 'rse_id'),
                    Index('REPLICAS_RSE_ID_TOMBSTONE_IDX', 'rse_id', 'tombstone'))
 
@@ -1074,7 +1074,7 @@ class ReplicationRule(BASE, ModelBase):
                          unique=True, mysql_length={'rse_expression': 767}),
                    Index('RULES_SCOPE_NAME_IDX', 'scope', 'name'),
                    Index('RULES_EXPIRES_AT_IDX', 'expires_at'),
-                   Index('RULES_STUCKSTATE_IDX', 'state'),  # This Index is only needed for the STUCK state, there also is FB: RULES_INJECTSTATE_IDX, RULES_APPROVALSTATE_IDX
+                   Index('RULES_STATE_IDX', 'state'),
                    Index('RULES_CHILD_RULE_ID_IDX', 'child_rule_id'))
 
 
