@@ -238,7 +238,13 @@ def sort_geoip(dictreplica: "Dict", client_location: "Dict", ignore_error: bool 
     """
 
     def distance(pfn):
-        return __get_distance(urlparse(pfn).hostname, client_location, ignore_error)
+        url = urlparse(pfn)
+        if url.scheme == 'root':
+            # handle root proxy urls: root://10.0.0.1//root://192.168.1.1:1094//dpm/....
+            sub_url = urlparse(url.path.lstrip('/'))
+            if sub_url.scheme and sub_url.hostname:
+                url = sub_url
+        return __get_distance(url.hostname, client_location, ignore_error)
 
     return list(sorted(dictreplica, key=distance))
 
