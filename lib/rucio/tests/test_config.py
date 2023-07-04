@@ -15,7 +15,7 @@
 
 import pytest
 
-import rucio.core.config as config_core
+import rucio.core.config as core_config
 from rucio.client.configclient import ConfigClient
 from rucio.common import exception
 from rucio.common.utils import generate_uuid
@@ -27,8 +27,8 @@ class TestConfigCore:
         """ CONFIG (CORE): Retreive configuration section only """
         expected_sections = [str(generate_uuid()), str(generate_uuid())]
         for section in expected_sections:
-            config_core.set(section, str(generate_uuid()), str(generate_uuid()))
-        sections = config_core.sections(use_cache=False)
+            core_config.set(section, str(generate_uuid()), str(generate_uuid()))
+        sections = core_config.sections(use_cache=False)
         for section in expected_sections:
             assert section in sections
 
@@ -38,23 +38,23 @@ class TestConfigCore:
         section = str(generate_uuid())
         option = str(generate_uuid())
         expected_value = str(generate_uuid())
-        config_core.set(section=section, option=option, value=expected_value)
-        value = config_core.get(section, option, use_cache=False)
+        core_config.set(section=section, option=option, value=expected_value)
+        value = core_config.get(section, option, use_cache=False, convert_type_fnc=lambda x: x)
         assert value == expected_value
 
         # default value
         section = str(generate_uuid())
-        config_core.set(section=section, option=str(generate_uuid()), value=str(generate_uuid()))
+        core_config.set(section=section, option=str(generate_uuid()), value=str(generate_uuid()))
         default_value = 'default'
-        value = config_core.get(section, 'new_option', default=default_value, use_cache=False)
+        value = core_config.get(section, 'new_option', default=default_value, use_cache=False, convert_type_fnc=lambda x: x)
         assert value == default_value
 
         # key with space character
         section = str(generate_uuid() + ' ')
         option = str(generate_uuid() + ' ')
         expected_value = str(generate_uuid())
-        config_core.set(section=section, option=option, value=expected_value)
-        value = config_core.get(section, option, use_cache=False)
+        core_config.set(section=section, option=option, value=expected_value)
+        value = core_config.get(section, option, use_cache=False, convert_type_fnc=lambda x: x)
         assert value == expected_value
 
 

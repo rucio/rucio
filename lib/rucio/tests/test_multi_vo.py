@@ -47,7 +47,7 @@ from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression
     UnsupportedOperation, RucioException
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, get_tmp_dir, parse_response, ssh_sign
-from rucio.core import config as config_db
+from rucio.core import config as core_config
 from rucio.core.account_counter import add_counter
 from rucio.core.replica import add_replica
 from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
@@ -1055,8 +1055,8 @@ class TestVOMap:
 
         # Add config and do mapping tests
         # This first VO name uses all allowed character sets for the long VO name
-        config_db.set("vo-map", "test.vo1-one", "tst")
-        config_db.set("vo-map", "second.vo", "ts2")
+        core_config.set("vo-map", "test.vo1-one", "tst")
+        core_config.set("vo-map", "second.vo", "ts2")
 
         # Mapping not in config
         assert map_vo("test") == "test"

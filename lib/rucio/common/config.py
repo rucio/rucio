@@ -30,6 +30,21 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
+def convert_to_any_type(value) -> Union[bool, int, float, str]:
+    if value.lower() in ['true', 'yes', 'on']:
+        return True
+    elif value.lower() in ['false', 'no', 'off']:
+        return False
+
+    for conv in (int, float):
+        try:
+            return conv(value)
+        except:
+            pass
+
+    return value
+
+
 def _convert_to_boolean(value):
     if value.lower() in ['true', 'yes', 'on', '1']:
         return True

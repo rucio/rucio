@@ -30,9 +30,9 @@ from sqlalchemy.sql.expression import bindparam, case, select, true, false, null
 import rucio.core.replica  # import add_replicas
 import rucio.core.rule
 from rucio.common import exception
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.utils import is_archive, chunks
-from rucio.core import did_meta_plugins, config as config_core
+from rucio.core import did_meta_plugins
 from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
 from rucio.core.naming_convention import validate_name
@@ -1117,8 +1117,8 @@ def delete_dids(
 
     not_purge_replicas = []
 
-    archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
-    archive_content = config_core.get('deletion', 'archive_content', default=False, session=session)
+    archive_dids = config_get_bool('deletion', 'archive_dids', default=False, session=session)
+    archive_content = config_get_bool('deletion', 'archive_content', default=False, session=session)
 
     file_dids = {}
     collection_dids = {}
@@ -1191,7 +1191,7 @@ def delete_dids(
                 purge_replicas = False
             else:
                 purge_replicas = True
-            if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > int(config_core.get('undertaker', 'expire_rules_locks_size', default=10000, session=session)):
+            if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > int(config_get_int('undertaker', 'expire_rules_locks_size', default=10000, session=session)):
                 # Expire the rule (soft=True)
                 rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True, delete_parent=True, nowait=True, session=session)
                 # Update expiration of did
@@ -1308,7 +1308,7 @@ def delete_dids(
         session.execute(stmt)
 
         # Set Epoch tombstone for the files replicas inside the did
-        if config_core.get('undertaker', 'purge_all_replicas', default=False, session=session):
+        if config_get_bool('undertaker', 'purge_all_replicas', default=False, session=session):
             with METRICS.timer('delete_dids.file_content'):
                 stmt = update(
                     models.RSEFileAssociation

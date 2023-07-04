@@ -30,13 +30,13 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.cache import make_region_memcached
-from rucio.common.exception import DatabaseException, ConfigNotFound, UnsupportedOperation, ReplicaNotFound, RequestNotFound, RSEProtocolNotSupported
+from rucio.common.config import config_get_list, config_get_bool
+from rucio.common.exception import DatabaseException, UnsupportedOperation, ReplicaNotFound, RequestNotFound, RSEProtocolNotSupported
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.core import request as request_core, replica as replica_core
-from rucio.core.config import items
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import list_rses
 from rucio.daemons.common import run_daemon
@@ -105,21 +105,12 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
     """
     Main loop to update the replicas and rules based on finished requests.
     """
-    try:
-        conveyor_config = {item[0]: item[1] for item in items('conveyor')}
-    except ConfigNotFound:
-        logging.log(logging.INFO, 'No configuration found for conveyor')
-        conveyor_config = {}
-
     # Get suspicious patterns
-    suspicious_patterns = conveyor_config.get('suspicious_pattern', [])
-    if suspicious_patterns:
-        pattern = str(suspicious_patterns)
-        patterns = pattern.split(",")
-        suspicious_patterns = [re.compile(pat.strip()) for pat in patterns]
+    suspicious_patterns = config_get_list('conveyor', 'suspicious_pattern', default=[])
+    suspicious_patterns = [re.compile(pat.strip()) for pat in suspicious_patterns]
     logging.log(logging.DEBUG, "Suspicious patterns: %s" % [pat.pattern for pat in suspicious_patterns])
 
-    retry_protocol_mismatches = conveyor_config.get('retry_protocol_mismatches', False)
+    retry_protocol_mismatches = config_get_bool('conveyor', 'retry_protocol_mismatches', default=False)
 
     logger_prefix = executable = 'conveyor-finisher'
     if activities:
