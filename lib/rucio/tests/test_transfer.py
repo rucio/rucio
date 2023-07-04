@@ -215,14 +215,10 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
     assert transfer[0].legacy_sources[0][0] == tape1_rse_name
 
 
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True)
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
-    'rucio.core.config.REGION',
 ]}], indirect=True)
-def test_multihop_requests_created(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
+def test_multihop_requests_created(rse_factory, did_factory, root_account, caches_mock):
     """
     Ensure that multihop transfers are handled and intermediate request correctly created
     """
@@ -242,14 +238,10 @@ def test_multihop_requests_created(rse_factory, did_factory, root_account, core_
     assert request_core.get_request_by_did(rse_id=intermediate_rse_id, **did)
 
 
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True)
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
-    'rucio.core.config.REGION',
 ]}], indirect=True)
-def test_multihop_concurrent_submitters(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
+def test_multihop_concurrent_submitters(rse_factory, did_factory, root_account, caches_mock):
     """
     Ensure that multiple concurrent submitters on the same multi-hop don't result in an undesired database state
     """
@@ -281,14 +273,10 @@ def test_multihop_concurrent_submitters(rse_factory, did_factory, root_account, 
     assert jmp_request['attributes']['is_intermediate_hop']
 
 
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True)
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
-    'rucio.core.config.REGION',
 ]}], indirect=True)
-def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, core_config_mock, caches_mock):
+def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, caches_mock):
     """
     On small distance difference, singlehop is prioritized over multihop
     due to HOP_PENALTY. On big difference, multihop is prioritized

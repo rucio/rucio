@@ -98,10 +98,9 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
     # Run test twice: with, and without, temp tables
     {
         "table_content": [
-            ('transfers', 'use_multihop', True),
             ('transfers', 'multihop_rse_expression', '*'),
         ]
-    },
+    }
 ], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
@@ -179,18 +178,14 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True),
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.config.REGION',
     'rucio.daemons.reaper.reaper.REGION',
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
 ]}], indirect=True)
-def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_factory, root_account):
+def test_source_avoid_deletion(caches_mock, rse_factory, did_factory, root_account):
     """ Test that sources on a file block it from deletion """
 
-    _, reaper_region, _ = caches_mock
+    reaper_region, _ = caches_mock
     src_rse1, src_rse1_id = rse_factory.make_mock_rse()
     src_rse2, src_rse2_id = rse_factory.make_mock_rse()
     dst_rse, dst_rse_id = rse_factory.make_mock_rse()
@@ -247,13 +242,10 @@ def test_source_avoid_deletion(caches_mock, core_config_mock, rse_factory, did_f
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True)
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
 ]}], indirect=True)
-def test_ignore_availability(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
+def test_ignore_availability(rse_factory, did_factory, root_account, caches_mock):
 
     def __setup_test():
         src_rse, src_rse_id = rse_factory.make_posix_rse()
@@ -381,15 +373,11 @@ def test_globus(rse_factory, did_factory, root_account):
 @pytest.mark.parametrize("file_config_mock", [{"overrides": [
     ('transfers', 'hop_penalty', '5'),
 ]}], indirect=True)
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True),
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.core.config.REGION',
     'rucio.daemons.reaper.reaper.REGION',
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
 ]}], indirect=True)
-def test_hop_penalty(rse_factory, did_factory, root_account, file_config_mock, core_config_mock, caches_mock):
+def test_hop_penalty(rse_factory, did_factory, root_account, file_config_mock, caches_mock):
     """
     Test that both global hop_penalty and the per-rse one are correctly taken into consideration
     """
