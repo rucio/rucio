@@ -46,6 +46,8 @@ def convert_to_any_type(value) -> Union[bool, int, float, str]:
 
 
 def _convert_to_boolean(value):
+    if isinstance(value, bool):
+        return value
     if value.lower() in ['true', 'yes', 'on', '1']:
         return True
     elif value.lower() in ['false', 'no', 'off', '0']:

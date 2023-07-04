@@ -216,7 +216,7 @@ def get(
             raise ConfigNotFound
         else:
             value = default
-            write_to_cache(value_key, str(value))  # Also write default to cache
+            write_to_cache(value_key, value)  # Also write default to cache
     else:
         value = convert_type_fnc(value)
     return value
