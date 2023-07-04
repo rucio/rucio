@@ -20,8 +20,8 @@ import sys
 
 from setuptools import setup, find_packages
 
-if sys.version_info < (3, 6):
-    print('ERROR: Rucio Server requires at least Python 3.6 to run.')
+if sys.version_info < (3, 9):
+    print('ERROR: Rucio Server requires at least Python 3.9 to run.')
     sys.exit(1)
 
 try:
@@ -64,7 +64,7 @@ setup(
     description=description,
     license="Apache License, Version 2.0",
     url="https://rucio.cern.ch/",
-    python_requires=">=3.6, <4",
+    python_requires=">=3.9, <4",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: Apache Software License',
@@ -74,10 +74,8 @@ setup(
         'Natural Language :: English',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
         'Environment :: No Input/Output (Daemon)', ],
     install_requires=install_requires,
     extras_require=extras_require,

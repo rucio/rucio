@@ -81,9 +81,9 @@ atlas:
   rdbms:
     - postgres14
   python:
-    - "3.6"
+    - "3.9"
   dists:
-    - centos7
+    - alma9
   image_identifier:
     - atlas
 
@@ -169,8 +169,8 @@ belleii:
   rdbms:
     - postgres14
   python:
-    - "3.6"
+    - "3.9"
   dists:
-    - centos7
+    - alma9
   image_identifier:
     - belleii
