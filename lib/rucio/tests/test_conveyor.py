@@ -121,7 +121,6 @@ def __get_source(request_id, src_rse_id, scope, name, *, session=None):
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter, poller and finisher; changes XRD3 usage and limits")
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True),
     ('transfers', 'multihop_tombstone_delay', -1),  # Set OBSOLETE tombstone for intermediate replicas
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
@@ -233,14 +232,10 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
 
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter, poller and finisher")
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True),
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
-    'rucio.core.config.REGION',
 ]}], indirect=True)
-def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_account, replica_client, core_config_mock, caches_mock, metrics_mock):
+def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_account, replica_client, caches_mock, metrics_mock):
     """
     Verify that the poller correctly handles non-recoverable FTS job failures
     """
@@ -286,14 +281,10 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter, poller and finisher")
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True),
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
-    'rucio.core.config.REGION',
 ]}], indirect=True)
-def test_fts_recoverable_failures_handled_on_multihop(vo, did_factory, root_account, replica_client, file_factory, core_config_mock, caches_mock, metrics_mock):
+def test_fts_recoverable_failures_handled_on_multihop(vo, did_factory, root_account, replica_client, file_factory, caches_mock, metrics_mock):
     """
     Verify that the poller correctly handles recoverable FTS job failures
     """
@@ -338,14 +329,10 @@ def test_fts_recoverable_failures_handled_on_multihop(vo, did_factory, root_acco
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter, poller and finisher")
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True),
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
-    'rucio.core.config.REGION',
 ]}], indirect=True)
-def test_multisource(vo, did_factory, root_account, replica_client, core_config_mock, caches_mock, metrics_mock):
+def test_multisource(vo, did_factory, root_account, replica_client, caches_mock, metrics_mock):
     src_rse1 = 'XRD4'
     src_rse1_id = rse_core.get_rse_id(rse=src_rse1, vo=vo)
     src_rse2 = 'XRD1'
@@ -483,14 +470,10 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
 
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter and receiver")
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True),
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
-    'rucio.core.config.REGION',
 ]}], indirect=True)
-def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_account, core_config_mock, caches_mock, metrics_mock):
+def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_account, caches_mock, metrics_mock):
     """
     Verify that the receiver correctly handles multihop jobs which fail
     """
@@ -541,14 +524,10 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
 
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(reason="uses predefined RSEs; runs submitter and receiver")
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True),
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
-    'rucio.core.config.REGION',
 ]}], indirect=True)
-def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config_mock, caches_mock, metrics_mock):
+def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock, metrics_mock):
     """
     Verify that the receiver correctly handles successful multihop jobs
     """
@@ -592,7 +571,6 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, core_config
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse.REGION',
     'rucio.core.rse_expression_parser.REGION',
-    'rucio.core.config.REGION',
     'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
 ]}], indirect=True)
 def test_receiver_archiving(vo, did_factory, root_account, caches_mock):
@@ -1123,16 +1101,12 @@ def overwrite_on_tape_topology(rse_factory, did_factory, root_account, vo, file_
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True)
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse.REGION',
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
-    'rucio.core.config.REGION',
     'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
 ]}], indirect=True)
-def test_overwrite_on_tape(overwrite_on_tape_topology, core_config_mock, caches_mock):
+def test_overwrite_on_tape(overwrite_on_tape_topology, caches_mock):
     """
     Ensure that overwrite is not set for transfers towards TAPE RSEs
     """
@@ -1152,16 +1126,12 @@ def test_overwrite_on_tape(overwrite_on_tape_topology, core_config_mock, caches_
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True)
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse.REGION',
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
-    'rucio.core.config.REGION',
     'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
 ]}], indirect=True)
-def test_overwrite_hops(overwrite_on_tape_topology, core_config_mock, caches_mock, did_factory, file_factory):
+def test_overwrite_hops(overwrite_on_tape_topology, caches_mock, did_factory, file_factory):
     """
     Ensure that we request overwrite of intermediate hops on multi-hop transfers towards TAPE RSEs
     """
@@ -1204,16 +1174,13 @@ def test_overwrite_hops(overwrite_on_tape_topology, core_config_mock, caches_moc
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
-@pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True)
-]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse.REGION',
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by an expression
     'rucio.core.config.REGION',
     'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
 ]}], indirect=True)
-def test_file_exists_handled(overwrite_on_tape_topology, core_config_mock, caches_mock):
+def test_file_exists_handled(overwrite_on_tape_topology, caches_mock):
     """
     If a transfer fails because the destination job_params exists, and the size+checksums of that existing job_params
     are correct, the transfer must be marked successful.
@@ -1246,7 +1213,6 @@ def test_file_exists_handled(overwrite_on_tape_topology, core_config_mock, cache
 @pytest.mark.dirty(reason="leaves files in XRD containers; leaves pending fts transfers in archiving state")
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
-    ('transfers', 'use_multihop', True),
     ('transfers', 'overwrite_corrupted_files', False)
 ]}], indirect=True)
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
@@ -1374,7 +1340,6 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
 @pytest.mark.noparallel(reason="runs submitter; poller and finisher")
 @pytest.mark.parametrize("core_config_mock", [
     {"table_content": [
-        ('transfers', 'use_multihop', True),
         ('transfers', 'multihop_tombstone_delay', -1),  # Set OBSOLETE tombstone for intermediate replicas
         ('transfers', 'multihop_rse_expression', '*'),
     ]},

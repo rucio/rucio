@@ -170,16 +170,15 @@ class Topology(RseCollection, Generic[TN, TE]):
     def _configure_multihop(self, multihop_rse_ids: Optional[Set[str]] = None, *, session: "Session", logger: LoggerFunction = logging.log):
 
         if multihop_rse_ids is None:
-            include_multihop = config_get('transfers', 'use_multihop', default=False, expiration_time=600, session=session)
             multihop_rse_expression = config_get('transfers', 'multihop_rse_expression', default='available_for_multihop=true', expiration_time=600, session=session)
 
             multihop_rse_ids = set()
-            if include_multihop:
+            if multihop_rse_expression.strip():
                 try:
                     multihop_rse_ids = {rse['id'] for rse in parse_expression(multihop_rse_expression, session=session)}
                 except InvalidRSEExpression:
                     pass
-                if multihop_rse_expression and multihop_rse_expression.strip() and not multihop_rse_ids:
+                if not multihop_rse_ids:
                     logger(logging.WARNING, 'multihop_rse_expression is not empty, but returned no RSEs')
 
         for node in self._multihop_nodes:
