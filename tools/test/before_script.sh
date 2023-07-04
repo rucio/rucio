@@ -49,22 +49,6 @@ if [ $RDBMS == "oracle" ]; then
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_oracle.ini /opt/rucio/etc/alembic.ini
     RESTART_HTTPD=1
 
-elif [ $RDBMS == "mysql5" ]; then
-    date
-    for i in {1..30}; do
-        sleep 2
-        cont=$(bash -c 'ping=`docker '"$CONTAINER_RUNTIME_ARGS"' exec '"$CON_DB"' mysqladmin --user=root --password=secret ping`; echo $ping 1>&2; echo $ping | grep "mysqld is alive" 1>&2; echo $?')
-        [ "$cont" -eq "0" ] && break
-    done
-    date
-    if [ "$cont" -ne "0" ]; then
-        echo Could not connect to MySQL in time.
-        exit 1
-    fi
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_mysql5.cfg /opt/rucio/etc/rucio.cfg
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_mysql5.ini /opt/rucio/etc/alembic.ini
-    RESTART_HTTPD=1
-
 elif [ $RDBMS == "mysql8" ]; then
     date
     for i in {1..30}; do

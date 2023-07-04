@@ -1,11 +1,10 @@
 dists:
-  - id: centos7
+  - id: alma9
     allow:
       python:
-        - "3.6"
-        - "3.7"
+        - "3.9"
 python:
-  - "3.6"
+  - "3.9"
 suites:
   - integration-test
 image_identifier:

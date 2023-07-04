@@ -92,7 +92,7 @@ jobs:
       - name: Use rucio/containers Dockerfile for integration tests
         shell: bash
         run: |
-          sed -i 's;RUN git clone .*;COPY ./rucio /tmp/rucio;' $GITHUB_WORKSPACE/dev/Dockerfile
+          sed -i 's;RUN git clone .*;COPY ./rucio /tmp/rucio;' $GITHUB_WORKSPACE/dev/alma9.Dockerfile
       - name: Build rucio-dev images
         id: images
         shell: bash

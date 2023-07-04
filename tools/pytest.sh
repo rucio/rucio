@@ -52,11 +52,6 @@ if [[ "$NO_XDIST" == "False" ]]; then
   NO_XDIST="$(python -c 'import xdist; print(False)' ||:)"
 fi
 
-if [[ "$NO_XDIST" == "False" ]]; then
-  # do not run xdist below Python 3.6
-  NO_XDIST="$(python -c 'import sys; print(sys.version_info < (3, 6))' ||:)"
-fi
-
 XDIST_ARGS=("-p" "ruciopytest.plugin")
 if [[ "$NO_XDIST" == "False" ]]; then
   if [[ "${GITHUB_ACTIONS:-false}" == "true" ]]; then
