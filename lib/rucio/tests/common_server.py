@@ -17,7 +17,7 @@ import copy
 from sqlalchemy import and_, delete, exists, select
 from sqlalchemy.orm import aliased
 
-from rucio.core import config as config_db
+from rucio.core import config as core_config
 from rucio.core.vo import map_vo
 from rucio.db.sqla import models
 from rucio.db.sqla.session import transactional_session, get_session
@@ -121,8 +121,8 @@ def reset_config_table():
     db_session = get_session()
     db_session.query(models.Config).delete()
     db_session.commit()
-    config_db.set("vo-map", "testvo1", "tst")
-    config_db.set("vo-map", "testvo2", "ts2")
+    core_config.set("vo-map", "testvo1", "tst")
+    core_config.set("vo-map", "testvo2", "ts2")
 
 
 def get_vo():

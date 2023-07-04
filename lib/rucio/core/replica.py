@@ -46,7 +46,6 @@ from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
 from rucio.common.constants import SuspiciousAvailability
 from rucio.core.credential import get_signed_url
-from rucio.core import config as config_core
 from rucio.core.message import add_messages
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
@@ -2093,7 +2092,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
     dids_to_delete_filter = exists(select(1)
                                    .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
                                                models.DataIdentifier.name == scope_name_temp_table.name)))
-    archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
+    archive_dids = config_get_bool('deletion', 'archive_dids', default=False, session=session)
     if archive_dids:
         rucio.core.did.insert_deleted_dids(filter_=dids_to_delete_filter, session=session)
     stmt = delete(

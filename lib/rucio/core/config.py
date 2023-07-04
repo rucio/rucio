@@ -15,7 +15,7 @@
 
 from dogpile.cache.api import NoValue
 from sqlalchemy import func
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, TypeVar
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.exception import ConfigNotFound
@@ -31,21 +31,6 @@ if TYPE_CHECKING:
 REGION = make_region_memcached(expiration_time=900)
 
 SECTIONS_CACHE_KEY = 'sections'
-
-
-def _convert_type(value) -> Union[bool, int, float, str]:
-    if value.lower() in ['true', 'yes', 'on']:
-        return True
-    elif value.lower() in ['false', 'no', 'off']:
-        return False
-
-    for conv in (int, float):
-        try:
-            return conv(value)
-        except:
-            pass
-
-    return value
 
 
 def _has_section_cache_key(section):
@@ -200,7 +185,7 @@ def get(
         default: Optional[T] = None,
         use_cache: bool = True,
         expiration_time: int = 900,
-        convert_type_fnc: Callable[[str], T] = _convert_type,
+        convert_type_fnc: Callable[[str], T],
         session: "Session"
 ) -> T:
     """
@@ -243,7 +228,7 @@ def items(
         use_cache: bool = True,
         expiration_time: int = 900,
         *,
-        convert_type_fnc: Callable[[str], T] = _convert_type,
+        convert_type_fnc: Callable[[str], T],
         session: "Session"
 ) -> List[Tuple[str, T]]:
     """

@@ -18,9 +18,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
-import rucio.core.config as config_db
 from rucio.common import exception
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get_bool, config_get
 from rucio.common.types import InternalAccount
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, IdentityType
@@ -148,6 +147,4 @@ def map_vo(vo):
     # Newline is ignored by regexp if at end of string, so test for that as well.
     if not LONG_VO_RE.match(vo) or '\n' in vo:
         raise exception.RucioException('Invalid characters in VO name.')
-    if not config_db.has_section("vo-map"):
-        return vo  # No mapping config
-    return config_db.get("vo-map", vo, default=vo)
+    return config_get("vo-map", vo, raise_exception=False, default=vo)

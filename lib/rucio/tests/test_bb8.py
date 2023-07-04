@@ -19,7 +19,6 @@ import pytest
 
 from rucio.common.exception import RuleNotFound, UnsupportedOperation
 from rucio.core.account_limit import set_local_account_limit
-from rucio.core import config as config_core
 from rucio.core.did import attach_dids, set_status, set_metadata
 from rucio.core.lock import successful_transfer
 from rucio.core.replica import add_replicas
@@ -97,9 +96,11 @@ def test_bb8_rebalance_rule(vo, root_account, jdoe_account, rse_factory, mock_sc
 
 
 @pytest.mark.noparallel(reason='uses daemons')
-def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_scope, did_factory):
+@pytest.mark.parametrize("file_config_mock", [{"overrides": [
+    ('bb8', 'allowed_accounts', 'jdoe'),
+]}], indirect=True)
+def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_scope, did_factory, file_config_mock):
     """BB8: Test the rebalance rule method"""
-    config_core.set(section='bb8', option='allowed_accounts', value='jdoe')
     tot_rses = 4
     rses = [rse_factory.make_posix_rse() for _ in range(tot_rses)]
     rse1, rse1_id = rses[0]

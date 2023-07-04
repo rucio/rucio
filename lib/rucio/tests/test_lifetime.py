@@ -25,7 +25,7 @@ from rucio.common.exception import UnsupportedOperation, ConfigNotFound
 from rucio.common.policy import REGION
 from rucio.common.utils import generate_uuid as uuid
 from rucio.tests.common import skip_multivo
-from rucio.core import config as config_core
+from rucio.core import config as core_config
 from rucio.core.rule import add_rule, get_rule
 from rucio.core.did import set_metadata, get_metadata
 from rucio.core.lifetime_exception import add_exception
@@ -59,7 +59,7 @@ def test_lifetime_creation_core(root_account, rse_factory, mock_scope, did_facto
 
     # Test with cutoff_date not defined
     try:
-        config_core.remove_option('lifetime_model', 'cutoff_date')
+        core_config.remove_option('lifetime_model', 'cutoff_date')
     except (ConfigNotFound, NoSectionError):
         pass
 
@@ -67,15 +67,13 @@ def test_lifetime_creation_core(root_account, rse_factory, mock_scope, did_facto
         add_exception(datasets, root_account, pattern='wekhewfk', comments='This is a comment', expires_at=datetime.utcnow())
 
     # Test with cutoff_date wrongly defined
-    config_core.set(section='lifetime_model', option='cutoff_date', value='wrong_value')
-    config_core.get(section='lifetime_model', option='cutoff_date', default=None, use_cache=False)
+    core_config.set(section='lifetime_model', option='cutoff_date', value='wrong_value')
     with pytest.raises(UnsupportedOperation):
         add_exception(datasets, root_account, pattern='wekhewfk', comments='This is a comment', expires_at=datetime.utcnow())
 
     # Test with cutoff_date properly defined
     tomorrow = tomorrow.strftime('%Y-%m-%d')
-    config_core.set(section='lifetime_model', option='cutoff_date', value=tomorrow)
-    config_core.get(section='lifetime_model', option='cutoff_date', default=None, use_cache=False)
+    core_config.set(section='lifetime_model', option='cutoff_date', value=tomorrow)
     result = add_exception(datasets, root_account, pattern='wekhewfk', comments='This is a comment', expires_at=datetime.utcnow())
 
     # Check if the Not Existing DIDs are identified
@@ -124,10 +122,8 @@ def test_lifetime_truncate_expiration(root_account, rse_factory, mock_scope, did
         client_datasets.append({'scope': dataset['scope'].external, 'name': dataset['name'], 'did_type': 'DATASET'})
 
     tomorrow = tomorrow.strftime('%Y-%m-%d')
-    config_core.set(section='lifetime_model', option='cutoff_date', value=tomorrow)
-    config_core.get(section='lifetime_model', option='cutoff_date', default=None, use_cache=False)
-    config_core.set(section='lifetime_model', option='max_extension', value=30)
-    config_core.get(section='lifetime_model', option='max_extension', default=None, use_cache=False)
+    core_config.set(section='lifetime_model', option='cutoff_date', value=tomorrow)
+    core_config.set(section='lifetime_model', option='max_extension', value=30)
     result = rucio_client.add_exception(client_datasets, account='root', pattern='wekhewfk', comments='This is a comment', expires_at=next_year)
 
     exception_id = list(result['exceptions'].keys())[0]
@@ -162,7 +158,7 @@ def test_lifetime_creation_client(root_account, rse_factory, mock_scope, did_fac
 
     # Test with cutoff_date not defined
     try:
-        config_core.remove_option('lifetime_model', 'cutoff_date')
+        core_config.remove_option('lifetime_model', 'cutoff_date')
     except (ConfigNotFound, NoSectionError):
         pass
 
@@ -173,15 +169,13 @@ def test_lifetime_creation_client(root_account, rse_factory, mock_scope, did_fac
         rucio_client.add_exception(client_datasets, account='root', pattern='wekhewfk', comments='This is a comment', expires_at=datetime.utcnow())
 
     # Test with cutoff_date wrongly defined
-    config_core.set(section='lifetime_model', option='cutoff_date', value='wrong_value')
-    config_core.get(section='lifetime_model', option='cutoff_date', default=None, use_cache=False)
+    core_config.set(section='lifetime_model', option='cutoff_date', value='wrong_value')
     with pytest.raises(UnsupportedOperation):
         rucio_client.add_exception(client_datasets, account='root', pattern='wekhewfk', comments='This is a comment', expires_at=datetime.utcnow())
 
     # Test with cutoff_date properly defined
     tomorrow = tomorrow.strftime('%Y-%m-%d')
-    config_core.set(section='lifetime_model', option='cutoff_date', value=tomorrow)
-    config_core.get(section='lifetime_model', option='cutoff_date', default=None, use_cache=False)
+    core_config.set(section='lifetime_model', option='cutoff_date', value=tomorrow)
     result = rucio_client.add_exception(client_datasets, account='root', pattern='wekhewfk', comments='This is a comment', expires_at=datetime.utcnow())
 
     # Check if the Not Existing DIDs are identified
