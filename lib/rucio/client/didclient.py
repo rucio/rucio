@@ -395,7 +395,7 @@ class DIDClient(BaseClient):
 
         :param scope: The scope name.
         :param name: The data identifier name.
-        :param plugin: 'need description'
+        :param plugin: Backend Metadata plugin the Rucio server should use to query data.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
         url = build_url(choice(self.list_hosts), path=path)
