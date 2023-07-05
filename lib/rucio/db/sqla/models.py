@@ -17,7 +17,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Union
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, Float, Integer, SmallInteger, String, Text, event, UniqueConstraint, inspect
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Float, Integer, SmallInteger, String, Text, event, UniqueConstraint, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
@@ -168,17 +168,6 @@ def _ck_constraint_name(const, table):
         const.name = "REQUESTS_HISTORY_STATE_CHK"
 
 
-@event.listens_for(Table, "after_parent_attach")
-def _add_created_col(table, metadata):
-    if not table.name.upper():
-        pass
-
-    if not table.name.upper().endswith('_HISTORY'):
-        if table.info.get('soft_delete', False):
-            table.append_column(Column("deleted", Boolean, default=False))
-            table.append_column(Column("deleted_at", DateTime))
-
-
 class ModelBase(object):
     """Base class for Rucio Models"""
     __table_initialized__ = False
@@ -280,7 +269,15 @@ class SoftModelBase(ModelBase):
         return cls._table_args + (CheckConstraint('CREATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_CREATED_NN'),
                                   CheckConstraint('UPDATED_AT IS NOT NULL', name=cls.__tablename__.upper() + '_UPDATED_NN'),
                                   CheckConstraint('DELETED IS NOT NULL', name=cls.__tablename__.upper() + '_DELETED_NN'),
-                                  {'mysql_engine': 'InnoDB', 'info': {'soft_delete': True}})
+                                  {'mysql_engine': 'InnoDB'})
+
+    @declared_attr
+    def deleted(cls):  # pylint: disable=no-self-argument
+        return mapped_column("deleted", Boolean, default=False)
+
+    @declared_attr
+    def deleted_at(cls):  # pylint: disable=no-self-argument
+        return mapped_column("deleted_at", DateTime)
 
     def delete(self, flush=True, session=None):
         """Delete this object"""

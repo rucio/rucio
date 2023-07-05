@@ -432,8 +432,9 @@ def message_mock():
     Fixture which overrides the Message table with a private instance
     """
     from unittest import mock
+    from sqlalchemy import Column
     from rucio.common.utils import generate_uuid
-    from rucio.db.sqla.models import Column, String, PrimaryKeyConstraint, CheckConstraint, Text, Index, GUID
+    from rucio.db.sqla.models import String, PrimaryKeyConstraint, CheckConstraint, Text, Index, GUID
 
     InMemoryMessage = __create_in_memory_db_table(
         'message_' + generate_uuid(),
@@ -465,8 +466,9 @@ def core_config_mock(request):
     Accesses to the "models.Config" table are then redirected to this temporary table via mock.patch().
     """
     from unittest import mock
+    from sqlalchemy import Column
     from rucio.common.utils import generate_uuid
-    from rucio.db.sqla.models import Column, String, PrimaryKeyConstraint
+    from rucio.db.sqla.models import String, PrimaryKeyConstraint
     from rucio.db.sqla.session import get_session
 
     # Get the fixture parameters
