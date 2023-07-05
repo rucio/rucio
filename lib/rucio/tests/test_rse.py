@@ -1357,7 +1357,7 @@ class TestRSEClient:
                                        'extended_attributes': 'TheOneWithAllTheRest'})
         try:
             with pytest.raises(exception.RSEProtocolPriorityError):
-                rucio_client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=42, data={'domains': {'lan': {'read': 4}}})
+                rucio_client.update_protocols(protocol_rse, scheme='MOCK', hostname='localhost', port=42, data={'domains': {'lan': {'read': -1}}})
         finally:
             rucio_client.delete_rse(protocol_rse)
 
