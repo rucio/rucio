@@ -62,6 +62,7 @@ FAILURE = 1
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
 
+logger = logging.log
 gfal2_logger = logging.getLogger("gfal2")
 tablefmt = 'psql'
 
