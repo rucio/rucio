@@ -209,21 +209,21 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :param recursive: recurse into DIDs (not supported)
         :param session: The database session in use
         """
-        self.set_metadata_bulk(scope=scope, name=name, meta={key: value}, recursive=recursive, session=session)
+        self.set_metadata_bulk(scope=scope, name=name, metadata={key: value}, recursive=recursive, session=session)
 
-    def set_metadata_bulk(self, scope, name, meta, recursive=False, *, session: "Optional[Session]" = None):
+    def set_metadata_bulk(self, scope, name, metadata, recursive=False, *, session: "Optional[Session]" = None):
         """
         Bulk set metadata keys.
 
         :param scope: the scope of did
         :param name: the name of the did
-        :param meta: dictionary of metadata keypairs to be added
+        :param metadata: dictionary of metadata keypairs to be added
         :param recursive: recurse into DIDs (not supported)
         :param session: The database session in use
         """
         # upsert metadata
         statement = "INSERT INTO {} (scope, name, vo, data) ".format(self.table) + \
-                    "VALUES ('{}', '{}', '{}', '{}') ".format(scope.external, name, scope.vo, json.dumps(meta)) + \
+                    "VALUES ('{}', '{}', '{}', '{}') ".format(scope.external, name, scope.vo, json.dumps(metadata)) + \
                     "ON CONFLICT (scope, name) DO UPDATE set data = {}.data || EXCLUDED.data;".format(self.table)
         cur = self.client.cursor()
         cur.execute(statement)
