@@ -1299,7 +1299,7 @@ def add_protocol(
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = parameter['domains'][domain][op]
-                if priority < 0:
+                if (type(priority) is not int or priority < 0) and priority is not None:
                     raise exception.RSEProtocolPriorityError(f"The provided priority ({priority}) for operation '{op}' in domain '{domain}' is not supported.")
                 parameter[op_name] = priority
         del parameter['domains']
@@ -1510,7 +1510,7 @@ def update_protocols(
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = data['domains'][domain][op]
-                if not 0 <= priority:
+                if (type(priority) is not int or priority < 0) and priority is not None:
                     raise exception.RSEProtocolPriorityError(f"The provided priority ({priority}) for operation '{op}' in domain '{domain}' is not supported.")
                 data[op_name] = priority
         del data['domains']

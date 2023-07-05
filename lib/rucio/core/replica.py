@@ -739,10 +739,10 @@ def _get_list_replicas_protocols(
 
     rse_info = rsemgr.get_rse_info(rse_id=rse_id, session=session)
     # compute scheme priorities, and don't forget to exclude disabled protocols
-    # 0 in RSE protocol definition = disabled, 1 = highest priority
+    # 0 or None in RSE protocol definition = disabled, 1 = highest priority
     scheme_priorities = {
-        'wan': {p['scheme']: p['domains']['wan']['read'] for p in rse_info['protocols'] if p['domains']['wan']['read'] > 0},
-        'lan': {p['scheme']: p['domains']['lan']['read'] for p in rse_info['protocols'] if p['domains']['lan']['read'] > 0},
+        'wan': {p['scheme']: p['domains']['wan']['read'] for p in rse_info['protocols'] if p['domains']['wan']['read']},
+        'lan': {p['scheme']: p['domains']['lan']['read'] for p in rse_info['protocols'] if p['domains']['lan']['read']},
     }
 
     rse_schemes = copy.copy(schemes) if schemes else []
