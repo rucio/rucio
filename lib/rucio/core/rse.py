@@ -1510,14 +1510,7 @@ def update_protocols(
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = data['domains'][domain][op]
-                stmt = select(
-                    func.count(models.RSEProtocols.rse_id)
-                ).where(
-                    models.RSEProtocols.rse_id == rse_id,
-                    getattr(models.RSEProtocols, op_name) >= 0
-                )
-                no = session.execute(stmt).scalar()
-                if not 0 <= priority <= no:
+                if not 0 <= priority:
                     raise exception.RSEProtocolPriorityError(f"The provided priority ({priority}) for operation '{op}' in domain '{domain}' is not supported.")
                 data[op_name] = priority
         del data['domains']
