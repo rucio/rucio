@@ -12,32 +12,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
--*- coding: utf-8 -*-
- Copyright European Organization for Nuclear Research (CERN) since 2012
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-"""
 
 import importlib
 import os
 from configparser import NoOptionError, NoSectionError
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, TypeVar, Type
 
 from rucio.common import config
 from rucio.common.exception import InvalidAlgorithmName
 from rucio.common.utils import check_policy_package_version
 from rucio.core.vo import list_vos
+
+
+PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPackageAlgorithms')
 
 
 class PolicyPackageAlgorithms():
@@ -50,27 +37,29 @@ class PolicyPackageAlgorithms():
     _ALGORITHMS: Dict[str, Dict[str, Callable[..., Any]]] = {}
     _loaded_policy_modules = False
 
-    def __init__(self):
+    def __init__(self) -> None:
         if not self._loaded_policy_modules:
             self._register_all_policy_package_algorithms()
             self._loaded_policy_modules = True
 
     @classmethod
-    def _get_one_algorithm(cls, algorithm_type: str, name: str) -> Callable[..., Any]:
+    def _get_one_algorithm(cls: Type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> Callable[..., Any]:
         """
         Get the algorithm from the dictionary of algorithms
         """
         return cls._ALGORITHMS[algorithm_type][name]
 
     @classmethod
-    def _get_algorithms(cls, algorithm_type: str) -> Dict[str, Callable[..., Any]]:
+    def _get_algorithms(cls: Type[PolicyPackageAlgorithmsT], algorithm_type: str) -> Dict[str, Callable[..., Any]]:
         """
         Get the dictionary of algorithms for a given type
         """
         return cls._ALGORITHMS[algorithm_type]
 
     @classmethod
-    def _register(cls, algorithm_type: str, algorithm_dict: Dict[str, Callable[..., Any]]) -> None:
+    def _register(
+            cls: Type[PolicyPackageAlgorithmsT],
+            algorithm_type: str, algorithm_dict: Dict[str, Callable[..., Any]]) -> None:
         """
         Provided a dictionary of callable function,
         and the associated algorithm type,
@@ -82,14 +71,14 @@ class PolicyPackageAlgorithms():
             cls._ALGORITHMS[algorithm_type] = algorithm_dict
 
     @classmethod
-    def _supports(cls, algorithm_type, name):
+    def _supports(cls: Type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> bool:
         """
         Check if a algorithm is supported by the plugin
         """
         return name in cls._ALGORITHMS.get(algorithm_type, {})
 
     @classmethod
-    def _register_all_policy_package_algorithms(cls):
+    def _register_all_policy_package_algorithms(cls: Type[PolicyPackageAlgorithmsT]) -> None:
         '''
         Loads all the algorithms of a given type from the policy package(s) and registers them
         :param algorithm_type: the type of algorithm to register (e.g. 'surl', 'lfn2pfn')
@@ -119,7 +108,7 @@ class PolicyPackageAlgorithms():
                     vo = os.environ['RUCIO_VO']
                 else:
                     try:
-                        vo = config.config_get('client', 'vo')
+                        vo = str(config.config_get('client', 'vo'))
                     except (NoOptionError, NoSectionError):
                         vo = 'def'
                 cls._try_importing_policy(vo)
@@ -131,7 +120,7 @@ class PolicyPackageAlgorithms():
                     cls._try_importing_policy(vo['vo'])
 
     @classmethod
-    def _try_importing_policy(cls, vo=None):
+    def _try_importing_policy(cls: Type[PolicyPackageAlgorithmsT], vo: str = "") -> None:
         try:
             env_name = 'RUCIO_POLICY_PACKAGE' + ('' if not vo else '_' + vo.upper())
             package = getattr(os.environ, env_name, "")
