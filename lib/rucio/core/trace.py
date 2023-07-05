@@ -24,8 +24,7 @@ import socket
 
 import stomp
 import ipaddress
-# TODO: adapt the draft7_format_checker import when dropping (sys.version_info) 3.6 support.
-from jsonschema import validate, ValidationError, draft7_format_checker  # pylint: disable=no-name-in-module
+from jsonschema import validate, ValidationError, Draft7Validator
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import InvalidObject
@@ -256,7 +255,7 @@ SCHEMAS = {
     'sfo2eos': SPECIAL_SCHEMA
 }
 
-FORMAT_CHECKER = draft7_format_checker
+FORMAT_CHECKER = Draft7Validator.FORMAT_CHECKER
 
 
 @FORMAT_CHECKER.checks(format="ipv4_or_ipv6")
