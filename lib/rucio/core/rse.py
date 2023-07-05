@@ -1262,10 +1262,9 @@ def add_protocol(
     session: "Session"
 ) -> models.RSEProtocols:
     """
-    Add a protocol to an existing RSE. If entries with equal or less priority for
-    an operation exist, the existing one will be reorded (i.e. +1).
+    Add a protocol to an existing RSE.
 
-    :param rse_id: the id of the new rse.
+    :param rse_id: the ID of the new RSE.
     :param parameter: parameters of the new protocol entry.
     :param session: The database session in use.
 
@@ -1482,7 +1481,7 @@ def update_protocols(
     Update an existing protocol entry for an RSE.
 
     :param rse_id: the ID of the RSE.
-    :param scheme: Protocol identifer.
+    :param scheme: Protocol identifier.
     :param data: Dict with new values (keys must match column names in the database).
     :param hostname: Hostname defined for the scheme, used if more than one scheme
                      is registered with the same identifier.
