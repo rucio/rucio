@@ -1255,7 +1255,12 @@ def list_rse_usage_history(rse_id, source=None, *, session: "Session"):
 
 
 @transactional_session
-def add_protocol(rse_id, parameter, *, session: "Session"):
+def add_protocol(
+    rse_id: str,
+    parameter: Dict[str, Any],
+    *,
+    session: "Session"
+) -> models.RSEProtocols:
     """
     Add a protocol to an existing RSE. If entries with equal or less priority for
     an operation exist, the existing one will be reorded (i.e. +1).
@@ -1472,7 +1477,7 @@ def update_protocols(
     port: int,
     *,
     session: "Session"
-):
+) -> None:
     """
     Update an existing protocol entry for an RSE.
 
@@ -1564,7 +1569,7 @@ def del_protocols(
     port: Optional[int] = None,
     *,
     session: "Session"
-):
+) -> None:
     """
     Delete one or more existing protocol entries for an RSE.
 
