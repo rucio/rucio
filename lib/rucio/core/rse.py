@@ -1300,7 +1300,7 @@ def add_protocol(
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = parameter['domains'][domain][op]
                 if priority < 0:
-                    raise exception.RSEProtocolPriorityError("The provided priority ({priority}) for operation '{op}' in domain '{domain}' is not supported.")
+                    raise exception.RSEProtocolPriorityError(f"The provided priority ({priority}) for operation '{op}' in domain '{domain}' is not supported.")
                 parameter[op_name] = priority
         del parameter['domains']
 
