@@ -23,9 +23,9 @@ from threading import Lock
 from typing import TYPE_CHECKING
 from os.path import basename
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, MetaData
 from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, TimeoutError
-from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session, Session
+from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session, Session
 from sqlalchemy.pool import QueuePool, SingletonThreadPool, NullPool
 
 from rucio.common.config import config_get
@@ -57,13 +57,14 @@ try:
 except:
     pass
 
-BASE = declarative_base()
 DEFAULT_SCHEMA_NAME = config_get(DATABASE_SECTION, 'schema',
                                  raise_exception=False, default=None, check_config_table=False)
-if DEFAULT_SCHEMA_NAME:
-    BASE.metadata.schema = DEFAULT_SCHEMA_NAME
-
+_METADATA = MetaData(schema=DEFAULT_SCHEMA_NAME)
 _MAKER, _ENGINE, _LOCK = None, None, Lock()
+
+
+class BASE(DeclarativeBase):
+    metadata = _METADATA
 
 
 def _fk_pragma_on_connect(dbapi_con, con_record):
