@@ -15,19 +15,18 @@
 
 import json
 import logging
-from configparser import NoOptionError
+from configparser import NoOptionError, NoSectionError
 from copy import deepcopy
 from datetime import datetime, timedelta
 from os import path
 from re import match
 from string import Template
-from typing import Any, Optional
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional, Type, TypeVar
 
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, StatementError
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import NoResultFound  # https://pydoc.dev/sqlalchemy/latest/sqlalchemy.exc.NoResultFound.html
 from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import and_, or_, true, null, tuple_, false
 
@@ -70,6 +69,7 @@ if TYPE_CHECKING:
 
 REGION = make_region_memcached(expiration_time=900)
 METRICS = MetricManager(module=__name__)
+AutoApproveT = TypeVar('AutoApproveT', bound='AutoApprove')
 
 
 class AutoApprove(PolicyPackageAlgorithms):
@@ -79,7 +79,7 @@ class AutoApprove(PolicyPackageAlgorithms):
 
     _algorithm_type = 'auto_approve'
 
-    def __init__(self, rule: models.ReplicationRule, did: models.DataIdentifier, session: 'Session'):
+    def __init__(self, rule: models.ReplicationRule, did: models.DataIdentifier, session: 'Session') -> None:
         super().__init__()
         self.rule = rule
         self.did = did
@@ -93,7 +93,7 @@ class AutoApprove(PolicyPackageAlgorithms):
         return self.get_configured_algorithm()(self.rule, self.did, self.session)
 
     @classmethod
-    def get_configured_algorithm(cls) -> Callable[[models.ReplicationRule, models.DataIdentifier, 'Session'], bool]:
+    def get_configured_algorithm(cls: Type[AutoApproveT]) -> Callable[[models.ReplicationRule, models.DataIdentifier, 'Session'], bool]:
         """
         Get the configured auto-approve algorithm
         """
@@ -105,7 +105,7 @@ class AutoApprove(PolicyPackageAlgorithms):
         return super()._get_one_algorithm(cls._algorithm_type, configured_algorithm)
 
     @classmethod
-    def register(cls, name: str, fn_auto_approve: Callable[[models.ReplicationRule, models.DataIdentifier, 'Session'], bool]):
+    def register(cls: Type[AutoApproveT], name: str, fn_auto_approve: Callable[[models.ReplicationRule, models.DataIdentifier, 'Session'], bool]) -> None:
         """
         Register a new auto-approve algorithm
         """
@@ -219,8 +219,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
             if source_replica_expression:
                 try:
                     source_rses = parse_expression(source_replica_expression, filter_={'vo': vo}, session=session)
-                except InvalidRSEExpression:
-                    raise InvalidSourceReplicaExpression
+                except InvalidRSEExpression as exc:
+                    raise InvalidSourceReplicaExpression from exc
             else:
                 source_rses = []
 
@@ -238,10 +238,10 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 try:
                     did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == elem['scope'],
                                                                       models.DataIdentifier.name == elem['name']).one()
-                except NoResultFound:
-                    raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
+                except NoResultFound as exc:
+                    raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name'])) from exc
                 except TypeError as error:
-                    raise InvalidObject(error.args)
+                    raise InvalidObject(error.args) from error  # https://pylint.readthedocs.io/en/latest/user_guide/messages/warning/raise-missing-from.html
 
             # 3.1 If the did is a constituent, relay the rule to the archive
             if did.did_type == DIDType.FILE and did.constituent:
@@ -263,10 +263,10 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                         try:
                             did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == elem['scope'],
                                                                               models.DataIdentifier.name == elem['name']).one()
-                        except NoResultFound:
-                            raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
+                        except NoResultFound as exc:
+                            raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name'])) from exc
                         except TypeError as error:
-                            raise InvalidObject(error.args)
+                            raise InvalidObject(error.args) from error
                 else:  # Put the rule on the constituent directly
                     pass
 
@@ -313,8 +313,8 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                             or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
                             or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
                             or match('.*IntegrityError.*columns? .*not unique.*', error.args[0]):
-                        raise DuplicateRule(error.args[0])
-                    raise InvalidReplicationRule(error.args[0])
+                        raise DuplicateRule(error.args[0]) from error
+                    raise InvalidReplicationRule(error.args[0]) from error
                 rule_ids.append(new_rule.id)
 
             if ask_approval:
@@ -356,7 +356,7 @@ def add_rule(dids, account, copies, rse_expression, grouping, weight, lifetime, 
                 try:
                     apply_rule(did, new_rule, [x['id'] for x in rses], [x['id'] for x in source_rses], rseselector, session=session)
                 except IntegrityError as error:
-                    raise ReplicationRuleCreationTemporaryFailed(error.args[0])
+                    raise ReplicationRuleCreationTemporaryFailed(error.args[0]) from error
 
             if new_rule.locks_stuck_cnt > 0:
                 new_rule.state = RuleState.STUCK
@@ -430,10 +430,10 @@ def add_rules(dids, rules, *, session: "Session", logger=logging.log):
                     did = session.query(models.DataIdentifier).filter(
                         models.DataIdentifier.scope == elem['scope'],
                         models.DataIdentifier.name == elem['name']).one()
-                except NoResultFound:
-                    raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
+                except NoResultFound as exc:
+                    raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name'])) from exc
                 except TypeError as error:
-                    raise InvalidObject(error.args)
+                    raise InvalidObject(error.args) from error
 
             # 2.1 If the did is a constituent, relay the rule to the archive
             if did.did_type == DIDType.FILE and did.constituent:  # Check if a single replica of this DID exists
@@ -454,10 +454,10 @@ def add_rules(dids, rules, *, session: "Session", logger=logging.log):
                         try:
                             did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == elem['scope'],
                                                                               models.DataIdentifier.name == elem['name']).one()
-                        except NoResultFound:
-                            raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name']))
+                        except NoResultFound as exc:
+                            raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (elem['scope'], elem['name'])) from exc
                         except TypeError as error:
-                            raise InvalidObject(error.args)
+                            raise InvalidObject(error.args) from error
                 else:  # Put the rule on the constituent directly
                     pass
 
@@ -557,10 +557,10 @@ def add_rules(dids, rules, *, session: "Session", logger=logging.log):
                             new_rule.save(session=session)
                         except IntegrityError as error:
                             if match('.*ORA-00001.*', str(error.args[0])):
-                                raise DuplicateRule(error.args[0])
+                                raise DuplicateRule(error.args[0]) from error
                             elif str(error.args[0]) == '(IntegrityError) UNIQUE constraint failed: rules.scope, rules.name, rules.account, rules.rse_expression, rules.copies':
-                                raise DuplicateRule(error.args[0])
-                            raise InvalidReplicationRule(error.args[0])
+                                raise DuplicateRule(error.args[0]) from error
+                            raise InvalidReplicationRule(error.args[0]) from error
 
                         rule_ids[(did.scope, did.name)].append(new_rule.id)
 
@@ -616,7 +616,7 @@ def add_rules(dids, rules, *, session: "Session", logger=logging.log):
                                                               source_rses=[rse['id'] for rse in source_rses],
                                                               session=session)
                         except IntegrityError as error:
-                            raise ReplicationRuleCreationTemporaryFailed(error.args[0])
+                            raise ReplicationRuleCreationTemporaryFailed(error.args[0]) from error
 
                     if new_rule.locks_stuck_cnt > 0:
                         new_rule.state = RuleState.STUCK
@@ -658,8 +658,8 @@ def inject_rule(rule_id, *, session: "Session", logger=logging.log):
 
     try:
         rule = session.query(models.ReplicationRule).filter(models.ReplicationRule.id == rule_id).with_for_update(nowait=True).one()
-    except NoResultFound:
-        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    except NoResultFound as exc:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id)) from exc
 
     # Check if rule will expire in the next 5 minutes:
     if rule.child_rule_id is None and rule.expires_at is not None and rule.expires_at < datetime.utcnow() + timedelta(seconds=300):
@@ -725,17 +725,17 @@ def inject_rule(rule_id, *, session: "Session", logger=logging.log):
         try:
             did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == rule.scope,
                                                               models.DataIdentifier.name == rule.name).one()
-        except NoResultFound:
-            raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (rule.scope, rule.name))
+        except NoResultFound as exc:
+            raise DataIdentifierNotFound('Data identifier %s:%s is not valid.' % (rule.scope, rule.name)) from exc
         except TypeError as error:
-            raise InvalidObject(error.args)
+            raise InvalidObject(error.args) from error
 
     # 4. Apply the rule
     with METRICS.timer('inject_rule.apply_rule'):
         try:
             apply_rule(did, rule, [x['id'] for x in rses], [x['id'] for x in source_rses], rseselector, session=session)
         except IntegrityError as error:
-            raise ReplicationRuleCreationTemporaryFailed(error.args[0])
+            raise ReplicationRuleCreationTemporaryFailed(error.args[0]) from error
 
     if rule.locks_stuck_cnt > 0:
         rule.state = RuleState.STUCK
@@ -822,8 +822,8 @@ def list_rules(filters={}, *, session: "Session"):
             d = rule.to_dict()
             d['bytes'] = data_identifier_bytes
             yield d
-    except StatementError:
-        raise RucioException('Badly formatted input (IDs?)')
+    except StatementError as exc:
+        raise RucioException('Badly formatted input (IDs?)') from exc
 
 
 @stream_session
@@ -845,8 +845,8 @@ def list_rule_history(rule_id, *, session: "Session"):
     try:
         for rule in query.yield_per(5):
             yield {'updated_at': rule[0], 'state': rule[1], 'locks_ok_cnt': rule[2], 'locks_stuck_cnt': rule[3], 'locks_replicating_cnt': rule[4]}
-    except StatementError:
-        raise RucioException('Badly formatted input (IDs?)')
+    except StatementError as exc:
+        raise RucioException('Badly formatted input (IDs?)') from exc
 
 
 @stream_session
@@ -897,8 +897,8 @@ def list_associated_rules_for_file(scope, name, *, session: "Session"):
     try:
         for rule in query.yield_per(5):
             yield rule.to_dict()
-    except StatementError:
-        raise RucioException('Badly formatted input (IDs?)')
+    except StatementError as exc:
+        raise RucioException('Badly formatted input (IDs?)') from exc
 
 
 @transactional_session
@@ -923,8 +923,8 @@ def delete_rule(rule_id, purge_replicas=None, soft=False, delete_parent=False, n
             rule = session.query(models.ReplicationRule)\
                           .filter(models.ReplicationRule.id == rule_id)\
                           .with_for_update(nowait=nowait).one()
-        except NoResultFound:
-            raise RuleNotFound('No rule with the id %s found' % rule_id)
+        except NoResultFound as exc:
+            raise RuleNotFound('No rule with the id %s found' % rule_id) from exc
         if rule.locked and not ignore_rule_lock:
             raise UnsupportedOperation('The replication rule is locked and has to be unlocked before it can be deleted.')
 
@@ -1230,10 +1230,10 @@ def get_rule(rule_id, *, session: "Session"):
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
         return rule.to_dict()
-    except NoResultFound:
-        raise RuleNotFound('No rule with the id %s found' % (rule_id))
-    except StatementError:
-        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+    except NoResultFound as exc:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id)) from exc
+    except StatementError as exc:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id)) from exc
 
 
 @transactional_session
@@ -1468,8 +1468,8 @@ def update_rule(rule_id: str, options: dict[str, Any], *, session: "Session") ->
                     rule.priority = options[key]
                     transfers_to_update = request_core.update_requests_priority(priority=options[key], filter_={'rule_id': rule_id}, session=session)
                     transfer_core.update_transfer_priority(transfers_to_update)
-                except Exception:
-                    raise UnsupportedOperation('The FTS Requests are already in a final state.')
+                except Exception as exc:
+                    raise UnsupportedOperation('The FTS Requests are already in a final state.') from exc
 
             elif key == 'child_rule_id':
                 # Check if the child rule has the same scope/name as the parent rule
@@ -1529,13 +1529,13 @@ def update_rule(rule_id: str, options: dict[str, Any], *, session: "Session") ->
                 or match('.*IntegrityError.*UNIQUE constraint failed.*', str(error.args[0])) \
                 or match('.*1062.*Duplicate entry.*for key.*', str(error.args[0])) \
                 or match('.*IntegrityError.*columns? .*not unique.*', str(error.args[0])):
-            raise DuplicateRule(error.args[0])
+            raise DuplicateRule(error.args[0]) from error
         else:
             raise error
-    except NoResultFound:
-        raise RuleNotFound('No rule with the id %s found' % (rule_id))
-    except StatementError as e:
-        raise RucioException(f"A StatementError occurred while processing rule {rule_id}") from e
+    except NoResultFound as exc:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id)) from exc
+    except StatementError as exc:
+        raise RucioException(f"A StatementError occurred while processing rule {rule_id}") from exc
 
 
 @transactional_session
@@ -1600,8 +1600,8 @@ def reduce_rule(rule_id, copies, exclude_expression=None, *, session: "Session")
 
         return new_rule_id[0]
 
-    except NoResultFound:
-        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    except NoResultFound as exc:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id)) from exc
 
 
 @transactional_session
@@ -1667,10 +1667,10 @@ def move_rule(rule_id: str, rse_expression: str, override: Optional[dict[str, An
 
         return new_rule_id[0]
 
-    except StatementError:
-        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
-    except NoResultFound:
-        raise RuleNotFound('No rule with the id %s found' % (rule_id))
+    except StatementError as exc:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id)) from exc
+    except NoResultFound as exc:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id)) from exc
 
 
 @transactional_session
@@ -1688,8 +1688,8 @@ def re_evaluate_did(scope, name, rule_evaluation_action, *, session: "Session"):
     try:
         did = session.query(models.DataIdentifier).filter(models.DataIdentifier.scope == scope,
                                                           models.DataIdentifier.name == name).one()
-    except NoResultFound:
-        raise DataIdentifierNotFound()
+    except NoResultFound as exc:
+        raise DataIdentifierNotFound() from exc
 
     if rule_evaluation_action == DIDReEvaluation.ATTACH:
         __evaluate_did_attach(did, session=session)
@@ -2294,10 +2294,10 @@ def approve_rule(rule_id, approver=None, notify_approvers=True, *, session: "Ses
                                          'to': [recipient[0]],
                                          'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                                 session=session)
-    except NoResultFound:
-        raise RuleNotFound('No rule with the id %s found' % (rule_id))
-    except StatementError:
-        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+    except NoResultFound as exc:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id)) from exc
+    except StatementError as exc:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id)) from exc
 
 
 @transactional_session
@@ -2353,10 +2353,10 @@ def deny_rule(rule_id, approver=None, reason=None, *, session: "Session"):
                                      'to': [recipient[0]],
                                      'subject': 'Re: [RUCIO] Request to approve replication rule %s' % (str(rule.id))},
                             session=session)
-    except NoResultFound:
-        raise RuleNotFound('No rule with the id %s found' % rule_id)
-    except StatementError:
-        raise RucioException('Badly formatted rule id (%s)' % rule_id)
+    except NoResultFound as exc:
+        raise RuleNotFound('No rule with the id %s found' % rule_id) from exc
+    except StatementError as exc:
+        raise RucioException('Badly formatted rule id (%s)' % rule_id) from exc
 
 
 @transactional_session
@@ -2410,10 +2410,10 @@ def examine_rule(rule_id, *, session: "Session"):
                                             'sources': sources,
                                             'last_time': last_time})
         return result
-    except NoResultFound:
-        raise RuleNotFound('No rule with the id %s found' % (rule_id))
-    except StatementError:
-        raise RucioException('Badly formatted rule id (%s)' % (rule_id))
+    except NoResultFound as exc:
+        raise RuleNotFound('No rule with the id %s found' % (rule_id)) from exc
+    except StatementError as exc:
+        raise RucioException('Badly formatted rule id (%s)' % (rule_id)) from exc
 
 
 @transactional_session
