@@ -85,7 +85,7 @@ class DIDClient(BaseClient):
 
         :param scope: The scope name.
         :param name: The data identifier name.
-        :param type: The data identifier type (file|dataset|container).
+        :param did_type: The data identifier type (file|dataset|container).
         :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
         :param meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
         :param rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
@@ -395,6 +395,7 @@ class DIDClient(BaseClient):
 
         :param scope: The scope name.
         :param name: The data identifier name.
+        :param plugin: Backend Metadata plugin the Rucio server should use to query data.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
         url = build_url(choice(self.list_hosts), path=path)
