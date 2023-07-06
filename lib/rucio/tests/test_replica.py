@@ -24,6 +24,7 @@ from xml.etree import ElementTree
 import pytest
 import xmltodict
 from werkzeug.datastructures import MultiDict
+from werkzeug.datastructures import Headers
 
 from rucio.client.ruleclient import RuleClient
 from rucio.common.exception import (DataIdentifierNotFound, AccessDenied, RSEProtocolPriorityError, RucioException,
@@ -1185,7 +1186,6 @@ def test_client_list_replicas_streaming_error(content_type, vo, did_client, repl
     json_data = dumps({'dids': [{'scope': 'mock', 'name': generate_uuid()}]})
 
     def list_replicas_on_api():
-        from werkzeug.datastructures import Headers
 
         class FakeRequest:
             class FakeAcceptMimetypes:
