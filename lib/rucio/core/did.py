@@ -2573,7 +2573,7 @@ def touch_dids(dids, *, session: "Session"):
             ).values(
                 accessed_at=did.get('accessed_at') or now,
                 access_cnt=case((models.DataIdentifier.access_cnt == none_value, 1),
-                                else_=(models.DataIdentifier.access_cnt + 1))
+                                else_=(models.DataIdentifier.access_cnt + 1))  # type: ignore
             ).execution_options(
                 synchronize_session=False
             )
