@@ -144,13 +144,15 @@ def test_preparer_for_request_without_source(db_session, mock_request_no_source)
 
 
 @pytest.mark.noparallel(reason='uses preparer')
-def test_preparer_without_and_with_mat(db_session, source_rse, dest_rse, mock_request):
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.core.rse.REGION'
+]}], indirect=True)
+def test_preparer_without_and_with_mat(db_session, source_rse, dest_rse, mock_request, caches_mock):
     add_rse_attribute(source_rse['id'], 'fts', 'a')
     add_rse_attribute(dest_rse['id'], 'globus_endpoint_id', 'b')
 
-    from rucio.core.rse import REGION
-
-    REGION.invalidate()
+    [cache_region] = caches_mock
+    cache_region.invalidate()
 
     preparer.run_once(logger=print, transfertools=['fts3', 'globus'], session=db_session)
 
