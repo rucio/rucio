@@ -2664,9 +2664,9 @@ def __resolve_bytes_length_events_did(
         except NoResultFound:
             bytes_, length, events = 0, 0, 0
     elif did.did_type == DIDType.FILE:
-        bytes_, length, events = did.bytes, 1, did.events
+        bytes_, length, events = did.bytes or 0, 1, did.events or 0
     else:
-        bytes_, length, events = did.bytes, did.length, did.events
+        bytes_, length, events = did.bytes or 0, did.length or 0, did.events or 0
     return bytes_, length, events
 
 

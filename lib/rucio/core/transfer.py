@@ -1096,7 +1096,7 @@ def prepare_transfers(
             logger(logging.WARNING, '%s: all available sources were filtered', rws)
             continue
 
-        update_dict = {
+        update_dict: Dict[Any, Any] = {
             models.Request.state: _throttler_request_state(
                 activity=rws.activity,
                 source_rse=selected_source.rse,

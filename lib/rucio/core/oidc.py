@@ -384,13 +384,14 @@ def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"
         if oauth_req_params is None:
             raise CannotAuthenticate("User related Rucio OIDC session could not keep "
                                      + "track of responses from outstanding requests.")  # NOQA: W503
-        req_url = urlparse(oauth_req_params.redirect_msg)
+        req_url = urlparse(oauth_req_params.redirect_msg or '')
         issuer = req_url.scheme + "://" + req_url.netloc
         req_params = parse_qs(req_url.query)
+        client_params = {}
         for key in list(req_params):
-            req_params[key] = val_to_space_sep_str(req_params[key])
+            client_params[key] = val_to_space_sep_str(req_params[key])
 
-        oidc_client = __get_init_oidc_client(issuer=issuer, code=code, **req_params)['client']
+        oidc_client = __get_init_oidc_client(issuer=issuer, code=code, **client_params)['client']
         METRICS.counter(name='IdP_authentication.code_granted').inc()
         # exchange access code for a access token
         oidc_tokens = oidc_client.do_access_token_request(state=state,
@@ -449,10 +450,12 @@ def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"
         if 'refresh_token' in oidc_tokens:
             extra_dict['refresh_token'] = oidc_tokens['refresh_token']
             extra_dict['refresh'] = True
+            extra_dict['refresh_lifetime'] = REFRESH_LIFETIME_H
             try:
-                extra_dict['refresh_lifetime'] = int(oauth_req_params.refresh_lifetime)
+                if oauth_req_params.refresh_lifetime is not None:
+                    extra_dict['refresh_lifetime'] = int(oauth_req_params.refresh_lifetime)
             except Exception:
-                extra_dict['refresh_lifetime'] = REFRESH_LIFETIME_H
+                pass
             try:
                 values = __get_keyvalues_from_claims(oidc_tokens['refresh_token'], ['exp'])
                 exp = values['exp']
