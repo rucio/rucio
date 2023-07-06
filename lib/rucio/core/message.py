@@ -17,7 +17,7 @@ import json
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import or_, delete, update
+from sqlalchemy import or_, delete, update, insert
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.constants import HermesService, MAX_MESSAGE_LENGTH
@@ -75,7 +75,7 @@ def add_messages(messages: "MessagesListType", *, session: "Session") -> None:
             except TypeError as err:  # noqa: F841
                 raise InvalidObject('Invalid JSON for payload: %(err)s' % locals())
     for messages_chunk in chunks(msgs, 1000):
-        session.bulk_insert_mappings(Message, messages_chunk)
+        session.execute(insert(Message), messages_chunk)
 
 
 @transactional_session
@@ -195,7 +195,7 @@ def delete_messages(messages: "MessagesListType", *, session: "Session") -> None
                 execution_options(synchronize_session=False)
             session.execute(stmt)
 
-            session.bulk_insert_mappings(MessageHistory, messages)
+            session.execute(insert(MessageHistory), messages)
     except IntegrityError as e:
         raise RucioException(e.args)
 

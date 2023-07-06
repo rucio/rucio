@@ -1097,7 +1097,7 @@ def list_replicas(
                 stmt = stmt.where(models.RSE.id.in_([rse['id'] for rse in rses]))
             else:
                 rses_temp_table = temp_table_mngr(session).create_id_table()
-                session.bulk_insert_mappings(rses_temp_table, [{'id': rse['id']} for rse in rses])
+                session.execute(insert(rses_temp_table), [{'id': rse['id']} for rse in rses])
                 stmt = stmt.join(rses_temp_table, models.RSE.id == rses_temp_table.id)
 
         if not all_states:
@@ -1257,8 +1257,11 @@ def list_replicas(
         filter_ = {'vo': 'def'}
 
     dids = {(did['scope'], did['name']): did for did in dids}  # Deduplicate input
+    if not dids:
+        return
+
     input_dids_temp_table = temp_table_mngr(session).create_scope_name_table()
-    session.bulk_insert_mappings(input_dids_temp_table, [{'scope': s, 'name': n} for s, n in dids])
+    session.execute(insert(input_dids_temp_table), [{'scope': s, 'name': n} for s, n in dids])
 
     num_files, num_collections, num_constituents = _inspect_dids(input_dids_temp_table, session=session)
 
@@ -1506,8 +1509,7 @@ def __bulk_add_replicas(rse_id, files, account, *, session: "Session"):
                                  'lock_cnt': file.get('lock_cnt', 0),
                                  'tombstone': file.get('tombstone') or default_tombstone})
     try:
-        new_replicas and session.bulk_insert_mappings(models.RSEFileAssociation,
-                                                      new_replicas)
+        new_replicas and session.execute(insert(models.RSEFileAssociation), new_replicas)
         session.flush()
         return nbfiles, bytes_
     except IntegrityError as error:
@@ -1648,7 +1650,7 @@ def delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sessio
     scope_name_temp_table2 = tt_mngr.create_scope_name_table()
     association_temp_table = tt_mngr.create_association_table()
 
-    session.bulk_insert_mappings(scope_name_temp_table, [{'scope': file['scope'], 'name': file['name']} for file in files])
+    session.execute(insert(scope_name_temp_table), [{'scope': file['scope'], 'name': file['name']} for file in files])
 
     # WARNING : This should not be necessary since that would mean the replica is used as a source.
     stmt = delete(
@@ -1755,37 +1757,38 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         # 3) if the file is an archive, schedule cleanup on the files from inside the archive
         affected_archives.add(ScopeName(scope=file['scope'], name=file['name']))
 
-    # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
-    session.query(scope_name_temp_table).delete()
-    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in clt_to_update])
-    stmt = select(
-        models.DataIdentifierAssociation.scope,
-        models.DataIdentifierAssociation.name,
-    ).distinct(
-    ).join_from(
-        scope_name_temp_table,
-        models.DataIdentifierAssociation,
-        and_(scope_name_temp_table.scope == models.DataIdentifierAssociation.child_scope,
-             scope_name_temp_table.name == models.DataIdentifierAssociation.child_name)
-    ).join(
-        models.CollectionReplica,
-        and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
-             models.CollectionReplica.name == models.DataIdentifierAssociation.name,
-             models.CollectionReplica.rse_id == rse_id)
-    )
-    for parent_scope, parent_name in session.execute(stmt):
-        models.UpdatedCollectionReplica(scope=parent_scope,
-                                        name=parent_name,
-                                        did_type=DIDType.DATASET,
-                                        rse_id=rse_id). \
-            save(session=session, flush=False)
+    if clt_to_update:
+        # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
+        session.query(scope_name_temp_table).delete()
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in clt_to_update])
+        stmt = select(
+            models.DataIdentifierAssociation.scope,
+            models.DataIdentifierAssociation.name,
+        ).distinct(
+        ).join_from(
+            scope_name_temp_table,
+            models.DataIdentifierAssociation,
+            and_(scope_name_temp_table.scope == models.DataIdentifierAssociation.child_scope,
+                 scope_name_temp_table.name == models.DataIdentifierAssociation.child_name)
+        ).join(
+            models.CollectionReplica,
+            and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
+                 models.CollectionReplica.name == models.DataIdentifierAssociation.name,
+                 models.CollectionReplica.rse_id == rse_id)
+        )
+        for parent_scope, parent_name in session.execute(stmt):
+            models.UpdatedCollectionReplica(scope=parent_scope,
+                                            name=parent_name,
+                                            did_type=DIDType.DATASET,
+                                            rse_id=rse_id). \
+                save(session=session, flush=False)
 
     # Delete did from the content for the last did
     while parents_to_analyze:
         did_associations_to_remove = set()
 
         session.query(scope_name_temp_table).delete()
-        session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in parents_to_analyze])
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in parents_to_analyze])
         parents_to_analyze.clear()
 
         stmt = select(
@@ -1866,7 +1869,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
 
         if did_associations_to_remove:
             session.query(association_temp_table).delete()
-            session.bulk_insert_mappings(association_temp_table, [a._asdict() for a in did_associations_to_remove])
+            session.execute(insert(association_temp_table), [a._asdict() for a in did_associations_to_remove])
 
             # get the list of modified parent scope, name
             stmt = select(
@@ -1910,126 +1913,130 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
             session.execute(stmt)
 
     # Get collection replicas of collections which became empty
-    session.query(scope_name_temp_table).delete()
-    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in clt_replicas_to_delete])
-    session.query(scope_name_temp_table2).delete()
-    stmt = select(
-        models.CollectionReplica.scope,
-        models.CollectionReplica.name,
-    ).distinct(
-    ).join_from(
-        scope_name_temp_table,
-        models.CollectionReplica,
-        and_(scope_name_temp_table.scope == models.CollectionReplica.scope,
-             scope_name_temp_table.name == models.CollectionReplica.name),
-    ).join(
-        models.DataIdentifier,
-        and_(models.DataIdentifier.scope == models.CollectionReplica.scope,
-             models.DataIdentifier.name == models.CollectionReplica.name)
-    ).outerjoin(
-        models.DataIdentifierAssociation,
-        and_(models.DataIdentifierAssociation.scope == models.CollectionReplica.scope,
-             models.DataIdentifierAssociation.name == models.CollectionReplica.name)
-    ).where(
-        models.DataIdentifierAssociation.scope == null()
-    )
-    session.execute(
-        insert(scope_name_temp_table2).from_select(['scope', 'name'], stmt)
-    )
-    # Delete the retrieved collection replicas of empty collections
-    stmt = delete(
-        models.CollectionReplica,
-    ).where(
-        exists(select(1)
-               .where(and_(models.CollectionReplica.scope == scope_name_temp_table2.scope,
-                           models.CollectionReplica.name == scope_name_temp_table2.name)))
-    ).execution_options(
-        synchronize_session=False
-    )
-    session.execute(stmt)
+    if clt_replicas_to_delete:
+        session.query(scope_name_temp_table).delete()
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in clt_replicas_to_delete])
+        session.query(scope_name_temp_table2).delete()
+        stmt = select(
+            models.CollectionReplica.scope,
+            models.CollectionReplica.name,
+        ).distinct(
+        ).join_from(
+            scope_name_temp_table,
+            models.CollectionReplica,
+            and_(scope_name_temp_table.scope == models.CollectionReplica.scope,
+                 scope_name_temp_table.name == models.CollectionReplica.name),
+        ).join(
+            models.DataIdentifier,
+            and_(models.DataIdentifier.scope == models.CollectionReplica.scope,
+                 models.DataIdentifier.name == models.CollectionReplica.name)
+        ).outerjoin(
+            models.DataIdentifierAssociation,
+            and_(models.DataIdentifierAssociation.scope == models.CollectionReplica.scope,
+                 models.DataIdentifierAssociation.name == models.CollectionReplica.name)
+        ).where(
+            models.DataIdentifierAssociation.scope == null()
+        )
+        session.execute(
+            insert(scope_name_temp_table2).from_select(['scope', 'name'], stmt)
+        )
+        # Delete the retrieved collection replicas of empty collections
+        stmt = delete(
+            models.CollectionReplica,
+        ).where(
+            exists(select(1)
+                   .where(and_(models.CollectionReplica.scope == scope_name_temp_table2.scope,
+                               models.CollectionReplica.name == scope_name_temp_table2.name)))
+        ).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt)
 
     # Update incomplete state
-    session.query(scope_name_temp_table).delete()
-    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in incomplete_dids])
-    stmt = update(
-        models.DataIdentifier
-    ).where(
-        exists(select(1)
-               .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
-                           models.DataIdentifier.name == scope_name_temp_table.name)))
-    ).where(
-        models.DataIdentifier.complete != false(),
-    ).execution_options(
-        synchronize_session=False
-    ).values(
-        complete=False
-    )
-    session.execute(stmt)
+    messages, dids_to_delete = [], set()
+    if incomplete_dids:
+        session.query(scope_name_temp_table).delete()
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in incomplete_dids])
+        stmt = update(
+            models.DataIdentifier
+        ).where(
+            exists(select(1)
+                   .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
+                               models.DataIdentifier.name == scope_name_temp_table.name)))
+        ).where(
+            models.DataIdentifier.complete != false(),
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            complete=False
+        )
+        session.execute(stmt)
 
     # delete empty dids
-    messages, dids_to_delete = [], set()
-    for chunk in chunks(did_condition, 10):
-        query = session.query(models.DataIdentifier.scope,
-                              models.DataIdentifier.name,
-                              models.DataIdentifier.did_type). \
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'). \
-            filter(or_(*chunk))
-        for scope, name, did_type in query:
-            if did_type == DIDType.DATASET:
-                messages.append({'event_type': 'ERASE',
-                                 'payload': dumps({'scope': scope.external,
-                                                   'name': name,
-                                                   'account': 'root'})})
-            dids_to_delete.add(ScopeName(scope=scope, name=name))
+    if did_condition:
+        for chunk in chunks(did_condition, 10):
+            query = session.query(models.DataIdentifier.scope,
+                                  models.DataIdentifier.name,
+                                  models.DataIdentifier.did_type). \
+                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'). \
+                filter(or_(*chunk))
+            for scope, name, did_type in query:
+                if did_type == DIDType.DATASET:
+                    messages.append({'event_type': 'ERASE',
+                                     'payload': dumps({'scope': scope.external,
+                                                       'name': name,
+                                                       'account': 'root'})})
+                dids_to_delete.add(ScopeName(scope=scope, name=name))
 
     # Remove Archive Constituents
-    session.query(scope_name_temp_table).delete()
-    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in affected_archives])
-
-    stmt = select(
-        models.ConstituentAssociation
-    ).distinct(
-    ).join_from(
-        scope_name_temp_table,
-        models.ConstituentAssociation,
-        and_(scope_name_temp_table.scope == models.ConstituentAssociation.scope,
-             scope_name_temp_table.name == models.ConstituentAssociation.name),
-    ).outerjoin(
-        models.DataIdentifier,
-        and_(models.DataIdentifier.availability == DIDAvailability.LOST,
-             models.DataIdentifier.scope == models.ConstituentAssociation.scope,
-             models.DataIdentifier.name == models.ConstituentAssociation.name)
-    ).where(
-        models.DataIdentifier.scope == null()
-    ).outerjoin(
-        models.RSEFileAssociation,
-        and_(models.RSEFileAssociation.scope == models.ConstituentAssociation.scope,
-             models.RSEFileAssociation.name == models.ConstituentAssociation.name)
-    ).where(
-        models.RSEFileAssociation.scope == null()
-    )
-
     constituent_associations_to_delete = set()
-    for constituent in session.execute(stmt).scalars().all():
-        constituent_associations_to_delete.add(Association(scope=constituent.scope, name=constituent.name,
-                                                           child_scope=constituent.child_scope, child_name=constituent.child_name))
-        models.ConstituentAssociationHistory(
-            child_scope=constituent.child_scope,
-            child_name=constituent.child_name,
-            scope=constituent.scope,
-            name=constituent.name,
-            bytes=constituent.bytes,
-            adler32=constituent.adler32,
-            md5=constituent.md5,
-            guid=constituent.guid,
-            length=constituent.length,
-            updated_at=constituent.updated_at,
-            created_at=constituent.created_at,
-        ).save(session=session, flush=False)
+    if affected_archives:
+        session.query(scope_name_temp_table).delete()
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in affected_archives])
+
+        stmt = select(
+            models.ConstituentAssociation
+        ).distinct(
+        ).join_from(
+            scope_name_temp_table,
+            models.ConstituentAssociation,
+            and_(scope_name_temp_table.scope == models.ConstituentAssociation.scope,
+                 scope_name_temp_table.name == models.ConstituentAssociation.name),
+        ).outerjoin(
+            models.DataIdentifier,
+            and_(models.DataIdentifier.availability == DIDAvailability.LOST,
+                 models.DataIdentifier.scope == models.ConstituentAssociation.scope,
+                 models.DataIdentifier.name == models.ConstituentAssociation.name)
+        ).where(
+            models.DataIdentifier.scope == null()
+        ).outerjoin(
+            models.RSEFileAssociation,
+            and_(models.RSEFileAssociation.scope == models.ConstituentAssociation.scope,
+                 models.RSEFileAssociation.name == models.ConstituentAssociation.name)
+        ).where(
+            models.RSEFileAssociation.scope == null()
+        )
+
+        for constituent in session.execute(stmt).scalars().all():
+            constituent_associations_to_delete.add(Association(scope=constituent.scope, name=constituent.name,
+                                                               child_scope=constituent.child_scope, child_name=constituent.child_name))
+            models.ConstituentAssociationHistory(
+                child_scope=constituent.child_scope,
+                child_name=constituent.child_name,
+                scope=constituent.scope,
+                name=constituent.name,
+                bytes=constituent.bytes,
+                adler32=constituent.adler32,
+                md5=constituent.md5,
+                guid=constituent.guid,
+                length=constituent.length,
+                updated_at=constituent.updated_at,
+                created_at=constituent.created_at,
+            ).save(session=session, flush=False)
 
     if constituent_associations_to_delete:
         session.query(association_temp_table).delete()
-        session.bulk_insert_mappings(association_temp_table, [a._asdict() for a in constituent_associations_to_delete])
+        session.execute(insert(association_temp_table), [a._asdict() for a in constituent_associations_to_delete])
         stmt = delete(
             models.ConstituentAssociation
         ).where(
@@ -2050,64 +2057,68 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                                              association_temp_table=association_temp_table,
                                              rse_id=rse_id, files=[sn._asdict() for sn in chunk], session=session)
 
-    session.query(scope_name_temp_table).delete()
-    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in dids_to_delete])
+    if dids_to_delete:
+        session.query(scope_name_temp_table).delete()
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in dids_to_delete])
 
-    # Remove rules in Waiting for approval or Suspended
-    stmt = delete(
-        models.ReplicationRule,
-    ).where(
-        exists(select(1)
-               .where(and_(models.ReplicationRule.scope == scope_name_temp_table.scope,
-                           models.ReplicationRule.name == scope_name_temp_table.name)))
-    ).where(
-        models.ReplicationRule.state.in_((RuleState.SUSPENDED, RuleState.WAITING_APPROVAL))
-    ).execution_options(
-        synchronize_session=False
-    )
-    session.execute(stmt)
-
-    # Remove DID Metadata
-    must_delete_did_meta = True
-    if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection().connection.version.split('.')[0])
-        if oracle_version < 12:
-            must_delete_did_meta = False
-    if must_delete_did_meta:
+        # Remove rules in Waiting for approval or Suspended
         stmt = delete(
-            models.DidMeta,
+            models.ReplicationRule,
         ).where(
             exists(select(1)
-                   .where(and_(models.DidMeta.scope == scope_name_temp_table.scope,
-                               models.DidMeta.name == scope_name_temp_table.name)))
+                   .where(and_(models.ReplicationRule.scope == scope_name_temp_table.scope,
+                               models.ReplicationRule.name == scope_name_temp_table.name)))
+        ).where(
+            models.ReplicationRule.state.in_((RuleState.SUSPENDED, RuleState.WAITING_APPROVAL))
         ).execution_options(
             synchronize_session=False
         )
         session.execute(stmt)
 
-    for chunk in chunks(messages, 100):
-        add_messages(chunk, session=session)
+        # Remove DID Metadata
+        must_delete_did_meta = True
+        if session.bind.dialect.name == 'oracle':
+            oracle_version = int(session.connection().connection.version.split('.')[0])
+            if oracle_version < 12:
+                must_delete_did_meta = False
+        if must_delete_did_meta:
+            stmt = delete(
+                models.DidMeta,
+            ).where(
+                exists(select(1)
+                       .where(and_(models.DidMeta.scope == scope_name_temp_table.scope,
+                                   models.DidMeta.name == scope_name_temp_table.name)))
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
 
-    # Delete dids
-    dids_to_delete_filter = exists(select(1)
-                                   .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
-                                               models.DataIdentifier.name == scope_name_temp_table.name)))
-    archive_dids = config_get_bool('deletion', 'archive_dids', default=False, session=session)
-    if archive_dids:
-        rucio.core.did.insert_deleted_dids(filter_=dids_to_delete_filter, session=session)
-    stmt = delete(
-        models.DataIdentifier,
-    ).where(
-        dids_to_delete_filter,
-    ).execution_options(
-        synchronize_session=False
-    )
-    session.execute(stmt)
+        for chunk in chunks(messages, 100):
+            add_messages(chunk, session=session)
+
+        # Delete dids
+        dids_to_delete_filter = exists(select(1)
+                                       .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
+                                                   models.DataIdentifier.name == scope_name_temp_table.name)))
+        archive_dids = config_get_bool('deletion', 'archive_dids', default=False, session=session)
+        if archive_dids:
+            rucio.core.did.insert_deleted_dids(filter_=dids_to_delete_filter, session=session)
+        stmt = delete(
+            models.DataIdentifier,
+        ).where(
+            dids_to_delete_filter,
+        ).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt)
 
     # Set is_archive = false on collections which don't have archive children anymore
     while clt_to_set_not_archive:
+        to_update = clt_to_set_not_archive.pop(0)
+        if not to_update:
+            continue
         session.query(scope_name_temp_table).delete()
-        session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in clt_to_set_not_archive[0]])
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in to_update])
         session.query(scope_name_temp_table2).delete()
 
         data_identifier_alias = aliased(models.DataIdentifier, name='did_alias')
@@ -2149,8 +2160,6 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
             is_archive=False,
         )
         session.execute(stmt)
-
-        clt_to_set_not_archive.pop(0)
 
 
 @transactional_session
@@ -2228,7 +2237,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
 
     for chunk in chunks(session.execute(stmt).yield_per(2 * limit), math.ceil(1.25 * limit)):
         session.query(temp_table_cls).delete()
-        session.bulk_insert_mappings(temp_table_cls, [{'scope': scope, 'name': name} for scope, name in chunk])
+        session.execute(insert(temp_table_cls), [{'scope': scope, 'name': name} for scope, name in chunk])
 
         stmt = select(
             models.RSEFileAssociation.scope,
@@ -2290,7 +2299,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
 
     if rows:
         session.query(temp_table_cls).delete()
-        session.bulk_insert_mappings(temp_table_cls, [{'scope': r['scope'], 'name': r['name']} for r in rows])
+        session.execute(insert(temp_table_cls), [{'scope': r['scope'], 'name': r['name']} for r in rows])
         stmt = update(
             models.RSEFileAssociation
         ).where(

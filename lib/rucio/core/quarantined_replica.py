@@ -17,7 +17,7 @@ import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, or_
-from sqlalchemy.sql.expression import false
+from sqlalchemy.sql.expression import false, insert
 
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
@@ -66,8 +66,8 @@ def add_quarantined_replicas(rse_id, replicas, *, session: "Session"):
     quarantine_replicas = [(path, rseid) for path, rseid in quarantine_query]
     replicas = [replica for replica in replicas if (replica['path'], rse_id) not in quarantine_replicas]
 
-    session.bulk_insert_mappings(
-        models.QuarantinedReplica,
+    session.execute(
+        insert(models.QuarantinedReplica),
         [{'rse_id': rse_id,
           'path': file['path'],
           'scope': file.get('scope'),
@@ -96,13 +96,15 @@ def delete_quarantined_replicas(rse_id, replicas, *, session: "Session"):
             filter(or_(*conditions)).\
             delete(synchronize_session=False)
 
-    session.\
-        bulk_insert_mappings(models.QuarantinedReplicaHistory,
-                             [{'rse_id': rse_id, 'path': replica['path'],
-                               'bytes': replica.get('bytes'),
-                               'created_at': replica.get('created_at'),
-                               'deleted_at': datetime.datetime.utcnow()}
-                              for replica in replicas])
+    if replicas:
+        session.execute(
+            insert(models.QuarantinedReplicaHistory),
+            [{'rse_id': rse_id, 'path': replica['path'],
+              'bytes': replica.get('bytes'),
+              'created_at': replica.get('created_at'),
+              'deleted_at': datetime.datetime.utcnow()}
+             for replica in replicas]
+        )
 
 
 @read_session

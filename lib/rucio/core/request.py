@@ -20,7 +20,7 @@ import traceback
 from collections import namedtuple
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, or_, update, select, delete, exists
+from sqlalchemy import and_, or_, update, select, delete, exists, insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import asc, true, false, null, func
@@ -333,10 +333,10 @@ def queue_requests(requests, *, session: "Session", logger=logging.log):
                          'payload': payload})
 
     for requests_chunk in chunks(new_requests, 1000):
-        session.bulk_insert_mappings(models.Request, requests_chunk)
+        session.execute(insert(models.Request), requests_chunk)
 
     for sources_chunk in chunks(sources, 1000):
-        session.bulk_insert_mappings(models.Source, sources_chunk)
+        session.execute(insert(models.Source), sources_chunk)
 
     add_messages(messages, session=session)
 
@@ -447,7 +447,7 @@ def list_transfer_requests_and_source_replicas(
     if rses:
         temp_table_cls = temp_table_mngr(session).create_id_table()
 
-        session.bulk_insert_mappings(temp_table_cls, [{'id': rse_id} for rse_id in rses])
+        session.execute(insert(temp_table_cls), [{'id': rse_id} for rse_id in rses])
 
         sub_requests = sub_requests.join(temp_table_cls, temp_table_cls.id == models.RSE.id)
 
@@ -1649,8 +1649,8 @@ def _sync_rse_transfer_limit(
     rse_limits_to_delete = existing_rse_ids.difference(desired_rse_ids)
 
     if rse_limits_to_add:
-        session.bulk_insert_mappings(
-            models.RSETransferLimit,
+        session.execute(
+            insert(models.RSETransferLimit),
             [
                 {'rse_id': rse_id, 'limit_id': limit_id}
                 for rse_id in rse_limits_to_add
