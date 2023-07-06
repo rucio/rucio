@@ -17,6 +17,7 @@ import datetime
 import json
 import logging
 import traceback
+import uuid
 from collections import namedtuple
 from typing import TYPE_CHECKING
 
@@ -1629,10 +1630,10 @@ def list_transfer_limits(
 
 
 def _sync_rse_transfer_limit(
-        limit_id: str,
+        limit_id: "Union[str, uuid.UUID]",
         desired_rse_ids: "Set[str]",
         *,
-        session: "Optional[Session]" = None,
+        session: "Session",
 ):
     """
     Ensure that an RSETransferLimit exists in the database for each of the given rses (and only for these rses)

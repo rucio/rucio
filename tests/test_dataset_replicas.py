@@ -264,7 +264,7 @@ class TestDatasetReplicaUpdate:
         models.CollectionReplica(rse_id=rse2_id, scope=mock_scope, name=dataset_name, state=constants.ReplicaState.UNAVAILABLE, did_type=constants.DIDType.DATASET, bytes=len(files) * file_size, length=len(files)).save(session=db_session)
 
         # First update -> replicas should be available
-        models.UpdatedCollectionReplica(scope=mock_scope, name=dataset_name).save(session=db_session)
+        models.UpdatedCollectionReplica(scope=mock_scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=db_session)
         update_request = db_session.query(models.UpdatedCollectionReplica).filter_by(scope=mock_scope, name=dataset_name).one()  # pylint: disable=no-member
         update_collection_replica(update_request=update_request.to_dict(), session=db_session)
         for dataset_replica in db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name).all():  # pylint: disable=no-member

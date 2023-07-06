@@ -2272,8 +2272,14 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             and_(models.RSEFileAssociation.scope == models.DataIdentifier.scope,
                  models.RSEFileAssociation.name == models.DataIdentifier.name)
         ).group_by(
-            models.RSEFileAssociation,
-            models.DataIdentifier.datatype,
+            models.RSEFileAssociation.scope,
+            models.RSEFileAssociation.name,
+            models.RSEFileAssociation.path,
+            models.RSEFileAssociation.bytes,
+            models.RSEFileAssociation.tombstone,
+            models.RSEFileAssociation.state,
+            models.RSEFileAssociation.updated_at,
+            models.DataIdentifier.datatype
         ).having(
             case((func.count(replicas_alias.scope) > 0, True),  # Can delete this replica if it's not the last replica
                  (func.count(models.Request.scope) == 0, True),  # If it's the last replica, only can delete if there are no requests using it
@@ -3143,7 +3149,7 @@ def update_collection_replica(update_request, *, session: "Session"):
         else:
             ds_replica_state = ReplicaState.UNAVAILABLE
 
-        if old_available_replicas > 0 and available_replicas == 0:
+        if old_available_replicas is not None and old_available_replicas > 0 and available_replicas == 0:
             session.query(models.CollectionReplica).filter_by(scope=update_request['scope'],
                                                               name=update_request['name'],
                                                               rse_id=update_request['rse_id'])\

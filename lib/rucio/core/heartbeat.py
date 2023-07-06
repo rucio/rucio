@@ -251,7 +251,7 @@ def list_payload_counts(executable, older_than=600, hash_executable=None, *, ses
                    .group_by(Heartbeats.payload)\
                    .order_by(Heartbeats.payload)
 
-    return dict(query.all())
+    return dict((payload, count) for payload, count in query.all() if payload)
 
 
 def calc_hash(executable):

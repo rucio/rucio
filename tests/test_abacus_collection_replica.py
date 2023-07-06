@@ -44,8 +44,10 @@ class TestAbacusCollectionReplica():
         jdoe = InternalAccount('jdoe', vo)
         add_did(mock_scope, dataset, DIDType.DATASET, jdoe)
 
-        models.CollectionReplica(scope=mock_scope, name=dataset, rse_id=rse_id1, state=ReplicaState.AVAILABLE, bytes=1).save(session=db_session, flush=False)
-        models.CollectionReplica(scope=mock_scope, name=dataset, rse_id=rse_id2, state=ReplicaState.AVAILABLE, bytes=1).save(session=db_session, flush=False)
+        models.CollectionReplica(scope=mock_scope, name=dataset, rse_id=rse_id1, did_type=DIDType.DATASET,
+                                 state=ReplicaState.AVAILABLE, bytes=1, length=1).save(session=db_session, flush=False)
+        models.CollectionReplica(scope=mock_scope, name=dataset, rse_id=rse_id2, did_type=DIDType.DATASET,
+                                 state=ReplicaState.AVAILABLE, bytes=1, length=1).save(session=db_session, flush=False)
 
         models.UpdatedCollectionReplica(scope=mock_scope, name=dataset, rse_id=rse_id1, did_type=DIDType.DATASET).save(session=db_session, flush=False)
         models.UpdatedCollectionReplica(scope=mock_scope, name=dataset, rse_id=rse_id1, did_type=DIDType.DATASET).save(session=db_session, flush=False)
