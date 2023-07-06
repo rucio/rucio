@@ -17,7 +17,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, or_, exists, update
+from sqlalchemy import and_, or_, exists, update, insert
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import select
 
@@ -76,11 +76,22 @@ def add_volatile_replicas(rse_id, replicas, *, session: "Session"):
                                    models.DataIdentifier.adler32).\
             filter(or_(*file_clause))
 
-        session.bulk_insert_mappings(
-            models.RSEFileAssociation,
-            [{'rse_id': rse_id, 'adler32': adler32, 'state': ReplicaState.AVAILABLE,
-              'scope': scope, 'name': name, 'lock_cnt': 0, 'tombstone': datetime.utcnow(),
-              'bytes': bytes_, 'md5': md5} for scope, name, bytes_, md5, adler32 in file_query])
+        new_replicas = [
+            {
+                'rse_id': rse_id,
+                'adler32': adler32,
+                'state': ReplicaState.AVAILABLE,
+                'scope': scope,
+                'name': name,
+                'lock_cnt': 0,
+                'tombstone': datetime.utcnow(),
+                'bytes': bytes_,
+                'md5': md5
+            }
+            for scope, name, bytes_, md5, adler32 in file_query
+        ]
+        if new_replicas:
+            session.execute(insert(models.RSEFileAssociation), new_replicas)
 
 
 @transactional_session

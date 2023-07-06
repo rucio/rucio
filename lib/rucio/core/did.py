@@ -297,7 +297,7 @@ def attach_dids_to_dids(
 
             if not first_iteration:
                 session.query(children_temp_table).delete()
-            session.bulk_insert_mappings(children_temp_table, [{'scope': s, 'name': n} for s, n in children])
+            session.execute(insert(children_temp_table), [{'scope': s, 'name': n} for s, n in children])
 
             if parent_did.did_type == DIDType.FILE:
                 # check if parent file has the archive extension
@@ -345,7 +345,7 @@ def attach_dids_to_dids(
     # (convert the list of dictionaries into a list of tuple, then to a set of tuple
     # to remove duplicates, then back to a list of unique dictionaries)
     parent_dids = [dict(tup) for tup in set(tuple(dictionary.items()) for dictionary in parent_dids)]
-    session.bulk_insert_mappings(models.UpdatedDID, parent_dids)
+    session.execute(insert(models.UpdatedDID), parent_dids)
 
 
 def __add_files_to_archive(parent_did, files_temp_table, files, account, ignore_duplicate=False, *, session: "Session"):
@@ -450,8 +450,8 @@ def __add_files_to_archive(parent_did, files_temp_table, files, account, ignore_
 
     # insert into archive_contents
     try:
-        dids_to_add and session.bulk_insert_mappings(models.DataIdentifier, dids_to_add.values())
-        archive_contents_to_add and session.bulk_insert_mappings(models.ConstituentAssociation, archive_contents_to_add.values())
+        dids_to_add and session.execute(insert(models.DataIdentifier), list(dids_to_add.values()))
+        archive_contents_to_add and session.execute(insert(models.ConstituentAssociation), list(archive_contents_to_add.values()))
         if must_set_constituent:
             stmt = update(
                 models.DataIdentifier
@@ -606,7 +606,7 @@ def __add_files_to_dataset(parent_did, files_temp_table, files, account, rse_id,
         }
 
     try:
-        files_to_add and session.bulk_insert_mappings(models.DataIdentifierAssociation, files_to_add.values())
+        files_to_add and session.execute(insert(models.DataIdentifierAssociation), list(files_to_add.values()))
         session.flush()
         return files_to_add
     except IntegrityError as error:
@@ -826,7 +826,7 @@ def __add_files_to_archive_without_temp_tables(scope, name, files, account, igno
 
     # insert into archive_contents
     try:
-        new_files and session.bulk_insert_mappings(models.DataIdentifier, new_files)
+        new_files and session.execute(insert(models.DataIdentifier), new_files)
         if existing_files_condition:
             for chunk in chunks(existing_files_condition, 20):
                 stmt = update(
@@ -844,7 +844,7 @@ def __add_files_to_archive_without_temp_tables(scope, name, files, account, igno
                     constituent=True
                 )
                 session.execute(stmt)
-        contents and session.bulk_insert_mappings(models.ConstituentAssociation, contents)
+        contents and session.execute(insert(models.ConstituentAssociation), contents)
         session.flush()
     except IntegrityError as error:
         raise exception.RucioException(error.args)
@@ -969,7 +969,7 @@ def __add_files_to_dataset_without_temp_tables(scope, name, files, account, rse_
         session.execute(stmt)
 
     try:
-        contents and session.bulk_insert_mappings(models.DataIdentifierAssociation, contents)
+        contents and session.execute(insert(models.DataIdentifierAssociation), contents)
         session.flush()
         return contents
     except IntegrityError as error:
@@ -1157,14 +1157,18 @@ def delete_dids(
 
         add_message('ERASE', message, session=session)
 
-    temp_table = temp_table_mngr(session).create_scope_name_table()
     if not file_dids:
         data_in_temp_table = all_dids = collection_dids
     elif not collection_dids:
         data_in_temp_table = all_dids = file_dids
     else:
         data_in_temp_table = all_dids
-    session.bulk_insert_mappings(temp_table, data_in_temp_table.values())
+
+    if not all_dids:
+        return
+
+    temp_table = temp_table_mngr(session).create_scope_name_table()
+    session.execute(insert(temp_table), list(data_in_temp_table.values()))
 
     # Delete rules on did
     skip_deletion = False  # Skip deletion in case of expiration of a rule
@@ -1255,7 +1259,7 @@ def delete_dids(
     if file_dids:
         if data_in_temp_table is not file_dids:
             session.execute(delete(temp_table))
-            session.bulk_insert_mappings(temp_table, file_dids.values())
+            session.execute(insert(temp_table), list(file_dids.values()))
             data_in_temp_table = file_dids
 
         # update bad files passed directly as input
@@ -1272,7 +1276,7 @@ def delete_dids(
     if collection_dids:
         if data_in_temp_table is not collection_dids:
             session.execute(delete(temp_table))
-            session.bulk_insert_mappings(temp_table, collection_dids.values())
+            session.execute(insert(temp_table), list(collection_dids.values()))
             data_in_temp_table = collection_dids
 
         # Find files of datasets passed as input and put them in a separate temp table
@@ -1371,7 +1375,7 @@ def delete_dids(
     if collection_dids:
         if data_in_temp_table is not collection_dids:
             session.execute(delete(temp_table))
-            session.bulk_insert_mappings(temp_table, collection_dids.values())
+            session.execute(insert(temp_table), list(collection_dids.values()))
             data_in_temp_table = collection_dids
 
         with METRICS.timer('delete_dids.dids_followed'):
@@ -1413,7 +1417,7 @@ def delete_dids(
     if file_dids:
         if data_in_temp_table is not file_dids:
             session.execute(delete(temp_table))
-            session.bulk_insert_mappings(temp_table, file_dids.values())
+            session.execute(insert(temp_table), list(file_dids.values()))
             data_in_temp_table = file_dids
         stmt = update(
             models.DataIdentifier
