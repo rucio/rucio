@@ -36,6 +36,7 @@ from rucio.core import did, message as message_core, request as request_core
 from rucio.core.account import list_accounts
 from rucio.core.monitor import MetricManager
 from rucio.core.request import set_request_state, RequestWithSources, RequestSource
+from rucio.core.rse import RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, RequestType, TransferLimitDirection
@@ -49,7 +50,6 @@ if TYPE_CHECKING:
     from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Set, Tuple
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
-    from rucio.core.rse import RseData
     from rucio.core.topology import Topology
 
     LoggerFunction = Callable[..., Any]
@@ -256,7 +256,9 @@ class StageinTransferDefinition(DirectTransferDefinition):
     """
     def __init__(self, source, destination, rws, protocol_factory, operation_src, operation_dest):
         if not source.rse.is_tape() or destination.rse.is_tape():
-            raise RucioException("Stageing request {} must be from TAPE to DISK rse. Got {} and {}.".format(rws, source, destination))
+            # allow staging_required QoS RSE to be TAPE to TAPE for pin
+            if not destination.rse.attributes.get('staging_required', None):
+                raise RucioException("Stageing request {} must be from TAPE to DISK rse. Got {} and {}.".format(rws, source, destination))
         super().__init__(source, destination, rws, protocol_factory, operation_src, operation_dest)
 
     @property
@@ -895,6 +897,12 @@ def build_transfer_paths(
             candidate_sources = [rws.requested_source] if rws.requested_source in filtered_sources else []
 
         if rws.request_type == RequestType.STAGEIN:
+            # if staging_required RSE make sure source is included
+            if rws.dest_rse.attributes.get('staging_required', None):
+                rse_data = RseData(id_=rws.dest_rse.id)
+                rse_data.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
+                candidate_sources.append(RequestSource(rse_data))
+
             paths = __create_stagein_definitions(rws=rws,
                                                  sources=candidate_sources,
                                                  limit_dest_schemes=transfer_schemes,
