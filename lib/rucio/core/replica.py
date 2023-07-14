@@ -19,11 +19,9 @@ import random
 from collections import defaultdict, namedtuple
 from curses.ascii import isprint
 from datetime import datetime, timedelta
-from hashlib import sha256
 from itertools import groupby
 from json import dumps
 from re import match
-from struct import unpack
 from traceback import format_exc
 from typing import TYPE_CHECKING
 
@@ -51,6 +49,7 @@ from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
+from rucio.core import heartbeat, wrh
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailability,
                                      BadFilesStatus, RuleState, BadPFNStatus)
@@ -71,6 +70,8 @@ METRICS = MetricManager(module=__name__)
 
 ScopeName = namedtuple('ScopeName', ['scope', 'name'])
 Association = namedtuple('Association', ['scope', 'name', 'child_scope', 'child_name'])
+
+xcaches = None
 
 
 @read_session
@@ -696,35 +697,24 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
     :param cache_site: Cache site
     :param filename:  Filename
     """
-    vp_endpoint = get_vp_endpoint()
-    if not vp_endpoint:
-        return ''
 
-    x_caches = REGION.get('CacheSites')
-    if x_caches is NO_VALUE:
+    # REGION is a memcache. It was storing VP/serverRanges/ for 60[s? min?]
+
+    xcache_heartbeats = REGION.get('CacheSites')
+    if xcache_heartbeats is NO_VALUE:
         try:
-            response = requests.get('{}/serverRanges'.format(vp_endpoint), timeout=1, verify=False)
-            if response.ok:
-                x_caches = response.json()
-                REGION.set('CacheSites', x_caches)
-            else:
-                REGION.set('CacheSites', {'could not reload': ''})
-                return ''
-        except requests.exceptions.RequestException as re:
+            hbs = heartbeat.list_executable_heartbeats('xcache')
+            REGION.set('CacheSites', hbs)
+            xcaches = wrh.XCaches(hbs)
+        except Exception as e:
             REGION.set('CacheSites', {'could not reload': ''})
-            logger(logging.WARNING, 'In get_multi_cache_prefix, could not access {}. Excaption:{}'.format(vp_endpoint, re))
+            logger(logging.WARNING, 'In get_multi_cache_prefix, could not get heartbeats{}'.format(e))
             return ''
 
-    if cache_site not in x_caches:
+    if not xcaches:
         return ''
-
-    xcache_site = x_caches[cache_site]
-    h = float(
-        unpack('Q', sha256(filename.encode('utf-8')).digest()[:8])[0]) / 2**64
-    for irange in xcache_site['ranges']:
-        if h < irange[1]:
-            return xcache_site['servers'][irange[0]][0]
-    return ''
+    else:
+        return xcaches.determine_responsible_node(cache_site, filename).name
 
 
 def _get_list_replicas_protocols(
@@ -2560,15 +2550,15 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                           models.DataIdentifierAssociation.md5,
                                           models.DataIdentifierAssociation.adler32,
                                           models.RSEFileAssociation)\
-                                   .with_hint(models.DataIdentifierAssociation,
-                                              "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                                              'oracle')\
-                                   .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                                models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                                models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
-                                                or_(*rse_clause)))\
-                                   .filter(models.DataIdentifierAssociation.scope == scope,
-                                           models.DataIdentifierAssociation.name == name)
+                        .with_hint(models.DataIdentifierAssociation,
+                                   "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                                   'oracle')\
+                        .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                     models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                     models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                                     or_(*rse_clause)))\
+                        .filter(models.DataIdentifierAssociation.scope == scope,
+                                models.DataIdentifierAssociation.name == name)
 
     else:
         query = session.query(models.DataIdentifierAssociation.child_scope,
@@ -2600,16 +2590,16 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                           models.DataIdentifierAssociation.md5,
                                           models.DataIdentifierAssociation.adler32,
                                           models.RSEFileAssociation)\
-                                   .with_hint(models.DataIdentifierAssociation,
-                                              "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                                              'oracle')\
-                                   .outerjoin(models.RSEFileAssociation,
-                                              and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                                   models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                                   models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
-                                                   or_(*rse_clause)))\
-                                   .filter(models.DataIdentifierAssociation.scope == scope,
-                                           models.DataIdentifierAssociation.name == name)
+                        .with_hint(models.DataIdentifierAssociation,
+                                   "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                                   'oracle')\
+                        .outerjoin(models.RSEFileAssociation,
+                                   and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                        models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                                        or_(*rse_clause)))\
+                        .filter(models.DataIdentifierAssociation.scope == scope,
+                                models.DataIdentifierAssociation.name == name)
 
     if total_threads and total_threads > 1:
         query = filter_thread_work(session=session, query=query, total_threads=total_threads,
@@ -2670,14 +2660,14 @@ def get_source_replicas_for_dataset(scope, name, source_rses=None,
                 query = session.query(models.DataIdentifierAssociation.child_scope,
                                       models.DataIdentifierAssociation.child_name,
                                       models.RSEFileAssociation.rse_id)\
-                               .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
-                               .outerjoin(models.RSEFileAssociation,
-                                          and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                               models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                               models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                               or_(*rse_clause)))\
-                               .filter(models.DataIdentifierAssociation.scope == scope,
-                                       models.DataIdentifierAssociation.name == name)
+                    .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
+                    .outerjoin(models.RSEFileAssociation,
+                               and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                                    models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                                    models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                                    or_(*rse_clause)))\
+                    .filter(models.DataIdentifierAssociation.scope == scope,
+                            models.DataIdentifierAssociation.name == name)
 
     if total_threads and total_threads > 1:
         query = filter_thread_work(session=session, query=query, total_threads=total_threads,
@@ -3153,12 +3143,12 @@ def update_collection_replica(update_request, *, session: "Session"):
             session.query(models.CollectionReplica).filter_by(scope=update_request['scope'],
                                                               name=update_request['name'],
                                                               rse_id=update_request['rse_id'])\
-                                                   .delete()
+                .delete()
         else:
             updated_replica = session.query(models.CollectionReplica).filter_by(scope=update_request['scope'],
                                                                                 name=update_request['name'],
                                                                                 rse_id=update_request['rse_id'])\
-                                                                     .one()
+                .one()
             updated_replica.state = ds_replica_state
             updated_replica.available_replicas_cnt = available_replicas
             updated_replica.length = ds_length
