@@ -731,7 +731,7 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
     if not xcaches:
         return ''
     else:
-        return xcaches.determine_responsible_node(cache_site, filename).name
+        return xcaches.determine_responsible_node(cache_site, filename)
 
 
 def _get_list_replicas_protocols(
