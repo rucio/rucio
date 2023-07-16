@@ -19,6 +19,7 @@ from requests.status_codes import codes
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
 from rucio.common.utils import build_url
+from rucio.common.exception import SubscriptionNotFound
 
 
 class SubscriptionClient(BaseClient):
@@ -82,6 +83,8 @@ class SubscriptionClient(BaseClient):
         :raises: exception.NotFound if subscription is not found
         """
         path = self.SUB_BASEURL
+        if name is None and account is True:
+            raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
         if account:
             path += '/%s' % (account)
             if name:
