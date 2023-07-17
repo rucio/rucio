@@ -144,7 +144,7 @@ def protocols_setup(vo):
                                      'prefix': '/test/chamber/',
                                      'impl': 'rucio.rse.protocols.gfal.Default',
                                      'domains': {
-                                         'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                         'lan': {'read': None, 'write': None, 'delete': None},
                                          'wan': {'read': 3, 'write': 3, 'delete': 3}}})
 
     add_protocol(rse_info[1]['id'], {'scheme': 'gsiftp',
@@ -161,7 +161,7 @@ def protocols_setup(vo):
                                      'prefix': '/lambda/complex/',
                                      'impl': 'rucio.rse.protocols.gfal.Default',
                                      'domains': {
-                                         'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                         'lan': {'read': None, 'write': None, 'delete': None},
                                          'wan': {'read': 2, 'write': 2, 'delete': 2}}})
     add_protocol(rse_info[1]['id'], {'scheme': 'root',
                                      'hostname': ('root.%s' % base_rse_info[1]['address']),

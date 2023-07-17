@@ -195,7 +195,7 @@ def test_multiple_protocols_same_scheme(rse_factory, upload_client, mock_scope, 
                           'prefix': '/prefix1/',
                           'impl': 'rucio.rse.protocols.posix.Default',
                           'domains': {
-                              'lan': {'read': 0, 'write': 0, 'delete': 0},
+                              'lan': {'read': None, 'write': None, 'delete': None},
                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
     add_protocol(rse_id, {'scheme': 'file',
                           'hostname': 'file-lan.aperture.com',
@@ -204,7 +204,7 @@ def test_multiple_protocols_same_scheme(rse_factory, upload_client, mock_scope, 
                           'impl': 'rucio.rse.protocols.posix.Default',
                           'domains': {
                               'lan': {'read': 1, 'write': 1, 'delete': 1},
-                              'wan': {'read': 0, 'write': 0, 'delete': 0}}})
+                              'wan': {'read': None, 'write': None, 'delete': None}}})
     add_protocol(rse_id, {'scheme': 'root',
                           'hostname': 'root.aperture.com',
                           'port': 1403,
