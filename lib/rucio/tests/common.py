@@ -18,11 +18,11 @@ import contextlib
 import itertools
 import json
 import os
+from random import choice, choices
+import requests
+from string import ascii_uppercase, ascii_letters, digits
 import tempfile
 from typing import Optional
-from random import choice, choices
-from string import ascii_uppercase, ascii_letters, digits
-import requests
 
 import pytest
 
@@ -44,10 +44,7 @@ def is_influxdb_available() -> bool:
     """Return True if influxdb is available, else return False."""
     try:
         response = requests.get('http://localhost:8086/ping')
-        if response.status_code == 204:
-            return True
-        else:
-            return False
+        return response.status_code == 204
     except requests.exceptions.ConnectionError:
         print('InfluxDB is not running at localhost:8086')
         return False
@@ -57,10 +54,7 @@ def is_elasticsearch_available() -> bool:
     """Return True if elasticsearch is available, else return False."""
     try:
         response = requests.get('http://localhost:9200/')
-        if response.status_code == 200:
-            return True
-        else:
-            return False
+        return response.status_code == 200
     except requests.exceptions.ConnectionError:
         print('Elasticsearch is not running at localhost:9200')
         return False
