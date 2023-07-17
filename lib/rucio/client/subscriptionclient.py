@@ -96,6 +96,8 @@ class SubscriptionClient(BaseClient):
             return self._load_json_data(result)
         else:
             exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
+            if f'Subscription for account \'{account}\' named \'None\' not found' in exc_msg:
+                return str('No subscriptions for this account')
             raise exc_cls(exc_msg)
 
     def update_subscription(self, name, account=None, filter_=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, priority=None):

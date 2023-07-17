@@ -920,12 +920,15 @@ def list_subscriptions(args):
     else:
         account = client.account
     subs = client.list_subscriptions(name=args.name, account=account)
-    for sub in subs:
-        if args.long:
-            print('\n'.join('%s: %s' % (str(k), str(v)) for (k, v) in list(sub.items())))
-            print()
-        else:
-            print("%s: %s %s\n  priority: %s\n  filter: %s\n  rules: %s\n  comments: %s" % (sub['account'], sub['name'], sub['state'], sub['policyid'], sub['filter'], sub['replication_rules'], sub.get('comments', '')))
+    if 'No subscriptions for this account' in subs:
+        print("There are no subscriptions for this account")
+    else:
+        for sub in subs:
+            if args.long:
+                print('\n'.join('%s: %s' % (str(k), str(v)) for (k, v) in list(sub.items())))
+                print()
+            else:
+                print("%s: %s %s\n  priority: %s\n  filter: %s\n  rules: %s\n  comments: %s" % (sub['account'], sub['name'], sub['state'], sub['policyid'], sub['filter'], sub['replication_rules'], sub.get('comments', '')))
     return SUCCESS
 
 
