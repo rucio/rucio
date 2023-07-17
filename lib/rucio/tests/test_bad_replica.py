@@ -447,7 +447,7 @@ def test_get_pfn_to_rse(rse_factory, rse_client, vo):
                   'domains': {
                       'lan': {'read': 4,
                               'write': 1,
-                              'delete': 0}
+                              'delete': None}
                   },
                   'extended_attributes': 'TheOneWithAllTheRest'},
                  {'scheme': 'MOCK',
@@ -458,7 +458,7 @@ def test_get_pfn_to_rse(rse_factory, rse_client, vo):
                   'domains': {
                       'lan': {'read': 1,
                               'write': 1,
-                              'delete': 0}},
+                              'delete': None}},
                   'extended_attributes': 'TheOneWithAllTheRest'}, ]
     for prot in protocols:
         rse_client.add_protocol(rse1, prot)
