@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 import rucio.core.scope
 from rucio.core.account import has_account_attribute
 from rucio.core.identity import exist_identity_account
@@ -179,7 +181,7 @@ def perm_add_rule(issuer, kwargs, session=None):
     if _is_root(issuer) and repr(kwargs['account']).startswith('sync_'):
         return True
 
-    if isinstance(repr(issuer), basestring) and repr(issuer).startswith('sync_'):
+    if isinstance(repr(issuer), str) and repr(issuer).startswith('sync_'):
         return True
 
     # Anyone can use _Temp RSEs if a lifetime is set and under a month

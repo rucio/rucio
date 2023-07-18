@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 import rucio.core.scope
 from rucio.core.account import list_account_attributes, has_account_attribute
 from rucio.core.identity import exist_identity_account
@@ -25,6 +27,7 @@ if TYPE_CHECKING:
     from typing import Optional
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
+
 
 def has_permission(issuer, action, kwargs, session=None):
     """
