@@ -19,7 +19,7 @@ import pytest
 import hashlib
 import re
 
-from rucio.core.request import get_request_by_did, list_transfer_requests_and_source_replicas
+from rucio.core.request import get_request_by_did, list_and_mark_transfer_requests_and_source_replicas
 from rucio.core.topology import Topology
 from rucio.core.transfer import ProtocolFactory
 from rucio.core.rule import add_rule
@@ -84,7 +84,7 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
     assert rule['locks_replicating_cnt'] == 1
 
     topology = Topology()
-    requests = list_transfer_requests_and_source_replicas(rse_collection=topology, rses=[rse1_id, rse2_id]).values()
+    requests = list_and_mark_transfer_requests_and_source_replicas(rse_collection=topology, rses=[rse1_id, rse2_id]).values()
     paths, *_ = build_transfer_paths(topology=topology, protocol_factory=ProtocolFactory(), requests_with_sources=requests)
     [[_, [transfer_path]]] = paths.items()
     assert transfer_path[0].rws.rule_id == rule_id[0]

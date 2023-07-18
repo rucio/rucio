@@ -1285,6 +1285,8 @@ class Request(BASE, ModelBase):
     staging_finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     account: Mapped[Optional[InternalAccount]] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
     requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_processed_by: Mapped[Optional[str]] = mapped_column(String(64))
+    last_processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     priority: Mapped[Optional[int]] = mapped_column(Integer)
     transfertool: Mapped[Optional[str]] = mapped_column(String(64))
     _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),

@@ -19,7 +19,8 @@ Conveyor stager is a daemon to manage stagein file transfers.
 
 import logging
 import threading
-from typing import TYPE_CHECKING
+from types import FrameType
+from typing import Optional
 
 import rucio.db.sqla.util
 from rucio.common import exception
@@ -31,17 +32,22 @@ from rucio.daemons.conveyor.submitter import submitter
 from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 
-if TYPE_CHECKING:
-    from types import FrameType
-    from typing import Optional
-
 METRICS = MetricManager(module=__name__)
-graceful_stop = threading.Event()
+GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'conveyor-stager'
 
 
-def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
-           source_strategy=None, activities=None, sleep_time=600):
+def stager(
+        once=False,
+        rses=None,
+        bulk=100,
+        group_bulk=1,
+        group_policy='rule',
+        source_strategy=None,
+        activities=None,
+        sleep_time=600,
+        total_threads=1
+):
 
     submitter(
         once=once,
@@ -57,24 +63,36 @@ def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
         filter_transfertool=None,
         transfertools=[FTS3Transfertool.external_name],
         ignore_availability=False,
-        executable='conveyor-stager',
+        executable=DAEMON_NAME,
         request_type=[RequestType.STAGEIN],
         default_lifetime=-1,
         metrics=METRICS,
+        total_threads=total_threads,
     )
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> None:
     """
     Graceful exit.
     """
 
-    graceful_stop.set()
+    GRACEFUL_STOP.set()
 
 
-def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
-        rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
-        activities=[], sleep_time=600):
+def run(
+        once=False,
+        total_threads=1,
+        group_bulk=1,
+        group_policy='rule',
+        rses=None,
+        include_rses=None,
+        exclude_rses=None,
+        vos=None,
+        bulk=100,
+        source_strategy=None,
+        activities=[],
+        sleep_time=600
+):
     """
     Starts up the conveyer threads.
     """
@@ -96,30 +114,14 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
     else:
         logging.info("RSE selection: automatic")
 
-    if once:
-        logging.info('executing one stager iteration only')
-        stager(once,
-               rses=working_rses,
-               bulk=bulk,
-               group_bulk=group_bulk,
-               group_policy=group_policy,
-               source_strategy=source_strategy,
-               activities=activities)
-
-    else:
-        logging.info('starting stager threads')
-        threads = [threading.Thread(target=stager, kwargs={'rses': working_rses,
-                                                           'bulk': bulk,
-                                                           'group_bulk': group_bulk,
-                                                           'group_policy': group_policy,
-                                                           'activities': activities,
-                                                           'sleep_time': sleep_time,
-                                                           'source_strategy': source_strategy}) for _ in range(0, total_threads)]
-
-        [thread.start() for thread in threads]
-
-        logging.info('waiting for interrupts')
-
-        # Interruptible joins require a timeout.
-        while threads:
-            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
+    stager(
+        once=once,
+        rses=working_rses,
+        bulk=bulk,
+        group_bulk=group_bulk,
+        group_policy=group_policy,
+        source_strategy=source_strategy,
+        activities=activities,
+        sleep_time=sleep_time,
+        total_threads=total_threads,
+    )

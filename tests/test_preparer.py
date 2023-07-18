@@ -18,24 +18,25 @@ import pytest
 
 from rucio.core.distance import get_distances, add_distance
 from rucio.core.replica import add_replicas
-from rucio.core.request import list_transfer_requests_and_source_replicas, set_transfer_limit, list_transfer_limits
+from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas, set_transfer_limit, list_transfer_limits, get_request
 from rucio.core.transfer import get_supported_transfertools
 from rucio.core.rse import add_rse_attribute, RseData, RseCollection
-from rucio.daemons.conveyor import preparer
+from rucio.daemons.conveyor.preparer import preparer
+from rucio.db.sqla.session import get_session
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState
 
 
 @pytest.fixture
-def dest_rse(vo, rse_factory, db_session):
-    rse_name, rse_id = rse_factory.make_mock_rse(session=db_session)
+def dest_rse(vo, rse_factory):
+    rse_name, rse_id = rse_factory.make_mock_rse()
     yield {'name': rse_name, 'id': rse_id}
 
 
 @pytest.fixture
-def source_rse(vo, rse_factory, dest_rse, db_session):
-    rse_name, rse_id = rse_factory.make_mock_rse(session=db_session)
-    add_distance(rse_id, dest_rse['id'], distance=5, session=db_session)
+def source_rse(vo, rse_factory, dest_rse):
+    rse_name, rse_id = rse_factory.make_mock_rse()
+    add_distance(rse_id, dest_rse['id'], distance=5)
     yield {'name': rse_name, 'id': rse_id}
 
 
@@ -46,14 +47,15 @@ def file(vo, did_factory):
 
 
 @pytest.fixture
-def dataset(db_session, did_factory, vo):
-    return did_factory.make_dataset(session=db_session)
+def dataset(did_factory, vo):
+    return did_factory.make_dataset()
 
 
 @pytest.fixture
-def mock_request(db_session, vo, source_rse, dest_rse, file, root_account):
-    add_replicas(rse_id=source_rse['id'], files=[file], account=root_account, session=db_session)
+def mock_request(vo, source_rse, dest_rse, file, root_account):
+    add_replicas(rse_id=source_rse['id'], files=[file], account=root_account)
 
+    db_session = get_session()
     request = models.Request(
         state=RequestState.PREPARING,
         scope=file['scope'],
@@ -69,7 +71,8 @@ def mock_request(db_session, vo, source_rse, dest_rse, file, root_account):
 
 
 @pytest.fixture
-def mock_request_no_source(db_session, dest_rse, dataset, root_account):
+def mock_request_no_source(dest_rse, dataset, root_account):
+    db_session = get_session()
     request = models.Request(
         state=RequestState.PREPARING,
         scope=dataset['scope'],
@@ -84,11 +87,10 @@ def mock_request_no_source(db_session, dest_rse, dataset, root_account):
     yield request_dict
 
 
-def test_listing_preparing_transfers(mock_request, db_session):
-    req_sources = list_transfer_requests_and_source_replicas(
+def test_listing_preparing_transfers(mock_request):
+    req_sources = list_and_mark_transfer_requests_and_source_replicas(
         rse_collection=RseCollection(),
         request_state=RequestState.PREPARING,
-        session=db_session
     )
 
     assert len(req_sources) != 0
@@ -100,98 +102,90 @@ def test_listing_preparing_transfers(mock_request, db_session):
 @pytest.mark.parametrize("file_config_mock", [{"overrides": [
     ('throttler', 'mode', 'DEST_PER_ACT')
 ]}], indirect=True)
-def test_preparer_setting_request_state_waiting(db_session, dest_rse, mock_request, file_config_mock):
+def test_preparer_setting_request_state_waiting(dest_rse, mock_request, file_config_mock):
     set_transfer_limit(
         dest_rse['name'],
         activity=mock_request['activity'],
         max_transfers=1,
         strategy='fifo',
-        session=db_session,
     )
-    list(list_transfer_limits(session=db_session))
+    list(list_transfer_limits())
 
-    preparer.run_once(logger=print, session=db_session)
+    preparer(once=True, transfertools=['mock'], partition_wait_time=0)
 
-    updated_mock_request = db_session.query(models.Request).filter_by(id=mock_request['id']).one()  # type: models.Request
+    updated_mock_request = get_request(mock_request['id'])
 
-    assert updated_mock_request.state == RequestState.WAITING
-
-
-@pytest.mark.noparallel(reason='uses preparer')
-def test_preparer_setting_request_state_queued(db_session, mock_request):
-    preparer.run_once(logger=print, session=db_session)
-
-    updated_mock_request = db_session.query(models.Request).filter_by(id=mock_request['id']).one()  # type: models.Request
-
-    assert updated_mock_request.state == RequestState.QUEUED
+    assert updated_mock_request['state'] == RequestState.WAITING
 
 
 @pytest.mark.noparallel(reason='uses preparer')
-def test_preparer_setting_request_source(db_session, vo, source_rse, mock_request):
-    preparer.run_once(logger=print, session=db_session)
+def test_preparer_setting_request_state_queued(mock_request):
+    preparer(once=True, transfertools=['mock'], partition_wait_time=0)
 
-    updated_mock_request = db_session.query(models.Request).filter_by(id=mock_request['id']).one()  # type: models.Request
+    updated_mock_request = get_request(mock_request['id'])
 
-    assert updated_mock_request.state == RequestState.QUEUED
-    assert updated_mock_request.source_rse_id == source_rse['id']
+    assert updated_mock_request['state'] == RequestState.QUEUED
 
 
 @pytest.mark.noparallel(reason='uses preparer')
-def test_preparer_for_request_without_source(db_session, mock_request_no_source):
-    preparer.run_once(logger=print, session=db_session)
+def test_preparer_setting_request_source(vo, source_rse, mock_request):
+    preparer(once=True, transfertools=['mock'], partition_wait_time=0)
 
-    updated_mock_request: "models.Request" = (
-        db_session.query(models.Request).filter_by(id=mock_request_no_source['id']).one()
-    )
+    updated_mock_request = get_request(mock_request['id'])
 
-    assert updated_mock_request.state == RequestState.NO_SOURCES
+    assert updated_mock_request['state'] == RequestState.QUEUED
+    assert updated_mock_request['source_rse_id'] == source_rse['id']
+
+
+@pytest.mark.noparallel(reason='uses preparer')
+def test_preparer_for_request_without_source(mock_request_no_source):
+    preparer(once=True, transfertools=['mock'], partition_wait_time=0)
+
+    updated_mock_request: "models.Request" = get_request(mock_request_no_source['id'])
+
+    assert updated_mock_request['state'] == RequestState.NO_SOURCES
 
 
 @pytest.mark.noparallel(reason='uses preparer')
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse.REGION'
 ]}], indirect=True)
-def test_preparer_without_and_with_mat(db_session, source_rse, dest_rse, mock_request, caches_mock):
+def test_preparer_without_and_with_mat(source_rse, dest_rse, mock_request, caches_mock):
     add_rse_attribute(source_rse['id'], 'fts', 'a')
     add_rse_attribute(dest_rse['id'], 'globus_endpoint_id', 'b')
 
     [cache_region] = caches_mock
     cache_region.invalidate()
 
-    preparer.run_once(logger=print, transfertools=['fts3', 'globus'], session=db_session)
+    preparer(once=True, transfertools=['fts3', 'globus'], partition_wait_time=0)
 
-    db_session.expunge_all()
-    updated_mock_request = db_session.query(models.Request).filter_by(id=mock_request['id']).one()  # type: models.Request
+    updated_mock_request = get_request(mock_request['id'])
 
-    assert updated_mock_request.state == RequestState.NO_SOURCES
+    assert updated_mock_request['state'] == RequestState.NO_SOURCES
 
 
 @pytest.mark.noparallel(reason='uses preparer')
-def test_two_sources_one_destination(rse_factory, source_rse, db_session, vo, file, mock_request):
-    _, source_rse2_id = rse_factory.make_mock_rse(session=db_session)
-    add_distance(source_rse2_id, mock_request['dest_rse_id'], distance=2, session=db_session)
-    add_replicas(rse_id=source_rse2_id, files=[file], account=mock_request['account'], session=db_session)
+def test_two_sources_one_destination(rse_factory, source_rse, vo, file, mock_request):
+    _, source_rse2_id = rse_factory.make_mock_rse()
+    add_distance(source_rse2_id, mock_request['dest_rse_id'], distance=2)
+    add_replicas(rse_id=source_rse2_id, files=[file], account=mock_request['account'])
 
     src1_distance, src2_distance = (
         get_distances(
             src_rse_id=src_rse,
             dest_rse_id=mock_request['dest_rse_id'],
-            session=db_session,
         )
         for src_rse in (source_rse['id'], source_rse2_id)
     )
     assert src1_distance and len(src1_distance) == 1 and src1_distance[0]['distance'] == 5
     assert src2_distance and len(src2_distance) == 1 and src2_distance[0]['distance'] == 2
 
-    preparer.run_once(logger=print, session=db_session)
+    preparer(once=True, transfertools=['mock'], partition_wait_time=0)
 
-    db_session.expunge_all()
-    updated_mock_request = (
-        db_session.query(models.Request).filter_by(id=mock_request['id']).one()
-    )  # type: models.Request
+    updated_mock_request = get_request(mock_request['id'])
 
-    assert updated_mock_request.state == RequestState.QUEUED
-    assert updated_mock_request.source_rse_id == source_rse2_id  # distance 2 < 5
+    assert updated_mock_request['state'] == RequestState.QUEUED
+    assert updated_mock_request['source_rse_id'] == source_rse2_id  # distance 2 < 5
 
 
 def test_get_supported_transfertools_none(vo, rse_factory):
