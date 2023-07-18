@@ -288,7 +288,7 @@ class FilterEngine:
             for and_group in or_group:
                 key, oper, value = and_group
                 if isinstance(value, str) and any([char in value for char in ['*', '%']]):   # wildcards
-                    if value in ('*', '%', u'*', u'%'):                                      # match wildcard exactly == no filtering on key
+                    if value in ('*', '%', '*', '%'):                                        # match wildcard exactly == no filtering on key
                         continue
                     else:                                                                    # partial match with wildcard == like || notlike
                         if oper == operator.eq:
@@ -349,7 +349,7 @@ class FilterEngine:
                 else:
                     is_in_json_column = True
                 if isinstance(value, str) and any([char in value for char in ['*', '%']]):  # wildcards
-                    if value in ('*', '%', u'*', u'%'):                                     # match wildcard exactly == no filtering on key
+                    if value in ('*', '%', '*', '%'):                                       # match wildcard exactly == no filtering on key
                         continue
                     else:                                                                   # partial match with wildcard == like || notlike
                         if oper == operator.eq:
@@ -427,7 +427,7 @@ class FilterEngine:
                 key, oper, value = and_group
                 if isinstance(key, sqlalchemy.orm.attributes.InstrumentedAttribute):                # -> this key filters on a table column.
                     if isinstance(value, str) and any([char in value for char in ['*', '%']]):      # wildcards
-                        if value in ('*', '%', u'*', u'%'):                                         # match wildcard exactly == no filtering on key
+                        if value in ('*', '%', '*', '%'):                                           # match wildcard exactly == no filtering on key
                             continue
                         else:                                                                       # partial match with wildcard == like || notlike
                             if oper == operator.eq:
@@ -441,7 +441,7 @@ class FilterEngine:
                 elif json_column:                                                                   # -> this key filters on the content of a json column
                     if session.bind.dialect.name == 'oracle':
                         if isinstance(value, str) and any([char in value for char in ['*', '%']]):  # wildcards
-                            if value in ('*', '%', u'*', u'%'):                                     # match wildcard exactly == no filtering on key
+                            if value in ('*', '%', '*', '%'):                                       # match wildcard exactly == no filtering on key
                                 continue
                             else:                                                                   # partial match with wildcard == like || notlike
                                 if oper == operator.eq:
@@ -460,7 +460,7 @@ class FilterEngine:
                                 raise exception.FilterEngineGenericError(e)
                     else:
                         if isinstance(value, str) and any([char in value for char in ['*', '%']]):  # wildcards
-                            if value in ('*', '%', u'*', u'%'):                                     # match wildcard exactly == no filtering on key
+                            if value in ('*', '%', '*', '%'):                                       # match wildcard exactly == no filtering on key
                                 continue
                             else:                                                                   # partial match with wildcard == like || notlike
                                 if oper == operator.eq:
