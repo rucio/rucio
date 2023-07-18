@@ -100,7 +100,7 @@ def cancel_request_did(scope, name, dest_rse, request_type, issuer, account, vo=
     return request.cancel_request_did(scope, name, dest_rse_id, request_type, session=session)
 
 
-@read_session
+@transactional_session
 def get_next(request_type, state, issuer, account, vo='def', *, session: "Session"):
     """
     Retrieve the next request matching the request type and state.
@@ -118,7 +118,7 @@ def get_next(request_type, state, issuer, account, vo='def', *, session: "Sessio
     if not permission.has_permission(issuer=issuer, vo=vo, action='get_next', kwargs=kwargs, session=session):
         raise exception.AccessDenied('%(account)s cannot get the next request of type %(request_type)s in state %(state)s' % locals())
 
-    reqs = request.get_next(request_type, state, session=session)
+    reqs = request.get_and_mark_next(request_type, state, session=session)
     return [api_update_return_dict(r, session=session) for r in reqs]
 
 

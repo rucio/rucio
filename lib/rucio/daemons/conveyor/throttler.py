@@ -21,7 +21,8 @@ import math
 import threading
 import traceback
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from types import FrameType
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import null
 
@@ -33,45 +34,68 @@ from rucio.core.request import (get_request_stats, release_all_waiting_requests,
                                 release_waiting_requests_grouped_fifo, set_transfer_limit_stats, re_sync_all_transfer_limits)
 from rucio.core.transfer import applicable_rse_transfer_limits
 from rucio.core.rse import RseCollection
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
 from rucio.db.sqla.constants import RequestState, TransferLimitDirection
 
 if TYPE_CHECKING:
-    from types import FrameType
-    from typing import Optional
+    from rucio.daemons.common import HeartbeatHandler
 
-graceful_stop = threading.Event()
+GRACEFUL_STOP = threading.Event()
 METRICS = MetricManager(module=__name__)
 DAEMON_NAME = 'conveyor-throttler'
 
 
-def throttler(once=False, sleep_time=600, partition_wait_time=10):
+def throttler(
+        once=False,
+        sleep_time=600,
+        partition_wait_time=10
+):
     """
     Main loop to check rse transfer limits.
     """
 
     logging.info('Throttler starting')
 
-    logger_prefix = executable = 'conveyor-throttler'
-
-    run_daemon(
+    @db_workqueue(
         once=once,
-        graceful_stop=graceful_stop,
-        executable=executable,
-        logger_prefix=logger_prefix,
+        graceful_stop=GRACEFUL_STOP,
+        executable=DAEMON_NAME,
         partition_wait_time=partition_wait_time,
-        sleep_time=sleep_time,
-        run_once_fnc=run_once,
-        activities=None,
-    )
+        sleep_time=sleep_time)
+    def _db_producer(*, activity: str, heartbeat_handler: "HeartbeatHandler"):
+        worker_number, total_workers, logger = heartbeat_handler.live()
+        if worker_number != 0:
+            logger(logging.INFO, 'Throttler thread id is not 0, will sleep. Only thread 0 will work')
+            return True, None
+
+        re_sync_all_transfer_limits()
+        rse_collection = RseCollection()
+        release_groups = _get_request_stats(rse_collection, logger=logger)
+        return True, release_groups
+
+    def _consumer(release_groups):
+        if release_groups is None:
+            return
+        logger = logging.log
+        logger(logging.INFO, "Throttler - schedule requests")
+        try:
+            _handle_requests(release_groups, logger=logger)
+        except Exception:
+            logger(logging.CRITICAL, "Failed to schedule requests, error: %s" % (traceback.format_exc()))
+
+    ProducerConsumerDaemon(
+        producers=[_db_producer],
+        consumers=[_consumer],
+        graceful_stop=GRACEFUL_STOP,
+    ).run()
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> None:
     """
     Graceful exit.
     """
 
-    graceful_stop.set()
+    GRACEFUL_STOP.set()
 
 
 def run(once=False, sleep_time=600):
@@ -83,41 +107,7 @@ def run(once=False, sleep_time=600):
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
-    if once:
-        logging.info('running throttler one iteration only')
-        throttler(once=True, sleep_time=sleep_time)
-    else:
-        threads = []
-        logging.info('starting throttler thread')
-        throttler_thread = threading.Thread(target=throttler, kwargs={'once': once, 'sleep_time': sleep_time})
-        threads.append(throttler_thread)
-        [thread.start() for thread in threads]
-
-        logging.info('waiting for interrupts')
-
-        # Interruptible joins require a timeout.
-        while threads:
-            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
-
-
-def run_once(worker_number=0, logger=logging.log, session=None, heartbeat_handler=None, **kwargs):
-    """
-    Schedule requests
-    """
-    if heartbeat_handler:
-        worker_number, total_workers, logger = heartbeat_handler.live()
-    if worker_number != 0:
-        logger(logging.INFO, 'Throttler thread id is not 0, will sleep. Only thread 0 will work')
-        return True
-    logger(logging.INFO, "Throttler - schedule requests")
-    try:
-        re_sync_all_transfer_limits(session=session)
-        rse_collection = RseCollection()
-        release_groups = _get_request_stats(rse_collection, logger=logger, session=session)
-        _release_requests(rse_collection, release_groups, logger=logger, session=session)
-    except Exception:
-        logger(logging.CRITICAL, "Failed to schedule requests, error: %s" % (traceback.format_exc()))
-    return True
+    throttler(once=once, sleep_time=sleep_time)
 
 
 class RequestGrouper:
@@ -202,7 +192,7 @@ class RequestGrouper:
         return merged_groups
 
 
-def _get_request_stats(rse_collection: RseCollection, *, logger=logging.log, session):
+def _get_request_stats(rse_collection: RseCollection, *, logger=logging.log):
     """
     Group waiting requests into arbitrary groups for bulk handling.
     The current grouping (source rse + dest rse + activity) was dictated
@@ -224,7 +214,6 @@ def _get_request_stats(rse_collection: RseCollection, *, logger=logging.log, ses
                RequestState.SUBMITTING,
                RequestState.SUBMITTED,
                RequestState.WAITING],
-        session=session,
     )
 
     # for each active limit, compute how many waiting and active transfers are currently in the database
@@ -238,20 +227,20 @@ def _get_request_stats(rse_collection: RseCollection, *, logger=logging.log, ses
         activity = db_stat.activity
 
         try:
-            dest_rse = rse_collection[db_stat.dest_rse_id].ensure_loaded(load_transfer_limits=True, load_name=True, load_columns=True, session=session)
+            dest_rse = rse_collection[db_stat.dest_rse_id].ensure_loaded(load_transfer_limits=True, load_name=True, load_columns=True)
         except exception.RSENotFound:
             logger(logging.INFO, "Destination RSE {} not found. Probably deleted.", db_stat.dest_rse_id)
             continue
         source_rse = None
         if db_stat.source_rse_id:
             try:
-                source_rse = rse_collection[db_stat.source_rse_id].ensure_loaded(load_transfer_limits=True, load_name=True, load_columns=True, session=session)
+                source_rse = rse_collection[db_stat.source_rse_id].ensure_loaded(load_transfer_limits=True, load_name=True, load_columns=True)
             except exception.RSENotFound:
                 logger(logging.INFO, "Source RSE {} not found. Probably deleted.", db_stat.source_rse_id)
                 continue
 
-        source_limits = list(applicable_rse_transfer_limits(activity=activity, source_rse=source_rse, session=session))
-        dest_limits = list(applicable_rse_transfer_limits(activity=activity, dest_rse=dest_rse, session=session))
+        source_limits = list(applicable_rse_transfer_limits(activity=activity, source_rse=source_rse))
+        dest_limits = list(applicable_rse_transfer_limits(activity=activity, dest_rse=dest_rse))
         limits = source_limits + dest_limits
 
         if counter and (limits or state == RequestState.WAITING):
@@ -331,7 +320,7 @@ def _get_request_stats(rse_collection: RseCollection, *, logger=logging.log, ses
             logger(logging.DEBUG, "%s: can release %s out of %s waiting requests", log_str, residual_capacity, waiting)
 
         if waiting != limit['waitings'] or active != limit['transfers']:
-            set_transfer_limit_stats(limit['id'], waitings=waiting, transfers=active, session=session)
+            set_transfer_limit_stats(limit['id'], waitings=waiting, transfers=active)
 
         for account, to_release_for_account in _split_threshold_per_account(stat['accounts'], total_to_release=residual_capacity):
             stat['accounts'][account]['residual_capacity'] = to_release_for_account
@@ -402,7 +391,7 @@ def _combine_limits(applicable_limits):
     return to_release, strategy, volume, deadline
 
 
-def _release_requests(rse_collection: RseCollection, release_groups, logger, session):
+def _handle_requests(release_groups, logger):
     """
     Release (set to queued state) waiting requests in groups defined by release_groups.
 
@@ -432,7 +421,7 @@ def _release_requests(rse_collection: RseCollection, release_groups, logger, ses
             total_released = 0
         elif to_release == math.inf:
             logger(logging.DEBUG, "will release all waiting requests%s", log_str)
-            total_released = release_all_waiting_requests(dest_rse_id=dest_rse_id, source_rse_id=source_rse_id, activity=activity, session=session)
+            total_released = release_all_waiting_requests(dest_rse_id=dest_rse_id, source_rse_id=source_rse_id, activity=activity)
         elif strategy == 'grouped_fifo':
             logger(logging.DEBUG, "will release %s remaining requests%s", to_release, log_str)
             additional_kwargs = {}
@@ -444,7 +433,6 @@ def _release_requests(rse_collection: RseCollection, release_groups, logger, ses
                 source_rse_id=source_rse_id,
                 dest_rse_id=dest_rse_id,
                 count=to_release,
-                session=session,
                 **additional_kwargs,
             )
         else:
@@ -467,7 +455,6 @@ def _release_requests(rse_collection: RseCollection, release_groups, logger, ses
                     count=to_release_account,
                     activity=activity,
                     account=account,
-                    session=session
                 )
                 total_released += nb_released
 

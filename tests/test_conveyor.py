@@ -41,7 +41,7 @@ from rucio.daemons.conveyor.preparer import preparer
 from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.conveyor.stager import stager
 from rucio.daemons.conveyor.throttler import throttler
-from rucio.daemons.conveyor.receiver import receiver, graceful_stop as receiver_graceful_stop, Receiver
+from rucio.daemons.conveyor.receiver import receiver, GRACEFUL_STOP as receiver_graceful_stop, Receiver
 from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RequestState, RequestType, ReplicaState, RSEType, RuleState

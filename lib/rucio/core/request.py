@@ -344,9 +344,11 @@ def queue_requests(requests, *, session: "Session", logger=logging.log):
     return new_requests
 
 
-@read_session
-def list_transfer_requests_and_source_replicas(
+@transactional_session
+def list_and_mark_transfer_requests_and_source_replicas(
         rse_collection: "RseCollection",
+        processed_by: "Optional[str]" = None,
+        processed_at_delay: int = 600,
         total_workers: int = 0,
         worker_number: int = 0,
         partition_hash_var: "Optional[str]" = None,
@@ -365,6 +367,8 @@ def list_transfer_requests_and_source_replicas(
     """
     List requests with source replicas
     :param rse_collection: the RSE collection being used
+    :param processed_by: the daemon/executable running this query
+    :param processed_at_delay: how many second to ignore a request if it's already being processed by the same daemon
     :param total_workers: Number of total workers.
     :param worker_number: Id of the executing worker.
     :param partition_hash_var: The hash variable used for partitioning thread work
@@ -428,6 +432,15 @@ def list_transfer_requests_and_source_replicas(
     ).order_by(
         models.Request.created_at
     )
+
+    if processed_by:
+        sub_requests = sub_requests.where(
+            or_(
+                models.Request.last_processed_by.is_(null()),
+                models.Request.last_processed_by != processed_by,
+                models.Request.last_processed_at > datetime.datetime.utcnow() - datetime.timedelta(seconds=processed_at_delay)
+            )
+        )
 
     if not ignore_availability:
         sub_requests = sub_requests.where(models.RSE.availability_write == true())
@@ -546,6 +559,19 @@ def list_transfer_requests_and_source_replicas(
             request.sources.append(source)
             if source_rse_id == replica_rse_id:
                 request.requested_source = source
+
+    if processed_by and requests_by_id:
+        now = datetime.datetime.utcnow()
+        updates = [
+            {
+                models.Request.id.name: request_id,
+                models.Request.last_processed_by.name: processed_by,
+                models.Request.last_processed_at.name: now,
+            }
+            for request_id in requests_by_id
+        ]
+        session.execute(update(models.Request), updates)
+
     return requests_by_id
 
 
@@ -585,16 +611,34 @@ def fetch_paths(request_id, *, session: "Session"):
 
 
 @METRICS.time_it
-@read_session
-def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activity=None,
-             total_workers=0, worker_number=0, mode_all=False, hash_variable='id',
-             activity_shares=None, include_dependent=True, transfertool=None, *, session: "Session"):
+@transactional_session
+def get_and_mark_next(
+        request_type,
+        state,
+        processed_by: "Optional[str]" = None,
+        processed_at_delay: int = 600,
+        limit=100,
+        older_than=None,
+        rse_id=None,
+        activity=None,
+        total_workers=0,
+        worker_number=0,
+        mode_all=False,
+        hash_variable='id',
+        activity_shares=None,
+        include_dependent=True,
+        transfertool=None,
+        *,
+        session: "Session"
+):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
 
     :param request_type:      Type of the request as a string or list of strings.
     :param state:             State of the request as a string or list of strings.
+    :param processed_by:      the daemon/executable running this query
+    :param processed_at_delay: how many second to ignore a request if it's already being processed by the same daemon
     :param limit:             Integer of requests to retrieve.
     :param older_than:        Only select requests older than this DateTime.
     :param rse_id:            The RSE to filter on.
@@ -637,6 +681,14 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
         ).order_by(
             asc(models.Request.updated_at)
         )
+        if processed_by:
+            query = query.where(
+                or_(
+                    models.Request.last_processed_by.is_(null()),
+                    models.Request.last_processed_by != processed_by,
+                    models.Request.last_processed_at > datetime.datetime.utcnow() - datetime.timedelta(seconds=processed_at_delay)
+                )
+            )
         if transfertool:
             query = query.with_hint(
                 models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)", 'oracle'
@@ -695,6 +747,18 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
             else:
                 for res in query_result:
                     result.append({'request_id': res.id, 'external_host': res.external_host, 'external_id': res.external_id})
+
+            if processed_by:
+                now = datetime.datetime.utcnow()
+                updates = [
+                    {
+                        models.Request.id.name: res_dict['request_id'],
+                        models.Request.last_processed_by.name: processed_by,
+                        models.Request.last_processed_at.name: now,
+                    }
+                    for res_dict in result
+                ]
+                session.execute(update(models.Request), updates)
 
     return result
 

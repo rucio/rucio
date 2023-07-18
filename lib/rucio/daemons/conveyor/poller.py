@@ -18,7 +18,6 @@ Conveyor is a daemon to manage file transfers.
 """
 
 import datetime
-import functools
 import itertools
 import json
 import logging
@@ -26,6 +25,7 @@ import re
 import threading
 import time
 from itertools import groupby
+from types import FrameType
 from typing import TYPE_CHECKING, Optional
 
 from requests.exceptions import RequestException
@@ -41,38 +41,45 @@ from rucio.common.utils import dict_chunks
 from rucio.core import transfer as transfer_core, request as request_core
 from rucio.core.monitor import MetricManager
 from rucio.db.sqla.constants import RequestState, RequestType
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 
 if TYPE_CHECKING:
-    from types import FrameType
+    from rucio.daemons.common import HeartbeatHandler
 
-graceful_stop = threading.Event()
+GRACEFUL_STOP = threading.Event()
 METRICS = MetricManager(module=__name__)
 DAEMON_NAME = 'conveyor-poller'
-
-datetime.datetime.strptime('', '')
 
 TRANSFER_TOOL = config_get('conveyor', 'transfertool', False, None)  # NOTE: This should eventually be completely removed, as it can be fetched from the request
 FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)  # NOTE: TRANSFERTOOL to filter requests on
 
 
-def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, activity, heartbeat_handler, oidc_account: Optional[str]):
+def _fetch_requests(
+        db_bulk,
+        older_than,
+        activity_shares,
+        activity,
+        heartbeat_handler
+):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
-    transfs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                    state=[RequestState.SUBMITTED],
-                                    limit=db_bulk,
-                                    older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
-                                    total_workers=total_workers,
-                                    worker_number=worker_number,
-                                    mode_all=True,
-                                    hash_variable='id',
-                                    activity=activity,
-                                    activity_shares=activity_shares,
-                                    transfertool=FILTER_TRANSFERTOOL)
+    transfs = request_core.get_and_mark_next(
+        request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+        state=[RequestState.SUBMITTED],
+        processed_by=heartbeat_handler.short_executable,
+        limit=db_bulk,
+        older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
+        total_workers=total_workers,
+        worker_number=worker_number,
+        mode_all=True,
+        hash_variable='id',
+        activity=activity,
+        activity_shares=activity_shares,
+        transfertool=FILTER_TRANSFERTOOL,
+    )
 
     if TRANSFER_TOOL and not FILTER_TRANSFERTOOL:
         # only keep transfers which don't have any transfertool set, or have one equal to TRANSFER_TOOL
@@ -84,6 +91,23 @@ def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, 
     if transfs:
         logger(logging.DEBUG, 'Polling %i transfers for activity %s' % (len(transfs), activity))
 
+    must_sleep = False
+    if len(transfs) < db_bulk / 2:
+        logger(logging.INFO, "Only %s transfers for activity %s, which is less than half of the bulk %s" % (len(transfs), activity, db_bulk))
+        must_sleep = True
+
+    return must_sleep, transfs
+
+
+def _handle_requests(
+        transfs,
+        fts_bulk,
+        multi_vo,
+        timeout,
+        oidc_account: Optional[str],
+        *,
+        logger=logging.log,
+):
     transfs.sort(key=lambda t: (t['external_host'] or '',
                                 t['scope'].vo if multi_vo else '',
                                 t['external_id'] or '',
@@ -106,21 +130,22 @@ def run_once(fts_bulk, db_bulk, older_than, activity_shares, multi_vo, timeout, 
                         else:
                             account = InternalAccount(oidc_account)
                     transfertool_obj = FTS3Transfertool(external_host=external_host, vo=vo, oidc_account=account)
-                worker_number, total_workers, logger = heartbeat_handler.live()
                 poll_transfers(transfertool_obj=transfertool_obj, transfers_by_eid=chunk, timeout=timeout, logger=logger)
             except Exception:
                 logger(logging.ERROR, 'Exception', exc_info=True)
 
-    queue_empty = False
-    if len(transfs) < fts_bulk / 2:
-        logger(logging.INFO, "Only %s transfers for activity %s, which is less than half of the bulk %s" % (len(transfs), activity, fts_bulk))
-        queue_empty = True
 
-    return queue_empty
-
-
-def poller(once=False, activities=None, sleep_time=60,
-           fts_bulk=100, db_bulk=1000, older_than=60, activity_shares=None, partition_wait_time=10):
+def poller(
+        once=False,
+        activities=None,
+        sleep_time=60,
+        fts_bulk=100,
+        db_bulk=1000,
+        older_than=60,
+        activity_shares=None,
+        partition_wait_time=10,
+        total_threads=1
+):
     """
     Main loop to check the status of a transfer primitive with a transfertool.
     """
@@ -132,7 +157,7 @@ def poller(once=False, activities=None, sleep_time=60,
     multi_vo = config_get_bool('common', 'multi_vo', False, None)
     oidc_account = config_get('conveyor', 'poller_oidc_account', False, None)
 
-    logger_prefix = executable = 'conveyor-poller'
+    executable = DAEMON_NAME
 
     if activities:
         activities.sort()
@@ -143,37 +168,57 @@ def poller(once=False, activities=None, sleep_time=60,
     if FILTER_TRANSFERTOOL:
         executable += ' --filter-transfertool ' + FILTER_TRANSFERTOOL
 
-    run_daemon(
+    @db_workqueue(
         once=once,
-        graceful_stop=graceful_stop,
+        graceful_stop=GRACEFUL_STOP,
         executable=executable,
-        logger_prefix=logger_prefix,
         partition_wait_time=partition_wait_time,
         sleep_time=sleep_time,
-        run_once_fnc=functools.partial(
-            run_once,
-            fts_bulk=fts_bulk,
+        activities=activities,
+    )
+    def _db_producer(*, activity: str, heartbeat_handler: "HeartbeatHandler"):
+        return _fetch_requests(
             db_bulk=db_bulk,
             older_than=older_than,
             activity_shares=activity_shares,
+            activity=activity,
+            heartbeat_handler=heartbeat_handler,
+        )
+
+    def _consumer(transfs):
+        return _handle_requests(
+            transfs=transfs,
+            fts_bulk=fts_bulk,
             multi_vo=multi_vo,
             timeout=timeout,
             oidc_account=oidc_account,
-        ),
-        activities=activities,
-    )
+        )
+
+    ProducerConsumerDaemon(
+        producers=[_db_producer],
+        consumers=[_consumer for _ in range(total_threads)],
+        graceful_stop=GRACEFUL_STOP,
+    ).run()
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> None:
     """
     Graceful exit.
     """
 
-    graceful_stop.set()
+    GRACEFUL_STOP.set()
 
 
-def run(once=False, sleep_time=60, activities=None,
-        fts_bulk=100, db_bulk=1000, older_than=60, activity_shares=None, total_threads=1):
+def run(
+        once=False,
+        sleep_time=60,
+        activities=None,
+        fts_bulk=100,
+        db_bulk=1000,
+        older_than=60,
+        activity_shares=None,
+        total_threads=1
+):
     """
     Starts up the conveyer threads.
     """
@@ -201,28 +246,16 @@ def run(once=False, sleep_time=60, activities=None,
         activity_shares.update((share, int(percentage * db_bulk)) for share, percentage in activity_shares.items())
         logging.info('activity shares enabled: %s' % activity_shares)
 
-    if once:
-        logging.info('executing one poller iteration only')
-        poller(once=once, fts_bulk=fts_bulk, db_bulk=db_bulk, older_than=older_than, activities=activities, activity_shares=activity_shares)
-
-    else:
-
-        logging.info('starting poller threads')
-
-        threads = [threading.Thread(target=poller, kwargs={'older_than': older_than,
-                                                           'fts_bulk': fts_bulk,
-                                                           'db_bulk': db_bulk,
-                                                           'sleep_time': sleep_time,
-                                                           'activities': activities,
-                                                           'activity_shares': activity_shares}) for _ in range(0, total_threads)]
-
-        [thread.start() for thread in threads]
-
-        logging.info('waiting for interrupts')
-
-        # Interruptible joins require a timeout.
-        while threads:
-            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
+    poller(
+        once=once,
+        fts_bulk=fts_bulk,
+        db_bulk=db_bulk,
+        older_than=older_than,
+        sleep_time=sleep_time,
+        activities=activities,
+        activity_shares=activity_shares,
+        total_threads=total_threads,
+    )
 
 
 def poll_transfers(transfertool_obj, transfers_by_eid, timeout=None, logger=logging.log):

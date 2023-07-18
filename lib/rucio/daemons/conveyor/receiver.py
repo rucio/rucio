@@ -23,7 +23,8 @@ import socket
 import threading
 import time
 import traceback
-from typing import TYPE_CHECKING
+from types import FrameType
+from typing import Optional
 
 import stomp
 
@@ -38,16 +39,11 @@ from rucio.daemons.common import HeartbeatHandler
 from rucio.db.sqla.session import transactional_session
 from rucio.transfertool.fts3 import FTS3CompletionMessageTransferStatusReport
 
-if TYPE_CHECKING:
-    from types import FrameType
-    from typing import Optional
-
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 METRICS = MetricManager(module=__name__)
-graceful_stop = threading.Event()
+GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'conveyor-receiver'
-
 
 
 class Receiver(object):
@@ -102,8 +98,6 @@ def receiver(id_, total_threads=1, all_vos=False):
 
     logging.info('receiver starting')
 
-    logger_prefix = executable = 'conveyor-receiver'
-
     brokers_alias = []
     brokers_resolved = []
     try:
@@ -152,9 +146,9 @@ def receiver(id_, total_threads=1, all_vos=False):
 
     logging.info('receiver started')
 
-    with HeartbeatHandler(executable=executable, renewal_interval=30) as heartbeat_handler:
+    with HeartbeatHandler(executable=DAEMON_NAME, renewal_interval=30) as heartbeat_handler:
 
-        while not graceful_stop.is_set():
+        while not GRACEFUL_STOP.is_set():
 
             _, _, logger = heartbeat_handler.live()
 
@@ -187,7 +181,7 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     Graceful exit.
     """
 
-    graceful_stop.set()
+    GRACEFUL_STOP.set()
 
 
 def run(once=False, total_threads=1):

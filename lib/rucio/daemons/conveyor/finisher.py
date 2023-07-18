@@ -18,12 +18,12 @@ Conveyor finisher is a daemon to update replicas and rules based on requests.
 """
 
 import datetime
-import functools
 import logging
 import os
 import re
 import threading
-from typing import TYPE_CHECKING
+from types import FrameType
+from typing import TYPE_CHECKING, Optional
 
 from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError
@@ -39,7 +39,7 @@ from rucio.common.utils import chunks
 from rucio.core import request as request_core, replica as replica_core
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import list_rses
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager
@@ -47,62 +47,96 @@ from rucio.rse import rsemanager
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
-    from types import FrameType
-    from typing import Optional
+    from rucio.daemons.common import HeartbeatHandler
 
-graceful_stop = threading.Event()
+GRACEFUL_STOP = threading.Event()
 
-region = make_region_memcached(expiration_time=900)
+REGION = make_region_memcached(expiration_time=900)
 METRICS = MetricManager(module=__name__)
 DAEMON_NAME = 'conveyor-finisher'
 
 
-def run_once(bulk, db_bulk, suspicious_patterns, retry_protocol_mismatches, heartbeat_handler, activity):
+def _fetch_requests(
+        db_bulk,
+        heartbeat_handler,
+        activity
+):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
+    logger(logging.DEBUG, 'Working on activity %s', activity)
+
+    reqs = request_core.get_and_mark_next(
+        request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
+        state=[
+            RequestState.DONE,
+            RequestState.FAILED,
+            RequestState.LOST,
+            RequestState.SUBMITTING,
+            RequestState.SUBMISSION_FAILED,
+            RequestState.NO_SOURCES,
+            RequestState.ONLY_TAPE_SOURCES,
+            RequestState.MISMATCH_SCHEME
+        ],
+        processed_by=heartbeat_handler.short_executable,
+        limit=db_bulk,
+        older_than=datetime.datetime.utcnow(),
+        total_workers=total_workers,
+        worker_number=worker_number,
+        mode_all=True,
+        include_dependent=False,
+        hash_variable='rule_id',
+    )
+
+    must_sleep = False
+    if len(reqs) < db_bulk / 2:
+        logger(logging.INFO, "Only %s transfers, which is less than half of the bulk %s", len(reqs), db_bulk)
+        must_sleep = True
+    return must_sleep, reqs
+
+
+def _handle_requests(
+        reqs,
+        bulk,
+        suspicious_patterns,
+        retry_protocol_mismatches,
+        *,
+        logger=logging.log,
+):
+    if not reqs:
+        return
+
     try:
-        logger(logging.DEBUG, 'Working on activity %s', activity)
-
-        reqs = request_core.get_next(request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-                                     state=[RequestState.DONE, RequestState.FAILED,
-                                            RequestState.LOST, RequestState.SUBMITTING,
-                                            RequestState.SUBMISSION_FAILED, RequestState.NO_SOURCES,
-                                            RequestState.ONLY_TAPE_SOURCES, RequestState.MISMATCH_SCHEME],
-                                     limit=db_bulk,
-                                     older_than=datetime.datetime.utcnow(),
-                                     total_workers=total_workers,
-                                     worker_number=worker_number,
-                                     mode_all=True,
-                                     include_dependent=False,
-                                     hash_variable='rule_id')
-
-        if reqs:
-            logger(logging.DEBUG, 'Updating %i requests for activity %s', len(reqs), activity)
+        logger(logging.DEBUG, 'Updating %i requests', len(reqs))
 
         total_stopwatch = Stopwatch()
 
         for chunk in chunks(reqs, bulk):
             try:
-                worker_number, total_workers, logger = heartbeat_handler.live()
                 stopwatch = Stopwatch()
-                __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
+                _finish_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
                 METRICS.timer('handle_requests_time').observe(stopwatch.elapsed / (len(chunk) or 1))
                 METRICS.counter('handle_requests').inc(len(chunk))
             except Exception as error:
                 logger(logging.WARNING, '%s', str(error))
 
-        if reqs:
-            logger(logging.DEBUG, 'Finish to update %s finished requests for activity %s in %s seconds', len(reqs), activity, total_stopwatch.elapsed)
+        logger(logging.DEBUG, 'Finish to update %s finished requests in %s seconds', len(reqs), total_stopwatch.elapsed)
 
     except (DatabaseException, DatabaseError) as error:
         if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
             logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
         else:
             raise
-    return True
 
 
-def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000, partition_wait_time=10):
+def finisher(
+        once=False,
+        sleep_time=60,
+        activities=None,
+        bulk=100,
+        db_bulk=1000,
+        partition_wait_time=10,
+        total_threads=1,
+):
     """
     Main loop to update the replicas and rules based on finished requests.
     """
@@ -118,29 +152,42 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
         activities.sort()
         executable += '--activities ' + str(activities)
 
-    run_daemon(
+    @db_workqueue(
         once=once,
-        graceful_stop=graceful_stop,
+        graceful_stop=GRACEFUL_STOP,
         executable=executable,
         partition_wait_time=partition_wait_time,
         sleep_time=sleep_time,
-        run_once_fnc=functools.partial(
-            run_once,
-            bulk=bulk,
-            db_bulk=db_bulk,
-            suspicious_patterns=suspicious_patterns,
-            retry_protocol_mismatches=retry_protocol_mismatches,
-        ),
         activities=activities,
     )
+    def _db_producer(*, activity: str, heartbeat_handler: "HeartbeatHandler"):
+        return _fetch_requests(
+            db_bulk=db_bulk,
+            activity=activity,
+            heartbeat_handler=heartbeat_handler,
+        )
+
+    def _consumer(reqs):
+        return _handle_requests(
+            reqs=reqs,
+            bulk=bulk,
+            suspicious_patterns=suspicious_patterns,
+            retry_protocol_mismatches=retry_protocol_mismatches,
+        )
+
+    ProducerConsumerDaemon(
+        producers=[_db_producer],
+        consumers=[_consumer for _ in range(total_threads)],
+        graceful_stop=GRACEFUL_STOP,
+    ).run()
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> None:
     """
     Graceful exit.
     """
 
-    graceful_stop.set()
+    GRACEFUL_STOP.set()
 
 
 def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, db_bulk=1000):
@@ -173,14 +220,13 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
             threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
 
 
-def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logger=logging.log):
+def _finish_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logger=logging.log):
     """
     Used by finisher to handle terminated requests,
 
     :param reqs:                         List of requests.
     :param suspicious_patterns:          List of suspicious patterns.
     :param retry_protocol_mismatches:    Boolean to retry the transfer in case of protocol mismatch.
-    :param prepend_str: String to prepend to logging.
     """
 
     failed_during_submission = [RequestState.SUBMITTING, RequestState.SUBMISSION_FAILED, RequestState.LOST]
@@ -283,12 +329,12 @@ def __get_undeterministic_rses(logger=logging.log):
     :returns:  List of undeterministc rses
     """
     key = 'undeterministic_rses'
-    result = region.get(key)
+    result = REGION.get(key)
     if isinstance(result, NoValue):
         rses_list = list_rses(filters={'deterministic': False})
         result = [rse['id'] for rse in rses_list]
         try:
-            region.set(key, result)
+            REGION.set(key, result)
         except Exception as error:
             logger(logging.WARNING, "Failed to set dogpile cache, error: %s", str(error))
     return result
@@ -332,7 +378,6 @@ def __handle_terminated_replicas(replicas, logger=logging.log):
     Used by finisher to handle available and unavailable replicas.
 
     :param replicas: List of replicas.
-    :param prepend_str: String to prepend to logging.
     """
 
     for req_type in replicas:

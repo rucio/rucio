@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from rucio.common.exception import NoDistance
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replicas
-from rucio.core.request import list_transfer_requests_and_source_replicas
+from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas
 from rucio.core.transfer import build_transfer_paths, ProtocolFactory
 from rucio.core.topology import get_hops, Topology
 from rucio.core import rule as rule_core
@@ -33,7 +33,7 @@ from rucio.daemons.conveyor.common import assign_paths_to_transfertool_and_creat
 
 def _prepare_submission(rses):
     topology = Topology().configure_multihop()
-    requests_with_sources = list_transfer_requests_and_source_replicas(rse_collection=topology, rses=rses)
+    requests_with_sources = list_and_mark_transfer_requests_and_source_replicas(rse_collection=topology, rses=rses)
     pick_and_prepare_submission_path(requests_with_sources, topology=topology, protocol_factory=ProtocolFactory(), default_tombstone_delay=0)
 
 
@@ -169,7 +169,7 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
 
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
     topology = Topology().configure_multihop()
-    requests = list_transfer_requests_and_source_replicas(rse_collection=topology, rses=all_rses)
+    requests = list_and_mark_transfer_requests_and_source_replicas(rse_collection=topology, rses=all_rses)
     assert len(requests) == 1
     [rws] = requests.values()
     disk1_source = next(iter(s for s in rws.sources if s.rse.id == disk1_rse_id))
@@ -323,7 +323,7 @@ def test_singlehop_vs_multihop_priority(rse_factory, root_account, mock_scope, c
 
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=rse3_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    requests = list_transfer_requests_and_source_replicas(rse_collection=topology, rses=all_rses)
+    requests = list_and_mark_transfer_requests_and_source_replicas(rse_collection=topology, rses=all_rses)
     assert len(requests) == 2
     rws_sh_prio = next(iter(rws for rws in requests.values() if rse2_id in (s.rse.id for s in rws.sources)))
     rws_mh_prio = next(iter(rws for rws in requests.values() if rse4_id in (s.rse.id for s in rws.sources)))
@@ -370,7 +370,7 @@ def test_fk_error_on_source_creation(rse_factory, did_factory, root_account):
     add_replicas(rse_id=src_rse_id, files=[file], account=root_account)
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    requests_by_id = list_transfer_requests_and_source_replicas(rse_collection=topology, rses=[src_rse_id, dst_rse_id])
+    requests_by_id = list_and_mark_transfer_requests_and_source_replicas(rse_collection=topology, rses=[src_rse_id, dst_rse_id])
     requests, *_ = build_transfer_paths(topology=topology, protocol_factory=ProtocolFactory(), requests_with_sources=requests_by_id.values())
     request_id, [transfer_path] = next(iter(requests.items()))
 
