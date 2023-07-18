@@ -98,7 +98,12 @@ class Default(protocol.RSEProtocol):
             self.logger(logging.DEBUG, 'xrootd.stat: filesize cmd: {}'.format(cmd))
             status_stat, out, err = execute(cmd)
             if status_stat == 0:
-                ret['filesize'] = out.split('\n')[2].split()[-1]
+                for line in out.split('\n'):
+                    if line and ':' in line:
+                        k, v = line.split(':', maxsplit=1)
+                        if k.strip().lower() == 'size':
+                            ret['filesize'] = v.strip()
+                            break
 
             # xrdfs query checksum for getting checksum
             cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s query checksum %s' % (self.hostname, self.port, path)
