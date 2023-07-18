@@ -1450,12 +1450,12 @@ def list_rules(args):
         except StopIteration:
             rules = []
             # looking for other rules
-            if meta['did_type'] == u'CONTAINER':
+            if meta['did_type'] == 'CONTAINER':
                 for dsn in client.list_content(scope, name):
                     rules.extend(client.list_did_rules(scope=dsn['scope'], name=dsn['name']))
                 if rules:
                     print('No rules found, listing rules for content')
-            if meta['did_type'] == u'DATASET':
+            if meta['did_type'] == 'DATASET':
                 for container in client.list_parent_dids(scope, name):
                     rules.extend(client.list_did_rules(scope=container['scope'], name=container['name']))
                 if rules:

@@ -210,7 +210,7 @@ def get_signed_url(rse_id: str, service: str, operation: str, url: str, lifetime
 
         # create signed URL
         with METRICS.timer('signswift'):
-            hmac_body = u'%s\n%s\n%s' % (swiftop, expires, components.path)
+            hmac_body = '%s\n%s\n%s' % (swiftop, expires, components.path)
             # Python 3 hmac only accepts bytes or bytearray
             sig = hmac.new(bytearray(tempurl_key, 'utf-8'), bytearray(hmac_body, 'utf-8'), sha1).hexdigest()
             signed_url = f'https://{host}{components.path}?temp_url_sig={sig}&temp_url_expires={expires}'

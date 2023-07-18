@@ -47,7 +47,7 @@ class TestNamingConventionCore:
         assert meta is None
 
         meta = validate_name(scope=scope, name='mock.DESD.yipeeee', did_type='D')
-        assert meta == {u'project': 'mock', u'datatype': 'DESD'}
+        assert meta == {'project': 'mock', 'datatype': 'DESD'}
 
         with pytest.raises(InvalidObject):
             validate_name(scope=scope, name='mockyipeeee', did_type='D')
