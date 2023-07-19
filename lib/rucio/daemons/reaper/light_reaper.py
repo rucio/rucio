@@ -49,6 +49,7 @@ if TYPE_CHECKING:
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 GRACEFUL_STOP = threading.Event()
+DAEMON_NAME = 'reaper'
 
 
 def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None, sleep_time=60):
@@ -192,7 +193,7 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
                 If None, we either use all VOs if run from "def", or the current VO otherwise.
     :param sleep_time: Thread sleep time after each chunk of work.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

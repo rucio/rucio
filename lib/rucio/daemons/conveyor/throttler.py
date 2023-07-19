@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 graceful_stop = threading.Event()
 METRICS = MetricManager(module=__name__)
+DAEMON_NAME = 'conveyor-throttler'
 
 
 def throttler(once=False, sleep_time=600, partition_wait_time=10):
@@ -77,7 +78,7 @@ def run(once=False, sleep_time=600):
     """
     Starts up the conveyer threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

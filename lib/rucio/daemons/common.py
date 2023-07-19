@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import datetime
-import hashlib
 import logging
 import os
 import socket
@@ -34,22 +33,19 @@ class HeartbeatHandler:
     Simple contextmanager which sets a heartbeat and associated logger on entry and cleans up the heartbeat on exit.
     """
 
-    def __init__(self, executable, renewal_interval, logger_prefix=None):
+    def __init__(self, executable, renewal_interval):
         """
         :param executable: the executable name which will be set in heartbeats
         :param renewal_interval: the interval at which the heartbeat will be renewed in the database.
         Calls to live() in-between intervals will re-use the locally cached heartbeat.
-        :param logger_prefix: the prefix to be prepended to all log messages
         """
         self.executable = executable
         self.renewal_interval = renewal_interval
         self.older_than = renewal_interval * 10 if renewal_interval and renewal_interval > 0 else None  # 10 was chosen without any particular reason
-        self.logger_prefix = logger_prefix or executable
 
         self.hostname = socket.getfqdn()
         self.pid = os.getpid()
         self.hb_thread = threading.current_thread()
-        self.logger_id = hashlib.sha1(f'{self.hostname}:{self.pid}:{self.hb_thread}'.encode('utf-8')).hexdigest()[:7]
 
         self.logger = logging.log
         self.last_heart_beat = None
@@ -81,7 +77,7 @@ class HeartbeatHandler:
             else:
                 self.last_heart_beat = heartbeat_core.live(self.executable, self.hostname, self.pid, self.hb_thread, payload=payload)
 
-            prefix = '%s[%s:%i/%i]: ' % (self.logger_prefix, self.logger_id, self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'])
+            prefix = '[%i/%i]: ' % (self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'])
             self.logger = formatted_logger(logging.log, prefix + '%s')
 
             if not self.last_time:
@@ -94,20 +90,19 @@ class HeartbeatHandler:
         return self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'], self.logger
 
 
-def run_daemon(once, graceful_stop, executable, logger_prefix, partition_wait_time, sleep_time, run_once_fnc, activities=None):
+def run_daemon(once, graceful_stop, executable, partition_wait_time, sleep_time, run_once_fnc, activities=None):
     """
     Run the daemon loop and call the function run_once_fnc at each iteration
     :param once: Whether to stop after one iteration
     :param graceful_stop: the threading.Event() object used for graceful stop of the daemon
     :param executable: the name of the executable used for hearbeats
-    :param logger_prefix: the prefix to be prepended to all log messages
     :param partition_wait_time: time to wait for database partition rebalancing before starting the actual daemon loop
     :param sleep_time: time to sleep between the iterations of the daemon
     :param run_once_fnc: the function which will do the actual work
     :param activities: optional list of activities on which to work. The run_once_fnc will be called on activities one by one.
     """
 
-    with HeartbeatHandler(executable=executable, renewal_interval=sleep_time - 1, logger_prefix=logger_prefix) as heartbeat_handler:
+    with HeartbeatHandler(executable=executable, renewal_interval=sleep_time - 1) as heartbeat_handler:
         logger = heartbeat_handler.logger
         logger(logging.INFO, 'started')
 

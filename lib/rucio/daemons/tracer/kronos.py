@@ -307,7 +307,6 @@ def kronos_file(once: bool = False, dataset_queue: Queue = None, sleep_time: int
         once=once,
         graceful_stop=graceful_stop,
         executable='kronos-file',
-        logger_prefix='kronos-file',
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -396,7 +395,6 @@ def kronos_dataset(dataset_queue: Queue, once: bool = False, sleep_time: int = 6
         once=once,
         graceful_stop=graceful_stop,
         executable='kronos-dataset',
-        logger_prefix='kronos-dataset',
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -491,7 +489,7 @@ def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
     """
     Starts up the consumer threads
     """
-    setup_logging()
+    setup_logging(process_name='tracer-kronos')
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

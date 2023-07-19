@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
+DAEMON_NAME = 'judge-evaluator'
 
 
 def re_evaluator(once=False, sleep_time=30, did_limit=100):
@@ -55,8 +56,7 @@ def re_evaluator(once=False, sleep_time=30, did_limit=100):
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable='judge-evaluator',
-        logger_prefix='re_evaluator',
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -154,7 +154,7 @@ def run(once=False, threads=1, sleep_time=30, did_limit=100):
     """
     Starts up the Judge-Eval threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

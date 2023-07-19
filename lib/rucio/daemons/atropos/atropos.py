@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
 
 GRACEFUL_STOP = threading.Event()
+DAEMON_NAME = 'atropos'
 
 
 def atropos(
@@ -64,8 +65,7 @@ def atropos(
     run_daemon(
         once=once,
         graceful_stop=GRACEFUL_STOP,
-        executable='atropos',
-        logger_prefix='atropos',
+        executable=DAEMON_NAME,
         partition_wait_time=10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -211,7 +211,7 @@ def run(
     """
     Starts up the atropos threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

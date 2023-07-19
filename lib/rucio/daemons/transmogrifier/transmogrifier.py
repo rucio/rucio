@@ -60,6 +60,7 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
+DAEMON_NAME = "transmogrifier"
 
 RULES_COMMENT_LENGTH = 255
 
@@ -465,8 +466,7 @@ def transmogrifier(bulk: int = 5, once: bool = False, sleep_time: int = 60) -> N
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable="transmogrifier",
-        logger_prefix="transmogrifier",
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -717,7 +717,7 @@ def run(
     """
     Starts up the transmogrifier threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException("Database was not updated, daemon won't start")

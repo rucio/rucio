@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
+DAEMON_NAME = 'minos-temporary-expiration'
 
 
 def minos_tu_expiration(bulk: int = 1000, once: bool = False, sleep_time: int = 60) -> None:
@@ -57,8 +58,7 @@ def minos_tu_expiration(bulk: int = 1000, once: bool = False, sleep_time: int = 
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable='minos-temporary-expiration',
-        logger_prefix='minos-temporary-expiration',
+        executable=DAEMON_NAME,
         partition_wait_time=10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -147,7 +147,7 @@ def run(threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int =
     """
     Starts up the minos threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

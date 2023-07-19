@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from typing import Optional
 
 GRACEFUL_STOP = Event()
+DAEMON_NAME = 'c3po'
 
 
 def read_free_space(once=False, thread=0, waiting_time=1800, sleep_time=10):
@@ -284,7 +285,7 @@ def run(once=False,
     """
     Starts up the main thread
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

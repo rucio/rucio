@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from typing import Optional
 
 graceful_stop = threading.Event()
+DAEMON_NAME = 'rucio-follower'
 
 
 def aggregate_events(once=False):
@@ -44,10 +45,10 @@ def aggregate_events(once=False):
     hostname = socket.gethostname()
     pid = os.getpid()
     current_thread = threading.current_thread()
-    live(executable='rucio-follower', hostname=hostname, pid=pid, thread=current_thread)
+    live(executable=DAEMON_NAME, hostname=hostname, pid=pid, thread=current_thread)
 
     while not graceful_stop.is_set():
-        heartbeat = live(executable='rucio-follower', hostname=hostname, pid=pid, thread=current_thread)
+        heartbeat = live(executable=DAEMON_NAME, hostname=hostname, pid=pid, thread=current_thread)
         # Create a report of events and send a mail to the corresponding account.
         start_time = time.time()
         create_reports(total_workers=heartbeat['nr_threads'] - 1,
@@ -58,7 +59,7 @@ def aggregate_events(once=False):
             break
 
     logging.info('follower: graceful stop requested')
-    die(executable='rucio-follower', hostname=hostname, pid=pid, thread=current_thread)
+    die(executable=DAEMON_NAME, hostname=hostname, pid=pid, thread=current_thread)
     logging.info('follower: graceful stop done')
 
 
@@ -73,13 +74,13 @@ def run(once=False, threads=1):
     """
     Starts up the follower threads
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     hostname = socket.gethostname()
-    sanity_check(executable='rucio-follower', hostname=hostname)
+    sanity_check(executable=DAEMON_NAME, hostname=hostname)
 
     if once:
         logging.info("executing one follower iteration only")
