@@ -46,6 +46,8 @@ logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
+DAEMON_NAME = 'conveyor-receiver'
+
 
 
 class Receiver(object):
@@ -150,7 +152,7 @@ def receiver(id_, total_threads=1, all_vos=False):
 
     logging.info('receiver started')
 
-    with HeartbeatHandler(executable=executable, renewal_interval=30, logger_prefix=logger_prefix) as heartbeat_handler:
+    with HeartbeatHandler(executable=executable, renewal_interval=30) as heartbeat_handler:
 
         while not graceful_stop.is_set():
 
@@ -192,7 +194,7 @@ def run(once=False, total_threads=1):
     """
     Starts up the receiver thread
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

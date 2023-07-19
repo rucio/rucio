@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from rucio.common.types import InternalAccount
 
 graceful_stop = threading.Event()
+DAEMON_NAME = 'minos'
 
 
 def __classify_bad_pfns(pfns: list) -> Tuple[Dict, Dict]:
@@ -165,8 +166,7 @@ def minos(bulk: int = 1000, once: bool = False, sleep_time: int = 60) -> None:
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable='minos',
-        logger_prefix='minos',
+        executable=DAEMON_NAME,
         partition_wait_time=10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -285,7 +285,7 @@ def run(threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int =
     """
     Starts up the minos threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

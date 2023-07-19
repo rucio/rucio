@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from typing import Optional
 
 graceful_stop = threading.Event()
+DAEMON_NAME = 'abacus-collection-replica'
 
 
 def collection_replica_update(once=False, limit=1000, sleep_time=10):
@@ -42,8 +43,7 @@ def collection_replica_update(once=False, limit=1000, sleep_time=10):
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable='abacus-collection-replica',
-        logger_prefix='collection_replica_update',
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -94,7 +94,7 @@ def run(once=False, threads=1, sleep_time=10, limit=1000):
     """
     Starts up the Abacus-Collection-Replica threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

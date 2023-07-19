@@ -54,6 +54,7 @@ graceful_stop = threading.Event()
 
 region = make_region_memcached(expiration_time=900)
 METRICS = MetricManager(module=__name__)
+DAEMON_NAME = 'conveyor-finisher'
 
 
 def run_once(bulk, db_bulk, suspicious_patterns, retry_protocol_mismatches, heartbeat_handler, activity):
@@ -112,7 +113,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
 
     retry_protocol_mismatches = config_get_bool('conveyor', 'retry_protocol_mismatches', default=False)
 
-    logger_prefix = executable = 'conveyor-finisher'
+    executable = DAEMON_NAME
     if activities:
         activities.sort()
         executable += '--activities ' + str(activities)
@@ -121,7 +122,6 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
         once=once,
         graceful_stop=graceful_stop,
         executable=executable,
-        logger_prefix=logger_prefix,
         partition_wait_time=partition_wait_time,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -147,7 +147,7 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
     """
     Starts up the conveyer threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

@@ -54,6 +54,7 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 METRICS = MetricManager(module=__name__)
 GRACEFUL_STOP = threading.Event()
+DAEMON_NAME = 'dark-reaper'
 
 
 def reaper(
@@ -63,15 +64,13 @@ def reaper(
         scheme: "Optional[str]" = None,
         sleep_time: int = 300,
 ):
-    executable = 'dark-reaper'
+    executable = DAEMON_NAME
     if rses:
         executable += ' '.join(sys.argv[1:])
-    logger_prefix = 'dark-reaper'
     run_daemon(
         once=once,
         graceful_stop=GRACEFUL_STOP,
         executable=executable,
-        logger_prefix=logger_prefix,
         partition_wait_time=10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -208,7 +207,7 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
     :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
                 If None, we either use all VOs if run from "def", or the current VO otherwise.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

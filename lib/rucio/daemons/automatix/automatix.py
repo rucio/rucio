@@ -47,6 +47,7 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
+DAEMON_NAME = "automatix"
 
 
 def get_data_distribution(inputfile: str):
@@ -123,8 +124,7 @@ def automatix(inputfile: str, sleep_time: int, once: bool = False) -> None:
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable="automatix",
-        logger_prefix="automatix",
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -258,7 +258,7 @@ def run(
     """
     Starts up the automatix threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException(

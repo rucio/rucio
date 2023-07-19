@@ -56,6 +56,7 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
+DAEMON_NAME = 'storage-consistency-actions'
 
 # FIXME: declare_bad_file_replicas will be used directly from core/replica.py when handling of DID is added there
 # TODO: remove after move to core/replica.py
@@ -648,8 +649,7 @@ def actions_loop(once, scope, rses, sleep_time, dark_min_age, dark_threshold_per
     pid = os.getpid()
     current_thread = threading.current_thread()
 
-    executable = 'storage-consistency-actions'
-    heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
+    heartbeat = live(executable=DAEMON_NAME, hostname=hostname, pid=pid, thread=current_thread)
 
     # Make an initial heartbeat
     # so that all storage-consistency-actions have the correct worker number on the next try
@@ -663,7 +663,7 @@ def actions_loop(once, scope, rses, sleep_time, dark_min_age, dark_threshold_per
 
     while not graceful_stop.is_set():
         try:
-            heartbeat = live(executable=executable, hostname=hostname, pid=pid,
+            heartbeat = live(executable=DAEMON_NAME, hostname=hostname, pid=pid,
                              thread=current_thread)
             logger(logging.INFO, 'heartbeat? %s' % heartbeat)
 
@@ -685,7 +685,7 @@ def actions_loop(once, scope, rses, sleep_time, dark_min_age, dark_threshold_per
         if once:
             break
 
-    die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
+    die(executable=DAEMON_NAME, hostname=hostname, pid=pid, thread=current_thread)
 
 
 def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
@@ -702,7 +702,7 @@ def run(once=False, scope=None, rses=None, sleep_time=60, default_dark_min_age=2
     Starts up the Consistency-Actions.
     """
 
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     prefix = 'storage-consistency-actions (run())'
     logger = formatted_logger(logging.log, prefix + '%s')
@@ -728,9 +728,8 @@ def run(once=False, scope=None, rses=None, sleep_time=60, default_dark_min_age=2
      \n Scanner files path: %s ' % (rses, once, sleep_time, dark_min_age, dark_threshold_percent,
            miss_threshold_percent, force_proceed, scanner_files_path))
 
-    executable = 'storage-consistency-actions'
     hostname = socket.gethostname()
-    sanity_check(executable=executable, hostname=hostname)
+    sanity_check(executable=DAEMON_NAME, hostname=hostname)
 
 # It was decided that for the time being this daemon is best executed in a single thread
 # TODO: If this decicion is reversed in the future, the following line should be removed.

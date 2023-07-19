@@ -50,6 +50,7 @@ if TYPE_CHECKING:
 
 graceful_stop = threading.Event()
 METRICS = MetricManager(module=__name__)
+DAEMON_NAME = 'conveyor-poller'
 
 datetime.datetime.strptime('', '')
 
@@ -176,7 +177,7 @@ def run(once=False, sleep_time=60, activities=None,
     """
     Starts up the conveyer threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

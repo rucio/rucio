@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from typing import Optional
 
 graceful_stop = threading.Event()
+DAEMON_NAME = 'abacus-rse'
 
 
 def rse_update(once=False, sleep_time=10):
@@ -43,8 +44,7 @@ def rse_update(once=False, sleep_time=10):
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable='abacus-rse',
-        logger_prefix='rse_update',
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=run_once,
@@ -86,7 +86,7 @@ def run(once=False, threads=1, fill_history_table=False, sleep_time=10):
     """
     Starts up the Abacus-RSE threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

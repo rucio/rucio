@@ -27,7 +27,6 @@ import re
 import threading
 import time
 from datetime import datetime, timedelta
-from sys import argv
 from typing import TYPE_CHECKING, Any, List, Optional
 
 import rucio.db.sqla.util
@@ -54,6 +53,7 @@ if TYPE_CHECKING:
     from types import FrameType
 
 GRACEFUL_STOP = threading.Event()
+DAEMON_NAME = 'suspicious-replica-recoverer'
 
 
 def declare_suspicious_replicas_bad(once: bool = False, younger_than: int = 3, nattempts: int = 10, vos: Optional[List[str]] = None, limit_suspicious_files_on_rse: int = 5, json_file_name: str = "/opt/rucio/etc/suspicious_replica_recoverer.json", sleep_time: int = 3600, active_mode: bool = False) -> None:
@@ -84,8 +84,7 @@ def declare_suspicious_replicas_bad(once: bool = False, younger_than: int = 3, n
     run_daemon(
         once=once,
         graceful_stop=GRACEFUL_STOP,
-        executable=argv[0],
-        logger_prefix='replica_recoverer',
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -449,7 +448,7 @@ def run(once: bool = False, younger_than: int = 3, nattempts: int = 10, vos: Lis
     """
     Starts up the Suspicious-Replica-Recoverer threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

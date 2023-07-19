@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 graceful_stop = threading.Event()
 METRICS = MetricManager(module=__name__)
 REGION = make_region_memcached(expiration_time=config_get_int('necromancer', 'cache_time', False, 600))
+DAEMON_NAME = 'necromancer'
 
 
 def necromancer(bulk: int, once: bool = False, sleep_time: int = 60) -> None:
@@ -60,8 +61,7 @@ def necromancer(bulk: int, once: bool = False, sleep_time: int = 60) -> None:
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable='necromancer',
-        logger_prefix='necromancer',
+        executable=DAEMON_NAME,
         partition_wait_time=10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -172,7 +172,7 @@ def run(threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int =
     """
     Starts up the necromancer threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

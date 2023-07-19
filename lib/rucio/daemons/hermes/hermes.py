@@ -59,6 +59,7 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
+DAEMON_NAME = "hermes"
 
 RECONNECT_COUNTER = METRICS.counter(
     name="reconnect.{host}",
@@ -492,8 +493,7 @@ def hermes(once: bool = False, bulk: int = 1000, sleep_time: int = 10) -> None:
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable="hermes",
-        logger_prefix="hermes",
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -706,7 +706,7 @@ def run(
     """
     Starts up the hermes threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException("Database was not updated, daemon won't start")

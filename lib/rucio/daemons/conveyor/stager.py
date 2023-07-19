@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
+DAEMON_NAME = 'conveyor-stager'
 
 
 def stager(once=False, rses=None, bulk=100, group_bulk=1, group_policy='rule',
@@ -77,7 +78,7 @@ def run(once=False, total_threads=1, group_bulk=1, group_policy='rule',
     """
     Starts up the conveyer threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

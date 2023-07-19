@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
+DAEMON_NAME = 'conveyor-preparer'
 
 
 def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
@@ -52,7 +53,7 @@ def run(once=False, threads=1, sleep_time=10, bulk=100, ignore_availability: boo
     """
     Running the preparer daemon either once or by default in a loop until stop is called.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

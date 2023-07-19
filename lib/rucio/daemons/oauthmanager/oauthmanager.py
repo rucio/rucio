@@ -51,6 +51,7 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
+DAEMON_NAME = 'oauth-manager'
 
 
 def OAuthManager(once: bool = False, max_rows: int = 100, sleep_time: int = 300) -> None:
@@ -69,8 +70,7 @@ def OAuthManager(once: bool = False, max_rows: int = 100, sleep_time: int = 300)
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable='oauth-manager',
-        logger_prefix='oauth-manager',
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -173,7 +173,7 @@ def run(once: bool = False, threads: int = 1, max_rows: int = 100, sleep_time: i
     """
     Starts up the OAuth Manager threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

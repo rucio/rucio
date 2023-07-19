@@ -64,6 +64,7 @@ if TYPE_CHECKING:
 GRACEFUL_STOP = threading.Event()
 METRICS = MetricManager(module=__name__)
 REGION = make_region_memcached(expiration_time=600)
+DAEMON_NAME = 'reaper'
 
 EXCLUDED_RSE_GAUGE = METRICS.gauge('excluded_rses.{rse}', documentation='Temporarly excluded RSEs')
 
@@ -394,7 +395,6 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     :param auto_exclude_timeout:   Timeout for temporarily excluded RSEs.
     """
 
-    executable = 'reaper'
     oidc_account = config_get('reaper', 'oidc_account', False, 'root')
     oidc_scope = config_get('reaper', 'oidc_scope', False, 'delete')
     oidc_audience = config_get('reaper', 'oidc_audience', False, 'rse')
@@ -402,8 +402,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     run_daemon(
         once=once,
         graceful_stop=GRACEFUL_STOP,
-        executable=executable,
-        logger_prefix=executable,
+        executable=DAEMON_NAME,
         partition_wait_time=0 if once else 10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -664,7 +663,7 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
     :param auto_exclude_threshold: Number of service unavailable exceptions after which the RSE gets temporarily excluded.
     :param auto_exclude_timeout:   Timeout for temporarily excluded RSEs.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
