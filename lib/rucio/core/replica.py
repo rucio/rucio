@@ -521,17 +521,8 @@ def get_bad_replicas_backlog(*, session: "Session"):
 
     :returns: a list of dictionary {'rse_id': cnt_bad_replicas}.
     """
-    schema_dot = '%s.' % DEFAULT_SCHEMA_NAME if DEFAULT_SCHEMA_NAME else ''
-    if session.bind.dialect.name == 'oracle':
-        # The filter(text...)) is needed otherwise, SQLA uses bind variables and the index is not used.
-        query = session.query(func.count(models.RSEFileAssociation.rse_id), models.RSEFileAssociation.rse_id).\
-            with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_STATE_IDX)", 'oracle').\
-            filter(text("CASE WHEN (%sreplicas.state != 'A') THEN %sreplicas.rse_id END IS NOT NULL" % (schema_dot,
-                                                                                                        schema_dot))). \
-            filter(models.RSEFileAssociation.state == ReplicaState.BAD)
-    else:
-        query = session.query(func.count(models.RSEFileAssociation.rse_id), models.RSEFileAssociation.rse_id).\
-            filter(models.RSEFileAssociation.state == ReplicaState.BAD)
+    query = session.query(func.count(models.RSEFileAssociation.rse_id), models.RSEFileAssociation.rse_id). \
+        filter(models.RSEFileAssociation.state == ReplicaState.BAD)
 
     query = query.join(models.DataIdentifier,
                        and_(models.DataIdentifier.scope == models.RSEFileAssociation.scope,
@@ -558,20 +549,10 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, rses=None, *
     :returns: a list of dictionary {'scope' scope, 'name': name, 'rse_id': rse_id, 'rse': rse}.
     """
     schema_dot = '%s.' % DEFAULT_SCHEMA_NAME if DEFAULT_SCHEMA_NAME else ''
-    if session.bind.dialect.name == 'oracle':
-        # The filter(text...)) is needed otherwise, SQLA uses bind variables and the index is not used.
-        query = session.query(models.RSEFileAssociation.scope,
-                              models.RSEFileAssociation.name,
-                              models.RSEFileAssociation.rse_id).\
-            with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_STATE_IDX)", 'oracle').\
-            filter(text("CASE WHEN (%sreplicas.state != 'A') THEN %sreplicas.rse_id END IS NOT NULL" % (schema_dot,
-                                                                                                        schema_dot))). \
-            filter(models.RSEFileAssociation.state == ReplicaState.BAD)
-    else:
-        query = session.query(models.RSEFileAssociation.scope,
-                              models.RSEFileAssociation.name,
-                              models.RSEFileAssociation.rse_id).\
-            filter(models.RSEFileAssociation.state == ReplicaState.BAD)
+    query = session.query(models.RSEFileAssociation.scope,
+                          models.RSEFileAssociation.name,
+                          models.RSEFileAssociation.rse_id). \
+        filter(models.RSEFileAssociation.state == ReplicaState.BAD)
 
     query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='%sreplicas.name' % (schema_dot))
     query = query.join(models.DataIdentifier,

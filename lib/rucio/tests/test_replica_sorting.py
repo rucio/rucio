@@ -25,6 +25,7 @@ import pytest
 
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import parse_replicas_from_string
+from rucio.common.config import config_get
 from rucio.core import rse_expression_parser, replica_sorter
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, del_rse, add_rse_attribute, add_protocol, del_rse_attribute
@@ -46,6 +47,9 @@ LOCATION_TO_IP = {
     'Libya': '2a02:e700::1',
 }
 
+CLIENT_SITE = 'CLIENTSITE'
+CLIENT_SITE_CACHE = '10.0.0.1:443'
+
 base_rse_info = [
     {'site': 'APERTURE', 'address': 'aperture.com', 'ip': LOCATION_TO_IP['Austria']},
     {'site': 'BLACKMESA', 'address': 'blackmesa.com', 'ip': LOCATION_TO_IP['Japan']},
@@ -66,6 +70,12 @@ def mock_geoip_db():
             yield geoip2.database.Reader(temp_db_path)
     finally:
         os.unlink(temp_db_path)
+
+
+@pytest.fixture
+def mock_get_multi_cache_prefix():
+    with mock.patch('rucio.core.replica.get_multi_cache_prefix', side_effect=lambda _x, _y: CLIENT_SITE_CACHE):
+        yield
 
 
 @pytest.fixture
@@ -172,7 +182,13 @@ def protocols_setup(vo):
 
 @pytest.mark.noparallel(reason='fails when run in parallel, lists replicas and checks for length of returned list')
 @pytest.mark.parametrize("content_type", [Mime.METALINK, Mime.JSON_STREAM])
-def test_sort_geoip_wan_client_location(vo, rest_client, auth_token, protocols_setup, content_type, mock_geoip_db, mock_get_lat_long):
+@pytest.mark.parametrize("file_config_mock", [
+    # Run test twice: with root proxy and without
+    {"overrides": []},
+    {"overrides": [('clientcachemap', CLIENT_SITE, 'ANYTHING')]},
+], indirect=True)
+def test_sort_geoip_wan_client_location(vo, rest_client, auth_token, protocols_setup, content_type,
+                                        mock_geoip_db, mock_get_lat_long, mock_get_multi_cache_prefix, file_config_mock):
     """Replicas: test sorting a few WANs via geoip."""
 
     data = {
@@ -180,6 +196,10 @@ def test_sort_geoip_wan_client_location(vo, rest_client, auth_token, protocols_s
         'schemes': schemes,
         'sort': 'geoip',
     }
+    test_with_cache = False
+    if config_get('clientcachemap', CLIENT_SITE, raise_exception=False) is not None:
+        test_with_cache = True
+        data['client_location'] = {'site': CLIENT_SITE}
 
     first_aut_then_jpn = ['root.aperture.com', 'davs.aperture.com', 'gsiftp.aperture.com', 'gsiftp.blackmesa.com', 'davs.blackmesa.com', 'root.blackmesa.com']
     first_jpn_then_aut = ['gsiftp.blackmesa.com', 'davs.blackmesa.com', 'root.blackmesa.com', 'root.aperture.com', 'davs.aperture.com', 'gsiftp.aperture.com']
@@ -217,7 +237,15 @@ def test_sort_geoip_wan_client_location(vo, rest_client, auth_token, protocols_s
 
         print(client_location, pfns)
         assert len(replicas) == 1
-        assert [urlparse(pfn).hostname for pfn in pfns] == expected_order
+        if test_with_cache:
+            cache_prefix = f'root://{CLIENT_SITE_CACHE}//'
+            for i, pfn in enumerate(pfns):
+                if pfn.startswith('root'):
+                    assert pfn.startswith(cache_prefix)
+                    pfn = pfn[len(cache_prefix):]
+                assert urlparse(pfn).hostname == expected_order[i]
+        else:
+            assert [urlparse(pfn).hostname for pfn in pfns] == expected_order
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel, lists replicas and checks for length of returned list')
