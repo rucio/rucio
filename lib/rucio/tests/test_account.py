@@ -25,7 +25,7 @@ from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import list_identities, add_account_attribute, list_account_attributes, del_account_attribute
 from rucio.core.identity import add_account_identity, add_identity
 from rucio.db.sqla.constants import AccountStatus, IdentityType
-from rucio.tests.common import account_name_generator, headers, auth, vohdr, loginhdr
+from rucio.tests.common import account_name_generator, headers, auth, vohdr, loginhdr, skip_non_belleii
 
 
 class TestAccountCoreApi:
@@ -203,6 +203,35 @@ def test_update_account(rest_client, auth_token):
 
 def test_delete_identity_of_account(vo, rest_client):
     """ ACCOUNT (REST): send a DELETE to remove an identity of an account."""
+    account = account_name_generator()
+    identity = uuid()
+    password = 'secret'
+    add_account(account, 'USER', 'rucio@email.com', 'root', vo=vo)
+    add_identity(identity, IdentityType.USERPASS, 'email@email.com', password)
+    add_account_identity(identity, IdentityType.USERPASS, InternalAccount(account, vo=vo), 'email@email.com')
+    auth_response = rest_client.get('/auth/userpass', headers=headers(loginhdr(account, identity, password), vohdr(vo)))
+    assert auth_response.status_code == 200
+    assert 'X-Rucio-Auth-Token' in auth_response.headers
+    token = str(auth_response.headers.get('X-Rucio-Auth-Token'))
+    assert len(token) != 0
+
+    endpoint = f'/accounts/{account}/identities'
+    data = {'authtype': 'USERPASS', 'identity': identity}
+
+    # unauthorized deletion
+    response = rest_client.delete(endpoint, headers=headers(auth(token)), json=data)
+    assert response.status_code == 401
+
+    # normal deletion
+    internal_account = InternalAccount(account, vo=vo)
+    add_account_attribute(internal_account, 'admin', True)
+    response = rest_client.delete(endpoint, headers=headers(auth(token)), json=data)
+    assert response.status_code == 200
+
+
+@skip_non_belleii
+def test_delete_identity_of_account_admin(vo, rest_client):
+    """ ACCOUNT (REST): send a DELETE to remove an identity of an account with account_admin attribute (Belle II)."""
     account = account_name_generator()
     identity = uuid()
     password = 'secret'
