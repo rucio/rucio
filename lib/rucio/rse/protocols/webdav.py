@@ -483,7 +483,7 @@ class Default(protocol.RSEProtocol):
             :raises SourceNotFound: if the source file was not found on the referred storage.
             :raises RSEAccessDenied: in case of permission issue.
 
-            :returns: a dict with two keys, filesize and adler32 of the file provided in path.
+            :returns: a dict with filesize of the file provided in path as a key.
         """
         headers = {'Depth': '1'}
         dict_ = {}
