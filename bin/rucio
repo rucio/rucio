@@ -398,26 +398,26 @@ def list_file_replicas(args):
         pfn_dir, dst_dir = args.link.split(':')
         if args.rses:
             for replica, rse in itertools.product(replicas, rses):
-                if rse in list(replica['rses'].keys()) and replica['rses'][rse]:
-                    for pfn in replica['rses'][rse]:
+                if rse in list(replica['pfns'].keys()) and replica['pfns'][rse]:
+                    for pfn in replica['pfns'][rse]:
                         os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
         else:
             for replica in replicas:
-                for rse in replica['rses']:
-                    if replica['rses'][rse]:
-                        for pfn in replica['rses'][rse]:
+                for rse in replica['pfns']:
+                    if replica['pfns'][rse]:
+                        for pfn in replica['pfns'][rse]:
                             os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
     elif args.pfns:
         if args.rses:
             for replica, rse in itertools.product(replicas, rses):
-                if rse in list(replica['rses'].keys()) and replica['rses'][rse]:
-                    for pfn in replica['rses'][rse]:
+                if rse in list(replica['pfns'].keys()) and replica['pfns'][rse]:
+                    for pfn in replica['pfns'][rse]:
                         print(pfn)
         else:
             for replica in replicas:
-                for rse in replica['rses']:
-                    if replica['rses'][rse]:
-                        for pfn in replica['rses'][rse]:
+                for rse in replica['pfns']:
+                    if replica['pfns'][rse]:
+                        for pfn in replica['pfns'][rse]:
                             print(pfn)
     else:
         if args.all_states:
