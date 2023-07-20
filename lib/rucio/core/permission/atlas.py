@@ -302,7 +302,7 @@ def perm_add_scope(issuer, kwargs, session=None):
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_get_auth_token_user_pass(issuer, kwargs, session=None):
@@ -371,7 +371,7 @@ def perm_add_account_identity(issuer, kwargs, session=None):
     :returns: True if account is allowed, otherwise False
     """
 
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_del_account_identity(issuer, kwargs, session=None):
@@ -384,7 +384,7 @@ def perm_del_account_identity(issuer, kwargs, session=None):
     :returns: True if account is allowed, otherwise False
     """
 
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_del_identity(issuer, kwargs, session=None):

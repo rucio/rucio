@@ -21,7 +21,7 @@ from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.scope import add_scope
 from rucio.core.account import add_account_attribute, del_account_attribute
-from rucio.tests.common import scope_name_generator
+from rucio.tests.common import scope_name_generator, skip_non_belleii
 from rucio.tests.common_server import get_vo
 
 
@@ -58,8 +58,17 @@ class TestPermissionCoreApi(unittest.TestCase):
     @pytest.mark.noparallel(reason='Add/delete account attribute of an existing account')
     def test_permission_add_scope(self):
         """ PERMISSION(CORE): Check permission to add scope """
-        assert has_permission(issuer='root', action='add_scope', kwargs={'account': 'account1'}, **self.vo)
-        assert not has_permission(issuer=self.usr, action='add_scope', kwargs={'account': 'root'}, **self.vo)
+        assert has_permission(issuer='root', action='add_scope', kwargs={'account': 'root'}, **self.vo)
+        assert not has_permission(issuer=self.usr, action='add_scope', kwargs={'account': self.usr}, **self.vo)
+        add_account_attribute(InternalAccount(self.usr, **self.vo), 'admin', True)
+        assert has_permission(issuer=self.usr, action='add_scope', kwargs={'account': self.usr}, **self.vo)
+        del_account_attribute(InternalAccount(self.usr, **self.vo), 'admin')
+
+    @pytest.mark.noparallel(reason='Add/delete account attribute of an existing account')
+    @skip_non_belleii
+    def test_permission_add_scope_admin(self):
+        """ PERMISSION(CORE): Check permission to add scope with scope_admin attribute (Belle II)"""
+        assert not has_permission(issuer=self.usr, action='add_scope', kwargs={'account': self.usr}, **self.vo)
         add_account_attribute(InternalAccount(self.usr, **self.vo), 'scope_admin', True)
         assert has_permission(issuer=self.usr, action='add_scope', kwargs={'account': self.usr}, **self.vo)
         del_account_attribute(InternalAccount(self.usr, **self.vo), 'scope_admin')

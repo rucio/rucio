@@ -177,9 +177,7 @@ class TestVOCoreAPI(unittest.TestCase):
         with pytest.raises(AccessDenied):
             add_rse(rse_name, 'super_root', vo='def')
         with pytest.raises(AccessDenied):
-            add_scope(scope, 'root', 'super_root', vo='def')
-        add_scope(scope, 'super_root', 'super_root', vo='def')
-        assert scope in [s for s in list_scopes(filter_={}, vo='def')]
+            add_scope(scope, 'super_root', 'super_root', vo='def')
 
     @pytest.mark.noparallel(reason='changes global configuration value')
     def test_super_root_naming(self):
