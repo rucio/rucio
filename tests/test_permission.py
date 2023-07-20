@@ -13,14 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
-
 from rucio.api.permission import has_permission
 from rucio.common.config import config_get
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.scope import add_scope
-from rucio.core.account import add_account_attribute, del_account_attribute
-from rucio.tests.common import scope_name_generator
+from rucio.core.account import add_account_attribute
+from rucio.tests.common import scope_name_generator, skip_non_belleii
 
 
 class TestPermissionCoreApi:
@@ -42,14 +40,19 @@ class TestPermissionCoreApi:
         assert has_permission(issuer='root', action='add_account', kwargs={'account': 'account1'}, vo=vo)
         assert not has_permission(issuer='self.usr', action='add_account', kwargs={'account': 'account1'}, vo=vo)
 
-    @pytest.mark.noparallel(reason='Add/delete account attribute of an existing account')
-    def test_permission_add_scope(self, vo):
+    def test_permission_add_scope(self, vo, random_account):
         """ PERMISSION(CORE): Check permission to add scope """
-        assert has_permission(issuer='root', action='add_scope', kwargs={'account': 'account1'}, vo=vo)
-        assert not has_permission(issuer=self.usr, action='add_scope', kwargs={'account': 'root'}, vo=vo)
-        add_account_attribute(InternalAccount(self.usr, vo=vo), 'scope_admin', True)
-        assert has_permission(issuer=self.usr, action='add_scope', kwargs={'account': self.usr}, vo=vo)
-        del_account_attribute(InternalAccount(self.usr, vo=vo), 'scope_admin')
+        assert has_permission(issuer='root', action='add_scope', kwargs={'account': 'root'}, vo=vo)
+        assert not has_permission(issuer=random_account.external, action='add_scope', kwargs={'account': random_account.external}, vo=vo)
+        add_account_attribute(random_account, 'admin', True)
+        assert has_permission(issuer=random_account.external, action='add_scope', kwargs={'account': random_account.external}, vo=vo)
+
+    @skip_non_belleii
+    def test_permission_add_scope_admin(self, vo, random_account):
+        """ PERMISSION(CORE): Check permission to add scope with scope_admin attribute (Belle II)"""
+        assert not has_permission(issuer=random_account.external, action='add_scope', kwargs={'account': random_account.external}, vo=vo)
+        add_account_attribute(random_account, 'scope_admin', True)
+        assert has_permission(issuer=random_account.external, action='add_scope', kwargs={'account': random_account.external}, vo=vo)
 
     def test_permission_get_auth_token_user_pass(self, vo):
         """ PERMISSION(CORE): Check permission to get_auth_token_user_pass """
