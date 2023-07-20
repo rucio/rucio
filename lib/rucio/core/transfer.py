@@ -1097,27 +1097,18 @@ def prepare_transfers(
             continue
 
         update_dict: Dict[Any, Any] = {
-            models.Request.state: _throttler_request_state(
+            models.Request.state.name: _throttler_request_state(
                 activity=rws.activity,
                 source_rse=selected_source.rse,
                 dest_rse=rws.dest_rse,
                 session=session,
             ),
-            models.Request.source_rse_id: selected_source.rse.id,
+            models.Request.source_rse_id.name: selected_source.rse.id,
         }
         if transfertool:
-            update_dict[models.Request.transfertool] = transfertool
+            update_dict[models.Request.transfertool.name] = transfertool
 
-        stmt = update(
-            models.Request
-        ).where(
-            models.Request.id == rws.request_id
-        ).execution_options(
-            synchronize_session=False
-        ).values(
-            update_dict
-        )
-        session.execute(stmt)
+        request_core.update_request(rws.request_id, session=session, **update_dict)
         updated_reqs.append(request_id)
 
     return updated_reqs, reqs_no_transfertool
