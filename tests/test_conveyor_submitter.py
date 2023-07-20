@@ -146,8 +146,18 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=None, transfertools=['mock'], transfertype='single', filter_transfertool=None)
 
     # Ensure that each intermediate request was correctly created
-    for rse_id in jump_rses:
-        assert request_core.get_request_by_did(rse_id=rse_id, **did)
+    request = request_core.get_request_by_did(rse_id=jump_rse1_id, **did)
+    assert request
+    assert request['source_rse_id'] == src_rse_id
+    request = request_core.get_request_by_did(rse_id=jump_rse2_id, **did)
+    assert request
+    assert request['source_rse_id'] == jump_rse1_id
+    request = request_core.get_request_by_did(rse_id=jump_rse3_id, **did)
+    assert request
+    assert request['source_rse_id'] == jump_rse2_id
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request
+    assert request['source_rse_id'] == jump_rse3_id
 
     @read_session
     def __number_sources(rse_id, scope, name, *, session=None):
