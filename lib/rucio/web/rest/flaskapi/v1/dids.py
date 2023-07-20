@@ -2148,7 +2148,7 @@ def blueprint():
     search_view = Search.as_view('search')
     bp.add_url_rule('/<scope>/dids/search', view_func=search_view, methods=['get', ])
     dids_view = DIDs.as_view('dids')
-    bp.add_url_rule('/<path:scope_name>/status', view_func=dids_view, methods=['put', ])
+    bp.add_url_rule('/<path:scope_name>/status', view_func=dids_view, methods=['put', 'get'])
     files_view = Files.as_view('files')
     bp.add_url_rule('/<path:scope_name>/files', view_func=files_view, methods=['get', ])
     attachment_history_view = AttachmentHistory.as_view('attachment_history')
