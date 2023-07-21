@@ -13,9 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
+
 from dogpile.cache.api import NoValue
 from sqlalchemy import func
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, TypeVar
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.exception import ConfigNotFound
@@ -126,7 +128,7 @@ def options(
         use_cache: bool = True,
         expiration_time: int = 900,
         session: "Session"
-) -> List[str]:
+) -> list[str]:
     """
     Returns a list of options available in the specified section.
 
@@ -230,7 +232,7 @@ def items(
         *,
         convert_type_fnc: Callable[[str], T],
         session: "Session"
-) -> List[Tuple[str, T]]:
+) -> list[tuple[str, T]]:
     """
     Return a list of (option, value) pairs for each option in the given section. Values are auto-coerced as in get().
 

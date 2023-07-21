@@ -15,7 +15,7 @@
 
 import os
 import sys
-from typing import Optional, Tuple
+from typing import Optional
 from dataclasses import dataclass
 
 import xml.etree.ElementTree as ET
@@ -120,7 +120,7 @@ class _PropfindFile:
 class _PropfindResponse:
     """Contains all the files from a PROPFIND response."""
 
-    files: Tuple[_PropfindFile]
+    files: tuple[_PropfindFile]
 
     @classmethod
     def parse(cls, document: str):

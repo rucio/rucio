@@ -18,7 +18,8 @@
 import configparser
 import json
 import os
-from typing import TYPE_CHECKING, overload, Callable, List, Optional, Tuple, TypeVar, Union
+from collections.abc import Callable
+from typing import TYPE_CHECKING, overload, Optional, TypeVar, Union
 
 from rucio.common import exception
 from rucio.common.exception import ConfigNotFound, DatabaseException
@@ -535,7 +536,7 @@ def config_get_list(
         session: "Optional[Session]" = ...,
         use_cache: bool = ...,
         expiration_time: int = ...,
-) -> List[str]:
+) -> list[str]:
     ...
 
 
@@ -544,12 +545,12 @@ def config_get_list(
         section: str,
         option: str,
         *,
-        default: List[str] = ...,
+        default: list[str] = ...,
         check_config_table: bool = ...,
         session: "Optional[Session]" = ...,
         use_cache: bool = ...,
         expiration_time: int = ...,
-) -> List[str]:
+) -> list[str]:
     ...
 
 
@@ -564,7 +565,7 @@ def config_get_list(
         session: "Optional[Session]" = ...,
         use_cache: bool = ...,
         expiration_time: int = ...,
-) -> Union[List[str], _T]:
+) -> Union[list[str], _T]:
     ...
 
 
@@ -615,7 +616,7 @@ def config_get_list(
     return value
 
 
-def __convert_string_to_list(string: str) -> List[str]:
+def __convert_string_to_list(string: str) -> list[str]:
     """
     Convert a comma separated string to a list
     :param string: The input string.
@@ -668,12 +669,12 @@ def __config_get_table(
         return default
 
 
-def config_get_options(section: str) -> List[str]:
+def config_get_options(section: str) -> list[str]:
     """Return all options from a given section"""
     return get_config().options(section)
 
 
-def config_get_items(section: str) -> List[Tuple[str, str]]:
+def config_get_items(section: str) -> list[tuple[str, str]]:
     """Return all (name, value) pairs from a given section"""
     return get_config().items(section)
 

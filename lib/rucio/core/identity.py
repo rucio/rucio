@@ -27,14 +27,14 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.common.types import InternalAccount
-from typing import Union
+from typing import Optional
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
 @transactional_session
-def add_identity(identity: str, type_: IdentityType, email: str, password: Union[str, None] = None, *, session: "Session"):
+def add_identity(identity: str, type_: IdentityType, email: str, password: Optional[str] = None, *, session: "Session"):
     """
     Creates a user identity.
 
@@ -65,7 +65,7 @@ def add_identity(identity: str, type_: IdentityType, email: str, password: Union
 
 
 @read_session
-def verify_identity(identity: str, type_: IdentityType, password: Union[str, None] = None, *, session: "Session") -> bool:
+def verify_identity(identity: str, type_: IdentityType, password: Optional[str] = None, *, session: "Session") -> bool:
     """
     Verifies a user identity.
     :param identity: The identity key name. For example x509 DN, or a username.

@@ -16,7 +16,7 @@
 from json import dumps
 
 from flask import Flask, request, Response
-from typing import Any, Dict
+from typing import Any
 
 from rucio.api.lock import get_replica_locks_for_rule_id
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, \
@@ -152,7 +152,7 @@ class Rule(ErrorHandlingMethodView):
             description: No rule found for the given id
        """
         parameters = json_parameters()
-        options: Dict[str, Any] = param_get(parameters, 'options')
+        options: dict[str, Any] = param_get(parameters, 'options')
         try:
             update_replication_rule(rule_id=rule_id, options=options, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:

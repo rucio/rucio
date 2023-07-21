@@ -15,7 +15,7 @@
 
 import json as json_lib
 import operator
-from typing import TYPE_CHECKING, cast, Any, Dict
+from typing import TYPE_CHECKING, cast, Any
 
 from sqlalchemy.exc import DataError
 from sqlalchemy.orm.exc import NoResultFound
@@ -85,7 +85,7 @@ class JSONDidMeta(DidMetaPlugin):
                     # Oracle and sqlite returns a string instead of a dict
                     existing_meta = json_lib.loads(cast(str, row_did_meta.meta))
                 else:
-                    existing_meta = cast(Dict[str, Any], row_did_meta.meta)
+                    existing_meta = cast(dict[str, Any], row_did_meta.meta)
 
         for key, value in metadata.items():
             existing_meta[key] = value

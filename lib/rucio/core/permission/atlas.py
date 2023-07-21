@@ -25,7 +25,7 @@ from rucio.core.rule import get_rule
 from rucio.db.sqla.constants import IdentityType, BadPFNStatus
 
 if TYPE_CHECKING:
-    from typing import Dict, Optional
+    from typing import Optional
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
 
@@ -1108,7 +1108,7 @@ def perm_get_local_account_usage(issuer, kwargs, *, session: "Optional[Session]"
     return True
 
 
-def perm_get_global_account_usage(issuer: str, kwargs: 'Dict[str, str]', *, session: "Optional[Session]" = None) -> bool:
+def perm_get_global_account_usage(issuer: str, kwargs: dict[str, str], *, session: "Optional[Session]" = None) -> bool:
     """
     Checks if an account can get the account usage of an account.
 

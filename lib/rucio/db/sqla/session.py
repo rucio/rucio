@@ -36,7 +36,8 @@ from rucio.common.extra import import_extras
 EXTRA_MODULES = import_extras(['MySQLdb', 'pymysql'])
 
 if TYPE_CHECKING:
-    from typing import Callable, Optional, ParamSpec, TypeVar
+    from collections.abc import Callable
+    from typing import Optional, ParamSpec, TypeVar
 
     P = ParamSpec('P')
     R = TypeVar('R')

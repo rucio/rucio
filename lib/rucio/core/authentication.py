@@ -40,7 +40,7 @@ from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-    from typing import Dict, Any, Union
+    from typing import Any, Union
 
 
 def strip_x509_proxy_attributes(dn: str) -> str:
@@ -444,7 +444,7 @@ def query_token(token, *, session: "Session"):
 
 
 @transactional_session
-def validate_auth_token(token: str, *, session: "Session") -> "Dict[str, Any]":
+def validate_auth_token(token: str, *, session: "Session") -> "dict[str, Any]":
     """
     Validate an authentication token.
 
@@ -466,7 +466,7 @@ def validate_auth_token(token: str, *, session: "Session") -> "Dict[str, Any]":
     cache_key = token.replace(' ', '')
 
     # Check if token ca be found in cache region
-    value: "Union[NO_VALUE, Dict[str, Any]]" = TOKENREGION.get(cache_key)
+    value: "Union[NO_VALUE, dict[str, Any]]" = TOKENREGION.get(cache_key)
     if value is NO_VALUE:  # no cached entry found
         value = query_token(token, session=session)
         if not value:

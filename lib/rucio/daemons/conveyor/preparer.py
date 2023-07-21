@@ -17,7 +17,7 @@ import logging
 import threading
 from time import time
 from types import FrameType
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING, Optional
 
 import rucio.db.sqla.util
 from rucio.common import exception
@@ -149,7 +149,7 @@ def _fetch_requests(
 def _handle_requests(
         batch,
         *,
-        transfertools: Optional[List[str]] = None,
+        transfertools: Optional[list[str]] = None,
         bulk: int = 100,
         logger=logging.log,
 ):

@@ -23,10 +23,11 @@ import logging
 import os
 import string
 from abc import abstractmethod
+from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, Optional, Sequence, TypeVar, Union
+from typing import Any, Optional, TypeVar, Union
 from threading import Lock
 
 from prometheus_client import (Counter, Gauge, Histogram, REGISTRY, CollectorRegistry, generate_latest, multiprocess,
@@ -259,7 +260,7 @@ class _MultiTiming(_MultiMetric):
 def _fetch_or_create_metric(
         name: str,
         labelnames: Optional[Sequence[str]],
-        container: Dict[str, _T],
+        container: dict[str, _T],
         factory: Callable[[str, Optional[Sequence[str]]], _T]
 ) -> "_T":
     metric = container.get(name)
@@ -423,7 +424,7 @@ class MetricManager:
             return _decorator(original_function)
         return _decorator
 
-    def push_metrics_to_gw(self, job: "Optional[str]" = None, grouping_key: "Optional[Dict[str, Any]]" = None) -> None:
+    def push_metrics_to_gw(self, job: Optional[str] = None, grouping_key: Optional[dict[str, Any]] = None) -> None:
         """
         Push the metrics out to the prometheus push gateways. This is useful for short-running programs which don't
         live long enough to be reliably scraped in the prometheus pull model.

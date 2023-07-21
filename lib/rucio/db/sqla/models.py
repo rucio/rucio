@@ -15,7 +15,7 @@
 
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Float, Integer, SmallInteger, String, Text, event, UniqueConstraint, inspect
 from sqlalchemy.engine import Engine
@@ -453,7 +453,7 @@ class DidMeta(BASE, ModelBase):
     __tablename__ = 'did_meta'
     scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
-    meta: Mapped[Union[None, str, Dict[str, Any]]] = mapped_column(JSON())
+    meta: Mapped[Optional[Union[str, dict[str, Any]]]] = mapped_column(JSON())
     did_type: Mapped[Optional[DIDType]] = mapped_column(Enum(DIDType, name='DID_META_DID_TYPE_CHK',
                                                              create_constraint=True,
                                                              values_callable=lambda obj: [e.value for e in obj]))

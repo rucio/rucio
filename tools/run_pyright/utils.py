@@ -14,8 +14,9 @@
 # limitations under the License.
 
 import json
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, TypeVar, Iterable, Callable, Dict, List
+from typing import Any, TypeVar
 
 from .models import ReportDict
 
@@ -24,8 +25,8 @@ _T = TypeVar('_T')
 _K = TypeVar('_K')
 
 
-def group_by(iterable: Iterable[_T], key: Callable[[_T], _K]) -> Dict[_K, List[_T]]:
-    result: Dict[_K, List[_T]] = {}
+def group_by(iterable: Iterable[_T], key: Callable[[_T], _K]) -> dict[_K, list[_T]]:
+    result: dict[_K, list[_T]] = {}
     for elem in iterable:
         k = key(elem)
         result.setdefault(k, []).append(elem)
@@ -37,7 +38,7 @@ def load_json(path: Path) -> ReportDict:
         return json.load(f)
 
 
-def save_json(path: Path, data: Dict[str, Any]) -> None:
+def save_json(path: Path, data: dict[str, Any]) -> None:
     with open(path, 'w') as file:
         json.dump(data, file, indent=4)
         file.write('\n')

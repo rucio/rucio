@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Iterator, Iterable
 from datetime import datetime
 import json
 from io import StringIO
 from re import match
-from typing import Any, Dict, Generic, Iterator, List, Optional, Iterable, Type, TypeVar, Union, TYPE_CHECKING, Tuple
+from typing import Any, Generic, Optional, TypeVar, Union, TYPE_CHECKING
 
 import sqlalchemy
 from dogpile.cache.api import NO_VALUE
@@ -70,31 +71,31 @@ class RseData:
         self._name = name
 
     @property
-    def columns(self) -> 'Dict[str, Any]':
+    def columns(self) -> dict[str, Any]:
         if self._columns is None:
             raise ValueError(f'columns not loaded for rse {self}')
         return self._columns
 
     @property
-    def attributes(self) -> 'Dict[str, Any]':
+    def attributes(self) -> dict[str, Any]:
         if self._attributes is None:
             raise ValueError(f'attributes not loaded for rse {self}')
         return self._attributes
 
     @property
-    def info(self) -> 'Dict[str, Any]':
+    def info(self) -> dict[str, Any]:
         if self._info is None:
             raise ValueError(f'info not loaded for rse {self}')
         return self._info
 
     @property
-    def usage(self) -> 'List[Dict[str, Any]]':
+    def usage(self) -> list[dict[str, Any]]:
         if self._usage is None:
             raise ValueError(f'usage not loaded for rse {self}')
         return self._usage
 
     @property
-    def limits(self) -> 'Dict[str, Any]':
+    def limits(self) -> dict[str, Any]:
         if self._limits is None:
             raise ValueError(f'limits not loaded for rse {self}')
         return self._limits
@@ -151,7 +152,7 @@ class RseData:
 
     @staticmethod
     @read_session
-    def bulk_load(rse_id_to_data: "Dict[str, RseData]", load_name=False, load_columns=False, load_attributes=False,
+    def bulk_load(rse_id_to_data: "dict[str, RseData]", load_name=False, load_columns=False, load_attributes=False,
                   load_info=False, load_usage=False, load_limits=False, *, session: "Session"):
         """
         Given a dict of RseData objects indexed by rse_id, ensure that the desired fields are initialised
@@ -288,9 +289,9 @@ class RseCollection(Generic[T]):
     Container which keeps track of information loaded from the database for a group of RSEs.
     """
 
-    def __init__(self, rse_ids: "Optional[Iterable[str]]" = None, rse_data_cls: "Type[T]" = RseData):
+    def __init__(self, rse_ids: Optional[Iterable[str]] = None, rse_data_cls: type[T] = RseData):
         self._rse_data_cls = rse_data_cls
-        self.rse_id_to_data_map: "Dict[str, T]" = {}
+        self.rse_id_to_data_map: dict[str, T] = {}
         if rse_ids is not None:
             for rse_id in rse_ids:
                 self.rse_id_to_data_map[rse_id] = self._rse_data_cls(rse_id)
@@ -345,7 +346,7 @@ class RseCollection(Generic[T]):
 
 
 @stream_session
-def _group_query_result_by_rse_id(stmt, *, session: "Session") -> Iterator[Tuple[str, List[Any]]]:
+def _group_query_result_by_rse_id(stmt, *, session: "Session") -> Iterator[tuple[str, list[Any]]]:
     """
     Given a sqlalchemy query statement which fetches rows of two elements: (rse_id, object) ordered by rse_id.
     Will execute the query and return objects grouped by rse_id: (rse_id, [object1, object2])
@@ -530,10 +531,10 @@ def rse_is_empty(rse_id, *, session: "Session"):
 @read_session
 def _format_get_rse(
         db_rse: models.RSE,
-        rse_attributes: Optional[Dict[str, Any]] = None,
+        rse_attributes: Optional[dict[str, Any]] = None,
         *,
         session: "Session"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Given a models.RSE object, return it formatted as expected by callers of get_rse
     """
@@ -832,7 +833,7 @@ def _fetch_many_rses_attributes(
         keys: Optional[Iterable[str]] = None,
         *,
         session: "Session"
-) -> Iterator[Tuple[str, Dict[str, Any]]]:
+) -> Iterator[tuple[str, dict[str, Any]]]:
     """
     Given a temporary table pre-filled with RSE IDs, fetch the attributes of these RSEs.
     It's possible to only fetch a subset of attributes by setting the `keys` parameter.
@@ -995,7 +996,7 @@ def get_rse_attribute(rse_id: str, key: str, use_cache: bool = True, *, session:
     return value
 
 
-def get_rse_supported_checksums_from_attributes(rse_attributes: Dict[str, Any]) -> List[str]:
+def get_rse_supported_checksums_from_attributes(rse_attributes: dict[str, Any]) -> list[str]:
     """
     Parse the RSE attribute defining the checksum supported by the RSE
     :param rse_attributes: attributes retrieved using list_rse_attributes
@@ -1004,7 +1005,7 @@ def get_rse_supported_checksums_from_attributes(rse_attributes: Dict[str, Any]) 
     return parse_checksum_support_attribute(rse_attributes.get(CHECKSUM_KEY, ''))
 
 
-def parse_checksum_support_attribute(checksum_attribute: str) -> List[str]:
+def parse_checksum_support_attribute(checksum_attribute: str) -> list[str]:
     """
     Parse the checksum support RSE attribute.
     :param checksum_attribute: The value of the RSE attribute storing the checksum value
@@ -1084,7 +1085,7 @@ def _format_get_rse_usage(
         per_account: bool,
         *,
         session: "Session"
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
 
     usage = list()
     for db_usage in db_usages:
@@ -1132,7 +1133,7 @@ def set_rse_limits(rse_id: str, name: str, value: int, *, session: 'Session') ->
 
 
 @read_session
-def get_rse_limits(rse_id: str, name: "Optional[str]" = None, *, session: 'Session') -> 'Dict[str, int]':
+def get_rse_limits(rse_id: str, name: Optional[str] = None, *, session: 'Session') -> dict[str, int]:
     """
     Get RSE limits.
 
@@ -1257,7 +1258,7 @@ def list_rse_usage_history(rse_id, source=None, *, session: "Session"):
 @transactional_session
 def add_protocol(
     rse_id: str,
-    parameter: Dict[str, Any],
+    parameter: dict[str, Any],
     *,
     session: "Session"
 ) -> models.RSEProtocols:
@@ -1373,12 +1374,12 @@ def get_rse_protocols(rse_id, schemes=None, *, session: "Session"):
 
 
 def _format_get_rse_protocols(
-        rse: "models.RSE | Dict[str, Any]",
+        rse: "models.RSE | dict[str, Any]",
         db_protocols: Iterable[models.RSEProtocols],
-        rse_attributes: Optional[Dict[str, Any]] = None,
+        rse_attributes: Optional[dict[str, Any]] = None,
         *,
         session: "Session"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     _rse = rse
     if rse_attributes:
         lfn2pfn_algorithm = rse_attributes.get('lfn2pfn_algorithm')
@@ -1471,7 +1472,7 @@ def get_rse_info(rse_id, *, session: "Session"):
 def update_protocols(
     rse_id: str,
     scheme: str,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     hostname: str,
     port: int,
     *,
@@ -1624,7 +1625,7 @@ MUTABLE_RSE_PROPERTIES = {
 
 
 @transactional_session
-def update_rse(rse_id: str, parameters: 'Dict[str, Any]', *, session: "Session"):
+def update_rse(rse_id: str, parameters: dict[str, Any], *, session: "Session"):
     """
     Update RSE properties like availability or name.
 

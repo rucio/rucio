@@ -33,11 +33,12 @@ from rucio.db.sqla.constants import SubscriptionState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Iterator, Optional, Callable
+    from collections.abc import Callable, Iterator
+    from typing import Any, Optional
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
     LoggerFunction = Callable[..., Any]
-    SubscriptionType = Dict
+    SubscriptionType = dict
 
 
 @transactional_session

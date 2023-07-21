@@ -29,11 +29,11 @@ from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List, Optional
+    from typing import Any, Optional
     from sqlalchemy.orm import Session
 
-    MessageType = Dict[str, Any]
-    MessagesListType = List[MessageType]
+    MessageType = dict[str, Any]
+    MessagesListType = list[MessageType]
 
 
 @transactional_session

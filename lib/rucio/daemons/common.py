@@ -21,7 +21,8 @@ import queue
 import socket
 import threading
 import time
-from typing import Any, Callable, Generator, Generic, Iterator, List, Optional, Tuple, TypeVar, Union
+from collections.abc import Callable, Generator, Iterator
+from typing import Any, Generic, Optional, TypeVar, Union
 
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import PriorityQueue
@@ -108,9 +109,9 @@ class HeartbeatHandler:
 def _activity_looper(
         once: bool,
         sleep_time: int,
-        activities: Optional[List[str]],
+        activities: Optional[list[str]],
         logger,
-) -> Generator[Tuple[str, float], Tuple[float, bool], None]:
+) -> Generator[tuple[str, float], tuple[float, bool], None]:
     """
     Generator which loops (either once, or indefinitely) over all activities while ensuring that `sleep_time`
     passes between handling twice the same activity.
@@ -168,7 +169,7 @@ def db_workqueue(
         executable: str,
         partition_wait_time: int,
         sleep_time: int,
-        activities: Optional[List[str]] = None,
+        activities: Optional[list[str]] = None,
 ):
     """
     Used to wrap a function for interacting with the database as a work queue: i.e. to select
@@ -184,7 +185,7 @@ def db_workqueue(
     :param activities: optional list of activities on which to work. The run_once_fnc will be called on activities one by one.
     """
 
-    def _decorate(run_once_fnc: Callable[..., Union[None, bool, Tuple[bool, T]]]) -> Callable[[], Iterator[Union[T, None]]]:
+    def _decorate(run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, T]]]]) -> Callable[[], Iterator[Optional[T]]]:
 
         @functools.wraps(run_once_fnc)
         def _generator():
@@ -251,8 +252,8 @@ def run_daemon(
         executable: str,
         partition_wait_time: int,
         sleep_time: int,
-        run_once_fnc: Callable[..., Union[None, bool, Tuple[bool, Any]]],
-        activities: Optional[List[str]] = None):
+        run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, Any]]]],
+        activities: Optional[list[str]] = None):
     """
     Run the daemon loop and call the function run_once_fnc at each iteration
     """

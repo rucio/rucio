@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from datetime import datetime
-from typing import Type, Union
+from typing import Union
 
 import pytest
 
@@ -129,7 +129,7 @@ def test_queue_requests_state(vo, file_config_mock, rse_factory, mock_scope, roo
         (models.RequestHistory, list_requests_history),
     ]
 )
-def test_core_list(model: Union[Type[models.Request], Type[models.RequestHistory]], list_fnc, rse_factory, db_session):
+def test_core_list(model: Union[type[models.Request], type[models.RequestHistory]], list_fnc, rse_factory, db_session):
     """ REQUEST (CORE): Test listing requests and request history via the core"""
     _, source_rse_id = rse_factory.make_mock_rse(session=db_session)
     _, source_rse_id2 = rse_factory.make_mock_rse(session=db_session)
@@ -159,7 +159,7 @@ def test_core_list(model: Union[Type[models.Request], Type[models.RequestHistory
 )
 def test_api_list(
         vo,
-        model: Union[Type[models.Request], Type[models.RequestHistory]],
+        model: Union[type[models.Request], type[models.RequestHistory]],
         api_endpoint: str,
         rest_client,
         auth_token,

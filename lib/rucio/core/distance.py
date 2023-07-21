@@ -23,7 +23,6 @@ from rucio.db.sqla.models import Distance, RSE
 from rucio.db.sqla.session import transactional_session, read_session
 
 if TYPE_CHECKING:
-    from typing import List, Dict
     from sqlalchemy.orm import Session
 
 
@@ -48,7 +47,7 @@ def add_distance(src_rse_id, dest_rse_id, distance=None, *, session: "Session"):
 
 
 @read_session
-def get_distances(src_rse_id=None, dest_rse_id=None, *, session: "Session") -> "List[Dict]":
+def get_distances(src_rse_id=None, dest_rse_id=None, *, session: "Session") -> list[dict]:
     """
     Get distances between rses.
 

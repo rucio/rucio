@@ -22,7 +22,6 @@ from time import time
 from typing import TYPE_CHECKING
 
 import flask
-import typing
 from flask.views import MethodView
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException
@@ -38,9 +37,10 @@ from configparser import NoOptionError, NoSectionError
 
 
 if TYPE_CHECKING:
-    from typing import Optional, Union, Dict, Sequence, Tuple, Callable, Any, List
+    from collections.abc import Callable, Iterable, Sequence
+    from typing import Optional, Union, Any
 
-    HeadersType = Union[Headers, Dict[str, str], Sequence[Tuple[str, str]]]
+    HeadersType = Union[Headers, dict[str, str], Sequence[tuple[str, str]]]
 
 
 class CORSMiddleware(object):
@@ -52,7 +52,7 @@ class CORSMiddleware(object):
     def __init__(self, app: flask.Flask) -> None:
         self.app = app
 
-    def __call__(self, environ: typing.Dict, start_response: typing.Callable) -> typing.Union[Response, typing.Iterable[bytes]]:
+    def __call__(self, environ: dict, start_response: 'Callable') -> 'Union[Response, Iterable[bytes]]':
         request: Request = Request(environ)
 
         if request.environ.get('REQUEST_METHOD') == 'OPTIONS':
@@ -300,7 +300,7 @@ def generate_http_error_flask(
         raise
 
 
-def json_parameters(json_loads: "Callable[[str], Any]" = json.loads, optional: "bool" = False) -> "Dict":
+def json_parameters(json_loads: "Callable[[str], Any]" = json.loads, optional: bool = False) -> dict:
     """
     Returns the JSON parameters from the current request's body as dict.
     """
@@ -311,7 +311,7 @@ def json_parameters(json_loads: "Callable[[str], Any]" = json.loads, optional: "
     return json_parse(types=(dict, ), json_loads=json_loads, **kwargs)
 
 
-def json_list(json_loads: "Callable[[str], Any]" = json.loads, optional: "bool" = False) -> "List":
+def json_list(json_loads: "Callable[[str], Any]" = json.loads, optional: bool = False) -> list:
     """
     Returns the JSON array from the current request's body as list.
     """
@@ -322,14 +322,14 @@ def json_list(json_loads: "Callable[[str], Any]" = json.loads, optional: "bool" 
     return json_parse(types=(list, ), json_loads=json_loads, **kwargs)
 
 
-def json_parse(types: "Tuple", json_loads: "Callable[[str], Any]" = json.loads, **kwargs):
+def json_parse(types: tuple, json_loads: "Callable[[str], Any]" = json.loads, **kwargs):
     def clstostr(cls):
         if cls.__name__ == "dict":
             return "dictionary"
         else:
             return cls.__name__
 
-    def typestostr(_types: "Tuple"):
+    def typestostr(_types: tuple):
         return " or ".join(map(clstostr, _types))
 
     data = flask.request.get_data(as_text=True)
@@ -356,7 +356,7 @@ def json_parse(types: "Tuple", json_loads: "Callable[[str], Any]" = json.loads, 
         )
 
 
-def param_get(parameters: "Dict", name: "str", **kwargs):
+def param_get(parameters: dict, name: str, **kwargs):
     if 'default' in kwargs:
         return parameters.get(name, kwargs['default'])
     else:

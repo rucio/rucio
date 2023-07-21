@@ -17,7 +17,8 @@ import itertools
 import logging
 import threading
 import weakref
-from typing import TYPE_CHECKING, cast, Any, Callable, Generic, Iterable, Iterator, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
+from collections.abc import Callable, Iterable, Iterator
+from typing import TYPE_CHECKING, cast, Any, Generic, Optional, TypeVar, Union
 
 from sqlalchemy import and_, select
 
@@ -117,8 +118,8 @@ class Topology(RseCollection, Generic[TN, TE]):
             self,
             rse_ids: Optional[Iterable[str]] = None,
             ignore_availability: bool = False,
-            node_cls: Type[TN] = Node,
-            edge_cls: Type[TE] = Edge,
+            node_cls: type[TN] = Node,
+            edge_cls: type[TE] = Edge,
     ):
         super().__init__(rse_ids=rse_ids, rse_data_cls=node_cls)
         self._edge_cls = edge_cls
@@ -163,11 +164,11 @@ class Topology(RseCollection, Generic[TN, TE]):
         return True if self._multihop_nodes else False
 
     @read_session
-    def configure_multihop(self, multihop_rse_ids: Optional[Set[str]] = None, *, session: "Session", logger: LoggerFunction = logging.log):
+    def configure_multihop(self, multihop_rse_ids: Optional[set[str]] = None, *, session: "Session", logger: LoggerFunction = logging.log):
         with self._lock:
             return self._configure_multihop(multihop_rse_ids=multihop_rse_ids, session=session, logger=logger)
 
-    def _configure_multihop(self, multihop_rse_ids: Optional[Set[str]] = None, *, session: "Session", logger: LoggerFunction = logging.log):
+    def _configure_multihop(self, multihop_rse_ids: Optional[set[str]] = None, *, session: "Session", logger: LoggerFunction = logging.log):
 
         if multihop_rse_ids is None:
             multihop_rse_expression = config_get('transfers', 'multihop_rse_expression', default='available_for_multihop=true', expiration_time=600, session=session)
@@ -241,15 +242,15 @@ class Topology(RseCollection, Generic[TN, TE]):
     @read_session
     def search_shortest_paths(
             self,
-            src_nodes: List[TN],
+            src_nodes: list[TN],
             dst_node: TN,
             operation_src: str,
             operation_dest: str,
             domain: str,
-            limit_dest_schemes: List[str],
+            limit_dest_schemes: list[str],
             *,
             session: "Session",
-    ) -> Dict[TN, List[Dict[str, Any]]]:
+    ) -> dict[TN, list[dict[str, Any]]]:
         """
         Find the shortest paths from multiple sources towards dest_rse_id.
         """
@@ -342,10 +343,10 @@ class Topology(RseCollection, Generic[TN, TE]):
     def dijkstra_spf(
             self,
             dst_node: TN,
-            nodes_to_find: Optional[Set[TN]] = None,
+            nodes_to_find: Optional[set[TN]] = None,
             node_state_provider: "Callable[[TN], _StateProvider]" = lambda x: x,
             edge_state_provider: "Callable[[TE], _StateProvider]" = lambda x: x,
-    ) -> "Iterator[Tuple[TN, _Number, _StateProvider, TE, _StateProvider]]":
+    ) -> "Iterator[tuple[TN, _Number, _StateProvider, TE, _StateProvider]]":
         """
         Does a Backwards Dijkstra's algorithm: start from destination and follow inbound links to other nodes.
         If multihop is disabled, stop after analysing direct connections to dest_rse.
@@ -357,7 +358,7 @@ class Topology(RseCollection, Generic[TN, TE]):
 
         priority_q = PriorityQueue()
         priority_q[dst_node] = 0
-        next_hops: Dict[TN, Tuple[_Number, _StateProvider, Optional[TE], Optional[_StateProvider]]] =\
+        next_hops: dict[TN, tuple[_Number, _StateProvider, Optional[TE], Optional[_StateProvider]]] =\
             {dst_node: (0, node_state_provider(dst_node), None, None)}
         while priority_q:
             node = priority_q.pop()
@@ -409,8 +410,8 @@ class ExpiringObjectCache:
 def get_hops(
         source_rse_id: str,
         dest_rse_id: str,
-        multihop_rse_ids: Optional[Set[str]] = None,
-        limit_dest_schemes: Optional[List[str]] = None,
+        multihop_rse_ids: Optional[set[str]] = None,
+        limit_dest_schemes: Optional[list[str]] = None,
         *, session: "Session",
 ):
     """

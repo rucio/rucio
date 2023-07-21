@@ -42,7 +42,8 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 from rucio.db.sqla.util import temp_table_mngr
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Tuple, Optional, Sequence, Callable, Union
+    from collections.abc import Callable, Sequence
+    from typing import Any, Optional, Union
     from sqlalchemy.orm import Session
     from sqlalchemy.schema import Table
     from rucio.common.types import InternalAccount, InternalScope
@@ -121,11 +122,11 @@ def add_did(
         name: str,
         did_type: "Union[str, DIDType]",
         account: "InternalAccount",
-        statuses: "Optional[Dict[str, Any]]" = None,
-        meta: "Optional[Dict[str, Any]]" = None,
+        statuses: "Optional[dict[str, Any]]" = None,
+        meta: "Optional[dict[str, Any]]" = None,
         rules: "Optional[Sequence[str]]" = None,
         lifetime: "Optional[int]" = None,
-        dids: "Optional[Sequence[Dict[str, Any]]]" = None,
+        dids: "Optional[Sequence[dict[str, Any]]]" = None,
         rse_id: "Optional[str]" = None,
         *,
         session: "Session",
@@ -154,7 +155,7 @@ def add_did(
 
 @transactional_session
 def add_dids(
-        dids: "Sequence[Dict[str, Any]]",
+        dids: "Sequence[dict[str, Any]]",
         account: "InternalAccount",
         *,
         session: "Session",
@@ -250,7 +251,7 @@ def add_dids(
 def attach_dids(
         scope: "InternalScope",
         name: str,
-        dids: "Sequence[Dict[str, Any]]",
+        dids: "Sequence[dict[str, Any]]",
         account: "InternalAccount",
         rse_id: "Optional[str]" = None,
         *,
@@ -271,7 +272,7 @@ def attach_dids(
 
 @transactional_session
 def attach_dids_to_dids(
-        attachments: "Dict[str, Any]",
+        attachments: "dict[str, Any]",
         account: "InternalAccount",
         ignore_duplicate: bool = False,
         *,
@@ -1094,7 +1095,7 @@ def __add_collections_to_container_without_temp_tables(scope, name, collections,
 
 @transactional_session
 def delete_dids(
-        dids: "Sequence[Dict[str, Any]]",
+        dids: "Sequence[dict[str, Any]]",
         account: "InternalAccount",
         expire_rules: bool = False,
         *,
@@ -2090,7 +2091,7 @@ def __get_did(scope, name, *, session: "Session"):
 
 
 @read_session
-def get_did(scope: "InternalScope", name: str, dynamic_depth: "Optional[DIDType]" = None, *, session: "Session") -> "Dict[str, Any]":
+def get_did(scope: "InternalScope", name: str, dynamic_depth: "Optional[DIDType]" = None, *, session: "Session") -> "dict[str, Any]":
     """
     Retrieve a single data identifier.
 
@@ -2608,7 +2609,7 @@ def __resolve_bytes_length_events_did(
         did: models.DataIdentifier,
         dynamic_depth: "DIDType" = DIDType.FILE,
         *, session: "Session",
-) -> "Tuple[int, int, int]":
+) -> tuple[int, int, int]:
     """
     Resolve bytes, length and events of a did
 

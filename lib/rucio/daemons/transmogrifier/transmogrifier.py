@@ -18,9 +18,10 @@ import logging
 import re
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime
 from json import loads, dumps
-from typing import TYPE_CHECKING, List, Dict, Callable, Tuple
+from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.db.sqla.constants import DIDType, SubscriptionState
@@ -128,7 +129,7 @@ def __split_rule_select_rses(
     copies: int,
     blocklisted_rse_id: list,
     logger: "Callable",
-) -> Tuple[List, bool, bool]:
+) -> tuple[list, bool, bool]:
     """
     Internal method to create a list of RSEs that match RSE expression for subscriptions with split_rule.
 
@@ -212,7 +213,7 @@ def __split_rule_select_rses(
     return selected_rses, create_rule, wont_reevaluate
 
 
-def get_subscriptions(logger: "Callable" = logging.log) -> List[Dict]:
+def get_subscriptions(logger: Callable = logging.log) -> list[dict]:
     """
     A method to extract the list of active subscriptions and exclued the one that have bad RSE expression.
     :param logger: The logger.

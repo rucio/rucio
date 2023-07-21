@@ -18,8 +18,9 @@ Conveyor transfer submitter is a daemon to manage non-tape file transfers.
 """
 import logging
 import threading
+from collections.abc import Mapping
 from types import FrameType
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Mapping
+from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.db.sqla.util
 from rucio.common import exception
@@ -54,8 +55,8 @@ def _fetch_requests(
         partition_hash_var: Optional[str],
         bulk: int,
         activity: str,
-        rse_ids: Optional[List[str]],
-        request_type: List[RequestType],
+        rse_ids: Optional[list[str]],
+        request_type: list[RequestType],
         ignore_availability: bool,
         filter_transfertool: Optional[str],
         metrics: MetricManager,
@@ -114,9 +115,9 @@ def _fetch_requests(
 def _handle_requests(
         batch,
         *,
-        transfertools: List[str],
-        schemes: Optional[List[str]],
-        failover_schemes: Optional[List[str]],
+        transfertools: list[str],
+        schemes: Optional[list[str]],
+        failover_schemes: Optional[list[str]],
         max_sources: int,
         timeout: Optional[float],
         transfertool_kwargs,
@@ -169,7 +170,7 @@ def _handle_requests(
                             timeout=timeout, logger=logger)
 
 
-def _get_max_time_in_queue_conf() -> Dict[str, int]:
+def _get_max_time_in_queue_conf() -> dict[str, int]:
     """
     Retrieve and parse the max_time_in_queue configuration value into a dictionary: {"activity": int}
     """
@@ -187,22 +188,22 @@ def _get_max_time_in_queue_conf() -> Dict[str, int]:
 
 def submitter(
         once: bool = False,
-        rses: Optional[List[Mapping[str, Any]]] = None,
+        rses: Optional[list[Mapping[str, Any]]] = None,
         partition_wait_time: int = 10,
         bulk: int = 100,
         group_bulk: int = 1,
         group_policy: str = 'rule',
         source_strategy: Optional[str] = None,
-        activities: Optional[List[str]] = None,
+        activities: Optional[list[str]] = None,
         sleep_time: int = 600,
         max_sources: int = 4,
         archive_timeout_override: Optional[int] = None,
         filter_transfertool: Optional[str] = FILTER_TRANSFERTOOL,
-        transfertools: List[str] = TRANSFER_TOOLS,
+        transfertools: list[str] = TRANSFER_TOOLS,
         transfertype: str = TRANSFER_TYPE,
         ignore_availability: bool = False,
         executable: str = DAEMON_NAME,
-        request_type: Optional[List[RequestType]] = None,
+        request_type: Optional[list[RequestType]] = None,
         default_lifetime: int = 172800,
         metrics: MetricManager = METRICS,
         cached_topology=None,

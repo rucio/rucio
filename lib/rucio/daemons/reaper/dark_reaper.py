@@ -45,8 +45,9 @@ from rucio.daemons.common import run_daemon
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from types import FrameType
-    from typing import Sequence, Optional
+    from typing import Optional
 
     from rucio.daemons.common import HeartbeatHandler
 

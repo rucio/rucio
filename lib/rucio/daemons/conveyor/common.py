@@ -42,7 +42,8 @@ from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from typing import Callable, Dict, List, Optional, Tuple, Sequence, Set
+    from collections.abc import Callable, Sequence
+    from typing import Optional
     from rucio.core.transfer import DirectTransferDefinition
     from rucio.transfertool.transfertool import TransferToolBuilder
     from sqlalchemy.orm import Session
@@ -130,10 +131,10 @@ def pick_and_prepare_submission_path(requests_with_sources, topology, protocol_f
 
 
 def __assign_to_transfertool(
-        transfer_path: "List[DirectTransferDefinition]",
-        transfertools: "Optional[List[str]]",
+        transfer_path: "list[DirectTransferDefinition]",
+        transfertools: "Optional[list[str]]",
         logger: "Callable",
-) -> "List[Tuple[List[DirectTransferDefinition], Optional[TransferToolBuilder]]]":
+) -> "list[tuple[list[DirectTransferDefinition], Optional[TransferToolBuilder]]]":
     """
     Iterate over a multihop path and assign sub-paths to transfertools in chucks from left to right.
 
@@ -173,11 +174,11 @@ def __assign_to_transfertool(
 
 
 def assign_paths_to_transfertool_and_create_hops(
-        candidate_paths_by_request_id: "Dict[str: List[DirectTransferDefinition]]",
+        candidate_paths_by_request_id: "dict[str: list[DirectTransferDefinition]]",
         default_tombstone_delay: int,
-        transfertools: "Optional[List[str]]" = None,
+        transfertools: "Optional[list[str]]" = None,
         logger: "Callable" = logging.log,
-) -> "Tuple[Dict[TransferToolBuilder, List[DirectTransferDefinition]], Set[str]]":
+) -> "tuple[dict[TransferToolBuilder, list[DirectTransferDefinition]], set[str]]":
     """
     for each request, pick the first path which can be submitted by one of the transfertools.
     If the chosen path is multihop, create all missing intermediate requests and replicas.
@@ -213,13 +214,13 @@ def assign_paths_to_transfertool_and_create_hops(
 @transactional_session
 def __assign_paths_to_transfertool_and_create_hops(
         request_id: str,
-        candidate_paths: "Sequence[List[DirectTransferDefinition]]",
+        candidate_paths: "Sequence[list[DirectTransferDefinition]]",
         default_tombstone_delay: int,
-        transfertools: "Optional[List[str]]" = None,
+        transfertools: "Optional[list[str]]" = None,
         *,
         logger: "Callable" = logging.log,
         session: "Session",
-) -> "Tuple[Optional[List[DirectTransferDefinition]], Optional[TransferToolBuilder]]":
+) -> "tuple[Optional[list[DirectTransferDefinition]], Optional[TransferToolBuilder]]":
     """
     Out of a sequence of candidate paths for the given request, pick the first path which can
     be submitted by one of the transfertools.
@@ -289,12 +290,12 @@ def __assign_paths_to_transfertool_and_create_hops(
 
 @transactional_session
 def __create_missing_replicas_and_requests(
-        transfer_path: "List[DirectTransferDefinition]",
+        transfer_path: "list[DirectTransferDefinition]",
         default_tombstone_delay: int,
         *,
         logger: "Callable",
         session: "Session"
-) -> "Tuple[bool, bool]":
+) -> tuple[bool, bool]:
     """
     Create replicas and requests in the database for the intermediate hops
     """

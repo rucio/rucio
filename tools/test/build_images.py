@@ -23,10 +23,9 @@ import pathlib
 import subprocess
 import sys
 from functools import partial
-from typing import Tuple
 
 # mostly for checking the version in automated scripts, similar to sys.version_info
-VERSION: "Tuple[int]" = (2, )
+VERSION: tuple[int] = (2, )
 
 DIST_KEY = "DIST"
 BUILD_ARG_KEYS = ["PYTHON", "IMAGE_IDENTIFIER"]
