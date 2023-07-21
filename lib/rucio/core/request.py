@@ -781,8 +781,8 @@ def get_and_mark_next(
 
                     dst_id = res_dict['dest_rse_id']
                     src_id = res_dict['source_rse_id']
-                    res_dict['dst_rse'] = rse_collection[dst_id].ensure_loaded(load_name=True)
-                    res_dict['src_rse'] = rse_collection[src_id].ensure_loaded(load_name=True) if src_id is not None else None
+                    res_dict['dst_rse'] = rse_collection[dst_id].ensure_loaded(load_name=True, load_attributes=True)
+                    res_dict['src_rse'] = rse_collection[src_id].ensure_loaded(load_name=True, load_attributes=True) if src_id is not None else None
 
                     result.append(res_dict)
             else:

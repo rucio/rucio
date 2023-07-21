@@ -118,7 +118,7 @@ class Transfertool(object, metaclass=ABCMeta):
 
     external_name = ''
     required_rse_attrs = ()
-    supported_schemes = set(SUPPORTED_PROTOCOLS)
+    supported_schemes = set(SUPPORTED_PROTOCOLS).difference(('magnet', ))
 
     def __init__(self, external_host, logger=logging.log):
         """
