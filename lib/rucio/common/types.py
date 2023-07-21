@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional, TypedDict, Union
+from typing import Any, Callable, Optional, TypedDict, Union
 
 
 class InternalType(object):
@@ -102,6 +102,9 @@ class InternalScope(InternalType):
     '''
     def __init__(self, scope, vo='def', fromExternal=True):
         super(InternalScope, self).__init__(value=scope, vo=vo, fromExternal=fromExternal)
+
+
+LoggerFunction = Callable[..., Any]
 
 
 class RSEDomainLANDict(TypedDict):

@@ -215,9 +215,14 @@ services:
     environment:
       - XRDHOST=xrd5
       - XRDPORT=1098
+      - QBITTORRENT_UI_USERNAME=rucio
+      - QBITTORRENT_UI_PASSWORD=rucio90df
+      - QBITTORRENT_UI_PORT=8098
+      - QBITTORRENT_LISTEN_PORT=10000
     volumes:
       - ./xrd/entrypoint.sh:/docker-entrypoint.sh:ro
       - ./xrd:/configs:ro
+      - ./configure_qbittorrent.py:/configure_qbittorrent.py:ro
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_xrd5.pem:/tmp/xrdcert.pem:Z
       - ../../certs/hostcert_xrd5.key.pem:/tmp/xrdkey.pem:Z
@@ -227,8 +232,14 @@ services:
         hard: 10240
   web1:
     image: rucio/webdav
-    command: bash -c "a2dismod want_digest; apache2 -D FOREGROUND"
+    environment:
+      - QBITTORRENT_UI_USERNAME=rucio
+      - QBITTORRENT_UI_PASSWORD=rucio90df
+      - QBITTORRENT_UI_PORT=8099
+      - QBITTORRENT_LISTEN_PORT=10000
     volumes:
+      - ./web1/entrypoint.sh:/usr/local/bin/docker-entrypoint.sh:ro
+      - ./configure_qbittorrent.py:/configure_qbittorrent.py:ro
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:ro
       - ../../certs/hostcert_web1.key.pem:/etc/grid-security/hostkey.pem:ro
       - ../../certs/hostcert_web1.pem:/etc/grid-security/hostcert.pem:Z

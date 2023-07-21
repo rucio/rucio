@@ -50,10 +50,12 @@ rucio-admin rse add-protocol --hostname xrd3 --scheme root --prefix //rucio --po
 rucio-admin rse add-protocol --hostname xrd4 --scheme root --prefix //rucio --port 1097 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD4
 rucio-admin rse add-protocol --hostname xrd5 --scheme root --prefix //rucio --port 1098 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD5
 rucio-admin rse add-protocol --hostname xrd5 --scheme davs --prefix //rucio --port 1098 --impl rucio.rse.protocols.gfal.Default --domain-json '{"wan": {"read": 2, "write": 2, "delete": 2, "third_party_copy_read": 2, "third_party_copy_write": 2}, "lan": {"read": 2, "write": 2, "delete": 2}}' XRD5
+rucio-admin rse add-protocol --hostname xrd5 --scheme magnet --prefix //rucio --port 10000 --impl rucio.rse.protocols.bittorrent.Default --domain-json '{"wan": {"read": 3, "write": 0, "delete": 0, "third_party_copy_read": 3, "third_party_copy_write": 3}, "lan": {"read": 3, "write": 0, "delete": 0}}' XRD5
 rucio-admin rse add-protocol --hostname ssh1 --scheme scp --prefix /rucio --port 22 --impl rucio.rse.protocols.ssh.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' SSH1
 rucio-admin rse add-protocol --hostname ssh1 --scheme rsync --prefix /rucio --port 22 --impl rucio.rse.protocols.ssh.Rsync --domain-json '{"wan": {"read": 2, "write": 2, "delete": 2, "third_party_copy_read": 2, "third_party_copy_write": 2}, "lan": {"read": 2, "write": 2, "delete": 2}}' SSH1
 rucio-admin rse add-protocol --hostname ssh1 --scheme rclone --prefix /rucio --port 22 --impl rucio.rse.protocols.rclone.Default --domain-json '{"wan": {"read": 3, "write": 3, "delete": 3, "third_party_copy_read": 3, "third_party_copy_write": 3}, "lan": {"read": 3, "write": 3, "delete": 3}}' SSH1
 rucio-admin rse add-protocol --hostname web1 --scheme davs --prefix /rucio --port 443 --impl rucio.rse.protocols.gfal.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 2}, "lan": {"read": 1, "write": 1, "delete": 1}}' WEB1
+rucio-admin rse add-protocol --hostname web1 --scheme magnet --prefix /var/www/webdav/data/rucio/ --port 10000 --impl rucio.rse.protocols.bittorrent.Default --domain-json '{"wan": {"read": 2, "write": 0, "delete": 0, "third_party_copy_read": 2, "third_party_copy_write": 2}, "lan": {"read": 2, "write": 0, "delete": 0}}' WEB1
 
 # Set test_container_xrd attribute for xrd containers
 rucio-admin rse set-attribute --rse XRD1 --key test_container_xrd --value True
@@ -62,8 +64,14 @@ rucio-admin rse set-attribute --rse XRD3 --key test_container_xrd --value True
 rucio-admin rse set-attribute --rse XRD4 --key test_container_xrd --value True
 rucio-admin rse set-attribute --rse SSH1 --key test_container_ssh --value True
 rucio-admin rse set-attribute --rse XRD5 --key oidc_support --value True
+rucio-admin rse set-attribute --rse XRD5 --key bittorrent_driver --value qbittorrent
+rucio-admin rse set-attribute --rse XRD5 --key qbittorrent_management_address --value https://xrd5:8098/
+rucio-admin rse set-attribute --rse XRD5 --key bittorrent_tracker_addr --value http://xrd5:10001/announce
 rucio-admin rse set-attribute --rse WEB1 --key oidc_support --value True
 rucio-admin rse set-attribute --rse WEB1 --key verify_checksum --value False
+rucio-admin rse set-attribute --rse WEB1 --key bittorrent_driver --value qbittorrent
+rucio-admin rse set-attribute --rse WEB1 --key qbittorrent_management_address --value https://web1:8099/
+rucio-admin rse set-attribute --rse WEB1 --key bittorrent_tracker_addr --value http://web1:10001/announce
 
 # Workaround, xrootd.py#connect returns with Auth Failed due to execution of the command in subprocess
 XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 XrdSecGSISRVNAMES=xrd1 xrdfs xrd1:1094 query config xrd1:1094
