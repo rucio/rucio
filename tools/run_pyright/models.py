@@ -14,11 +14,11 @@
 # limitations under the License.
 
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any
 from dataclasses import dataclass
 
 
-ReportDict = Dict[str, Any]
+ReportDict = dict[str, Any]
 
 
 class Severity(Enum):
@@ -47,7 +47,7 @@ class ReportDiagnostic:
     range_end_char: int
 
     @classmethod
-    def from_dict(cls, obj: Dict[str, Any]):
+    def from_dict(cls, obj: dict[str, Any]):
         return cls(
             severity=Severity(obj['severity']),
             file=obj['file'],
@@ -74,7 +74,7 @@ class ReportSummary:
     time_seconds: float
 
     @classmethod
-    def from_dict(cls, obj: Dict[str, Any]):
+    def from_dict(cls, obj: dict[str, Any]):
         return cls(
             num_files=obj['filesAnalyzed'],
             num_errors=obj['errorCount'],
@@ -87,7 +87,7 @@ class ReportSummary:
 @dataclass
 class Report:
     summary: ReportSummary
-    diagnostics: List[ReportDiagnostic]
+    diagnostics: list[ReportDiagnostic]
 
     @classmethod
     def from_dict(cls, obj: ReportDict):

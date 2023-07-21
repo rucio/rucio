@@ -28,7 +28,7 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Optional
+    from typing import Any, Optional
     from sqlalchemy.orm import Session
 
 
@@ -372,7 +372,7 @@ def scope_list(scope, name=None, recursive=False, vo='def', *, session: "Session
 
 
 @read_session
-def get_did(scope: str, name: str, dynamic_depth: "Optional[DIDType]" = None, vo: str = 'def', *, session: "Session") -> "Dict[str, Any]":
+def get_did(scope: str, name: str, dynamic_depth: "Optional[DIDType]" = None, vo: str = 'def', *, session: "Session") -> "dict[str, Any]":
     """
     Retrieve a single data did.
 

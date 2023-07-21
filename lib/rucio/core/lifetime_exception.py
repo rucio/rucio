@@ -35,7 +35,8 @@ from rucio.db.sqla.constants import DIDType, LifetimeExceptionsState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Iterator, List, Optional, Union
+    from collections.abc import Iterator
+    from typing import Any, Optional, Union
     from rucio.common.types import InternalAccount, InternalScope
     from sqlalchemy.orm import Session
 
@@ -43,10 +44,10 @@ if TYPE_CHECKING:
 @stream_session
 def list_exceptions(
         exception_id: 'Optional[str]',
-        states: 'List[LifetimeExceptionsState]',
+        states: 'list[LifetimeExceptionsState]',
         *,
         session: 'Session',
-) -> 'Iterator[Dict[str, Any]]':
+) -> 'Iterator[dict[str, Any]]':
     """
     List exceptions to Lifetime Model.
 
@@ -75,14 +76,14 @@ def list_exceptions(
 
 @transactional_session
 def add_exception(
-        dids: 'List[Dict[str, Any]]',
+        dids: 'list[dict[str, Any]]',
         account: 'InternalAccount',
         pattern: 'Optional[str]',
         comments: str,
         expires_at: 'Optional[Union[str, datetime]]',
         *,
         session: 'Session'
-) -> 'Dict[str, Any]':
+) -> 'dict[str, Any]':
     """
     Add exceptions to Lifetime Model.
 
@@ -149,7 +150,7 @@ def add_exception(
 
 @transactional_session
 def __add_exception(
-        dids: 'List[Dict[str, Any]]',
+        dids: 'list[dict[str, Any]]',
         account: 'InternalAccount',
         pattern: 'Optional[str]',
         comments: str,
@@ -267,7 +268,7 @@ def update_exception(
 def define_eol(
         scope: 'InternalScope',
         name: str,
-        rses: 'List[Dict[str, Any]]',
+        rses: 'list[dict[str, Any]]',
         *,
         session: 'Session',
 ) -> 'Optional[datetime]':

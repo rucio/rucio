@@ -33,7 +33,6 @@ import subprocess
 import tempfile
 import threading
 import time
-from typing import Tuple
 import zlib
 from collections import OrderedDict
 from enum import Enum
@@ -64,7 +63,8 @@ if EXTRA_MODULES['paramiko']:
         EXTRA_MODULES['paramiko'] = False
 
 if TYPE_CHECKING:
-    from typing import Callable, TypeVar
+    from collections.abc import Callable
+    from typing import TypeVar
 
     T = TypeVar('T')
 
@@ -435,7 +435,7 @@ def parse_response(data):
     return json.loads(data, object_hook=datetime_parser)
 
 
-def execute(cmd) -> Tuple[int, str, str]:
+def execute(cmd) -> tuple[int, str, str]:
     """
     Executes a command in a subprocess. Returns a tuple
     of (exitcode, out, err), where out is the string output

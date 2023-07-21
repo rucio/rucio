@@ -19,8 +19,9 @@ import json
 import logging
 import re
 import sys
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from traceback import format_tb
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, Mapping, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common.config import config_get, config_get_bool
 
@@ -90,7 +91,7 @@ def _navigate_path(obj: Any, path: Sequence[str]) -> Optional[Any]:
     return value
 
 
-def _unflatten_dict(dictionary: Dict[str, Any]) -> Dict[str, Any]:
+def _unflatten_dict(dictionary: dict[str, Any]) -> dict[str, Any]:
     """
     Transform a dict of the form
     {'a.b.c': value1, 'a.b.d': value2, 'z': value3}
@@ -117,7 +118,7 @@ def _unflatten_dict(dictionary: Dict[str, Any]) -> Dict[str, Any]:
     return ret
 
 
-def _get_request_data(request_path: Sequence[str]) -> "Callable[[LogDataSource, LogRecord], Iterator[Tuple[str, Optional[Any]]]]":
+def _get_request_data(request_path: Sequence[str]) -> "Callable[[LogDataSource, LogRecord], Iterator[tuple[str, Optional[Any]]]]":
     """
     Returns a function which, when called, will resolve the value
     in the flask request object at request_path
@@ -127,7 +128,7 @@ def _get_request_data(request_path: Sequence[str]) -> "Callable[[LogDataSource, 
     # TODO: move to top of file once we got rid of/refactored rsemanager
     from flask import has_request_context, request
 
-    def _request_data_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> Iterator[Tuple[str, Optional[Any]]]:
+    def _request_data_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> Iterator[tuple[str, Optional[Any]]]:
         value = None
         if has_request_context() and request_path:
             value = _navigate_path(request, request_path)
@@ -136,13 +137,13 @@ def _get_request_data(request_path: Sequence[str]) -> "Callable[[LogDataSource, 
     return _request_data_formatter
 
 
-def _get_record_attribute(attribute: str) -> "Callable[[LogDataSource, LogRecord], Iterator[Tuple[str, Optional[Any]]]]":
+def _get_record_attribute(attribute: str) -> "Callable[[LogDataSource, LogRecord], Iterator[tuple[str, Optional[Any]]]]":
     """
     Returns a function which, when called, will generate the value of the desired attribute from
     the record passed in argument.
     """
 
-    def _record_attribute_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> Iterator[Tuple[str, Optional[Any]]]:
+    def _record_attribute_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> Iterator[tuple[str, Optional[Any]]]:
         value = None
         try:
             value = getattr(record, attribute)
@@ -153,7 +154,7 @@ def _get_record_attribute(attribute: str) -> "Callable[[LogDataSource, LogRecord
     return _record_attribute_formatter
 
 
-def _timestamp_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> Iterator[Tuple[str, Optional[Any]]]:
+def _timestamp_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> Iterator[tuple[str, Optional[Any]]]:
     """
     Format a timestamp
     """
@@ -176,8 +177,8 @@ class LogDataSource:
     """
     def __init__(
             self,
-            ecs_fields: Tuple[str, ...],
-            formatter: "Optional[Callable[[LogDataSource, LogRecord], Iterator[Tuple[str, Optional[Any]]]]]" = None,
+            ecs_fields: tuple[str, ...],
+            formatter: "Optional[Callable[[LogDataSource, LogRecord], Iterator[tuple[str, Optional[Any]]]]]" = None,
             dst_record_attr: Optional[str] = None
     ):
         self.ecs_fields = ecs_fields
@@ -290,7 +291,7 @@ class RucioFormatter(logging.Formatter):
         if validate is not None:
             _kwargs["validate"] = validate
 
-        data_sources: Dict[str, LogDataSource] = dict(
+        data_sources: dict[str, LogDataSource] = dict(
             (ecs_field, LogDataSource((ecs_field,), formatter=_get_record_attribute(log_record)))
             for ecs_field, log_record in BUILTIN_FIELDS
         )

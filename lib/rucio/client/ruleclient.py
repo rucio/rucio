@@ -17,7 +17,7 @@ from json import dumps, loads
 
 from requests.status_codes import codes
 from urllib.parse import quote_plus
-from typing import Dict, List, Any, Optional, Union
+from typing import Any, Optional, Union
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
@@ -32,7 +32,7 @@ class RuleClient(BaseClient):
 
     def add_replication_rule(
         self,
-        dids: List[str],
+        dids: list[str],
         copies: int,
         rse_expression: str,
         priority: int = 3,
@@ -129,7 +129,7 @@ class RuleClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def update_replication_rule(self, rule_id: str, options: Dict[str, Any]):
+    def update_replication_rule(self, rule_id: str, options: dict[str, Any]):
         """
         :param rule_id:   The id of the rule to be retrieved.
         :param options:   Options dictionary.
@@ -212,7 +212,7 @@ class RuleClient(BaseClient):
 
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
-        options: Dict[str, Union[bool, str]] = {'approve': False}
+        options: dict[str, Union[bool, str]] = {'approve': False}
         if reason:
             options['comment'] = reason
         data = dumps({'options': options})

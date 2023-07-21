@@ -25,7 +25,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from random import randint
 from re import match
-from typing import TYPE_CHECKING, Tuple, Dict
+from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import DatabaseError
 
@@ -68,7 +68,7 @@ def undertaker(once: bool = False, sleep_time: int = 60, chunk_size: int = 10):
     )
 
 
-def run_once(paused_dids: Dict[Tuple, datetime], chunk_size: int, heartbeat_handler: HeartbeatHandler, **_kwargs):
+def run_once(paused_dids: dict[tuple, datetime], chunk_size: int, heartbeat_handler: HeartbeatHandler, **_kwargs):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     try:

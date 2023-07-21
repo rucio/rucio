@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime, timedelta
 from math import floor
 from urllib.parse import urlparse, parse_qs
-from typing import Dict, Tuple, Any, TYPE_CHECKING, Optional
+from typing import Any, TYPE_CHECKING, Optional
 
 from jwkest.jws import JWS
 from jwkest.jwt import JWT
@@ -75,7 +75,7 @@ LEEWAY_SECS = 120
 # --> check 'profile' info (requested profile scope)
 
 
-def __get_rucio_oidc_clients(keytimeout: int = 43200) -> Tuple[Dict, Dict]:
+def __get_rucio_oidc_clients(keytimeout: int = 43200) -> tuple[dict, dict]:
     """
     Creates a Rucio OIDC Client instances per Identity Provider (IdP)
     according to etc/idpsecrets.json configuration file.
@@ -147,7 +147,7 @@ def __initialize_oidc_clients() -> None:
 __initialize_oidc_clients()
 
 
-def __get_init_oidc_client(token_object: models.Token = None, token_type: str = None, **kwargs) -> Dict[Any, Any]:
+def __get_init_oidc_client(token_object: models.Token = None, token_type: str = None, **kwargs) -> dict[Any, Any]:
     """
     Get an OIDC client object, (re-)initialised with parameters corresponding
     to authorization flows used to get a token. For special cases - token refresh,
@@ -1173,7 +1173,7 @@ def __save_validated_token(token, valid_dict, extra_dict=None, *, session: "Sess
 
 
 @transactional_session
-def validate_jwt(json_web_token: str, *, session: "Session") -> "Dict[str, Any]":
+def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
     """
     Verifies signature and validity of a JSON Web Token.
     Gets the issuer public keys from the oidc_client
@@ -1200,7 +1200,7 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> "Dict[str, Any]"
     try:
 
         # getting issuer from the token payload
-        token_dict: "Optional[Dict[str, Any]]" = __get_rucio_jwt_dict(json_web_token, session=session)
+        token_dict: Optional[dict[str, Any]] = __get_rucio_jwt_dict(json_web_token, session=session)
         if not token_dict:
             raise CannotAuthenticate(traceback.format_exc())
         issuer = token_dict['identity'].split(", ")[1].split("=")[1]

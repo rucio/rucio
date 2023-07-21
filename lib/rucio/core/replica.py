@@ -60,8 +60,9 @@ from rucio.db.sqla.util import temp_table_mngr
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from rucio.rse.protocols.protocol import RSEProtocol
-    from typing import Any, Dict, List, Optional, Sequence, Tuple
+    from typing import Any, Optional
     from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=60)
@@ -730,7 +731,7 @@ def _get_list_replicas_protocols(
         schemes: "Sequence[str]",
         additional_schemes: "Sequence[str]",
         session: "Session"
-) -> "List[Tuple[str, RSEProtocol, int]]":
+) -> "list[tuple[str, RSEProtocol, int]]":
     """
     Select the protocols to be used by list_replicas to build the PFNs for all replicas on the given RSE
     """
@@ -784,7 +785,7 @@ def _build_list_replicas_pfn(
         path: str,
         sign_urls: bool,
         signature_lifetime: int,
-        client_location: "Dict[str, Any]",
+        client_location: "dict[str, Any]",
         logger=logging.log,
         *,
         session: "Session",
@@ -1017,15 +1018,15 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
 
 @stream_session
 def list_replicas(
-        dids: "Sequence[Dict[str, Any]]",
-        schemes: "Optional[List[str]]" = None,
+        dids: "Sequence[dict[str, Any]]",
+        schemes: "Optional[list[str]]" = None,
         unavailable: bool = False,
         request_id: "Optional[str]" = None,
         ignore_availability: bool = True,
         all_states: bool = False,
         pfns: bool = True,
         rse_expression: "Optional[str]" = None,
-        client_location: "Optional[Dict[str, Any]]" = None,
+        client_location: "Optional[dict[str, Any]]" = None,
         domain: "Optional[str]" = None,
         sign_urls: bool = False,
         signature_lifetime: "Optional[int]" = None,
@@ -1560,7 +1561,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
                                     dataset_meta=dataset_meta,
                                     session=session)
 
-    pfns = {}  # Dict[str, List[str]], {scheme: [pfns], scheme: [pfns]}
+    pfns = {}  # dict[str, list[str]], {scheme: [pfns], scheme: [pfns]}
     for file in files:
         if 'pfn' in file:
             scheme = file['pfn'].split(':')[0]

@@ -19,7 +19,8 @@ import logging
 import traceback
 import uuid
 from collections import namedtuple
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set, Union
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from sqlalchemy import and_, or_, update, select, delete, exists, insert
 from sqlalchemy.exc import IntegrityError
@@ -79,7 +80,7 @@ class RequestWithSources:
             adler32: str,
             byte_count: int,
             activity: str,
-            attributes: Union[str, None, Dict[str, Any]],
+            attributes: Optional[Union[str, dict[str, Any]]],
             previous_attempt_id: Optional[str],
             dest_rse_data: RseData,
             account: InternalAccount,
@@ -108,7 +109,7 @@ class RequestWithSources:
         self.transfertool = transfertool
         self.requested_at = requested_at if requested_at else datetime.datetime.utcnow()
 
-        self.sources: List[RequestSource] = []
+        self.sources: list[RequestSource] = []
         self.requested_source: Optional[RequestSource] = None
 
     def __str__(self):
@@ -355,14 +356,14 @@ def list_and_mark_transfer_requests_and_source_replicas(
         activity: Optional[str] = None,
         older_than: Optional[datetime.datetime] = None,
         rses: Optional[Sequence[str]] = None,
-        request_type: Optional[List[RequestType]] = None,
+        request_type: Optional[list[RequestType]] = None,
         request_state: Optional[RequestState] = None,
-        required_source_rse_attrs: Optional[List[str]] = None,
+        required_source_rse_attrs: Optional[list[str]] = None,
         ignore_availability: bool = False,
         transfertool: Optional[str] = None,
         *,
         session: "Session",
-) -> Dict[str, RequestWithSources]:
+) -> dict[str, RequestWithSources]:
     """
     List requests with source replicas
     :param rse_collection: the RSE collection being used
@@ -772,7 +773,7 @@ def update_request(
         staging_finished_at: Optional[datetime.datetime] = None,
         source_rse_id: Optional[str] = None,
         err_msg: Optional[str] = None,
-        attributes: Optional[Dict[str, str]] = None,
+        attributes: Optional[dict[str, str]] = None,
         priority: Optional[int] = None,
         transfertool: Optional[str] = None,
         *,
@@ -782,7 +783,7 @@ def update_request(
 
     rowcount = 0
     try:
-        update_items: Dict[Any, Any] = {
+        update_items: dict[Any, Any] = {
             models.Request.updated_at: datetime.datetime.utcnow()
         }
         if state is not None:
@@ -840,7 +841,7 @@ def set_request_state(
         staging_finished_at: Optional[datetime.datetime] = None,
         source_rse_id: Optional[str] = None,
         err_msg: Optional[str] = None,
-        attributes: Optional[Dict[str, str]] = None,
+        attributes: Optional[dict[str, str]] = None,
         *,
         session: "Session",
         logger=logging.log
@@ -1721,7 +1722,7 @@ def list_transfer_limits(
 
 def _sync_rse_transfer_limit(
         limit_id: Union[str, uuid.UUID],
-        desired_rse_ids: Set[str],
+        desired_rse_ids: set[str],
         *,
         session: "Session",
 ):

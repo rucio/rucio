@@ -19,20 +19,16 @@ import os
 import pathlib
 import re
 import sys
-import typing
 from collections import namedtuple
-from typing import TYPE_CHECKING
+from typing import TextIO
 
 import sh
-
-if TYPE_CHECKING:
-    from typing import List
 
 ANCHOR_PATTERN = re.compile(r"<a[^>]*>[^<]*</a>")
 
 
 class CommandErrorWrapper:
-    def __init__(self, procs: "List[sh.RunningCommand]"):
+    def __init__(self, procs: list[sh.RunningCommand]):
         self.procs = procs
 
     def __enter__(self):
@@ -93,7 +89,7 @@ def render_pydoc_markdown(rucio_src: str):
 
         return inner
 
-    def render(params: typing.List[RenderParams]):
+    def render(params: list[RenderParams]):
         python = sys.executable
         if not python:
             python = "python3"
@@ -167,8 +163,8 @@ def render_pydoc_markdown(rucio_src: str):
 
 
 def render_bin_help_pages(rucio_src: str):
-    out_files: typing.Dict[pathlib.Path, str] = {}
-    file_handles: typing.Dict[pathlib.Path, typing.TextIO] = {}
+    out_files: dict[pathlib.Path, str] = {}
+    file_handles: dict[pathlib.Path, TextIO] = {}
 
     def render_done(par: pathlib.Path):
         def inner(cmd, success, exit_code):

@@ -23,7 +23,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from re import match
 from string import Template
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 from os import path
 
 from dogpile.cache.api import NO_VALUE
@@ -69,7 +69,6 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-    from typing import List, Tuple
 
 
 REGION = make_region_memcached(expiration_time=900)
@@ -1182,7 +1181,7 @@ def get_rule(rule_id, *, session: "Session"):
 
 
 @transactional_session
-def update_rule(rule_id: str, options: Dict[str, Any], *, session: "Session") -> None:
+def update_rule(rule_id: str, options: dict[str, Any], *, session: "Session") -> None:
     """
     Update a rules options.
 
@@ -1550,7 +1549,7 @@ def reduce_rule(rule_id, copies, exclude_expression=None, *, session: "Session")
 
 
 @transactional_session
-def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, Any]] = None, *, session: "Session"):
+def move_rule(rule_id: str, rse_expression: str, override: Optional[dict[str, Any]] = None, *, session: "Session"):
     """
     Move a replication rule to another RSE and, once done, delete the original one.
 
@@ -3251,7 +3250,7 @@ def _create_recipients_list(rse_expression: str, filter_=None, *, session: "Sess
     :param session:         The database session in use.
     """
 
-    recipients: "List[Tuple]" = []  # (eMail, account)
+    recipients: list[tuple] = []  # (eMail, account)
 
     # APPROVERS-LIST
     # If there are accounts in the approvers-list of any of the RSEs only these should be used

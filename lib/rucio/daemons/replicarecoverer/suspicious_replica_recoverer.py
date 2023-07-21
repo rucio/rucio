@@ -27,7 +27,7 @@ import re
 import threading
 import time
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get_bool
@@ -56,7 +56,7 @@ GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'suspicious-replica-recoverer'
 
 
-def declare_suspicious_replicas_bad(once: bool = False, younger_than: int = 3, nattempts: int = 10, vos: Optional[List[str]] = None, limit_suspicious_files_on_rse: int = 5, json_file_name: str = "/opt/rucio/etc/suspicious_replica_recoverer.json", sleep_time: int = 3600, active_mode: bool = False) -> None:
+def declare_suspicious_replicas_bad(once: bool = False, younger_than: int = 3, nattempts: int = 10, vos: Optional[list[str]] = None, limit_suspicious_files_on_rse: int = 5, json_file_name: str = "/opt/rucio/etc/suspicious_replica_recoverer.json", sleep_time: int = 3600, active_mode: bool = False) -> None:
     """
     Main loop to check for available replicas which are labeled as suspicious.
 
@@ -99,7 +99,7 @@ def declare_suspicious_replicas_bad(once: bool = False, younger_than: int = 3, n
     )
 
 
-def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Optional[List[str]], limit_suspicious_files_on_rse: int, json_file_name: str, active_mode: int, **_kwargs) -> bool:
+def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Optional[list[str]], limit_suspicious_files_on_rse: int, json_file_name: str, active_mode: int, **_kwargs) -> bool:
 
     worker_number, total_workers, logger = heartbeat_handler.live()
 
@@ -444,7 +444,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
     return must_sleep
 
 
-def run(once: bool = False, younger_than: int = 3, nattempts: int = 10, vos: List[str] = None, limit_suspicious_files_on_rse: int = 5, json_file_name: str = "/opt/rucio/etc/suspicious_replica_recoverer.json", sleep_time: int = 3600, active_mode: bool = False) -> None:
+def run(once: bool = False, younger_than: int = 3, nattempts: int = 10, vos: list[str] = None, limit_suspicious_files_on_rse: int = 5, json_file_name: str = "/opt/rucio/etc/suspicious_replica_recoverer.json", sleep_time: int = 3600, active_mode: bool = False) -> None:
     """
     Starts up the Suspicious-Replica-Recoverer threads.
     """

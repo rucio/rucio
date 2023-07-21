@@ -24,31 +24,32 @@ import sys
 import time
 import traceback
 import uuid
+from collections.abc import Callable
 from datetime import datetime
-from typing import List, Dict, Optional, Callable
+from typing import Optional
 
 from suites import run, Container, rdbms_container, services, CumulativeContextManager, service_hostnames, env_args
 
 
-def matches(small: Dict, group: Dict):
+def matches(small: dict, group: dict):
     for key in small.keys():
         if key not in group or small[key] != group[key]:
             return False
     return True
 
 
-def stringify_dict(inp: Dict):
+def stringify_dict(inp: dict):
     return {str(k): str(v) for k, v in inp.items()}
 
 
-def find_image(images: Dict, case: Dict):
+def find_image(images: dict, case: dict):
     for image, idgroup in images.items():
         if matches(idgroup, case):
             return image
     raise RuntimeError("Could not find image for case " + str(case))
 
 
-def case_id(case: Dict) -> str:
+def case_id(case: dict) -> str:
     parts = [case["DIST"], 'py' + case["PYTHON"], case["SUITE"], case.get("RDBMS", "")]
     return '-'.join(filter(bool, parts))
 
@@ -57,7 +58,7 @@ def case_log(caseid, msg, file=sys.stderr):
     print(caseid, msg, file=file, flush=True)
 
 
-def run_tests(cases: List, images: Dict, tests: Optional[List[str]] = None):
+def run_tests(cases: list, images: dict, tests: Optional[list[str]] = None):
     use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
     parallel = 'PARALLEL_AUTOTESTS' in os.environ and os.environ['PARALLEL_AUTOTESTS'] == '1'
     failfast = 'PARALLEL_AUTOTESTS_FAILFAST' in os.environ and os.environ['PARALLEL_AUTOTESTS_FAILFAST'] == '1'
@@ -66,7 +67,7 @@ def run_tests(cases: List, images: Dict, tests: Optional[List[str]] = None):
     if parallel or copy_rucio_logs:
         logs_dir.mkdir(exist_ok=True)
 
-    def gen_case_kwargs(case: Dict):
+    def gen_case_kwargs(case: dict):
         use_httpd = case.get('RUN_HTTPD', True)
         return {
             'caseenv': stringify_dict(case),
@@ -116,7 +117,7 @@ def run_tests(cases: List, images: Dict, tests: Optional[List[str]] = None):
             run_case(**gen_case_kwargs(_case))
 
 
-def run_case_logger(run_case_kwargs: Dict, stdlog=sys.stderr):
+def run_case_logger(run_case_kwargs: dict, stdlog=sys.stderr):
     caseid = case_id(run_case_kwargs['caseenv'])
     case_log(caseid, 'started task. Logging to ' + repr(stdlog))
     defaultstderr = sys.stderr
@@ -149,7 +150,7 @@ def run_case_logger(run_case_kwargs: Dict, stdlog=sys.stderr):
     return True
 
 
-def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_logs, logs_dir: pathlib.Path, tests: List[str]):
+def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_logs, logs_dir: pathlib.Path, tests: list[str]):
     if use_namespace:
         namespace = str(uuid.uuid4())
         namespace_args = ['--namespace', namespace]
@@ -205,12 +206,12 @@ def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_lo
 
 
 def run_test_directly(
-    caseenv: Dict[str, str],
+    caseenv: dict[str, str],
     image: str,
     use_podman: bool,
     pod: str,
-    namespace_args: List[str],
-    tests: List[str],
+    namespace_args: list[str],
+    tests: list[str],
 ):
     pod_net_arg = ['--pod', pod] if use_podman else []
     scripts_to_run = ' && '.join(
@@ -251,15 +252,15 @@ def run_test_directly(
 
 
 def run_with_httpd(
-    caseenv: Dict[str, str],
+    caseenv: dict[str, str],
     image: str,
     use_podman: bool,
     pod: str,
-    namespace_args: List[str],
-    namespace_env: Dict[str, str],
+    namespace_args: list[str],
+    namespace_env: dict[str, str],
     copy_rucio_logs: bool,
     logs_dir: pathlib.Path,
-    tests: List[str],
+    tests: list[str],
 ) -> bool:
     pod_net_arg = ['--pod', pod] if use_podman else []
     # Running rucio container from given image

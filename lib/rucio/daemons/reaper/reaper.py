@@ -56,8 +56,9 @@ from rucio.daemons.common import run_daemon
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import FrameType
-    from typing import Any, Callable, Optional, Tuple
+    from typing import Any, Optional
 
     from rucio.daemons.common import HeartbeatHandler
 
@@ -308,7 +309,7 @@ def __try_reserve_worker_slot(heartbeat_handler: "HeartbeatHandler", rse: RseDat
     return rse_hostname_key
 
 
-def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> 'Tuple[int, bool]':
+def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> tuple[int, bool]:
     """
     Wrapper around __check_rse_usage which manages the cache entry.
     """
@@ -320,7 +321,7 @@ def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: "Callab
     return result
 
 
-def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> 'Tuple[int, bool]':
+def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> tuple[int, bool]:
     """
     Internal method to check RSE usage and limits.
 

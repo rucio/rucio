@@ -53,7 +53,6 @@ from rucio.tests.common_server import get_vo
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from typing import Tuple
     from .temp_factories import TemporaryDidFactory, TemporaryRSEFactory
 
 LOG = getLogger(__name__)
@@ -255,7 +254,7 @@ class TestCore:
         ]
     )
     def test_create_recipients_list(
-        self, param_type: str, param_group: "Tuple[str, str]",
+        self, param_type: str, param_group: tuple[str, str],
         vo, random_account, function_scope_prefix
     ):
         """

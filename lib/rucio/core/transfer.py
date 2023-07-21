@@ -46,7 +46,8 @@ from rucio.transfertool.globus import GlobusTransferTool
 from rucio.transfertool.mock import MockTransfertool
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Set, Tuple
+    from collections.abc import Callable, Generator, Iterable
+    from typing import Any, Optional
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
     from rucio.core.rse import RseData
@@ -281,7 +282,7 @@ class StageinTransferDefinition(DirectTransferDefinition):
         return self._legacy_sources
 
 
-def transfer_path_str(transfer_path: "List[DirectTransferDefinition]") -> str:
+def transfer_path_str(transfer_path: "list[DirectTransferDefinition]") -> str:
     """
     an implementation of __str__ for a transfer path, which is a list of direct transfers, so not really an object
     """
@@ -354,7 +355,7 @@ def mark_submitting(
 
 @transactional_session
 def ensure_db_sources(
-        transfer_path: "List[DirectTransferDefinition]",
+        transfer_path: "list[DirectTransferDefinition]",
         *,
         logger: "Callable",
         session: "Session",
@@ -542,16 +543,16 @@ def __create_transfer_definitions(
         topology: "Topology",
         protocol_factory: ProtocolFactory,
         rws: RequestWithSources,
-        sources: "List[RequestSource]",
+        sources: "list[RequestSource]",
         max_sources: int,
-        multi_source_sources: "List[RequestSource]",
-        limit_dest_schemes: "List[str]",
+        multi_source_sources: "list[RequestSource]",
+        limit_dest_schemes: list[str],
         operation_src: str,
         operation_dest: str,
         domain: str,
         *,
         session: "Session",
-) -> "Dict[str, List[DirectTransferDefinition]]":
+) -> "dict[str, list[DirectTransferDefinition]]":
     """
     Find the all paths from sources towards the destination of the given transfer request.
     Create the transfer definitions for each point-to-point transfer (multi-source, when possible)
@@ -670,12 +671,12 @@ def __create_transfer_definitions(
 
 def __create_stagein_definitions(
         rws: RequestWithSources,
-        sources: "List[RequestSource]",
-        limit_dest_schemes: "List[str]",
+        sources: "list[RequestSource]",
+        limit_dest_schemes: list[str],
         operation_src: str,
         operation_dest: str,
         protocol_factory: ProtocolFactory,
-) -> "Dict[str, List[StageinTransferDefinition]]":
+) -> "dict[str, list[StageinTransferDefinition]]":
     """
     for each source, create a single-hop transfer path with a one stageing definition inside
     """
@@ -714,7 +715,7 @@ def get_dsn(scope, name, dsn):
     return 'other'
 
 
-def __filter_multihops_with_intermediate_tape(candidate_paths: "Iterable[List[DirectTransferDefinition]]") -> "Generator[List[DirectTransferDefinition]]":
+def __filter_multihops_with_intermediate_tape(candidate_paths: "Iterable[list[DirectTransferDefinition]]") -> "Generator[list[DirectTransferDefinition]]":
     # Discard multihop transfers which contain a tape source as an intermediate hop
     for path in candidate_paths:
         if any(transfer.src.rse.is_tape_or_staging_required() for transfer in path[1:]):
@@ -724,9 +725,9 @@ def __filter_multihops_with_intermediate_tape(candidate_paths: "Iterable[List[Di
 
 
 def __compress_multihops(
-        candidate_paths: "Iterable[List[DirectTransferDefinition]]",
+        candidate_paths: "Iterable[list[DirectTransferDefinition]]",
         sources: "Iterable[RequestSource]",
-) -> "Generator[List[DirectTransferDefinition]]":
+) -> "Generator[list[DirectTransferDefinition]]":
     # Compress multihop transfers which contain other sources as part of itself.
     # For example: multihop A->B->C and B is a source, compress A->B->C into B->C
     source_rses = {s.rse.id for s in sources}
@@ -745,7 +746,7 @@ def __compress_multihops(
             yield path
 
 
-def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") -> "Generator[List[DirectTransferDefinition]]":
+def __sort_paths(candidate_paths: "Iterable[list[DirectTransferDefinition]]") -> "Generator[list[DirectTransferDefinition]]":
 
     def __transfer_order_key(transfer_path):
         # Reduce the priority of the tape sources. If there are any disk sources,
@@ -770,11 +771,11 @@ def build_transfer_paths(
         topology: "Topology",
         protocol_factory: "ProtocolFactory",
         requests_with_sources: "Iterable[RequestWithSources]",
-        admin_accounts: "Optional[Set[InternalAccount]]" = None,
-        schemes: "Optional[List[str]]" = None,
-        failover_schemes: "Optional[List[str]]" = None,
+        admin_accounts: "Optional[set[InternalAccount]]" = None,
+        schemes: "Optional[list[str]]" = None,
+        failover_schemes: "Optional[list[str]]" = None,
         max_sources: int = 4,
-        transfertools: "Optional[List[str]]" = None,
+        transfertools: "Optional[list[str]]" = None,
         requested_source_only: bool = False,
         preparer_mode: bool = False,
         *,
@@ -996,7 +997,7 @@ def __add_compatible_schemes(schemes, allowed_schemes):
 
 
 @read_session
-def list_transfer_admin_accounts(*, session: "Session") -> "Set[InternalAccount]":
+def list_transfer_admin_accounts(*, session: "Session") -> "set[InternalAccount]":
     """
     List admin accounts and cache the result in memory
     """
@@ -1058,12 +1059,12 @@ def cancel_transfer(transfertool_obj, transfer_id):
 
 @transactional_session
 def prepare_transfers(
-        candidate_paths_by_request_id: "Dict[str, List[List[DirectTransferDefinition]]]",
+        candidate_paths_by_request_id: "dict[str, list[list[DirectTransferDefinition]]]",
         logger: "LoggerFunction" = logging.log,
-        transfertools: "Optional[List[str]]" = None,
+        transfertools: "Optional[list[str]]" = None,
         *,
         session: "Session",
-) -> "Tuple[List[str], List[str]]":
+) -> tuple[list[str], list[str]]:
     """
     Update transfer requests according to preparer settings.
     """
@@ -1096,7 +1097,7 @@ def prepare_transfers(
             logger(logging.WARNING, '%s: all available sources were filtered', rws)
             continue
 
-        update_dict: Dict[Any, Any] = {
+        update_dict: dict[Any, Any] = {
             models.Request.state.name: _throttler_request_state(
                 activity=rws.activity,
                 source_rse=selected_source.rse,
@@ -1168,10 +1169,10 @@ def _throttler_request_state(activity, source_rse, dest_rse, *, session: "Sessio
 def get_supported_transfertools(
         source_rse: "RseData",
         dest_rse: "RseData",
-        transfertools: "Optional[List[str]]" = None,
+        transfertools: "Optional[list[str]]" = None,
         *,
         session: "Session",
-) -> "Set[str]":
+) -> set[str]:
 
     if not transfertools:
         transfertools = list(TRANSFERTOOL_CLASSES_BY_NAME)

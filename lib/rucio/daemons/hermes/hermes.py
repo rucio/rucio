@@ -50,8 +50,9 @@ from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import FrameType
-    from typing import Callable, Dict, List, Optional
+    from typing import Optional
 
     from rucio.daemons.common import HeartbeatHandler
 
@@ -314,7 +315,7 @@ def deliver_to_activemq(
     return to_delete
 
 
-def deliver_emails(messages: "List[Dict]", logger: "Callable") -> "List":
+def deliver_emails(messages: list[dict], logger: "Callable") -> list:
     """
     Sends emails
 
@@ -353,7 +354,7 @@ def deliver_emails(messages: "List[Dict]", logger: "Callable") -> "List":
     return to_delete
 
 
-def submit_to_elastic(messages: "List[Dict]", endpoint: str, logger: "Callable") -> int:
+def submit_to_elastic(messages: list[dict], endpoint: str, logger: "Callable") -> int:
     """
     Aggregate a list of message to ElasticSearch
 
@@ -373,7 +374,7 @@ def submit_to_elastic(messages: "List[Dict]", endpoint: str, logger: "Callable")
 
 
 def aggregate_to_influx(
-    messages: "List[Dict]", bin_size: int, endpoint: str, logger: "Callable"
+    messages: list[dict], bin_size: int, endpoint: str, logger: "Callable"
 ) -> int:
     """
     Aggregate a list of message using a certain bin_size

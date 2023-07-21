@@ -18,9 +18,9 @@ import logging
 import math
 import re
 import threading
+from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING
-from typing import Tuple, Dict, Callable
 
 from sqlalchemy.exc import DatabaseError
 
@@ -50,7 +50,7 @@ graceful_stop = threading.Event()
 DAEMON_NAME = 'minos'
 
 
-def __classify_bad_pfns(pfns: list) -> Tuple[Dict, Dict]:
+def __classify_bad_pfns(pfns: list) -> tuple[dict, dict]:
     """
     Function that takes a list of PFNs and classify them in 2 dictionaries : bad_replicas and temporary_unvailables
     :param pfns: List of PFNs

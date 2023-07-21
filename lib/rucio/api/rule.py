@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from rucio.api.permission import has_permission
 from rucio.common.config import config_get_bool
@@ -233,7 +233,7 @@ def delete_replication_rule(rule_id, purge_replicas, issuer, vo='def', *, sessio
 
 
 @transactional_session
-def update_replication_rule(rule_id: str, options: Dict[str, Any], issuer: str, vo: str = 'def', *, session: "Session"):
+def update_replication_rule(rule_id: str, options: dict[str, Any], issuer: str, vo: str = 'def', *, session: "Session"):
     """
     Update lock state of a replication rule.
 
