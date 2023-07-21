@@ -138,32 +138,72 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False, *
 
 
 @transactional_session
-def declare_suspicious_file_replicas(pfns, reason, issuer, vo='def', *, session: "Session"):
+def declare_suspicious_file_replicas(replicas, reason, issuer, vo='def', force=False, *, session: "Session"):
     """
-    Declare a list of bad replicas.
+    Declare a list of suspicious replicas.
 
-    :param pfns: The list of PFNs.
+    :param replicas: Either a list of PFNs (string) or a list of replicas {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or "rse": <rse_name>}.
+            If both rse_id and rse are present, rse will be ignored.
     :param reason: The reason of the loss.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
+    :param force: boolean, ignore existing replica status in the bad_replicas table. Default: False
     :param session: The database session in use.
     """
+
+    if not replicas:
+        return {}
+
     kwargs = {}
+    rse_map = {}                # RSE name -> RSE id
     if not permission.has_permission(issuer=issuer, vo=vo, action='declare_suspicious_file_replicas', kwargs=kwargs, session=session):
         raise exception.AccessDenied('Account %s can not declare suspicious replicas' % (issuer))
 
     issuer = InternalAccount(issuer, vo=vo)
 
-    replicas = replica.declare_bad_file_replicas(pfns, reason=reason, issuer=issuer, status=BadFilesStatus.SUSPICIOUS, session=session)
+    # make sure all elements are either strings or dicts, without mixing
+    type_ = type(replicas[0])
+    if any(not isinstance(r, type_) for r in replicas):
+        raise exception.InvalidType('The replicas must be specified either as a list of PFNs (strings) or list of dicts')
 
-    for k in list(replicas):
-        try:
-            rse = get_rse_name(rse_id=k, session=session)
-            replicas[rse] = replicas.pop(k)
-        except exception.RSENotFound:
-            pass
+    replicas_lst = replicas
+    if type_ is dict:
+        replicas_lst = []           # need to create new list to convert replica["scope"] from strings to InternalScope objects
+        for r in replicas:
+            if "name" not in r or "scope" not in r or ("rse" not in r and "rse_id" not in r):
+                raise exception.InvalidType('The replica dictionary must include scope and either rse (name) or rse_id')
+            scope = InternalScope(r['scope'], vo=vo)
+            rse_id = r.get("rse_id") or rse_map.get(r['rse'])
+            if rse_id is None:
+                rse = r["rse"]
+                rse_map[rse] = rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+            replicas_lst.append({
+                "scope": scope,
+                "rse_id": rse_id,
+                "name": r["name"]
+            })
 
-    return replicas
+    rse_id_to_name = invert_dict(rse_map)   # RSE id -> RSE name
+
+    undeclared = replica.declare_bad_file_replicas(replicas_lst, reason=reason, issuer=issuer, status=BadFilesStatus.SUSPICIOUS,
+                                                   force=force, session=session)
+    out = {}
+    for rse_id, ulist in undeclared.items():
+        if ulist:
+            rse_name = None
+            if rse_id == 'unknown':
+                rse_name = 'unknown'
+            elif rse_id in rse_id_to_name:
+                rse_name = rse_id_to_name[rse_id]
+            else:
+                try:
+                    uuid.UUID(rse_id)
+                    rse_name = get_rse_name(rse_id=rse_id, session=session)
+                except (ValueError, exception.RSENotFound):
+                    rse_name = str(rse_id)
+            if rse_name:
+                out[rse_name] = out.get(rse_name, []) + ulist
+    return out
 
 
 @stream_session

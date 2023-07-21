@@ -57,7 +57,7 @@ class ReplicaClient(BaseClient):
 
         :param replicas: Either a list of PFNs (string) or a list of dicts {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or 'rse': <rse_name>}
         :param reason: The reason of the loss.
-        :param force: boolean, tell the serrver to ignore existing replica status in the bad_replicas table. Default: False
+        :param force: boolean, tell the server to ignore existing replica status in the bad_replicas table. Default: False
         :returns: Dictionary {"rse_name": ["did: error",...]} - list of strings for DIDs failed to declare, by RSE
         """
 
@@ -93,21 +93,28 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def declare_suspicious_file_replicas(self, pfns, reason):
+    def declare_suspicious_file_replicas(self, replicas, reason, force=False):
         """
         Declare a list of bad replicas.
 
-        :param pfns: The list of PFNs.
+        :param replicas: Either a list of PFNs (string) or a list of dicts {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or 'rse': <rse_name>}
         :param reason: The reason of the loss.
+        :param force: boolean, tell the server to ignore existing replica status in the bad_replicas table. Default: False
         """
-        data = {'reason': reason, 'pfns': pfns}
-        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'suspicious']))
+        out = {}    # {rse: ["did: error text",...]}
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'bad']))
         headers = {}
-        r = self._send_request(url, headers=headers, type_='POST', data=dumps(data))
-        if r.status_code == codes.created:
-            return loads(r.text)
-        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-        raise exc_cls(exc_msg)
+        for chunk in chunks(replicas, self.REPLICAS_CHUNK_SIZE):
+            data = {'reason': reason, 'replicas': chunk, 'force': force}
+            r = self._send_request(url, headers=headers, type_='POST', data=dumps(data))
+            if r.status_code not in (codes.created, codes.ok):
+                exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+                raise exc_cls(exc_msg)
+            chunk_result = loads(r.text)
+            if chunk_result:
+                for rse, lst in chunk_result.items():
+                    out.setdefault(rse, []).extend(lst)
+        return out
 
     def get_did_from_pfns(self, pfns, rse=None):
         """
