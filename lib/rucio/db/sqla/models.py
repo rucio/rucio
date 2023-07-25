@@ -454,9 +454,9 @@ class DidMeta(BASE, ModelBase):
     scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
     meta: Mapped[Union[None, str, Dict[str, Any]]] = mapped_column(JSON())
-    did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='DID_META_DID_TYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj]))
+    did_type: Mapped[Optional[DIDType]] = mapped_column(Enum(DIDType, name='DID_META_DID_TYPE_CHK',
+                                                             create_constraint=True,
+                                                             values_callable=lambda obj: [e.value for e in obj]))
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DID_META_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_META_FK'),
                    Index('DID_META_DID_TYPE_IDX', 'did_type'))
