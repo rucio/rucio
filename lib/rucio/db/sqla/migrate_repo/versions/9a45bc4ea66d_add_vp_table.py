@@ -16,7 +16,6 @@
 ''' add VP table '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import create_primary_key, create_table, create_foreign_key, drop_table
 

@@ -17,13 +17,13 @@
 Core tracer module
 """
 
+import ipaddress
 import json
 import logging.handlers
 import random
 import socket
 
 import stomp
-import ipaddress
 from jsonschema import validate, ValidationError, Draft7Validator
 
 from rucio.common.config import config_get, config_get_int
@@ -31,7 +31,6 @@ from rucio.common.exception import InvalidObject
 from rucio.common.logging import rucio_log_formatter
 from rucio.common.schema.generic import UUID, TIME_ENTRY, IPv4orIPv6
 from rucio.core.monitor import MetricManager
-
 
 METRICS = MetricManager(module=__name__)
 

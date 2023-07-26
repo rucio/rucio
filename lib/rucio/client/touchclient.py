@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from json import dumps
+
 from requests import post
 
 from rucio.client.baseclient import BaseClient

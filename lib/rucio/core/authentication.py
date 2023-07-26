@@ -23,8 +23,8 @@ from base64 import b64decode
 from typing import TYPE_CHECKING
 
 import paramiko
-from dogpile.cache.api import NO_VALUE
 from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
 from sqlalchemy import and_, or_, select, delete
 
 from rucio.common.cache import make_region_memcached

@@ -15,10 +15,9 @@
 
 import json
 import os
-
+from configparser import NoOptionError, NoSectionError
 from functools import wraps
 
-from configparser import NoOptionError, NoSectionError
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 

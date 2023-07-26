@@ -16,13 +16,11 @@
 ''' added child_rule_id column '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import (create_foreign_key, add_column, create_index,
                         drop_constraint, drop_column, drop_index)
 
 from rucio.db.sqla.types import GUID
-
 
 # Alembic revision identifiers
 revision = '5f139f77382a'

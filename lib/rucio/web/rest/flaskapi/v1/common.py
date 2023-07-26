@@ -17,6 +17,7 @@ import itertools
 import json
 import logging
 import re
+from configparser import NoOptionError, NoSectionError
 from functools import wraps
 from time import time
 from typing import TYPE_CHECKING
@@ -28,13 +29,11 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers import Request, Response
 
 from rucio.api.authentication import validate_auth_token
+from rucio.common import config
 from rucio.common.exception import DatabaseException, RucioException, CannotAuthenticate, UnsupportedRequestedContentType
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
 from rucio.core.vo import map_vo
-from rucio.common import config
-from configparser import NoOptionError, NoSectionError
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence

@@ -24,7 +24,6 @@ from rucio.common.config import config_get, config_get_int
 from rucio.common.logging import rucio_log_formatter
 from rucio.core.monitor import MetricManager
 
-
 METRICS = MetricManager(module=__name__)
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())

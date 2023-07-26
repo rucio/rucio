@@ -29,9 +29,9 @@ from typing import TYPE_CHECKING
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.logging import setup_logging
 from rucio.common.exception import (DatabaseException, RuleNotFound, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientAccountLimit)
+from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.rule import inject_rule, get_injected_rules, update_rule
 from rucio.daemons.common import run_daemon

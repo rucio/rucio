@@ -16,12 +16,11 @@
 import copy
 import os
 import sys
-
 from functools import update_wrapper
 from inspect import isgeneratorfunction, getfullargspec
+from os.path import basename
 from threading import Lock
 from typing import TYPE_CHECKING
-from os.path import basename
 
 from sqlalchemy import create_engine, event, MetaData
 from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, TimeoutError
@@ -30,8 +29,8 @@ from sqlalchemy.pool import QueuePool, SingletonThreadPool, NullPool
 
 from rucio.common.config import config_get
 from rucio.common.exception import RucioException, DatabaseException, InputValidationError
-from rucio.common.utils import retrying
 from rucio.common.extra import import_extras
+from rucio.common.utils import retrying
 
 EXTRA_MODULES = import_extras(['MySQLdb', 'pymysql'])
 

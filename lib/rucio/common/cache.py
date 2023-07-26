@@ -15,6 +15,7 @@
 from __future__ import absolute_import
 
 from typing import TYPE_CHECKING
+
 from dogpile.cache import make_region
 
 from rucio.common.config import config_get

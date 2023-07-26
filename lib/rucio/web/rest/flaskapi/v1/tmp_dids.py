@@ -16,8 +16,8 @@
 from flask import Flask, request
 
 from rucio.api.temporary_did import add_temporary_dids
-from rucio.web.rest.flaskapi.v1.common import response_headers, ErrorHandlingMethodView, json_list
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.web.rest.flaskapi.v1.common import response_headers, ErrorHandlingMethodView, json_list
 
 
 class BulkDIDS(ErrorHandlingMethodView):

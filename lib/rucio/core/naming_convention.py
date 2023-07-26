@@ -14,14 +14,14 @@
 # limitations under the License.
 
 from re import match, compile, error
-from sqlalchemy.exc import IntegrityError
 from traceback import format_exc
 from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NO_VALUE
+from sqlalchemy.exc import IntegrityError
 
-from rucio.common.exception import Duplicate, RucioException, InvalidObject
 from rucio.common.cache import make_region_memcached
+from rucio.common.exception import Duplicate, RucioException, InvalidObject
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import KeyType
 from rucio.db.sqla.session import read_session, transactional_session

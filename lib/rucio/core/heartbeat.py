@@ -20,10 +20,10 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func
 from sqlalchemy.sql import distinct
 
-from rucio.db.sqla.models import Heartbeats
-from rucio.db.sqla.session import read_session, transactional_session
 from rucio.common.exception import DatabaseException
 from rucio.common.utils import pid_exists
+from rucio.db.sqla.models import Heartbeats
+from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

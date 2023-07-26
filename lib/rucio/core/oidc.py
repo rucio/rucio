@@ -14,17 +14,17 @@
 # limitations under the License.
 
 import json
+import logging
 import random
 import subprocess
-import logging
 import traceback
 from datetime import datetime, timedelta
-from math import floor
-from urllib.parse import urlparse, parse_qs
 from typing import Any, TYPE_CHECKING, Optional
+from urllib.parse import urlparse, parse_qs
 
 from jwkest.jws import JWS
 from jwkest.jwt import JWT
+from math import floor
 from oic import rndstr
 from oic.oauth2.message import CCAccessTokenRequest
 from oic.oic import Client, Grant, Token, REQUEST2ENDPOINT
@@ -35,12 +35,12 @@ from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from sqlalchemy import and_
 from sqlalchemy.sql.expression import true
 
+from rucio.common import types
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
                                     RucioException)
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import all_oidc_req_claims_present, build_url, val_to_space_sep_str
-from rucio.common import types
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
 from rucio.core.monitor import MetricManager

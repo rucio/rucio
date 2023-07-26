@@ -19,13 +19,12 @@ This script is to be used to background rebalance ATLAS t2 datadisks
 
 from sqlalchemy import or_
 
-from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse import get_rse_usage, get_rse_attribute
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.bb8.common import rebalance_rse
 from rucio.db.sqla import models
-from rucio.db.sqla.session import get_session
 from rucio.db.sqla.constants import RuleState
-
+from rucio.db.sqla.session import get_session
 
 tolerance = 0.15
 max_total_rebalance_volume = 200 * 1E12

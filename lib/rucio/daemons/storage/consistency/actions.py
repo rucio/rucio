@@ -24,12 +24,14 @@ import logging
 import os
 import re
 import socket
-import time
 import threading
+import time
 import traceback
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from datetime import datetime
+from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.orm.exc import FlushError
 
 from rucio.common import exception
 from rucio.common.logging import formatted_logger, setup_logging
@@ -40,15 +42,12 @@ from rucio.core.monitor import MetricManager
 from rucio.core.quarantined_replica import add_quarantined_replicas
 from rucio.core.replica import __exist_replicas, update_replicas_states
 from rucio.core.rse import list_rses, get_rse_id
-from rucio.rse.rsemanager import lfns2pfns, get_rse_info, parse_pfns
-
 # FIXME: these are needed by local version of declare_bad_file_replicas()
 # TODO: remove after move of this code to core/replica.py - see https://github.com/rucio/rucio/pull/5068
 from rucio.db.sqla import models
-from rucio.db.sqla.session import transactional_session
 from rucio.db.sqla.constants import (ReplicaState, BadFilesStatus)
-from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.orm.exc import FlushError
+from rucio.db.sqla.session import transactional_session
+from rucio.rse.rsemanager import lfns2pfns, get_rse_info, parse_pfns
 
 if TYPE_CHECKING:
     from types import FrameType

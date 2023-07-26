@@ -21,22 +21,21 @@ import os
 import random
 import shutil
 import signal
-import time
 import subprocess
-
+import time
 from queue import Queue, Empty, deque
 from threading import Thread
 
+from rucio import version
 from rucio.client.client import Client
 from rucio.common.config import config_get
-from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException)
 from rucio.common.didtype import DID
+from rucio.common.exception import (InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException)
 from rucio.common.pcache import Pcache
+from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_ALGO_DICT, PREFERRED_CHECKSUM
 from rucio.common.utils import adler32, detect_client_location, generate_uuid, parse_replicas_from_string, \
     send_trace, sizefmt, execute, parse_replicas_from_file, extract_scope
-from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_ALGO_DICT, PREFERRED_CHECKSUM
 from rucio.rse import rsemanager as rsemgr
-from rucio import version
 
 
 @enum.unique

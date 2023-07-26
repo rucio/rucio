@@ -30,8 +30,8 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.logging import setup_logging
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
+from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.rule import delete_rule, get_expired_rules
 from rucio.daemons.common import run_daemon

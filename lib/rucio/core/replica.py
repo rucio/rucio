@@ -15,7 +15,6 @@
 import copy
 import heapq
 import logging
-import math
 import random
 from collections import defaultdict, namedtuple
 from curses.ascii import isprint
@@ -25,9 +24,10 @@ from itertools import groupby
 from json import dumps
 from re import match
 from struct import unpack
-from typing import TYPE_CHECKING
 from traceback import format_exc
+from typing import TYPE_CHECKING
 
+import math
 import requests
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy import func, and_, or_, exists, not_, update, delete, insert, union
@@ -42,9 +42,9 @@ import rucio.core.lock
 from rucio.common import exception
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.constants import SuspiciousAvailability
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
-from rucio.common.constants import SuspiciousAvailability
 from rucio.core.credential import get_signed_url
 from rucio.core.message import add_messages
 from rucio.core.monitor import MetricManager

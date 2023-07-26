@@ -14,19 +14,18 @@
 # limitations under the License.
 
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from datetime import datetime
-
-from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import func
+from sqlalchemy.orm.exc import NoResultFound
 
-from rucio.common.config import config_get_int
-from rucio.common.exception import InsufficientTargetRSEs
-from rucio.core import account_counter, rse_counter, request as request_core
 import rucio.core.did
 import rucio.core.lock
 import rucio.core.replica
+from rucio.common.config import config_get_int
+from rucio.common.exception import InsufficientTargetRSEs
+from rucio.core import account_counter, rse_counter, request as request_core
 from rucio.core.rse import get_rse, get_rse_attribute, get_rse_name
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE

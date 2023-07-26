@@ -14,24 +14,24 @@
 # limitations under the License.
 
 import base64
+import json
 import logging
 import time
-import json
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from flask import Flask, Blueprint, request, Response, redirect, render_template
-from urllib.parse import urlparse
 from werkzeug.datastructures import Headers
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, \
     get_auth_token_ssh, get_ssh_challenge_token, validate_auth_token, get_auth_oidc, redirect_auth_oidc, \
     get_token_oidc, refresh_cli_auth_token, get_auth_token_saml
+from rucio.api.identity import list_accounts_for_identity, get_default_account, verify_identity
 from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, IdentityNotFound, CannotAuthenticate, CannotAuthorize
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
 from rucio.core.authentication import strip_x509_proxy_attributes
-from rucio.api.identity import list_accounts_for_identity, get_default_account, verify_identity
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, error_headers, \
     extract_vo, generate_http_error_flask, ErrorHandlingMethodView
 

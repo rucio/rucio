@@ -14,9 +14,8 @@
 # limitations under the License.
 
 import logging
-from typing import TYPE_CHECKING
-
 from abc import ABCMeta, abstractmethod
+from typing import TYPE_CHECKING
 
 from rucio.core.request import get_request
 

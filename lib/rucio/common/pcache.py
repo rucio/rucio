@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import errno
-import fcntl
 import getopt
 import os
 import re
@@ -24,9 +23,10 @@ import subprocess
 import sys
 import time
 from socket import gethostname
-
 from urllib.parse import urlencode
 from urllib.request import urlopen
+
+import fcntl
 
 # The pCache Version
 pcacheversion = "4.2.3"

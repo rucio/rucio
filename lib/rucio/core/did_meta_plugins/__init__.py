@@ -14,12 +14,11 @@
 # limitations under the License.
 
 import importlib
+from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING
 
 from rucio.common import config, exception
 from rucio.db.sqla.session import read_session, transactional_session
-
-from configparser import NoOptionError, NoSectionError
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

@@ -16,10 +16,8 @@
 ''' adding provenance and phys_group '''
 
 import sqlalchemy as sa
-
-from alembic.op import add_column, drop_column
 from alembic import context
-
+from alembic.op import add_column, drop_column
 
 # Alembic revision identifiers
 revision = '1803333ac20f'

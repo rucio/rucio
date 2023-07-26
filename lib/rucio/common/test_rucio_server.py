@@ -17,7 +17,6 @@ import unittest
 from os import remove
 from os.path import basename
 
-
 from rucio.common.utils import generate_uuid as uuid, execute
 
 

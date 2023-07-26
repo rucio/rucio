@@ -17,7 +17,6 @@ import copy
 import logging
 import random
 from time import sleep
-
 from urllib.parse import urlparse
 
 from rucio.common import exception, utils, constants

@@ -17,9 +17,9 @@ from flask import Flask, request, jsonify
 
 from rucio.api.meta import add_key, add_value, list_keys, list_values
 from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, UnsupportedKeyType
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, response_headers, \
     generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class Meta(ErrorHandlingMethodView):

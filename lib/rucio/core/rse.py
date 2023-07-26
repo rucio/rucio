@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from collections.abc import Iterator, Iterable
 from datetime import datetime
-import json
 from io import StringIO
 from re import match
 from typing import Any, Generic, Optional, TypeVar, Union, TYPE_CHECKING

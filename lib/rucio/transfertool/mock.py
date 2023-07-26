@@ -15,9 +15,9 @@
 
 import itertools
 import logging
+import uuid
 
 from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
-import uuid
 
 
 class MockTransfertool(Transfertool):

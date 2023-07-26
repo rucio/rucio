@@ -15,31 +15,25 @@
 
 import json
 import logging
-from typing import TYPE_CHECKING
-
 from configparser import NoOptionError
-
 from copy import deepcopy
 from datetime import datetime, timedelta
+from os import path
 from re import match
 from string import Template
 from typing import Any, Optional
-from os import path
+from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NO_VALUE
-
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import and_, or_, true, null, tuple_, false
 
-from rucio.core.account import has_account_attribute
 import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
-from rucio.common.policy import policy_filter, get_scratchdisk_lifetime
-
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
@@ -49,11 +43,13 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     InvalidObject, RSEWriteBlocked, RuleReplaceFailed, RequestNotFound,
                                     ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy, InvalidValueForKey,
                                     InvalidSourceReplicaExpression)
+from rucio.common.policy import policy_filter, get_scratchdisk_lifetime
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import str_to_date, sizefmt, chunks
 from rucio.core import account_counter, rse_counter, request as request_core, transfer as transfer_core
 from rucio.core.account import get_account
+from rucio.core.account import has_account_attribute
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager

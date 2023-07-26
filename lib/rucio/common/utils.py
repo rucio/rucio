@@ -23,7 +23,6 @@ import io
 import itertools
 import json
 import logging
-import mmap
 import os
 import os.path
 import re
@@ -33,24 +32,24 @@ import subprocess
 import tempfile
 import threading
 import time
-import zlib
 from collections import OrderedDict
+from configparser import NoOptionError, NoSectionError
 from enum import Enum
 from functools import partial, wraps
-from uuid import uuid4 as uuid
-from typing import TYPE_CHECKING
-from xml.etree import ElementTree
-
-import requests
 from io import StringIO
 from itertools import zip_longest
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
-from configparser import NoOptionError, NoSectionError
+from uuid import uuid4 as uuid
+from xml.etree import ElementTree
+
+import mmap
+import requests
+import zlib
 
 from rucio.common.config import config_get, config_has_section
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException, \
     DuplicateCriteriaInDIDFilter, DIDFilterSyntaxError, InvalidAlgorithmName, PolicyPackageVersionError
-
 from rucio.common.extra import import_extras
 from rucio.common.types import InternalAccount, InternalScope
 

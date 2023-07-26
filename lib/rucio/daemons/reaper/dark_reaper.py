@@ -26,6 +26,7 @@ import time
 import traceback
 from typing import TYPE_CHECKING
 
+import rucio.core.rse as rse_core
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get_bool
@@ -38,7 +39,6 @@ from rucio.core.monitor import MetricManager
 from rucio.core.quarantined_replica import (list_quarantined_replicas,
                                             delete_quarantined_replicas,
                                             list_rses_with_quarantined_replicas)
-import rucio.core.rse as rse_core
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
 from rucio.daemons.common import run_daemon

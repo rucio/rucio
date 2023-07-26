@@ -13,14 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from os import environ
-
+import importlib
 from configparser import NoOptionError, NoSectionError
+from os import environ
 
 from rucio.common import config, exception
 from rucio.common.utils import check_policy_package_version
-
-import importlib
 
 # dictionary of schema modules for each VO
 schema_modules = {}

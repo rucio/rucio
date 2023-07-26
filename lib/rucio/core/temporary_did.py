@@ -23,6 +23,7 @@ from rucio.core.did import attach_dids
 from rucio.core.replica import add_replica
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
+
 # from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:

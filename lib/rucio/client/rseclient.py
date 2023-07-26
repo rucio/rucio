@@ -14,9 +14,9 @@
 # limitations under the License.
 
 from json import dumps, loads
+from urllib.parse import quote
 
 from requests.status_codes import codes
-from urllib.parse import quote
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice

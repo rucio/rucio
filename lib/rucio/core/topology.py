@@ -22,9 +22,9 @@ from typing import TYPE_CHECKING, cast, Any, Generic, Optional, TypeVar, Union
 
 from sqlalchemy import and_, select
 
-from rucio.common.utils import PriorityQueue
 from rucio.common.config import config_get_int, config_get
 from rucio.common.exception import NoDistance, RSEProtocolNotSupported, InvalidRSEExpression
+from rucio.common.utils import PriorityQueue
 from rucio.core.rse import RseCollection, RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models

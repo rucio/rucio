@@ -24,7 +24,6 @@ from json import loads, dumps
 from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
-from rucio.db.sqla.constants import DIDType, SubscriptionState
 from rucio.common.config import config_get
 from rucio.common.exception import (
     DatabaseException,
@@ -43,14 +42,15 @@ from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
-from rucio.core.monitor import MetricManager
 from rucio.core.did import list_new_dids, set_new_dids, get_metadata
+from rucio.core.monitor import MetricManager
 from rucio.core.rse import list_rses, rse_exists, get_rse_id, list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import resolve_rse_expression
 from rucio.core.rule import add_rule, list_rules, get_rule
 from rucio.core.subscription import list_subscriptions, update_subscription
 from rucio.daemons.common import run_daemon
+from rucio.db.sqla.constants import DIDType, SubscriptionState
 
 if TYPE_CHECKING:
     from types import FrameType

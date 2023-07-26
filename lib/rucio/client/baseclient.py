@@ -23,16 +23,16 @@ import os
 import random
 import sys
 import time
+from configparser import NoOptionError, NoSectionError
 from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
+from urllib.parse import urlparse
 
 from dogpile.cache import make_region
 from requests import Session, Response
 from requests.exceptions import ConnectionError
 from requests.status_codes import codes
-from configparser import NoOptionError, NoSectionError
-from urllib.parse import urlparse
 
 from rucio import version
 from rucio.common import exception

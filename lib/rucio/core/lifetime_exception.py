@@ -13,23 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from re import match
-from datetime import datetime, timedelta
 from configparser import NoSectionError
+from datetime import datetime, timedelta
+from re import match
 from typing import TYPE_CHECKING
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
+import rucio.common.policy
 from rucio.common.config import config_get, config_get_int, config_get_list
 from rucio.common.exception import RucioException, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, UnsupportedOperation, ConfigNotFound
 from rucio.common.utils import generate_uuid, str_to_date
-import rucio.common.policy
 from rucio.core.message import add_message
-
 from rucio.core.rse import list_rse_attributes
-
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, LifetimeExceptionsState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session

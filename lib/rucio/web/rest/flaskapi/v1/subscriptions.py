@@ -23,9 +23,9 @@ from rucio.api.subscription import list_subscriptions, add_subscription, update_
 from rucio.common.exception import InvalidObject, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound, \
     AccessDenied
 from rucio.common.utils import render_json, APIEncoder
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, \
     response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class Subscription(ErrorHandlingMethodView):

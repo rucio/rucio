@@ -20,7 +20,6 @@ along with some of the default methods for LFN2PFN translations.
 
 import hashlib
 import logging
-
 from configparser import NoOptionError, NoSectionError
 from urllib.parse import urlparse
 

@@ -24,6 +24,7 @@ import logging
 import operator
 import os
 import re
+
 from tabulate import tabulate
 
 from rucio.common.dumper import DUMPS_CACHE_DIR

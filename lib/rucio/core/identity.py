@@ -16,18 +16,18 @@
 import hashlib
 import os
 from re import match
+from typing import Optional
 from typing import TYPE_CHECKING
 
 from sqlalchemy import asc
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common import exception
+from rucio.common.types import InternalAccount
 from rucio.core.account import account_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
-from rucio.common.types import InternalAccount
-from typing import Optional
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

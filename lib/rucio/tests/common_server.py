@@ -23,7 +23,6 @@ from rucio.db.sqla import models
 from rucio.db.sqla.session import transactional_session, get_session
 from .common import get_long_vo
 
-
 # Functions containing server-only includes that can't be included in client tests
 # For each table, get the foreign key constraints from all other tables towards this table.
 INBOUND_FOREIGN_KEYS = {}

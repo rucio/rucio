@@ -24,6 +24,7 @@ import re
 import threading
 from types import FrameType
 from typing import TYPE_CHECKING, Optional
+from urllib.parse import urlparse
 
 from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError
@@ -43,8 +44,6 @@ from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager
-
-from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler

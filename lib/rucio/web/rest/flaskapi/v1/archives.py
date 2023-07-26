@@ -18,9 +18,9 @@ from json import dumps
 from flask import Flask, request
 
 from rucio.api.did import list_archive_content
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     parse_scope_name, try_stream, generate_http_error_flask, ErrorHandlingMethodView
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class Archive(ErrorHandlingMethodView):

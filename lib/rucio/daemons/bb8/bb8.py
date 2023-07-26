@@ -26,12 +26,11 @@ from typing import TYPE_CHECKING
 from rucio.common.config import config_get_float
 from rucio.common.exception import InvalidRSEExpression
 from rucio.common.logging import setup_logging
-from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.heartbeat import sanity_check, list_payload_counts
 from rucio.core.rse import get_rse_usage
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.bb8.common import rebalance_rse, get_active_locks
 from rucio.daemons.common import run_daemon
-
 
 if TYPE_CHECKING:
     from types import FrameType

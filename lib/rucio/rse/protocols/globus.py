@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import logging
-
 from urllib.parse import urlparse
 
 from rucio.common import exception

@@ -17,10 +17,11 @@
 import importlib
 
 from flask import Flask
-from rucio.web.rest.flaskapi.v1.common import CORSMiddleware
+
 from rucio.common.config import config_get
 from rucio.common.exception import ConfigurationError
 from rucio.common.logging import setup_logging
+from rucio.web.rest.flaskapi.v1.common import CORSMiddleware
 
 DEFAULT_ENDPOINTS = [
     'accountlimits',
