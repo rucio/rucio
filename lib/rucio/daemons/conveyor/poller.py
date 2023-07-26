@@ -34,14 +34,14 @@ from sqlalchemy.exc import DatabaseError
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
-from rucio.common.types import InternalAccount
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
+from rucio.common.types import InternalAccount
 from rucio.common.utils import dict_chunks
 from rucio.core import transfer as transfer_core, request as request_core
 from rucio.core.monitor import MetricManager
-from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
+from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 

@@ -25,27 +25,27 @@ import time
 import traceback
 from configparser import NoOptionError, NoSectionError
 from datetime import datetime, timedelta
-from math import log2
 from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NoValue
+from math import log2
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.cache import make_region_memcached
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import (DatabaseException, RSENotFound,
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
                                     VONotFound, RSEProtocolNotSupported)
 from rucio.common.logging import setup_logging
-from rucio.common.types import InternalAccount
 from rucio.common.stopwatch import Stopwatch
+from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
-from rucio.core.monitor import MetricManager
 from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import list_payload_counts
 from rucio.core.message import add_message
+from rucio.core.monitor import MetricManager
 from rucio.core.oidc import get_token_for_account_operation
 from rucio.core.replica import list_and_mark_unlocked_replicas, delete_replicas
 from rucio.core.rse import list_rses, RseData

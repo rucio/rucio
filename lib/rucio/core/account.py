@@ -25,7 +25,6 @@ from sqlalchemy.orm import exc
 
 import rucio.core.account_counter
 import rucio.core.rse
-
 from rucio.common import exception
 from rucio.common.config import config_get_bool
 from rucio.core.vo import vo_exists

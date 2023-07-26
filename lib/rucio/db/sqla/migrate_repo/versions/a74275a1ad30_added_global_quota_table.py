@@ -16,12 +16,11 @@
 ''' added global acount limits table '''
 
 import datetime
-import sqlalchemy as sa
 
+import sqlalchemy as sa
 from alembic import context
 from alembic.op import (create_primary_key, create_check_constraint,
                         create_table, drop_table, create_foreign_key)
-
 
 # Alembic revision identifiers
 revision = 'a74275a1ad30'

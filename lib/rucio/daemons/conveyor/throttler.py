@@ -17,13 +17,13 @@
 Conveyor throttler is a daemon to manage rucio internal queue.
 """
 import logging
-import math
 import threading
 import traceback
 from collections import defaultdict
 from types import FrameType
 from typing import TYPE_CHECKING, Optional
 
+import math
 from sqlalchemy import null
 
 import rucio.db.sqla.util
@@ -32,8 +32,8 @@ from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.request import (get_request_stats, release_all_waiting_requests, release_waiting_requests_fifo,
                                 release_waiting_requests_grouped_fifo, set_transfer_limit_stats, re_sync_all_transfer_limits)
-from rucio.core.transfer import applicable_rse_transfer_limits
 from rucio.core.rse import RseCollection
+from rucio.core.transfer import applicable_rse_transfer_limits
 from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
 from rucio.db.sqla.constants import RequestState, TransferLimitDirection
 

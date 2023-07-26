@@ -31,10 +31,10 @@ from rucio.common.stopwatch import Stopwatch
 from rucio.core.monitor import MetricManager
 from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas
 from rucio.core.topology import Topology, ExpiringObjectCache
-from rucio.core.transfer import DEFAULT_MULTIHOP_TOMBSTONE_DELAY, list_transfer_admin_accounts, transfer_path_str,\
+from rucio.core.transfer import DEFAULT_MULTIHOP_TOMBSTONE_DELAY, list_transfer_admin_accounts, transfer_path_str, \
     TRANSFERTOOL_CLASSES_BY_NAME, ProtocolFactory
-from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, pick_and_prepare_submission_path
 from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
+from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, pick_and_prepare_submission_path
 from rucio.db.sqla.constants import RequestType, RequestState
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool

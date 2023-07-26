@@ -18,12 +18,12 @@ import datetime
 import hmac
 import time
 from hashlib import sha1
+from urllib.parse import urlparse, urlencode
 
 import boto3
 from botocore.client import Config
 from dogpile.cache.api import NO_VALUE
 from google.oauth2.service_account import Credentials
-from urllib.parse import urlparse, urlencode
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, get_rse_credentials

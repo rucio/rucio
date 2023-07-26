@@ -27,9 +27,9 @@ from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RSEOper
     InvalidRSEExpression, RSEAttributeNotFound, CounterNotFound, InvalidPath, ReplicaNotFound, InputValidationError
 from rucio.common.utils import Availability, render_json, APIEncoder
 from rucio.rse import rsemanager
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class RSEs(ErrorHandlingMethodView):

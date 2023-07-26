@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
 from typing import TYPE_CHECKING
 
-from copy import deepcopy
+from rucio.common.exception import RSENotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import permission
 from rucio.core.rse import get_rse_id
-from rucio.common.exception import RSENotFound
 from rucio.db.sqla.session import read_session
 
 if TYPE_CHECKING:

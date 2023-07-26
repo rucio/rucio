@@ -16,10 +16,9 @@
 import datetime
 import logging
 import re
-from typing import TYPE_CHECKING
 from configparser import NoOptionError, NoSectionError
-
 from json import dumps
+from typing import TYPE_CHECKING
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, StatementError

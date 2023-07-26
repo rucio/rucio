@@ -16,10 +16,10 @@
 from typing import TYPE_CHECKING
 
 from rucio.api import permission
-from rucio.core import lifetime_exception
 from rucio.common import exception
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict
+from rucio.core import lifetime_exception
 from rucio.db.sqla.session import stream_session, transactional_session
 
 if TYPE_CHECKING:

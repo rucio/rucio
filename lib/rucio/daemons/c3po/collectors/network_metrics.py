@@ -16,6 +16,7 @@
 from json import loads
 
 from redis import StrictRedis
+
 from rucio.common.config import config_get, config_get_int
 
 

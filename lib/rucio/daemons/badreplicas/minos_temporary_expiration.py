@@ -15,12 +15,12 @@
 
 import functools
 import logging
-import math
 import re
 import threading
 import traceback
 from typing import TYPE_CHECKING
 
+import math
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
@@ -34,7 +34,6 @@ from rucio.core.replica import (update_replicas_states, get_replicas_state,
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
 from rucio.db.sqla.session import get_session
-
 
 if TYPE_CHECKING:
     from types import FrameType

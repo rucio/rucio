@@ -38,7 +38,6 @@ from rucio.core.scope import list_scopes
 from rucio.core.vo import map_vo
 from rucio.daemons.common import run_daemon
 
-
 if TYPE_CHECKING:
     from types import FrameType
     from typing import Optional

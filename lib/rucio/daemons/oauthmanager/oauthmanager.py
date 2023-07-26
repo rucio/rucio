@@ -42,8 +42,8 @@ from rucio.common.stopwatch import Stopwatch
 from rucio.core.authentication import delete_expired_tokens
 from rucio.core.monitor import MetricManager
 from rucio.core.oidc import delete_expired_oauthrequests, refresh_jwt_tokens
-from rucio.daemons.common import run_daemon
 from rucio.daemons.common import HeartbeatHandler
+from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
     from types import FrameType

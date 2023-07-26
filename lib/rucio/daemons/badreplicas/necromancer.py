@@ -18,14 +18,13 @@ import logging
 import re
 import threading
 import time
-from typing import TYPE_CHECKING
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
-from sqlalchemy.exc import DatabaseError
 from dogpile.cache.api import NO_VALUE
+from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.db.sqla.constants import ReplicaState
 from rucio.common import exception
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get_int
@@ -36,6 +35,7 @@ from rucio.core.replica import list_bad_replicas, get_replicas_state, get_bad_re
 from rucio.core.rule import (update_rules_for_lost_replica, update_rules_for_bad_replica,
                              get_evaluation_backlog)
 from rucio.daemons.common import run_daemon
+from rucio.db.sqla.constants import ReplicaState
 
 if TYPE_CHECKING:
     from types import FrameType

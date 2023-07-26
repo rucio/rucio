@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import operator
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
-import operator
 
 from sqlalchemy import update, inspect
 from sqlalchemy.exc import CompileError, InvalidRequestError

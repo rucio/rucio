@@ -18,11 +18,11 @@ RFIO protocol
 """
 
 import os
-
 from os.path import dirname
 from urllib.parse import urlparse
-from rucio.common.utils import execute
+
 from rucio.common import exception
+from rucio.common.utils import execute
 from rucio.rse.protocols import protocol
 
 

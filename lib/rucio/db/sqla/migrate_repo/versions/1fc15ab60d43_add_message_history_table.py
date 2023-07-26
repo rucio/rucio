@@ -18,7 +18,6 @@
 import datetime
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import create_table, drop_table
 

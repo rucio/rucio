@@ -14,10 +14,10 @@
 # limitations under the License.
 
 from json import dumps, loads
+from typing import Any, Optional, Union
+from urllib.parse import quote_plus
 
 from requests.status_codes import codes
-from urllib.parse import quote_plus
-from typing import Any, Optional, Union
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice

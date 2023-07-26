@@ -16,8 +16,8 @@
 import logging
 
 from rucio.common.utils import chunks
-from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 from rucio.db.sqla.constants import RequestState
+from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 from .globus_library import bulk_submit_xfer, submit_xfer, bulk_check_xfers
 
 

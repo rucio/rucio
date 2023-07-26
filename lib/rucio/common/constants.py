@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import namedtuple
 import enum
+from collections import namedtuple
 
 from rucio.common.config import config_get_bool
 

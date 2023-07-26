@@ -13,22 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import namedtuple
 import contextlib
 import itertools
 import json
 import os
-from random import choice, choices
-import requests
-from string import ascii_uppercase, ascii_letters, digits
 import tempfile
+from collections import namedtuple
+from random import choice, choices
+from string import ascii_uppercase, ascii_letters, digits
 from typing import Optional
 
 import pytest
+import requests
 
 from rucio.common.config import config_get, config_get_bool, get_config_dirs
 from rucio.common.utils import generate_uuid as uuid, execute
-
 
 skip_rse_tests_with_accounts = pytest.mark.skipif(not any(os.path.exists(os.path.join(d, 'rse-accounts.cfg')) for d in get_config_dirs()),
                                                   reason='fails if no rse-accounts.cfg found')

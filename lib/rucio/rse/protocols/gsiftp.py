@@ -15,6 +15,7 @@
 
 import json
 import os
+
 import requests
 
 from rucio.common import exception

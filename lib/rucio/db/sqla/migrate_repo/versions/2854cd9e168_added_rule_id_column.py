@@ -16,12 +16,10 @@
 ''' added_rule_id_column '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
 
 from rucio.db.sqla.types import GUID
-
 
 # Alembic revision identifiers
 revision = '2854cd9e168'

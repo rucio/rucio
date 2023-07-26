@@ -27,8 +27,8 @@ from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
-from typing import Any, Optional, TypeVar, Union
 from threading import Lock
+from typing import Any, Optional, TypeVar, Union
 
 from prometheus_client import (Counter, Gauge, Histogram, REGISTRY, CollectorRegistry, generate_latest, multiprocess,
                                push_to_gateway, start_http_server, values)

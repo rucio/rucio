@@ -17,11 +17,11 @@ import logging
 from operator import itemgetter
 from random import shuffle
 
+from rucio.common.exception import DataIdentifierNotFound
+from rucio.core.did import get_did
+from rucio.core.replica import list_dataset_replicas
 from rucio.daemons.c3po.collectors.agis import MappingCollector
 from rucio.daemons.c3po.collectors.workload import WorkloadCollector
-from rucio.common.exception import DataIdentifierNotFound
-from rucio.core.replica import list_dataset_replicas
-from rucio.core.did import get_did
 from rucio.db.sqla.constants import ReplicaState
 
 

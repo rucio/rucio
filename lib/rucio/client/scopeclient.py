@@ -14,9 +14,9 @@
 # limitations under the License.
 
 from json import loads
+from urllib.parse import quote_plus
 
 from requests.status_codes import codes
-from urllib.parse import quote_plus
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice

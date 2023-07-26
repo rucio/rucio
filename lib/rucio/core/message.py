@@ -14,14 +14,13 @@
 # limitations under the License.
 
 import json
-
 from typing import TYPE_CHECKING
 
 from sqlalchemy import or_, delete, update, insert
 from sqlalchemy.exc import IntegrityError
 
-from rucio.common.constants import HermesService, MAX_MESSAGE_LENGTH
 from rucio.common.config import config_get_list
+from rucio.common.constants import HermesService, MAX_MESSAGE_LENGTH
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import APIEncoder, chunks
 from rucio.db.sqla import filter_thread_work

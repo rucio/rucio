@@ -17,13 +17,12 @@
 Common utility functions for stomp connections
 """
 
+import logging
 import socket
 from time import monotonic
 from typing import TYPE_CHECKING
 
 from stomp import Connection
-
-import logging
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence

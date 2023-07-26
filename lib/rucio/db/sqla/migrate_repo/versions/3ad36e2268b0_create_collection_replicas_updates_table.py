@@ -18,7 +18,6 @@
 import datetime
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import (create_table, create_primary_key, add_column,
                         create_check_constraint, create_index,
@@ -26,7 +25,6 @@ from alembic.op import (create_table, create_primary_key, add_column,
 
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.types import GUID
-
 
 # Alembic revision identifiers
 revision = '3ad36e2268b0'

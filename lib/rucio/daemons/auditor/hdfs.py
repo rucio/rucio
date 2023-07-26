@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.common.dumper import DUMPS_CACHE_DIR
-from rucio.common.dumper import temp_file
-from rucio.common.dumper.data_models import Replica
 import hashlib
 import logging
 import os
@@ -23,6 +20,10 @@ import re
 import shutil
 import subprocess
 import tempfile
+
+from rucio.common.dumper import DUMPS_CACHE_DIR
+from rucio.common.dumper import temp_file
+from rucio.common.dumper.data_models import Replica
 
 
 def _hdfs_get(src_url, dst_path):

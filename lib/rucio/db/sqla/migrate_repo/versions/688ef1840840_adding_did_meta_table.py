@@ -16,12 +16,10 @@
 ''' adding did_meta table '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import create_primary_key, create_table, create_foreign_key, drop_table
 
 from rucio.db.sqla.types import JSON
-
 
 # Alembic revision identifiers
 revision = '688ef1840840'

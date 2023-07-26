@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
+from configparser import NoOptionError, NoSectionError
 from os import environ
 from typing import TYPE_CHECKING
 
-from configparser import NoOptionError, NoSectionError
 from rucio.common import config, exception
 from rucio.common.utils import check_policy_package_version
-
-import importlib
 
 if TYPE_CHECKING:
     from typing import Optional

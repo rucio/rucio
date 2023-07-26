@@ -20,16 +20,15 @@ import pathlib
 import traceback
 import uuid
 from collections.abc import Callable
+from configparser import NoOptionError, NoSectionError
+from json import loads
 from typing import Any, Optional, TYPE_CHECKING
 from urllib.parse import urlparse
 
 import requests
-from configparser import NoOptionError, NoSectionError
-from json import loads
+from dogpile.cache.api import NoValue
 from requests.adapters import ReadTimeout
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
-
-from dogpile.cache.api import NoValue
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
@@ -37,12 +36,12 @@ from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE, FTS_COMPLETE_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import APIEncoder, chunks, PREFERRED_CHECKSUM
+from rucio.core.monitor import MetricManager
+from rucio.core.oidc import get_token_for_account_operation
 from rucio.core.request import get_source_rse, get_transfer_error
 from rucio.core.rse import get_rse_supported_checksums_from_attributes
-from rucio.core.oidc import get_token_for_account_operation
-from rucio.core.monitor import MetricManager
-from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 from rucio.db.sqla.constants import RequestState
+from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 
 if TYPE_CHECKING:
     from rucio.core.transfer import DirectTransferDefinition

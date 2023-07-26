@@ -16,7 +16,6 @@
 ''' add didtype_chck to requests '''
 
 import sqlalchemy as sa
-
 from alembic import context, op
 from alembic.op import add_column, drop_column
 

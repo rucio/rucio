@@ -15,10 +15,10 @@
 
 import abc
 import re
+from hashlib import sha256
 from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NoValue
-from hashlib import sha256
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked

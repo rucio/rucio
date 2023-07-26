@@ -17,10 +17,9 @@ from typing import TYPE_CHECKING
 
 import rucio.api.permission
 import rucio.common.exception
-
-from rucio.core import scope as core_scope
-from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.schema import validate_schema
+from rucio.common.types import InternalAccount, InternalScope
+from rucio.core import scope as core_scope
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:

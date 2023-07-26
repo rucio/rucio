@@ -14,8 +14,8 @@
 # limitations under the License.
 
 import json
-import os
 import logging
+import os
 
 from rucio.common import exception
 from rucio.common.config import get_config_dirs

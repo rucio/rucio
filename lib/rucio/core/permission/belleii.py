@@ -15,18 +15,17 @@
 
 from typing import TYPE_CHECKING
 
+import rucio.core.scope
 from rucio.common.config import config_get
+from rucio.common.types import InternalScope, InternalAccount
+from rucio.core.account import has_account_attribute, list_account_attributes
 from rucio.core.did import get_metadata
+from rucio.core.identity import exist_identity_account
+from rucio.core.lifetime_exception import list_exceptions
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.lifetime_exception import list_exceptions
-import rucio.core.scope
-from rucio.core.account import has_account_attribute, list_account_attributes
-from rucio.core.identity import exist_identity_account
 from rucio.core.rule import get_rule
 from rucio.db.sqla.constants import IdentityType
-from rucio.common.types import InternalScope, InternalAccount
-
 
 if TYPE_CHECKING:
     from typing import Optional

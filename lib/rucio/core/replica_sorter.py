@@ -19,7 +19,6 @@ import socket
 import tarfile
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 from tempfile import TemporaryDirectory, TemporaryFile
 from typing import TYPE_CHECKING, Union
@@ -28,6 +27,7 @@ from urllib.parse import urlparse
 import geoip2.database
 import requests
 from dogpile.cache.api import NO_VALUE
+from math import asin, cos, radians, sin, sqrt
 
 from rucio.common import utils
 from rucio.common.cache import make_region_memcached

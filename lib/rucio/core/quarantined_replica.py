@@ -19,9 +19,9 @@ from typing import TYPE_CHECKING
 from sqlalchemy import and_, or_
 from sqlalchemy.sql.expression import false, insert
 
+from rucio.common.utils import chunks
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
-from rucio.common.utils import chunks
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

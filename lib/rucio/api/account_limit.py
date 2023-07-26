@@ -17,10 +17,8 @@ from typing import TYPE_CHECKING
 
 import rucio.api.permission
 import rucio.common.exception
-
-from rucio.common.utils import api_update_return_dict
 from rucio.common.types import InternalAccount
-
+from rucio.common.utils import api_update_return_dict
 from rucio.core import account_limit as account_limit_core
 from rucio.core.account import account_exists
 from rucio.core.rse import get_rse_id, get_rse_name

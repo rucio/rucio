@@ -20,7 +20,6 @@ import os
 import re
 import subprocess
 import urllib.parse as urlparse
-
 from threading import Timer
 
 from rucio.common import exception, config
