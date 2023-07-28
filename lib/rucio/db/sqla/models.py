@@ -952,10 +952,8 @@ class RSEFileAssociation(BASE, ModelBase):
                    CheckConstraint('STATE IS NOT NULL', name='REPLICAS_STATE_NN'),
                    CheckConstraint('bytes IS NOT NULL', name='REPLICAS_SIZE_NN'),
                    CheckConstraint('lock_cnt IS NOT NULL', name='REPLICAS_LOCK_CNT_NN'),
-                   Index('REPLICAS_TOMBSTONE_IDX', 'tombstone'),
                    Index('REPLICAS_PATH_IDX', 'path', mysql_length=get_schema_value('NAME_LENGTH')),
                    Index('REPLICAS_STATE_IDX', 'state'),
-                   Index('REPLICAS_RSE_ID_IDX', 'rse_id'),
                    Index('REPLICAS_RSE_ID_TOMBSTONE_IDX', 'rse_id', 'tombstone'))
 
 
