@@ -346,7 +346,8 @@ def attach_dids_to_dids(
     # (convert the list of dictionaries into a list of tuple, then to a set of tuple
     # to remove duplicates, then back to a list of unique dictionaries)
     parent_dids = [dict(tup) for tup in set(tuple(dictionary.items()) for dictionary in parent_dids)]
-    session.execute(insert(models.UpdatedDID), parent_dids)
+    if parent_dids:
+        session.execute(insert(models.UpdatedDID), parent_dids)
 
 
 def __add_files_to_archive(parent_did, files_temp_table, files, account, ignore_duplicate=False, *, session: "Session"):
