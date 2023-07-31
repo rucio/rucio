@@ -26,7 +26,7 @@ import threading
 import time
 from itertools import groupby
 from types import FrameType
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Mapping, Optional, Sequence
 
 from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
@@ -44,6 +44,7 @@ from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
 from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
+from rucio.transfertool.mock import MockTransfertool
 
 if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
@@ -60,12 +61,14 @@ def _fetch_requests(
         db_bulk,
         older_than,
         activity_shares,
+        transfertool,
+        filter_transfertool,
         activity,
         heartbeat_handler
 ):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
-    logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, FILTER_TRANSFERTOOL))
+    logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, filter_transfertool))
     transfs = request_core.get_and_mark_next(
         request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
         state=[RequestState.SUBMITTED],
@@ -78,12 +81,12 @@ def _fetch_requests(
         hash_variable='id',
         activity=activity,
         activity_shares=activity_shares,
-        transfertool=FILTER_TRANSFERTOOL,
+        transfertool=filter_transfertool,
     )
 
-    if TRANSFER_TOOL and not FILTER_TRANSFERTOOL:
+    if transfertool and not filter_transfertool:
         # only keep transfers which don't have any transfertool set, or have one equal to TRANSFER_TOOL
-        transfs_tmp = [t for t in transfs if not t['transfertool'] or t['transfertool'] == TRANSFER_TOOL]
+        transfs_tmp = [t for t in transfs if not t['transfertool'] or t['transfertool'] == transfertool]
         if len(transfs_tmp) != len(transfs):
             logger(logging.INFO, 'Skipping %i transfers because of missmatched transfertool', len(transfs) - len(transfs_tmp))
         transfs = transfs_tmp
@@ -104,6 +107,7 @@ def _handle_requests(
         fts_bulk,
         multi_vo,
         timeout,
+        transfertool,
         oidc_account: Optional[str],
         *,
         logger=logging.log,
@@ -120,8 +124,10 @@ def _handle_requests(
 
         for chunk in dict_chunks(transfers_by_eid, fts_bulk):
             try:
-                if TRANSFER_TOOL == 'globus':
-                    transfertool_obj = GlobusTransferTool(external_host=None)
+                if transfertool == 'mock':
+                    transfertool_obj = MockTransfertool(external_host=MockTransfertool.external_name)
+                elif transfertool == 'globus':
+                    transfertool_obj = GlobusTransferTool(external_host=GlobusTransferTool.external_name)
                 else:
                     account = None
                     if oidc_account:
@@ -136,15 +142,17 @@ def _handle_requests(
 
 
 def poller(
-        once=False,
-        activities=None,
-        sleep_time=60,
-        fts_bulk=100,
-        db_bulk=1000,
-        older_than=60,
-        activity_shares=None,
-        partition_wait_time=10,
-        total_threads=1
+        once: bool = False,
+        activities: Optional[Sequence[str]] = None,
+        sleep_time: int = 60,
+        fts_bulk: int = 100,
+        db_bulk: int = 1000,
+        older_than: int = 60,
+        activity_shares: Optional[Mapping[str, float]] = None,
+        partition_wait_time: int = 10,
+        transfertool: Optional[str] = TRANSFER_TOOL,
+        filter_transfertool: Optional[str] = FILTER_TRANSFERTOOL,
+        total_threads: int = 1,
 ):
     """
     Main loop to check the status of a transfer primitive with a transfertool.
@@ -160,13 +168,12 @@ def poller(
     executable = DAEMON_NAME
 
     if activities:
-        activities.sort()
+        activities = sorted(activities)
         executable += '--activities ' + str(activities)
     if activity_shares:
-        activities.sort()
-        executable += '--activity_shares' + str(activity_shares)
-    if FILTER_TRANSFERTOOL:
-        executable += ' --filter-transfertool ' + FILTER_TRANSFERTOOL
+        executable += '--activity_shares' + str(sorted(activity_shares))
+    if filter_transfertool:
+        executable += ' --filter-transfertool ' + filter_transfertool
 
     @db_workqueue(
         once=once,
@@ -181,6 +188,8 @@ def poller(
             db_bulk=db_bulk,
             older_than=older_than,
             activity_shares=activity_shares,
+            transfertool=transfertool,
+            filter_transfertool=filter_transfertool,
             activity=activity,
             heartbeat_handler=heartbeat_handler,
         )
@@ -192,6 +201,7 @@ def poller(
             multi_vo=multi_vo,
             timeout=timeout,
             oidc_account=oidc_account,
+            transfertool=transfertool,
         )
 
     ProducerConsumerDaemon(
@@ -216,7 +226,7 @@ def run(
         fts_bulk=100,
         db_bulk=1000,
         older_than=60,
-        activity_shares=None,
+        activity_shares: Optional[str] = None,
         total_threads=1
 ):
     """
@@ -227,24 +237,25 @@ def run(
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
+    parsed_activity_shares = None
     if activity_shares:
 
         try:
-            activity_shares = json.loads(activity_shares)
+            parsed_activity_shares = {str(activity): float(share) for activity, share in json.loads(activity_shares).items()}
         except Exception:
             logging.critical('activity share is not a valid JSON dictionary')
             return
 
         try:
-            if round(sum(activity_shares.values()), 2) != 1:
-                logging.critical('activity shares do not sum up to 1, got %s - aborting' % round(sum(activity_shares.values()), 2))
+            if round(sum(parsed_activity_shares.values()), 2) != 1:
+                logging.critical('activity shares do not sum up to 1, got %s - aborting' % round(sum(parsed_activity_shares.values()), 2))
                 return
         except Exception:
             logging.critical('activity shares are not numbers? - aborting')
             return
 
-        activity_shares.update((share, int(percentage * db_bulk)) for share, percentage in activity_shares.items())
-        logging.info('activity shares enabled: %s' % activity_shares)
+        parsed_activity_shares.update((share, int(percentage * db_bulk)) for share, percentage in parsed_activity_shares.items())
+        logging.info('activity shares enabled: %s' % parsed_activity_shares)
 
     poller(
         once=once,
@@ -253,7 +264,7 @@ def run(
         older_than=older_than,
         sleep_time=sleep_time,
         activities=activities,
-        activity_shares=activity_shares,
+        activity_shares=parsed_activity_shares,
         total_threads=total_threads,
     )
 

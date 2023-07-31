@@ -16,8 +16,32 @@
 import itertools
 import logging
 import uuid
+from typing import TYPE_CHECKING, Any, Optional, Sequence
 
-from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
+from rucio.db.sqla.constants import RequestState
+from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
+
+if TYPE_CHECKING:
+    from rucio.db.sqla.session import Session
+
+
+class MockTransferStatusReport(TransferStatusReport):
+
+    supported_db_fields = [
+        'state',
+        'external_id'
+    ]
+
+    def __init__(self, request_id: str, external_id: str):
+        super().__init__(request_id)
+        self.state = RequestState.DONE
+        self.external_id = external_id
+
+    def initialize(self, session: "Session", logger=logging.log):
+        pass
+
+    def get_monitor_msg_fields(self, session: "Session", logger=logging.log):
+        return {}
 
 
 class MockTransfertool(Transfertool):
@@ -30,7 +54,7 @@ class MockTransfertool(Transfertool):
     external_name = 'mock'
     required_rse_attrs = ()
 
-    def __init__(self, external_host, logger=logging.log):
+    def __init__(self, external_host: str, logger=logging.log):
         super(MockTransfertool, self).__init__(external_host, logger)
 
     @classmethod
@@ -43,11 +67,18 @@ class MockTransfertool(Transfertool):
     def submit(self, files, job_params, timeout=None):
         return str(uuid.uuid1())
 
-    def query(self, transfer_ids, details=False, timeout=None):
+    def bulk_query(self, requests_by_eid: dict[str, dict[str, dict[str, Any]]], timeout: Optional[float] = None):
+        response = {}
+        for transfer_id, requests in requests_by_eid.items():
+            for request_id in requests:
+                response.setdefault(transfer_id, {})[request_id] = MockTransferStatusReport(request_id, transfer_id)
+        return response
+
+    def query(self, transfer_ids: Sequence[str], details: bool = False, timeout: Optional[float] = None):
         return [{'status': 'ok'}]
 
-    def cancel(self, transfer_ids, timeout=None):
+    def cancel(self, transfer_ids: Sequence[str], timeout: Optional[float] = None):
         return True
 
-    def update_priority(self, transfer_id, priority, timeout=None):
+    def update_priority(self, transfer_id: str, priority: int, timeout: Optional[float] = None):
         return True
