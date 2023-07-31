@@ -54,7 +54,7 @@ MAX_POLL_WAIT_SECONDS = 60
 TEST_FTS_HOST = 'https://fts:8446'
 
 
-def __wait_for_replica_transfer(dst_rse_id, scope, name, state=ReplicaState.AVAILABLE, max_wait_seconds=MAX_POLL_WAIT_SECONDS):
+def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=MAX_POLL_WAIT_SECONDS):
     """
     Wait for the replica to become AVAILABLE on the given RSE as a result of a pending transfer
     """
@@ -63,13 +63,13 @@ def __wait_for_replica_transfer(dst_rse_id, scope, name, state=ReplicaState.AVAI
         poller(once=True, older_than=0, partition_wait_time=0)
         finisher(once=True, partition_wait_time=0)
         replica = replica_core.get_replica(rse_id=dst_rse_id, scope=scope, name=name)
-        if replica['state'] == state:
+        if replica['state'] != ReplicaState.COPYING:
             break
         time.sleep(1)
     return replica
 
 
-def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MAX_POLL_WAIT_SECONDS, run_poller=True):
+def __wait_for_state_transition(dst_rse_id, scope, name, max_wait_seconds=MAX_POLL_WAIT_SECONDS, run_poller=True):
     """
     Wait for the request state to be updated to the given expected state as a result of a pending transfer
     """
@@ -78,7 +78,7 @@ def __wait_for_request_state(dst_rse_id, scope, name, state, max_wait_seconds=MA
         if run_poller:
             poller(once=True, older_than=0, partition_wait_time=0)
         request = request_core.get_request_by_did(rse_id=dst_rse_id, scope=scope, name=name)
-        if request['state'] == state:
+        if request['state'] != RequestState.SUBMITTED:
             break
         time.sleep(1)
     return request
@@ -256,7 +256,7 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
-    request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, **did)
+    request = __wait_for_state_transition(dst_rse_id=dst_rse_id, **did)
     assert 'Unused hop in multi-hop' in request['err_msg']
     assert request['state'] == RequestState.FAILED
     request = request_core.get_request_by_did(rse_id=jump_rse_id, **did)
@@ -318,7 +318,7 @@ def test_fts_recoverable_failures_handled_on_multihop(vo, did_factory, root_acco
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
-    request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, **did)
+    request = __wait_for_state_transition(dst_rse_id=dst_rse_id, **did)
     assert request['state'] == RequestState.FAILED
     request = request_core.get_request_by_did(rse_id=jump_rse_id, **did)
     assert request['state'] == RequestState.FAILED
@@ -374,7 +374,7 @@ def test_multisource(vo, did_factory, root_account, replica_client, caches_mock,
     assert request['source_rse_id'] == src_rse2_id
 
     # The source_rse must be updated to the correct one
-    request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.DONE, **did)
+    request = __wait_for_state_transition(dst_rse_id=dst_rse_id, **did)
     assert request['source_rse'] == src_rse1
     assert request['source_rse_id'] == src_rse1_id
 
@@ -498,9 +498,9 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
-        request = __wait_for_request_state(dst_rse_id=jump_rse_id, state=RequestState.FAILED, run_poller=False, **did)
+        request = __wait_for_state_transition(dst_rse_id=jump_rse_id, run_poller=False, **did)
         assert request['state'] == RequestState.FAILED
-        request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.FAILED, run_poller=False, **did)
+        request = __wait_for_state_transition(dst_rse_id=dst_rse_id, run_poller=False, **did)
         assert request['state'] == RequestState.FAILED
         assert 'Unused hop in multi-hop' in request['err_msg']
 
@@ -550,9 +550,9 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
         rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None, priority=rule_priority)
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
-        request = __wait_for_request_state(dst_rse_id=jump_rse_id, state=RequestState.DONE, run_poller=False, **did)
+        request = __wait_for_state_transition(dst_rse_id=jump_rse_id, run_poller=False, **did)
         assert request['state'] == RequestState.DONE
-        request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.DONE, run_poller=False, **did)
+        request = __wait_for_state_transition(dst_rse_id=dst_rse_id, run_poller=False, **did)
         assert request['state'] == RequestState.DONE
 
         fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query({request['external_id']: {request['id']: request}})
@@ -715,9 +715,9 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
     request = request_core.get_request_by_did(rse_id=dst_rse_id1, **waiting_did)
     assert request['state'] == RequestState.WAITING
 
-    request = __wait_for_request_state(dst_rse_id=dst_rse_id1, state=RequestState.DONE, **queued_did)
+    request = __wait_for_state_transition(dst_rse_id=dst_rse_id1, **queued_did)
     assert request['state'] == RequestState.DONE
-    request = __wait_for_request_state(dst_rse_id=dst_rse_id2, state=RequestState.DONE, **did1)
+    request = __wait_for_state_transition(dst_rse_id=dst_rse_id2, **did1)
     assert request['state'] == RequestState.DONE
 
     # Now that the submitted transfers are finished, the WAITING one can be queued
@@ -958,7 +958,7 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
     __update_request(request['id'], external_id='some-fake-random-id')
 
     # The request must be marked lost
-    request = __wait_for_request_state(dst_rse_id=dst_rse_id, state=RequestState.LOST, **did)
+    request = __wait_for_state_transition(dst_rse_id=dst_rse_id, **did)
     assert request['state'] == RequestState.LOST
 
     # Set update time far in the past to bypass protections (not resubmitting too fast).
@@ -1116,10 +1116,10 @@ def test_overwrite_on_tape(overwrite_on_tape_topology, caches_mock):
 
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
-    request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)
+    request = __wait_for_state_transition(dst_rse_id=rse3_id, **did1)
     assert request['state'] == RequestState.FAILED
     assert 'Destination file exists and overwrite is not enabled' in request['err_msg']
-    request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did2)
+    request = __wait_for_state_transition(dst_rse_id=rse3_id, **did2)
     assert request['state'] == RequestState.FAILED
     assert 'Destination file exists and overwrite is not enabled' in request['err_msg']
 
@@ -1155,19 +1155,19 @@ def test_overwrite_hops(overwrite_on_tape_topology, caches_mock, did_factory, fi
     fts_schema_version = FTS3Transfertool(external_host=TEST_FTS_HOST).version()['schema']['major']
     if fts_schema_version >= 8:
         # Newer fts version will honor the overwrite_hop
-        request = __wait_for_request_state(dst_rse_id=rse2_id, state=RequestState.DONE, **did1)
+        request = __wait_for_state_transition(dst_rse_id=rse2_id, **did1)
         assert request['state'] == RequestState.DONE
-        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)
+        request = __wait_for_state_transition(dst_rse_id=rse3_id, **did1)
         assert request['state'] == RequestState.FAILED
         assert 'Destination file exists and overwrite is not enabled' in request['err_msg']
     else:
         # FTS only recently introduced the overwrite_hops parameter. It will be ignored on old
         # fts versions and the first hop will fail with the  file exists error
         # TODO: remove this else after FTS 3.12 release and after updating rucio/fts container with the new release
-        request = __wait_for_request_state(dst_rse_id=rse2_id, state=RequestState.FAILED, **did1)
+        request = __wait_for_state_transition(dst_rse_id=rse2_id, **did1)
         assert request['state'] == RequestState.FAILED
         assert 'Destination file exists and overwrite is not enabled' in request['err_msg']
-        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)
+        request = __wait_for_state_transition(dst_rse_id=rse3_id, **did1)
         assert request['state'] == RequestState.FAILED
         assert 'Unused hop in multi-hop' in request['err_msg']
 
@@ -1204,9 +1204,9 @@ def test_file_exists_handled(overwrite_on_tape_topology, caches_mock):
     with patch('rucio.daemons.conveyor.poller.FTS3Transfertool', _FTSWrapper):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
-        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.DONE, **did1)
+        request = __wait_for_state_transition(dst_rse_id=rse3_id, **did1)
         assert request['state'] == RequestState.DONE
-        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.DONE, **did2)
+        request = __wait_for_state_transition(dst_rse_id=rse3_id, **did2)
         assert request['state'] == RequestState.DONE
 
 
@@ -1245,9 +1245,9 @@ def test_overwrite_corrupted_files(overwrite_on_tape_topology, core_config_mock,
     with patch('rucio.daemons.conveyor.poller.FTS3Transfertool', _FTSWrapper):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=0, transfertype='single', filter_transfertool=None)
         # Both transfers must be marked as failed because the file size is incorrect
-        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)
+        request = __wait_for_state_transition(dst_rse_id=rse3_id, **did1)
         assert request['state'] == RequestState.FAILED
-        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did2)
+        request = __wait_for_state_transition(dst_rse_id=rse3_id, **did2)
         assert request['state'] == RequestState.FAILED
 
         # Re-submit the failed requests. They must fail again, because overwrite_corrupted_files is False
@@ -1261,9 +1261,9 @@ def test_overwrite_corrupted_files(overwrite_on_tape_topology, core_config_mock,
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=0, transfertype='single', filter_transfertool=None)
         # Set overwrite to True before running the poller or finisher
         core_config.set('transfers', 'overwrite_corrupted_files', True)
-        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did1)
+        request = __wait_for_state_transition(dst_rse_id=rse3_id, **did1)
         assert request['state'] == RequestState.FAILED
-        request = __wait_for_request_state(dst_rse_id=rse3_id, state=RequestState.FAILED, **did2)
+        request = __wait_for_state_transition(dst_rse_id=rse3_id, **did2)
         assert request['state'] == RequestState.FAILED
 
         # Re-submit one more time. Now the destination file must be overwritten
@@ -1398,7 +1398,7 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
     with patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': _FTSWrapper}):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
-    request = __wait_for_request_state(dst_rse_id=rse2_id, state=RequestState.FAILED, **did)
+    request = __wait_for_state_transition(dst_rse_id=rse2_id, **did)
     assert request['state'] == RequestState.FAILED
 
     # Re-submit the transfer without simulating a failure. Everything should go as normal starting now.
@@ -1490,16 +1490,16 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
     # Checksum verification disabled on this rse, so the transfer must use source validation and succeed
-    request = __wait_for_request_state(dst_rse_id=dst_rse1_id, state=RequestState.DONE, **did)
+    request = __wait_for_state_transition(dst_rse_id=dst_rse1_id, **did)
     assert request['state'] == RequestState.DONE
 
     # No common supported checksum between the source and destination rse. It will verify the destination rse checksum and fail
-    request = __wait_for_request_state(dst_rse_id=dst_rse2_id, state=RequestState.FAILED, **did)
+    request = __wait_for_state_transition(dst_rse_id=dst_rse2_id, **did)
     assert request['state'] == RequestState.FAILED
     assert 'User and destination checksums do not match' in request['err_msg']
 
     # Common checksum exists between the two. It must use "both" validation strategy and fail
-    request = __wait_for_request_state(dst_rse_id=dst_rse3_id, state=RequestState.FAILED, **did)
+    request = __wait_for_state_transition(dst_rse_id=dst_rse3_id, **did)
     assert 'Source and destination checksums do not match' in request['err_msg']
     assert request['state'] == RequestState.FAILED
 
