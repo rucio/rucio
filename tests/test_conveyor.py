@@ -801,9 +801,8 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
     assert replica['state'] == ReplicaState.AVAILABLE
 
 
-@skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.FINISHER])
-def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account):
+def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account, jdoe_account):
     """
     Test qos: transfer from tape to disk
     Assert rse maximum_pin_lifetime is passed to transfer tool in the transfer request
@@ -843,8 +842,8 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
         assert replica_core.get_replica(rse_id=rse_id, **did)['state'] == ReplicaState.AVAILABLE
 
     # now test a second rule, different account
-    set_local_account_limit(InternalAccount('jdoe'), dst_rse_id, bytes_=-1)
-    rule2_id = rule_core.add_rule(dids=[did], account=InternalAccount('jdoe'), copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
+    set_local_account_limit(jdoe_account, dst_rse_id, bytes_=-1)
+    rule2_id = rule_core.add_rule(dids=[did], account=jdoe_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
     assert request['request_type'] == RequestType.STAGEIN
@@ -866,9 +865,8 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
     assert rule_core.get_rule(rule2_id)['state'] == RuleState.OK
 
 
-@skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
-def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root_account):
+def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root_account, jdoe_account):
     """
     Test qos: transfer from tape to disk
     Assert rse maximum_pin_lifetime is passed to transfer tool in the transfer request
@@ -905,8 +903,8 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.STUCK
 
     # now test a second rule, different account
-    set_local_account_limit(InternalAccount('jdoe'), dst_rse_id, bytes_=-1)
-    rule2_id = rule_core.add_rule(dids=[did], account=InternalAccount('jdoe'), copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
+    set_local_account_limit(jdoe_account, dst_rse_id, bytes_=-1)
+    rule2_id = rule_core.add_rule(dids=[did], account=jdoe_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
     # since the first rule is STUCK assert a transfer not stagein
