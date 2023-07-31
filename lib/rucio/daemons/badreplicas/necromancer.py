@@ -73,7 +73,6 @@ def necromancer(bulk: int, once: bool = False, sleep_time: int = 60) -> None:
 
 def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> bool:
     worker_number, total_workers, logger = heartbeat_handler.live()
-    logger(logging.INFO, 'Graceful stop done')
     must_sleep = True
 
     # Check if there is a Judge Evaluator backlog
