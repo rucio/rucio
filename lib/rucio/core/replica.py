@@ -521,6 +521,7 @@ def get_bad_replicas_backlog(*, session: "Session"):
     :returns: a list of dictionary {'rse_id': cnt_bad_replicas}.
     """
     query = session.query(func.count(models.RSEFileAssociation.rse_id), models.RSEFileAssociation.rse_id). \
+        with_hint(models.RSEFileAssociation, 'INDEX(DIDS DIDS_PK) USE_NL(DIDS) INDEX_RS_ASC(REPLICAS ("REPLICAS"."STATE"))', 'oracle'). \
         filter(models.RSEFileAssociation.state == ReplicaState.BAD)
 
     query = query.join(models.DataIdentifier,
@@ -551,6 +552,7 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, rses=None, *
     query = session.query(models.RSEFileAssociation.scope,
                           models.RSEFileAssociation.name,
                           models.RSEFileAssociation.rse_id). \
+        with_hint(models.RSEFileAssociation, 'INDEX(DIDS DIDS_PK) USE_NL(DIDS) INDEX_RS_ASC(REPLICAS ("REPLICAS"."STATE"))', 'oracle'). \
         filter(models.RSEFileAssociation.state == ReplicaState.BAD)
 
     query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='%sreplicas.name' % (schema_dot))
