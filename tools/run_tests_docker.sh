@@ -100,9 +100,6 @@ else
     fi
 fi
 
-ls -lsa
-ls -lsa tests/
-
 echo 'Bootstrapping tests'
 tools/bootstrap_tests.py
 if [ $? != 0 ]; then
