@@ -54,13 +54,13 @@ MAX_POLL_WAIT_SECONDS = 60
 TEST_FTS_HOST = 'https://fts:8446'
 
 
-def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=MAX_POLL_WAIT_SECONDS):
+def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=MAX_POLL_WAIT_SECONDS, transfertool=None):
     """
     Wait for the replica to become AVAILABLE on the given RSE as a result of a pending transfer
     """
     replica = {}
     for _ in range(max_wait_seconds):
-        poller(once=True, older_than=0, partition_wait_time=0)
+        poller(once=True, older_than=0, partition_wait_time=0, transfertool=transfertool)
         finisher(once=True, partition_wait_time=0)
         replica = replica_core.get_replica(rse_id=dst_rse_id, scope=scope, name=name)
         if replica['state'] != ReplicaState.COPYING:
@@ -69,14 +69,14 @@ def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=MAX_PO
     return replica
 
 
-def __wait_for_state_transition(dst_rse_id, scope, name, max_wait_seconds=MAX_POLL_WAIT_SECONDS, run_poller=True):
+def __wait_for_state_transition(dst_rse_id, scope, name, max_wait_seconds=MAX_POLL_WAIT_SECONDS, run_poller=True, transfertool=None):
     """
     Wait for the request state to be updated to the given expected state as a result of a pending transfer
     """
     request = {}
     for _ in range(max_wait_seconds):
         if run_poller:
-            poller(once=True, older_than=0, partition_wait_time=0)
+            poller(once=True, older_than=0, partition_wait_time=0, transfertool=transfertool)
         request = request_core.get_request_by_did(rse_id=dst_rse_id, scope=scope, name=name)
         if request['state'] != RequestState.SUBMITTED:
             break
@@ -830,10 +830,8 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.REPLICATING
     assert rule_core.get_rule(rule1_id)['state'] == RuleState.REPLICATING
 
-    # mock a successful transfer
-    request = request_core.get_request(request_id=request['id'])
-    request_core.set_request_state(request_id=request['id'], state=RequestState.DONE, external_id=request['external_id'])
-    finisher(once=True, partition_wait_time=0)
+    replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, transfertool='mock', **did)
+    assert replica['state'] == ReplicaState.AVAILABLE
 
     assert rule_core.get_rule(rule1_id)['state'] == RuleState.OK
 
