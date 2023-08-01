@@ -21,7 +21,7 @@ import queue
 import socket
 import threading
 import time
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator, Iterator, Sequence
 from typing import Any, Generic, Optional, TypeVar, Union
 
 from rucio.common.logging import formatted_logger
@@ -109,8 +109,8 @@ class HeartbeatHandler:
 def _activity_looper(
         once: bool,
         sleep_time: int,
-        activities: Optional[list[str]],
-        logger,
+        activities: Optional[Sequence[str]],
+        heartbeat_handler: HeartbeatHandler,
 ) -> Generator[tuple[str, float], tuple[float, bool], None]:
     """
     Generator which loops (either once, or indefinitely) over all activities while ensuring that `sleep_time`
@@ -140,6 +140,7 @@ def _activity_looper(
         else:
             time_to_sleep = desired_exe_time - time.time()
 
+        logger = heartbeat_handler.logger
         if time_to_sleep > 0:
             if activity:
                 logger(logging.DEBUG, 'Switching to activity %s and sleeping %s seconds', activity, time_to_sleep)
@@ -169,7 +170,7 @@ def db_workqueue(
         executable: str,
         partition_wait_time: int,
         sleep_time: int,
-        activities: Optional[list[str]] = None,
+        activities: Optional[Sequence[str]] = None,
 ):
     """
     Used to wrap a function for interacting with the database as a work queue: i.e. to select
@@ -198,7 +199,7 @@ def db_workqueue(
                     graceful_stop.wait(partition_wait_time)
                     _, _, logger = heartbeat_handler.live(force_renew=True)
 
-                activity_loop = _activity_looper(once=once, sleep_time=sleep_time, activities=activities, logger=logger)
+                activity_loop = _activity_looper(once=once, sleep_time=sleep_time, activities=activities, heartbeat_handler=heartbeat_handler)
                 activity, time_to_sleep = next(activity_loop, (None, None))
                 while time_to_sleep is not None:
                     if graceful_stop.is_set():
@@ -276,7 +277,7 @@ class ProducerConsumerDaemon(Generic[T]):
     Daemon which connects N producers with M consumers via a queue.
     """
 
-    def __init__(self, producers, consumers, graceful_stop):
+    def __init__(self, producers, consumers, graceful_stop, logger=logging.log):
         self.producers = producers
         self.consumers = consumers
 
@@ -285,6 +286,7 @@ class ProducerConsumerDaemon(Generic[T]):
         self.graceful_stop = graceful_stop
         self.active_producers = 0
         self.producers_done_event = threading.Event()
+        self.logger = logger
 
     def _produce(
             self,
@@ -308,10 +310,12 @@ class ProducerConsumerDaemon(Generic[T]):
 
                 try:
                     product = next(i)
+                    self.queue.put(product)
                 except StopIteration:
                     break
-
-                self.queue.put(product)
+                except Exception as e:
+                    METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
+                    self.logger(logging.CRITICAL, "Exception", exc_info=True)
         finally:
             with self.lock:
                 self.active_producers -= 1
@@ -339,6 +343,9 @@ class ProducerConsumerDaemon(Generic[T]):
 
             try:
                 fnc(product)
+            except Exception as e:
+                METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
+                self.logger(logging.CRITICAL, "Exception", exc_info=True)
             finally:
                 self.queue.task_done()
 
