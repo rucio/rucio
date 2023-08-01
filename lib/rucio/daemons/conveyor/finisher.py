@@ -41,10 +41,11 @@ from rucio.common.utils import chunks
 from rucio.core import request as request_core, replica as replica_core
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import list_rses
+from rucio.core.transfer import ProtocolFactory
+from rucio.core.topology import Topology, ExpiringObjectCache
 from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
 from rucio.db.sqla.session import transactional_session
-from rucio.rse import rsemanager
 
 if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
@@ -60,6 +61,7 @@ FAILED_DURING_SUBMISSION_DELAY = datetime.timedelta(minutes=120)
 def _fetch_requests(
         db_bulk,
         set_last_processed_by: bool,
+        cached_topology,
         heartbeat_handler,
         activity,
 ):
@@ -67,8 +69,11 @@ def _fetch_requests(
 
     logger(logging.DEBUG, 'Working on activity %s', activity)
 
+    topology = cached_topology.get() if cached_topology else Topology()
+
     get_requests_fnc = functools.partial(
         request_core.get_and_mark_next,
+        rse_collection=topology,
         request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
         processed_by=heartbeat_handler.short_executable if set_last_processed_by else None,
         limit=db_bulk,
@@ -100,17 +105,18 @@ def _fetch_requests(
     if len(reqs) < db_bulk / 2:
         logger(logging.INFO, "Only %s transfers, which is less than half of the bulk %s", len(reqs), db_bulk)
         must_sleep = True
-    return must_sleep, reqs
+    return must_sleep, (reqs, topology)
 
 
 def _handle_requests(
-        reqs,
+        batch,
         bulk,
         suspicious_patterns,
         retry_protocol_mismatches,
         *,
         logger=logging.log,
 ):
+    reqs, topology = batch
     if not reqs:
         return
 
@@ -122,7 +128,7 @@ def _handle_requests(
         for chunk in chunks(reqs, bulk):
             try:
                 stopwatch = Stopwatch()
-                _finish_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
+                _finish_requests(topology, chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
                 METRICS.timer('handle_requests_time').observe(stopwatch.elapsed / (len(chunk) or 1))
                 METRICS.counter('handle_requests').inc(len(chunk))
             except Exception as error:
@@ -144,6 +150,7 @@ def finisher(
         bulk=100,
         db_bulk=1000,
         partition_wait_time=10,
+        cached_topology=None,
         total_threads=1,
 ):
     """
@@ -172,14 +179,15 @@ def finisher(
     def _db_producer(*, activity: str, heartbeat_handler: "HeartbeatHandler"):
         return _fetch_requests(
             db_bulk=db_bulk,
+            cached_topology=cached_topology,
             activity=activity,
             set_last_processed_by=not once,
             heartbeat_handler=heartbeat_handler,
         )
 
-    def _consumer(reqs):
+    def _consumer(batch):
         return _handle_requests(
-            reqs=reqs,
+            batch=batch,
             bulk=bulk,
             suspicious_patterns=suspicious_patterns,
             retry_protocol_mismatches=retry_protocol_mismatches,
@@ -209,17 +217,19 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
+    cached_topology = ExpiringObjectCache(ttl=300, new_obj_fnc=lambda: Topology())
     finisher(
         once=once,
         activities=activities,
         bulk=bulk,
         db_bulk=db_bulk,
         sleep_time=sleep_time,
+        cached_topology=cached_topology,
         total_threads=total_threads
     )
 
 
-def _finish_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logger=logging.log):
+def _finish_requests(topology: "Topology", reqs, suspicious_patterns, retry_protocol_mismatches, logger=logging.log):
     """
     Used by finisher to handle terminated requests,
 
@@ -231,7 +241,7 @@ def _finish_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logge
     failed_during_submission = [RequestState.SUBMITTING, RequestState.SUBMISSION_FAILED, RequestState.LOST]
     failed_no_submission_attempts = [RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES, RequestState.MISMATCH_SCHEME]
     undeterministic_rses = __get_undeterministic_rses(logger=logger)
-    rses_info, protocols = {}, {}
+    protocol_factory = ProtocolFactory()
     replicas = {}
     for req in reqs:
         try:
@@ -252,14 +262,11 @@ def _finish_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logge
 
                 # for TAPE, replica path is needed
                 if req['request_type'] in (RequestType.TRANSFER, RequestType.STAGEIN) and req['dest_rse_id'] in undeterministic_rses:
-                    if req['dest_rse_id'] not in rses_info:
-                        rses_info[req['dest_rse_id']] = rsemanager.get_rse_info(rse_id=req['dest_rse_id'])
+                    dst_rse = topology[req['dest_rse_id']].ensure_loaded(load_info=True)
                     pfn = req['dest_url']
                     scheme = urlparse(pfn).scheme
-                    dest_rse_id_scheme = '%s_%s' % (req['dest_rse_id'], scheme)
-                    if dest_rse_id_scheme not in protocols:
-                        protocols[dest_rse_id_scheme] = rsemanager.create_protocol(rses_info[req['dest_rse_id']], 'write', scheme)
-                    path = protocols[dest_rse_id_scheme].parse_pfns([pfn])[pfn]['path']
+                    protocol = protocol_factory.protocol(dst_rse, scheme, 'write')
+                    path = protocol.parse_pfns([pfn])[pfn]['path']
                     replica['path'] = os.path.join(path, os.path.basename(pfn))
 
                 # replica should not be added to replicas until all info are filled
