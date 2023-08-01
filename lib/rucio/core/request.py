@@ -560,17 +560,21 @@ def list_and_mark_transfer_requests_and_source_replicas(
             if source_rse_id == replica_rse_id:
                 request.requested_source = source
 
-    if processed_by and requests_by_id:
-        now = datetime.datetime.utcnow()
-        updates = [
-            {
-                models.Request.id.name: request_id,
-                models.Request.last_processed_by.name: processed_by,
-                models.Request.last_processed_at.name: now,
-            }
-            for request_id in requests_by_id
-        ]
-        session.execute(update(models.Request), updates)
+    if processed_by:
+        for chunk in chunks(requests_by_id, 100):
+            stmt = update(
+                models.Request
+            ).where(
+                models.Request.id.in_(chunk)
+            ).execution_options(
+                synchronize_session=False
+            ).values(
+                {
+                    models.Request.last_processed_by: processed_by,
+                    models.Request.last_processed_at: datetime.datetime.now(),
+                }
+            )
+            session.execute(stmt)
 
     return requests_by_id
 
@@ -748,17 +752,22 @@ def get_and_mark_next(
                 for res in query_result:
                     result.append({'request_id': res.id, 'external_host': res.external_host, 'external_id': res.external_id})
 
-            if processed_by:
-                now = datetime.datetime.utcnow()
-                updates = [
-                    {
-                        models.Request.id.name: res_dict['request_id'],
-                        models.Request.last_processed_by.name: processed_by,
-                        models.Request.last_processed_at.name: now,
-                    }
-                    for res_dict in result
-                ]
-                session.execute(update(models.Request), updates)
+            request_ids = {r['request_id'] for r in result}
+            if processed_by and request_ids:
+                for chunk in chunks(request_ids, 100):
+                    stmt = update(
+                        models.Request
+                    ).where(
+                        models.Request.id.in_(chunk)
+                    ).execution_options(
+                        synchronize_session=False
+                    ).values(
+                        {
+                            models.Request.last_processed_by: processed_by,
+                            models.Request.last_processed_at: datetime.datetime.now(),
+                        }
+                    )
+                    session.execute(stmt)
 
     return result
 
