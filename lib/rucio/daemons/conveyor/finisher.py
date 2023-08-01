@@ -198,25 +198,14 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
-    if once:
-        logging.log(logging.INFO, 'executing one finisher iteration only')
-        finisher(once=once, activities=activities, bulk=bulk, db_bulk=db_bulk)
-
-    else:
-
-        logging.log(logging.INFO, 'starting finisher threads')
-        threads = [threading.Thread(target=finisher, kwargs={'sleep_time': sleep_time,
-                                                             'activities': activities,
-                                                             'db_bulk': db_bulk,
-                                                             'bulk': bulk}) for _ in range(0, total_threads)]
-
-        [thread.start() for thread in threads]
-
-        logging.log(logging.INFO, 'waiting for interrupts')
-
-        # Interruptible joins require a timeout.
-        while threads:
-            threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
+    finisher(
+        once=once,
+        activities=activities,
+        bulk=bulk,
+        db_bulk=db_bulk,
+        sleep_time=sleep_time,
+        total_threads=total_threads
+    )
 
 
 def _finish_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logger=logging.log):
