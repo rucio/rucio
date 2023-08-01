@@ -18,6 +18,7 @@ Conveyor finisher is a daemon to update replicas and rules based on requests.
 """
 
 import datetime
+import functools
 import logging
 import os
 import re
@@ -53,6 +54,7 @@ GRACEFUL_STOP = threading.Event()
 REGION = make_region_memcached(expiration_time=900)
 METRICS = MetricManager(module=__name__)
 DAEMON_NAME = 'conveyor-finisher'
+FAILED_DURING_SUBMISSION_DELAY = datetime.timedelta(minutes=120)
 
 
 def _fetch_requests(
@@ -64,26 +66,33 @@ def _fetch_requests(
 
     logger(logging.DEBUG, 'Working on activity %s', activity)
 
-    reqs = request_core.get_and_mark_next(
+    get_requests_fnc = functools.partial(
+        request_core.get_and_mark_next,
         request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-        state=[
-            RequestState.DONE,
-            RequestState.FAILED,
-            RequestState.LOST,
-            RequestState.SUBMITTING,
-            RequestState.SUBMISSION_FAILED,
-            RequestState.NO_SOURCES,
-            RequestState.ONLY_TAPE_SOURCES,
-            RequestState.MISMATCH_SCHEME
-        ],
         processed_by=heartbeat_handler.short_executable,
         limit=db_bulk,
-        older_than=datetime.datetime.utcnow(),
         total_workers=total_workers,
         worker_number=worker_number,
         mode_all=True,
         include_dependent=False,
         hash_variable='rule_id',
+    )
+    reqs = get_requests_fnc(
+        state=[
+            RequestState.DONE,
+            RequestState.FAILED,
+            RequestState.LOST,
+            RequestState.SUBMISSION_FAILED,
+            RequestState.NO_SOURCES,
+            RequestState.ONLY_TAPE_SOURCES,
+            RequestState.MISMATCH_SCHEME
+        ],
+    )
+    reqs.extend(
+        get_requests_fnc(
+            state=[RequestState.SUBMITTING],
+            older_than=datetime.datetime.utcnow() - FAILED_DURING_SUBMISSION_DELAY
+        )
     )
 
     must_sleep = False
@@ -279,7 +288,7 @@ def _finish_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logge
 
             # All other failures
             elif req['state'] in failed_during_submission or req['state'] in failed_no_submission_attempts:
-                if req['state'] in failed_during_submission and req['updated_at'] > (datetime.datetime.utcnow() - datetime.timedelta(minutes=120)):
+                if req['state'] in failed_during_submission and req['updated_at'] > (datetime.datetime.utcnow() - FAILED_DURING_SUBMISSION_DELAY):
                     # To prevent race conditions
                     continue
                 try:
