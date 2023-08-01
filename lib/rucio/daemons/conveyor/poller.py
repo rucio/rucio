@@ -40,6 +40,7 @@ from rucio.common.types import InternalAccount
 from rucio.common.utils import dict_chunks
 from rucio.core import transfer as transfer_core, request as request_core
 from rucio.core.monitor import MetricManager
+from rucio.core.topology import Topology, ExpiringObjectCache
 from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
 from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
@@ -63,13 +64,17 @@ def _fetch_requests(
         activity_shares,
         transfertool,
         filter_transfertool,
+        cached_topology,
         activity,
         heartbeat_handler
 ):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, filter_transfertool))
+
+    topology = cached_topology.get() if cached_topology else Topology()
     transfs = request_core.get_and_mark_next(
+        rse_collection=topology,
         request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
         state=[RequestState.SUBMITTED],
         limit=db_bulk,
@@ -151,6 +156,7 @@ def poller(
         partition_wait_time: int = 10,
         transfertool: Optional[str] = TRANSFER_TOOL,
         filter_transfertool: Optional[str] = FILTER_TRANSFERTOOL,
+        cached_topology=None,
         total_threads: int = 1,
 ):
     """
@@ -189,6 +195,7 @@ def poller(
             activity_shares=activity_shares,
             transfertool=transfertool,
             filter_transfertool=filter_transfertool,
+            cached_topology=cached_topology,
             activity=activity,
             heartbeat_handler=heartbeat_handler,
         )
@@ -256,6 +263,7 @@ def run(
         parsed_activity_shares.update((share, int(percentage * db_bulk)) for share, percentage in parsed_activity_shares.items())
         logging.info('activity shares enabled: %s' % parsed_activity_shares)
 
+    cached_topology = ExpiringObjectCache(ttl=300, new_obj_fnc=lambda: Topology())
     poller(
         once=once,
         fts_bulk=fts_bulk,
@@ -264,6 +272,7 @@ def run(
         sleep_time=sleep_time,
         activities=activities,
         activity_shares=parsed_activity_shares,
+        cached_topology=cached_topology,
         total_threads=total_threads,
     )
 

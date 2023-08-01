@@ -621,16 +621,17 @@ def fetch_paths(request_id, *, session: "Session"):
 @METRICS.time_it
 @transactional_session
 def get_and_mark_next(
+        rse_collection: "RseCollection",
         request_type,
         state,
         processed_by: Optional[str] = None,
         processed_at_delay: int = 600,
-        limit=100,
-        older_than=None,
-        rse_id=None,
-        activity=None,
-        total_workers=0,
-        worker_number=0,
+        limit: int = 100,
+        older_than: "Optional[datetime.datetime]" = None,
+        rse_id: "Optional[str]" = None,
+        activity: "Optional[str]" = None,
+        total_workers: int = 0,
+        worker_number: int = 0,
         mode_all=False,
         hash_variable='id',
         activity_shares=None,
@@ -643,6 +644,7 @@ def get_and_mark_next(
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
 
+    :param rse_collection:    the RSE collection being used
     :param request_type:      Type of the request as a string or list of strings.
     :param state:             State of the request as a string or list of strings.
     :param processed_by:      the daemon/executable running this query
@@ -748,8 +750,8 @@ def get_and_mark_next(
 
                     dst_id = res_dict['dest_rse_id']
                     src_id = res_dict['source_rse_id']
-                    res_dict['dest_rse'] = get_rse_name(rse_id=dst_id, session=session) if dst_id is not None else None
-                    res_dict['source_rse'] = get_rse_name(rse_id=src_id, session=session) if src_id is not None else None
+                    res_dict['dst_rse'] = rse_collection[dst_id].ensure_loaded(load_name=True)
+                    res_dict['src_rse'] = rse_collection[src_id].ensure_loaded(load_name=True) if src_id is not None else None
 
                     result.append(res_dict)
             else:
