@@ -31,7 +31,7 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks
 from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import MetricManager
-from rucio.core.rse import get_rse_name, get_rse_vo, RseData
+from rucio.core.rse import get_rse_attribute, get_rse_name, get_rse_vo, RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg, ReplicaState, TransferLimitDirection
@@ -538,6 +538,10 @@ def list_transfer_requests_and_source_replicas(
                                          account=account, retry_count=retry_count, priority=priority, transfertool=transfertool,
                                          requested_at=requested_at)
             requests_by_id[request_id] = request
+            # if STAGEIN and destination RSE is QoS make sure the source is included
+            if request.request_type == RequestType.STAGEIN and get_rse_attribute(rse_id=dest_rse_id, key='staging_required', session=session):
+                source = RequestSource(rse_data=RseData(id_=dest_rse_id))
+                request.sources.append(source)
 
         if replica_rse_id is not None:
             source = RequestSource(rse_data=RseData(id_=replica_rse_id, name=replica_rse_name), file_path=file_path,

@@ -897,12 +897,6 @@ def build_transfer_paths(
             candidate_sources = [rws.requested_source] if rws.requested_source in filtered_sources else []
 
         if rws.request_type == RequestType.STAGEIN:
-            # if staging_required RSE make sure source is included
-            if rws.dest_rse.attributes.get('staging_required', None):
-                rse_data = RseData(id_=rws.dest_rse.id)
-                rse_data.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
-                candidate_sources.append(RequestSource(rse_data))
-
             paths = __create_stagein_definitions(rws=rws,
                                                  sources=candidate_sources,
                                                  limit_dest_schemes=transfer_schemes,
