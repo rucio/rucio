@@ -438,7 +438,7 @@ def list_and_mark_transfer_requests_and_source_replicas(
             or_(
                 models.Request.last_processed_by.is_(null()),
                 models.Request.last_processed_by != processed_by,
-                models.Request.last_processed_at > datetime.datetime.utcnow() - datetime.timedelta(seconds=processed_at_delay)
+                models.Request.last_processed_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=processed_at_delay)
             )
         )
 
@@ -690,7 +690,7 @@ def get_and_mark_next(
                 or_(
                     models.Request.last_processed_by.is_(null()),
                     models.Request.last_processed_by != processed_by,
-                    models.Request.last_processed_at > datetime.datetime.utcnow() - datetime.timedelta(seconds=processed_at_delay)
+                    models.Request.last_processed_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=processed_at_delay)
                 )
             )
         if transfertool:
