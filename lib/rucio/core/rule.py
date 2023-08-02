@@ -714,26 +714,26 @@ def list_rules(filters={}, *, session: "Session"):
     :raises:        RucioException
     """
 
-    query = session.query(models.ReplicationRule)
+    stmt = select(models.ReplicationRule)
     if filters:
         for (key, value) in filters.items():
             if key in ['account', 'scope']:
                 if '*' in value.internal:
                     value = value.internal.replace('*', '%')
-                    query = query.filter(getattr(models.ReplicationRule, key).like(value))
+                    stmt = stmt.where(getattr(models.ReplicationRule, key).like(value))
                     continue
                 # else fall through
             elif key == 'created_before':
-                query = query.filter(models.ReplicationRule.created_at <= str_to_date(value))
+                stmt = stmt.where(models.ReplicationRule.created_at <= str_to_date(value))
                 continue
             elif key == 'created_after':
-                query = query.filter(models.ReplicationRule.created_at >= str_to_date(value))
+                stmt = stmt.where(models.ReplicationRule.created_at >= str_to_date(value))
                 continue
             elif key == 'updated_before':
-                query = query.filter(models.ReplicationRule.updated_at <= str_to_date(value))
+                stmt = stmt.where(models.ReplicationRule.updated_at <= str_to_date(value))
                 continue
             elif key == 'updated_after':
-                query = query.filter(models.ReplicationRule.updated_at >= str_to_date(value))
+                stmt = stmt.where(models.ReplicationRule.updated_at >= str_to_date(value))
                 continue
             elif key == 'state':
                 if isinstance(value, str):
@@ -747,10 +747,10 @@ def list_rules(filters={}, *, session: "Session"):
                 value = DIDType(value)
             elif key == 'grouping' and isinstance(value, str):
                 value = RuleGrouping(value)
-            query = query.filter(getattr(models.ReplicationRule, key) == value)
+            stmt = stmt.where(getattr(models.ReplicationRule, key) == value)
 
     try:
-        for rule in query.yield_per(5):
+        for rule in session.execute(stmt).yield_per(5).scalars():
             d = {}
             for column in rule.__table__.columns:
                 d[column.name] = getattr(rule, column.name)
