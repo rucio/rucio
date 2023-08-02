@@ -1611,6 +1611,7 @@ def blueprint():
     bp.add_url_rule('/gss', view_func=gss_view, methods=['get', 'options'])
     x509_view = x509.as_view('x509')
     bp.add_url_rule('/x509', view_func=x509_view, methods=['get', 'options'])
+    bp.add_url_rule('/x509/webui', view_func=x509_view, methods=['get', 'options'])
     bp.add_url_rule('/x509_proxy', view_func=x509_view, methods=['get', 'options'])
     ssh_view = SSH.as_view('ssh')
     bp.add_url_rule('/ssh', view_func=ssh_view, methods=['get', 'options'])
