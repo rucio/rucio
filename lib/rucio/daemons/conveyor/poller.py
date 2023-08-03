@@ -72,7 +72,6 @@ def _fetch_requests(
     transfs = request_core.get_and_mark_next(
         request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
         state=[RequestState.SUBMITTED],
-        processed_by=heartbeat_handler.short_executable,
         limit=db_bulk,
         older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
         total_workers=total_workers,
