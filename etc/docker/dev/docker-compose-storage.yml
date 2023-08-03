@@ -63,6 +63,10 @@ services:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_fts.pem:/etc/grid-security/hostcert.pem:Z
       - ../../certs/hostcert_fts.key.pem:/etc/grid-security/hostkey.pem:Z
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
   ftsdb:
     image: docker.io/mysql:8
     ports:
@@ -83,6 +87,10 @@ services:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_xrd1.pem:/tmp/xrdcert.pem:Z
       - ../../certs/hostcert_xrd1.key.pem:/tmp/xrdkey.pem:Z
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
   xrd2:
     image: docker.io/rucio/xrootd
     ports:
@@ -93,6 +101,10 @@ services:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_xrd2.pem:/tmp/xrdcert.pem:Z
       - ../../certs/hostcert_xrd2.key.pem:/tmp/xrdkey.pem:Z
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
   xrd3:
     image: docker.io/rucio/xrootd
     ports:
@@ -103,6 +115,10 @@ services:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_xrd3.pem:/tmp/xrdcert.pem:Z
       - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem:Z
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
   xrd4:
     image: docker.io/rucio/xrootd
     ports:
@@ -113,6 +129,10 @@ services:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_xrd4.pem:/tmp/xrdcert.pem:Z
       - ../../certs/hostcert_xrd4.key.pem:/tmp/xrdkey.pem:Z
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
   minio:
     image: docker.io/minio/minio
     ports:
