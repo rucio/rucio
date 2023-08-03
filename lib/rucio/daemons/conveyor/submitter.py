@@ -61,6 +61,7 @@ def _fetch_requests(
         filter_transfertool: Optional[str],
         metrics: MetricManager,
         cached_topology,
+        set_last_processed_by: bool,
         heartbeat_handler: "HeartbeatHandler",
 ):
     """
@@ -82,7 +83,7 @@ def _fetch_requests(
     # retrieve (from the database) the transfer requests with their possible source replicas
     requests_with_sources = list_and_mark_transfer_requests_and_source_replicas(
         rse_collection=topology,
-        processed_by=heartbeat_handler.short_executable,
+        processed_by=heartbeat_handler.short_executable if set_last_processed_by else None,
         total_workers=total_workers,
         worker_number=worker_number,
         partition_hash_var=partition_hash_var,
@@ -272,6 +273,7 @@ def submitter(
             metrics=metrics,
             activity=activity,
             cached_topology=cached_topology,
+            set_last_processed_by=not once,
             heartbeat_handler=heartbeat_handler,
         )
 

@@ -59,8 +59,9 @@ FAILED_DURING_SUBMISSION_DELAY = datetime.timedelta(minutes=120)
 
 def _fetch_requests(
         db_bulk,
+        set_last_processed_by: bool,
         heartbeat_handler,
-        activity
+        activity,
 ):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
@@ -69,7 +70,7 @@ def _fetch_requests(
     get_requests_fnc = functools.partial(
         request_core.get_and_mark_next,
         request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
-        processed_by=heartbeat_handler.short_executable,
+        processed_by=heartbeat_handler.short_executable if set_last_processed_by else None,
         limit=db_bulk,
         total_workers=total_workers,
         worker_number=worker_number,
@@ -172,6 +173,7 @@ def finisher(
         return _fetch_requests(
             db_bulk=db_bulk,
             activity=activity,
+            set_last_processed_by=not once,
             heartbeat_handler=heartbeat_handler,
         )
 

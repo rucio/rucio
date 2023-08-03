@@ -101,6 +101,7 @@ def preparer(
             ignore_availability=ignore_availability,
             cached_topology=cached_topology,
             heartbeat_handler=heartbeat_handler,
+            set_last_processed_by=not once,
         )
 
     def _consumer(batch):
@@ -122,6 +123,7 @@ def _fetch_requests(
         ignore_availability: bool,
         cached_topology,
         heartbeat_handler: "HeartbeatHandler",
+        set_last_processed_by: bool,
         *,
         session: "Optional[Session]" = None,
 ):
@@ -130,7 +132,7 @@ def _fetch_requests(
     topology.configure_multihop(logger=logger, session=session)
     requests_with_sources = list_and_mark_transfer_requests_and_source_replicas(
         rse_collection=topology,
-        processed_by=heartbeat_handler.short_executable,
+        processed_by=heartbeat_handler.short_executable if set_last_processed_by else None,
         total_workers=total_workers,
         worker_number=worker_number,
         limit=bulk,
