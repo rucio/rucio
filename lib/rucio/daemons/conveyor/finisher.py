@@ -290,9 +290,6 @@ def _finish_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logge
 
             # All other failures
             elif req['state'] in failed_during_submission or req['state'] in failed_no_submission_attempts:
-                if req['state'] in failed_during_submission and req['updated_at'] > (datetime.datetime.utcnow() - FAILED_DURING_SUBMISSION_DELAY):
-                    # To prevent race conditions
-                    continue
                 try:
                     if request_core.should_retry_request(req, retry_protocol_mismatches):
                         new_req = request_core.requeue_and_archive(req, source_ranking_update=False, retry_protocol_mismatches=retry_protocol_mismatches, logger=logger)
