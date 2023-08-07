@@ -19,7 +19,7 @@ if [ -z "$SYNTAX_FLAKE_ARGS" ]; then
 fi
 
 if [ -z "$SYNTAX_PYLINT_ARGS" ]; then
-    SYNTAX_PYLINT_ARGS="--ignore=lib/rucio/tests,lib/rucio/tests/mock lib/rucio/"
+    SYNTAX_PYLINT_ARGS="lib/rucio/"
 fi
 
 if [ -z "$SYNTAX_PYLINT_BIN_ARGS" ]; then
