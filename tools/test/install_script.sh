@@ -16,7 +16,7 @@
 
 set -eo pipefail
 
-echo "* Using $(which python) $(python --version 2>&1) and $(which pip) $(pip --version 2>&1)"
+echo "* Using $(command -v python) $(python --version 2>&1) and $(command -v pip) $(pip --version 2>&1)"
 
 if [ "$SUITE" == "client" -o "$SUITE" == "client_syntax" ]; then
     cd /usr/local/src/rucio
