@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 import paramiko
 from dogpile.cache import make_region
 from dogpile.cache.api import NO_VALUE
-from sqlalchemy import and_, or_, select, delete
+from sqlalchemy import delete, null, or_, select
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get_bool
@@ -110,8 +110,13 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, *, ses
     if not account_exists(account, session=session):
         return None
 
-    result = session.query(models.Identity).filter_by(identity=username,
-                                                      identity_type=IdentityType.USERPASS).first()
+    query = select(
+        models.Identity
+    ).where(
+        models.Identity.identity == username,
+        models.Identity.identity_type == IdentityType.USERPASS
+    )
+    result = session.execute(query).scalar()
 
     db_salt = result['salt']
     db_password = result['password']
@@ -121,9 +126,15 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, *, ses
         return None
 
     # get account identifier
-    result = session.query(models.IdentityAccountAssociation).filter_by(identity=username,
-                                                                        identity_type=IdentityType.USERPASS,
-                                                                        account=account).first()
+    query = select(
+        models.IdentityAccountAssociation
+    ).where(
+        models.IdentityAccountAssociation.identity == username,
+        models.IdentityAccountAssociation.identity_type == IdentityType.USERPASS,
+        models.IdentityAccountAssociation.account == account
+    )
+    result = session.execute(query).scalar()
+
     db_account = result['account']
 
     # remove expired tokens
@@ -225,13 +236,23 @@ def get_auth_token_ssh(account, signature, appid, ip=None, *, session: "Session"
         return None
 
     # get all active challenge tokens for the requested account
-    active_challenge_tokens = session.query(models.Token).filter(models.Token.expired_at >= datetime.datetime.utcnow(),
-                                                                 models.Token.account == account,
-                                                                 models.Token.token.like('challenge-%')).all()
+    query = select(
+        models.Token
+    ).where(
+        models.Token.expired_at >= datetime.datetime.utcnow(),
+        models.Token.account == account,
+        models.Token.token.like('challenge-%')
+    )
+    active_challenge_tokens = session.execute(query).scalars().all()
 
     # get all identities for the requested account
-    identities = session.query(models.IdentityAccountAssociation).filter_by(identity_type=IdentityType.SSH,
-                                                                            account=account).all()
+    query = select(
+        models.IdentityAccountAssociation
+    ).where(
+        models.IdentityAccountAssociation.identity_type == IdentityType.SSH,
+        models.IdentityAccountAssociation.account == account
+    )
+    identities = session.execute(query).scalars().all()
 
     # no challenge tokens found
     if not active_challenge_tokens:
@@ -351,20 +372,25 @@ def redirect_auth_oidc(auth_code, fetchtoken=False, *, session: "Session"):
 
     """
     try:
-        redirect_result = session.query(models.OAuthRequest.redirect_msg).filter_by(access_msg=auth_code).first()
+        query = select(
+            models.OAuthRequest.redirect_msg
+        ).where(
+            models.OAuthRequest.access_msg == auth_code
+        )
+        redirect_result = session.execute(query).scalar()
 
         if not redirect_result:
             return None
 
-        if 'http' not in redirect_result[0] and fetchtoken:
+        if 'http' not in redirect_result and fetchtoken:
             # in this case the function check if the value is a valid token
-            vdict = validate_auth_token(redirect_result[0], session=session)
+            vdict = validate_auth_token(redirect_result, session=session)
             if vdict:
-                return redirect_result[0]
+                return redirect_result
             return None
-        elif 'http' in redirect_result[0] and not fetchtoken:
+        elif 'http' in redirect_result and not fetchtoken:
             # return redirection URL
-            return redirect_result[0]
+            return redirect_result
     except:
         raise CannotAuthenticate(traceback.format_exc())
 
@@ -385,23 +411,43 @@ def delete_expired_tokens(total_workers, worker_number, limit=1000, *, session: 
     # get expired tokens
     try:
         # delete all expired tokens except tokens which have refresh token that is still valid
-        query = session.query(models.Token.token).filter(and_(models.Token.expired_at <= datetime.datetime.utcnow()))\
-                                                 .filter(or_(models.Token.refresh_expired_at.__eq__(None),
-                                                             models.Token.refresh_expired_at <= datetime.datetime.utcnow()))\
-                                                 .order_by(models.Token.expired_at)
+        query = select(
+            models.Token.token
+        ).where(
+            models.Token.expired_at <= datetime.datetime.utcnow(),
+            or_(
+                models.Token.refresh_expired_at == null(),
+                models.Token.refresh_expired_at <= datetime.datetime.utcnow()
+            )
+        ).order_by(
+            models.Token.expired_at
+        )
 
         query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='token')
 
         # limiting the number of tokens deleted at once
         query = query.limit(limit)
+        # Oracle does not support chaining order_by(), limit(), and
+        # with_for_update(). Use a nested query to overcome this.
+        if session.bind.dialect.name == 'oracle':
+            query = select(
+                models.Token.token
+            ).where(
+                models.Token.token.in_(query)
+            ).with_for_update(
+                skip_locked=True
+            )
+        else:
+            query = query.with_for_update(skip_locked=True)
         # remove expired tokens
         deleted_tokens = 0
-        for items in session.execute(query).partitions(10):
-            tokens = tuple(map(lambda row: row.token, items))
-            deleted_tokens += session.query(models.Token) \
-                                     .filter(models.Token.token.in_(tokens)) \
-                                     .with_for_update(skip_locked=True) \
-                                     .delete(synchronize_session='fetch')
+        for tokens in session.execute(query).scalars().partitions(10):
+            query = delete(
+                models.Token
+            ).where(
+                models.Token.token.in_(tokens)
+            )
+            deleted_tokens += session.execute(query).rowcount
 
     except Exception as error:
         raise RucioException(error.args)
@@ -426,20 +472,19 @@ def query_token(token, *, session: "Session"):
               if successful, None otherwise.
     """
     # Query the DB to validate token
-    ret = session.query(models.Token.account,
-                        models.Token.identity,
-                        models.Token.expired_at,
-                        models.Token.audience,
-                        models.Token.oidc_scope).\
-        filter(models.Token.token == token,
-               models.Token.expired_at > datetime.datetime.utcnow()).\
-        all()
-    if ret:
-        return {'account': ret[0][0],
-                'identity': ret[0][1],
-                'lifetime': ret[0][2],
-                'audience': ret[0][3],
-                'authz_scope': ret[0][4]}
+    query = select(
+        models.Token.account,
+        models.Token.identity,
+        models.Token.expired_at.label('lifetime'),
+        models.Token.audience,
+        models.Token.oidc_scope.label('authz_scope')
+    ).where(
+        models.Token.token == token,
+        models.Token.expired_at > datetime.datetime.utcnow()
+    )
+    result = session.execute(query).first()
+    if result:
+        return result._asdict()
     return None
 
 
@@ -497,14 +542,22 @@ def __delete_expired_tokens_account(account, *, session: "Session"):
     :param account: Account to delete expired tokens.
     :param session: The database session in use.
     """
-    stmt_select = select(models.Token.token) \
-        .where(and_(models.Token.expired_at < datetime.datetime.utcnow(),
-                    models.Token.account == account)) \
-        .with_for_update(skip_locked=True)
-    tokens = session.execute(stmt_select).scalars().all()
+    select_query = select(
+        models.Token.token
+    ).where(
+        models.Token.expired_at < datetime.datetime.utcnow(),
+        models.Token.account == account
+    ).with_for_update(
+        skip_locked=True
+    )
+    tokens = session.execute(select_query).scalars().all()
 
-    for t in chunks(tokens, 100):
-        stmt_delete = delete(models.Token) \
-            .where(models.Token.token.in_(t)) \
-            .prefix_with("/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */")
-        session.execute(stmt_delete)
+    for chunk in chunks(tokens, 100):
+        delete_query = delete(
+            models.Token
+        ).prefix_with(
+            "/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */"
+        ).where(
+            models.Token.token.in_(chunk)
+        )
+        session.execute(delete_query)
