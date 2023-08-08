@@ -714,7 +714,16 @@ def list_rules(filters={}, *, session: "Session"):
     :raises:        RucioException
     """
 
-    stmt = select(models.ReplicationRule)
+    stmt = select(
+        models.ReplicationRule,
+        models.DataIdentifier.bytes
+    ).join(
+        models.DataIdentifier,
+        and_(
+            models.ReplicationRule.scope == models.DataIdentifier.scope,
+            models.ReplicationRule.name == models.DataIdentifier.name
+        )
+    )
     if filters:
         for (key, value) in filters.items():
             if key in ['account', 'scope']:
@@ -750,8 +759,9 @@ def list_rules(filters={}, *, session: "Session"):
             stmt = stmt.where(getattr(models.ReplicationRule, key) == value)
 
     try:
-        for rule in session.execute(stmt).yield_per(5).scalars():
+        for rule, data_identifier_bytes in session.execute(stmt).yield_per(5):
             d = rule.to_dict()
+            d['bytes'] = data_identifier_bytes
             yield d
     except StatementError:
         raise RucioException('Badly formatted input (IDs?)')
