@@ -751,9 +751,7 @@ def list_rules(filters={}, *, session: "Session"):
 
     try:
         for rule in session.execute(stmt).yield_per(5).scalars():
-            d = {}
-            for column in rule.__table__.columns:
-                d[column.name] = getattr(rule, column.name)
+            d = rule.to_dict()
             yield d
     except StatementError:
         raise RucioException('Badly formatted input (IDs?)')
