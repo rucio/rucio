@@ -40,20 +40,20 @@ def get_rse_info(rse=None, vo='def', rse_id=None, session=None):
                     id                ...     an internal identifier
                     rse               ...     the name of the RSE as string
                     type              ...     the storage type odf the RSE e.g. DISK
-                    volatile          ...     boolean indictaing if the RSE is volatile
+                    volatile          ...     boolean indicating if the RSE is volatile
                     verify_checksum   ...     boolean indicating whether RSE supports requests for checksums
-                    deteministic      ...     boolean indicating of the nameing of the files follows the defined determinism
-                    domain            ...     indictaing the domain that should be assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
-                    protocols         ...     all supported protocol in form of a list of dict objects with the followig structure
+                    deterministic      ...     boolean indicating of the naming of the files follows the defined determinism
+                    domain            ...     indicating the domain that should be assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
+                    protocols         ...     all supported protocol in form of a list of dict objects with the following structure
                     - scheme              ...     protocol scheme e.g. http, srm, ...
                     - hostname            ...     hostname of the site
                     - prefix              ...     path to the folder where the files are stored
                     - port                ...     port used for this protocol
                     - impl                ...     naming the python class of the protocol implementation
                     - extended_attributes ...     additional information for the protocol
-                    - domains             ...     a dict naming each domain and the priority of the protocol for each operation (lower is better, zero is not upported)
+                    - domains             ...     a dict naming each domain and the priority of the protocol for each operation (lower is better, zero is not supported)
 
-        :raises RSENotFound: if the provided RSE coud not be found in the database.
+        :raises RSENotFound: if the provided RSE could not be found in the database.
     """
     # __request_rse_info will be assigned when the module is loaded as it depends on the rucio environment (server or client)
     # __request_rse_info, rse_region are defined in /rucio/rse/__init__.py
@@ -143,7 +143,7 @@ def select_protocol(rse_settings, operation, scheme=None, domain='wan'):
 
 def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None, protocol_attr=None, logger=logging.log, impl=None):
     """
-    Instanciates the protocol defined for the given operation.
+    Instantiates the protocol defined for the given operation.
 
     :param rse_settings:  RSE attributes
     :param operation:     Intended operation for this protocol
@@ -195,7 +195,7 @@ def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan', 
     """
         Convert the lfn to a pfn
 
-        :rse_settings:      RSE attributes
+        :param rse_settings:      RSE attributes
         :param lfns:        logical file names as a dict containing 'scope' and 'name' as keys. For bulk a list of dicts can be provided
         :param operation:   Intended operation for this protocol
         :param scheme:      Optional filter if no specific protocol is defined in rse_setting for the provided operation
@@ -213,7 +213,7 @@ def parse_pfns(rse_settings, pfns, operation='read', domain='wan', auth_token=No
     """
         Checks if a PFN is feasible for a given RSE. If so it splits the pfn in its various components.
 
-        :rse_settings:   RSE attributes
+        :param rse_settings:   RSE attributes
         :param pfns:        list of PFNs
         :param operation: Intended operation for this protocol
         :param domain:    Optional specification of the domain
@@ -236,7 +236,7 @@ def exists(rse_settings, files, domain='wan', scheme=None, impl=None, auth_token
         Checks if a file is present at the connected storage.
         Providing a list indicates the bulk mode.
 
-        :rse_settings:      RSE attributes
+        :param rse_settings:      RSE attributes
         :param files:       a single dict or a list with dicts containing 'scope' and 'name'
                             if LFNs are used and only 'name' if PFNs are used.
                             E.g. {'name': '2_rse_remote_get.raw', 'scope': 'user.jdoe'}, {'name': 'user/jdoe/5a/98/3_rse_remote_get.raw'}
@@ -251,7 +251,7 @@ def exists(rse_settings, files, domain='wan', scheme=None, impl=None, auth_token
     """
 
     ret = {}
-    gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
+    gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
     protocol = create_protocol(rse_settings, 'read', scheme=scheme, impl=impl, domain=domain, auth_token=auth_token, logger=logger)
     protocol.connect()
@@ -297,7 +297,7 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
 
-        :rse_settings:            RSE attributes
+        :param rse_settings:            RSE attributes
         :param lfns:              a single dict or a list with dicts containing 'scope' and 'name'.
                                   Examples:
                                   [
@@ -496,7 +496,7 @@ def delete(rse_settings, lfns, domain='wan', auth_token=None, logger=logging.log
         Delete a file from the connected storage.
         Providing a list indicates the bulk mode.
 
-        :rse_settings:     RSE attributes
+        :param rse_settings:     RSE attributes
         :param lfns:       a single dict or a list with dicts containing 'scope' and 'name'. E.g. [{'name': '1_rse_remote_delete.raw', 'scope': 'user.jdoe'}, {'name': '2_rse_remote_delete.raw', 'scope': 'user.jdoe'}]
         :param domain:     The network domain, either 'wan' (default) or 'lan'
         :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
@@ -509,7 +509,7 @@ def delete(rse_settings, lfns, domain='wan', auth_token=None, logger=logging.log
 
     """
     ret = {}
-    gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
+    gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
     protocol = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol.connect()
@@ -539,7 +539,7 @@ def rename(rse_settings, files, domain='wan', auth_token=None, logger=logging.lo
         Rename files stored on the connected storage.
         Providing a list indicates the bulk mode.
 
-        :rse_settings:     RSE attributes
+        :param rse_settings:     RSE attributes
         :param files:      a single dict or a list with dicts containing 'scope', 'name', 'new_scope' and 'new_name'
                            if LFNs are used or only 'name' and 'new_name' if PFNs are used.
                            If 'new_scope' or 'new_name' are not provided, the current one is used.
@@ -560,7 +560,7 @@ def rename(rse_settings, files, domain='wan', auth_token=None, logger=logging.lo
         :raises ServiceUnavailable: for any other reason
     """
     ret = {}
-    gs = True  # gs represents the global status which inidcates if every operation workd in bulk mode
+    gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
     protocol = create_protocol(rse_settings, 'write', domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol.connect()
@@ -614,7 +614,7 @@ def get_space_usage(rse_settings, scheme=None, domain='wan', auth_token=None, lo
     """
         Get RSE space usage information.
 
-        :rse_settings:     RSE attributes
+        :param rse_settings:     RSE attributes
         :param scheme:     optional filter to select which protocol to be used.
         :param domain:     The network domain, either 'wan' (default) or 'lan'
         :param auth_token: Optionally passing JSON Web Token (OIDC) string for authentication
@@ -622,7 +622,7 @@ def get_space_usage(rse_settings, scheme=None, domain='wan', auth_token=None, lo
 
         :returns:          a list with dict containing 'totalsize' and 'unusedsize'
 
-        :raises ServiceUnavailable: if some generic error occured in the library.
+        :raises ServiceUnavailable: if some generic error occurred in the library.
     """
     gs = True
     ret = {}
