@@ -20,13 +20,14 @@ from time import sleep
 from urllib.parse import urlparse
 
 from rucio.common import exception, utils, constants
+from rucio.common import types
 from rucio.common.config import config_get_int
 from rucio.common.constraints import STRING_TYPES
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import make_valid_did, GLOBALLY_SUPPORTED_CHECKSUMS
 
 
-def get_rse_info(rse=None, vo='def', rse_id=None, session=None):
+def get_rse_info(rse=None, vo='def', rse_id=None, session=None) -> types.RSESettingsDict:
     """
         Returns all protocol related RSE attributes.
         Call with either rse and vo, or (in server mode) rse_id
@@ -66,7 +67,7 @@ def get_rse_info(rse=None, vo='def', rse_id=None, session=None):
     return rse_info
 
 
-def _get_possible_protocols(rse_settings, operation, scheme=None, domain=None, impl=None):
+def _get_possible_protocols(rse_settings: types.RSESettingsDict, operation, scheme=None, domain=None, impl=None):
     """
     Filter the list of available protocols or provided by the supported ones.
 
@@ -116,7 +117,7 @@ def _get_possible_protocols(rse_settings, operation, scheme=None, domain=None, i
     return [c for c in candidates if c not in tbr]
 
 
-def get_protocols_ordered(rse_settings, operation, scheme=None, domain='wan', impl=None):
+def get_protocols_ordered(rse_settings: types.RSESettingsDict, operation, scheme=None, domain='wan', impl=None):
     if operation not in utils.rse_supported_protocol_operations():
         raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
 
@@ -128,7 +129,7 @@ def get_protocols_ordered(rse_settings, operation, scheme=None, domain='wan', im
     return candidates
 
 
-def select_protocol(rse_settings, operation, scheme=None, domain='wan'):
+def select_protocol(rse_settings: types.RSESettingsDict, operation, scheme=None, domain='wan'):
     if operation not in utils.rse_supported_protocol_operations():
         raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
 
@@ -141,7 +142,7 @@ def select_protocol(rse_settings, operation, scheme=None, domain='wan'):
     return min(candidates, key=lambda k: k['domains'][domain][operation])
 
 
-def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_token=None, protocol_attr=None, logger=logging.log, impl=None):
+def create_protocol(rse_settings: types.RSESettingsDict, operation, scheme=None, domain='wan', auth_token=None, protocol_attr=None, logger=logging.log, impl=None):
     """
     Instantiates the protocol defined for the given operation.
 
@@ -191,7 +192,7 @@ def create_protocol(rse_settings, operation, scheme=None, domain='wan', auth_tok
     return protocol
 
 
-def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan', auth_token=None, logger=logging.log, impl=None):
+def lfns2pfns(rse_settings: types.RSESettingsDict, lfns, operation='write', scheme=None, domain='wan', auth_token=None, logger=logging.log, impl=None):
     """
         Convert the lfn to a pfn
 
@@ -209,7 +210,7 @@ def lfns2pfns(rse_settings, lfns, operation='write', scheme=None, domain='wan', 
     return create_protocol(rse_settings, operation, scheme, domain, auth_token=auth_token, logger=logger, impl=impl).lfns2pfns(lfns)
 
 
-def parse_pfns(rse_settings, pfns, operation='read', domain='wan', auth_token=None):
+def parse_pfns(rse_settings: types.RSESettingsDict, pfns, operation='read', domain='wan', auth_token=None):
     """
         Checks if a PFN is feasible for a given RSE. If so it splits the pfn in its various components.
 
@@ -231,7 +232,7 @@ def parse_pfns(rse_settings, pfns, operation='read', domain='wan', auth_token=No
     return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme, domain, auth_token=auth_token).parse_pfns(pfns)
 
 
-def exists(rse_settings, files, domain='wan', scheme=None, impl=None, auth_token=None, vo='def', logger=logging.log):
+def exists(rse_settings: types.RSESettingsDict, files, domain='wan', scheme=None, impl=None, auth_token=None, vo='def', logger=logging.log):
     """
         Checks if a file is present at the connected storage.
         Providing a list indicates the bulk mode.
@@ -292,7 +293,7 @@ def exists(rse_settings, files, domain='wan', scheme=None, impl=None, auth_token
     return [gs, ret]
 
 
-def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None, auth_token=None, vo='def', logger=logging.log, impl=None):
+def upload(rse_settings: types.RSESettingsDict, lfns, domain='wan', source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None, auth_token=None, vo='def', logger=logging.log, impl=None):
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -491,7 +492,7 @@ def upload(rse_settings, lfns, domain='wan', source_dir=None, force_pfn=None, fo
     return {0: gs, 1: ret, 'success': gs, 'pfn': pfn}
 
 
-def delete(rse_settings, lfns, domain='wan', auth_token=None, logger=logging.log, impl=None):
+def delete(rse_settings: types.RSESettingsDict, lfns, domain='wan', auth_token=None, logger=logging.log, impl=None):
     """
         Delete a file from the connected storage.
         Providing a list indicates the bulk mode.
@@ -534,7 +535,7 @@ def delete(rse_settings, lfns, domain='wan', auth_token=None, logger=logging.log
     return [gs, ret]
 
 
-def rename(rse_settings, files, domain='wan', auth_token=None, logger=logging.log, impl=None):
+def rename(rse_settings: types.RSESettingsDict, files, domain='wan', auth_token=None, logger=logging.log, impl=None):
     """
         Rename files stored on the connected storage.
         Providing a list indicates the bulk mode.
@@ -610,7 +611,7 @@ def rename(rse_settings, files, domain='wan', auth_token=None, logger=logging.lo
     return [gs, ret]
 
 
-def get_space_usage(rse_settings, scheme=None, domain='wan', auth_token=None, logger=logging.log, impl=None):
+def get_space_usage(rse_settings: types.RSESettingsDict, scheme=None, domain='wan', auth_token=None, logger=logging.log, impl=None):
     """
         Get RSE space usage information.
 
