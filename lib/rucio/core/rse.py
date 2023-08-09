@@ -30,6 +30,7 @@ from sqlalchemy.sql.expression import or_, and_, desc, true, false, func, select
 from rucio.common import exception, utils
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import get_lfn2pfn_algorithm_default, config_get_bool
+from rucio.common import types
 from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
@@ -1340,7 +1341,7 @@ def add_protocol(
 
 
 @read_session
-def get_rse_protocols(rse_id, schemes=None, *, session: "Session"):
+def get_rse_protocols(rse_id, schemes=None, *, session: "Session") -> types.RSESettingsDict:
     """
     Returns protocol information. Parameter combinations are: (operation OR default) XOR scheme.
 
@@ -1379,7 +1380,7 @@ def _format_get_rse_protocols(
         rse_attributes: Optional[dict[str, Any]] = None,
         *,
         session: "Session"
-) -> dict[str, Any]:
+) -> types.RSESettingsDict:
     _rse = rse
     if rse_attributes:
         lfn2pfn_algorithm = rse_attributes.get('lfn2pfn_algorithm')
@@ -1451,7 +1452,7 @@ def _format_get_rse_protocols(
 
 
 @read_session
-def get_rse_info(rse_id, *, session: "Session"):
+def get_rse_info(rse_id, *, session: "Session") -> types.RSESettingsDict:
     """
     For historical reasons, related to usage of rsemanager, "rse_info" is equivalent to
     a cached call to get_rse_protocols without any schemes set.
