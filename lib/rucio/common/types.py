@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any, Optional, TypedDict, Union
+
+
 class InternalType(object):
     '''
     Base for Internal representations of string types
@@ -99,3 +102,57 @@ class InternalScope(InternalType):
     '''
     def __init__(self, scope, vo='def', fromExternal=True):
         super(InternalScope, self).__init__(value=scope, vo=vo, fromExternal=fromExternal)
+
+
+class RSEDomainLANDict(TypedDict):
+    read: Optional[int]
+    write: Optional[int]
+    delete: Optional[int]
+
+
+class RSEDomainWANDict(TypedDict):
+    read: Optional[int]
+    write: Optional[int]
+    delete: Optional[int]
+    third_party_copy_read: Optional[int]
+    third_party_copy_write: Optional[int]
+
+
+class RSEDomainsDict(TypedDict):
+    lan: RSEDomainLANDict
+    wan: RSEDomainWANDict
+
+
+class RSEProtocolDict(TypedDict):
+    auth_token: Optional[str]  # FIXME: typing.NotRequired
+    hostname: str
+    scheme: str
+    port: int
+    prefix: str
+    impl: str
+    domains: RSEDomainsDict
+    extended_attributes: Optional[Union[str, dict[str, Any]]]
+
+
+class RSESettingsDict(TypedDict):
+    availability_delete: bool
+    availability_read: bool
+    availability_write: bool
+    credentials: Optional[dict[str, Any]]
+    lfn2pfn_algorithm: str
+    qos_class: Optional[str]
+    staging_area: bool
+    rse_type: str
+    sign_url: Optional[str]
+    read_protocol: int
+    write_protocol: int
+    delete_protocol: int
+    third_party_copy_read_protocol: int
+    third_party_copy_write_protocol: int
+    id: str
+    rse: str
+    volatile: bool
+    verify_checksum: bool
+    deterministic: bool
+    domain: list[str]
+    protocols: list[RSEProtocolDict]
