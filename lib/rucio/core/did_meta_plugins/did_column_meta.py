@@ -56,10 +56,7 @@ class DidColumnMeta(DidMetaPlugin):
         try:
             row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-            d = {}
-            for column in row.__table__.columns:
-                d[column.name] = getattr(row, column.name)
-            return d
+            return row.to_dict()
         except NoResultFound:
             raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
 
