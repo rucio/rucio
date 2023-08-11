@@ -2179,10 +2179,7 @@ def get_replica(rse_id, scope, name, *, session: "Session"):
     """
     try:
         row = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, scope=scope, name=name).one()
-        result = {}
-        for column in row.__table__.columns:
-            result[column.name] = getattr(row, column.name)
-        return result
+        return row.to_dict()
     except NoResultFound:
         raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
 

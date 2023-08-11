@@ -239,13 +239,11 @@ def list_subscriptions(name: "Optional[str]" = None,
     except IntegrityError as error:
         logger(logging.ERROR, str(error))
         raise RucioException(error.args)
-    result = {}
+    found = False
     for row in query:
-        result = {}
-        for column in row.__table__.columns:
-            result[column.name] = getattr(row, column.name)
-        yield result
-    if result == {}:
+        found = True
+        yield row.to_dict()
+    if not found:
         raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
 
 
@@ -311,11 +309,7 @@ def get_subscription_by_id(subscription_id, *, session: "Session"):
 
     try:
         subscription = session.query(models.Subscription).filter_by(id=subscription_id).one()
-        result = {}
-        for column in subscription.__table__.columns:
-            result[column.name] = getattr(subscription, column.name)
-        return result
-
+        return subscription.to_dict()
     except NoResultFound:
         raise SubscriptionNotFound('No subscription with the id %s found' % (subscription_id))
     except StatementError:
