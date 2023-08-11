@@ -837,10 +837,7 @@ def list_associated_rules_for_file(scope, name, *, session: "Session"):
         filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name).distinct()
     try:
         for rule in query.yield_per(5):
-            d = {}
-            for column in rule.__table__.columns:
-                d[column.name] = getattr(rule, column.name)
-            yield d
+            yield rule.to_dict()
     except StatementError:
         raise RucioException('Badly formatted input (IDs?)')
 
@@ -1173,11 +1170,7 @@ def get_rule(rule_id, *, session: "Session"):
 
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
-        d = {}
-        for column in rule.__table__.columns:
-            d[column.name] = getattr(rule, column.name)
-        return d
-
+        return rule.to_dict()
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:

@@ -2329,10 +2329,7 @@ def get_metadata_bulk(dids, inherit=False, *, session: "Session"):
                     or_(*chunk)
                 )
                 for row in session.execute(stmt).scalars():
-                    data = {}
-                    for column in row.__table__.columns:
-                        data[column.name] = getattr(row, column.name)
-                    yield data
+                    yield row.to_dict()
         except NoResultFound:
             raise exception.DataIdentifierNotFound('No Data Identifiers found')
 

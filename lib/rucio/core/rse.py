@@ -738,10 +738,7 @@ def list_rses(filters={}, *, session: "Session"):
         )
 
     for row in session.execute(stmt).scalars():
-        dic = {}
-        for column in row.__table__.columns:
-            dic[column.name] = getattr(row, column.name)
-        rse_list.append(dic)
+        rse_list.append(row.to_dict())
 
     return rse_list
 
@@ -906,10 +903,7 @@ def get_rses_with_attribute(key, *, session: "Session"):
     )
 
     for db_rse in session.execute(stmt).scalars():
-        d = {}
-        for column in db_rse.__table__.columns:
-            d[column.name] = getattr(db_rse, column.name)
-        rse_list.append(d)
+        rse_list.append(db_rse.to_dict())
 
     return rse_list
 
