@@ -59,7 +59,7 @@ def main(argv):
                       region_code=region_code, country_name=country_name, staging_area=staging_area,
                       continent=continent, time_zone=time_zone, ISP=ISP)
         except Duplicate:
-            print('%(rse)s already added' % locals())
+            print(f'{rse} already added')
         except InvalidObject as err:
             print(err)
             continue

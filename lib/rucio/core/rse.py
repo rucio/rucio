@@ -412,7 +412,7 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
     try:
         new_rse.save(session=session)
     except IntegrityError:
-        raise exception.Duplicate('RSE \'%(rse)s\' already exists!' % locals())
+        raise exception.Duplicate(f"RSE '{rse}' already exists!")
     except DatabaseError as error:
         raise exception.RucioException(error.args)
 
@@ -761,7 +761,7 @@ def add_rse_attribute(rse_id, key, value, *, session: "Session"):
         new_rse_attr.save(session=session)
     except IntegrityError:
         rse = get_rse_name(rse_id=rse_id, session=session)
-        raise exception.Duplicate("RSE attribute '%(key)s-%(value)s\' for RSE '%(rse)s' already exists!" % locals())
+        raise exception.Duplicate(f"RSE attribute '{key}-{value}' for RSE '{rse}' already exists!")
     return True
 
 

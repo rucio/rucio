@@ -79,7 +79,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
             prepend_str = 'light-reaper [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
             logger = formatted_logger(logging.log, prepend_str + '%s')
-            logger(logging.INFO, 'Live gives {0[heartbeat]}'.format(locals()))
+            logger(logging.INFO, 'Live gives %s', heartbeat)
             nothing_to_do = True
             start_time = time.time()
 

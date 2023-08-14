@@ -627,7 +627,7 @@ class BaseClient(object):
                 # authorizing info request on behalf of the user until he/she revokes this authorization !
                 result = self._send_request(result.url, type_='POST', data=form_data)
 
-        if not result or 'result' not in locals():
+        if not result:
             self.logger.error('Cannot retrieve authentication token!')
             return False
 
@@ -794,7 +794,7 @@ class BaseClient(object):
         result = self._send_request(SAML_auth_url, type_='POST', data=userpass, verify=False)
         result = self._send_request(url, get_token=True)
 
-        if not result or 'result' not in locals():
+        if not result:
             self.logger.error('Cannot retrieve authentication token!')
             return False
 

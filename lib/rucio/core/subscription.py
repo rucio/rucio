@@ -200,7 +200,7 @@ def update_subscription(name: str,
                                                        created_at=subscription.created_at)
             subscription_history.save(session=session)
     except NoResultFound:
-        raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
+        raise SubscriptionNotFound(f"Subscription for account '{account}' named '{name}' not found")
 
 
 @stream_session
@@ -244,7 +244,7 @@ def list_subscriptions(name: "Optional[str]" = None,
         found = True
         yield row.to_dict()
     if not found:
-        raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
+        raise SubscriptionNotFound(f"Subscription for account '{account}' named '{name}' not found")
 
 
 @transactional_session

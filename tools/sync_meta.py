@@ -49,20 +49,20 @@ if __name__ == '__main__':
             try:
                 c.add_key(key=key, key_type=key_type, value_regexp=value_regexp)
             except Duplicate:
-                print('%(key)s already added' % locals())
+                print(f'{key} already added')
 
             for value in values:
 
                 try:
                     c.add_value(key=key, value=value)
                 except Duplicate:
-                    print('%(key)s:%(value)s already added' % locals())
+                    print(f'{key}:{value} already added')
 
                 if key == 'project':
                     try:
                         c.add_scope('root', value)
                     except Duplicate:
-                        print('Scope %(value)s already added' % locals())
+                        print(f'Scope {value} already added')
         except:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
