@@ -25,7 +25,7 @@ from rucio.api.did import add_did, add_dids, list_content, list_content_history,
     resurrect, get_users_following_did, remove_did_from_followed, add_did_to_followed, delete_metadata, \
     set_metadata_bulk, set_dids_metadata_bulk
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
-from rucio.common.exception import ScopeNotFound, DataIdentifierNotFound, DataIdentifierAlreadyExists, \
+from rucio.common.exception import ScopeNotFound, DatabaseException, DataIdentifierNotFound, DataIdentifierAlreadyExists, \
     DuplicateContent, AccessDenied, KeyNotFound, Duplicate, InvalidValueForKey, UnsupportedStatus, \
     UnsupportedOperation, RSENotFound, RuleNotFound, InvalidMetadata, InvalidPath, FileAlreadyExists, InvalidObject, FileConsistencyMismatch
 from rucio.common.utils import render_json, APIEncoder
@@ -656,6 +656,15 @@ class DIDs(ErrorHandlingMethodView):
             return generate_http_error_flask(409, error)
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
+        except DatabaseException as error:
+            if 'DELETED_DIDS_PK violated' in str(error):
+                return generate_http_error_flask(
+                    status_code=406,
+                    exc=error.__class__.__name__,
+                    exc_msg=str('A deleted DID {} with scope {} is reused'.format(name, scope))
+                )
+            else:
+                return generate_http_error_flask(406, error)
 
         return 'Created', 201
 
