@@ -58,7 +58,7 @@ class DidColumnMeta(DidMetaPlugin):
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
             return row.to_dict()
         except NoResultFound:
-            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+            raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
     @transactional_session
     def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Session"):

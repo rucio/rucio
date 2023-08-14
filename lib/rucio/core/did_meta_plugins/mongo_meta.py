@@ -77,7 +77,7 @@ class MongoDidMeta(DidMetaPlugin):
                 doc.pop(key)
 
         if not doc:
-            raise exception.DataIdentifierNotFound("No metadata found for did '%(scope)s:%(name)s'" % locals())
+            raise exception.DataIdentifierNotFound(f"No metadata found for did '{scope}:{name}'")
         return doc
 
     def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Optional[Session]" = None):

@@ -176,7 +176,7 @@ def add_dids(
                     did['type'] = DIDType[did['type']]
 
                 if did['type'] == DIDType.FILE:
-                    raise exception.UnsupportedOperation("Only collection (dataset/container) can be registered." % locals())
+                    raise exception.UnsupportedOperation('Only collection (dataset/container) can be registered.')
 
                 # Lifetime
                 expired_at = None
@@ -1469,7 +1469,7 @@ def detach_dids(scope, name, dids, *, session: "Session"):
             rule_evaluation_action=DIDReEvaluation.DETACH
         ).save(session=session, flush=False)
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
     # TODO: should judge target did's status: open, monotonic, close.
     stmt = select(
@@ -1481,7 +1481,7 @@ def detach_dids(scope, name, dids, *, session: "Session"):
         1
     )
     if session.execute(stmt).scalar() is None:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' has no child data identifiers." % locals())
+        raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' has no child data identifiers.")
     for source in dids:
         if (scope == source['scope']) and (name == source['name']):
             raise exception.UnsupportedOperation('Self-detach is not valid.')
@@ -1496,7 +1496,7 @@ def detach_dids(scope, name, dids, *, session: "Session"):
             )
         ).scalar()
         if associ_did is None:
-            raise exception.DataIdentifierNotFound("Data identifier '%(child_scope)s:%(child_name)s' not found under '%(scope)s:%(name)s'" % locals())
+            raise exception.DataIdentifierNotFound(f"Data identifier '{child_scope}:{child_name}' not found under '{scope}:{name}'")
 
         child_type = associ_did.child_type
         child_size = associ_did.bytes
@@ -1668,7 +1668,7 @@ def list_content(scope, name, *, session: "Session"):
             yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type,
                    'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
 
 @stream_session
@@ -1694,7 +1694,7 @@ def list_content_history(scope, name, *, session: "Session"):
                    'deleted_at': tmp_did.deleted_at, 'created_at': tmp_did.created_at,
                    'updated_at': tmp_did.updated_at}
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
 
 @stream_session
@@ -1988,7 +1988,7 @@ def list_files(scope, name, long=False, *, session: "Session"):
                         dids.append((child_scope, child_name, child_type))
 
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
 
 @stream_session
@@ -2060,7 +2060,7 @@ def scope_list(scope, name=None, recursive=False, *, session: "Session"):
         )
         topdids = session.execute(stmt).scalar()
         if topdids is None:
-            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+            raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
         topdids = [{'scope': topdids.scope, 'name': topdids.name, 'type': topdids.did_type, 'parent': None, 'level': 0}]
 
     if name is None:
@@ -2088,7 +2088,7 @@ def __get_did(scope, name, *, session: "Session"):
         )
         return session.execute(stmt).scalar_one()
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
 
 @read_session
@@ -2375,7 +2375,7 @@ def set_status(scope, name, *, session: "Session", **kwargs):
     values = {}
     for k in kwargs:
         if k not in statuses:
-            raise exception.UnsupportedStatus("The status %(k)s is not a valid data identifier status." % locals())
+            raise exception.UnsupportedStatus(f'The status {k} is not a valid data identifier status.')
         if k == 'open':
             if not kwargs[k]:
                 update_stmt = update_stmt.filter_by(
@@ -2440,8 +2440,8 @@ def set_status(scope, name, *, session: "Session", **kwargs):
         try:
             session.execute(stmt).scalar_one()
         except NoResultFound:
-            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
-        raise exception.UnsupportedOperation("The status of the data identifier '%(scope)s:%(name)s' cannot be changed" % locals())
+            raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
+        raise exception.UnsupportedOperation(f"The status of the data identifier '{scope}:{name}' cannot be changed")
     else:
         # Generate callbacks
         if not values['is_open']:
@@ -2751,7 +2751,7 @@ def list_archive_content(scope, name, *, session: "Session"):
             yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
                    'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
     except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+        raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
 
 @transactional_session

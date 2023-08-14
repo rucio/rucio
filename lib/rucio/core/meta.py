@@ -45,7 +45,7 @@ def add_key(key, key_type, value_type=None, value_regexp=None, *, session: "Sess
 
     # Check if value_type is supported
     if value_type and value_type not in [str(t) for t in AUTHORIZED_VALUE_TYPES]:
-        raise UnsupportedValueType('The type \'%(value_type)s\' is not supported for values!' % locals())
+        raise UnsupportedValueType(f"The type '{value_type}' is not supported for values!")
 
     # Convert key_type
     if isinstance(key_type, str):
@@ -76,7 +76,7 @@ def add_key(key, key_type, value_type=None, value_regexp=None, *, session: "Sess
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
            or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
            or match('.*IntegrityError.*columns? key.*not unique.*', error.args[0]):
-            raise Duplicate('key \'%(key)s\' already exists!' % locals())
+            raise Duplicate(f"key '{key}' already exists!")
         raise
 
 
@@ -127,13 +127,13 @@ def add_value(key, value, *, session: "Session"):
            or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
            or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
            or match('.*IntegrityError.*columns? key.*value.*not unique.*', error.args[0]):
-            raise Duplicate('key-value \'%(key)s-%(value)s\' already exists!' % locals())
+            raise Duplicate(f"key-value '{key}-{value}' already exists!")
         if match('.*IntegrityError.*foreign key constraints? failed.*', error.args[0]):
-            raise KeyNotFound("key '%(key)s' does not exist!" % locals())
+            raise KeyNotFound(f"key '{key}' does not exist!")
         if match('.*IntegrityError.*ORA-02291: integrity constraint.*DID_MAP_KEYS_FK.*violated.*', error.args[0]):
-            raise KeyNotFound("key '%(key)s' does not exist!" % locals())
+            raise KeyNotFound(f"key '{key}' does not exist!")
         if error.args[0] == "(IntegrityError) (1452, 'Cannot add or update a child row: a foreign key constraint fails (`rucio`.`did_key_map`, CONSTRAINT `DID_MAP_KEYS_FK` FOREIGN KEY (`key`) REFERENCES `did_keys` (`key`))')":
-            raise KeyNotFound("key '%(key)s' does not exist!" % locals())
+            raise KeyNotFound(f"key '{key}' does not exist!")
 
         raise RucioException(error.args)
 

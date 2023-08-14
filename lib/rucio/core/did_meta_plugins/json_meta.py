@@ -134,7 +134,7 @@ class JSONDidMeta(DidMetaPlugin):
 
             row.meta = existing_meta
         except NoResultFound:
-            raise exception.DataIdentifierNotFound("Key not found for data identifier '%(scope)s:%(name)s'" % locals())
+            raise exception.DataIdentifierNotFound(f"Key not found for data identifier '{scope}:{name}'")
 
     @stream_session
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,

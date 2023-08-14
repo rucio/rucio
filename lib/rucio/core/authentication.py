@@ -131,7 +131,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, *, ses
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
-    token = '%(account)s-%(username)s-%(appid)s-%(tuid)s' % locals()
+    token = f'{account}-{username}-{appid}-{tuid}'
     new_token = models.Token(account=db_account, identity=username, token=token, ip=ip)
     new_token.save(session=session)
 
@@ -163,7 +163,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, *, session: "Session"):
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
-    token = '%(account)s-%(dn)s-%(appid)s-%(tuid)s' % locals()
+    token = f'{account}-{dn}-{appid}-{tuid}'
     new_token = models.Token(account=account, identity=dn, token=token, ip=ip)
     new_token.save(session=session)
 
@@ -195,7 +195,7 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, *, session: "Session")
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
-    token = '%(account)s-%(gsstoken)s-%(appid)s-%(tuid)s' % locals()
+    token = f'{account}-{gsstoken}-{appid}-{tuid}'
     new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
 
@@ -259,7 +259,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, *, session: "Session"
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
-    token = '%(account)s-ssh:pubkey-%(appid)s-%(tuid)s' % locals()
+    token = f'{account}-ssh:pubkey-{appid}-{tuid}'
     new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
 
@@ -293,7 +293,7 @@ def get_ssh_challenge_token(account, appid, ip=None, *, session: "Session"):
     expiration = datetime.datetime.utcnow() + datetime.timedelta(seconds=10)
     expiration_unix = expiration.strftime("%s")
 
-    challenge_token = 'challenge-%(crypto_rand)s-%(account)s-%(expiration_unix)s' % locals()
+    challenge_token = f'challenge-{crypto_rand}-{account}-{expiration_unix}'
 
     new_challenge_token = models.Token(account=account, token=challenge_token, ip=ip,
                                        expired_at=expiration)
@@ -326,7 +326,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, *, session: "Sessi
     __delete_expired_tokens_account(account=account, session=session)
 
     tuid = generate_uuid()  # NOQA
-    token = '%(account)s-%(saml_nameid)s-%(appid)s-%(tuid)s' % locals()
+    token = f'{account}-{saml_nameid}-{appid}-{tuid}'
     new_token = models.Token(account=account, identity=saml_nameid, token=token, ip=ip)
     new_token.save(session=session)
 

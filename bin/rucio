@@ -794,7 +794,7 @@ def close(args):
     for did in args.dids:
         scope, name = get_scope(did, client)
         client.set_status(scope=scope, name=name, open=False)
-        print('%(scope)s:%(name)s has been closed.' % locals())
+        print(f'{scope}:{name} has been closed.')
     return SUCCESS
 
 
@@ -809,7 +809,7 @@ def reopen(args):
     for did in args.dids:
         scope, name = get_scope(did, client)
         client.set_status(scope=scope, name=name, open=True)
-        print('%(scope)s:%(name)s has been reopened.' % locals())
+        print(f'{scope}:{name} has been reopened.')
     return SUCCESS
 
 
