@@ -62,7 +62,7 @@ class Default(protocol.RSEProtocol):
 
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
-        cmd = 'rfstat %(path)s' % locals()
+        cmd = f'rfstat {path}'
         status, out, err = execute(cmd)
         return status == 0
 
@@ -87,13 +87,13 @@ class Default(protocol.RSEProtocol):
         if not self.exists(dirname(target)):
             self.mkdir(dirname(target))
 
-        cmd = 'rfcp %(source)s %(path)s' % locals()
+        cmd = f'rfcp {source} {target}'
         status, out, err = execute(cmd)
         return status == 0
 
     def mkdir(self, directory):
         """ Create new directory. """
-        cmd = 'rfmkdir -p %(path)s' % locals()
+        cmd = f'rfmkdir -p {directory}'
         status, out, err = execute(cmd)
         return status == 0
 

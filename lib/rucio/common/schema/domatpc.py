@@ -396,4 +396,4 @@ def validate_schema(name, obj):
         if obj:
             validate(obj, SCHEMAS.get(name, {}))
     except ValidationError as error:  # NOQA, pylint: disable=W0612
-        raise InvalidObject("Problem validating %(name)s : %(error)s" % locals())
+        raise InvalidObject(f'Problem validating {name}: {error}')
