@@ -1719,7 +1719,6 @@ def export_rse(rse_id, *, session: "Session"):
     # get RSE limits
     limits = get_rse_limits(rse_id=rse_id, session=session)
     rse_data['MinFreeSpace'] = limits.get('MinFreeSpace')
-    rse_data['MaxBeingDeletedFiles'] = limits.get('MaxBeingDeletedFiles')
 
     return rse_data
 

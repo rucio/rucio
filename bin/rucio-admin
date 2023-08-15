@@ -2058,7 +2058,7 @@ def get_parser():
                                                     epilog='Usage example\n'
                                                            '"""""""""""""\n'
                                                            '\n'
-                                                           '  $ rucio-admin rse delete-limit XRD3 MaxBeingDeletedFiles')
+                                                           '  $ rucio-admin rse delete-limit XRD3 MinFreeSpace')
     set_limit_rse_parser.set_defaults(which='delete_limit_rse')
     set_limit_rse_parser.add_argument('rse', action='store', help='RSE name')
     set_limit_rse_parser.add_argument('name', action='store', help='Name of the limit')

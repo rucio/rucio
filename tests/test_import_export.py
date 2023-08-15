@@ -157,7 +157,6 @@ def importer_example_data(vo):
     add_protocol(example_data.old_rse_id_1, {'scheme': 'scheme1', 'hostname': 'hostname1', 'port': 1000, 'impl': 'TODO'})
     add_protocol(example_data.old_rse_id_1, {'scheme': 'scheme3', 'hostname': 'hostname3', 'port': 1000, 'impl': 'TODO'})
 
-    set_rse_limits(rse_id=example_data.old_rse_id_1, name='MaxBeingDeletedFiles', value='10')
     set_rse_limits(rse_id=example_data.old_rse_id_1, name='MinFreeSpace', value='10')
     add_rse_attribute(rse_id=example_data.old_rse_id_1, key='attr1', value='test10')
     add_rse_attribute(rse_id=example_data.old_rse_id_1, key='lfn2pfn_algorithm', value='test10')
@@ -258,7 +257,6 @@ def importer_example_data(vo):
                     'attr2': 'test2'
                 },
                 'MinFreeSpace': 10000,
-                'MaxBeingDeletedFiles': 1000,
                 'verify_checksum': False,
                 'lfn2pfn_algorithm': 'hash3',
                 'availability_delete': False,
@@ -342,7 +340,6 @@ def test_importer_core(vo, importer_example_data, reset_rses):
     assert attributes['attr2'] == 'test2'
 
     limits = get_rse_limits(rse_id=importer_example_data.old_rse_id_1)
-    assert limits['MaxBeingDeletedFiles'] == 1000
     assert limits['MinFreeSpace'] == 10000
 
     distance = get_distances(importer_example_data.old_rse_id_1, importer_example_data.old_rse_id_2)[0]
@@ -392,7 +389,6 @@ def test_importer_client(vo, importer_example_data, reset_rses):
     assert attributes['attr2'] == 'test2'
 
     limits = get_rse_limits(rse_id=importer_example_data.old_rse_id_1)
-    assert limits['MaxBeingDeletedFiles'] == 1000
     assert limits['MinFreeSpace'] == 10000
 
     distance = get_distances(importer_example_data.old_rse_id_1, importer_example_data.old_rse_id_2)[0]
@@ -443,7 +439,6 @@ def test_importer_rest(vo, rest_client, auth_token, importer_example_data, reset
     assert attributes['attr2'] == 'test2'
 
     limits = get_rse_limits(rse_id=importer_example_data.old_rse_id_1)
-    assert limits['MaxBeingDeletedFiles'] == 1000
     assert limits['MinFreeSpace'] == 10000
 
     distance = get_distances(importer_example_data.old_rse_id_1, importer_example_data.old_rse_id_2)[0]
@@ -547,7 +542,6 @@ class TestImporterSyncModes:
                         'attr2': 'test2'
                     },
                     'MinFreeSpace': 10000,
-                    'MaxBeingDeletedFiles': 1000,
                     'verify_checksum': False,
                     'lfn2pfn_algorithm': 'hash3',
                     'availability_delete': False,
@@ -649,7 +643,6 @@ class TestImporterSyncModes:
                         'attr2': 'test2'
                     },
                     'MinFreeSpace': 10000,
-                    'MaxBeingDeletedFiles': 1000,
                     'verify_checksum': False,
                     'lfn2pfn_algorithm': 'hash3',
                     'availability_delete': False,
