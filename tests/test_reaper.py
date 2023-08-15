@@ -156,11 +156,9 @@ def test_reaper_multi_vo_via_run(vo, second_vo, scope_factory, caches_mock):
 
     rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=vo)
     rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=vo)
-    rse_api.set_rse_limits(rse=rse_name, name='MaxBeingDeletedFiles', value=10, issuer='root', vo=vo)
 
     rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=new_vo)
     rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=new_vo)
-    rse_api.set_rse_limits(rse=rse_name, name='MaxBeingDeletedFiles', value=10, issuer='root', vo=new_vo)
 
     # Check we start of with the expected number of replicas
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
@@ -191,11 +189,9 @@ def test_reaper_affect_other_vo_via_run(vo, second_vo, scope_factory, caches_moc
 
     rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=vo)
     rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=vo)
-    rse_api.set_rse_limits(rse=rse_name, name='MaxBeingDeletedFiles', value=10, issuer='root', vo=vo)
 
     rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=new_vo)
     rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=new_vo)
-    rse_api.set_rse_limits(rse=rse_name, name='MaxBeingDeletedFiles', value=10, issuer='root', vo=new_vo)
 
     # Check we start of with the expected number of replicas
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files

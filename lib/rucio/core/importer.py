@@ -95,7 +95,7 @@ def import_rses(rses, rse_sync_method='edit', attr_sync_method='edit', protocol_
 
         # Limits
         old_limits = rse_module.get_rse_limits(rse_id=rse_id, session=session)
-        for limit_name in ['MaxBeingDeletedFiles', 'MinFreeSpace']:
+        for limit_name in ['MinFreeSpace']:
             limit = rse.get(limit_name)
             if limit:
                 if limit_name in old_limits:
