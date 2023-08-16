@@ -404,6 +404,10 @@ class UploadClient:
 
             # add file to rse if it is not registered yet
             replicastate = list(self.client.list_replicas([file_did], all_states=True))
+            for replica in replicastate:
+                if 'states' in replica and rse in replica['states'] and replica['states'].get(rse) != 'AVAILABLE':
+                    replica['states'].get(rse).replace(
+                        replica['states'].get(rse), 'AVAILABLE')
             if rse not in replicastate[0]['rses']:
                 self.client.add_replicas(rse=rse, files=[replica_for_api])
                 logger(logging.INFO, 'Successfully added replica in Rucio catalogue at %s' % rse)
