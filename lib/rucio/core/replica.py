@@ -60,7 +60,7 @@ from rucio.db.sqla.util import temp_table_mngr
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterator, Sequence
     from rucio.rse.protocols.protocol import RSEProtocol
     from typing import Any, Optional
     from sqlalchemy.orm import Session
@@ -3037,6 +3037,27 @@ def list_datasets_per_rse(rse_id, filters=None, limit=None, *, session: "Session
 
     for row in query:
         yield row._asdict()
+
+
+@stream_session
+def list_replicas_per_rse(
+    rse_id: str,
+    limit: "Optional[int]" = None,
+    *,
+    session: "Session"
+) -> "Iterator[dict[str, Any]]":
+    """List all replicas at a given RSE."""
+    list_stmt = select(
+        models.RSEFileAssociation
+    ).where(
+        models.RSEFileAssociation.rse_id == rse_id
+    )
+
+    if limit:
+        list_stmt = list_stmt.limit(limit)
+
+    for replica in session.execute(list_stmt).yield_per(100).scalars():
+        yield replica.to_dict()
 
 
 @transactional_session
