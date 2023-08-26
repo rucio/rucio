@@ -45,7 +45,7 @@ def queue_requests(requests, issuer, vo='def', *, session: "Session"):
 
     kwargs = {'requests': requests, 'issuer': issuer}
     if not permission.has_permission(issuer=issuer, vo=vo, action='queue_requests', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%(issuer)s can not queue request' % locals())
+        raise exception.AccessDenied(f'{issuer} can not queue request')
 
     for req in requests:
         req['scope'] = InternalScope(req['scope'], vo=vo)
@@ -94,13 +94,13 @@ def cancel_request_did(scope, name, dest_rse, request_type, issuer, account, vo=
 
     kwargs = {'account': account, 'issuer': issuer}
     if not permission.has_permission(issuer=issuer, vo=vo, action='cancel_request_did', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%(account)s cannot cancel %(request_type)s request for %(scope)s:%(name)s' % locals())
+        raise exception.AccessDenied(f'{account} cannot cancel {request_type} request for {scope}:{name}')
 
     scope = InternalScope(scope, vo=vo)
     return request.cancel_request_did(scope, name, dest_rse_id, request_type, session=session)
 
 
-@read_session
+@transactional_session
 def get_next(request_type, state, issuer, account, vo='def', *, session: "Session"):
     """
     Retrieve the next request matching the request type and state.
@@ -116,9 +116,9 @@ def get_next(request_type, state, issuer, account, vo='def', *, session: "Sessio
 
     kwargs = {'account': account, 'issuer': issuer, 'request_type': request_type, 'state': state}
     if not permission.has_permission(issuer=issuer, vo=vo, action='get_next', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%(account)s cannot get the next request of type %(request_type)s in state %(state)s' % locals())
+        raise exception.AccessDenied(f'{account} cannot get the next request of type {request_type} in state {state}')
 
-    reqs = request.get_next(request_type, state, session=session)
+    reqs = request.get_and_mark_next(request_type, state, session=session)
     return [api_update_return_dict(r, session=session) for r in reqs]
 
 
@@ -139,7 +139,7 @@ def get_request_by_did(scope, name, rse, issuer, vo='def', *, session: "Session"
 
     kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
     if not permission.has_permission(issuer=issuer, vo=vo, action='get_request_by_did', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%(issuer)s cannot retrieve the request DID %(scope)s:%(name)s to RSE %(rse)s' % locals())
+        raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}')
 
     scope = InternalScope(scope, vo=vo)
     req = request.get_request_by_did(scope, name, rse_id, session=session)
@@ -164,7 +164,7 @@ def get_request_history_by_did(scope, name, rse, issuer, vo='def', *, session: "
 
     kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
     if not permission.has_permission(issuer=issuer, vo=vo, action='get_request_history_by_did', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%(issuer)s cannot retrieve the request DID %(scope)s:%(name)s to RSE %(rse)s' % locals())
+        raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}')
 
     scope = InternalScope(scope, vo=vo)
     req = request.get_request_history_by_did(scope, name, rse_id, session=session)
@@ -188,7 +188,7 @@ def list_requests(src_rses, dst_rses, states, issuer, vo='def', *, session: "Ses
 
     kwargs = {'src_rse_id': src_rse_ids, 'dst_rse_id': dst_rse_ids, 'issuer': issuer}
     if not permission.has_permission(issuer=issuer, vo=vo, action='list_requests', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%(issuer)s cannot list requests from RSE %(src_rse)s to RSE %(dst_rse)s' % locals())
+        raise exception.AccessDenied(f'{issuer} cannot list requests from RSEs {src_rses} to RSEs {dst_rses}')
 
     for req in request.list_requests(src_rse_ids, dst_rse_ids, states, session=session):
         req = req.to_dict()
@@ -213,7 +213,7 @@ def list_requests_history(src_rses, dst_rses, states, issuer, vo='def', offset=N
 
     kwargs = {'src_rse_id': src_rse_ids, 'dst_rse_id': dst_rse_ids, 'issuer': issuer}
     if not permission.has_permission(issuer=issuer, vo=vo, action='list_requests_history', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%(issuer)s cannot list requests from RSE %(src_rse)s to RSE %(dst_rse)s' % locals())
+        raise exception.AccessDenied(f'{issuer} cannot list requests from RSEs {src_rses} to RSEs {dst_rses}')
 
     for req in request.list_requests_history(src_rse_ids, dst_rse_ids, states, offset, limit, session=session):
         req = req.to_dict()

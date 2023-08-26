@@ -24,7 +24,7 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get_bool
 from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
                                     DuplicateFileTransferSubmission, VONotFound, DatabaseException)
 from rucio.common.stopwatch import Stopwatch
@@ -34,8 +34,7 @@ from rucio.core.replica import add_replicas, tombstone_from_delay, update_replic
 from rucio.core.request import set_request_state, queue_requests
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.topology import Topology
-from rucio.core.transfer import list_transfer_admin_accounts, build_transfer_paths
+from rucio.core.transfer import build_transfer_paths
 from rucio.core.vo import list_vos
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import RequestState, ReplicaState
@@ -43,7 +42,8 @@ from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from typing import Callable, Dict, List, Optional, Set, Tuple, Sequence
+    from collections.abc import Callable, Sequence
+    from typing import Optional
     from rucio.core.transfer import DirectTransferDefinition
     from rucio.transfertool.transfertool import TransferToolBuilder
     from sqlalchemy.orm import Session
@@ -51,61 +51,20 @@ if TYPE_CHECKING:
 METRICS = MetricManager(module=__name__)
 
 
-def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_var=None, limit=None, activity=None, older_than=None, rses=None, schemes=None,
-                             failover_schemes=None, filter_transfertool=None, transfertools=None, request_type=None,
-                             ignore_availability=False, logger=logging.log):
+def pick_and_prepare_submission_path(requests_with_sources, topology, protocol_factory, default_tombstone_delay=transfer_core.DEFAULT_MULTIHOP_TOMBSTONE_DELAY,
+                                     admin_accounts=None, schemes=None, failover_schemes=None, max_sources=4, transfertools=None, logger=logging.log):
     """
-    Get next transfers to be submitted; grouped by transfertool which can submit them
-    :param total_workers:         Number of total workers.
-    :param worker_number:         Id of the executing worker.
-    :param partition_hash_var     The hash variable used for partitioning thread work
-    :param limit:                 Maximum number of requests to retrieve from database.
-    :param activity:              Activity.
-    :param older_than:            Get transfers older than.
-    :param rses:                  Include RSES.
-    :param schemes:               Include schemes.
-    :param failover_schemes:      Failover schemes.
-    :param transfertools:         List of transfertool names which can be used by this submitter
-    :param filter_transfertool:   The transfer tool to filter requests on.
-    :param request_type           List of types of requests to retrieve (Transfer/Stagein)
-    :param ignore_availability:   Ignore blocklisted RSEs
-    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns:                     Dict: {TransferToolBuilder: <list of transfer paths (possibly multihop) to be submitted>}
+    For each transfer, pick a (sub)path; and a transfertool to be used to submit that (sub)path
     """
-
-    admin_accounts = list_transfer_admin_accounts()
-
-    topology = Topology.create_from_config(ignore_availability=ignore_availability)
-
-    required_source_rse_attrs = None
-    # if filter_transfertool specified, select only the source rses which are configured for this transfertool
-    if filter_transfertool:
-        # if multihop is configured, we want all possible source rses. To allow multi-hopping between transfertools
-        if not topology.multihop_rses:
-            required_source_rse_attrs = transfer_core.TRANSFERTOOL_CLASSES_BY_NAME[filter_transfertool].required_rse_attrs
-
-    # retrieve (from the database) the transfer requests with their possible source replicas
-    requests_with_sources = request_core.list_transfer_requests_and_source_replicas(
-        total_workers=total_workers,
-        worker_number=worker_number,
-        partition_hash_var=partition_hash_var,
-        limit=limit,
-        activity=activity,
-        older_than=older_than,
-        rses=rses,
-        request_type=request_type,
-        request_state=RequestState.QUEUED,
-        ignore_availability=ignore_availability,
-        transfertool=filter_transfertool,
-        required_source_rse_attrs=required_source_rse_attrs,
-    )
 
     # for each source, compute the (possibly multihop) path between it and the transfer destination
     _build_paths_fnc = functools.partial(
         build_transfer_paths,
         topology=topology,
+        protocol_factory=protocol_factory,
         schemes=schemes,
         failover_schemes=failover_schemes,
+        max_sources=max_sources,
         admin_accounts=admin_accounts,
         transfertools=transfertools,
         logger=logger,
@@ -115,6 +74,7 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
     # if the chosen best path is a multihop, create intermediate replicas and the intermediate transfer requests
     _assign_path_fnc = functools.partial(
         assign_paths_to_transfertool_and_create_hops,
+        default_tombstone_delay=default_tombstone_delay,
         transfertools=transfertools,
         logger=logger,
     )
@@ -171,10 +131,10 @@ def next_transfers_to_submit(total_workers=0, worker_number=0, partition_hash_va
 
 
 def __assign_to_transfertool(
-        transfer_path: "List[DirectTransferDefinition]",
-        transfertools: "Optional[List[str]]",
+        transfer_path: "list[DirectTransferDefinition]",
+        transfertools: "Optional[list[str]]",
         logger: "Callable",
-) -> "List[Tuple[List[DirectTransferDefinition], Optional[TransferToolBuilder]]]":
+) -> "list[tuple[list[DirectTransferDefinition], Optional[TransferToolBuilder]]]":
     """
     Iterate over a multihop path and assign sub-paths to transfertools in chucks from left to right.
 
@@ -214,17 +174,17 @@ def __assign_to_transfertool(
 
 
 def assign_paths_to_transfertool_and_create_hops(
-        candidate_paths_by_request_id: "Dict[str: List[DirectTransferDefinition]]",
-        transfertools: "Optional[List[str]]" = None,
+        candidate_paths_by_request_id: "dict[str: list[DirectTransferDefinition]]",
+        default_tombstone_delay: int,
+        transfertools: "Optional[list[str]]" = None,
         logger: "Callable" = logging.log,
-) -> "Tuple[Dict[TransferToolBuilder, List[DirectTransferDefinition]], Set[str]]":
+) -> "tuple[dict[TransferToolBuilder, list[DirectTransferDefinition]], set[str]]":
     """
     for each request, pick the first path which can be submitted by one of the transfertools.
     If the chosen path is multihop, create all missing intermediate requests and replicas.
     """
     reqs_no_host = set()
     paths_by_transfertool_builder = {}
-    default_tombstone_delay = config_get_int('transfers', 'multihop_tombstone_delay', default=transfer_core.DEFAULT_MULTIHOP_TOMBSTONE_DELAY, expiration_time=600)
     for request_id, candidate_paths in candidate_paths_by_request_id.items():
         try:
             hops_to_submit, builder_to_use = __assign_paths_to_transfertool_and_create_hops(
@@ -254,13 +214,13 @@ def assign_paths_to_transfertool_and_create_hops(
 @transactional_session
 def __assign_paths_to_transfertool_and_create_hops(
         request_id: str,
-        candidate_paths: "Sequence[List[DirectTransferDefinition]]",
+        candidate_paths: "Sequence[list[DirectTransferDefinition]]",
         default_tombstone_delay: int,
-        transfertools: "Optional[List[str]]" = None,
+        transfertools: "Optional[list[str]]" = None,
         *,
         logger: "Callable" = logging.log,
         session: "Session",
-) -> "Tuple[Optional[List[DirectTransferDefinition]], Optional[TransferToolBuilder]]":
+) -> "tuple[Optional[list[DirectTransferDefinition]], Optional[TransferToolBuilder]]":
     """
     Out of a sequence of candidate paths for the given request, pick the first path which can
     be submitted by one of the transfertools.
@@ -330,12 +290,12 @@ def __assign_paths_to_transfertool_and_create_hops(
 
 @transactional_session
 def __create_missing_replicas_and_requests(
-        transfer_path: "List[DirectTransferDefinition]",
+        transfer_path: "list[DirectTransferDefinition]",
         default_tombstone_delay: int,
         *,
         logger: "Callable",
         session: "Session"
-) -> "Tuple[bool, bool]":
+) -> tuple[bool, bool]:
     """
     Create replicas and requests in the database for the intermediate hops
     """
@@ -379,13 +339,9 @@ def __create_missing_replicas_and_requests(
             logger(logging.ERROR, '%s: Problem adding replicas on %s : %s', initial_request_id, rws.dest_rse, str(error))
 
         rws.attributes['is_intermediate_hop'] = True
-        # next_hop_request_id and initial_request_id are not used anymore in rucio >=1.28, but are needed
-        # for running at the same time 1.27 and 1.28 on the same database.
-        # TODO: remove following two rows
-        rws.attributes['next_hop_request_id'] = transfer_path[i + 1].rws.request_id
-        rws.attributes['initial_request_id'] = initial_request_id
         rws.attributes['source_replica_expression'] = hop.src.rse.name
         req_to_queue = {'dest_rse_id': rws.dest_rse.id,
+                        'source_rse_id': hop.src.rse.id,
                         'state': RequestState.QUEUED,
                         'scope': rws.scope,
                         'name': rws.name,
@@ -420,7 +376,7 @@ def __create_missing_replicas_and_requests(
     return creation_successful, must_skip_submission
 
 
-def submit_transfer(transfertool_obj, transfers, job_params, submitter='submitter', timeout=None, logger=logging.log):
+def submit_transfer(transfertool_obj, transfers, job_params, timeout=None, logger=logging.log):
     """
     Submit a transfer or staging request
 
@@ -444,15 +400,15 @@ def submit_transfer(transfertool_obj, transfers, job_params, submitter='submitte
             return
 
     try:
-        _submit_transfers(transfertool_obj, transfers, job_params, submitter, timeout, logger)
+        _submit_transfers(transfertool_obj, transfers, job_params, timeout, logger)
     except DuplicateFileTransferSubmission as error:
         logger(logging.WARNING, 'Failed to bulk submit a job because of duplicate file : %s', str(error))
         logger(logging.INFO, 'Submitting files one by one')
         for transfer in transfers:
-            _submit_transfers(transfertool_obj, [transfer], job_params, submitter, timeout, logger)
+            _submit_transfers(transfertool_obj, [transfer], job_params, timeout, logger)
 
 
-def _submit_transfers(transfertool_obj, transfers, job_params, submitter='submitter', timeout=None, logger=logging.log):
+def _submit_transfers(transfertool_obj, transfers, job_params, timeout=None, logger=logging.log):
     """
     helper function for submit_transfers. Performs the actual submission of one or more transfers.
 
@@ -526,7 +482,7 @@ def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None,
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     :return:              List of working rses
     """
-    multi_vo = config_get('common', 'multi_vo', raise_exception=False, default=False)
+    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
     if not multi_vo:
         if vos:
             logger(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')

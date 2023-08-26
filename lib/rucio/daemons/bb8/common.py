@@ -14,18 +14,14 @@
 # limitations under the License.
 
 import logging
-
 from datetime import datetime, date, timedelta
 from string import Template
-from sqlalchemy.orm import aliased
+
+from requests import get
 from sqlalchemy import func, and_, or_, cast, BigInteger
+from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import case, select
 
-from rucio.core.lock import get_dataset_locks
-from rucio.core.rule import get_rule, add_rule, update_rule
-from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.rse import list_rse_attributes, get_rse_name, get_rse_vo
-from rucio.core.rse_selector import RSESelector
 from rucio.common.config import config_get, config_get_int, config_get_bool
 from rucio.common.exception import (
     InsufficientTargetRSEs,
@@ -34,11 +30,14 @@ from rucio.common.exception import (
     InsufficientAccountLimit,
 )
 from rucio.common.types import InternalAccount, InternalScope
-
-from rucio.db.sqla.session import transactional_session, read_session
+from rucio.core.lock import get_dataset_locks
+from rucio.core.rse import list_rse_attributes, get_rse_name, get_rse_vo
+from rucio.core.rse_expression_parser import parse_expression
+from rucio.core.rse_selector import RSESelector
+from rucio.core.rule import get_rule, add_rule, update_rule
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RuleState, RuleGrouping, LockState
-from requests import get
+from rucio.db.sqla.session import transactional_session, read_session
 
 
 @transactional_session

@@ -24,8 +24,8 @@ import logging
 import operator
 import os
 import re
+
 from tabulate import tabulate
-from typing import TYPE_CHECKING
 
 from rucio.common.dumper import DUMPS_CACHE_DIR
 from rucio.common.dumper import HTTPDownloadFailed
@@ -34,9 +34,6 @@ from rucio.common.dumper import http_download_to_file
 from rucio.common.dumper import smart_open
 from rucio.common.dumper import temp_file
 from rucio.common.dumper import to_datetime
-
-if TYPE_CHECKING:
-    from typing import List
 
 
 class DataModel(object):
@@ -74,7 +71,7 @@ class DataModel(object):
         self.date = None
 
     @classmethod
-    def get_fieldnames(cls) -> "List[str]":
+    def get_fieldnames(cls) -> list[str]:
         """
         Get the field names
         """

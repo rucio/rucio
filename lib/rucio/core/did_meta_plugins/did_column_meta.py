@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import operator
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
-import operator
 
 from sqlalchemy import update, inspect
 from sqlalchemy.exc import CompileError, InvalidRequestError
@@ -56,12 +56,9 @@ class DidColumnMeta(DidMetaPlugin):
         try:
             row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-            d = {}
-            for column in row.__table__.columns:
-                d[column.name] = getattr(row, column.name)
-            return d
+            return row.to_dict()
         except NoResultFound:
-            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % locals())
+            raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
     @transactional_session
     def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Session"):

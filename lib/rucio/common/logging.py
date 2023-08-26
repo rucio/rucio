@@ -19,15 +19,14 @@ import json
 import logging
 import re
 import sys
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from traceback import format_tb
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common.config import config_get, config_get_bool
 
 if TYPE_CHECKING:
     from logging import LogRecord
-
-    from typing import Any, Callable, Dict, Generator, Optional, Sequence, Tuple
 
 
 # Mapping from ECS field paths
@@ -52,14 +51,14 @@ ECS_TO_LOG_RECORD_MAP = dict(BUILTIN_FIELDS)
 LOG_RECORD_TO_ECS_MAP = dict((f[1], f[0]) for f in BUILTIN_FIELDS)
 
 
-def _json_serializable(obj: "Any"):
+def _json_serializable(obj: Any):
     try:
         return obj.__dict__
     except AttributeError:
         return str(obj)
 
 
-def _navigate_path(obj: "Any", path: "Sequence[str]") -> "Optional[Any]":
+def _navigate_path(obj: Any, path: Sequence[str]) -> Optional[Any]:
     """
     Traverse the path in the given object either via attributes or via dict-like subscriptions.
     Returns the found value; None if navigation fails
@@ -92,7 +91,7 @@ def _navigate_path(obj: "Any", path: "Sequence[str]") -> "Optional[Any]":
     return value
 
 
-def _unflatten_dict(dictionary: "Dict[str, Any]") -> "Dict[str, Any]":
+def _unflatten_dict(dictionary: dict[str, Any]) -> dict[str, Any]:
     """
     Transform a dict of the form
     {'a.b.c': value1, 'a.b.d': value2, 'z': value3}
@@ -119,7 +118,7 @@ def _unflatten_dict(dictionary: "Dict[str, Any]") -> "Dict[str, Any]":
     return ret
 
 
-def _get_request_data(request_path: "Sequence[str]") -> "Callable[[LogDataSource, LogRecord], Generator[Tuple[str, Optional[Any]]]]":
+def _get_request_data(request_path: Sequence[str]) -> "Callable[[LogDataSource, LogRecord], Iterator[tuple[str, Optional[Any]]]]":
     """
     Returns a function which, when called, will resolve the value
     in the flask request object at request_path
@@ -129,7 +128,7 @@ def _get_request_data(request_path: "Sequence[str]") -> "Callable[[LogDataSource
     # TODO: move to top of file once we got rid of/refactored rsemanager
     from flask import has_request_context, request
 
-    def _request_data_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> "Generator[Tuple[str, Optional[Any]]]":
+    def _request_data_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> Iterator[tuple[str, Optional[Any]]]:
         value = None
         if has_request_context() and request_path:
             value = _navigate_path(request, request_path)
@@ -138,13 +137,13 @@ def _get_request_data(request_path: "Sequence[str]") -> "Callable[[LogDataSource
     return _request_data_formatter
 
 
-def _get_record_attribute(attribute: str) -> "Callable[[LogDataSource, LogRecord], Generator[Tuple[str, Optional[Any]]]]":
+def _get_record_attribute(attribute: str) -> "Callable[[LogDataSource, LogRecord], Iterator[tuple[str, Optional[Any]]]]":
     """
     Returns a function which, when called, will generate the value of the desired attribute from
     the record passed in argument.
     """
 
-    def _record_attribute_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> "Generator[Tuple[str, Optional[Any]]]":
+    def _record_attribute_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> Iterator[tuple[str, Optional[Any]]]:
         value = None
         try:
             value = getattr(record, attribute)
@@ -155,7 +154,7 @@ def _get_record_attribute(attribute: str) -> "Callable[[LogDataSource, LogRecord
     return _record_attribute_formatter
 
 
-def _timestamp_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> "Generator[Tuple[str, Optional[Any]]]":
+def _timestamp_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> Iterator[tuple[str, Optional[Any]]]:
     """
     Format a timestamp
     """
@@ -178,9 +177,9 @@ class LogDataSource:
     """
     def __init__(
             self,
-            ecs_fields: "Tuple[str, ...]",
-            formatter: "Optional[Callable[[LogDataSource, LogRecord], Generator[Tuple[str, Optional[Any]]]]]" = None,
-            dst_record_attr: "Optional[str]" = None
+            ecs_fields: tuple[str, ...],
+            formatter: "Optional[Callable[[LogDataSource, LogRecord], Iterator[tuple[str, Optional[Any]]]]]" = None,
+            dst_record_attr: Optional[str] = None
     ):
         self.ecs_fields = ecs_fields
         self._formatter = formatter
@@ -189,7 +188,7 @@ class LogDataSource:
     def __hash__(self):
         return hash(self.ecs_fields)
 
-    def __eq__(self, other: "Any"):
+    def __eq__(self, other: Any):
         if not other or not isinstance(other, self.__class__):
             return False
         return self.ecs_fields == other.ecs_fields
@@ -250,6 +249,21 @@ class MessageLogDataSource(LogDataSource):
         yield from zip(self.ecs_fields, (record.message, error_type, error_message, stack_trace))
 
 
+class ConstantStrDataSource(LogDataSource):
+    """
+    Prints a constant string for the given ECS field.
+    """
+
+    def __init__(self, ecs_field, _str):
+        log_record = ECS_TO_LOG_RECORD_MAP.get(ecs_field, None)
+        self._str = _str
+
+        def _formatter(data_source: LogDataSource, record: "LogRecord"):
+            yield self.ecs_fields[0], self._str
+
+        super().__init__(ecs_fields=(ecs_field,), formatter=_formatter, dst_record_attr=log_record)
+
+
 class RucioFormatter(logging.Formatter):
     """
     The formatter should be a drop-in replacement to the python builtin
@@ -268,15 +282,16 @@ class RucioFormatter(logging.Formatter):
 
     def __init__(
             self,
-            fmt: 'Optional[str]' = None,
-            validate: "Optional[bool]" = None,
+            fmt: Optional[str] = None,
+            validate: Optional[bool] = None,
             output_json: bool = False,
+            additional_fields: Optional[Mapping[str, str]] = None
     ):
         _kwargs = {}
         if validate is not None:
             _kwargs["validate"] = validate
 
-        data_sources = dict(
+        data_sources: dict[str, LogDataSource] = dict(
             (ecs_field, LogDataSource((ecs_field,), formatter=_get_record_attribute(log_record)))
             for ecs_field, log_record in BUILTIN_FIELDS
         )
@@ -296,6 +311,11 @@ class RucioFormatter(logging.Formatter):
                 ('user_agent.original', 'user_agent'),
             )
         )
+        if additional_fields:
+            data_sources.update({
+                ecs_field: ConstantStrDataSource(ecs_field, field_value)
+                for ecs_field, field_value in additional_fields.items()
+            })
 
         self._desired_data_sources = []
         if fmt:
@@ -343,13 +363,16 @@ class RucioFormatter(logging.Formatter):
                 return '{}'
 
 
-def rucio_log_formatter():
+def rucio_log_formatter(process_name: Optional[str] = None):
     config_logformat = config_get('common', 'logformat', raise_exception=False, default='%(asctime)s\t%(name)s\t%(process)d\t%(levelname)s\t%(message)s')
     output_json = config_get_bool('common', 'logjson', default=False)
-    return RucioFormatter(fmt=config_logformat, output_json=output_json)
+    additional_fields = {}
+    if process_name:
+        additional_fields['process.name'] = process_name
+    return RucioFormatter(fmt=config_logformat, output_json=output_json, additional_fields=additional_fields)
 
 
-def setup_logging(application=None):
+def setup_logging(application=None, process_name=None):
     """
     Configures the logging by setting the output stream to stdout and
     configures log level and log format.
@@ -357,7 +380,7 @@ def setup_logging(application=None):
     config_loglevel = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
 
     stdouthandler = logging.StreamHandler(stream=sys.stdout)
-    stdouthandler.setFormatter(rucio_log_formatter())
+    stdouthandler.setFormatter(rucio_log_formatter(process_name=process_name))
     stdouthandler.setLevel(config_loglevel)
     logging.basicConfig(level=config_loglevel, handlers=[stdouthandler])
 

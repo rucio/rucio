@@ -13,29 +13,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from re import match
-from datetime import datetime, timedelta
 from configparser import NoSectionError
+from datetime import datetime, timedelta
+from re import match
 from typing import TYPE_CHECKING
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
-from rucio.common.config import config_get
+import rucio.common.policy
+from rucio.common.config import config_get, config_get_int, config_get_list
 from rucio.common.exception import RucioException, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, UnsupportedOperation, ConfigNotFound
 from rucio.common.utils import generate_uuid, str_to_date
-import rucio.common.policy
 from rucio.core.message import add_message
-
 from rucio.core.rse import list_rse_attributes
-
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, LifetimeExceptionsState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Iterator, List, Optional, Union
+    from collections.abc import Iterator
+    from typing import Any, Optional, Union
     from rucio.common.types import InternalAccount, InternalScope
     from sqlalchemy.orm import Session
 
@@ -43,10 +42,10 @@ if TYPE_CHECKING:
 @stream_session
 def list_exceptions(
         exception_id: 'Optional[str]',
-        states: 'List[LifetimeExceptionsState]',
+        states: 'list[LifetimeExceptionsState]',
         *,
         session: 'Session',
-) -> 'Iterator[Dict[str, Any]]':
+) -> 'Iterator[dict[str, Any]]':
     """
     List exceptions to Lifetime Model.
 
@@ -75,14 +74,14 @@ def list_exceptions(
 
 @transactional_session
 def add_exception(
-        dids: 'List[Dict[str, Any]]',
+        dids: 'list[dict[str, Any]]',
         account: 'InternalAccount',
         pattern: 'Optional[str]',
         comments: str,
         expires_at: 'Optional[Union[str, datetime]]',
         *,
         session: 'Session'
-) -> 'Dict[str, Any]':
+) -> 'dict[str, Any]':
     """
     Add exceptions to Lifetime Model.
 
@@ -99,7 +98,7 @@ def add_exception(
     result = dict()
     result['exceptions'] = dict()
     try:
-        max_extension = config_get('lifetime_model', 'max_extension', default=None, session=session)
+        max_extension = config_get_int('lifetime_model', 'max_extension', session=session)
         if max_extension:
             if not expires_at:
                 expires_at = datetime.utcnow() + timedelta(days=max_extension)
@@ -112,7 +111,7 @@ def add_exception(
         max_extension = None
 
     try:
-        cutoff_date = config_get('lifetime_model', 'cutoff_date', default=None, session=session)
+        cutoff_date = config_get('lifetime_model', 'cutoff_date', session=session)
     except (ConfigNotFound, NoSectionError):
         raise UnsupportedOperation('Cannot submit exception at that date.')
     try:
@@ -149,7 +148,7 @@ def add_exception(
 
 @transactional_session
 def __add_exception(
-        dids: 'List[Dict[str, Any]]',
+        dids: 'list[dict[str, Any]]',
         account: 'InternalAccount',
         pattern: 'Optional[str]',
         comments: str,
@@ -223,9 +222,7 @@ def __add_exception(
     text += '\n'
     text += 'Approve:   https://rucio-ui.cern.ch/lifetime_exception?id=%s&action=approve\n' % str(exception_id)
     text += 'Deny:      https://rucio-ui.cern.ch/lifetime_exception?id=%s&action=deny\n' % str(exception_id)
-    approvers_email = config_get('lifetime_model', 'approvers_email', default=[], session=session)
-    if approvers_email:
-        approvers_email = approvers_email.split(',')  # pylint: disable=no-member
+    approvers_email = config_get_list('lifetime_model', 'approvers_email', default=[], session=session)
 
     add_message(event_type='email',
                 payload={'body': text, 'to': approvers_email,
@@ -269,7 +266,7 @@ def update_exception(
 def define_eol(
         scope: 'InternalScope',
         name: str,
-        rses: 'List[Dict[str, Any]]',
+        rses: 'list[dict[str, Any]]',
         *,
         session: 'Session',
 ) -> 'Optional[datetime]':

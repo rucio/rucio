@@ -19,16 +19,16 @@ import logging
 import pathlib
 import traceback
 import uuid
-from typing import Any, Callable, Dict, Tuple, TYPE_CHECKING
+from collections.abc import Callable
+from configparser import NoOptionError, NoSectionError
+from json import loads
+from typing import Any, Optional, TYPE_CHECKING
 from urllib.parse import urlparse
 
 import requests
-from configparser import NoOptionError, NoSectionError
-from json import loads
+from dogpile.cache.api import NoValue
 from requests.adapters import ReadTimeout
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
-
-from dogpile.cache.api import NoValue
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
@@ -36,16 +36,14 @@ from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE, FTS_COMPLETE_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import APIEncoder, chunks, PREFERRED_CHECKSUM
+from rucio.core.monitor import MetricManager
+from rucio.core.oidc import get_token_for_account_operation
 from rucio.core.request import get_source_rse, get_transfer_error
 from rucio.core.rse import get_rse_supported_checksums_from_attributes
-from rucio.core.oidc import get_token_for_account_operation
-from rucio.core.monitor import MetricManager
-from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 from rucio.db.sqla.constants import RequestState
+from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 
 if TYPE_CHECKING:
-    from typing import List, Optional, Set, Union
-
     from rucio.core.transfer import DirectTransferDefinition
     from rucio.core.rse import RseData
 
@@ -87,7 +85,7 @@ FINAL_FTS_FILE_STATES = (FTS_STATE.FAILED, FTS_STATE.CANCELED, FTS_STATE.FINISHE
 # For example, if HOP1 supports only validation of checksum at source while HOP2 only
 # supports validation at destination, the strategy for the whole path MUST be "none". Otherwise,
 # transfers will fail when FTS will try to validate the checksum.
-PATH_CHECKSUM_VALIDATION_STRATEGY: "Dict[Tuple[str, str], str]" = {
+PATH_CHECKSUM_VALIDATION_STRATEGY: dict[tuple[str, str], str] = {
     ('both', 'both'): 'both',
     ('both', 'target'): 'target',
     ('both', 'source'): 'source',
@@ -163,7 +161,7 @@ def oidc_supported(transfer_hop) -> bool:
 
 def _available_checksums(
         transfer: "DirectTransferDefinition",
-) -> "Tuple[Set[str], Set[str]]":
+) -> tuple[set[str], set[str]]:
     """
     Get checksums which can be used for file validation on the source and the destination RSE
     """
@@ -185,7 +183,7 @@ def _available_checksums(
 def _hop_checksum_validation_strategy(
         transfer: "DirectTransferDefinition",
         logger: Callable[..., Any],
-) -> "Tuple[str, Set[str]]":
+) -> tuple[str, set[str]]:
     """
     Compute the checksum validation strategy (none, source, destination or both) depending
     on available source and destination checksums for a single hop transfer
@@ -209,7 +207,7 @@ def _hop_checksum_validation_strategy(
 
 
 def _path_checksum_validation_strategy(
-        transfer_path: "List[DirectTransferDefinition]",
+        transfer_path: "list[DirectTransferDefinition]",
         logger: Callable[..., Any],
 ) -> str:
     """
@@ -228,7 +226,7 @@ def _path_checksum_validation_strategy(
 def _pick_fts_checksum(
         transfer: "DirectTransferDefinition",
         path_strategy: "str",
-) -> "Union[str, None]":
+) -> Optional[str]:
     """
     Pick the checksum to use for validating file integrity on this particular transfer hop.
     This function will only work correctly for values of 'path_strategy' which are
@@ -551,8 +549,8 @@ class Fts3TransferStatusReport(TransferStatusReport):
         return False
 
     @classmethod
-    def _is_recoverable_fts_overwrite_error(cls, request: Dict[str, Any], reason: str,
-                                            file_metadata: Dict[str, Any]) -> bool:
+    def _is_recoverable_fts_overwrite_error(cls, request: dict[str, Any], reason: str,
+                                            file_metadata: dict[str, Any]) -> bool:
         """
         Verify the special case when FTS cannot copy a file because destination exists and overwrite is disabled,
         but the destination file is actually correct.

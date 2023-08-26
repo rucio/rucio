@@ -18,14 +18,13 @@ import logging
 import re
 import threading
 import time
-from typing import TYPE_CHECKING
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
-from sqlalchemy.exc import DatabaseError
 from dogpile.cache.api import NO_VALUE
+from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.db.sqla.constants import ReplicaState
 from rucio.common import exception
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get_int
@@ -36,6 +35,7 @@ from rucio.core.replica import list_bad_replicas, get_replicas_state, get_bad_re
 from rucio.core.rule import (update_rules_for_lost_replica, update_rules_for_bad_replica,
                              get_evaluation_backlog)
 from rucio.daemons.common import run_daemon
+from rucio.db.sqla.constants import ReplicaState
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 graceful_stop = threading.Event()
 METRICS = MetricManager(module=__name__)
 REGION = make_region_memcached(expiration_time=config_get_int('necromancer', 'cache_time', False, 600))
+DAEMON_NAME = 'necromancer'
 
 
 def necromancer(bulk: int, once: bool = False, sleep_time: int = 60) -> None:
@@ -60,8 +61,7 @@ def necromancer(bulk: int, once: bool = False, sleep_time: int = 60) -> None:
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable='necromancer',
-        logger_prefix='necromancer',
+        executable=DAEMON_NAME,
         partition_wait_time=10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -73,7 +73,6 @@ def necromancer(bulk: int, once: bool = False, sleep_time: int = 60) -> None:
 
 def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> bool:
     worker_number, total_workers, logger = heartbeat_handler.live()
-    logger(logging.INFO, 'Graceful stop done')
     must_sleep = True
 
     # Check if there is a Judge Evaluator backlog
@@ -172,7 +171,7 @@ def run(threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int =
     """
     Starts up the necromancer threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

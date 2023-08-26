@@ -16,7 +16,6 @@
 from argparse import ArgumentParser, Namespace
 from collections import Counter
 from pathlib import Path
-from typing import List, Tuple
 
 from .models import Report, ReportDiagnostic, ReportDiagnosticWithoutRange, Severity
 from .utils import group_by, load_json
@@ -73,7 +72,7 @@ def _indent(text: str, prefix: str) -> str:
     return text.replace('\n', '\n' + prefix)
 
 
-def print_regressions(collection: List[Tuple[ReportDiagnosticWithoutRange, int]], report: Report) -> None:
+def print_regressions(collection: list[tuple[ReportDiagnosticWithoutRange, int]], report: Report) -> None:
     """Takes the output of `_compare_reports` and prints it in a human-readable way."""
     all_problems = group_by(report.diagnostics, key=lambda elem: elem.without_range())
     diagnostics_by_file = group_by(collection, key=lambda elem: elem[0].file)
@@ -82,7 +81,7 @@ def print_regressions(collection: List[Tuple[ReportDiagnosticWithoutRange, int]]
         num_diagnostics = sum(count for _, count in diagnostics)
         print(f'Found {num_diagnostics} new problems in {file}')
         for diagnostic, count in diagnostics:
-            candidate_line_list: List[str] = []
+            candidate_line_list: list[str] = []
             for candidate in all_problems.get(diagnostic, []):
                 if candidate.range_start_line == candidate.range_end_line:
                     candidate_line_list.append(f'{candidate.range_start_line+1}')

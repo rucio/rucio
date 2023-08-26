@@ -13,20 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import uuid
 import datetime
+import uuid
 from typing import TYPE_CHECKING
 
 from rucio.api import permission
-from rucio.db.sqla.constants import BadFilesStatus
-from rucio.db.sqla.session import read_session, stream_session, transactional_session
-from rucio.core import replica
-from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.common import exception
+from rucio.common.constants import SuspiciousAvailability
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict, invert_dict
-from rucio.common.constants import SuspiciousAvailability
+from rucio.core import replica
+from rucio.core.rse import get_rse_id, get_rse_name
+from rucio.db.sqla.constants import BadFilesStatus
+from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

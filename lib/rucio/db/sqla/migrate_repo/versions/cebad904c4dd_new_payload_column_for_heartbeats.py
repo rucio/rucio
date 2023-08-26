@@ -16,7 +16,6 @@
 ''' New payload column for heartbeats '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column, create_index, drop_index
 

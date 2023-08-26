@@ -13,21 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import namedtuple
 import contextlib
 import itertools
 import json
 import os
 import tempfile
-from random import choice
-from string import ascii_uppercase
-import requests
+from collections import namedtuple
+from random import choice, choices
+from string import ascii_uppercase, ascii_letters, digits
+from typing import Optional
 
 import pytest
+import requests
 
 from rucio.common.config import config_get, config_get_bool, get_config_dirs
 from rucio.common.utils import generate_uuid as uuid, execute
-
 
 skip_rse_tests_with_accounts = pytest.mark.skipif(not any(os.path.exists(os.path.join(d, 'rse-accounts.cfg')) for d in get_config_dirs()),
                                                   reason='fails if no rse-accounts.cfg found')
@@ -39,23 +39,21 @@ skip_non_belleii = pytest.mark.skipif(not ('POLICY' in os.environ and os.environ
                                       reason="specific belleii tests")
 
 
-def is_influxdb_available():
+def is_influxdb_available() -> bool:
     """Return True if influxdb is available, else return False."""
     try:
         response = requests.get('http://localhost:8086/ping')
-        if response.status_code == 204:
-            return True
+        return response.status_code == 204
     except requests.exceptions.ConnectionError:
         print('InfluxDB is not running at localhost:8086')
         return False
 
 
-def is_elasticsearch_available():
+def is_elasticsearch_available() -> bool:
     """Return True if elasticsearch is available, else return False."""
     try:
         response = requests.get('http://localhost:9200/')
-        if response.status_code == 200:
-            return True
+        return response.status_code == 200
     except requests.exceptions.ConnectionError:
         print('Elasticsearch is not running at localhost:9200')
         return False
@@ -64,18 +62,20 @@ def is_elasticsearch_available():
 skip_missing_elasticsearch_influxdb_in_env = pytest.mark.skipif(not (is_influxdb_available() and is_elasticsearch_available()), reason='influxdb is not available')
 
 
-def get_long_vo():
+def get_long_vo() -> str:
     """ Get the VO name from the config file for testing.
     Don't map the name to a short version.
     :returns: VO name string.
     """
     vo_name = 'def'
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo_name = config_get('client', 'vo', raise_exception=False, default=None)
+        vo = config_get('client', 'vo', raise_exception=False, default=None)
+        if vo is not None:
+            vo_name = vo
     return vo_name
 
 
-def account_name_generator():
+def account_name_generator() -> str:
     """ Generate random account name.
 
     :returns: A random account name
@@ -83,7 +83,7 @@ def account_name_generator():
     return 'jdoe-' + str(uuid()).lower()[:16]
 
 
-def scope_name_generator():
+def scope_name_generator() -> str:
     """ Generate random scope name.
 
     :returns: A random scope name
@@ -91,7 +91,7 @@ def scope_name_generator():
     return 'mock_' + str(uuid()).lower()[:16]
 
 
-def did_name_generator(did_type='file', name_prefix='', name_suffix='', path=None):
+def did_name_generator(did_type: str = 'file', name_prefix: str = '', name_suffix: str = '', path: Optional[str] = None) -> str:
     """ Generate random did name.
     :param did_type: A string to create a meaningful did_name depending on the did_type (file, dataset, container)
     :param name_prefix: String to prefix to the did name
@@ -121,7 +121,7 @@ def did_name_generator(did_type='file', name_prefix='', name_suffix='', path=Non
     return '%s%s_%s%s' % (name_prefix, did_type, str(uuid()), name_suffix)
 
 
-def rse_name_generator(size=10):
+def rse_name_generator(size: int = 10) -> str:
     """ Generate random RSE name.
 
     :returns: A random RSE name
@@ -129,7 +129,19 @@ def rse_name_generator(size=10):
     return 'MOCK-' + ''.join(choice(ascii_uppercase) for x in range(size))
 
 
-def file_generator(size=2, namelen=10):
+def rfc2253_dn_generator():
+    """ Generate a random DN in RFC 2253 format.
+
+    :returns: A random DN
+    """
+    random_cn = ''.join(choices(ascii_letters + digits, k=8))
+    random_o = ''.join(choices(ascii_letters + digits, k=8))
+    random_c = ''.join(choices(ascii_letters, k=2))
+    random_dn = "CN={}, O={}, C={}".format(random_cn, random_o, random_c)
+    return random_dn
+
+
+def file_generator(size: int = 2, namelen: int = 10):
     """ Create a bogus file and returns it's name.
     :param size: size in bytes
     :returns: The name of the generated file.
@@ -139,7 +151,7 @@ def file_generator(size=2, namelen=10):
     return fn
 
 
-def make_temp_file(dir_, data):
+def make_temp_file(dir_: str, data: str) -> str:
     """
     Creates a temporal file and write `data` on it.
     :param data: String to be writen on the created file.

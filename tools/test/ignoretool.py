@@ -16,10 +16,6 @@
 
 import argparse
 import os
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from typing import List
 
 
 # from setup_rucio_clients
@@ -31,7 +27,7 @@ PACKAGES = [
     'rucio.rse.protocols',
     'rucio.rse',
     # 'rucio.tests'  do not include tests
-]  # type: List[str]
+]  # type: list[str]
 
 
 def package_directories(packages):

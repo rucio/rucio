@@ -16,12 +16,10 @@
 ''' added source history table '''
 
 import sqlalchemy as sa
-
-from alembic.op import create_table, add_column, drop_column, drop_table
 from alembic import context
+from alembic.op import create_table, add_column, drop_column, drop_table
 
 from rucio.db.sqla.types import GUID
-
 
 # Alembic revision identifiers
 revision = '575767d9f89'

@@ -14,9 +14,8 @@
 # limitations under the License.
 
 import logging
-from typing import TYPE_CHECKING
-
 from abc import ABCMeta, abstractmethod
+from typing import TYPE_CHECKING
 
 from rucio.core.request import get_request
 
@@ -130,7 +129,7 @@ class Transfertool(object, metaclass=ABCMeta):
         self.logger = logger
 
     def __str__(self):
-        return self.external_host
+        return self.external_host if self.external_host is not None else self.__class__.__name__
 
     @classmethod
     def can_perform_transfer(cls, source_rse: "RseData", dest_rse: "RseData"):

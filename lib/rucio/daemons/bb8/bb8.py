@@ -26,12 +26,11 @@ from typing import TYPE_CHECKING
 from rucio.common.config import config_get_float
 from rucio.common.exception import InvalidRSEExpression
 from rucio.common.logging import setup_logging
-from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.heartbeat import sanity_check, list_payload_counts
 from rucio.core.rse import get_rse_usage
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.bb8.common import rebalance_rse, get_active_locks
 from rucio.daemons.common import run_daemon
-
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -40,6 +39,7 @@ if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
+DAEMON_NAME = "rucio-bb8"
 
 
 def rule_rebalancer(
@@ -63,8 +63,7 @@ def rule_rebalancer(
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable="rucio-bb8",
-        logger_prefix="rucio-bb8",
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -99,7 +98,7 @@ def run_once(
     )
     min_total = config_get_float("bb8", "min_total", default=20 * 1e9)
     payload_cnt = list_payload_counts(
-        executable="rucio-bb8", older_than=600, hash_executable=None, session=None
+        executable=DAEMON_NAME, older_than=600, hash_executable=None, session=None
     )
     if rse_expression in payload_cnt:
         logger(
@@ -335,9 +334,9 @@ def run(
     Starts up the BB8 rebalancing threads.
     """
 
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
     hostname = socket.gethostname()
-    sanity_check(executable="rucio-bb8", hostname=hostname)
+    sanity_check(executable=DAEMON_NAME, hostname=hostname)
     logging.info("BB8 starting %s threads", str(threads))
     threads = [
         threading.Thread(

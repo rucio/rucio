@@ -16,25 +16,25 @@
 import hashlib
 import os
 from re import match
+from typing import Optional
 from typing import TYPE_CHECKING
 
 from sqlalchemy import asc
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common import exception
+from rucio.common.types import InternalAccount
 from rucio.core.account import account_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
-from rucio.common.types import InternalAccount
-from typing import Union
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
 @transactional_session
-def add_identity(identity: str, type_: IdentityType, email: str, password: Union[str, None] = None, *, session: "Session"):
+def add_identity(identity: str, type_: IdentityType, email: str, password: Optional[str] = None, *, session: "Session"):
     """
     Creates a user identity.
 
@@ -65,7 +65,7 @@ def add_identity(identity: str, type_: IdentityType, email: str, password: Union
 
 
 @read_session
-def verify_identity(identity: str, type_: IdentityType, password: Union[str, None] = None, *, session: "Session") -> bool:
+def verify_identity(identity: str, type_: IdentityType, password: Optional[str] = None, *, session: "Session") -> bool:
     """
     Verifies a user identity.
     :param identity: The identity key name. For example x509 DN, or a username.
@@ -83,8 +83,10 @@ def verify_identity(identity: str, type_: IdentityType, password: Union[str, Non
 
     id_ = session.query(models.Identity).filter_by(identity=identity, identity_type=type_).first()
     if id_ is None:
-        raise exception.IdentityError('Identity pair \'%s\',\'%s\' does not exist!' % (identity, type_))
-    if type_ == IdentityType.USERPASS:
+        raise exception.IdentityError('Identity \'%s\' of type \'%s\' does not exist!' % (identity, type_))
+    if type_ == IdentityType.X509:
+        return True
+    elif type_ == IdentityType.USERPASS:
         salted_password = id_.salt + password.encode()
         password = hashlib.sha256(salted_password).hexdigest()
         if password != id_.password:

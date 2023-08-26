@@ -42,7 +42,7 @@ class MongoDidMeta(DidMetaPlugin):
         if host is None:
             host = config.config_get('metadata', 'mongo_service_host')
         if port is None:
-            port = config.config_get('metadata', 'mongo_service_port')
+            port = config.config_get_int('metadata', 'mongo_service_port')
         if db is None:
             db = config.config_get('metadata', 'mongo_db')
         if collection is None:
@@ -77,7 +77,7 @@ class MongoDidMeta(DidMetaPlugin):
                 doc.pop(key)
 
         if not doc:
-            raise exception.DataIdentifierNotFound("No metadata found for did '%(scope)s:%(name)s'" % locals())
+            raise exception.DataIdentifierNotFound(f"No metadata found for did '{scope}:{name}'")
         return doc
 
     def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Optional[Session]" = None):
@@ -91,22 +91,22 @@ class MongoDidMeta(DidMetaPlugin):
         :param recursive: recurse into DIDs (not supported)
         :param session: The database session in use
         """
-        self.set_metadata_bulk(scope=scope, name=name, meta={key: value}, recursive=recursive, session=session)
+        self.set_metadata_bulk(scope=scope, name=name, metadata={key: value}, recursive=recursive, session=session)
 
-    def set_metadata_bulk(self, scope, name, meta, recursive=False, *, session: "Optional[Session]" = None):
+    def set_metadata_bulk(self, scope, name, metadata, recursive=False, *, session: "Optional[Session]" = None):
         """
         Bulk set metadata keys.
 
         :param scope: the scope of did
         :param name: the name of the did
-        :param meta: dictionary of metadata keypairs to be added
+        :param metadata: dictionary of metadata keypairs to be added
         :param recursive: recurse into DIDs (not supported)
         :param session: The database session in use
         """
         # pop immutable keys
         for key in IMMUTABLE_KEYS:
-            if key in meta:
-                meta.pop(key)
+            if key in metadata:
+                metadata.pop(key)
 
         # set first document with did == _id
         self.col.update_one(
@@ -114,7 +114,7 @@ class MongoDidMeta(DidMetaPlugin):
                 "_id": "{}:{}".format(scope.internal, name)
             },
             {
-                '$set': meta,
+                '$set': metadata,
                 '$setOnInsert': {
                     'scope': "{}".format(scope.external),
                     'vo': "{}".format(scope.vo),

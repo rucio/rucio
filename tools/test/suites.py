@@ -17,14 +17,13 @@ import io
 import itertools
 import subprocess
 import sys
-import typing
-from typing import Tuple, Optional, Dict, List
+from typing import Any, NoReturn, Optional, Union
 
 DEFAULT_TIMEOUT = 10
 DEFAULT_DB_TIMEOUT = 27
 
 
-def run(*args, check=True, return_stdout=False, env=None) -> typing.Union[typing.NoReturn, io.TextIOBase]:
+def run(*args, check=True, return_stdout=False, env=None) -> Union[NoReturn, io.TextIOBase]:
     kwargs = {'check': check, 'stdout': sys.stderr, 'stderr': subprocess.STDOUT}
     if env is not None:
         kwargs['env'] = env
@@ -50,9 +49,9 @@ class Container:
         self,
         image: "str",
         *args,
-        runtime_args: "Optional[List[str]]" = None,
-        run_args: "Optional[List[str]]" = None,
-        environment: "Optional[Dict[str, str]]" = None,
+        runtime_args: Optional[list[str]] = None,
+        run_args: Optional[list[str]] = None,
+        environment: Optional[dict[str, str]] = None,
         stop_timeout: int = DEFAULT_TIMEOUT,
     ):
         if runtime_args is None:
@@ -98,9 +97,9 @@ class CumulativeContextManager:
 class OracleDB(Container):
     def __init__(
         self,
-        runtime_args: "Optional[Tuple[str]]" = None,
-        run_args: "Optional[Tuple[str]]" = None,
-        environment: "Optional[Dict[str, str]]" = None,
+        runtime_args: Optional[tuple[str]] = None,
+        run_args: Optional[tuple[str]] = None,
+        environment: Optional[dict[str, str]] = None,
         stop_timeout: int = DEFAULT_DB_TIMEOUT,
     ):
         if run_args is None:
@@ -126,9 +125,9 @@ class OracleDB(Container):
 class MySQL5(Container):
     def __init__(
         self,
-        runtime_args: "Optional[Tuple[str]]" = None,
-        run_args: "Optional[Tuple[str]]" = None,
-        environment: "Optional[Dict[str, str]]" = None,
+        runtime_args: Optional[tuple[str]] = None,
+        run_args: Optional[tuple[str]] = None,
+        environment: Optional[dict[str, str]] = None,
         stop_timeout: int = DEFAULT_DB_TIMEOUT,
     ):
         if environment is None:
@@ -147,9 +146,9 @@ class MySQL5(Container):
 class MySQL8(Container):
     def __init__(
         self,
-        runtime_args: "Optional[Tuple[str]]" = None,
-        run_args: "Optional[Tuple[str]]" = None,
-        environment: "Optional[Dict[str, str]]" = None,
+        runtime_args: Optional[tuple[str]] = None,
+        run_args: Optional[tuple[str]] = None,
+        environment: Optional[dict[str, str]] = None,
         stop_timeout: int = DEFAULT_DB_TIMEOUT,
     ):
         if environment is None:
@@ -170,9 +169,9 @@ class MySQL8(Container):
 class Postgres14(Container):
     def __init__(
         self,
-        runtime_args: "Optional[Tuple[str]]" = None,
-        run_args: "Optional[Tuple[str]]" = None,
-        environment: "Optional[Dict[str, str]]" = None,
+        runtime_args: Optional[tuple[str]] = None,
+        run_args: Optional[tuple[str]] = None,
+        environment: Optional[dict[str, str]] = None,
         stop_timeout: int = DEFAULT_DB_TIMEOUT,
     ):
         if environment is None:
@@ -191,9 +190,9 @@ class Postgres14(Container):
 class ActiveMQ(Container):
     def __init__(
         self,
-        runtime_args: "Optional[Tuple[str]]" = None,
-        run_args: "Optional[Tuple[str]]" = None,
-        environment: "Optional[Dict[str, str]]" = None,
+        runtime_args: Optional[tuple[str]] = None,
+        run_args: Optional[tuple[str]] = None,
+        environment: Optional[dict[str, str]] = None,
         stop_timeout: int = DEFAULT_DB_TIMEOUT,
     ):
         super(ActiveMQ, self).__init__(
@@ -208,9 +207,9 @@ class ActiveMQ(Container):
 class InfluxDB(Container):
     def __init__(
         self,
-        runtime_args: "Optional[Tuple[str]]" = None,
-        run_args: "Optional[Tuple[str]]" = None,
-        environment: "Optional[Dict[str, str]]" = None,
+        runtime_args: Optional[tuple[str]] = None,
+        run_args: Optional[tuple[str]] = None,
+        environment: Optional[dict[str, str]] = None,
         stop_timeout: int = DEFAULT_DB_TIMEOUT,
     ):
         if environment is None:
@@ -233,9 +232,9 @@ class InfluxDB(Container):
 class Elasticsearch(Container):
     def __init__(
         self,
-        runtime_args: "Optional[Tuple[str]]" = None,
-        run_args: "Optional[Tuple[str]]" = None,
-        environment: "Optional[Dict[str, str]]" = None,
+        runtime_args: Optional[tuple[str]] = None,
+        run_args: Optional[tuple[str]] = None,
+        environment: Optional[dict[str, str]] = None,
         stop_timeout: int = DEFAULT_DB_TIMEOUT,
     ):
         if environment is None:
@@ -250,7 +249,7 @@ class Elasticsearch(Container):
         )
 
 
-rdbms_container: Dict[str, typing.Any] = {
+rdbms_container: dict[str, Any] = {
     "oracle": OracleDB,
     "mysql5": MySQL5,
     "mysql8": MySQL8,

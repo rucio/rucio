@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import logging
+import os
 
 from rucio.common import exception
-from rucio.rse.protocols import protocol
 from rucio.common.utils import execute, PREFERRED_CHECKSUM
+from rucio.rse.protocols import protocol
 
 
 class Default(protocol.RSEProtocol):
@@ -98,7 +98,12 @@ class Default(protocol.RSEProtocol):
             self.logger(logging.DEBUG, 'xrootd.stat: filesize cmd: {}'.format(cmd))
             status_stat, out, err = execute(cmd)
             if status_stat == 0:
-                ret['filesize'] = out.split('\n')[2].split()[-1]
+                for line in out.split('\n'):
+                    if line and ':' in line:
+                        k, v = line.split(':', maxsplit=1)
+                        if k.strip().lower() == 'size':
+                            ret['filesize'] = v.strip()
+                            break
 
             # xrdfs query checksum for getting checksum
             cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s query checksum %s' % (self.hostname, self.port, path)

@@ -42,6 +42,7 @@ logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 METRICS = MetricManager(module=__name__)
 GRACEFUL_STOP = threading.Event()
+DAEMON_NAME = 'cache-consumer'
 
 
 class AMQConsumer(object):
@@ -105,8 +106,7 @@ def consumer(id_, num_thread=1):
     Main loop to consume messages from the Rucio Cache producer.
     """
 
-    prepend_str = 'cache-consumer '
-    logger = formatted_logger(logging.log, prepend_str + '%s')
+    logger = formatted_logger(logging.log, DAEMON_NAME + ' %s')
 
     logger(logging.INFO, 'Rucio Cache consumer starting')
 
@@ -173,7 +173,7 @@ def run(num_thread=1):
     """
     Starts up the rucio cache consumer thread
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

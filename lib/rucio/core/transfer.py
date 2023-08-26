@@ -47,7 +47,8 @@ from rucio.transfertool.globus import GlobusTransferTool
 from rucio.transfertool.mock import MockTransfertool
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Set, Tuple
+    from collections.abc import Callable, Generator, Iterable
+    from typing import Any, Optional
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
     from rucio.core.topology import Topology
@@ -283,7 +284,7 @@ class StageinTransferDefinition(DirectTransferDefinition):
         return self._legacy_sources
 
 
-def transfer_path_str(transfer_path: "List[DirectTransferDefinition]") -> str:
+def transfer_path_str(transfer_path: "list[DirectTransferDefinition]") -> str:
     """
     an implementation of __str__ for a transfer path, which is a list of direct transfers, so not really an object
     """
@@ -356,7 +357,7 @@ def mark_submitting(
 
 @transactional_session
 def ensure_db_sources(
-        transfer_path: "List[DirectTransferDefinition]",
+        transfer_path: "list[DirectTransferDefinition]",
         *,
         logger: "Callable",
         session: "Session",
@@ -544,33 +545,32 @@ def __create_transfer_definitions(
         topology: "Topology",
         protocol_factory: ProtocolFactory,
         rws: RequestWithSources,
-        sources: "List[RequestSource]",
-        multi_source_sources: "List[RequestSource]",
-        limit_dest_schemes: "List[str]",
+        sources: "list[RequestSource]",
+        max_sources: int,
+        multi_source_sources: "list[RequestSource]",
+        limit_dest_schemes: list[str],
         operation_src: str,
         operation_dest: str,
         domain: str,
         *,
         session: "Session",
-) -> "Dict[str, List[DirectTransferDefinition]]":
+) -> "dict[str, list[DirectTransferDefinition]]":
     """
     Find the all paths from sources towards the destination of the given transfer request.
     Create the transfer definitions for each point-to-point transfer (multi-source, when possible)
     """
-    inbound_links_by_node = {}
-    shortest_paths = topology.search_shortest_paths(source_rse_ids=[s.rse.id for s in sources], dest_rse_id=rws.dest_rse.id,
-                                                    operation_src=operation_src, operation_dest=operation_dest, domain=domain,
-                                                    limit_dest_schemes=limit_dest_schemes,
-                                                    inbound_links_by_node=inbound_links_by_node, session=session)
+    shortest_paths = topology.search_shortest_paths(src_nodes=[s.rse for s in sources], dst_node=rws.dest_rse,
+                                                    operation_src=operation_src, operation_dest=operation_dest,
+                                                    domain=domain, limit_dest_schemes=limit_dest_schemes, session=session)
 
     transfers_by_source = {}
-    sources_by_rse_id = {s.rse.id: s for s in sources}
-    paths_by_source = {sources_by_rse_id[rse_id]: path for rse_id, path in shortest_paths.items()}
+    sources_by_rse = {s.rse: s for s in sources}
+    paths_by_source = {sources_by_rse[rse]: path for rse, path in shortest_paths.items()}
     for source, list_hops in paths_by_source.items():
         transfer_path = []
         for hop in list_hops:
-            hop_src_rse = topology.rse_collection[hop['source_rse_id']]
-            hop_dst_rse = topology.rse_collection[hop['dest_rse_id']]
+            hop_src_rse = hop['source_rse']
+            hop_dst_rse = hop['dest_rse']
             src = RequestSource(
                 rse_data=hop_src_rse,
                 file_path=source.file_path if hop_src_rse == source.rse else None,
@@ -629,14 +629,14 @@ def __create_transfer_definitions(
             # Multiple single-hop DISK rses can be used together in "multi-source" transfers
             #
             # Try adding additional single-hop DISK rses sources to the transfer
-            inbound_links = inbound_links_by_node[transfer_path[0].dst.rse.id]
             main_source_schemes = __add_compatible_schemes(schemes=[transfer_path[0].dst.scheme], allowed_schemes=SUPPORTED_PROTOCOLS)
             added_sources = 0
             for source in sorted(multi_source_sources, key=lambda s: (-s.ranking, s.distance)):
-                if added_sources >= 5:
+                if added_sources >= max_sources:
                     break
 
-                if source.rse.id not in inbound_links:
+                edge = topology.edge(source.rse, transfer_path[0].dst.rse)
+                if not edge:
                     # There is no direct connection between this source and the destination
                     continue
 
@@ -663,7 +663,7 @@ def __create_transfer_definitions(
                         rse_data=source.rse,
                         file_path=source.file_path,
                         ranking=source.ranking,
-                        distance=inbound_links[source.rse.id],
+                        distance=edge.cost,
                         scheme=matching_scheme[1],
                     )
                 )
@@ -673,12 +673,12 @@ def __create_transfer_definitions(
 
 def __create_stagein_definitions(
         rws: RequestWithSources,
-        sources: "List[RequestSource]",
-        limit_dest_schemes: "List[str]",
+        sources: "list[RequestSource]",
+        limit_dest_schemes: list[str],
         operation_src: str,
         operation_dest: str,
         protocol_factory: ProtocolFactory,
-) -> "Dict[str, List[StageinTransferDefinition]]":
+) -> "dict[str, list[StageinTransferDefinition]]":
     """
     for each source, create a single-hop transfer path with a one stageing definition inside
     """
@@ -717,7 +717,7 @@ def get_dsn(scope, name, dsn):
     return 'other'
 
 
-def __filter_multihops_with_intermediate_tape(candidate_paths: "Iterable[List[DirectTransferDefinition]]") -> "Generator[List[DirectTransferDefinition]]":
+def __filter_multihops_with_intermediate_tape(candidate_paths: "Iterable[list[DirectTransferDefinition]]") -> "Generator[list[DirectTransferDefinition]]":
     # Discard multihop transfers which contain a tape source as an intermediate hop
     for path in candidate_paths:
         if any(transfer.src.rse.is_tape_or_staging_required() for transfer in path[1:]):
@@ -727,9 +727,9 @@ def __filter_multihops_with_intermediate_tape(candidate_paths: "Iterable[List[Di
 
 
 def __compress_multihops(
-        candidate_paths: "Iterable[List[DirectTransferDefinition]]",
+        candidate_paths: "Iterable[list[DirectTransferDefinition]]",
         sources: "Iterable[RequestSource]",
-) -> "Generator[List[DirectTransferDefinition]]":
+) -> "Generator[list[DirectTransferDefinition]]":
     # Compress multihop transfers which contain other sources as part of itself.
     # For example: multihop A->B->C and B is a source, compress A->B->C into B->C
     source_rses = {s.rse.id for s in sources}
@@ -748,7 +748,7 @@ def __compress_multihops(
             yield path
 
 
-def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") -> "Generator[List[DirectTransferDefinition]]":
+def __sort_paths(candidate_paths: "Iterable[list[DirectTransferDefinition]]") -> "Generator[list[DirectTransferDefinition]]":
 
     def __transfer_order_key(transfer_path):
         # Reduce the priority of the tape sources. If there are any disk sources,
@@ -771,11 +771,13 @@ def __sort_paths(candidate_paths: "Iterable[List[DirectTransferDefinition]]") ->
 @transactional_session
 def build_transfer_paths(
         topology: "Topology",
+        protocol_factory: "ProtocolFactory",
         requests_with_sources: "Iterable[RequestWithSources]",
-        admin_accounts: "Optional[Set[InternalAccount]]" = None,
-        schemes: "Optional[List[str]]" = None,
-        failover_schemes: "Optional[List[str]]" = None,
-        transfertools: "Optional[List[str]]" = None,
+        admin_accounts: "Optional[set[InternalAccount]]" = None,
+        schemes: "Optional[list[str]]" = None,
+        failover_schemes: "Optional[list[str]]" = None,
+        max_sources: int = 4,
+        transfertools: "Optional[list[str]]" = None,
         requested_source_only: bool = False,
         preparer_mode: bool = False,
         *,
@@ -801,8 +803,6 @@ def build_transfer_paths(
     if admin_accounts is None:
         admin_accounts = set()
 
-    protocol_factory = ProtocolFactory()
-
     # Do not print full source RSE list for DIDs which have many sources. Otherwise we fill the monitoring
     # storage with data which has little to no benefit. This log message is unlikely to help debugging
     # transfers issues when there are many sources, but can be very useful for small number of sources.
@@ -812,13 +812,10 @@ def build_transfer_paths(
     reqs_unsupported_transfertool = set()
     for rws in requests_with_sources:
 
-        rws.dest_rse = topology.rse_collection.setdefault(rws.dest_rse.id, rws.dest_rse)
-        rws.dest_rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
-
+        rws.dest_rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, load_columns=True, session=session)
         all_sources = rws.sources
         for source in all_sources:
-            source.rse = topology.rse_collection.setdefault(source.rse.id, source.rse)
-            source.rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, session=session)
+            source.rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, load_columns=True, session=session)
 
         transfer_schemes = schemes
         if rws.previous_attempt_id and failover_schemes:
@@ -838,10 +835,10 @@ def build_transfer_paths(
                '... and %d others' % (len(all_sources) - num_sources_in_logs) if len(all_sources) > num_sources_in_logs else '')
 
         # Check if destination is blocked
-        if rws.dest_rse.id in topology.unavailable_write_rses:
+        if not (topology.ignore_availability or rws.dest_rse.columns['availability_write']):
             logger(logging.WARNING, '%s: dst RSE is blocked for write. Will skip the submission of new jobs', rws.request_id)
             continue
-        if rws.account not in admin_accounts and rws.dest_rse.id in topology.restricted_write_rses:
+        if rws.account not in admin_accounts and rws.dest_rse.attributes.get('restricted_write'):
             logger(logging.WARNING, '%s: dst RSE is restricted for write. Will skip the submission', rws.request_id)
             continue
 
@@ -870,9 +867,10 @@ def build_transfer_paths(
             filtered_sources = filter(lambda s: s.rse.id in allowed_source_rses, filtered_sources)
         filtered_sources = filter(lambda s: s.rse.name is not None, filtered_sources)
         if rws.account not in admin_accounts:
-            filtered_sources = filter(lambda s: s.rse.id not in topology.restricted_read_rses, filtered_sources)
+            filtered_sources = filter(lambda s: not s.rse.attributes.get('restricted_read'), filtered_sources)
         # Ignore blocklisted RSEs
-        filtered_sources = filter(lambda s: s.rse.id not in topology.unavailable_read_rses, filtered_sources)
+        if not topology.ignore_availability:
+            filtered_sources = filter(lambda s: s.rse.columns['availability_read'], filtered_sources)
         # For staging requests, the staging_buffer attribute must be correctly set
         if rws.request_type == RequestType.STAGEIN:
             filtered_sources = filter(lambda s: s.rse.attributes.get('staging_buffer') == rws.dest_rse.name, filtered_sources)
@@ -907,6 +905,7 @@ def build_transfer_paths(
             paths = __create_transfer_definitions(topology=topology,
                                                   rws=rws,
                                                   sources=candidate_sources,
+                                                  max_sources=max_sources,
                                                   multi_source_sources=[] if preparer_mode else filtered_sources,
                                                   limit_dest_schemes=[],
                                                   operation_src='third_party_copy_read',
@@ -1000,7 +999,7 @@ def __add_compatible_schemes(schemes, allowed_schemes):
 
 
 @read_session
-def list_transfer_admin_accounts(*, session: "Session") -> "Set[InternalAccount]":
+def list_transfer_admin_accounts(*, session: "Session") -> "set[InternalAccount]":
     """
     List admin accounts and cache the result in memory
     """
@@ -1062,12 +1061,12 @@ def cancel_transfer(transfertool_obj, transfer_id):
 
 @transactional_session
 def prepare_transfers(
-        candidate_paths_by_request_id: "Dict[str, List[List[DirectTransferDefinition]]]",
+        candidate_paths_by_request_id: "dict[str, list[list[DirectTransferDefinition]]]",
         logger: "LoggerFunction" = logging.log,
-        transfertools: "Optional[List[str]]" = None,
+        transfertools: "Optional[list[str]]" = None,
         *,
         session: "Session",
-) -> "Tuple[List[str], List[str]]":
+) -> tuple[list[str], list[str]]:
     """
     Update transfer requests according to preparer settings.
     """
@@ -1100,28 +1099,19 @@ def prepare_transfers(
             logger(logging.WARNING, '%s: all available sources were filtered', rws)
             continue
 
-        update_dict = {
-            models.Request.state: _throttler_request_state(
+        update_dict: dict[Any, Any] = {
+            models.Request.state.name: _throttler_request_state(
                 activity=rws.activity,
                 source_rse=selected_source.rse,
                 dest_rse=rws.dest_rse,
                 session=session,
             ),
-            models.Request.source_rse_id: selected_source.rse.id,
+            models.Request.source_rse_id.name: selected_source.rse.id,
         }
         if transfertool:
-            update_dict[models.Request.transfertool] = transfertool
+            update_dict[models.Request.transfertool.name] = transfertool
 
-        stmt = update(
-            models.Request
-        ).where(
-            models.Request.id == rws.request_id
-        ).execution_options(
-            synchronize_session=False
-        ).values(
-            update_dict
-        )
-        session.execute(stmt)
+        request_core.update_request(rws.request_id, session=session, **update_dict)
         updated_reqs.append(request_id)
 
     return updated_reqs, reqs_no_transfertool
@@ -1181,10 +1171,10 @@ def _throttler_request_state(activity, source_rse, dest_rse, *, session: "Sessio
 def get_supported_transfertools(
         source_rse: "RseData",
         dest_rse: "RseData",
-        transfertools: "Optional[List[str]]" = None,
+        transfertools: "Optional[list[str]]" = None,
         *,
         session: "Session",
-) -> "Set[str]":
+) -> set[str]:
 
     if not transfertools:
         transfertools = list(TRANSFERTOOL_CLASSES_BY_NAME)

@@ -15,7 +15,6 @@
 import copy
 import heapq
 import logging
-import math
 import random
 from collections import defaultdict, namedtuple
 from curses.ascii import isprint
@@ -25,9 +24,10 @@ from itertools import groupby
 from json import dumps
 from re import match
 from struct import unpack
-from typing import TYPE_CHECKING
 from traceback import format_exc
+from typing import TYPE_CHECKING
 
+import math
 import requests
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy import func, and_, or_, exists, not_, update, delete, insert, union
@@ -42,11 +42,10 @@ import rucio.core.lock
 from rucio.common import exception
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.constants import SuspiciousAvailability
 from rucio.common.types import InternalScope
 from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
-from rucio.common.constants import SuspiciousAvailability
 from rucio.core.credential import get_signed_url
-from rucio.core import config as config_core
 from rucio.core.message import add_messages
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
@@ -61,8 +60,9 @@ from rucio.db.sqla.util import temp_table_mngr
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from rucio.rse.protocols.protocol import RSEProtocol
-    from typing import Any, Dict, List, Optional, Sequence, Tuple
+    from typing import Any, Optional
     from sqlalchemy.orm import Session
 
 REGION = make_region_memcached(expiration_time=60)
@@ -521,6 +521,7 @@ def get_bad_replicas_backlog(*, session: "Session"):
     :returns: a list of dictionary {'rse_id': cnt_bad_replicas}.
     """
     query = session.query(func.count(models.RSEFileAssociation.rse_id), models.RSEFileAssociation.rse_id). \
+        with_hint(models.RSEFileAssociation, 'INDEX(DIDS DIDS_PK) USE_NL(DIDS) INDEX_RS_ASC(REPLICAS ("REPLICAS"."STATE"))', 'oracle'). \
         filter(models.RSEFileAssociation.state == ReplicaState.BAD)
 
     query = query.join(models.DataIdentifier,
@@ -551,6 +552,7 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, rses=None, *
     query = session.query(models.RSEFileAssociation.scope,
                           models.RSEFileAssociation.name,
                           models.RSEFileAssociation.rse_id). \
+        with_hint(models.RSEFileAssociation, 'INDEX(DIDS DIDS_PK) USE_NL(DIDS) INDEX_RS_ASC(REPLICAS ("REPLICAS"."STATE"))', 'oracle'). \
         filter(models.RSEFileAssociation.state == ReplicaState.BAD)
 
     query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='%sreplicas.name' % (schema_dot))
@@ -731,7 +733,7 @@ def _get_list_replicas_protocols(
         schemes: "Sequence[str]",
         additional_schemes: "Sequence[str]",
         session: "Session"
-) -> "List[Tuple[str, RSEProtocol, int]]":
+) -> "list[tuple[str, RSEProtocol, int]]":
     """
     Select the protocols to be used by list_replicas to build the PFNs for all replicas on the given RSE
     """
@@ -739,10 +741,10 @@ def _get_list_replicas_protocols(
 
     rse_info = rsemgr.get_rse_info(rse_id=rse_id, session=session)
     # compute scheme priorities, and don't forget to exclude disabled protocols
-    # 0 in RSE protocol definition = disabled, 1 = highest priority
+    # 0 or None in RSE protocol definition = disabled, 1 = highest priority
     scheme_priorities = {
-        'wan': {p['scheme']: p['domains']['wan']['read'] for p in rse_info['protocols'] if p['domains']['wan']['read'] > 0},
-        'lan': {p['scheme']: p['domains']['lan']['read'] for p in rse_info['protocols'] if p['domains']['lan']['read'] > 0},
+        'wan': {p['scheme']: p['domains']['wan']['read'] for p in rse_info['protocols'] if p['domains']['wan']['read']},
+        'lan': {p['scheme']: p['domains']['lan']['read'] for p in rse_info['protocols'] if p['domains']['lan']['read']},
     }
 
     rse_schemes = copy.copy(schemes) if schemes else []
@@ -785,7 +787,7 @@ def _build_list_replicas_pfn(
         path: str,
         sign_urls: bool,
         signature_lifetime: int,
-        client_location: "Dict[str, Any]",
+        client_location: "dict[str, Any]",
         logger=logging.log,
         *,
         session: "Session",
@@ -1018,15 +1020,15 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
 
 @stream_session
 def list_replicas(
-        dids: "Sequence[Dict[str, Any]]",
-        schemes: "Optional[List[str]]" = None,
+        dids: "Sequence[dict[str, Any]]",
+        schemes: "Optional[list[str]]" = None,
         unavailable: bool = False,
         request_id: "Optional[str]" = None,
         ignore_availability: bool = True,
         all_states: bool = False,
         pfns: bool = True,
         rse_expression: "Optional[str]" = None,
-        client_location: "Optional[Dict[str, Any]]" = None,
+        client_location: "Optional[dict[str, Any]]" = None,
         domain: "Optional[str]" = None,
         sign_urls: bool = False,
         signature_lifetime: "Optional[int]" = None,
@@ -1060,42 +1062,6 @@ def list_replicas(
     # For historical reasons:
     # - list_replicas([some_file_did]), must return the file even if it doesn't have replicas
     # - list_replicas([some_collection_did]) must only return files with replicas
-    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=True, session=session)
-    if use_temp_tables:
-        yield from _list_replicas_with_temp_tables(
-            dids, schemes, unavailable, request_id, ignore_availability, all_states, pfns, rse_expression, client_location,
-            domain, sign_urls, signature_lifetime, resolve_archives, resolve_parents, nrandom, updated_after, by_rse_name,
-            session=session,
-        )
-    else:
-        yield from _list_replicas_wo_temp_tables(
-            dids, schemes, unavailable, request_id, ignore_availability, all_states, pfns, rse_expression, client_location,
-            domain, sign_urls, signature_lifetime, resolve_archives, resolve_parents, nrandom, updated_after, by_rse_name,
-            session=session,
-        )
-
-
-def _list_replicas_with_temp_tables(
-        dids: "Sequence[Dict[str, Any]]",
-        schemes: "Optional[List[str]]" = None,
-        unavailable: bool = False,
-        request_id: "Optional[str]" = None,
-        ignore_availability: bool = True,
-        all_states: bool = False,
-        pfns: bool = True,
-        rse_expression: "Optional[str]" = None,
-        client_location: "Optional[Dict[str, Any]]" = None,
-        domain: "Optional[str]" = None,
-        sign_urls: bool = False,
-        signature_lifetime: "Optional[int]" = None,
-        resolve_archives: bool = True,
-        resolve_parents: bool = False,
-        nrandom: "Optional[int]" = None,
-        updated_after: "Optional[datetime]" = None,
-        by_rse_name: bool = False,
-        *,
-        session: "Session",
-):
 
     def _replicas_filter_subquery():
         """
@@ -1134,7 +1100,7 @@ def _list_replicas_with_temp_tables(
                 stmt = stmt.where(models.RSE.id.in_([rse['id'] for rse in rses]))
             else:
                 rses_temp_table = temp_table_mngr(session).create_id_table()
-                session.bulk_insert_mappings(rses_temp_table, [{'id': rse['id']} for rse in rses])
+                session.execute(insert(rses_temp_table), [{'id': rse['id']} for rse in rses])
                 stmt = stmt.join(rses_temp_table, models.RSE.id == rses_temp_table.id)
 
         if not all_states:
@@ -1294,8 +1260,11 @@ def _list_replicas_with_temp_tables(
         filter_ = {'vo': 'def'}
 
     dids = {(did['scope'], did['name']): did for did in dids}  # Deduplicate input
+    if not dids:
+        return
+
     input_dids_temp_table = temp_table_mngr(session).create_scope_name_table()
-    session.bulk_insert_mappings(input_dids_temp_table, [{'scope': s, 'name': n} for s, n in dids])
+    session.execute(insert(input_dids_temp_table), [{'scope': s, 'name': n} for s, n in dids])
 
     num_files, num_collections, num_constituents = _inspect_dids(input_dids_temp_table, session=session)
 
@@ -1543,8 +1512,7 @@ def __bulk_add_replicas(rse_id, files, account, *, session: "Session"):
                                  'lock_cnt': file.get('lock_cnt', 0),
                                  'tombstone': file.get('tombstone') or default_tombstone})
     try:
-        new_replicas and session.bulk_insert_mappings(models.RSEFileAssociation,
-                                                      new_replicas)
+        new_replicas and session.execute(insert(models.RSEFileAssociation), new_replicas)
         session.flush()
         return nbfiles, bytes_
     except IntegrityError as error:
@@ -1595,7 +1563,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
                                     dataset_meta=dataset_meta,
                                     session=session)
 
-    pfns = {}  # Dict[str, List[str]], {scheme: [pfns], scheme: [pfns]}
+    pfns = {}  # dict[str, list[str]], {scheme: [pfns], scheme: [pfns]}
     for file in files:
         if 'pfn' in file:
             scheme = file['pfn'].split(':')[0]
@@ -1672,14 +1640,6 @@ def delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sessio
     :param ignore_availability: Ignore the RSE blocklisting.
     :param session: The database session in use.
     """
-    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=True, session=session)
-    if use_temp_tables:
-        __delete_replicas(rse_id, files, ignore_availability=ignore_availability, session=session)
-    else:
-        __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=ignore_availability, session=session)
-
-
-def __delete_replicas(rse_id, files, ignore_availability=True, *, session: "Session"):
     if not files:
         return
 
@@ -1693,7 +1653,7 @@ def __delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sess
     scope_name_temp_table2 = tt_mngr.create_scope_name_table()
     association_temp_table = tt_mngr.create_association_table()
 
-    session.bulk_insert_mappings(scope_name_temp_table, [{'scope': file['scope'], 'name': file['name']} for file in files])
+    session.execute(insert(scope_name_temp_table), [{'scope': file['scope'], 'name': file['name']} for file in files])
 
     # WARNING : This should not be necessary since that would mean the replica is used as a source.
     stmt = delete(
@@ -1800,37 +1760,38 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         # 3) if the file is an archive, schedule cleanup on the files from inside the archive
         affected_archives.add(ScopeName(scope=file['scope'], name=file['name']))
 
-    # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
-    session.query(scope_name_temp_table).delete()
-    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in clt_to_update])
-    stmt = select(
-        models.DataIdentifierAssociation.scope,
-        models.DataIdentifierAssociation.name,
-    ).distinct(
-    ).join_from(
-        scope_name_temp_table,
-        models.DataIdentifierAssociation,
-        and_(scope_name_temp_table.scope == models.DataIdentifierAssociation.child_scope,
-             scope_name_temp_table.name == models.DataIdentifierAssociation.child_name)
-    ).join(
-        models.CollectionReplica,
-        and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
-             models.CollectionReplica.name == models.DataIdentifierAssociation.name,
-             models.CollectionReplica.rse_id == rse_id)
-    )
-    for parent_scope, parent_name in session.execute(stmt):
-        models.UpdatedCollectionReplica(scope=parent_scope,
-                                        name=parent_name,
-                                        did_type=DIDType.DATASET,
-                                        rse_id=rse_id). \
-            save(session=session, flush=False)
+    if clt_to_update:
+        # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
+        session.query(scope_name_temp_table).delete()
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in clt_to_update])
+        stmt = select(
+            models.DataIdentifierAssociation.scope,
+            models.DataIdentifierAssociation.name,
+        ).distinct(
+        ).join_from(
+            scope_name_temp_table,
+            models.DataIdentifierAssociation,
+            and_(scope_name_temp_table.scope == models.DataIdentifierAssociation.child_scope,
+                 scope_name_temp_table.name == models.DataIdentifierAssociation.child_name)
+        ).join(
+            models.CollectionReplica,
+            and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
+                 models.CollectionReplica.name == models.DataIdentifierAssociation.name,
+                 models.CollectionReplica.rse_id == rse_id)
+        )
+        for parent_scope, parent_name in session.execute(stmt):
+            models.UpdatedCollectionReplica(scope=parent_scope,
+                                            name=parent_name,
+                                            did_type=DIDType.DATASET,
+                                            rse_id=rse_id). \
+                save(session=session, flush=False)
 
     # Delete did from the content for the last did
     while parents_to_analyze:
         did_associations_to_remove = set()
 
         session.query(scope_name_temp_table).delete()
-        session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in parents_to_analyze])
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in parents_to_analyze])
         parents_to_analyze.clear()
 
         stmt = select(
@@ -1886,7 +1847,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
             parents_to_analyze.add(ScopeName(scope=parent_scope, name=parent_name))
 
             # 3) Schedule removal of the entry from the DIDs table
-            remove_open_did = config_get('reaper', 'remove_open_did', default=False, session=session)
+            remove_open_did = config_get_bool('reaper', 'remove_open_did', default=False, session=session)
             if remove_open_did:
                 did_condition.append(
                     and_(models.DataIdentifier.scope == parent_scope,
@@ -1911,7 +1872,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
 
         if did_associations_to_remove:
             session.query(association_temp_table).delete()
-            session.bulk_insert_mappings(association_temp_table, [a._asdict() for a in did_associations_to_remove])
+            session.execute(insert(association_temp_table), [a._asdict() for a in did_associations_to_remove])
 
             # get the list of modified parent scope, name
             stmt = select(
@@ -1955,126 +1916,130 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
             session.execute(stmt)
 
     # Get collection replicas of collections which became empty
-    session.query(scope_name_temp_table).delete()
-    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in clt_replicas_to_delete])
-    session.query(scope_name_temp_table2).delete()
-    stmt = select(
-        models.CollectionReplica.scope,
-        models.CollectionReplica.name,
-    ).distinct(
-    ).join_from(
-        scope_name_temp_table,
-        models.CollectionReplica,
-        and_(scope_name_temp_table.scope == models.CollectionReplica.scope,
-             scope_name_temp_table.name == models.CollectionReplica.name),
-    ).join(
-        models.DataIdentifier,
-        and_(models.DataIdentifier.scope == models.CollectionReplica.scope,
-             models.DataIdentifier.name == models.CollectionReplica.name)
-    ).outerjoin(
-        models.DataIdentifierAssociation,
-        and_(models.DataIdentifierAssociation.scope == models.CollectionReplica.scope,
-             models.DataIdentifierAssociation.name == models.CollectionReplica.name)
-    ).where(
-        models.DataIdentifierAssociation.scope == null()
-    )
-    session.execute(
-        insert(scope_name_temp_table2).from_select(['scope', 'name'], stmt)
-    )
-    # Delete the retrieved collection replicas of empty collections
-    stmt = delete(
-        models.CollectionReplica,
-    ).where(
-        exists(select(1)
-               .where(and_(models.CollectionReplica.scope == scope_name_temp_table2.scope,
-                           models.CollectionReplica.name == scope_name_temp_table2.name)))
-    ).execution_options(
-        synchronize_session=False
-    )
-    session.execute(stmt)
+    if clt_replicas_to_delete:
+        session.query(scope_name_temp_table).delete()
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in clt_replicas_to_delete])
+        session.query(scope_name_temp_table2).delete()
+        stmt = select(
+            models.CollectionReplica.scope,
+            models.CollectionReplica.name,
+        ).distinct(
+        ).join_from(
+            scope_name_temp_table,
+            models.CollectionReplica,
+            and_(scope_name_temp_table.scope == models.CollectionReplica.scope,
+                 scope_name_temp_table.name == models.CollectionReplica.name),
+        ).join(
+            models.DataIdentifier,
+            and_(models.DataIdentifier.scope == models.CollectionReplica.scope,
+                 models.DataIdentifier.name == models.CollectionReplica.name)
+        ).outerjoin(
+            models.DataIdentifierAssociation,
+            and_(models.DataIdentifierAssociation.scope == models.CollectionReplica.scope,
+                 models.DataIdentifierAssociation.name == models.CollectionReplica.name)
+        ).where(
+            models.DataIdentifierAssociation.scope == null()
+        )
+        session.execute(
+            insert(scope_name_temp_table2).from_select(['scope', 'name'], stmt)
+        )
+        # Delete the retrieved collection replicas of empty collections
+        stmt = delete(
+            models.CollectionReplica,
+        ).where(
+            exists(select(1)
+                   .where(and_(models.CollectionReplica.scope == scope_name_temp_table2.scope,
+                               models.CollectionReplica.name == scope_name_temp_table2.name)))
+        ).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt)
 
     # Update incomplete state
-    session.query(scope_name_temp_table).delete()
-    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in incomplete_dids])
-    stmt = update(
-        models.DataIdentifier
-    ).where(
-        exists(select(1)
-               .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
-                           models.DataIdentifier.name == scope_name_temp_table.name)))
-    ).where(
-        models.DataIdentifier.complete != false(),
-    ).execution_options(
-        synchronize_session=False
-    ).values(
-        complete=False
-    )
-    session.execute(stmt)
+    messages, dids_to_delete = [], set()
+    if incomplete_dids:
+        session.query(scope_name_temp_table).delete()
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in incomplete_dids])
+        stmt = update(
+            models.DataIdentifier
+        ).where(
+            exists(select(1)
+                   .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
+                               models.DataIdentifier.name == scope_name_temp_table.name)))
+        ).where(
+            models.DataIdentifier.complete != false(),
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            complete=False
+        )
+        session.execute(stmt)
 
     # delete empty dids
-    messages, dids_to_delete = [], set()
-    for chunk in chunks(did_condition, 10):
-        query = session.query(models.DataIdentifier.scope,
-                              models.DataIdentifier.name,
-                              models.DataIdentifier.did_type). \
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'). \
-            filter(or_(*chunk))
-        for scope, name, did_type in query:
-            if did_type == DIDType.DATASET:
-                messages.append({'event_type': 'ERASE',
-                                 'payload': dumps({'scope': scope.external,
-                                                   'name': name,
-                                                   'account': 'root'})})
-            dids_to_delete.add(ScopeName(scope=scope, name=name))
+    if did_condition:
+        for chunk in chunks(did_condition, 10):
+            query = session.query(models.DataIdentifier.scope,
+                                  models.DataIdentifier.name,
+                                  models.DataIdentifier.did_type). \
+                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'). \
+                filter(or_(*chunk))
+            for scope, name, did_type in query:
+                if did_type == DIDType.DATASET:
+                    messages.append({'event_type': 'ERASE',
+                                     'payload': dumps({'scope': scope.external,
+                                                       'name': name,
+                                                       'account': 'root'})})
+                dids_to_delete.add(ScopeName(scope=scope, name=name))
 
     # Remove Archive Constituents
-    session.query(scope_name_temp_table).delete()
-    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in affected_archives])
-
-    stmt = select(
-        models.ConstituentAssociation
-    ).distinct(
-    ).join_from(
-        scope_name_temp_table,
-        models.ConstituentAssociation,
-        and_(scope_name_temp_table.scope == models.ConstituentAssociation.scope,
-             scope_name_temp_table.name == models.ConstituentAssociation.name),
-    ).outerjoin(
-        models.DataIdentifier,
-        and_(models.DataIdentifier.availability == DIDAvailability.LOST,
-             models.DataIdentifier.scope == models.ConstituentAssociation.scope,
-             models.DataIdentifier.name == models.ConstituentAssociation.name)
-    ).where(
-        models.DataIdentifier.scope == null()
-    ).outerjoin(
-        models.RSEFileAssociation,
-        and_(models.RSEFileAssociation.scope == models.ConstituentAssociation.scope,
-             models.RSEFileAssociation.name == models.ConstituentAssociation.name)
-    ).where(
-        models.RSEFileAssociation.scope == null()
-    )
-
     constituent_associations_to_delete = set()
-    for constituent in session.execute(stmt).scalars().all():
-        constituent_associations_to_delete.add(Association(scope=constituent.scope, name=constituent.name,
-                                                           child_scope=constituent.child_scope, child_name=constituent.child_name))
-        models.ConstituentAssociationHistory(
-            child_scope=constituent.child_scope,
-            child_name=constituent.child_name,
-            scope=constituent.scope,
-            name=constituent.name,
-            bytes=constituent.bytes,
-            adler32=constituent.adler32,
-            md5=constituent.md5,
-            guid=constituent.guid,
-            length=constituent.length,
-            updated_at=constituent.updated_at,
-            created_at=constituent.created_at,
-        ).save(session=session, flush=False)
+    if affected_archives:
+        session.query(scope_name_temp_table).delete()
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in affected_archives])
+
+        stmt = select(
+            models.ConstituentAssociation
+        ).distinct(
+        ).join_from(
+            scope_name_temp_table,
+            models.ConstituentAssociation,
+            and_(scope_name_temp_table.scope == models.ConstituentAssociation.scope,
+                 scope_name_temp_table.name == models.ConstituentAssociation.name),
+        ).outerjoin(
+            models.DataIdentifier,
+            and_(models.DataIdentifier.availability == DIDAvailability.LOST,
+                 models.DataIdentifier.scope == models.ConstituentAssociation.scope,
+                 models.DataIdentifier.name == models.ConstituentAssociation.name)
+        ).where(
+            models.DataIdentifier.scope == null()
+        ).outerjoin(
+            models.RSEFileAssociation,
+            and_(models.RSEFileAssociation.scope == models.ConstituentAssociation.scope,
+                 models.RSEFileAssociation.name == models.ConstituentAssociation.name)
+        ).where(
+            models.RSEFileAssociation.scope == null()
+        )
+
+        for constituent in session.execute(stmt).scalars().all():
+            constituent_associations_to_delete.add(Association(scope=constituent.scope, name=constituent.name,
+                                                               child_scope=constituent.child_scope, child_name=constituent.child_name))
+            models.ConstituentAssociationHistory(
+                child_scope=constituent.child_scope,
+                child_name=constituent.child_name,
+                scope=constituent.scope,
+                name=constituent.name,
+                bytes=constituent.bytes,
+                adler32=constituent.adler32,
+                md5=constituent.md5,
+                guid=constituent.guid,
+                length=constituent.length,
+                updated_at=constituent.updated_at,
+                created_at=constituent.created_at,
+            ).save(session=session, flush=False)
 
     if constituent_associations_to_delete:
         session.query(association_temp_table).delete()
-        session.bulk_insert_mappings(association_temp_table, [a._asdict() for a in constituent_associations_to_delete])
+        session.execute(insert(association_temp_table), [a._asdict() for a in constituent_associations_to_delete])
         stmt = delete(
             models.ConstituentAssociation
         ).where(
@@ -2095,64 +2060,68 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                                              association_temp_table=association_temp_table,
                                              rse_id=rse_id, files=[sn._asdict() for sn in chunk], session=session)
 
-    session.query(scope_name_temp_table).delete()
-    session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in dids_to_delete])
+    if dids_to_delete:
+        session.query(scope_name_temp_table).delete()
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in dids_to_delete])
 
-    # Remove rules in Waiting for approval or Suspended
-    stmt = delete(
-        models.ReplicationRule,
-    ).where(
-        exists(select(1)
-               .where(and_(models.ReplicationRule.scope == scope_name_temp_table.scope,
-                           models.ReplicationRule.name == scope_name_temp_table.name)))
-    ).where(
-        models.ReplicationRule.state.in_((RuleState.SUSPENDED, RuleState.WAITING_APPROVAL))
-    ).execution_options(
-        synchronize_session=False
-    )
-    session.execute(stmt)
-
-    # Remove DID Metadata
-    must_delete_did_meta = True
-    if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection().connection.version.split('.')[0])
-        if oracle_version < 12:
-            must_delete_did_meta = False
-    if must_delete_did_meta:
+        # Remove rules in Waiting for approval or Suspended
         stmt = delete(
-            models.DidMeta,
+            models.ReplicationRule,
         ).where(
             exists(select(1)
-                   .where(and_(models.DidMeta.scope == scope_name_temp_table.scope,
-                               models.DidMeta.name == scope_name_temp_table.name)))
+                   .where(and_(models.ReplicationRule.scope == scope_name_temp_table.scope,
+                               models.ReplicationRule.name == scope_name_temp_table.name)))
+        ).where(
+            models.ReplicationRule.state.in_((RuleState.SUSPENDED, RuleState.WAITING_APPROVAL))
         ).execution_options(
             synchronize_session=False
         )
         session.execute(stmt)
 
-    for chunk in chunks(messages, 100):
-        add_messages(chunk, session=session)
+        # Remove DID Metadata
+        must_delete_did_meta = True
+        if session.bind.dialect.name == 'oracle':
+            oracle_version = int(session.connection().connection.version.split('.')[0])
+            if oracle_version < 12:
+                must_delete_did_meta = False
+        if must_delete_did_meta:
+            stmt = delete(
+                models.DidMeta,
+            ).where(
+                exists(select(1)
+                       .where(and_(models.DidMeta.scope == scope_name_temp_table.scope,
+                                   models.DidMeta.name == scope_name_temp_table.name)))
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
 
-    # Delete dids
-    dids_to_delete_filter = exists(select(1)
-                                   .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
-                                               models.DataIdentifier.name == scope_name_temp_table.name)))
-    archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
-    if archive_dids:
-        rucio.core.did.insert_deleted_dids(filter_=dids_to_delete_filter, session=session)
-    stmt = delete(
-        models.DataIdentifier,
-    ).where(
-        dids_to_delete_filter,
-    ).execution_options(
-        synchronize_session=False
-    )
-    session.execute(stmt)
+        for chunk in chunks(messages, 100):
+            add_messages(chunk, session=session)
+
+        # Delete dids
+        dids_to_delete_filter = exists(select(1)
+                                       .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
+                                                   models.DataIdentifier.name == scope_name_temp_table.name)))
+        archive_dids = config_get_bool('deletion', 'archive_dids', default=False, session=session)
+        if archive_dids:
+            rucio.core.did.insert_deleted_dids(filter_=dids_to_delete_filter, session=session)
+        stmt = delete(
+            models.DataIdentifier,
+        ).where(
+            dids_to_delete_filter,
+        ).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt)
 
     # Set is_archive = false on collections which don't have archive children anymore
     while clt_to_set_not_archive:
+        to_update = clt_to_set_not_archive.pop(0)
+        if not to_update:
+            continue
         session.query(scope_name_temp_table).delete()
-        session.bulk_insert_mappings(scope_name_temp_table, [sn._asdict() for sn in clt_to_set_not_archive[0]])
+        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in to_update])
         session.query(scope_name_temp_table2).delete()
 
         data_identifier_alias = aliased(models.DataIdentifier, name='did_alias')
@@ -2195,423 +2164,6 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         )
         session.execute(stmt)
 
-        clt_to_set_not_archive.pop(0)
-
-
-@transactional_session
-def __delete_replicas_without_temp_tables(rse_id, files, ignore_availability=True, *, session: "Session"):
-    """
-    Delete file replicas.
-
-    :param rse_id: the rse id.
-    :param files: the list of files to delete.
-    :param ignore_availability: Ignore the RSE blocklisting.
-    :param session: The database session in use.
-    """
-    replica_rse = get_rse(rse_id=rse_id, session=session)
-
-    if not replica_rse['availability_delete'] and not ignore_availability:
-        raise exception.ResourceTemporaryUnavailable('%s is temporary unavailable'
-                                                     'for deleting' % replica_rse['rse'])
-
-    replica_condition, src_condition, bad_replica_condition = [], [], []
-    for file in files:
-        replica_condition.append(
-            and_(models.RSEFileAssociation.scope == file['scope'],
-                 models.RSEFileAssociation.name == file['name']))
-
-        src_condition.append(
-            and_(models.Source.scope == file['scope'],
-                 models.Source.name == file['name'],
-                 models.Source.rse_id == rse_id))
-
-        bad_replica_condition.append(
-            and_(models.BadReplicas.scope == file['scope'],
-                 models.BadReplicas.name == file['name']))
-
-    delta, bytes_, rowcount = 0, 0, 0
-
-    # WARNING : This should not be necessary since that would mean the replica is used as a source.
-    for chunk in chunks(src_condition, 10):
-        rowcount = session.query(models.Source). \
-            filter(or_(*chunk)). \
-            delete(synchronize_session=False)
-
-    rowcount = 0
-    for chunk in chunks(replica_condition, 10):
-        for (scope, name, rid, replica_bytes) in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id, models.RSEFileAssociation.bytes). \
-                with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle').filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*chunk)):
-            bytes_ += replica_bytes
-            delta += 1
-
-        stmt = delete(models.RSEFileAssociation). \
-            prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle'). \
-            where(models.RSEFileAssociation.rse_id == rse_id). \
-            where(or_(*chunk)). \
-            execution_options(synchronize_session=False)
-        result = session.execute(stmt)
-        rowcount += result.rowcount
-
-    for chunk in chunks(bad_replica_condition, 10):
-        stmt = update(models.BadReplicas).\
-            where(models.BadReplicas.rse_id == rse_id). \
-            where(or_(*chunk)). \
-            where(models.BadReplicas.state == BadFilesStatus.BAD) .\
-            execution_options(synchronize_session=False).\
-            values(
-                state=BadFilesStatus.DELETED,
-                updated_at=datetime.utcnow()
-        )
-
-        session.execute(stmt)
-
-    if rowcount != len(files):
-        raise exception.ReplicaNotFound("One or several replicas don't exist.")
-
-    __cleanup_after_replica_deletion_without_temp_table(rse_id=rse_id, files=files, session=session)
-
-    # Decrease RSE counter
-    decrease(rse_id=rse_id, files=delta, bytes_=bytes_, session=session)
-
-
-@transactional_session
-def __cleanup_after_replica_deletion_without_temp_table(rse_id, files, *, session: "Session"):
-    """
-    Perform update of collections/archive associations/dids after the removal of their replicas
-    :param rse_id: the rse id
-    :param files: list of files whose replica got deleted
-    :param session: The database session in use.
-    """
-    parent_condition, did_condition = [], []
-    clt_replica_condition, dst_replica_condition = [], []
-    incomplete_condition, messages, clt_is_not_archive_condition, archive_contents_condition = [], [], [], []
-    for file in files:
-
-        # Schedule update of all collections containing this file and having a collection replica in the RSE
-        dst_replica_condition.append(
-            and_(models.DataIdentifierAssociation.child_scope == file['scope'],
-                 models.DataIdentifierAssociation.child_name == file['name'],
-                 exists(select(1).prefix_with("/*+ INDEX(COLLECTION_REPLICAS COLLECTION_REPLICAS_PK) */", dialect='oracle')).where(
-                     and_(models.CollectionReplica.scope == models.DataIdentifierAssociation.scope,
-                          models.CollectionReplica.name == models.DataIdentifierAssociation.name,
-                          models.CollectionReplica.rse_id == rse_id))))
-
-        # If the file doesn't have any replicas anymore, we should perform cleanups of objects
-        # related to this file. However, if the file is "lost", it's removal wasn't intentional,
-        # so we want to skip deleting the metadata here. Perform cleanups:
-
-        # 1) schedule removal of this file from all parent datasets
-        parent_condition.append(
-            and_(models.DataIdentifierAssociation.child_scope == file['scope'],
-                 models.DataIdentifierAssociation.child_name == file['name'],
-                 ~exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
-                     and_(models.DataIdentifier.scope == file['scope'],
-                          models.DataIdentifier.name == file['name'],
-                          models.DataIdentifier.availability == DIDAvailability.LOST)),
-                 ~exists(select(1).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
-                     and_(models.RSEFileAssociation.scope == file['scope'],
-                          models.RSEFileAssociation.name == file['name'])),
-                 ~exists(select(1).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
-                     and_(models.ConstituentAssociation.child_scope == file['scope'],
-                          models.ConstituentAssociation.child_name == file['name']))))
-
-        # 2) schedule removal of this file from the DID table
-        did_condition.append(
-            and_(models.DataIdentifier.scope == file['scope'],
-                 models.DataIdentifier.name == file['name'],
-                 models.DataIdentifier.availability != DIDAvailability.LOST,
-                 ~exists(select(1).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
-                     and_(models.RSEFileAssociation.scope == file['scope'],
-                          models.RSEFileAssociation.name == file['name'])),
-                 ~exists(select(1).prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle')).where(
-                     and_(models.ConstituentAssociation.child_scope == file['scope'],
-                          models.ConstituentAssociation.child_name == file['name']))))
-
-        # 3) if the file is an archive, schedule cleanup on the files from inside the archive
-        archive_contents_condition.append(
-            and_(models.ConstituentAssociation.scope == file['scope'],
-                 models.ConstituentAssociation.name == file['name'],
-                 ~exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
-                     and_(models.DataIdentifier.scope == file['scope'],
-                          models.DataIdentifier.name == file['name'],
-                          models.DataIdentifier.availability == DIDAvailability.LOST)),
-                 ~exists(select(1).prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle')).where(
-                     and_(models.RSEFileAssociation.scope == file['scope'],
-                          models.RSEFileAssociation.name == file['name']))))
-
-    # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
-    if dst_replica_condition:
-        for chunk in chunks(dst_replica_condition, 10):
-            query = session.query(models.DataIdentifierAssociation.scope, models.DataIdentifierAssociation.name).\
-                filter(or_(*chunk)).\
-                distinct()
-
-            for parent_scope, parent_name in query:
-                models.UpdatedCollectionReplica(scope=parent_scope,
-                                                name=parent_name,
-                                                did_type=DIDType.DATASET,
-                                                rse_id=rse_id).\
-                    save(session=session, flush=False)
-
-    # Delete did from the content for the last did
-    while parent_condition:
-        child_did_condition, tmp_parent_condition = [], []
-        for chunk in chunks(parent_condition, 10):
-
-            stmt = select(
-                models.DataIdentifierAssociation.scope,
-                models.DataIdentifierAssociation.name,
-                models.DataIdentifierAssociation.did_type,
-                models.DataIdentifierAssociation.child_scope,
-                models.DataIdentifierAssociation.child_name,
-            ).prefix_with(
-                "/*+ USE_CONCAT NO_INDEX_FFS(CONTENTS CONTENTS_PK) */",
-                dialect='oracle',
-            ).where(
-                or_(*chunk)
-            )
-            for parent_scope, parent_name, did_type, child_scope, child_name in session.execute(stmt):
-
-                # Schedule removal of child file/dataset/container from the parent dataset/container
-                child_did_condition.append(
-                    and_(models.DataIdentifierAssociation.scope == parent_scope,
-                         models.DataIdentifierAssociation.name == parent_name,
-                         models.DataIdentifierAssociation.child_scope == child_scope,
-                         models.DataIdentifierAssociation.child_name == child_name))
-
-                # Schedule setting is_archive = False on parents which don't have any children with is_archive == True anymore
-                clt_is_not_archive_condition.append(
-                    and_(models.DataIdentifierAssociation.scope == parent_scope,
-                         models.DataIdentifierAssociation.name == parent_name,
-                         exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
-                             and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.scope,
-                                  models.DataIdentifier.name == models.DataIdentifierAssociation.name,
-                                  models.DataIdentifier.is_archive == true())),
-                         ~exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
-                             and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
-                                  models.DataIdentifier.name == models.DataIdentifierAssociation.child_name,
-                                  models.DataIdentifier.is_archive == true()))))
-
-                # If the parent dataset/container becomes empty as a result of the child removal
-                # (it was the last children), metadata cleanup has to be done:
-                #
-                # 1) Schedule to remove the replicas of this empty collection
-                clt_replica_condition.append(
-                    and_(models.CollectionReplica.scope == parent_scope,
-                         models.CollectionReplica.name == parent_name,
-                         exists(select(1).prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).where(
-                             and_(models.DataIdentifier.scope == parent_scope,
-                                  models.DataIdentifier.name == parent_name)),
-                         ~exists(select(1).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
-                             and_(models.DataIdentifierAssociation.scope == parent_scope,
-                                  models.DataIdentifierAssociation.name == parent_name))))
-
-                # 2) Schedule removal of this empty collection from its own parent collections
-                tmp_parent_condition.append(
-                    and_(models.DataIdentifierAssociation.child_scope == parent_scope,
-                         models.DataIdentifierAssociation.child_name == parent_name,
-                         ~exists(select(1).prefix_with("/*+ INDEX(CONTENTS CONTENTS_PK) */", dialect='oracle')).where(
-                             and_(models.DataIdentifierAssociation.scope == parent_scope,
-                                  models.DataIdentifierAssociation.name == parent_name))))
-
-                # 3) Schedule removal of the entry from the DIDs table
-                remove_open_did = config_get('reaper', 'remove_open_did', default=False, session=session)
-                if remove_open_did:
-                    did_condition.append(
-                        and_(models.DataIdentifier.scope == parent_scope,
-                             models.DataIdentifier.name == parent_name,
-                             ~exists(1).where(
-                                 and_(models.DataIdentifierAssociation.child_scope == parent_scope,
-                                      models.DataIdentifierAssociation.child_name == parent_name)),
-                             ~exists(1).where(
-                                 and_(models.DataIdentifierAssociation.scope == parent_scope,
-                                      models.DataIdentifierAssociation.name == parent_name))))
-                else:
-                    did_condition.append(
-                        and_(models.DataIdentifier.scope == parent_scope,
-                             models.DataIdentifier.name == parent_name,
-                             models.DataIdentifier.is_open == False,  # NOQA
-                             ~exists(1).where(
-                                 and_(models.DataIdentifierAssociation.child_scope == parent_scope,
-                                      models.DataIdentifierAssociation.child_name == parent_name)),
-                             ~exists(1).where(
-                                 and_(models.DataIdentifierAssociation.scope == parent_scope,
-                                      models.DataIdentifierAssociation.name == parent_name))))
-
-        if child_did_condition:
-
-            # get the list of modified parent scope, name
-            for chunk in chunks(child_did_condition, 10):
-                modifieds = session.query(models.DataIdentifierAssociation.scope,
-                                          models.DataIdentifierAssociation.name,
-                                          models.DataIdentifierAssociation.did_type).\
-                    distinct().\
-                    with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle').\
-                    filter(or_(*chunk)).\
-                    filter(exists(select(1).
-                                  prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle')).
-                           where(and_(models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
-                                      models.DataIdentifierAssociation.name == models.DataIdentifier.name,
-                                      or_(models.DataIdentifier.complete == true(),
-                                          models.DataIdentifier.complete is None))))
-                for parent_scope, parent_name, parent_did_type in modifieds:
-                    message = {'scope': parent_scope,
-                               'name': parent_name,
-                               'did_type': parent_did_type,
-                               'event_type': 'INCOMPLETE'}
-                    if message not in messages:
-                        messages.append(message)
-                        incomplete_condition.append(
-                            and_(models.DataIdentifier.scope == parent_scope,
-                                 models.DataIdentifier.name == parent_name,
-                                 models.DataIdentifier.did_type == parent_did_type))
-
-            for chunk in chunks(child_did_condition, 10):
-                rucio.core.did.insert_content_history(filter_=or_(*chunk), did_created_at=None, session=session)
-                session.query(models.DataIdentifierAssociation).\
-                    filter(or_(*chunk)).\
-                    delete(synchronize_session=False)
-
-        parent_condition = tmp_parent_condition
-
-    for chunk in chunks(clt_replica_condition, 10):
-        session.query(models.CollectionReplica).\
-            filter(or_(*chunk)).\
-            delete(synchronize_session=False)
-
-    # Update incomplete state
-    for chunk in chunks(incomplete_condition, 10):
-        stmt = update(models.DataIdentifier).\
-            prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
-            where(or_(*chunk)).\
-            where(models.DataIdentifier.complete != false()).\
-            execution_options(synchronize_session=False).\
-            values(complete=False)
-        session.execute(stmt)
-
-    # delete empty dids
-    messages, deleted_dids, deleted_rules, deleted_did_meta = [], [], [], []
-    for chunk in chunks(did_condition, 10):
-        query = session.query(models.DataIdentifier.scope,
-                              models.DataIdentifier.name,
-                              models.DataIdentifier.did_type).\
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-            filter(or_(*chunk))
-        for scope, name, did_type in query:
-            if did_type == DIDType.DATASET:
-                messages.append({'event_type': 'ERASE',
-                                 'payload': dumps({'scope': scope.external,
-                                                   'name': name,
-                                                   'account': 'root'})})
-            deleted_rules.append(and_(models.ReplicationRule.scope == scope,
-                                      models.ReplicationRule.name == name))
-            deleted_dids.append(and_(models.DataIdentifier.scope == scope,
-                                     models.DataIdentifier.name == name))
-            if session.bind.dialect.name == 'oracle':
-                oracle_version = int(session.connection().connection.version.split('.')[0])
-                if oracle_version >= 12:
-                    deleted_did_meta.append(and_(models.DidMeta.scope == scope,
-                                                 models.DidMeta.name == name))
-            else:
-                deleted_did_meta.append(and_(models.DidMeta.scope == scope,
-                                             models.DidMeta.name == name))
-
-    # Remove Archive Constituents
-    removed_constituents = []
-    constituents_to_delete_condition = []
-    for chunk in chunks(archive_contents_condition, 30):
-        query = session.query(models.ConstituentAssociation). \
-            with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_CHILD_IDX)", 'oracle'). \
-            filter(or_(*chunk))
-        for constituent in query:
-            removed_constituents.append({'scope': constituent.child_scope, 'name': constituent.child_name})
-            constituents_to_delete_condition.append(
-                and_(models.ConstituentAssociation.scope == constituent.scope,
-                     models.ConstituentAssociation.name == constituent.name,
-                     models.ConstituentAssociation.child_scope == constituent.child_scope,
-                     models.ConstituentAssociation.child_name == constituent.child_name))
-
-            models.ConstituentAssociationHistory(
-                child_scope=constituent.child_scope,
-                child_name=constituent.child_name,
-                scope=constituent.scope,
-                name=constituent.name,
-                bytes=constituent.bytes,
-                adler32=constituent.adler32,
-                md5=constituent.md5,
-                guid=constituent.guid,
-                length=constituent.length,
-                updated_at=constituent.updated_at,
-                created_at=constituent.created_at,
-            ).save(session=session, flush=False)
-
-            if len(constituents_to_delete_condition) > 200:
-                stmt = delete(models.ConstituentAssociation).\
-                    prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle').\
-                    where(or_(*constituents_to_delete_condition)).\
-                    execution_options(synchronize_session=False)
-                session.execute(stmt)
-                constituents_to_delete_condition.clear()
-
-                __cleanup_after_replica_deletion_without_temp_table(rse_id=rse_id, files=removed_constituents, session=session)
-                removed_constituents.clear()
-    if constituents_to_delete_condition:
-        stmt = delete(models.ConstituentAssociation). \
-            prefix_with("/*+ INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK) */", dialect='oracle'). \
-            where(or_(*constituents_to_delete_condition)). \
-            execution_options(synchronize_session=False)
-        session.execute(stmt)
-        __cleanup_after_replica_deletion_without_temp_table(rse_id=rse_id, files=removed_constituents, session=session)
-
-    # Remove rules in Waiting for approval or Suspended
-    for chunk in chunks(deleted_rules, 100):
-        stmt = delete(models.ReplicationRule).\
-            prefix_with("/*+ INDEX(RULES RULES_SCOPE_NAME_IDX) */", dialect='oracle').\
-            where(or_(*chunk)).\
-            where(models.ReplicationRule.state.in_((RuleState.SUSPENDED,
-                                                    RuleState.WAITING_APPROVAL))).\
-            execution_options(synchronize_session=False)
-        session.execute(stmt)
-
-    # Remove DID Metadata
-    for chunk in chunks(deleted_did_meta, 100):
-        session.query(models.DidMeta).\
-            filter(or_(*chunk)).\
-            delete(synchronize_session=False)
-
-    for chunk in chunks(messages, 100):
-        add_messages(chunk, session=session)
-
-    for chunk in chunks(deleted_dids, 100):
-        stmt = delete(models.DataIdentifier).\
-            prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
-            where(or_(*chunk)).\
-            execution_options(synchronize_session=False)
-        archive_dids = config_core.get('deletion', 'archive_dids', default=False, session=session)
-        if archive_dids:
-            rucio.core.did.insert_deleted_dids(filter_=or_(*chunk), session=session)
-        session.execute(stmt)
-
-    # Set is_archive = false on collections which don't have archive children anymore
-    for chunk in chunks(clt_is_not_archive_condition, 100):
-        clt_to_update = list(session
-                             .query(models.DataIdentifierAssociation.scope,
-                                    models.DataIdentifierAssociation.name)
-                             .distinct(models.DataIdentifierAssociation.scope,
-                                       models.DataIdentifierAssociation.name)
-                             .with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
-                             .filter(or_(*chunk)))
-        if clt_to_update:
-            stmt = update(models.DataIdentifier).\
-                prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
-                where(or_(and_(models.DataIdentifier.scope == scope,
-                               models.DataIdentifier.name == name,
-                               models.DataIdentifier.is_archive == true())
-                          for scope, name in clt_to_update)).\
-                execution_options(synchronize_session=False).\
-                values(is_archive=False)
-            session.execute(stmt)
-
 
 @transactional_session
 def get_replica(rse_id, scope, name, *, session: "Session"):
@@ -2627,10 +2179,7 @@ def get_replica(rse_id, scope, name, *, session: "Session"):
     """
     try:
         row = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, scope=scope, name=name).one()
-        result = {}
-        for column in row.__table__.columns:
-            result[column.name] = getattr(row, column.name)
-        return result
+        return row.to_dict()
     except NoResultFound:
         raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
 
@@ -2688,7 +2237,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
 
     for chunk in chunks(session.execute(stmt).yield_per(2 * limit), math.ceil(1.25 * limit)):
         session.query(temp_table_cls).delete()
-        session.bulk_insert_mappings(temp_table_cls, [{'scope': scope, 'name': name} for scope, name in chunk])
+        session.execute(insert(temp_table_cls), [{'scope': scope, 'name': name} for scope, name in chunk])
 
         stmt = select(
             models.RSEFileAssociation.scope,
@@ -2723,8 +2272,14 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             and_(models.RSEFileAssociation.scope == models.DataIdentifier.scope,
                  models.RSEFileAssociation.name == models.DataIdentifier.name)
         ).group_by(
-            models.RSEFileAssociation,
-            models.DataIdentifier.datatype,
+            models.RSEFileAssociation.scope,
+            models.RSEFileAssociation.name,
+            models.RSEFileAssociation.path,
+            models.RSEFileAssociation.bytes,
+            models.RSEFileAssociation.tombstone,
+            models.RSEFileAssociation.state,
+            models.RSEFileAssociation.updated_at,
+            models.DataIdentifier.datatype
         ).having(
             case((func.count(replicas_alias.scope) > 0, True),  # Can delete this replica if it's not the last replica
                  (func.count(models.Request.scope) == 0, True),  # If it's the last replica, only can delete if there are no requests using it
@@ -2750,7 +2305,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
 
     if rows:
         session.query(temp_table_cls).delete()
-        session.bulk_insert_mappings(temp_table_cls, [{'scope': r['scope'], 'name': r['name']} for r in rows])
+        session.execute(insert(temp_table_cls), [{'scope': r['scope'], 'name': r['name']} for r in rows])
         stmt = update(
             models.RSEFileAssociation
         ).where(
@@ -2765,115 +2320,6 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             state=ReplicaState.BEING_DELETED,
             tombstone=OBSOLETE,
         )
-        session.execute(stmt)
-
-    return rows
-
-
-@transactional_session
-def list_and_mark_unlocked_replicas_no_temp_table(limit, bytes_=None, rse_id=None, delay_seconds=600, only_delete_obsolete=False, *, session: "Session"):
-    """
-    List RSE File replicas with no locks.
-
-    :param limit:                    Number of replicas returned.
-    :param bytes_:                    The amount of needed bytes.
-    :param rse_id:                   The rse_id.
-    :param delay_seconds:            The delay to query replicas in BEING_DELETED state
-    :param only_delete_obsolete      If set to True, will only return the replicas with EPOCH tombstone
-    :param session:                  The database session in use.
-
-    :returns: a list of dictionary replica.
-    """
-
-    query = session.query(models.RSEFileAssociation.scope,
-                          models.RSEFileAssociation.name,
-                          models.RSEFileAssociation.path,
-                          models.RSEFileAssociation.bytes,
-                          models.RSEFileAssociation.tombstone,
-                          models.RSEFileAssociation.state,
-                          models.DataIdentifier.datatype).\
-        with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_RSE_ID_TOMBSTONE_IDX)", 'oracle').\
-        join(models.DataIdentifier, and_(models.RSEFileAssociation.scope == models.DataIdentifier.scope,
-                                         models.RSEFileAssociation.name == models.DataIdentifier.name)).\
-        filter(models.RSEFileAssociation.tombstone < datetime.utcnow()).\
-        filter(models.RSEFileAssociation.lock_cnt == 0).\
-        filter(models.RSEFileAssociation.rse_id == rse_id).\
-        filter(or_(models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)),
-                   and_(models.RSEFileAssociation.state == ReplicaState.BEING_DELETED, models.RSEFileAssociation.updated_at < datetime.utcnow() - timedelta(seconds=delay_seconds)))).\
-        filter(~exists(select(1).prefix_with("/*+ INDEX(SOURCES SOURCES_SC_NM_DST_IDX) */", dialect='oracle')
-                       .where(and_(models.RSEFileAssociation.scope == models.Source.scope,
-                                   models.RSEFileAssociation.name == models.Source.name,
-                                   models.RSEFileAssociation.rse_id == models.Source.rse_id)))).\
-        with_for_update(skip_locked=True).\
-        order_by(models.RSEFileAssociation.tombstone, models.RSEFileAssociation.updated_at)
-
-    needed_space = bytes_
-    total_bytes, total_files = 0, 0
-    rows = []
-    replica_clause = []
-    for (scope, name, path, bytes_, tombstone, state, datatype) in query.yield_per(1000):
-        # Check if more than one replica is available
-        replica_cnt = session.query(func.count(models.RSEFileAssociation.scope)).\
-            with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
-            filter(and_(models.RSEFileAssociation.scope == scope,
-                        models.RSEFileAssociation.name == name,
-                        models.RSEFileAssociation.rse_id != rse_id,
-                        models.RSEFileAssociation.state == ReplicaState.AVAILABLE)).one()
-
-        if replica_cnt[0] > 0:
-            if tombstone != OBSOLETE and only_delete_obsolete:
-                break
-
-            if not only_delete_obsolete and needed_space is not None and total_bytes > needed_space:
-                break
-
-            if state != ReplicaState.UNAVAILABLE:
-                total_bytes += bytes_
-
-            total_files += 1
-            if total_files > limit:
-                break
-
-            rows.append({'scope': scope, 'name': name, 'path': path,
-                         'bytes': bytes_, 'tombstone': tombstone,
-                         'state': state, 'datatype': datatype})
-            replica_clause.append(and_(models.RSEFileAssociation.scope == scope,
-                                       models.RSEFileAssociation.name == name,
-                                       models.RSEFileAssociation.rse_id == rse_id))
-        else:
-            # If this is the last replica, check if there are some requests
-            request_cnt = session.query(func.count()).\
-                with_hint(models.Request, "INDEX(requests REQUESTS_SCOPE_NAME_RSE_IDX)", 'oracle').\
-                filter(and_(models.Request.scope == scope,
-                            models.Request.name == name)).one()
-
-            if request_cnt[0] == 0:
-                if tombstone != OBSOLETE and only_delete_obsolete:
-                    break
-
-                if not only_delete_obsolete and needed_space is not None and total_bytes > needed_space:
-                    break
-
-                if state != ReplicaState.UNAVAILABLE:
-                    total_bytes += bytes_
-
-                total_files += 1
-                if total_files > limit:
-                    break
-
-                rows.append({'scope': scope, 'name': name, 'path': path,
-                             'bytes': bytes_, 'tombstone': tombstone,
-                             'state': state, 'datatype': datatype})
-
-                replica_clause.append(and_(models.RSEFileAssociation.scope == scope,
-                                           models.RSEFileAssociation.name == name,
-                                           models.RSEFileAssociation.rse_id == rse_id))
-    for chunk in chunks(replica_clause, 100):
-        stmt = update(models.RSEFileAssociation).\
-            prefix_with("/*+ INDEX(REPLICAS REPLICAS_PK) */", dialect='oracle').\
-            where(or_(*chunk)).\
-            execution_options(synchronize_session=False).\
-            values(updated_at=datetime.utcnow(), state=ReplicaState.BEING_DELETED, tombstone=datetime(1970, 1, 1))
         session.execute(stmt)
 
     return rows
@@ -3703,7 +3149,7 @@ def update_collection_replica(update_request, *, session: "Session"):
         else:
             ds_replica_state = ReplicaState.UNAVAILABLE
 
-        if old_available_replicas > 0 and available_replicas == 0:
+        if old_available_replicas is not None and old_available_replicas > 0 and available_replicas == 0:
             session.query(models.CollectionReplica).filter_by(scope=update_request['scope'],
                                                               name=update_request['name'],
                                                               rse_id=update_request['rse_id'])\
@@ -4179,282 +3625,3 @@ def get_RSEcoverage_of_dataset(scope, name, *, session: "Session"):
             result[rse_id] = total
 
     return result
-
-
-def _resolve_dids_wo_temp_tables(dids, unavailable, ignore_availability, all_states, resolve_archives, *, session: "Session"):
-    """
-    Resolve list of DIDs into a list of conditions.
-
-    :param dids: The list of data identifiers (DIDs).
-    :param unavailable: (deprecated) Also include unavailable replicas in the list.
-    :param ignore_availability: Ignore the RSE blocklisting.
-    :param all_states: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
-    :param resolve_archives: When set to true, find archives which contain the replicas.
-    :param session: The database session in use.
-    """
-    did_clause, dataset_clause, file_clause, constituent_clause = [], [], [], []
-    # Accumulate all the dids which were requested explicitly (not via a container/dataset).
-    # If any replicas for these dids will be found latter, the associated did will be removed from the list,
-    # leaving, at the end, only the requested dids which didn't have any replicas at all.
-    files_wo_replica = []
-    for did in [dict(tupleized) for tupleized in set(tuple(item.items()) for item in dids)]:
-        if 'type' in did and did['type'] in (DIDType.FILE, DIDType.FILE.value) or 'did_type' in did and did['did_type'] in (DIDType.FILE, DIDType.FILE.value):  # pylint: disable=no-member
-            files_wo_replica.append({'scope': did['scope'], 'name': did['name']})
-            file_clause.append(and_(models.RSEFileAssociation.scope == did['scope'],
-                                    models.RSEFileAssociation.name == did['name']))
-
-        else:
-            did_clause.append(and_(models.DataIdentifier.scope == did['scope'],
-                                   models.DataIdentifier.name == did['name']))
-
-    if did_clause:
-        for scope, name, did_type, constituent in session.query(models.DataIdentifier.scope,
-                                                                models.DataIdentifier.name,
-                                                                models.DataIdentifier.did_type,
-                                                                models.DataIdentifier.constituent) \
-                .with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle') \
-                .filter(or_(*did_clause)):
-            if resolve_archives and constituent:
-                constituent_clause.append(and_(models.ConstituentAssociation.child_scope == scope,
-                                               models.ConstituentAssociation.child_name == name))
-
-            if did_type == DIDType.FILE:
-                files_wo_replica.append({'scope': scope, 'name': name})
-                file_clause.append(and_(models.RSEFileAssociation.scope == scope,
-                                        models.RSEFileAssociation.name == name))
-
-            elif did_type == DIDType.DATASET:
-                dataset_clause.append(and_(models.DataIdentifierAssociation.scope == scope,
-                                           models.DataIdentifierAssociation.name == name))
-
-            else:  # Container
-                content_query = session.query(models.DataIdentifierAssociation.child_scope,
-                                              models.DataIdentifierAssociation.child_name,
-                                              models.DataIdentifierAssociation.child_type)
-                content_query = content_query.with_hint(models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle')
-                child_dids = [(scope, name)]
-                while child_dids:
-                    s, n = child_dids.pop()
-                    for tmp_did in content_query.filter_by(scope=s, name=n):
-                        if tmp_did.child_type == DIDType.DATASET:
-                            dataset_clause.append(and_(models.DataIdentifierAssociation.scope == tmp_did.child_scope,
-                                                       models.DataIdentifierAssociation.name == tmp_did.child_name))
-
-                        else:
-                            child_dids.append((tmp_did.child_scope, tmp_did.child_name))
-
-    state_clause = None
-    if not all_states:
-        if not unavailable:
-            state_clause = and_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
-
-        else:
-            state_clause = or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                               models.RSEFileAssociation.state == ReplicaState.UNAVAILABLE,
-                               models.RSEFileAssociation.state == ReplicaState.COPYING)
-
-    return file_clause, dataset_clause, state_clause, constituent_clause, files_wo_replica
-
-
-def _list_replicas_for_datasets_wo_temp_tables(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, *, session: "Session"):
-    """
-    List file replicas for a list of datasets.
-
-    :param session: The database session in use.
-    """
-    if not dataset_clause:
-        return
-
-    replica_query = session.query(models.DataIdentifierAssociation.child_scope,
-                                  models.DataIdentifierAssociation.child_name,
-                                  models.DataIdentifierAssociation.bytes,
-                                  models.DataIdentifierAssociation.md5,
-                                  models.DataIdentifierAssociation.adler32,
-                                  models.RSEFileAssociation.path,
-                                  models.RSEFileAssociation.state,
-                                  models.RSE.id,
-                                  models.RSE.rse,
-                                  models.RSE.rse_type,
-                                  models.RSE.volatile). \
-        with_hint(models.RSEFileAssociation,
-                  text="INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                  dialect_name='oracle'). \
-        outerjoin(models.RSEFileAssociation,
-                  and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                       models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)). \
-        join(models.RSE, models.RSE.id == models.RSEFileAssociation.rse_id). \
-        filter(models.RSE.deleted == false()). \
-        filter(or_(*dataset_clause)). \
-        order_by(models.DataIdentifierAssociation.child_scope,
-                 models.DataIdentifierAssociation.child_name)
-
-    if not ignore_availability:
-        replica_query = replica_query.filter(models.RSE.availability_read == true())
-
-    if state_clause:
-        replica_query = replica_query.filter(and_(state_clause))
-
-    if rse_clause:
-        replica_query = replica_query.filter(or_(*rse_clause))
-
-    if updated_after:
-        replica_query = replica_query.filter(models.RSEFileAssociation.updated_at >= updated_after)
-
-    for scope, name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_query.yield_per(500):
-        yield scope, name, None, None, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile
-
-
-def _list_replicas_for_constituents_wo_temp_tables(constituent_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, *, session: "Session"):
-    """
-    List file replicas for archive constituents.
-    """
-    if not constituent_clause:
-        return
-
-    constituent_query = session.query(models.ConstituentAssociation.child_scope,
-                                      models.ConstituentAssociation.child_name,
-                                      models.ConstituentAssociation.scope,
-                                      models.ConstituentAssociation.name,
-                                      models.ConstituentAssociation.bytes,
-                                      models.ConstituentAssociation.md5,
-                                      models.ConstituentAssociation.adler32,
-                                      models.RSEFileAssociation.path,
-                                      models.RSEFileAssociation.state,
-                                      models.RSE.id,
-                                      models.RSE.rse,
-                                      models.RSE.rse_type,
-                                      models.RSE.volatile). \
-        with_hint(models.RSEFileAssociation,
-                  text="INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                  dialect_name='oracle'). \
-        with_hint(models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle'). \
-        outerjoin(models.RSEFileAssociation,
-                  and_(models.ConstituentAssociation.scope == models.RSEFileAssociation.scope,
-                       models.ConstituentAssociation.name == models.RSEFileAssociation.name)). \
-        join(models.RSE, models.RSE.id == models.RSEFileAssociation.rse_id). \
-        filter(models.RSE.deleted == false()). \
-        filter(or_(*constituent_clause)). \
-        order_by(models.ConstituentAssociation.child_scope,
-                 models.ConstituentAssociation.child_name)
-
-    if not ignore_availability:
-        constituent_query = constituent_query.filter(models.RSE.availability_read == true())
-
-    if state_clause is not None:
-        constituent_query = constituent_query.filter(and_(state_clause))
-
-    if rse_clause is not None:
-        constituent_query = constituent_query.filter(or_(*rse_clause))
-
-    if updated_after:
-        constituent_query = constituent_query.filter(models.RSEFileAssociation.updated_at >= updated_after)
-
-    for replica in constituent_query.yield_per(500):
-        scope, name = replica[0], replica[1]
-        {'scope': scope, 'name': name} in files_wo_replica and files_wo_replica.remove({'scope': scope, 'name': name})
-        yield replica
-
-
-def _list_replicas_for_files_wo_temp_tables(file_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, *, session: "Session"):
-    """
-    List file replicas for a list of files.
-
-    :param session: The database session in use.
-    """
-    if not file_clause:
-        return
-
-    for replica_condition in chunks(file_clause, 50):
-        filters = [
-            models.RSEFileAssociation.rse_id == models.RSE.id,
-            models.RSE.deleted == false(),
-            or_(*replica_condition)
-        ]
-
-        if not ignore_availability:
-            filters.append(models.RSE.availability_read == true())
-
-        if state_clause is not None:
-            filters.append(state_clause)
-
-        if rse_clause:
-            filters.append(or_(*rse_clause))
-
-        if updated_after:
-            filters.append(models.RSEFileAssociation.updated_at >= updated_after)
-
-        replica_query = session.query(
-            models.RSEFileAssociation.scope,
-            models.RSEFileAssociation.name,
-            models.RSEFileAssociation.bytes,
-            models.RSEFileAssociation.md5,
-            models.RSEFileAssociation.adler32,
-            models.RSEFileAssociation.path,
-            models.RSEFileAssociation.state,
-            models.RSE.id,
-            models.RSE.rse,
-            models.RSE.rse_type,
-            models.RSE.volatile,
-        ) \
-            .filter(and_(*filters)) \
-            .order_by(models.RSEFileAssociation.scope, models.RSEFileAssociation.name) \
-            .with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle')
-
-        for scope, name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_query.all():
-            {'scope': scope, 'name': name} in files_wo_replica and files_wo_replica.remove({'scope': scope, 'name': name})
-            yield scope, name, None, None, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile
-
-
-def _list_replicas_wo_temp_tables(
-        dids: "Sequence[Dict[str, Any]]",
-        schemes: "Optional[List[str]]" = None,
-        unavailable: bool = False,
-        request_id: "Optional[str]" = None,
-        ignore_availability: bool = True,
-        all_states: bool = False,
-        pfns: bool = True,
-        rse_expression: "Optional[str]" = None,
-        client_location: "Optional[Dict[str, Any]]" = None,
-        domain: "Optional[str]" = None,
-        sign_urls: bool = False,
-        signature_lifetime: "Optional[int]" = None,
-        resolve_archives: bool = True,
-        resolve_parents: bool = False,
-        nrandom: "Optional[int]" = None,
-        updated_after: "Optional[datetime]" = None,
-        by_rse_name: bool = False,
-        *,
-        session: "Session",
-):
-    if dids:
-        filter_ = {'vo': dids[0]['scope'].vo}
-    else:
-        filter_ = {'vo': 'def'}
-
-    file_clause, dataset_clause, state_clause, constituent_clause, files_wo_replica = _resolve_dids_wo_temp_tables(
-        dids=dids,
-        unavailable=unavailable,
-        ignore_availability=ignore_availability,
-        all_states=all_states,
-        resolve_archives=resolve_archives,
-        session=session
-    )
-
-    rse_clause = []
-    if rse_expression:
-        for rse in parse_expression(expression=rse_expression, filter_=filter_, session=session):
-            rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
-
-    # iterator which merges multiple sorted replica sources into a combine sorted result without loading everything into the memory
-    replica_tuples = heapq.merge(
-        _list_replicas_for_datasets_wo_temp_tables(dataset_clause, state_clause, rse_clause, ignore_availability, updated_after, session=session),
-        _list_replicas_for_files_wo_temp_tables(file_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session=session),
-        _list_replicas_for_constituents_wo_temp_tables(constituent_clause, state_clause, files_wo_replica, rse_clause, ignore_availability, updated_after, session=session),
-        key=lambda t: (t[0], t[1]),  # sort by scope, name
-    )
-
-    yield from _pick_n_random(
-        nrandom,
-        _list_replicas(replica_tuples, pfns, schemes, files_wo_replica, client_location, domain,
-                       sign_urls, signature_lifetime, resolve_parents, filter_, by_rse_name, session=session)
-    )

@@ -23,10 +23,9 @@ import pathlib
 import subprocess
 import sys
 from functools import partial
-from typing import Tuple
 
 # mostly for checking the version in automated scripts, similar to sys.version_info
-VERSION: "Tuple[int]" = (2, )
+VERSION: tuple[int] = (2, )
 
 DIST_KEY = "DIST"
 BUILD_ARG_KEYS = ["PYTHON", "IMAGE_IDENTIFIER"]
@@ -85,19 +84,18 @@ def build_images(matrix, script_args):
             args = ()
             env = {"DOCKER_BUILDKIT": "1"}
             if buildargs.IMAGE_IDENTIFIER == 'integration-test':
-                if buildargs.PYTHON == '3.6':
-                    buildfile = pathlib.Path(script_args.buildfiles_dir) / 'Dockerfile'
-                    args = (
-                        'docker',
-                        'build',
-                        *cache_args,
-                        '--file',
-                        str(buildfile),
-                        '--tag',
-                        imagetag,
-                        *itertools.chain(*map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), filtered_buildargs.items())),
-                        f'{script_args.buildfiles_dir}',
-                    )
+                buildfile = pathlib.Path(script_args.buildfiles_dir) / 'alma9.Dockerfile'
+                args = (
+                    'docker',
+                    'build',
+                    *cache_args,
+                    '--file',
+                    str(buildfile),
+                    '--tag',
+                    imagetag,
+                    *itertools.chain(*map(lambda x: ('--build-arg', f'{x[0]}={x[1]}'), filtered_buildargs.items())),
+                    f'{script_args.buildfiles_dir}',
+                )
             else:
                 # build images for autotest or votest
                 buildfile = pathlib.Path(script_args.buildfiles_dir) / f'{dist}.Dockerfile'

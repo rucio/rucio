@@ -14,14 +14,14 @@
 # limitations under the License.
 
 from re import match, compile, error
-from sqlalchemy.exc import IntegrityError
 from traceback import format_exc
 from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NO_VALUE
+from sqlalchemy.exc import IntegrityError
 
-from rucio.common.exception import Duplicate, RucioException, InvalidObject
 from rucio.common.cache import make_region_memcached
+from rucio.common.exception import Duplicate, RucioException, InvalidObject
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import KeyType
 from rucio.db.sqla.session import read_session, transactional_session
@@ -150,5 +150,5 @@ def validate_name(scope, name, did_type, *, session: "Session"):
             meta['run_number'] = int(meta['run_number'])
         return meta
 
-    print("Provided name %(name)s doesn't match the naming convention %(regexp)s" % locals())
-    raise InvalidObject("Provided name %(name)s doesn't match the naming convention %(regexp)s" % locals())
+    print(f"Provided name {name} doesn't match the naming convention {regexp}")
+    raise InvalidObject(f"Provided name {name} doesn't match the naming convention {regexp}")

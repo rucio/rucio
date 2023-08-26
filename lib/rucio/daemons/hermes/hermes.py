@@ -50,8 +50,9 @@ from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import FrameType
-    from typing import Callable, Dict, List, Optional
+    from typing import Optional
 
     from rucio.daemons.common import HeartbeatHandler
 
@@ -59,6 +60,7 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
+DAEMON_NAME = "hermes"
 
 RECONNECT_COUNTER = METRICS.counter(
     name="reconnect.{host}",
@@ -313,7 +315,7 @@ def deliver_to_activemq(
     return to_delete
 
 
-def deliver_emails(messages: "List[Dict]", logger: "Callable") -> "List":
+def deliver_emails(messages: list[dict], logger: "Callable") -> list:
     """
     Sends emails
 
@@ -352,7 +354,7 @@ def deliver_emails(messages: "List[Dict]", logger: "Callable") -> "List":
     return to_delete
 
 
-def submit_to_elastic(messages: "List[Dict]", endpoint: str, logger: "Callable") -> int:
+def submit_to_elastic(messages: list[dict], endpoint: str, logger: "Callable") -> int:
     """
     Aggregate a list of message to ElasticSearch
 
@@ -372,7 +374,7 @@ def submit_to_elastic(messages: "List[Dict]", endpoint: str, logger: "Callable")
 
 
 def aggregate_to_influx(
-    messages: "List[Dict]", bin_size: int, endpoint: str, logger: "Callable"
+    messages: list[dict], bin_size: int, endpoint: str, logger: "Callable"
 ) -> int:
     """
     Aggregate a list of message using a certain bin_size
@@ -492,8 +494,7 @@ def hermes(once: bool = False, bulk: int = 1000, sleep_time: int = 10) -> None:
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable="hermes",
-        logger_prefix="hermes",
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -706,7 +707,7 @@ def run(
     """
     Starts up the hermes threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException("Database was not updated, daemon won't start")

@@ -14,14 +14,13 @@
 # limitations under the License.
 
 import json
-
 from typing import TYPE_CHECKING
 
-from sqlalchemy import or_, delete, update
+from sqlalchemy import or_, delete, update, insert
 from sqlalchemy.exc import IntegrityError
 
-from rucio.common.constants import HermesService, MAX_MESSAGE_LENGTH
 from rucio.common.config import config_get_list
+from rucio.common.constants import HermesService, MAX_MESSAGE_LENGTH
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import APIEncoder, chunks
 from rucio.db.sqla import filter_thread_work
@@ -29,11 +28,11 @@ from rucio.db.sqla.models import Message, MessageHistory
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List, Optional
+    from typing import Any, Optional
     from sqlalchemy.orm import Session
 
-    MessageType = Dict[str, Any]
-    MessagesListType = List[MessageType]
+    MessageType = dict[str, Any]
+    MessagesListType = list[MessageType]
 
 
 @transactional_session
@@ -73,9 +72,9 @@ def add_messages(messages: "MessagesListType", *, session: "Session") -> None:
                     msg['payload'] = 'nolimit'
                 msgs.append(msg)
             except TypeError as err:  # noqa: F841
-                raise InvalidObject('Invalid JSON for payload: %(err)s' % locals())
+                raise InvalidObject(f'Invalid JSON for payload: {err}')
     for messages_chunk in chunks(msgs, 1000):
-        session.bulk_insert_mappings(Message, messages_chunk)
+        session.execute(insert(Message), messages_chunk)
 
 
 @transactional_session
@@ -195,7 +194,7 @@ def delete_messages(messages: "MessagesListType", *, session: "Session") -> None
                 execution_options(synchronize_session=False)
             session.execute(stmt)
 
-            session.bulk_insert_mappings(MessageHistory, messages)
+            session.execute(insert(MessageHistory), messages)
     except IntegrityError as e:
         raise RucioException(e.args)
 

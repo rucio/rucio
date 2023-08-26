@@ -14,9 +14,9 @@
 # limitations under the License.
 
 from json import dumps
+from typing import Any
 
 from flask import Flask, request, Response
-from typing import Any, Dict
 
 from rucio.api.lock import get_replica_locks_for_rule_id
 from rucio.api.rule import add_replication_rule, delete_replication_rule, get_replication_rule, \
@@ -27,9 +27,9 @@ from rucio.common.exception import InputValidationError, InsufficientAccountLimi
     InvalidRuleWeight, StagingAreaRuleRequiresLifetime, DuplicateRule, InvalidObject, AccountNotFound, \
     RuleReplaceFailed, ScratchDiskLifetimeConflict, ManualRuleApprovalBlocked, UnsupportedOperation
 from rucio.common.utils import render_json, APIEncoder
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
     response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class Rule(ErrorHandlingMethodView):
@@ -152,7 +152,7 @@ class Rule(ErrorHandlingMethodView):
             description: No rule found for the given id
        """
         parameters = json_parameters()
-        options: Dict[str, Any] = param_get(parameters, 'options')
+        options: dict[str, Any] = param_get(parameters, 'options')
         try:
             update_replication_rule(rule_id=rule_id, options=options, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
         except AccessDenied as error:

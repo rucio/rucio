@@ -25,7 +25,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from random import randint
 from re import match
-from typing import TYPE_CHECKING, Tuple, Dict
+from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import DatabaseError
 
@@ -46,19 +46,18 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
+DAEMON_NAME = 'undertaker'
 
 
 def undertaker(once: bool = False, sleep_time: int = 60, chunk_size: int = 10):
     """
     Main loop to select and delete dids.
     """
-    executable = 'undertaker'
     paused_dids = {}  # {(scope, name): datetime}
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable=executable,
-        logger_prefix=executable,
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -69,7 +68,7 @@ def undertaker(once: bool = False, sleep_time: int = 60, chunk_size: int = 10):
     )
 
 
-def run_once(paused_dids: Dict[Tuple, datetime], chunk_size: int, heartbeat_handler: HeartbeatHandler, **_kwargs):
+def run_once(paused_dids: dict[tuple, datetime], chunk_size: int, heartbeat_handler: HeartbeatHandler, **_kwargs):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     try:
@@ -119,7 +118,7 @@ def run(once: bool = False, total_workers: int = 1, chunk_size: int = 10, sleep_
     """
     Starts up the undertaker threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

@@ -16,9 +16,9 @@
 from flask import Flask, request, jsonify
 
 from rucio.api.identity import add_identity, add_account_identity, list_accounts_for_identity
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     ErrorHandlingMethodView
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class UserPass(ErrorHandlingMethodView):

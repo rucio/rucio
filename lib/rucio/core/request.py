@@ -17,10 +17,12 @@ import datetime
 import json
 import logging
 import traceback
+import uuid
 from collections import namedtuple
-from typing import TYPE_CHECKING
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Optional, Union
 
-from sqlalchemy import and_, or_, update, select, delete, exists
+from sqlalchemy import and_, or_, update, select, delete, exists, insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import asc, true, false, null, func
@@ -41,7 +43,7 @@ from rucio.db.sqla.util import temp_table_mngr
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List, Optional, Sequence, Set, Union
+    from rucio.core.rse import RseCollection
 
     from sqlalchemy.orm import Session
 
@@ -69,23 +71,23 @@ class RequestSource:
 class RequestWithSources:
     def __init__(
             self,
-            id_: "Optional[str]",
+            id_: Optional[str],
             request_type: RequestType,
-            rule_id: "Optional[str]",
+            rule_id: Optional[str],
             scope: InternalScope,
             name: str,
             md5: str,
             adler32: str,
             byte_count: int,
             activity: str,
-            attributes: "Union[str, None, Dict[str, Any]]",
-            previous_attempt_id: "Optional[str]",
+            attributes: Optional[Union[str, dict[str, Any]]],
+            previous_attempt_id: Optional[str],
             dest_rse_data: RseData,
             account: InternalAccount,
             retry_count: int,
             priority: int,
             transfertool: str,
-            requested_at: "Optional[datetime.datetime]" = None,
+            requested_at: Optional[datetime.datetime] = None,
     ):
 
         self.request_id = id_
@@ -107,8 +109,8 @@ class RequestWithSources:
         self.transfertool = transfertool
         self.requested_at = requested_at if requested_at else datetime.datetime.utcnow()
 
-        self.sources: "List[RequestSource]" = []
-        self.requested_source: "Optional[RequestSource]" = None
+        self.sources: list[RequestSource] = []
+        self.requested_source: Optional[RequestSource] = None
 
     def __str__(self):
         return "{}({}:{})".format(self.request_id, self.scope, self.name)
@@ -332,35 +334,41 @@ def queue_requests(requests, *, session: "Session", logger=logging.log):
                          'payload': payload})
 
     for requests_chunk in chunks(new_requests, 1000):
-        session.bulk_insert_mappings(models.Request, requests_chunk)
+        session.execute(insert(models.Request), requests_chunk)
 
     for sources_chunk in chunks(sources, 1000):
-        session.bulk_insert_mappings(models.Source, sources_chunk)
+        session.execute(insert(models.Source), sources_chunk)
 
     add_messages(messages, session=session)
 
     return new_requests
 
 
-@read_session
-def list_transfer_requests_and_source_replicas(
+@transactional_session
+def list_and_mark_transfer_requests_and_source_replicas(
+        rse_collection: "RseCollection",
+        processed_by: Optional[str] = None,
+        processed_at_delay: int = 600,
         total_workers: int = 0,
         worker_number: int = 0,
-        partition_hash_var: "Optional[str]" = None,
-        limit: "Optional[int]" = None,
-        activity: "Optional[str]" = None,
-        older_than: "Optional[datetime.datetime]" = None,
-        rses: "Optional[Sequence[str]]" = None,
-        request_type: "Optional[List[RequestType]]" = None,
-        request_state: "Optional[RequestState]" = None,
-        required_source_rse_attrs: "Optional[List[str]]" = None,
+        partition_hash_var: Optional[str] = None,
+        limit: Optional[int] = None,
+        activity: Optional[str] = None,
+        older_than: Optional[datetime.datetime] = None,
+        rses: Optional[Sequence[str]] = None,
+        request_type: Optional[list[RequestType]] = None,
+        request_state: Optional[RequestState] = None,
+        required_source_rse_attrs: Optional[list[str]] = None,
         ignore_availability: bool = False,
-        transfertool: "Optional[str]" = None,
+        transfertool: Optional[str] = None,
         *,
         session: "Session",
-) -> "Dict[str, RequestWithSources]":
+) -> dict[str, RequestWithSources]:
     """
     List requests with source replicas
+    :param rse_collection: the RSE collection being used
+    :param processed_by: the daemon/executable running this query
+    :param processed_at_delay: how many second to ignore a request if it's already being processed by the same daemon
     :param total_workers: Number of total workers.
     :param worker_number: Id of the executing worker.
     :param partition_hash_var: The hash variable used for partitioning thread work
@@ -425,6 +433,15 @@ def list_transfer_requests_and_source_replicas(
         models.Request.created_at
     )
 
+    if processed_by:
+        sub_requests = sub_requests.where(
+            or_(
+                models.Request.last_processed_by.is_(null()),
+                models.Request.last_processed_by != processed_by,
+                models.Request.last_processed_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=processed_at_delay)
+            )
+        )
+
     if not ignore_availability:
         sub_requests = sub_requests.where(models.RSE.availability_write == true())
 
@@ -441,11 +458,10 @@ def list_transfer_requests_and_source_replicas(
     else:
         sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
 
-    use_temp_tables = config_get_bool('core', 'use_temp_tables', default=True, session=session)
-    if rses and use_temp_tables:
+    if rses:
         temp_table_cls = temp_table_mngr(session).create_id_table()
 
-        session.bulk_insert_mappings(temp_table_cls, [{'id': rse_id} for rse_id in rses])
+        session.execute(insert(temp_table_cls), [{'id': rse_id} for rse_id in rses])
 
         sub_requests = sub_requests.join(temp_table_cls, temp_table_cls.id == models.RSE.id)
 
@@ -526,15 +542,11 @@ def list_transfer_requests_and_source_replicas(
     for (request_id, req_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, source_rse_id, dest_rse_id, account, retry_count,
          priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance) in session.execute(stmt):
 
-        # If we didn't pre-filter using temporary tables on database side, perform the filtering here
-        if not use_temp_tables and rses and dest_rse_id not in rses:
-            continue
-
         request = requests_by_id.get(request_id)
         if not request:
             request = RequestWithSources(id_=request_id, request_type=req_type, rule_id=rule_id, scope=scope, name=name,
                                          md5=md5, adler32=adler32, byte_count=byte_count, activity=activity, attributes=attributes,
-                                         previous_attempt_id=previous_attempt_id, dest_rse_data=RseData(id_=dest_rse_id),
+                                         previous_attempt_id=previous_attempt_id, dest_rse_data=rse_collection[dest_rse_id],
                                          account=account, retry_count=retry_count, priority=priority, transfertool=transfertool,
                                          requested_at=requested_at)
             requests_by_id[request_id] = request
@@ -544,11 +556,30 @@ def list_transfer_requests_and_source_replicas(
                 request.sources.append(source)
 
         if replica_rse_id is not None:
-            source = RequestSource(rse_data=RseData(id_=replica_rse_id, name=replica_rse_name), file_path=file_path,
+            replica_rse = rse_collection[replica_rse_id]
+            replica_rse.name = replica_rse_name
+            source = RequestSource(rse_data=replica_rse, file_path=file_path,
                                    ranking=source_ranking, distance=distance, url=source_url)
             request.sources.append(source)
             if source_rse_id == replica_rse_id:
                 request.requested_source = source
+
+    if processed_by:
+        for chunk in chunks(requests_by_id, 100):
+            stmt = update(
+                models.Request
+            ).where(
+                models.Request.id.in_(chunk)
+            ).execution_options(
+                synchronize_session=False
+            ).values(
+                {
+                    models.Request.last_processed_by: processed_by,
+                    models.Request.last_processed_at: datetime.datetime.now(),
+                }
+            )
+            session.execute(stmt)
+
     return requests_by_id
 
 
@@ -588,16 +619,34 @@ def fetch_paths(request_id, *, session: "Session"):
 
 
 @METRICS.time_it
-@read_session
-def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activity=None,
-             total_workers=0, worker_number=0, mode_all=False, hash_variable='id',
-             activity_shares=None, include_dependent=True, transfertool=None, *, session: "Session"):
+@transactional_session
+def get_and_mark_next(
+        request_type,
+        state,
+        processed_by: Optional[str] = None,
+        processed_at_delay: int = 600,
+        limit=100,
+        older_than=None,
+        rse_id=None,
+        activity=None,
+        total_workers=0,
+        worker_number=0,
+        mode_all=False,
+        hash_variable='id',
+        activity_shares=None,
+        include_dependent=True,
+        transfertool=None,
+        *,
+        session: "Session"
+):
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
 
     :param request_type:      Type of the request as a string or list of strings.
     :param state:             State of the request as a string or list of strings.
+    :param processed_by:      the daemon/executable running this query
+    :param processed_at_delay: how many second to ignore a request if it's already being processed by the same daemon
     :param limit:             Integer of requests to retrieve.
     :param older_than:        Only select requests older than this DateTime.
     :param rse_id:            The RSE to filter on.
@@ -640,6 +689,14 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
         ).order_by(
             asc(models.Request.updated_at)
         )
+        if processed_by:
+            query = query.where(
+                or_(
+                    models.Request.last_processed_by.is_(null()),
+                    models.Request.last_processed_by != processed_by,
+                    models.Request.last_processed_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=processed_at_delay)
+                )
+            )
         if transfertool:
             query = query.with_hint(
                 models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)", 'oracle'
@@ -699,13 +756,109 @@ def get_next(request_type, state, limit=100, older_than=None, rse_id=None, activ
                 for res in query_result:
                     result.append({'request_id': res.id, 'external_host': res.external_host, 'external_id': res.external_id})
 
+            request_ids = {r['request_id'] for r in result}
+            if processed_by and request_ids:
+                for chunk in chunks(request_ids, 100):
+                    stmt = update(
+                        models.Request
+                    ).where(
+                        models.Request.id.in_(chunk)
+                    ).execution_options(
+                        synchronize_session=False
+                    ).values(
+                        {
+                            models.Request.last_processed_by: processed_by,
+                            models.Request.last_processed_at: datetime.datetime.now(),
+                        }
+                    )
+                    session.execute(stmt)
+
     return result
+
+
+@transactional_session
+def update_request(
+        request_id: str,
+        state: Optional[RequestState] = None,
+        transferred_at: Optional[datetime.datetime] = None,
+        started_at: Optional[datetime.datetime] = None,
+        staging_started_at: Optional[datetime.datetime] = None,
+        staging_finished_at: Optional[datetime.datetime] = None,
+        source_rse_id: Optional[str] = None,
+        err_msg: Optional[str] = None,
+        attributes: Optional[dict[str, str]] = None,
+        priority: Optional[int] = None,
+        transfertool: Optional[str] = None,
+        *,
+        raise_on_missing: bool = False,
+        session: "Session",
+):
+
+    rowcount = 0
+    try:
+        update_items: dict[Any, Any] = {
+            models.Request.updated_at: datetime.datetime.utcnow()
+        }
+        if state is not None:
+            update_items[models.Request.state] = state
+        if transferred_at is not None:
+            update_items[models.Request.transferred_at] = transferred_at
+        if started_at is not None:
+            update_items[models.Request.started_at] = started_at
+        if staging_started_at is not None:
+            update_items[models.Request.staging_started_at] = staging_started_at
+        if staging_finished_at is not None:
+            update_items[models.Request.staging_finished_at] = staging_finished_at
+        if source_rse_id is not None:
+            update_items[models.Request.source_rse_id] = source_rse_id
+        if err_msg is not None:
+            update_items[models.Request.err_msg] = err_msg
+        if attributes is not None:
+            update_items[models.Request.attributes] = json.dumps(attributes)
+        if priority is not None:
+            update_items[models.Request.priority] = priority
+        if transfertool is not None:
+            update_items[models.Request.transfertool] = transfertool
+
+        stmt = update(
+            models.Request
+        ).where(
+            models.Request.id == request_id
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            update_items
+        )
+        rowcount = session.execute(stmt).rowcount
+
+    except IntegrityError as error:
+        raise RucioException(error.args)
+
+    if not rowcount and raise_on_missing:
+        raise UnsupportedOperation("Request %s state cannot be updated." % request_id)
+
+    if rowcount:
+        return True
+    return False
 
 
 @METRICS.count_it
 @transactional_session
-def set_request_state(request_id, state, external_id=None, transferred_at=None, started_at=None, staging_started_at=None,
-                      staging_finished_at=None, source_rse_id=None, err_msg=None, attributes=None, *, session: "Session", logger=logging.log):
+def set_request_state(
+        request_id: str,
+        state: Optional[RequestState] = None,
+        external_id: Optional[str] = None,
+        transferred_at: Optional[datetime.datetime] = None,
+        started_at: Optional[datetime.datetime] = None,
+        staging_started_at: Optional[datetime.datetime] = None,
+        staging_finished_at: Optional[datetime.datetime] = None,
+        source_rse_id: Optional[str] = None,
+        err_msg: Optional[str] = None,
+        attributes: Optional[dict[str, str]] = None,
+        *,
+        session: "Session",
+        logger=logging.log
+):
     """
     Update the state of a request.
 
@@ -722,48 +875,28 @@ def set_request_state(request_id, state, external_id=None, transferred_at=None, 
 
     # TODO: Should this be a private method?
 
-    rowcount = 0
-    try:
-        update_items = {'state': state, 'updated_at': datetime.datetime.utcnow()}
-        if transferred_at:
-            update_items['transferred_at'] = transferred_at
-        if started_at:
-            update_items['started_at'] = started_at
-        if staging_started_at:
-            update_items['staging_started_at'] = staging_started_at
-        if staging_finished_at:
-            update_items['staging_finished_at'] = staging_finished_at
-        if source_rse_id:
-            update_items['source_rse_id'] = source_rse_id
-        if err_msg:
-            update_items['err_msg'] = err_msg
-        if attributes is not None:
-            update_items['attributes'] = json.dumps(attributes)
+    request = get_request(request_id, session=session)
+    if not request:
+        # The request was deleted in the meantime. Ignore it.
+        logger(logging.WARNING, "Request %s not found. Cannot set its state to %s", request_id, state)
+        return
 
-        request = get_request(request_id, session=session)
-        if not request:
-            # The request was deleted in the meantime. Ignore it.
-            logger(logging.WARNING, "Request %s not found. Cannot set its state to %s", request_id, state)
-            return
-
-        if state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST] and (request["external_id"] != external_id):
-            logger(logging.ERROR, "Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
-        else:
-            stmt = update(
-                models.Request
-            ).where(
-                models.Request.id == request_id
-            ).execution_options(
-                synchronize_session=False
-            ).values(
-                update_items
-            )
-            rowcount = session.execute(stmt).rowcount
-    except IntegrityError as error:
-        raise RucioException(error.args)
-
-    if not rowcount:
-        raise UnsupportedOperation("Request %s state cannot be updated." % request_id)
+    if state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST] and (request["external_id"] != external_id):
+        logger(logging.ERROR, "Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
+    else:
+        update_request(
+            request_id=request_id,
+            state=state,
+            transferred_at=transferred_at,
+            started_at=started_at,
+            staging_started_at=staging_started_at,
+            staging_finished_at=staging_finished_at,
+            source_rse_id=source_rse_id,
+            err_msg=err_msg,
+            attributes=attributes,
+            raise_on_missing=True,
+            session=session,
+        )
 
 
 @METRICS.count_it
@@ -841,38 +974,6 @@ def get_request(request_id, *, session: "Session"):
             tmp = tmp.to_dict()
             tmp['attributes'] = json.loads(str(tmp['attributes'] or '{}'))
             return tmp
-    except IntegrityError as error:
-        raise RucioException(error.args)
-
-
-@read_session
-def get_requests_by_transfer(external_host, transfer_id, *, session: "Session"):
-    """
-    Retrieve requests by its transfer ID.
-
-    :param request_host:  Name of the external host.
-    :param transfer_id:   External transfer job id as a string.
-    :param session:       Database session to use.
-    :returns:             List of Requests.
-    """
-
-    try:
-        stmt = select(
-            models.Request
-        ).where(
-            models.Request.external_id == transfer_id
-        )
-        tmp = session.execute(stmt).scalars().all()
-
-        if tmp:
-            result = []
-            for t in tmp:
-                t2 = t.to_dict()
-                t2['request_id'] = t2['id']
-                t2['attributes'] = json.loads(str(t2['attributes'] or '{}'))
-                result.append(t2)
-            return result
-        return
     except IntegrityError as error:
         raise RucioException(error.args)
 
@@ -1206,6 +1307,7 @@ def get_request_stats(state, *, session: "Session"):
             models.Request.source_rse_id,
             models.Request.activity,
             func.count(1).label('counter'),
+            func.sum(models.Request.bytes).label('bytes')
         ).with_hint(
             models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle'
         ).where(
@@ -1227,8 +1329,8 @@ def get_request_stats(state, *, session: "Session"):
 
 @transactional_session
 def release_waiting_requests_per_deadline(
-        dest_rse_id: "Optional[str]" = None,
-        source_rse_id: "Optional[str]" = None,
+        dest_rse_id: Optional[str] = None,
+        source_rse_id: Optional[str] = None,
         deadline: int = 1,
         *,
         session: "Session",
@@ -1274,8 +1376,8 @@ def release_waiting_requests_per_deadline(
 
 @transactional_session
 def release_waiting_requests_per_free_volume(
-        dest_rse_id: "Optional[str]" = None,
-        source_rse_id: "Optional[str]" = None,
+        dest_rse_id: Optional[str] = None,
+        source_rse_id: Optional[str] = None,
         volume: int = 0,
         *,
         session: "Session"
@@ -1346,8 +1448,8 @@ def release_waiting_requests_per_free_volume(
 
 @read_session
 def create_base_query_grouped_fifo(
-        dest_rse_id: "Optional[str]" = None,
-        source_rse_id: "Optional[str]" = None,
+        dest_rse_id: Optional[str] = None,
+        source_rse_id: Optional[str] = None,
         *,
         session: "Session"
 ):
@@ -1429,11 +1531,11 @@ def create_base_query_grouped_fifo(
 
 @transactional_session
 def release_waiting_requests_fifo(
-        dest_rse_id: "Optional[str]" = None,
-        source_rse_id: "Optional[str]" = None,
-        activity: "Optional[str]" = None,
+        dest_rse_id: Optional[str] = None,
+        source_rse_id: Optional[str] = None,
+        activity: Optional[str] = None,
         count: int = 0,
-        account: "Optional[InternalAccount]" = None,
+        account: Optional[InternalAccount] = None,
         *,
         session: "Session"
 ):
@@ -1500,8 +1602,8 @@ def release_waiting_requests_fifo(
 
 @transactional_session
 def release_waiting_requests_grouped_fifo(
-        dest_rse_id: "Optional[str]" = None,
-        source_rse_id: "Optional[str]" = None,
+        dest_rse_id: Optional[str] = None,
+        source_rse_id: Optional[str] = None,
         count: int = 0,
         deadline: int = 1,
         volume: int = 0,
@@ -1570,10 +1672,10 @@ def release_waiting_requests_grouped_fifo(
 
 @transactional_session
 def release_all_waiting_requests(
-        dest_rse_id: "Optional[str]" = None,
-        source_rse_id: "Optional[str]" = None,
-        activity: "Optional[str]" = None,
-        account: "Optional[InternalAccount]" = None,
+        dest_rse_id: Optional[str] = None,
+        source_rse_id: Optional[str] = None,
+        activity: Optional[str] = None,
+        account: Optional[InternalAccount] = None,
         *,
         session: "Session"
 ):
@@ -1632,10 +1734,10 @@ def list_transfer_limits(
 
 
 def _sync_rse_transfer_limit(
-        limit_id: str,
-        desired_rse_ids: "Set[str]",
+        limit_id: Union[str, uuid.UUID],
+        desired_rse_ids: set[str],
         *,
-        session: "Optional[Session]" = None,
+        session: "Session",
 ):
     """
     Ensure that an RSETransferLimit exists in the database for each of the given rses (and only for these rses)
@@ -1652,8 +1754,8 @@ def _sync_rse_transfer_limit(
     rse_limits_to_delete = existing_rse_ids.difference(desired_rse_ids)
 
     if rse_limits_to_add:
-        session.bulk_insert_mappings(
-            models.RSETransferLimit,
+        session.execute(
+            insert(models.RSETransferLimit),
             [
                 {'rse_id': rse_id, 'limit_id': limit_id}
                 for rse_id in rse_limits_to_add
@@ -1699,14 +1801,14 @@ def re_sync_all_transfer_limits(
 @transactional_session
 def set_transfer_limit(
         rse_expression: str,
-        activity: "Optional[str]" = None,
+        activity: Optional[str] = None,
         direction: TransferLimitDirection = TransferLimitDirection.DESTINATION,
-        max_transfers: "Optional[int]" = None,
-        volume: "Optional[int]" = None,
-        deadline: "Optional[int]" = None,
-        strategy: "Optional[str]" = None,
-        transfers: "Optional[int]" = None,
-        waitings: "Optional[int]" = None,
+        max_transfers: Optional[int] = None,
+        volume: Optional[int] = None,
+        deadline: Optional[int] = None,
+        strategy: Optional[str] = None,
+        transfers: Optional[int] = None,
+        waitings: Optional[int] = None,
         *,
         session: "Session",
 ):
@@ -1812,7 +1914,7 @@ def set_transfer_limit_stats(
 @transactional_session
 def delete_transfer_limit(
         rse_expression: str,
-        activity: "Optional[str]" = None,
+        activity: Optional[str] = None,
         direction: TransferLimitDirection = TransferLimitDirection.DESTINATION,
         *,
         session: "Session",
@@ -1905,19 +2007,7 @@ def update_requests_priority(priority, filter_, *, session: "Session", logger=lo
         transfers_to_update = {}
         for item in session.execute(query).all():
             try:
-                stmt = update(
-                    models.Request
-                ).where(
-                    models.Request.id == item.id
-                ).execution_options(
-                    synchronize_session=False
-                ).values(
-                    {
-                        'priority': priority,
-                        'updated_at': datetime.datetime.utcnow(),
-                    }
-                )
-                session.execute(stmt)
+                update_request(item.id, priority=priority, session=session)
                 logger(logging.DEBUG, "Updated request %s priority to %s in rucio." % (item.id, priority))
                 if item.request_state == RequestState.SUBMITTED and item.lock_state == LockState.REPLICATING:
                     transfers_to_update.setdefault(item.external_host, {})[item.external_id] = priority
@@ -1944,7 +2034,7 @@ def update_request_state(tt_status_report, *, session: "Session", logger=logging
     try:
         fields_to_update = tt_status_report.get_db_fields_to_update(session=session, logger=logger)
         if not fields_to_update:
-            __touch_request(request_id, session=session)
+            update_request(request_id, raise_on_missing=True, session=session)
             return False
         else:
             logger(logging.INFO, 'UPDATING REQUEST %s FOR %s with changes: %s' % (str(request_id), tt_status_report, fields_to_update))
@@ -2087,33 +2177,6 @@ def get_transfer_error(state, reason=None):
     elif state in [RequestState.MISMATCH_SCHEME]:
         err_msg = '%s:%s' % (RequestErrMsg.MISMATCH_SCHEME, state)
     return err_msg
-
-
-@METRICS.count_it
-@transactional_session
-def __touch_request(request_id, *, session: "Session"):
-    """
-    Update the timestamp of a request. Fails silently if the request_id does not exist.
-
-    :param request_id:  Request-ID as a 32 character hex string.
-    :param session:     Database session to use.
-    """
-
-    try:
-        stmt = update(
-            models.Request
-        ).where(
-            models.Request.id == request_id
-        ).execution_options(
-            synchronize_session=False
-        ).values(
-            {'updated_at': datetime.datetime.utcnow()}
-        )
-        rowcount = session.execute(stmt).rowcount
-    except IntegrityError as error:
-        raise RucioException(error.args)
-    if not rowcount:
-        raise UnsupportedOperation("Request %s cannot be touched." % request_id)
 
 
 @read_session

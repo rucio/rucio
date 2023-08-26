@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.common.logging import setup_logging
 from flask import Flask
+
+from rucio.common.logging import setup_logging
 from rucio.web.rest.flaskapi.v1.metrics import blueprint as metrics_blueprint
 
 # Allow to run the /metrics endpoint as a separate application on a separate PORT

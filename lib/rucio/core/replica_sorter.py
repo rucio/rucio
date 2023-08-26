@@ -19,7 +19,6 @@ import socket
 import tarfile
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 from tempfile import TemporaryDirectory, TemporaryFile
 from typing import TYPE_CHECKING, Union
@@ -28,6 +27,7 @@ from urllib.parse import urlparse
 import geoip2.database
 import requests
 from dogpile.cache.api import NO_VALUE
+from math import asin, cos, radians, sin, sqrt
 
 from rucio.common import utils
 from rucio.common.cache import make_region_memcached
@@ -36,7 +36,7 @@ from rucio.common.exception import InvalidRSEExpression
 from rucio.core.rse_expression_parser import parse_expression
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Optional
+    from typing import Optional
 
 REGION = make_region_memcached(expiration_time=900, function_key_generator=utils.my_key_generator)
 
@@ -252,7 +252,7 @@ def site_selector(replicas, site, vo):
     return result
 
 
-def sort_replicas(dictreplica: "Dict", client_location: "Dict", selection: "Optional[str]" = None) -> "List":
+def sort_replicas(dictreplica: dict, client_location: dict, selection: "Optional[str]" = None) -> list:
     """
     General sorting method for a dictionary of replicas. Returns the List of replicas.
 
@@ -293,7 +293,7 @@ def sort_replicas(dictreplica: "Dict", client_location: "Dict", selection: "Opti
     return replicas
 
 
-def sort_random(dictreplica: "Dict") -> "List":
+def sort_random(dictreplica: dict) -> list:
     """
     Return a list of replicas sorted randomly.
     :param dictreplica: A dict with replicas as keys (URIs).
@@ -304,7 +304,7 @@ def sort_random(dictreplica: "Dict") -> "List":
     return list_replicas
 
 
-def sort_geoip(dictreplica: "Dict", client_location: "Dict", ignore_error: bool = False) -> "List":
+def sort_geoip(dictreplica: dict, client_location: dict, ignore_error: bool = False) -> list:
     """
     Return a list of replicas sorted by geographical distance to the client IP.
     :param dictreplica: A dict with replicas as keys (URIs).
@@ -324,7 +324,7 @@ def sort_geoip(dictreplica: "Dict", client_location: "Dict", ignore_error: bool 
     return list(sorted(dictreplica, key=distance))
 
 
-def sort_custom(dictreplica: "Dict", client_location: "Dict") -> "List":
+def sort_custom(dictreplica: dict, client_location: dict) -> list:
     """
     Return a list of replicas sorted according to the custom distance table.
     :param dictreplica: A dict with replicas as keys (URIs).
@@ -338,7 +338,7 @@ def sort_custom(dictreplica: "Dict", client_location: "Dict") -> "List":
     return list(sorted(dictreplica, key=distance))
 
 
-def sort_closeness(dictreplica: "Dict", client_location: "Dict") -> "List":
+def sort_closeness(dictreplica: dict, client_location: dict) -> list:
     """
     Return a list of replicas sorted by AGIS closeness. NOT IMPLEMENTED
     :param dictreplica: A dict with replicas as keys (URIs).
@@ -348,7 +348,7 @@ def sort_closeness(dictreplica: "Dict", client_location: "Dict") -> "List":
     return list(dictreplica.keys())
 
 
-def sort_ranking(dictreplica: "Dict", client_location: "Dict") -> "List":
+def sort_ranking(dictreplica: dict, client_location: dict) -> list:
     """
     Return a list of replicas sorted by ranking metric. NOT IMPLEMENTED
     :param dictreplica: A dict with replicas as keys (URIs).
@@ -358,7 +358,7 @@ def sort_ranking(dictreplica: "Dict", client_location: "Dict") -> "List":
     return list(dictreplica.keys())
 
 
-def sort_dynamic(dictreplica: "Dict", client_location: "Dict") -> "List":
+def sort_dynamic(dictreplica: dict, client_location: dict) -> list:
     """
     Return a list of replicas sorted by dynamic network metrics. NOT IMPLEMENTED
     :param dictreplica: A dict with replicas as keys (URIs).

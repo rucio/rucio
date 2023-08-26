@@ -18,10 +18,10 @@ import warnings
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import List, Dict, Any
+    from typing import Any
 
 
-def import_extras(module_list: "List[str]") -> "Dict[str, Any]":
+def import_extras(module_list: list[str]) -> "dict[str, Any]":
     out = dict()
     for mod in module_list:
         out[mod] = None

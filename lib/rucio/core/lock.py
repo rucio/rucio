@@ -20,17 +20,15 @@ from typing import TYPE_CHECKING
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.sql.expression import and_, or_
 
-import rucio.core.rule
 import rucio.core.did
+import rucio.core.rule
 from rucio.common.exception import DataIdentifierNotFound
+from rucio.common.types import InternalScope
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.rse import get_rse_attribute, get_rse_name
-
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType, RuleNotification
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
-
-from rucio.common.types import InternalScope
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

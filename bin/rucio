@@ -38,7 +38,7 @@ from tabulate import tabulate
 # rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
 from rucio import version
 from rucio.client import Client
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_float
 from rucio.common.exception import (DataIdentifierAlreadyExists, AccessDenied, DataIdentifierNotFound, InvalidObject,
                                     RSENotFound, InvalidRSEExpression, InputValidationError, DuplicateContent,
                                     RuleNotFound, CannotAuthenticate, MissingDependency, UnsupportedOperation,
@@ -62,6 +62,7 @@ FAILURE = 1
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
 
+logger = logging.log
 gfal2_logger = logging.getLogger("gfal2")
 tablefmt = 'psql'
 
@@ -793,7 +794,7 @@ def close(args):
     for did in args.dids:
         scope, name = get_scope(did, client)
         client.set_status(scope=scope, name=name, open=False)
-        print('%(scope)s:%(name)s has been closed.' % locals())
+        print(f'{scope}:{name} has been closed.')
     return SUCCESS
 
 
@@ -808,7 +809,7 @@ def reopen(args):
     for did in args.dids:
         scope, name = get_scope(did, client)
         client.set_status(scope=scope, name=name, open=True)
-        print('%(scope)s:%(name)s has been reopened.' % locals())
+        print(f'{scope}:{name} has been reopened.')
     return SUCCESS
 
 
@@ -1070,7 +1071,7 @@ def download(args):
         item_defaults['nrandom'] = args.nrandom
         item_defaults['transfer_speed_timeout'] = args.transfer_speed_timeout \
             if args.transfer_speed_timeout is not None \
-            else config_get('download', 'transfer_speed_timeout', False, 500)
+            else config_get_float('download', 'transfer_speed_timeout', False, 500)
         items = []
         if args.dids:
             for did in args.dids:
@@ -1450,12 +1451,12 @@ def list_rules(args):
         except StopIteration:
             rules = []
             # looking for other rules
-            if meta['did_type'] == u'CONTAINER':
+            if meta['did_type'] == 'CONTAINER':
                 for dsn in client.list_content(scope, name):
                     rules.extend(client.list_did_rules(scope=dsn['scope'], name=dsn['name']))
                 if rules:
                     print('No rules found, listing rules for content')
-            if meta['did_type'] == u'DATASET':
+            if meta['did_type'] == 'DATASET':
                 for container in client.list_parent_dids(scope, name):
                     rules.extend(client.list_did_rules(scope=container['scope'], name=container['name']))
                 if rules:
@@ -1477,6 +1478,7 @@ def list_rules(args):
                   '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
                   rule['rse_expression'],
                   rule['copies'],
+                  sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
                   rule['expires_at'],
                   rule['created_at'],
                   sep=',')
@@ -1489,9 +1491,10 @@ def list_rules(args):
                           '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
                           rule['rse_expression'],
                           rule['copies'],
+                          sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
                           rule['expires_at'],
                           rule['created_at']])
-        print(tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'EXPIRES (UTC)', 'CREATED (UTC)'], disable_numparse=True))
+        print(tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'], disable_numparse=True))
     return SUCCESS
 
 
@@ -2281,7 +2284,7 @@ You can filter by key/value, e.g.::
     upload_parser.add_argument('--protocol', action='store', help='Force the protocol to use')
     upload_parser.add_argument('--pfn', dest='pfn', action='store', help='Specify the exact PFN for the upload.')
     upload_parser.add_argument('--name', dest='name', action='store', help='Specify the exact LFN for the upload.')
-    upload_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('upload', 'transfer_timeout', False, 360), help='Transfer timeout (in seconds).')
+    upload_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get_float('upload', 'transfer_timeout', False, 360), help='Transfer timeout (in seconds).')
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
     upload_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='Convert recursively the folder structure into collections')
 
@@ -2304,7 +2307,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--no-resolve-archives', action='store_true', default=False, help="If set archives will not be considered for download.")
         selected_parser.add_argument('--ignore-checksum', action='store_true', default=False, help="Don't validate checksum for downloaded files.")
         selected_parser.add_argument('--check-local-with-filesize-only', action='store_true', default=False, help="Don't use checksum verification for already downloaded files, use filesize instead.")
-        selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get('download', 'transfer_timeout', False, None), help='Transfer timeout (in seconds). Default: computed dynamically from --transfer-speed-timeout. If set to any value >= 0, --transfer-speed-timeout is ignored.')  # NOQA: E501
+        selected_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get_float('download', 'transfer_timeout', False, None), help='Transfer timeout (in seconds). Default: computed dynamically from --transfer-speed-timeout. If set to any value >= 0, --transfer-speed-timeout is ignored.')  # NOQA: E501
         selected_parser.add_argument('--transfer-speed-timeout', dest='transfer_speed_timeout', type=float, action='store', default=None, help='Minimum allowed average transfer speed (in KBps). Default: 500. Used to dynamically compute the timeout if --transfer-timeout not set. Is not supported for --pfn.')  # NOQA: E501
         selected_parser.add_argument('--aria', action='store_true', default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
         selected_parser.add_argument('--trace_appid', '--trace-appid', new_option_string='--trace-appid', dest='trace_appid', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_APPID', None), help=argparse.SUPPRESS)

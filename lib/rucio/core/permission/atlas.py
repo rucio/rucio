@@ -25,7 +25,7 @@ from rucio.core.rule import get_rule
 from rucio.db.sqla.constants import IdentityType, BadPFNStatus
 
 if TYPE_CHECKING:
-    from typing import Dict, Optional
+    from typing import Optional
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
 
@@ -303,7 +303,7 @@ def perm_add_scope(issuer, kwargs, *, session: "Optional[Session]" = None):
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_get_auth_token_user_pass(issuer, kwargs, *, session: "Optional[Session]" = None):
@@ -372,7 +372,7 @@ def perm_add_account_identity(issuer, kwargs, *, session: "Optional[Session]" = 
     :returns: True if account is allowed, otherwise False
     """
 
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_del_account_identity(issuer, kwargs, *, session: "Optional[Session]" = None):
@@ -385,7 +385,7 @@ def perm_del_account_identity(issuer, kwargs, *, session: "Optional[Session]" = 
     :returns: True if account is allowed, otherwise False
     """
 
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_del_identity(issuer, kwargs, *, session: "Optional[Session]" = None):
@@ -419,7 +419,7 @@ def perm_add_did(issuer, kwargs, *, session: "Optional[Session]" = None):
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin', session=session)\
         or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)\
-        or kwargs['scope'].external == u'mock'
+        or kwargs['scope'].external == 'mock'
 
 
 def perm_add_dids(issuer, kwargs, *, session: "Optional[Session]" = None):
@@ -1108,7 +1108,7 @@ def perm_get_local_account_usage(issuer, kwargs, *, session: "Optional[Session]"
     return True
 
 
-def perm_get_global_account_usage(issuer: str, kwargs: 'Dict[str, str]', *, session: "Optional[Session]" = None) -> bool:
+def perm_get_global_account_usage(issuer: str, kwargs: dict[str, str], *, session: "Optional[Session]" = None) -> bool:
     """
     Checks if an account can get the account usage of an account.
 

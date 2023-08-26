@@ -14,8 +14,8 @@
 # limitations under the License.
 
 import logging
-
 from json import dumps, loads
+
 from requests import post
 from requests.auth import HTTPBasicAuth
 

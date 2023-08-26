@@ -20,7 +20,6 @@ along with some of the default methods for LFN2PFN translations.
 
 import hashlib
 import logging
-
 from configparser import NoOptionError, NoSectionError
 from urllib.parse import urlparse
 
@@ -342,7 +341,7 @@ class RSEProtocol(object):
 
             :returns: dict with scope:name as keys and PFN as value (in case of errors the Rucio exception si assigned to the key)
         """
-        client = RSEClient()
+        client = RSEClient()  # pylint: disable=E0601
 
         lfns = [lfns] if isinstance(lfns, dict) else lfns
         lfn_query = ["%s:%s" % (lfn['scope'], lfn['name']) for lfn in lfns]
@@ -362,9 +361,9 @@ class RSEProtocol(object):
 
     def _get_path_nondeterministic_server(self, scope, name):  # pylint: disable=invalid-name
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary. """
-        vo = get_rse_vo(self.rse['id'])
-        scope = InternalScope(scope, vo=vo)
-        rep = replica.get_replica(scope=scope, name=name, rse_id=self.rse['id'])
+        vo = get_rse_vo(self.rse['id'])  # pylint: disable=E0601
+        scope = InternalScope(scope, vo=vo)  # pylint: disable=E0601
+        rep = replica.get_replica(scope=scope, name=name, rse_id=self.rse['id'])  # pylint: disable=E0601
         if 'path' in rep and rep['path'] is not None:
             path = rep['path']
         elif 'state' in rep and (rep['state'] is None or rep['state'] == 'UNAVAILABLE'):

@@ -17,16 +17,16 @@
 Common utility functions for stomp connections
 """
 
+import logging
 import socket
 from time import monotonic
 from typing import TYPE_CHECKING
 
 from stomp import Connection
 
-import logging
-
 if TYPE_CHECKING:
-    from typing import Any, Callable, List, Sequence, Tuple
+    from collections.abc import Callable, Sequence
+    from typing import Any
 
     LoggerFunction = Callable[..., Any]
 
@@ -90,7 +90,7 @@ class StompConnectionManager:
             heartbeats=(0, 1000),
             *,
             logger: "LoggerFunction" = logging.log
-    ) -> "Tuple[List, List]":
+    ) -> tuple[list, list]:
 
         configuration_changed = any([
             self._brokers != brokers,

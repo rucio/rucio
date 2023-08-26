@@ -23,7 +23,6 @@ import tempfile
 from rucio.common import dumper
 from rucio.common.dumper import error, DUMPS_CACHE_DIR, data_models, path_parsing
 
-
 subcommands = ['consistency', 'consistency-manual']
 
 

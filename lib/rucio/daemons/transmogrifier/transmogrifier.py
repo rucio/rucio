@@ -18,12 +18,12 @@ import logging
 import re
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime
 from json import loads, dumps
-from typing import TYPE_CHECKING, List, Dict, Callable, Tuple
+from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
-from rucio.db.sqla.constants import DIDType, SubscriptionState
 from rucio.common.config import config_get
 from rucio.common.exception import (
     DatabaseException,
@@ -42,14 +42,15 @@ from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
-from rucio.core.monitor import MetricManager
 from rucio.core.did import list_new_dids, set_new_dids, get_metadata
+from rucio.core.monitor import MetricManager
 from rucio.core.rse import list_rses, rse_exists, get_rse_id, list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import resolve_rse_expression
 from rucio.core.rule import add_rule, list_rules, get_rule
 from rucio.core.subscription import list_subscriptions, update_subscription
 from rucio.daemons.common import run_daemon
+from rucio.db.sqla.constants import DIDType, SubscriptionState
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -60,6 +61,7 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
+DAEMON_NAME = "transmogrifier"
 
 RULES_COMMENT_LENGTH = 255
 
@@ -127,7 +129,7 @@ def __split_rule_select_rses(
     copies: int,
     blocklisted_rse_id: list,
     logger: "Callable",
-) -> Tuple[List, bool, bool]:
+) -> tuple[list, bool, bool]:
     """
     Internal method to create a list of RSEs that match RSE expression for subscriptions with split_rule.
 
@@ -211,7 +213,7 @@ def __split_rule_select_rses(
     return selected_rses, create_rule, wont_reevaluate
 
 
-def get_subscriptions(logger: "Callable" = logging.log) -> List[Dict]:
+def get_subscriptions(logger: Callable = logging.log) -> list[dict]:
     """
     A method to extract the list of active subscriptions and exclued the one that have bad RSE expression.
     :param logger: The logger.
@@ -465,8 +467,7 @@ def transmogrifier(bulk: int = 5, once: bool = False, sleep_time: int = 60) -> N
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable="transmogrifier",
-        logger_prefix="transmogrifier",
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -717,7 +718,7 @@ def run(
     """
     Starts up the transmogrifier threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException("Database was not updated, daemon won't start")

@@ -94,7 +94,7 @@ def persist_config_overrides(data: dict, vo: str, rucio_cfg: Path):
 
 def collect_tests(data: dict, vo: str):
     keyword_path_mapping = {
-        Path("rucio_tests"): Path("lib/rucio/tests"),
+        Path("rucio_tests"): Path("tests/"),
         Path("rucio_root"): Path("/opt/rucio"),
     }
     substitute_keywords = functools.partial(functools.reduce, lambda path, part: path / keyword_path_mapping[part] if part in keyword_path_mapping.keys() else path / part)

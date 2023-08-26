@@ -17,9 +17,9 @@ from flask import Flask, request, Response
 
 from rucio.api.exporter import export_data
 from rucio.common.utils import render_json
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
     ErrorHandlingMethodView
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 
 
 class Export(ErrorHandlingMethodView):

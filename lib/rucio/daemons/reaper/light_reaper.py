@@ -49,6 +49,7 @@ if TYPE_CHECKING:
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 GRACEFUL_STOP = threading.Event()
+DAEMON_NAME = 'reaper'
 
 
 def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False, scheme=None, sleep_time=60):
@@ -78,7 +79,7 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
             heartbeat = live(executable=executable, hostname=hostname, pid=pid, thread=thread, hash_executable=hash_executable)
             prepend_str = 'light-reaper [%i/%i] : ' % (heartbeat['assign_thread'], heartbeat['nr_threads'])
             logger = formatted_logger(logging.log, prepend_str + '%s')
-            logger(logging.INFO, 'Live gives {0[heartbeat]}'.format(locals()))
+            logger(logging.INFO, 'Live gives %s', heartbeat)
             nothing_to_do = True
             start_time = time.time()
 
@@ -91,7 +92,6 @@ def reaper(rses=[], worker_number=0, total_workers=1, chunk_size=100, once=False
                                                        total_workers=total_workers)
 
                 rse_info = rsemgr.get_rse_info(rse_id=rse_id)
-                rse_protocol = rse_core.get_rse_protocols(rse_id=rse_id)
                 prot = rsemgr.create_protocol(rse_info, 'delete', scheme=scheme)
                 deleted_replicas = []
                 try:
@@ -192,7 +192,7 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
                 If None, we either use all VOs if run from "def", or the current VO otherwise.
     :param sleep_time: Thread sleep time after each chunk of work.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

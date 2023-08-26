@@ -1,7 +1,7 @@
 version: "3"
 services:
   rucioclient:
-    image: docker.io/rucio/rucio-dev
+    image: docker.io/rucio/rucio-dev:latest-alma9
     command: ["sleep", "infinity"]
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
@@ -15,12 +15,13 @@ services:
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
+      - ../../../tests:/opt/rucio/tests:Z
     environment:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
       - RDBMS=postgres14
   rucio:
-    image: docker.io/rucio/rucio-dev
+    image: docker.io/rucio/rucio-dev:latest-alma9
     ports:
       - "127.0.0.1:8443:443"
     volumes:
@@ -35,6 +36,7 @@ services:
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
+      - ../../../tests:/opt/rucio/tests:Z
     environment:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem

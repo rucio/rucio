@@ -89,8 +89,6 @@ Note that attempting the use the ``--vos`` argument when in single-VO mode will 
                         help='Group control: number of requests per group')
     parser.add_argument("--group-policy", action="store", default='rule', type=str,
                         help='Group control: policy used to group. enum{rule, dest, src_dest, rule_src_dest, activity_dest, activity_src_dest}')
-    parser.add_argument("--mock", action="store_true", default=False,
-                        help='Fake source replicas for requests')
     parser.add_argument('--source-strategy', action="store", default=None, type=str,
                         help='Source strategy. Overload the strategy defined in config DB.')
     parser.add_argument('--exclude-rses', action="store", default=None, type=str,
@@ -109,8 +107,8 @@ Note that attempting the use the ``--vos`` argument when in single-VO mode will 
                         help='If True, will also try to submit transfers having blocklisted RSEs as sources')
     parser.add_argument('--sleep-time', action="store", default=600, type=int,
                         help='Seconds to sleep if few requests')
-    parser.add_argument('--max-sources', action="store", default=4, type=int,
-                        help='Maximum source replicas per FTS job')
+    parser.add_argument('--max-sources', action="store", default=5, type=int,
+                        help='Maximum source replicas per multi-source FTS job')
     parser.add_argument('--archive-timeout-override', action="store", default=None, type=int, metavar="INTEGER_SECONDS",
                         help='Override the archive_timeout parameter for any transfers with it set (0 to unset)')
     return parser
@@ -126,7 +124,6 @@ if __name__ == "__main__":
             bulk=args.bulk,
             group_bulk=args.group_bulk,
             group_policy=args.group_policy,
-            mock=args.mock,
             include_rses=args.include_rses,
             exclude_rses=args.exclude_rses,
             rses=args.rses,

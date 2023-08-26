@@ -16,7 +16,6 @@
 """ move rse settings to rse attributes """
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import get_bind
 

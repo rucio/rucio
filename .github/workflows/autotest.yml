@@ -91,8 +91,9 @@ jobs:
       - uses: actions/checkout@v3
       - name: Install dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y npm libkrb5-dev libxmlsec1-dev 
+          sudo apt-get update && sudo apt-get install -y npm libkrb5-dev libxmlsec1-dev git
           npm install --global pyright
+          python -m pip --no-cache-dir install --upgrade pip
           python -m pip --no-cache-dir install --upgrade -r requirements.txt
       - name: Make pyright report of current commit
         run: |

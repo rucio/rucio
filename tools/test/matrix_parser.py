@@ -18,18 +18,17 @@ import functools
 import itertools
 import json
 import sys
-import typing
 
 import yaml
 
 mapping = {'dists': 'DIST', 'python': 'PYTHON', 'suites': 'SUITE', 'image_identifier': 'IMAGE_IDENTIFIER', 'services': 'SERVICES'}
 
 
-def extract_mapped_list(inp: typing.Dict):
+def extract_mapped_list(inp: dict):
     return {mapping.get(key, key): [val] if not isinstance(val, list) else val for key, val in inp.items()}
 
 
-def readobj(key: str, val: typing.Dict, denylist: typing.List, allowlist: typing.List):
+def readobj(key: str, val: dict, denylist: list, allowlist: list):
     if not isinstance(val, dict):
         return str(val)
     if "id" not in val:
@@ -58,7 +57,7 @@ def readobj(key: str, val: typing.Dict, denylist: typing.List, allowlist: typing
         return itemid, val
 
 
-def parse_matrix(fhandle) -> "typing.List":
+def parse_matrix(fhandle) -> list:
     input_conf = dict(yaml.safe_load(fhandle))
     denylist = []
     allowlist = []

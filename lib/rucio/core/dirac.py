@@ -14,23 +14,23 @@
 # limitations under the License.
 
 import re
-from typing import TYPE_CHECKING
-
 from json import loads
 from json.decoder import JSONDecodeError
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm.exc import NoResultFound
-from rucio.db.sqla import models
-from rucio.db.sqla.session import transactional_session, read_session
-from rucio.db.sqla.constants import DIDType
+
+from rucio.common.config import config_get
 from rucio.common.exception import InvalidType, UnsupportedOperation, ConfigNotFound, RucioException
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import extract_scope
-from rucio.core.config import get as config_get
 from rucio.core.did import add_did, attach_dids_to_dids
 from rucio.core.replica import add_replicas
 from rucio.core.rule import add_rule, list_rules, update_rule
 from rucio.core.scope import list_scopes
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.session import transactional_session, read_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

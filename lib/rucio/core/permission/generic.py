@@ -279,7 +279,7 @@ def perm_add_scope(issuer, kwargs, *, session: "Optional[Session]" = None):
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_get_auth_token_user_pass(issuer, kwargs, *, session: "Optional[Session]" = None):
@@ -348,7 +348,7 @@ def perm_add_account_identity(issuer, kwargs, *, session: "Optional[Session]" = 
     :returns: True if account is allowed, otherwise False
     """
 
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_del_account_identity(issuer, kwargs, *, session: "Optional[Session]" = None):
@@ -361,7 +361,7 @@ def perm_del_account_identity(issuer, kwargs, *, session: "Optional[Session]" = 
     :returns: True if account is allowed, otherwise False
     """
 
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_del_identity(issuer, kwargs, *, session: "Optional[Session]" = None):
@@ -395,7 +395,7 @@ def perm_add_did(issuer, kwargs, *, session: "Optional[Session]" = None):
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin', session=session)\
         or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)\
-        or kwargs['scope'].external == u'mock'
+        or kwargs['scope'].external == 'mock'
 
 
 def perm_add_dids(issuer, kwargs, *, session: "Optional[Session]" = None):

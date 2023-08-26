@@ -17,18 +17,18 @@
 This daemon consumes tracer messages from ActiveMQ and updates the atime for replicas.
 """
 
+import functools
 import logging
 import re
 from configparser import NoOptionError, NoSectionError
 from datetime import datetime
-import functools
 from json import loads as jloads, dumps as jdumps
+from queue import Queue
 from threading import Event, Thread
 from time import time
 from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
-from rucio.daemons.common import HeartbeatHandler, run_daemon
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.exception import RSENotFound, DatabaseException
 from rucio.common.logging import setup_logging
@@ -40,9 +40,8 @@ from rucio.core.lock import touch_dataset_locks
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import touch_replica, touch_collection_replicas, declare_bad_file_replicas
 from rucio.core.rse import get_rse_id
+from rucio.daemons.common import HeartbeatHandler, run_daemon
 from rucio.db.sqla.constants import DIDType, BadFilesStatus
-
-from queue import Queue
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -307,7 +306,6 @@ def kronos_file(once: bool = False, dataset_queue: Queue = None, sleep_time: int
         once=once,
         graceful_stop=graceful_stop,
         executable='kronos-file',
-        logger_prefix='kronos-file',
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -396,7 +394,6 @@ def kronos_dataset(dataset_queue: Queue, once: bool = False, sleep_time: int = 6
         once=once,
         graceful_stop=graceful_stop,
         executable='kronos-dataset',
-        logger_prefix='kronos-dataset',
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -491,7 +488,7 @@ def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
     """
     Starts up the consumer threads
     """
-    setup_logging()
+    setup_logging(process_name='tracer-kronos')
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

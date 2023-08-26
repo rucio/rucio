@@ -16,10 +16,9 @@
 import datetime
 import logging
 import re
-from typing import TYPE_CHECKING
 from configparser import NoOptionError, NoSectionError
-
 from json import dumps
+from typing import TYPE_CHECKING
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, StatementError
@@ -33,11 +32,12 @@ from rucio.db.sqla.constants import SubscriptionState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Iterator, Optional, Callable
+    from collections.abc import Callable, Iterator
+    from typing import Any, Optional
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
     LoggerFunction = Callable[..., Any]
-    SubscriptionType = Dict
+    SubscriptionType = dict
 
 
 @transactional_session
@@ -200,7 +200,7 @@ def update_subscription(name: str,
                                                        created_at=subscription.created_at)
             subscription_history.save(session=session)
     except NoResultFound:
-        raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
+        raise SubscriptionNotFound(f"Subscription for account '{account}' named '{name}' not found")
 
 
 @stream_session
@@ -239,14 +239,12 @@ def list_subscriptions(name: "Optional[str]" = None,
     except IntegrityError as error:
         logger(logging.ERROR, str(error))
         raise RucioException(error.args)
-    result = {}
+    found = False
     for row in query:
-        result = {}
-        for column in row.__table__.columns:
-            result[column.name] = getattr(row, column.name)
-        yield result
-    if result == {}:
-        raise SubscriptionNotFound("Subscription for account '%(account)s' named '%(name)s' not found" % locals())
+        found = True
+        yield row.to_dict()
+    if not found:
+        raise SubscriptionNotFound(f"Subscription for account '{account}' named '{name}' not found")
 
 
 @transactional_session
@@ -311,11 +309,7 @@ def get_subscription_by_id(subscription_id, *, session: "Session"):
 
     try:
         subscription = session.query(models.Subscription).filter_by(id=subscription_id).one()
-        result = {}
-        for column in subscription.__table__.columns:
-            result[column.name] = getattr(subscription, column.name)
-        return result
-
+        return subscription.to_dict()
     except NoResultFound:
         raise SubscriptionNotFound('No subscription with the id %s found' % (subscription_id))
     except StatementError:

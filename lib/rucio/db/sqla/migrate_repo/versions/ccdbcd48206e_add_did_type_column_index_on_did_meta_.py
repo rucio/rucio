@@ -16,11 +16,10 @@
 ''' Add did_type column + index on did_meta table '''
 
 import sqlalchemy as sa
-
+from alembic.context import get_context
 from alembic.op import (add_column, drop_column,
                         create_index, drop_index,
                         execute)
-from alembic.context import get_context
 
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.util import try_drop_constraint

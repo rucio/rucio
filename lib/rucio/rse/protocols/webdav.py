@@ -15,15 +15,14 @@
 
 import os
 import sys
-from typing import Optional, Tuple
-from dataclasses import dataclass
-
 import xml.etree.ElementTree as ET
+from typing import Optional
+from urllib.parse import urlparse
 
 import requests
+from dataclasses import dataclass
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
-from urllib.parse import urlparse
 
 from rucio.common import exception
 from rucio.rse.protocols import protocol
@@ -120,7 +119,7 @@ class _PropfindFile:
 class _PropfindResponse:
     """Contains all the files from a PROPFIND response."""
 
-    files: Tuple[_PropfindFile]
+    files: tuple[_PropfindFile]
 
     @classmethod
     def parse(cls, document: str):

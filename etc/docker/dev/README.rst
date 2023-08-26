@@ -54,9 +54,9 @@ To verify that everything is in order, you can now either run the full unit test
 Alternatively, you can bootstrap the test environment once with the `-i` option and then selectively or repeatedly run test case modules, test case groups, or even single test cases, for example::
 
     tools/run_tests_docker.sh -i
-    tools/pytest.sh test_replica.py
-    tools/pytest.sh -vvv test_replica.py::TestReplicaCore
-    tools/pytest.sh -vvv --full-trace test_replica.py::TestReplicaCore::test_delete_replicas_from_datasets
+    tools/pytest.sh tests/test_replica.py
+    tools/pytest.sh -vvv tests/test_replica.py::TestReplicaCore
+    tools/pytest.sh -vvv --full-trace tests/test_replica.py::TestReplicaCore::test_delete_replicas
 
 Using the environment including storage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

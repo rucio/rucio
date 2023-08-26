@@ -23,8 +23,8 @@ from base64 import b64decode
 from typing import TYPE_CHECKING
 
 import paramiko
-from dogpile.cache.api import NO_VALUE
 from dogpile.cache import make_region
+from dogpile.cache.api import NO_VALUE
 from sqlalchemy import and_, or_, select, delete
 
 from rucio.common.cache import make_region_memcached
@@ -40,7 +40,7 @@ from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-    from typing import Dict, Any, Union
+    from typing import Any, Union
 
 
 def strip_x509_proxy_attributes(dn: str) -> str:
@@ -131,7 +131,7 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, *, ses
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
-    token = '%(account)s-%(username)s-%(appid)s-%(tuid)s' % locals()
+    token = f'{account}-{username}-{appid}-{tuid}'
     new_token = models.Token(account=db_account, identity=username, token=token, ip=ip)
     new_token.save(session=session)
 
@@ -163,7 +163,7 @@ def get_auth_token_x509(account, dn, appid, ip=None, *, session: "Session"):
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
-    token = '%(account)s-%(dn)s-%(appid)s-%(tuid)s' % locals()
+    token = f'{account}-{dn}-{appid}-{tuid}'
     new_token = models.Token(account=account, identity=dn, token=token, ip=ip)
     new_token.save(session=session)
 
@@ -195,7 +195,7 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, *, session: "Session")
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
-    token = '%(account)s-%(gsstoken)s-%(appid)s-%(tuid)s' % locals()
+    token = f'{account}-{gsstoken}-{appid}-{tuid}'
     new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
 
@@ -259,7 +259,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, *, session: "Session"
 
     # create new rucio-auth-token for account
     tuid = generate_uuid()  # NOQA
-    token = '%(account)s-ssh:pubkey-%(appid)s-%(tuid)s' % locals()
+    token = f'{account}-ssh:pubkey-{appid}-{tuid}'
     new_token = models.Token(account=account, token=token, ip=ip)
     new_token.save(session=session)
 
@@ -293,7 +293,7 @@ def get_ssh_challenge_token(account, appid, ip=None, *, session: "Session"):
     expiration = datetime.datetime.utcnow() + datetime.timedelta(seconds=10)
     expiration_unix = expiration.strftime("%s")
 
-    challenge_token = 'challenge-%(crypto_rand)s-%(account)s-%(expiration_unix)s' % locals()
+    challenge_token = f'challenge-{crypto_rand}-{account}-{expiration_unix}'
 
     new_challenge_token = models.Token(account=account, token=challenge_token, ip=ip,
                                        expired_at=expiration)
@@ -326,7 +326,7 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, *, session: "Sessi
     __delete_expired_tokens_account(account=account, session=session)
 
     tuid = generate_uuid()  # NOQA
-    token = '%(account)s-%(saml_nameid)s-%(appid)s-%(tuid)s' % locals()
+    token = f'{account}-{saml_nameid}-{appid}-{tuid}'
     new_token = models.Token(account=account, identity=saml_nameid, token=token, ip=ip)
     new_token.save(session=session)
 
@@ -444,7 +444,7 @@ def query_token(token, *, session: "Session"):
 
 
 @transactional_session
-def validate_auth_token(token: str, *, session: "Session") -> "Dict[str, Any]":
+def validate_auth_token(token: str, *, session: "Session") -> "dict[str, Any]":
     """
     Validate an authentication token.
 
@@ -466,7 +466,7 @@ def validate_auth_token(token: str, *, session: "Session") -> "Dict[str, Any]":
     cache_key = token.replace(' ', '')
 
     # Check if token ca be found in cache region
-    value: "Union[NO_VALUE, Dict[str, Any]]" = TOKENREGION.get(cache_key)
+    value: "Union[NO_VALUE, dict[str, Any]]" = TOKENREGION.get(cache_key)
     if value is NO_VALUE:  # no cached entry found
         value = query_token(token, session=session)
         if not value:

@@ -15,12 +15,13 @@
 
 import uuid
 
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.dialects.oracle import RAW, CLOB
-from sqlalchemy.dialects.mysql import BINARY
-from sqlalchemy.types import TypeDecorator, CHAR, String
-from sqlalchemy.sql import operators
 import sqlalchemy.types as types
+from sqlalchemy.dialects.mysql import BINARY
+from sqlalchemy.dialects.oracle import RAW, CLOB
+from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.sql import operators
+from sqlalchemy.types import TypeDecorator, CHAR, String
+
 from rucio.common.exception import InvalidType
 from rucio.common.types import InternalAccount, InternalScope
 

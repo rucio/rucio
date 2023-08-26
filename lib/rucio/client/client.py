@@ -19,9 +19,13 @@ Client class for callers of the Rucio system
 
 from rucio.client.accountclient import AccountClient
 from rucio.client.accountlimitclient import AccountLimitClient
+from rucio.client.configclient import ConfigClient
+from rucio.client.credentialclient import CredentialClient
 from rucio.client.didclient import DIDClient
+from rucio.client.diracclient import DiracClient
 from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
+from rucio.client.lifetimeclient import LifetimeClient
 from rucio.client.lockclient import LockClient
 from rucio.client.metaclient import MetaClient
 from rucio.client.pingclient import PingClient
@@ -31,11 +35,7 @@ from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
-from rucio.client.configclient import ConfigClient
 from rucio.client.touchclient import TouchClient
-from rucio.client.credentialclient import CredentialClient
-from rucio.client.diracclient import DiracClient
-from rucio.client.lifetimeclient import LifetimeClient
 
 
 class Client(AccountClient,

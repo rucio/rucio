@@ -14,8 +14,9 @@
 # limitations under the License.
 
 from flask import Flask, Blueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView
+
 from rucio.core.monitor import generate_prometheus_metrics
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView
 
 
 class Metrics(ErrorHandlingMethodView):

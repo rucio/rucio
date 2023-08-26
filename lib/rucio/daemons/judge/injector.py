@@ -29,9 +29,9 @@ from typing import TYPE_CHECKING
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.logging import setup_logging
 from rucio.common.exception import (DatabaseException, RuleNotFound, RSEWriteBlocked,
                                     ReplicationRuleCreationTemporaryFailed, InsufficientAccountLimit)
+from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.rule import inject_rule, get_injected_rules, update_rule
 from rucio.daemons.common import run_daemon
@@ -42,19 +42,18 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
+DAEMON_NAME = 'judge-injector'
 
 
 def rule_injector(once=False, sleep_time=60):
     """
     Main loop to check for asynchronous creation of replication rules
     """
-    executable = 'judge-injector'
     paused_rules = {}  # {rule_id: datetime}
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
-        executable=executable,
-        logger_prefix=executable,
+        executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -138,7 +137,7 @@ def run(once=False, threads=1, sleep_time=60):
     """
     Starts up the Judge-Injector threads.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

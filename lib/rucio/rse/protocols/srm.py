@@ -16,7 +16,6 @@
 import os
 import re
 import urllib.parse as urlparse
-
 from subprocess import getstatusoutput
 
 from rucio.common import exception

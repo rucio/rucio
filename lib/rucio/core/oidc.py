@@ -14,17 +14,17 @@
 # limitations under the License.
 
 import json
+import logging
 import random
 import subprocess
-import logging
 import traceback
 from datetime import datetime, timedelta
-from math import floor
+from typing import Any, TYPE_CHECKING, Optional
 from urllib.parse import urlparse, parse_qs
-from typing import Dict, Tuple, Any, TYPE_CHECKING, Optional
 
 from jwkest.jws import JWS
 from jwkest.jwt import JWT
+from math import floor
 from oic import rndstr
 from oic.oauth2.message import CCAccessTokenRequest
 from oic.oic import Client, Grant, Token, REQUEST2ENDPOINT
@@ -35,12 +35,12 @@ from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from sqlalchemy import and_
 from sqlalchemy.sql.expression import true
 
+from rucio.common import types
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
                                     RucioException)
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import all_oidc_req_claims_present, build_url, val_to_space_sep_str
-from rucio.common import types
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
 from rucio.core.monitor import MetricManager
@@ -75,7 +75,7 @@ LEEWAY_SECS = 120
 # --> check 'profile' info (requested profile scope)
 
 
-def __get_rucio_oidc_clients(keytimeout: int = 43200) -> Tuple[Dict, Dict]:
+def __get_rucio_oidc_clients(keytimeout: int = 43200) -> tuple[dict, dict]:
     """
     Creates a Rucio OIDC Client instances per Identity Provider (IdP)
     according to etc/idpsecrets.json configuration file.
@@ -147,7 +147,7 @@ def __initialize_oidc_clients() -> None:
 __initialize_oidc_clients()
 
 
-def __get_init_oidc_client(token_object: models.Token = None, token_type: str = None, **kwargs) -> Dict[Any, Any]:
+def __get_init_oidc_client(token_object: models.Token = None, token_type: str = None, **kwargs) -> dict[Any, Any]:
     """
     Get an OIDC client object, (re-)initialised with parameters corresponding
     to authorization flows used to get a token. For special cases - token refresh,
@@ -384,13 +384,14 @@ def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"
         if oauth_req_params is None:
             raise CannotAuthenticate("User related Rucio OIDC session could not keep "
                                      + "track of responses from outstanding requests.")  # NOQA: W503
-        req_url = urlparse(oauth_req_params.redirect_msg)
+        req_url = urlparse(oauth_req_params.redirect_msg or '')
         issuer = req_url.scheme + "://" + req_url.netloc
         req_params = parse_qs(req_url.query)
+        client_params = {}
         for key in list(req_params):
-            req_params[key] = val_to_space_sep_str(req_params[key])
+            client_params[key] = val_to_space_sep_str(req_params[key])
 
-        oidc_client = __get_init_oidc_client(issuer=issuer, code=code, **req_params)['client']
+        oidc_client = __get_init_oidc_client(issuer=issuer, code=code, **client_params)['client']
         METRICS.counter(name='IdP_authentication.code_granted').inc()
         # exchange access code for a access token
         oidc_tokens = oidc_client.do_access_token_request(state=state,
@@ -449,10 +450,12 @@ def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"
         if 'refresh_token' in oidc_tokens:
             extra_dict['refresh_token'] = oidc_tokens['refresh_token']
             extra_dict['refresh'] = True
+            extra_dict['refresh_lifetime'] = REFRESH_LIFETIME_H
             try:
-                extra_dict['refresh_lifetime'] = int(oauth_req_params.refresh_lifetime)
+                if oauth_req_params.refresh_lifetime is not None:
+                    extra_dict['refresh_lifetime'] = int(oauth_req_params.refresh_lifetime)
             except Exception:
-                extra_dict['refresh_lifetime'] = REFRESH_LIFETIME_H
+                pass
             try:
                 values = __get_keyvalues_from_claims(oidc_tokens['refresh_token'], ['exp'])
                 exp = values['exp']
@@ -1170,7 +1173,7 @@ def __save_validated_token(token, valid_dict, extra_dict=None, *, session: "Sess
 
 
 @transactional_session
-def validate_jwt(json_web_token: str, *, session: "Session") -> "Dict[str, Any]":
+def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
     """
     Verifies signature and validity of a JSON Web Token.
     Gets the issuer public keys from the oidc_client
@@ -1197,7 +1200,7 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> "Dict[str, Any]"
     try:
 
         # getting issuer from the token payload
-        token_dict: "Optional[Dict[str, Any]]" = __get_rucio_jwt_dict(json_web_token, session=session)
+        token_dict: Optional[dict[str, Any]] = __get_rucio_jwt_dict(json_web_token, session=session)
         if not token_dict:
             raise CannotAuthenticate(traceback.format_exc())
         issuer = token_dict['identity'].split(", ")[1].split("=")[1]

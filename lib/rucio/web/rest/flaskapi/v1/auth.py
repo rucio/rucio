@@ -14,24 +14,24 @@
 # limitations under the License.
 
 import base64
+import json
 import logging
 import time
-import json
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from flask import Flask, Blueprint, request, Response, redirect, render_template
-from urllib.parse import urlparse
 from werkzeug.datastructures import Headers
 
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, \
     get_auth_token_ssh, get_ssh_challenge_token, validate_auth_token, get_auth_oidc, redirect_auth_oidc, \
     get_token_oidc, refresh_cli_auth_token, get_auth_token_saml
+from rucio.api.identity import list_accounts_for_identity, get_default_account, verify_identity
 from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, IdentityNotFound, CannotAuthenticate, CannotAuthorize
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
 from rucio.core.authentication import strip_x509_proxy_attributes
-from rucio.api.identity import list_accounts_for_identity, get_default_account, verify_identity
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, error_headers, \
     extract_vo, generate_http_error_flask, ErrorHandlingMethodView
 
@@ -57,7 +57,7 @@ class UserPass(ErrorHandlingMethodView):
         headers['Access-Control-Allow-Headers'] = request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')
         headers['Access-Control-Allow-Methods'] = '*'
         headers['Access-Control-Allow-Credentials'] = 'true'
-        headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token, X-Rucio-Auth-Account, X-Rucio-Auth-Accounts'
+        headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token, X-Rucio-Auth-Token-Expires, X-Rucio-Auth-Account, X-Rucio-Auth-Accounts'
         return headers
 
     def options(self):
@@ -189,16 +189,15 @@ class UserPass(ErrorHandlingMethodView):
         if not username or not password:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate without passing all required arguments', headers=headers)
 
-        try:
-            verify_identity(identity_key=username, id_type='USERPASS', password=password)
-        except IdentityNotFound:
-            return generate_http_error_flask(401, IdentityNotFound.__name__, 'Cannot authenticate. Username/Password pair does not exist.', headers=headers)
-        except IdentityError:
-            return generate_http_error_flask(401, IdentityError.__name__, 'Cannot authenticate. The identity does not exist.', headers=headers)
-
         if not account:
             accounts = list_accounts_for_identity(identity_key=username, id_type='USERPASS')
-            if len(accounts) == 0 or accounts is None:
+            if accounts is None or len(accounts) == 0:
+                try:
+                    verify_identity(identity_key=username, id_type='USERPASS', password=password)
+                except IdentityNotFound:
+                    return generate_http_error_flask(401, IdentityNotFound.__name__, 'Cannot authenticate. Username/Password pair does not exist.', headers=headers)
+                except IdentityError:
+                    return generate_http_error_flask(401, IdentityError.__name__, 'Cannot authenticate. The identity does not exist.', headers=headers)
                 return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate with provided username or password. Identity is not mapped to any accounts.', headers=headers)
             if len(accounts) > 1:
                 try:
@@ -208,7 +207,7 @@ class UserPass(ErrorHandlingMethodView):
                     return json.dumps(accounts), 206, headers
             else:
                 account = accounts[0]
-        account_name = account.external if type(account) is not str else account
+        account_name = account if isinstance(account, str) else account.external
         try:
             result = get_auth_token_user_pass(account_name, username, password, appid, ip, vo=vo)
         except AccessDenied:
@@ -943,7 +942,7 @@ class x509(ErrorHandlingMethodView):
         headers['Access-Control-Allow-Headers'] = request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')
         headers['Access-Control-Allow-Methods'] = '*'
         headers['Access-Control-Allow-Credentials'] = 'true'
-        headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
+        headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token, X-Rucio-Auth-Token-Expires, X-Rucio-Auth-Account, X-Rucio-Auth-Accounts'
         return headers
 
     def options(self):
@@ -1002,6 +1001,11 @@ class x509(ErrorHandlingMethodView):
           in: header
           schema:
             type: string
+        - name: X-Rucio-Allow-Return-Multiple-Accounts
+          in: header
+          schema:
+            type: boolean
+          description: If set to true, a HTTP 206 response will be returned if the identity is associated with multiple accounts.
         responses:
           200:
             description: OK
@@ -1014,11 +1018,21 @@ class x509(ErrorHandlingMethodView):
                 description: The time when the token expires
                 schema:
                   type: string
+              X-Rucio-Auth-Account:
+                description: The rucio account corresponding to the provided identity
+                schema:
+                  type: string
+          206:
+            description: Partial content containing X-Rucio-Auth-Accounts header
+            headers:
+              X-Rucio-Auth-Accounts:
+                schema:
+                  type: string
+                description: The rucio accounts corresponding to the provided identity as a csv string
           401:
             description: Cannot authenticate
         """
         headers = self.get_headers()
-
         headers['Content-Type'] = 'application/octet-stream'
         headers['Cache-Control'] = 'no-cache, no-store, max-age=0, must-revalidate'
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
@@ -1032,7 +1046,9 @@ class x509(ErrorHandlingMethodView):
         dn = strip_x509_proxy_attributes(dn)
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
+        return_multiple_accounts = request.headers.get('X-Rucio-Allow-Return-Multiple-Accounts', default=None)
 
+        result = None
         try:
             result = get_auth_token_x509(account, dn, appid, ip, vo=vo)
         except AccessDenied:
@@ -1043,12 +1059,28 @@ class x509(ErrorHandlingMethodView):
                 headers=headers
             )
         except IdentityError:
-            return generate_http_error_flask(
-                status_code=401,
-                exc=CannotAuthenticate.__name__,
-                exc_msg=f'No default account set for {dn}',
-                headers=headers
-            )
+            if not return_multiple_accounts:
+                return generate_http_error_flask(
+                    status_code=401,
+                    exc=CannotAuthenticate.__name__,
+                    exc_msg=f'No default account set for {dn}',
+                    headers=headers
+                )
+            accounts = list_accounts_for_identity(identity_key=dn, id_type='X509')
+            if len(accounts) == 1:
+                account = accounts[0]
+                account_name = account if isinstance(account, str) else account.external
+                result = get_auth_token_x509(account_name, dn, appid, ip, vo=vo)
+            elif len(accounts) > 1:
+                headers['X-Rucio-Auth-Accounts'] = ','.join(accounts)
+                return json.dumps(accounts), 206, headers
+            else:
+                return generate_http_error_flask(
+                    status_code=401,
+                    exc=CannotAuthenticate.__name__,
+                    exc_msg=f'No account set for {dn}',
+                    headers=headers
+                )
 
         if not result:
             return generate_http_error_flask(
@@ -1057,9 +1089,9 @@ class x509(ErrorHandlingMethodView):
                 exc_msg=f'Cannot authenticate to account {account} with given credentials',
                 headers=headers
             )
-
         headers['X-Rucio-Auth-Token'] = result['token']
         headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result['expires_at'])
+        headers['X-Rucio-Auth-Account'] = account
         return '', 200, headers
 
 
@@ -1579,6 +1611,7 @@ def blueprint():
     bp.add_url_rule('/gss', view_func=gss_view, methods=['get', 'options'])
     x509_view = x509.as_view('x509')
     bp.add_url_rule('/x509', view_func=x509_view, methods=['get', 'options'])
+    bp.add_url_rule('/x509/webui', view_func=x509_view, methods=['get', 'options'])
     bp.add_url_rule('/x509_proxy', view_func=x509_view, methods=['get', 'options'])
     ssh_view = SSH.as_view('ssh')
     bp.add_url_rule('/ssh', view_func=ssh_view, methods=['get', 'options'])

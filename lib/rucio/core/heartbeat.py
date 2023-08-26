@@ -20,10 +20,10 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func
 from sqlalchemy.sql import distinct
 
-from rucio.db.sqla.models import Heartbeats
-from rucio.db.sqla.session import read_session, transactional_session
 from rucio.common.exception import DatabaseException
 from rucio.common.utils import pid_exists
+from rucio.db.sqla.models import Heartbeats
+from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -251,7 +251,7 @@ def list_payload_counts(executable, older_than=600, hash_executable=None, *, ses
                    .group_by(Heartbeats.payload)\
                    .order_by(Heartbeats.payload)
 
-    return dict(query.all())
+    return dict((payload, count) for payload, count in query.all() if payload)
 
 
 def calc_hash(executable):

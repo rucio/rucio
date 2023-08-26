@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import bz2
 import contextlib
 import datetime
 import gzip
@@ -25,7 +26,6 @@ import tempfile
 import gfal2
 import magic
 import requests
-import bz2
 
 from rucio.common import config
 from rucio.core.rse import get_rse_id, get_rse_protocols

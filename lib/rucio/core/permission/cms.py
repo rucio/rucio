@@ -301,7 +301,7 @@ def perm_add_scope(issuer, kwargs, *, session: "Optional[Session]" = None):
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_get_auth_token_user_pass(issuer, kwargs, *, session: "Optional[Session]" = None):
@@ -370,7 +370,7 @@ def perm_add_account_identity(issuer, kwargs, *, session: "Optional[Session]" = 
     :returns: True if account is allowed, otherwise False
     """
 
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_del_account_identity(issuer, kwargs, *, session: "Optional[Session]" = None):
@@ -383,7 +383,7 @@ def perm_del_account_identity(issuer, kwargs, *, session: "Optional[Session]" = 
     :returns: True if account is allowed, otherwise False
     """
 
-    return _is_root(issuer) or issuer == kwargs.get('account')
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_del_identity(issuer, kwargs, *, session: "Optional[Session]" = None):
@@ -414,7 +414,7 @@ def perm_add_did(issuer, kwargs, *, session: "Optional[Session]" = None):
             if rule['account'] != issuer:
                 return False
 
-    if kwargs['scope'].external != u'cms':
+    if kwargs['scope'].external != 'cms':
         if kwargs['type'] == 'DATASET':
             if '/USER#' not in kwargs['name']:
                 return False
@@ -425,7 +425,7 @@ def perm_add_did(issuer, kwargs, *, session: "Optional[Session]" = None):
     return (_is_root(issuer)
             or has_account_attribute(account=issuer, key='admin', session=session)  # NOQA: W503
             or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)  # NOQA: W503
-            or kwargs['scope'].external == u'mock')  # NOQA: W503
+            or kwargs['scope'].external == 'mock')  # NOQA: W503
 
 
 def perm_add_dids(issuer, kwargs, *, session: "Optional[Session]" = None):

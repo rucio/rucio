@@ -15,7 +15,7 @@
 
 import json as json_lib
 import operator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast, Any
 
 from sqlalchemy.exc import DataError
 from sqlalchemy.orm.exc import NoResultFound
@@ -81,11 +81,11 @@ class JSONDidMeta(DidMetaPlugin):
         existing_meta = {}
         if hasattr(row_did_meta, 'meta'):
             if row_did_meta.meta:
-                existing_meta = row_did_meta.meta
-
-        # Oracle returns a string instead of a dict
-        if session.bind.dialect.name in ['oracle', 'sqlite'] and existing_meta:
-            existing_meta = json_lib.loads(existing_meta)
+                if session.bind.dialect.name in ['oracle', 'sqlite']:
+                    # Oracle and sqlite returns a string instead of a dict
+                    existing_meta = json_lib.loads(cast(str, row_did_meta.meta))
+                else:
+                    existing_meta = cast(dict[str, Any], row_did_meta.meta)
 
         for key, value in metadata.items():
             existing_meta[key] = value
@@ -134,7 +134,7 @@ class JSONDidMeta(DidMetaPlugin):
 
             row.meta = existing_meta
         except NoResultFound:
-            raise exception.DataIdentifierNotFound("Key not found for data identifier '%(scope)s:%(name)s'" % locals())
+            raise exception.DataIdentifierNotFound(f"Key not found for data identifier '{scope}:{name}'")
 
     @stream_session
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,

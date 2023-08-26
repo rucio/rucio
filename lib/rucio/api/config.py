@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from rucio.api import permission
 from rucio.common import exception
+from rucio.common.config import convert_to_any_type
 from rucio.core import config
 from rucio.db.sqla.session import read_session, transactional_session
 
@@ -139,7 +140,7 @@ def get(section, option, issuer=None, vo='def', *, session: "Session"):
     kwargs = {'issuer': issuer, 'section': section, 'option': option}
     if not permission.has_permission(issuer=issuer, vo=vo, action='config_get', kwargs=kwargs, session=session):
         raise exception.AccessDenied('%s cannot retrieve option %s from section %s' % (issuer, option, section))
-    return config.get(section, option, session=session)
+    return config.get(section, option, session=session, convert_type_fnc=convert_to_any_type)
 
 
 @read_session
@@ -158,7 +159,7 @@ def items(section, issuer=None, vo='def', *, session: "Session"):
     kwargs = {'issuer': issuer, 'section': section}
     if not permission.has_permission(issuer=issuer, vo=vo, action='config_items', kwargs=kwargs, session=session):
         raise exception.AccessDenied('%s cannot retrieve options and values from section %s' % (issuer, section))
-    return config.items(section, session=session)
+    return config.items(section, session=session, convert_type_fnc=convert_to_any_type)
 
 
 @transactional_session

@@ -26,6 +26,7 @@ import time
 import traceback
 from typing import TYPE_CHECKING
 
+import rucio.core.rse as rse_core
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get_bool
@@ -38,15 +39,15 @@ from rucio.core.monitor import MetricManager
 from rucio.core.quarantined_replica import (list_quarantined_replicas,
                                             delete_quarantined_replicas,
                                             list_rses_with_quarantined_replicas)
-import rucio.core.rse as rse_core
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
 from rucio.daemons.common import run_daemon
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from types import FrameType
-    from typing import Sequence, Optional
+    from typing import Optional
 
     from rucio.daemons.common import HeartbeatHandler
 
@@ -54,6 +55,7 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 METRICS = MetricManager(module=__name__)
 GRACEFUL_STOP = threading.Event()
+DAEMON_NAME = 'dark-reaper'
 
 
 def reaper(
@@ -63,15 +65,13 @@ def reaper(
         scheme: "Optional[str]" = None,
         sleep_time: int = 300,
 ):
-    executable = 'dark-reaper'
+    executable = DAEMON_NAME
     if rses:
         executable += ' '.join(sys.argv[1:])
-    logger_prefix = 'dark-reaper'
     run_daemon(
         once=once,
         graceful_stop=GRACEFUL_STOP,
         executable=executable,
-        logger_prefix=logger_prefix,
         partition_wait_time=10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -208,7 +208,7 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
     :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
                 If None, we either use all VOs if run from "def", or the current VO otherwise.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

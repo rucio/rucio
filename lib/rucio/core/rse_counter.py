@@ -131,8 +131,8 @@ def update_rse_counter(rse_id, *, session: "Session"):
 
     try:
         rse_counter = session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
-        rse_counter.used += sum_bytes
-        rse_counter.files += sum_files
+        rse_counter.used = (rse_counter.used or 0) + sum_bytes
+        rse_counter.files = (rse_counter.files or 0) + sum_files
     except NoResultFound:
         models.RSEUsage(rse_id=rse_id,
                         used=sum_bytes,

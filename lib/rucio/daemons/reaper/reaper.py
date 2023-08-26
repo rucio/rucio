@@ -25,29 +25,29 @@ import time
 import traceback
 from configparser import NoOptionError, NoSectionError
 from datetime import datetime, timedelta
-from math import log2
 from typing import TYPE_CHECKING
 
-from dogpile.cache.api import NO_VALUE
+from dogpile.cache.api import NoValue
+from math import log2
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get, config_get_bool
 from rucio.common.cache import make_region_memcached
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import (DatabaseException, RSENotFound,
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
                                     VONotFound, RSEProtocolNotSupported)
 from rucio.common.logging import setup_logging
-from rucio.common.types import InternalAccount
 from rucio.common.stopwatch import Stopwatch
+from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
-from rucio.core.monitor import MetricManager
 from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import list_payload_counts
 from rucio.core.message import add_message
+from rucio.core.monitor import MetricManager
 from rucio.core.oidc import get_token_for_account_operation
-from rucio.core.replica import list_and_mark_unlocked_replicas, list_and_mark_unlocked_replicas_no_temp_table, delete_replicas
+from rucio.core.replica import list_and_mark_unlocked_replicas, delete_replicas
 from rucio.core.rse import list_rses, RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
@@ -56,14 +56,16 @@ from rucio.daemons.common import run_daemon
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import FrameType
-    from typing import Any, Callable, Optional, Tuple
+    from typing import Any, Optional
 
     from rucio.daemons.common import HeartbeatHandler
 
 GRACEFUL_STOP = threading.Event()
 METRICS = MetricManager(module=__name__)
 REGION = make_region_memcached(expiration_time=600)
+DAEMON_NAME = 'reaper'
 
 EXCLUDED_RSE_GAUGE = METRICS.gauge('excluded_rses.{rse}', documentation='Temporarly excluded RSEs')
 
@@ -100,7 +102,7 @@ def get_rses_to_process(rses, include_rses, exclude_rses, vos):
         cache_key += '@%s' % '-'.join(vo for vo in vos)
 
     result = REGION.get(cache_key)
-    if result is not NO_VALUE:
+    if not isinstance(result, NoValue):
         return result
 
     all_rses = []
@@ -253,7 +255,7 @@ def _rse_deletion_hostname(rse: RseData, scheme: "Optional[str]") -> "Optional[s
     return None
 
 
-def get_max_deletion_threads_by_hostname(hostname):
+def get_max_deletion_threads_by_hostname(hostname: str) -> int:
     """
     Internal method to check RSE usage and limits.
 
@@ -262,12 +264,12 @@ def get_max_deletion_threads_by_hostname(hostname):
     :returns: The maximum deletion thread for the SE.
     """
     result = REGION.get('max_deletion_threads_%s' % hostname)
-    if result is NO_VALUE:
+    if isinstance(result, NoValue):
         try:
-            max_deletion_thread = config_get('reaper', 'max_deletion_threads_%s' % hostname)
+            max_deletion_thread = config_get_int('reaper', 'max_deletion_threads_%s' % hostname)
         except (NoOptionError, NoSectionError, RuntimeError):
             try:
-                max_deletion_thread = config_get('reaper', 'nb_workers_by_hostname')
+                max_deletion_thread = config_get_int('reaper', 'nb_workers_by_hostname')
             except (NoOptionError, NoSectionError, RuntimeError):
                 max_deletion_thread = 5
         REGION.set('max_deletion_threads_%s' % hostname, max_deletion_thread)
@@ -307,19 +309,19 @@ def __try_reserve_worker_slot(heartbeat_handler: "HeartbeatHandler", rse: RseDat
     return rse_hostname_key
 
 
-def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> 'Tuple[int, bool]':
+def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> tuple[int, bool]:
     """
     Wrapper around __check_rse_usage which manages the cache entry.
     """
     cache_key = 'rse_usage_%s' % rse.id
     result = REGION.get(cache_key)
-    if result is NO_VALUE:
+    if isinstance(result, NoValue):
         result = __check_rse_usage(rse=rse, greedy=greedy, logger=logger)
         REGION.set(cache_key, result)
     return result
 
 
-def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> 'Tuple[int, bool]':
+def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> tuple[int, bool]:
     """
     Internal method to check RSE usage and limits.
 
@@ -394,7 +396,6 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     :param auto_exclude_timeout:   Timeout for temporarily excluded RSEs.
     """
 
-    executable = 'reaper'
     oidc_account = config_get('reaper', 'oidc_account', False, 'root')
     oidc_scope = config_get('reaper', 'oidc_scope', False, 'delete')
     oidc_audience = config_get('reaper', 'oidc_audience', False, 'rse')
@@ -402,8 +403,7 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     run_daemon(
         once=once,
         graceful_stop=GRACEFUL_STOP,
-        executable=executable,
-        logger_prefix=executable,
+        executable=DAEMON_NAME,
         partition_wait_time=0 if once else 10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
@@ -435,11 +435,11 @@ def run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
     logger(logging.INFO, 'Reaper started')
 
     # try to get auto exclude parameters from the config table. Otherwise use CLI parameters.
-    auto_exclude_threshold = config_get('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold, raise_exception=False)
-    auto_exclude_timeout = config_get('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout, raise_exception=False)
+    auto_exclude_threshold = config_get_int('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold, raise_exception=False)
+    auto_exclude_timeout = config_get_int('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout, raise_exception=False)
     # Check if there is a Judge Evaluator backlog
-    max_evaluator_backlog_count = config_get('reaper', 'max_evaluator_backlog_count', default=None, raise_exception=False)
-    max_evaluator_backlog_duration = config_get('reaper', 'max_evaluator_backlog_duration', default=None, raise_exception=False)
+    max_evaluator_backlog_count = config_get_int('reaper', 'max_evaluator_backlog_count', default=None, raise_exception=False)
+    max_evaluator_backlog_duration = config_get_int('reaper', 'max_evaluator_backlog_duration', default=None, raise_exception=False)
     if max_evaluator_backlog_count or max_evaluator_backlog_duration:
         backlog = get_evaluation_backlog()
         count_is_hit = max_evaluator_backlog_count and backlog[0] and backlog[0] > max_evaluator_backlog_count
@@ -530,13 +530,13 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
     paused_rses = []
     for rse, needed_free_space, only_delete_obsolete, enable_greedy in rses_with_params:
         result = REGION.get('pause_deletion_%s' % rse.id, expiration_time=120)
-        if result is not NO_VALUE:
+        if not isinstance(result, NoValue):
             paused_rses.append(rse.name)
             logger(logging.DEBUG, 'Not enough replicas to delete on %s during the previous cycle. Deletion paused for a while', rse.name)
             continue
 
         result = REGION.get('temporary_exclude_%s' % rse.id, expiration_time=auto_exclude_timeout)
-        if result is not NO_VALUE:
+        if not isinstance(result, NoValue):
             logger(logging.WARNING, 'Too many failed attempts for %s in last cycle. RSE is temporarly excluded.', rse.name)
             EXCLUDED_RSE_GAUGE.labels(rse=rse.name).set(1)
             continue
@@ -564,24 +564,15 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
         # List and mark BEING_DELETED the files to delete
         del_start_time = time.time()
         try:
-            use_temp_tables = config_get_bool('core', 'use_temp_tables', default=True)
             with METRICS.timer('list_unlocked_replicas'):
                 if only_delete_obsolete:
                     logger(logging.DEBUG, 'Will run list_and_mark_unlocked_replicas on %s. No space needed, will only delete EPOCH tombstoned replicas', rse.name)
-                if use_temp_tables:
-                    replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
-                                                               bytes_=needed_free_space,
-                                                               rse_id=rse.id,
-                                                               delay_seconds=delay_seconds,
-                                                               only_delete_obsolete=only_delete_obsolete,
-                                                               session=None)
-                else:
-                    replicas = list_and_mark_unlocked_replicas_no_temp_table(limit=chunk_size,
-                                                                             bytes_=needed_free_space,
-                                                                             rse_id=rse.id,
-                                                                             delay_seconds=delay_seconds,
-                                                                             only_delete_obsolete=only_delete_obsolete,
-                                                                             session=None)
+                replicas = list_and_mark_unlocked_replicas(limit=chunk_size,
+                                                           bytes_=needed_free_space,
+                                                           rse_id=rse.id,
+                                                           delay_seconds=delay_seconds,
+                                                           only_delete_obsolete=only_delete_obsolete,
+                                                           session=None)
             logger(logging.DEBUG, 'list_and_mark_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', rse.name, needed_free_space, time.time() - del_start_time, len(replicas))
             if (len(replicas) == 0 and enable_greedy) or (len(replicas) < chunk_size and not enable_greedy):
                 logger(logging.DEBUG, 'Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', rse.name, chunk_size, len(replicas))
@@ -673,7 +664,7 @@ def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=N
     :param auto_exclude_threshold: Number of service unavailable exceptions after which the RSE gets temporarily excluded.
     :param auto_exclude_timeout:   Timeout for temporarily excluded RSEs.
     """
-    setup_logging()
+    setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')

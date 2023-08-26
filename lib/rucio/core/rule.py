@@ -15,31 +15,25 @@
 
 import json
 import logging
-from typing import TYPE_CHECKING
-
 from configparser import NoOptionError
-
 from copy import deepcopy
 from datetime import datetime, timedelta
+from os import path
 from re import match
 from string import Template
-from typing import Dict, Any, Optional
-from os import path
+from typing import Any, Optional
+from typing import TYPE_CHECKING
 
 from dogpile.cache.api import NO_VALUE
-
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import and_, or_, true, null, tuple_, false
 
-from rucio.core.account import has_account_attribute
 import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
-from rucio.common.policy import policy_filter, get_scratchdisk_lifetime
-
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get
 from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule, InsufficientAccountLimit,
@@ -49,11 +43,13 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     InvalidObject, RSEWriteBlocked, RuleReplaceFailed, RequestNotFound,
                                     ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy, InvalidValueForKey,
                                     InvalidSourceReplicaExpression)
+from rucio.common.policy import policy_filter, get_scratchdisk_lifetime
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalScope, InternalAccount
 from rucio.common.utils import str_to_date, sizefmt, chunks
 from rucio.core import account_counter, rse_counter, request as request_core, transfer as transfer_core
 from rucio.core.account import get_account
+from rucio.core.account import has_account_attribute
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
@@ -69,7 +65,6 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-    from typing import List, Tuple
 
 
 REGION = make_region_memcached(expiration_time=900)
@@ -719,26 +714,35 @@ def list_rules(filters={}, *, session: "Session"):
     :raises:        RucioException
     """
 
-    query = session.query(models.ReplicationRule)
+    stmt = select(
+        models.ReplicationRule,
+        models.DataIdentifier.bytes
+    ).join(
+        models.DataIdentifier,
+        and_(
+            models.ReplicationRule.scope == models.DataIdentifier.scope,
+            models.ReplicationRule.name == models.DataIdentifier.name
+        )
+    )
     if filters:
         for (key, value) in filters.items():
             if key in ['account', 'scope']:
                 if '*' in value.internal:
                     value = value.internal.replace('*', '%')
-                    query = query.filter(getattr(models.ReplicationRule, key).like(value))
+                    stmt = stmt.where(getattr(models.ReplicationRule, key).like(value))
                     continue
                 # else fall through
             elif key == 'created_before':
-                query = query.filter(models.ReplicationRule.created_at <= str_to_date(value))
+                stmt = stmt.where(models.ReplicationRule.created_at <= str_to_date(value))
                 continue
             elif key == 'created_after':
-                query = query.filter(models.ReplicationRule.created_at >= str_to_date(value))
+                stmt = stmt.where(models.ReplicationRule.created_at >= str_to_date(value))
                 continue
             elif key == 'updated_before':
-                query = query.filter(models.ReplicationRule.updated_at <= str_to_date(value))
+                stmt = stmt.where(models.ReplicationRule.updated_at <= str_to_date(value))
                 continue
             elif key == 'updated_after':
-                query = query.filter(models.ReplicationRule.updated_at >= str_to_date(value))
+                stmt = stmt.where(models.ReplicationRule.updated_at >= str_to_date(value))
                 continue
             elif key == 'state':
                 if isinstance(value, str):
@@ -752,13 +756,12 @@ def list_rules(filters={}, *, session: "Session"):
                 value = DIDType(value)
             elif key == 'grouping' and isinstance(value, str):
                 value = RuleGrouping(value)
-            query = query.filter(getattr(models.ReplicationRule, key) == value)
+            stmt = stmt.where(getattr(models.ReplicationRule, key) == value)
 
     try:
-        for rule in query.yield_per(5):
-            d = {}
-            for column in rule.__table__.columns:
-                d[column.name] = getattr(rule, column.name)
+        for rule, data_identifier_bytes in session.execute(stmt).yield_per(5):
+            d = rule.to_dict()
+            d['bytes'] = data_identifier_bytes
             yield d
     except StatementError:
         raise RucioException('Badly formatted input (IDs?)')
@@ -834,10 +837,7 @@ def list_associated_rules_for_file(scope, name, *, session: "Session"):
         filter(models.ReplicaLock.scope == scope, models.ReplicaLock.name == name).distinct()
     try:
         for rule in query.yield_per(5):
-            d = {}
-            for column in rule.__table__.columns:
-                d[column.name] = getattr(rule, column.name)
-            yield d
+            yield rule.to_dict()
     except StatementError:
         raise RucioException('Badly formatted input (IDs?)')
 
@@ -1170,11 +1170,7 @@ def get_rule(rule_id, *, session: "Session"):
 
     try:
         rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
-        d = {}
-        for column in rule.__table__.columns:
-            d[column.name] = getattr(rule, column.name)
-        return d
-
+        return rule.to_dict()
     except NoResultFound:
         raise RuleNotFound('No rule with the id %s found' % (rule_id))
     except StatementError:
@@ -1182,7 +1178,7 @@ def get_rule(rule_id, *, session: "Session"):
 
 
 @transactional_session
-def update_rule(rule_id: str, options: Dict[str, Any], *, session: "Session") -> None:
+def update_rule(rule_id: str, options: dict[str, Any], *, session: "Session") -> None:
     """
     Update a rules options.
 
@@ -1550,7 +1546,7 @@ def reduce_rule(rule_id, copies, exclude_expression=None, *, session: "Session")
 
 
 @transactional_session
-def move_rule(rule_id: str, rse_expression: str, override: Optional[Dict[str, Any]] = None, *, session: "Session"):
+def move_rule(rule_id: str, rse_expression: str, override: Optional[dict[str, Any]] = None, *, session: "Session"):
     """
     Move a replication rule to another RSE and, once done, delete the original one.
 
@@ -3251,7 +3247,7 @@ def _create_recipients_list(rse_expression: str, filter_=None, *, session: "Sess
     :param session:         The database session in use.
     """
 
-    recipients: "List[Tuple]" = []  # (eMail, account)
+    recipients: list[tuple] = []  # (eMail, account)
 
     # APPROVERS-LIST
     # If there are accounts in the approvers-list of any of the RSEs only these should be used

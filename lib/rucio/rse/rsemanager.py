@@ -17,7 +17,6 @@ import copy
 import logging
 import random
 from time import sleep
-
 from urllib.parse import urlparse
 
 from rucio.common import exception, utils, constants
@@ -101,10 +100,10 @@ def _get_possible_protocols(rse_settings, operation, scheme=None, domain=None, i
 
         if not domain:
             for d in list(protocol['domains'].keys()):
-                if protocol['domains'][d][operation] != 0:
+                if protocol['domains'][d][operation]:
                     filtered = False
         else:
-            if protocol['domains'].get(domain, {operation: 0}).get(operation) != 0:
+            if protocol['domains'].get(domain, {operation: None}).get(operation):
                 filtered = False
 
         if filtered:

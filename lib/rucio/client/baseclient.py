@@ -23,16 +23,16 @@ import os
 import random
 import sys
 import time
+from configparser import NoOptionError, NoSectionError
 from os import environ, fdopen, path, makedirs, geteuid
 from shutil import move
 from tempfile import mkstemp
+from urllib.parse import urlparse
 
 from dogpile.cache import make_region
 from requests import Session, Response
 from requests.exceptions import ConnectionError
 from requests.status_codes import codes
-from configparser import NoOptionError, NoSectionError
-from urllib.parse import urlparse
 
 from rucio import version
 from rucio.common import exception
@@ -282,7 +282,7 @@ class BaseClient(object):
         self.__authenticate()
 
         try:
-            self.request_retries = int(config_get('client', 'request_retries'))
+            self.request_retries = config_get_int('client', 'request_retries')
         except (NoOptionError, RuntimeError):
             LOG.debug('request_retries not specified in config file. Taking default.')
         except ValueError:
@@ -627,7 +627,7 @@ class BaseClient(object):
                 # authorizing info request on behalf of the user until he/she revokes this authorization !
                 result = self._send_request(result.url, type_='POST', data=form_data)
 
-        if not result or 'result' not in locals():
+        if not result:
             self.logger.error('Cannot retrieve authentication token!')
             return False
 
@@ -794,7 +794,7 @@ class BaseClient(object):
         result = self._send_request(SAML_auth_url, type_='POST', data=userpass, verify=False)
         result = self._send_request(url, get_token=True)
 
-        if not result or 'result' not in locals():
+        if not result:
             self.logger.error('Cannot retrieve authentication token!')
             return False
 

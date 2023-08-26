@@ -15,13 +15,15 @@
 from __future__ import absolute_import
 
 from typing import TYPE_CHECKING
+
 from dogpile.cache import make_region
 
 from rucio.common.config import config_get
 from rucio.common.utils import is_client
 
 if TYPE_CHECKING:
-    from typing import Callable, Optional
+    from collections.abc import Callable
+    from typing import Optional
 
 CACHE_URL = config_get('cache', 'url', False, '127.0.0.1:11211', check_config_table=False)
 

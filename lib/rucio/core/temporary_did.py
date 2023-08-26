@@ -17,12 +17,13 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, or_, func, delete
-from sqlalchemy.sql.expression import case
+from sqlalchemy.sql.expression import case, insert, update
 
 from rucio.core.did import attach_dids
 from rucio.core.replica import add_replica
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
+
 # from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
@@ -64,7 +65,8 @@ def add_temporary_dids(dids, account, *, session: "Session"):
                                'offset': did.get('offset'),
                                'expired_at': datetime.utcnow()})
     try:
-        session.bulk_insert_mappings(models.TemporaryDataIdentifier, temporary_dids)
+        if temporary_dids:
+            session.execute(insert(models.TemporaryDataIdentifier), temporary_dids)
     except:
         raise
 
@@ -109,7 +111,8 @@ def compose(scope, name, rse_id, bytes_, sources, account,
         expired_dids.append({'scope': source['scope'],
                              'name': source['name'],
                              'expired_at': now})
-    session.bulk_update_mappings(models.TemporaryDataIdentifier, expired_dids)
+    if expired_dids:
+        session.execute(update(models.TemporaryDataIdentifier), expired_dids)
 
 
 @read_session

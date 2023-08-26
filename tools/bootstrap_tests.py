@@ -97,7 +97,7 @@ if __name__ == '__main__':
         try:
             add_vo(new_vo=vo['vo'], issuer='super_root', description='A VO to test multi-vo features', email='N/A', vo='def')
         except Duplicate:
-            print('VO {} already added'.format(vo['vo']) % locals())
+            print(f'VO {vo["vo"]} already added')
     else:
         vo = {}
 
@@ -118,7 +118,7 @@ if __name__ == '__main__':
     try:
         client.add_account('jdoe', 'SERVICE', 'jdoe@email.com')
     except Duplicate:
-        print('Account jdoe already added' % locals())
+        print('Account jdoe already added')
 
     try:
         add_account_attribute(account=InternalAccount('root', **vo), key='admin', value=True)  # bypass client as schema validation fails at API level
@@ -129,17 +129,17 @@ if __name__ == '__main__':
         client.add_account('panda', 'SERVICE', 'panda@email.com')
         add_account_attribute(account=InternalAccount('panda', **vo), key='admin', value=True)
     except Duplicate:
-        print('Account panda already added' % locals())
+        print('Account panda already added')
 
     try:
         client.add_scope('jdoe', 'mock')
     except Duplicate:
-        print('Scope mock already added' % locals())
+        print('Scope mock already added')
 
     try:
         client.add_scope('root', 'archive')
     except Duplicate:
-        print('Scope archive already added' % locals())
+        print('Scope archive already added')
 
     # add your accounts here, if you test against CERN authed nodes
     additional_test_accounts = [('CN=Mario Lassnig,CN=663551,CN=mlassnig,OU=Users,OU=Organic Units,DC=cern,DC=ch', 'x509', 'mario.lassnig@cern.ch'),

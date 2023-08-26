@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from json import loads
+
 from requests import get
 
 from rucio.common.config import config_get
