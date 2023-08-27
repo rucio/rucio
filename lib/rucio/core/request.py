@@ -552,7 +552,7 @@ def list_and_mark_transfer_requests_and_source_replicas(
             requests_by_id[request_id] = request
             # if STAGEIN and destination RSE is QoS make sure the source is included
             if request.request_type == RequestType.STAGEIN and get_rse_attribute(rse_id=dest_rse_id, key='staging_required', session=session):
-                source = RequestSource(rse_data=RseData(id_=dest_rse_id))
+                source = RequestSource(rse_data=rse_collection[dest_rse_id])
                 request.sources.append(source)
 
         if replica_rse_id is not None:
