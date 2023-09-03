@@ -137,8 +137,8 @@ services:
     ports:
       - "127.0.0.1:9000:9000"
     environment:
-      - MINIO_ACCESS_KEY=admin
-      - MINIO_SECRET_KEY=password
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password
     volumes:
       - ../../certs/hostcert_minio.pem:/root/.minio/certs/public.crt:Z
       - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key:Z
