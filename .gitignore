@@ -17,6 +17,7 @@ etc/alembic.ini
 etc/ldap.cfg
 etc/rucio-server-gcs.json
 etc/globus-config.yml
+etc/s3client.cfg
 alembic.ini
 .gitlabkey
 .githubtoken

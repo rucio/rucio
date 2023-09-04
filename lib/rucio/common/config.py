@@ -755,6 +755,25 @@ def get_rse_credentials(path_to_credentials_file: Optional[Union[str, os.PathLik
     return credentials
 
 
+def get_s3_credentials(path_to_credentials_file: Optional[Union[str, os.PathLike]] = None):
+    """ Returns credentials for S3. """
+
+    path = ''
+    if path_to_credentials_file:
+        path = path_to_credentials_file
+    else:  # Use file defined in th RSEMgr
+        for confdir in get_config_dirs():
+            p = os.path.join(confdir, 's3client.cfg')
+            if os.path.exists(p):
+                path = p
+    try:
+        with open(path) as cred_file:
+            credentials = json.load(cred_file)
+    except Exception as error:
+        raise exception.ErrorLoadingCredentials(error)
+    return credentials
+
+
 __CONFIG = None
 
 

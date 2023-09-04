@@ -1844,6 +1844,47 @@ def rse_completer(prefix, parsed_args, **kwargs):
     return ["%(rse)s" % rse for rse in client.list_rses()]
 
 
+def __s3_verify_bucket_path(path):
+    # TODO: use as a part of class RSEDeterministicTranslation(object)?
+    # bucket_path_pattern = r"^user\.[a-zA-Z0-9_]+:/[a-zA-Z0-9_/]+$"
+    bucket_path_pattern = r"^user\.[a-zA-Z0-9_]+:/[a-zA-Z0-9_/]+(/[\w.-]+)?$"
+    if not re.match(bucket_path_pattern, path):
+        print('Invalid bucket path: %s' % path, "\nPath should be of the form 'user.<username>:/<folder_path>/'")
+        return False
+    return True
+
+
+@exception_handler
+def bucket_create(args):
+    """
+    rucio bucket create [user.<username>:/<folder_path>/]
+
+    Create S3 bucket.
+    """
+    if not __s3_verify_bucket_path(args.path):
+        return FAILURE
+    client = get_client(args)
+    from rucio.client.s3client import S3Client
+    s3_client = S3Client(_client=client)
+    # TODO: add proper success/failure
+    s3_client.bucket_create(args.path)
+    return SUCCESS
+
+
+@exception_handler
+def bucket_upload(args):
+    """
+    Uploads a file to an S3 bucket.
+    """
+    if not __s3_verify_bucket_path(args.to_path):
+        return FAILURE
+    client = get_client(args)
+    from rucio.client.s3client import S3Client
+    s3_client = S3Client(_client=client)
+    s3_client.bucket_upload(args.from_path, args.to_path)
+    return SUCCESS
+
+
 def get_parser():
     """
     Returns the argparse parser.
@@ -2509,6 +2550,39 @@ can be found in ' + Color.BOLD + 'http://rucio.cern.ch/documentation/rse_express
     add_lifetime_exception_parser.add_argument('--inputfile', action='store', help='File where the list of datasets requested to be extended are located.', required=True)
     add_lifetime_exception_parser.add_argument('--reason', action='store', help='The reason for the extension.', required=True)
     add_lifetime_exception_parser.add_argument('--expiration', action='store', help='The expiration date format YYYY-MM-DD', required=True)
+
+    # S3 Bucket subparses
+    bucket_parser = subparsers.add_parser('bucket', formatter_class=argparse.RawDescriptionHelpFormatter, help='S3 bucket interface.', epilog='Usage example\n')
+
+    bucket_subparser = bucket_parser.add_subparsers(title="bucket_subcommands", required=True)
+
+    # The bucket create command
+    bucket_create_parser = bucket_subparser.add_parser('create', help='Create a bucket and a corresponding folder path DID. Only works with valid credentials of format s3client.cfg.template, or existing ~/.aws/credentials and ~/.aws/config with specified region and credentials',# NOQA: E501
+                                                       formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                       epilog='''Usage example
+"""""""""""""
+::
+
+    $ rucio bucket create user.dquijote:/mybucket/folder1/subfolder/
+
+    ''')
+    bucket_create_parser.set_defaults(function=bucket_create)
+    bucket_create_parser.add_argument('path', action='store', help='Bucket/folder path (e.g: user.dquijote:/mybucket/)')
+
+    # The bucket upload command
+    bucket_upload_parser = bucket_subparser.add_parser('upload', help='Upload a file/folder to an existing bucket.', formatter_class=argparse.RawDescriptionHelpFormatter,
+                                                       epilog='''Usage example
+"""""""""""""
+::
+
+    $ rucio bucket upload --from /tmp/file.txt --to user.dquijote:/mybucket/folder1/subfolder/file.txt
+
+You can also upload a directory recursively::
+
+    $ rucio bucket upload --from /tmp/dir/ --to user.dquijote:/mybucket/folder1/subfolder/dir/''')
+    bucket_upload_parser.set_defaults(function=bucket_upload)
+    bucket_upload_parser.add_argument('--from', dest='from_path', action='store', default=False, help='Path to file/directory on local system.')
+    bucket_upload_parser.add_argument('--to', dest='to_path', action='store', default=False, help='Save to file/directory on remote.')
 
     return oparser
 
