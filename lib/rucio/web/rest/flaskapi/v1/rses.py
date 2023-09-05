@@ -43,15 +43,12 @@ class RSEs(ErrorHandlingMethodView):
         description: Lists all RSEs.
         tags:
           - Rucio Storage Elements
-        requestBody:
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  expression:
-                    description: An RSE expression.
-                    type: string
+        parameters:
+        - name: expression
+          in: query
+          description: RSE expression to select RSEs.
+          schema:
+            type: string
         responses:
           200:
             description: OK
