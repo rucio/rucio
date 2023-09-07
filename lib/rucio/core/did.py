@@ -1655,20 +1655,17 @@ def list_content(scope, name, *, session: "Session"):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
-    try:
-        stmt = select(
-            models.DataIdentifierAssociation
-        ).with_hint(
-            models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'
-        ).filter_by(
-            scope=scope,
-            name=name
-        )
-        for tmp_did in session.execute(stmt).yield_per(5).scalars():
-            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type,
-                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
+    stmt = select(
+        models.DataIdentifierAssociation
+    ).with_hint(
+        models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'
+    ).filter_by(
+        scope=scope,
+        name=name
+    )
+    for tmp_did in session.execute(stmt).yield_per(5).scalars():
+        yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type,
+               'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
 
 
 @stream_session
@@ -1680,21 +1677,18 @@ def list_content_history(scope, name, *, session: "Session"):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
-    try:
-        stmt = select(
-            models.DataIdentifierAssociationHistory
-        ).filter_by(
-            scope=scope,
-            name=name
-        )
-        for tmp_did in session.execute(stmt).yield_per(5).scalars():
-            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
-                   'type': tmp_did.child_type,
-                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5,
-                   'deleted_at': tmp_did.deleted_at, 'created_at': tmp_did.created_at,
-                   'updated_at': tmp_did.updated_at}
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
+    stmt = select(
+        models.DataIdentifierAssociationHistory
+    ).filter_by(
+        scope=scope,
+        name=name
+    )
+    for tmp_did in session.execute(stmt).yield_per(5).scalars():
+        yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
+               'type': tmp_did.child_type,
+               'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5,
+               'deleted_at': tmp_did.deleted_at, 'created_at': tmp_did.created_at,
+               'updated_at': tmp_did.updated_at}
 
 
 @stream_session
@@ -2249,21 +2243,19 @@ def list_parent_dids_bulk(dids, *, session: "Session"):
         condition.append(and_(models.DataIdentifierAssociation.child_scope == did['scope'],
                               models.DataIdentifierAssociation.child_name == did['name']))
 
-    try:
-        for chunk in chunks(condition, 50):
-            stmt = select(
-                models.DataIdentifierAssociation.child_scope,
-                models.DataIdentifierAssociation.child_name,
-                models.DataIdentifierAssociation.scope,
-                models.DataIdentifierAssociation.name,
-                models.DataIdentifierAssociation.did_type
-            ).where(
-                or_(*chunk)
-            )
-            for did_chunk in session.execute(stmt).yield_per(5):
-                yield {'scope': did_chunk.scope, 'name': did_chunk.name, 'child_scope': did_chunk.child_scope, 'child_name': did_chunk.child_name, 'type': did_chunk.did_type}
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound('No Data Identifiers found')
+    for chunk in chunks(condition, 50):
+        stmt = select(
+            models.DataIdentifierAssociation.child_scope,
+            models.DataIdentifierAssociation.child_name,
+            models.DataIdentifierAssociation.scope,
+            models.DataIdentifierAssociation.name,
+            models.DataIdentifierAssociation.did_type
+        ).where(
+            or_(*chunk)
+        )
+        for did_chunk in session.execute(stmt).yield_per(5):
+            yield {'scope': did_chunk.scope, 'name': did_chunk.name, 'child_scope': did_chunk.child_scope,
+                   'child_name': did_chunk.child_name, 'type': did_chunk.did_type}
 
 
 @stream_session
@@ -2319,19 +2311,16 @@ def get_metadata_bulk(dids, inherit=False, *, session: "Session"):
         for did in dids:
             condition.append(and_(models.DataIdentifier.scope == did['scope'],
                                   models.DataIdentifier.name == did['name']))
-        try:
-            for chunk in chunks(condition, 50):
-                stmt = select(
-                    models.DataIdentifier
-                ).with_hint(
-                    models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
-                ).where(
-                    or_(*chunk)
-                )
-                for row in session.execute(stmt).scalars():
-                    yield row.to_dict()
-        except NoResultFound:
-            raise exception.DataIdentifierNotFound('No Data Identifiers found')
+        for chunk in chunks(condition, 50):
+            stmt = select(
+                models.DataIdentifier
+            ).with_hint(
+                models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+            ).where(
+                or_(*chunk)
+            )
+            for row in session.execute(stmt).scalars():
+                yield row.to_dict()
 
 
 @transactional_session
@@ -2737,21 +2726,18 @@ def list_archive_content(scope, name, *, session: "Session"):
     :param name: The archive data identifier name.
     :param session: The database session in use.
     """
-    try:
-        stmt = select(
-            models.ConstituentAssociation
-        ).with_hint(
-            models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle'
-        ).filter_by(
-            scope=scope,
-            name=name
-        )
+    stmt = select(
+        models.ConstituentAssociation
+    ).with_hint(
+        models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle'
+    ).filter_by(
+        scope=scope,
+        name=name
+    )
 
-        for tmp_did in session.execute(stmt).yield_per(5).scalars():
-            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
-                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
+    for tmp_did in session.execute(stmt).yield_per(5).scalars():
+        yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
+               'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
 
 
 @transactional_session
@@ -2807,19 +2793,15 @@ def get_users_following_did(scope, name, *, session: "Session"):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
-    try:
-        stmt = select(
-            models.DidsFollowed
-        ).filter_by(
-            scope=scope,
-            name=name
-        )
-        for user in session.execute(stmt).scalars().all():
-            # Return a dictionary of users to be rendered as json.
-            yield {'user': user.account}
-
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
+    stmt = select(
+        models.DidsFollowed
+    ).filter_by(
+        scope=scope,
+        name=name
+    )
+    for user in session.execute(stmt).scalars().all():
+        # Return a dictionary of users to be rendered as json.
+        yield {'user': user.account}
 
 
 @transactional_session
