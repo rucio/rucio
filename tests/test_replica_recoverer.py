@@ -55,11 +55,12 @@ class TestReplicaRecoverer:
         self.tmp_file8 = file_factory.file_generator()
         self.tmp_file9 = file_factory.file_generator()
         self.tmp_file10 = file_factory.file_generator()
+        self.tmp_file11 = file_factory.file_generator()
 
         self.listdids_mock = [{'scope': mock_scope, 'name': f.name, 'type': DIDType.FILE}
                               for f in [self.tmp_file1, self.tmp_file2, self.tmp_file3, self.tmp_file4, self.tmp_file5, self.tmp_file6]]
         self.listdids_declarebad = [{'scope': self.scope_declarebad, 'name': f.name, 'type': DIDType.FILE}
-                                    for f in [self.tmp_file7, self.tmp_file9]]
+                                    for f in [self.tmp_file7, self.tmp_file9, self.tmp_file11]]
         self.listdids_nopolicy = [{'scope': self.scope_nopolicy, 'name': f.name, 'type': DIDType.FILE}
                                   for f in [self.tmp_file8]]
         self.listdids_ignore = [{'scope': self.scope_ignore, 'name': f.name, 'type': DIDType.FILE}
@@ -74,7 +75,7 @@ class TestReplicaRecoverer:
             assert exitcode == 0
 
             # Upload files with scope "scope_declarebad"
-            cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3} '.format(rse, self.scope_declarebad.external, self.tmp_file7, self.tmp_file9)
+            cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3} {4}'.format(rse, self.scope_declarebad.external, self.tmp_file7, self.tmp_file9, self.tmp_file11)
             exitcode, out, err = execute(cmd)
             print("scope_declarebad:", exitcode, out, err)
             # checking if Rucio upload went OK
@@ -108,6 +109,7 @@ class TestReplicaRecoverer:
         set_metadata(self.scope_nopolicy, self.tmp_file8.name, 'datatype', 'testtypenopolicy')
         set_metadata(self.scope_declarebad, self.tmp_file9.name, 'datatype', 'testtypeignore')
         set_metadata(self.scope_ignore, self.tmp_file10.name, 'datatype', 'testtypedeclarebad')
+        # tmp_file11 doesn't have a datatype.
 
         # Allow for the RSEs to be affected by the suspicious file recovery daemon
         add_rse_attribute(self.rse4suspicious_id, "enable_suspicious_file_recovery", True)
@@ -124,6 +126,7 @@ class TestReplicaRecoverer:
         remove(self.tmp_file8)
         remove(self.tmp_file9)
         remove(self.tmp_file10)
+        remove(self.tmp_file11)
 
         # Reset the cache to include the new RSEs
         rse_expression_parser.REGION.invalidate()
@@ -138,8 +141,8 @@ class TestReplicaRecoverer:
         # ----------------------------------------------------------------------------------------------------------------------------------------------------
         # Name         State(s) declared on rse4recovery       State(s) declared on rse4suspicious        Scope                     Metadata "datatype"
         # ----------------------------------------------------------------------------------------------------------------------------------------------------
-        # tmp_file1    available                                suspicious (available)                    mock_scope
-        # tmp_file2    available                                suspicious + bad (unavailable)            mock_scope
+        # tmp_file1    available                                suspicious (available)                    mock_scope                  <none>
+        # tmp_file2    available                                suspicious + bad (unavailable)            mock_scope                  <none>
         # tmp_file3    unavailable                              suspicious (available)                    mock_scope                  RAW
         # tmp_file4    unavailable                              suspicious (available)                    mock_scope                  testtypedeclarebad
         # tmp_file5    unavailable                              suspicious (available)                    mock_scope                  testtypenopolicy
@@ -148,6 +151,7 @@ class TestReplicaRecoverer:
         # tmp_file8    unavailable                              suspicious (available)                    scope_nopolicy              testtypenopolicy
         # tmp_file9    unavailable                              suspicious (available)                    scope_declarebad            testtypeignore
         # tmp_file10   unavailable                              suspicious (available)                    scope_ignore                testtypedeclarebad
+        # tmp_file11   unavailable                              suspicious (available)                    scope_declarebad            <none>
         # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
         for replica in replicalist_mock:
@@ -188,6 +192,9 @@ class TestReplicaRecoverer:
             if replica['name'] == self.tmp_file9.name:
                 print("Updating replica state as unavailable: " + replica['rses'][self.rse4recovery_id][0])
                 update_replica_state(self.rse4recovery_id, self.scope_declarebad, self.tmp_file9.name, ReplicaState.UNAVAILABLE)
+            if replica['name'] == self.tmp_file11.name:
+                print("Updating replica state as unavailable: " + replica['rses'][self.rse4recovery_id][0])
+                update_replica_state(self.rse4recovery_id, self.scope_declarebad, self.tmp_file11.name, ReplicaState.UNAVAILABLE)
 
         for replica in replicalist_nopolicy:
             suspicious_pfns = replica['rses'][self.rse4suspicious_id]
@@ -247,6 +254,10 @@ class TestReplicaRecoverer:
             if replica['name'] == self.tmp_file9.name:
                 assert replica['states'][self.rse4suspicious_id] == 'AVAILABLE'
                 assert (self.rse4recovery_id in replica['states']) is False
+            if replica['name'] == self.tmp_file11.name:
+            # tmp_file11 should be ignored, as it doesn't have a datatype
+                assert replica['states'][self.rse4suspicious_id] == 'AVAILABLE'
+                assert (self.rse4recovery_id in replica['states']) is False
 
         for replica in replicalist_nopolicy:
             if replica['name'] == self.tmp_file8.name:
@@ -273,6 +284,7 @@ class TestReplicaRecoverer:
         assert (self.tmp_file8.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file9.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file10.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
+        assert (self.tmp_file11.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
 
         bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4recovery_id, younger_than=self.from_date, vo=vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
@@ -287,6 +299,7 @@ class TestReplicaRecoverer:
         assert (self.tmp_file8.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file9.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file10.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
+        assert (self.tmp_file11.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
 
         # Purposefully not checking for the 'SUSPICIOUS' status on rse4suspicious.
         # The only existing function (to date) gathering info about 'SUSPICIOUS' replicas
@@ -302,6 +315,7 @@ class TestReplicaRecoverer:
             json_RAW = {"action": "ignore", "datatype": ["RAW"], "scope": []}
             # json_testentry1 and json_testentry2 need to be above the other entries, otherwise
             # they will always "lose" to an entry with either "datatype": [] or "scope": [].
+            # "datatype": [] and "scope": [] are wildcards; they stand for every datatype or scope.
             json_testentry1 = {"action": "ignore", "datatype": ["testtypedeclarebad"], "scope": [str(self.scope_ignore)]}
             json_testentry2 = {"action": "declare bad", "datatype": ["testtypeignore"], "scope": [str(self.scope_declarebad)]}
             json_testentry3 = {"action": "declare bad", "datatype": ["testtypedeclarebad"], "scope": []}
@@ -412,6 +426,10 @@ class TestReplicaRecoverer:
                 assert not replica.get('states')
             if replica['name'] == self.tmp_file9.name:
                 assert not replica.get('states')
+            if replica['name'] == self.tmp_file11.name:
+            # tmp_file11 should have been ignored, as it doesn't have a datatype
+                assert replica['states'][self.rse4suspicious_id] == 'AVAILABLE'
+                assert (self.rse4recovery_id in replica['states']) is False
 
         for replica in replicalist_nopolicy:
             if replica['name'] == self.tmp_file8.name:
@@ -437,6 +455,7 @@ class TestReplicaRecoverer:
         assert (self.tmp_file8.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file9.name, self.rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist
         assert (self.tmp_file10.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
+        assert (self.tmp_file11.name, self.rse4suspicious_id, BadFilesStatus.BAD) not in bad_checklist
 
         bad_replicas_list = list_bad_replicas_status(rse_id=self.rse4recovery_id, younger_than=self.from_date, vo=vo)
         bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
@@ -451,3 +470,4 @@ class TestReplicaRecoverer:
         assert (self.tmp_file8.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file9.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file10.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
+        assert (self.tmp_file11.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
