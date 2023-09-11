@@ -367,28 +367,30 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
                         file_metadata_datatype = str(file_metadata["datatype"])
                         file_metadata_scope = str(file_metadata["scope"])
                         action = ""
-                        for policy in json_data:
-                            match_scope = False
-                            match_datatype = False
+                        if file_metadata_datatype:
+                            # Some files don't have a datatype. They should be ignored.
+                            for policy in json_data:
+                                match_scope = False
+                                match_datatype = False
 
-                            if not policy.get("scope", []):
-                                match_scope = True
-                            for scope in policy.get("scope", []):
-                                if re.match(scope, file_metadata_scope):
+                                if not policy.get("scope", []):
                                     match_scope = True
-                                    break
+                                for scope in policy.get("scope", []):
+                                    if re.match(scope, file_metadata_scope):
+                                        match_scope = True
+                                        break
 
-                            if not policy.get("datatype", []):
-                                match_datatype = True
-                            for datatype in policy.get("datatype", []):
-                                if re.match(datatype, file_metadata_datatype):
+                                if not policy.get("datatype", []):
                                     match_datatype = True
-                                    break
+                                for datatype in policy.get("datatype", []):
+                                    if re.match(datatype, file_metadata_datatype):
+                                        match_datatype = True
+                                        break
 
-                            if match_scope and match_datatype:
-                                action = policy["action"]
-                                logger(logging.INFO, "The action that will be performed is %s", action)
-                                break
+                                if match_scope and match_datatype:
+                                    action = policy["action"]
+                                    logger(logging.INFO, "The action that will be performed is %s", action)
+                                    break
 
                         if not action:
                             logger(logging.WARNING, "No recognised actions (ignore/declare bad) found in policy file (etc/suspicious_replica_recoverer.json). Replica will be ignored by default.")
