@@ -44,12 +44,8 @@ pytest-xdist~=3.3.1                                         # Used for parallel 
 pyflakes==3.0.1                                             # Passive checker of Python programs
 flake8==6.0.0                                               # Wrapper around PyFlakes&pep8; python_version < '3.9'
 pycodestyle==2.10.0                                         # New package replacing pep8; python_version < '3.9'
-# https://github.com/pylint-dev/pylint/issues/8150
-# Was fixed recently, but wasn't included in a release yet.
-# TODO: upgrade to a released version
-# pylint==3.0.0a8
-pylint @ git+https://github.com/pylint-dev/pylint.git@c4281bcff86b66fdf8518e7f57dc3405c8da3a4f
-astroid==3.0.0a8
+pylint==3.0.0a7
+astroid==3.0.0a9
 virtualenv==20.24.0                                         # Virtual Python Environment builder
 xmltodict==0.13.0                                           # Makes working with XML feel like you are working with JSON
 pytz==2023.3                                                # World timezone definitions, modern and historical
