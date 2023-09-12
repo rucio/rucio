@@ -1854,61 +1854,6 @@ def get_did(scope: "InternalScope", name: str, dynamic_depth: "Optional[DIDType]
                 'length': length, 'bytes': bytes_}
 
 
-@read_session
-def get_files(files: "Sequence[Mapping[str, Any]]", *, session: "Session") -> list[dict[str, Any]]:
-    """
-    Retrieve a list of files.
-
-    :param files: A list of files (dictionaries).
-    :param session: The database session in use.
-    """
-    file_condition = []
-    for file in files:
-        file_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name']))
-
-    stmt = select(
-        models.DataIdentifier.scope,
-        models.DataIdentifier.name,
-        models.DataIdentifier.bytes,
-        models.DataIdentifier.guid,
-        models.DataIdentifier.events,
-        models.DataIdentifier.availability,
-        models.DataIdentifier.adler32,
-        models.DataIdentifier.md5
-    ).where(
-        models.DataIdentifier.did_type == DIDType.FILE
-    ).with_hint(
-        models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
-    ).where(
-        or_(*file_condition)
-    )
-
-    rows = []
-    for row in session.execute(stmt):
-        file = row._asdict()
-        rows.append(file)
-        if file['availability'] == DIDAvailability.LOST:
-            raise exception.UnsupportedOperation('File %s:%s is LOST and cannot be attached' % (file['scope'], file['name']))
-        # Check meta-data, if provided
-        for f in files:
-            if f['name'] == file['name'] and f['scope'] == file['scope']:
-                for key in ['bytes', 'adler32', 'md5']:
-                    if key in f and str(f.get(key)) != str(file[key]):
-                        raise exception.FileConsistencyMismatch(key + " mismatch for '%(scope)s:%(name)s': " % file + str(f.get(key)) + '!=' + str(file[key]))
-                break
-
-    if len(rows) != len(files):
-        for file in files:
-            found = False
-            for row in rows:
-                if row['scope'] == file['scope'] and row['name'] == file['name']:
-                    found = True
-                    break
-            if not found:
-                raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % file)
-    return rows
-
-
 @transactional_session
 def set_metadata(
     scope: "InternalScope",
