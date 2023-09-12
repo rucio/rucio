@@ -1372,53 +1372,6 @@ def list_replicas(
 
 
 @transactional_session
-def __bulk_add_new_file_dids(files, account, dataset_meta=None, *, session: "Session"):
-    """
-    Bulk add new dids.
-
-    :param dids: the list of new files.
-    :param account: The account owner.
-    :param session: The database session in use.
-    :returns: True is successful.
-    """
-    for file in files:
-        new_did = models.DataIdentifier(scope=file['scope'], name=file['name'],
-                                        account=file.get('account') or account,
-                                        did_type=DIDType.FILE, bytes=file['bytes'],
-                                        md5=file.get('md5'), adler32=file.get('adler32'),
-                                        is_new=None)
-        new_did.save(session=session, flush=False)
-
-        if 'meta' in file and file['meta']:
-            rucio.core.did.set_metadata_bulk(scope=file['scope'], name=file['name'], meta=file['meta'], recursive=False, session=session)
-        if dataset_meta:
-            rucio.core.did.set_metadata_bulk(scope=file['scope'], name=file['name'], meta=dataset_meta, recursive=False, session=session)
-    try:
-        session.flush()
-    except IntegrityError as error:
-        if match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', error.args[0]) \
-                or match('.*IntegrityError.*FOREIGN KEY constraint failed.*', error.args[0]) \
-                or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
-                or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', error.args[0]) \
-                or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint "DIDS_SCOPE_FK".*', error.args[0]) \
-                or match('.*ForeignKeyViolation.*insert or update on table.*violates foreign key constraint.*', error.args[0]) \
-                or match('.*IntegrityError.*foreign key constraints? failed.*', error.args[0]):
-            raise exception.ScopeNotFound('Scope not found!')
-
-        raise exception.RucioException(error.args)
-    except DatabaseError as error:
-        if match('.*(DatabaseError).*ORA-14400.*inserted partition key does not map to any partition.*', error.args[0]):
-            raise exception.ScopeNotFound('Scope not found!')
-
-        raise exception.RucioException(error.args)
-    except FlushError as error:
-        if match('New instance .* with identity key .* conflicts with persistent instance', error.args[0]):
-            raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
-        raise exception.RucioException(error.args)
-    return True
-
-
-@transactional_session
 def __bulk_add_file_dids(files, account, dataset_meta=None, *, session: "Session"):
     """
     Bulk add new dids.
@@ -1447,9 +1400,15 @@ def __bulk_add_file_dids(files, account, dataset_meta=None, *, session: "Session
                 break
         if not found:
             new_files.append(file)
-    __bulk_add_new_file_dids(files=new_files, account=account,
-                             dataset_meta=dataset_meta,
-                             session=session)
+    for file in new_files:
+        file['type'] = DIDType.FILE
+    rucio.core.did.add_dids(
+        dids=new_files,
+        account=account,
+        allow_file_dids=True,
+        dataset_meta=dataset_meta,
+        session=session
+    )
     return new_files + available_files
 
 
