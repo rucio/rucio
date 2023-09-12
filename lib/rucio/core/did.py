@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from sqlalchemy import and_, delete, exists, insert, or_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError, NoResultFound
+from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.sql import func, not_
 from sqlalchemy.sql.expression import bindparam, case, false, null, select, true
 
@@ -156,6 +157,8 @@ def add_did(
 def add_dids(
         dids: "Sequence[dict[str, Any]]",
         account: "InternalAccount",
+        allow_file_dids: bool = False,
+        dataset_meta: "Optional[dict[str, Any]]" = None,
         *,
         session: "Session",
 ) -> None:
@@ -164,28 +167,52 @@ def add_dids(
 
     :param dids: A list of dids.
     :param account: The account owner.
+    :param allow_file_dids: If True, allow creation of file DIDs. By default, only Datasets and Containers can be explicitly created.
     :param session: The database session in use.
     """
     try:
 
         for did in dids:
-            try:
 
-                if isinstance(did['type'], str):
-                    did['type'] = DIDType[did['type']]
+            if isinstance(did['type'], str):
+                did['type'] = DIDType[did['type']]
 
-                if did['type'] == DIDType.FILE:
-                    raise exception.UnsupportedOperation('Only collection (dataset/container) can be registered.')
+            did_type = did['type']
+            if did_type == DIDType.FILE and not allow_file_dids:
+                raise exception.UnsupportedOperation('Only collection (dataset/container) can be registered.')
 
+            if did_type == DIDType.FILE:
+                new_did = models.DataIdentifier(
+                    scope=did['scope'],
+                    name=did['name'],
+                    account=did.get('account') or account,
+                    did_type=DIDType.FILE,
+                    bytes=did['bytes'],
+                    md5=did.get('md5'),
+                    adler32=did.get('adler32'),
+                    is_new=None
+                )
+                new_did.save(session=session, flush=False)
+
+                if 'meta' in did and did['meta']:
+                    set_metadata_bulk(scope=did['scope'], name=did['name'], meta=did['meta'], recursive=False, session=session)
+                if dataset_meta:
+                    set_metadata_bulk(scope=did['scope'], name=did['name'], meta=dataset_meta, recursive=False, session=session)
+            else:
                 # Lifetime
                 expired_at = None
                 if did.get('lifetime'):
                     expired_at = datetime.utcnow() + timedelta(seconds=did['lifetime'])
 
                 # Insert new data identifier
-                new_did = models.DataIdentifier(scope=did['scope'], name=did['name'], account=did.get('account') or account,
-                                                did_type=did['type'], monotonic=did.get('statuses', {}).get('monotonic', False),
-                                                is_open=True, expired_at=expired_at)
+                new_did = models.DataIdentifier(
+                    scope=did['scope'],
+                    name=did['name'],
+                    account=did.get('account') or account,
+                    did_type=did_type, monotonic=did.get('statuses', {}).get('monotonic', False),
+                    is_open=True,
+                    expired_at=expired_at
+                )
 
                 new_did.save(session=session, flush=False)
 
@@ -201,9 +228,9 @@ def add_dids(
                     rucio.core.rule.add_rules(dids=[did, ], rules=did['rules'], session=session)
 
                 event_type = None
-                if did['type'] == DIDType.CONTAINER:
+                if did_type == DIDType.CONTAINER:
                     event_type = 'CREATE_CNT'
-                if did['type'] == DIDType.DATASET:
+                if did_type == DIDType.DATASET:
                     event_type = 'CREATE_DTS'
                 if event_type:
                     message = {'account': account.external,
@@ -214,10 +241,6 @@ def add_dids(
                         message['vo'] = account.vo
 
                     add_message(event_type, message, session=session)
-
-            except KeyError:
-                # ToDo
-                raise
 
         session.flush()
 
@@ -243,6 +266,10 @@ def add_dids(
     except DatabaseError as error:
         if match('.*(DatabaseError).*ORA-14400.*inserted partition key does not map to any partition.*', error.args[0]):
             raise exception.ScopeNotFound('Scope not found!')
+        raise exception.RucioException(error.args)
+    except FlushError as error:
+        if match('New instance .* with identity key .* conflicts with persistent instance', error.args[0]):
+            raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
         raise exception.RucioException(error.args)
 
 
