@@ -1597,7 +1597,6 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
 
     nbfiles, bytes_ = __bulk_add_replicas(rse_id=rse_id, files=files, account=account, session=session)
     increase(rse_id=rse_id, files=nbfiles, bytes_=bytes_, session=session)
-    return replicas
 
 
 @transactional_session
