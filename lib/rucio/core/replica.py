@@ -1371,47 +1371,6 @@ def list_replicas(
     )
 
 
-@transactional_session
-def __bulk_add_file_dids(files, account, dataset_meta=None, *, session: "Session"):
-    """
-    Bulk add new dids.
-
-    :param dids: the list of files.
-    :param account: The account owner.
-    :param session: The database session in use.
-    :returns: True is successful.
-    """
-    condition = []
-    for f in files:
-        condition.append(and_(models.DataIdentifier.scope == f['scope'], models.DataIdentifier.name == f['name'], models.DataIdentifier.did_type == DIDType.FILE))
-
-    q = session.query(models.DataIdentifier.scope,
-                      models.DataIdentifier.name,
-                      models.DataIdentifier.bytes,
-                      models.DataIdentifier.adler32,
-                      models.DataIdentifier.md5).with_hint(models.DataIdentifier, "INDEX(dids DIDS_PK)", 'oracle').filter(or_(*condition))
-    available_files = [dict([(column, getattr(row, column)) for column in row._fields]) for row in q]
-    new_files = list()
-    for file in files:
-        found = False
-        for available_file in available_files:
-            if file['scope'] == available_file['scope'] and file['name'] == available_file['name']:
-                found = True
-                break
-        if not found:
-            new_files.append(file)
-    for file in new_files:
-        file['type'] = DIDType.FILE
-    rucio.core.did.add_dids(
-        dids=new_files,
-        account=account,
-        allow_file_dids=True,
-        dataset_meta=dataset_meta,
-        session=session
-    )
-    return new_files + available_files
-
-
 def tombstone_from_delay(tombstone_delay):
     # Tolerate None for tombstone_delay
     if not tombstone_delay:
@@ -1486,8 +1445,7 @@ def __bulk_add_replicas(rse_id, files, account, *, session: "Session"):
 
 
 @transactional_session
-def add_replicas(rse_id, files, account, ignore_availability=True,
-                 dataset_meta=None, *, session: "Session"):
+def add_replicas(rse_id, files, account, ignore_availability=True, auto_create_dids=True, *, session: "Session"):
     """
     Bulk add file replicas.
 
@@ -1495,6 +1453,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     :param files:   The list of files.
     :param account: The account owner.
     :param ignore_availability: Ignore the RSE blocklisting.
+    :param auto_create_dids: decides if missing DIDs must be created automatically.
     :param session: The database session in use.
 
     :returns: True is successful.
@@ -1518,9 +1477,11 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
             if not replica_rse['deterministic']:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %s ' % (replica_rse['rse']))
 
-    replicas = __bulk_add_file_dids(files=files, account=account,
-                                    dataset_meta=dataset_meta,
-                                    session=session)
+    new_files = []
+    if auto_create_dids:
+        new_files = rucio.core.did.find_missing_file_dids(files=files, session=session)
+    if new_files:
+        rucio.core.did.add_dids(dids=new_files, account=account, allow_file_dids=True, session=session)
 
     pfns = {}  # dict[str, list[str]], {scheme: [pfns], scheme: [pfns]}
     for file in files:

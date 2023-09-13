@@ -32,6 +32,18 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
+def _ensure_scope_internal(dictionary, vo):
+    scope = dictionary['scope']
+    if not isinstance(scope, InternalScope):
+        dictionary['scope'] = InternalScope(scope, vo=vo)
+
+
+def _ensure_account_internal(dictionary, vo):
+    account = dictionary['account']
+    if not isinstance(account, InternalAccount):
+        dictionary['account'] = InternalAccount(account, vo=vo)
+
+
 @stream_session
 def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def', *, session: "Session"):
     """
@@ -125,7 +137,7 @@ def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, r
 
 
 @transactional_session
-def add_dids(dids, issuer, vo='def', *, session: "Session"):
+def add_dids(dids, issuer, vo='def', allow_file_dids=False, *, session: "Session"):
     """
     Bulk Add did.
 
@@ -145,15 +157,15 @@ def add_dids(dids, issuer, vo='def', *, session: "Session"):
     if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_dids', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier' % (issuer))
 
-    issuer = InternalAccount(issuer, vo=vo)
+    account = InternalAccount(issuer, vo=vo)
     for d in dids:
-        d['scope'] = InternalScope(d['scope'], vo=vo)
+        _ensure_scope_internal(d, vo=vo)
         if 'account' in d.keys():
-            d['account'] = InternalAccount(d['account'], vo=vo)
+            _ensure_account_internal(d, vo=vo)
         if 'dids' in d.keys():
             for child in d['dids']:
-                child['scope'] = InternalScope(child['scope'], vo=vo)
-    return did.add_dids(dids, account=issuer, session=session)
+                _ensure_scope_internal(child, vo=vo)
+    return did.add_dids(dids, account=account, allow_file_dids=allow_file_dids, session=session)
 
 
 @transactional_session
