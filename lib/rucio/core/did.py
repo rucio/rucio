@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import logging
 import random
 from datetime import datetime, timedelta
@@ -158,7 +159,6 @@ def add_dids(
         dids: "Sequence[dict[str, Any]]",
         account: "InternalAccount",
         allow_file_dids: bool = False,
-        dataset_meta: "Optional[dict[str, Any]]" = None,
         *,
         session: "Session",
 ) -> None:
@@ -196,8 +196,6 @@ def add_dids(
 
                 if 'meta' in did and did['meta']:
                     set_metadata_bulk(scope=did['scope'], name=did['name'], meta=did['meta'], recursive=False, session=session)
-                if dataset_meta:
-                    set_metadata_bulk(scope=did['scope'], name=did['name'], meta=dataset_meta, recursive=False, session=session)
             else:
                 # Lifetime
                 expired_at = None
@@ -569,8 +567,19 @@ def __add_files_to_dataset(
     if rse_id:
         # Tier-0 uses this old work-around to register replicas on the RSE
         # in the same call as attaching them to a dataset
-        rucio.core.replica.add_replicas(rse_id=rse_id, files=files.values(), dataset_meta=dataset_meta,
-                                        account=account, session=session)
+        new_files = find_missing_file_dids(files.values(), session=session)
+        if new_files:
+            add_dids(dids=new_files, account=account, allow_file_dids=True, session=session)
+        if new_files and dataset_meta:
+            for file in new_files:
+                set_metadata_bulk(scope=file['scope'], name=file['name'], meta=dataset_meta, recursive=False, session=session)
+        rucio.core.replica.add_replicas(
+            rse_id=rse_id,
+            files=files.values(),
+            auto_create_dids=False,
+            account=account,
+            session=session
+        )
 
     stmt = select(
         files_temp_table.scope,
@@ -1348,6 +1357,36 @@ def set_new_dids(
     except DatabaseError as error:
         raise exception.RucioException(error.args[0])
     return True
+
+
+@read_session
+def find_missing_file_dids(files, *, session: "Session"):
+    missing_files = list()
+    if not files:
+        return missing_files
+
+    condition = []
+    for f in files:
+        condition.append(and_(models.DataIdentifier.scope == f['scope'],
+                              models.DataIdentifier.name == f['name']))
+    stmt = select(
+        models.DataIdentifier.scope,
+        models.DataIdentifier.name,
+    ).with_hint(
+        models.DataIdentifier, "INDEX(dids DIDS_PK)", 'oracle'
+    ).where(
+        models.DataIdentifier.did_type == DIDType.FILE
+    ).where(
+        or_(*condition)
+    )
+    available_files = {(scope, name) for scope, name in session.execute(stmt)}
+
+    for file in files:
+        if (file['scope'], file['name']) not in available_files:
+            new_file = copy.copy(file)
+            new_file['type'] = DIDType.FILE
+            missing_files.append(new_file)
+    return missing_files
 
 
 @stream_session

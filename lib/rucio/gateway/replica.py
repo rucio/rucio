@@ -16,6 +16,8 @@ import datetime
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, Optional
 
+import rucio.core.did
+import rucio.gateway.did
 from rucio.common import exception
 from rucio.common.constants import SuspiciousAvailability
 from rucio.common.schema import validate_schema
@@ -281,13 +283,23 @@ def add_replicas(rse, files, issuer, ignore_availability=False, vo='def', *, ses
     if not permission.has_permission(issuer=issuer, vo=vo, action='skip_availability_check', kwargs=kwargs, session=session):
         ignore_availability = False
 
-    issuer = InternalAccount(issuer, vo=vo)
+    account = InternalAccount(issuer, vo=vo)
     for f in files:
         f['scope'] = InternalScope(f['scope'], vo=vo)
         if 'account' in f:
             f['account'] = InternalAccount(f['account'], vo=vo)
 
-    replica.add_replicas(rse_id=rse_id, files=files, account=issuer, ignore_availability=ignore_availability, session=session)
+    new_files = rucio.core.did.find_missing_file_dids(files, session=session)
+    if new_files:
+        rucio.api.did.add_dids(new_files, issuer=issuer, allow_file_dids=True, vo=vo, session=session)
+    replica.add_replicas(
+        rse_id=rse_id,
+        files=files,
+        auto_create_dids=False,
+        account=account,
+        ignore_availability=ignore_availability,
+        session=session,
+    )
 
 
 @transactional_session

@@ -344,7 +344,6 @@ def __create_missing_replicas_and_requests(
                          files=files,
                          account=rws.account,
                          ignore_availability=False,
-                         dataset_meta=None,
                          session=session)
             # Set replica state to Copying in case replica already existed in another state.
             # Can happen when a multihop transfer failed previously, and we are re-scheduling it now.
