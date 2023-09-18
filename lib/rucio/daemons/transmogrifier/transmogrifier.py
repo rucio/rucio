@@ -537,6 +537,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     #  Get all the rule and subscription parameters
                     rule_dict = __get_rule_dict(rule_dict, subscription)
                     weight = rule_dict.get("weight", None)
+                    ignore_availability = rule_dict.get("ignore_availability", None)
                     source_replica_expression = rule_dict.get(
                         "source_replica_expression", None
                     )
@@ -611,8 +612,11 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                             % (did["scope"], did["name"], rse),
                         )
                         if rse in block_listed and rule_dict.get("wild_card"):
-                            logger(logging.INFO, "RSE %s is unavailable and wild_card number of copies is used. Skipping rule creation" % rse)
-                            continue
+                            if ignore_availability:
+                                logger(logging.WARNING, "RSE %s is unavailable, but wild_card number of copies is used with ignore_availability option. Creating a rule" % rse)
+                            else:
+                                logger(logging.INFO, "RSE %s is unavailable and wild_card number of copies is used. Skipping rule creation" % rse)
+                                continue
                         try:
                             rule_ids = add_rule(
                                 dids=[
@@ -632,9 +636,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                                 source_replica_expression=source_replica_expression,
                                 activity=rule_dict.get("activity"),
                                 purge_replicas=rule_dict.get("purge_replicas", False),
-                                ignore_availability=rule_dict.get(
-                                    "ignore_availability", None
-                                ),
+                                ignore_availability=ignore_availability,
                                 comment=rule_dict.get("comment"),
                                 delay_injection=rule_dict.get("delay_injection"),
                             )
