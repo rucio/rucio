@@ -2020,46 +2020,6 @@ def update_requests_priority(priority, filter_, *, session: "Session", logger=lo
         raise RucioException(error.args)
 
 
-@transactional_session
-def update_request_state(tt_status_report, *, session: "Session", logger=logging.log):
-    """
-    Used by poller and consumer to update the internal state of requests,
-    after the response by the external transfertool.
-
-    :param tt_status_report:      The transfertool status update, retrieved via request.query_request().
-    :param session:               The database session to use.
-    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns commit_or_rollback:  Boolean.
-    """
-
-    request_id = tt_status_report.request_id
-    try:
-        fields_to_update = tt_status_report.get_db_fields_to_update(session=session, logger=logger)
-        if not fields_to_update:
-            update_request(request_id, raise_on_missing=True, session=session)
-            return False
-        else:
-            logger(logging.INFO, 'UPDATING REQUEST %s FOR %s with changes: %s' % (str(request_id), tt_status_report, fields_to_update))
-
-            set_request_state(request_id, session=session, **fields_to_update)
-            request = tt_status_report.request(session)
-
-            if tt_status_report.state == RequestState.FAILED:
-                if is_intermediate_hop(request):
-                    handle_failed_intermediate_hop(request, session=session)
-
-            add_monitor_message(new_state=tt_status_report.state,
-                                request=request,
-                                additional_fields=tt_status_report.get_monitor_msg_fields(session=session, logger=logger),
-                                session=session)
-            return True
-    except UnsupportedOperation as error:
-        logger(logging.WARNING, "Request %s doesn't exist - Error: %s" % (request_id, str(error).replace('\n', '')))
-        return False
-    except Exception:
-        logger(logging.CRITICAL, "Exception", exc_info=True)
-
-
 @read_session
 def add_monitor_message(new_state, request, additional_fields, *, session: "Session"):
     """

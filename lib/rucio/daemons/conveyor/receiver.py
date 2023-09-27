@@ -33,7 +33,7 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.logging import setup_logging
 from rucio.common.policy import get_policy
-from rucio.core import request as request_core
+from rucio.core import transfer as transfer_core
 from rucio.core.monitor import MetricManager
 from rucio.daemons.common import HeartbeatHandler
 from rucio.db.sqla.session import transactional_session
@@ -85,7 +85,7 @@ class Receiver(object):
             if tt_status_report.get_db_fields_to_update(session=session, logger=logger):
                 logging.info('RECEIVED %s', tt_status_report)
 
-                ret = request_core.update_request_state(tt_status_report, session=session, logger=logger)
+                ret = transfer_core.update_transfer_state(tt_status_report, session=session, logger=logger)
                 METRICS.counter('update_request_state.{updated}').labels(updated=ret).inc()
         except Exception:
             logging.critical(traceback.format_exc())
