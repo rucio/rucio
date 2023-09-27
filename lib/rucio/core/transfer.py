@@ -30,7 +30,7 @@ from rucio.common.config import config_get
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (InvalidRSEExpression,
                                     RequestNotFound, RSEProtocolNotSupported,
-                                    RucioException)
+                                    RucioException, UnsupportedOperation)
 from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.account import list_accounts
@@ -42,6 +42,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, RequestType, TransferLimitDirection
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.rse import rsemanager as rsemgr
+from rucio.transfertool.transfertool import TransferStatusReport
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 from rucio.transfertool.mock import MockTransfertool
@@ -498,6 +499,48 @@ def set_transfers_state(
         raise RucioException(error.args)
 
     logger(logging.DEBUG, 'Finished to register transfer state for %s' % external_id)
+
+
+@transactional_session
+def update_transfer_state(tt_status_report: TransferStatusReport, *, session: "Session", logger=logging.log):
+    """
+    Used by poller and consumer to update the internal state of requests,
+    after the response by the external transfertool.
+
+    :param tt_status_report:      The transfertool status update, retrieved via request.query_request().
+    :param session:               The database session to use.
+    :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
+    :returns commit_or_rollback:  Boolean.
+    """
+
+    request_id = tt_status_report.request_id
+    try:
+        fields_to_update = tt_status_report.get_db_fields_to_update(session=session, logger=logger)
+        if not fields_to_update:
+            request_core.update_request(request_id, raise_on_missing=True, session=session)
+            return False
+        else:
+            logger(logging.INFO, 'UPDATING REQUEST %s FOR %s with changes: %s' % (str(request_id), tt_status_report, fields_to_update))
+
+            set_request_state(request_id, session=session, **fields_to_update)
+            request = tt_status_report.request(session)
+
+            if tt_status_report.state == RequestState.FAILED:
+                if request_core.is_intermediate_hop(request):
+                    request_core.handle_failed_intermediate_hop(request, session=session)
+
+            request_core.add_monitor_message(
+                new_state=tt_status_report.state,
+                request=request,
+                additional_fields=tt_status_report.get_monitor_msg_fields(session=session, logger=logger),
+                session=session
+            )
+            return True
+    except UnsupportedOperation as error:
+        logger(logging.WARNING, "Request %s doesn't exist - Error: %s" % (request_id, str(error).replace('\n', '')))
+        return False
+    except Exception:
+        logger(logging.CRITICAL, "Exception", exc_info=True)
 
 
 @transactional_session
