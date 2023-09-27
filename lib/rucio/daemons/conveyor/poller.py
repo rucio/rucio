@@ -343,7 +343,7 @@ def _poll_transfers(transfertool_obj, transfers_by_eid, timeout, logger):
                 METRICS.counter('query_transfer_exception').inc()
             else:
                 for request_id in request_ids.intersection(transf_resp):
-                    ret = request_core.update_request_state(transf_resp[request_id], logger=logger)
+                    ret = transfer_core.update_transfer_state(transf_resp[request_id], logger=logger)
                     # if True, really update request content; if False, only touch request
                     if ret:
                         cnt += 1
