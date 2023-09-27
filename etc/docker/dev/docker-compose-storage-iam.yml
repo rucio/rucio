@@ -151,7 +151,7 @@ services:
       - MYSQL_PASSWORD=secret
       - MYSQL_DATABASE=iam_db
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
   nginx-iam:
     image: nginx
     dns_search: cern.ch
@@ -160,7 +160,7 @@ services:
       NGINX_HOST: iam
       NGINX_PORT: 443
     ports:
-      - "443:443"
+      - "127.0.0.1:9443:443"
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       # - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:z
@@ -197,4 +197,4 @@ services:
       - IAM_DB_USERNAME=iam
       - IAM_DB_PASSWORD=secret
     ports:
-      - "8090:8090"
+      - "127.0.0.1:8090:8090"
