@@ -22,8 +22,9 @@ from rucio.common import exception
 from rucio.common.constants import SuspiciousAvailability
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import api_update_return_dict, invert_dict
+from rucio.common.utils import api_update_return_dict
 from rucio.core import replica
+from rucio.core.replica import get_pfn_to_rse
 from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
@@ -85,36 +86,51 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False, *
     if not replicas:
         return {}
 
-    kwargs = {}
-    rse_map = {}                # RSE name -> RSE id
-    if not permission.has_permission(issuer=issuer, vo=vo, action='declare_bad_file_replicas', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not declare bad replicas' % (issuer))
+    # make sure all elements are either strings or dicts, without mixing
+
+    as_pfns = isinstance(replicas[0], str)
+    if any(isinstance(r, str) != as_pfns for r in replicas):
+        raise exception.InvalidType('The replicas must be specified either as a list of PFNs (strings) or list of dicts')
+
+    rse_map = {}            # name -> id
+    rse_id_to_name = {}     # id -> name
 
     issuer = InternalAccount(issuer, vo=vo)
 
-    # make sure all elements are either strings or dicts, without mixing
-    type_ = type(replicas[0])
-    if any(not isinstance(r, type_) for r in replicas):
-        raise exception.InvalidType('The replicas must be specified either as a list of PFNs (strings) or list of dicts')
-
     replicas_lst = replicas
-    if type_ is dict:
+    rse_ids_to_check = set()
+    if as_pfns:
+        scheme, rses_for_replicas, unknowns = get_pfn_to_rse(replicas, vo=vo)
+        if unknowns:
+            raise exception.ReplicaNotFound("Not all replicas found")
+        rse_ids_to_check = set(rses_for_replicas.keys())
+        pass
+    else:
+        # repliac are given as dicts {name, scope, rse}
         replicas_lst = []           # need to create new list to convert replica["scope"] from strings to InternalScope objects
         for r in replicas:
             if "name" not in r or "scope" not in r or ("rse" not in r and "rse_id" not in r):
                 raise exception.InvalidType('The replica dictionary must include scope and either rse (name) or rse_id')
-            scope = InternalScope(r['scope'], vo=vo)
-            rse_id = r.get("rse_id") or rse_map.get(r['rse'])
-            if rse_id is None:
-                rse = r["rse"]
-                rse_map[rse] = rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+            rse_id = r.get("rse_id")
+            rse = r.get("rse")
+            rse_id = rse_id or rse_map.get(rse) or get_rse_id(rse=rse, vo=vo, session=session)
+            rse = rse or rse_id_to_name.get(rse_id) or get_rse_name(rse_id, session=session)
+            rse_map[rse] = rse_id
+            rse_id_to_name[rse_id] = rse
             replicas_lst.append({
-                "scope": scope,
+                "scope": InternalScope(r['scope'], vo=vo),
                 "rse_id": rse_id,
                 "name": r["name"]
             })
+            rse_ids_to_check.add(rse_id)
 
-    rse_id_to_name = invert_dict(rse_map)   # RSE id -> RSE name
+    rse_ids_to_check = set()
+    for rse_id in rse_ids_to_check:
+        if not permission.has_permission(issuer=issuer, vo=vo, action='declare_bad_file_replicas',
+                                         kwargs={"rse_id": rse_id},
+                                         session=session):
+            raise exception.AccessDenied('Account %s can not declare bad replicas in RSE %s'
+                                         % (issuer, rse_id_to_name.get(rse_id, rse_id)))
 
     undeclared = replica.declare_bad_file_replicas(replicas_lst, reason=reason, issuer=issuer, status=BadFilesStatus.BAD,
                                                    force=force, session=session)

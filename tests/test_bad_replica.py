@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from json import dumps, loads
 
 import pytest
+import logging
 
 from rucio.common.exception import RucioException, UnsupportedOperation, InvalidType
 from rucio.common.utils import generate_uuid, clean_surls
@@ -24,13 +25,15 @@ from rucio.core.did import delete_dids
 from rucio.core.replica import (add_replicas, get_replicas_state, list_replicas,
                                 declare_bad_file_replicas, list_bad_replicas, get_bad_pfns,
                                 get_bad_replicas_backlog, list_bad_replicas_status, get_pfn_to_rse)
+from rucio.core.rse import add_rse
+from rucio.api.replica import declare_bad_file_replicas as api_declare_bad_file_replicas
 from rucio.client.rseclient import RSEClient
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
 from rucio.daemons.badreplicas.necromancer import run as necromancer_run
 from rucio.daemons.badreplicas.necromancer import REGION
 from rucio.db.sqla.constants import DIDType, ReplicaState, BadPFNStatus, BadFilesStatus
-from rucio.tests.common import headers, auth
+from rucio.tests.common import headers, auth, rse_name_generator
 
 
 @pytest.fixture
@@ -103,6 +106,57 @@ def test_add_list_bad_replicas(rse_factory, mock_scope, root_account):
     r = declare_bad_file_replicas(files, 'This is a good reason', root_account)
     output = ['%s Unknown replica' % rep for rep in files]
     assert r == {rse2_id: output}
+
+
+@pytest.mark.xfail
+@pytest.mark.noparallel(reason='calls list_bad_replicas() which acts on all bad replicas without any filtering')
+def test_api_declare_bad_replicas_by_lfn(rse_factory, mock_scope, root_account):
+    """ REPLICA (API): Add bad replicas and list them"""
+
+    nbfiles = 5
+    # Adding replicas to deterministic RSE
+
+    rse_name = rse_name_generator()
+    properties = {
+        'ASN': 'ASN',
+        'availability_read': False,
+        'availability_write': True,
+        'availability_delete': False,
+        'deterministic': True,
+        'volatile': True,
+        'city': 'city',
+        'region_code': 'DE',
+        'country_name': 'country_name',
+        'continent': 'EU',
+        'time_zone': 'time_zone',
+        'ISP': 'ISP',
+        'staging_area': True,
+        'rse_type': 'DISK',
+        'longitude': 1.0,
+        'latitude': 2.0,
+        'vo': 'def'
+    }
+    rse_id = add_rse(rse_name, **properties)
+
+    files = [{'scope': mock_scope, 'name': 'file_%s' % generate_uuid(), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+    add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
+
+    replicas = [
+        {"name": f["name"], "scope": str(f["scope"]), "rse": rse_name}
+        for f in files
+    ]
+
+    undeclared = api_declare_bad_file_replicas(replicas, 'This is a good reason', str(root_account))
+    assert not undeclared, "Not all replicas declared"
+    bad_replicas = list_bad_replicas()
+    nbbadrep = 0
+    for rep in replicas:
+        for badrep in bad_replicas:
+            if badrep['rse_id'] == rse_id:
+                if badrep['scope'] == rep['scope'] and badrep['name'] == rep['name']:
+                    nbbadrep += 1
+                    break
+    assert len(replicas) == nbbadrep
 
 
 @pytest.mark.noparallel(reason='runs necromancer which acts on all bad replicas without any filtering')
@@ -179,6 +233,7 @@ def test_client_add_list_bad_replicas(rse_factory, replica_client, did_client):
     for replica in replica_client.list_replicas(dids=[{'scope': f['scope'], 'name': f['name']} for f in files], schemes=['srm'], all_states=True):
         replicas.extend(replica['rses'][rse1])
         list_rep.append(replica)
+    logging.log(logging.DEBUG, "test_client_add_list_bad_replicas: calling replica_client.declare_bad_file_replicas()...")
     r = replica_client.declare_bad_file_replicas(replicas, 'This is a good reason')
     assert r == {}
     bad_replicas = list_bad_replicas()

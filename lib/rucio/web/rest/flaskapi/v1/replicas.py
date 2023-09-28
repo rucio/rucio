@@ -13,6 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import traceback
+import sys
+import logging
+
 from datetime import datetime
 from itertools import chain
 from json import dumps, loads
@@ -847,20 +851,26 @@ class BadReplicas(ErrorHandlingMethodView):
           406:
             description: Not acceptable
         """
-        parameters = json_parameters()
-        replicas = param_get(parameters, 'replicas', default=[]) or param_get(parameters, 'pfns', default=[])
-        reason = param_get(parameters, 'reason', default=None)
-        force = param_get(parameters, 'force', default=False)
-
+        logging.log(logging.DEBUG, "BadReplicas.post()...")
         try:
-            not_declared_files = declare_bad_file_replicas(replicas, reason=reason,
-                                                           issuer=request.environ.get('issuer'), vo=request.environ.get('vo'),
-                                                           force=force)
-            return not_declared_files, 201
-        except AccessDenied as error:
-            return generate_http_error_flask(401, error)
-        except (RSENotFound, ReplicaNotFound) as error:
-            return generate_http_error_flask(404, error)
+            parameters = json_parameters()
+            replicas = param_get(parameters, 'replicas', default=[]) or param_get(parameters, 'pfns', default=[])
+            reason = param_get(parameters, 'reason', default=None)
+            force = param_get(parameters, 'force', default=False)
+
+            try:
+                not_declared_files = declare_bad_file_replicas(replicas, reason=reason,
+                                                               issuer=request.environ.get('issuer'), vo=request.environ.get('vo'),
+                                                               force=force)
+                return not_declared_files, 201
+            except AccessDenied as error:
+                return generate_http_error_flask(401, error)
+            except (RSENotFound, ReplicaNotFound) as error:
+                return generate_http_error_flask(404, error)
+        except Exception as error:
+            tb = "  ".join(traceback.format_exception(*sys.exc_info()))
+            message = f"Uncaught server side exception: {error}\n-------------------\n{tb}\n-----------------"
+            return generate_http_error_flask(400, message)
 
 
 class QuarantineReplicas(ErrorHandlingMethodView):
