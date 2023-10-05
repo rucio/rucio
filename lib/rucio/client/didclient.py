@@ -661,19 +661,6 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def add_temporary_dids(self, dids):
-        """
-        Bulk add temporary data identifiers.
-
-        :param dids: A list of dids.
-        """
-        url = build_url(choice(self.list_hosts), path='tmp_dids')
-        r = self._send_request(url, type_='POST', data=dumps(dids))
-        if r.status_code == codes.created:
-            return True
-        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-        raise exc_cls(exc_msg)
-
     def list_archive_content(self, scope, name):
         """
         List archive contents.
