@@ -16,7 +16,12 @@
 import os
 from pathlib import Path
 
+DIRECTORY = Path(os.path.abspath(__file__)).parent
+
 # GeoLite2-City-Test.mmdb downloaded on 26/Jan/2022 from ./test-data/ in
 # https://github.com/maxmind/MaxMind-DB/tree/2f0ef0249245c7f19feffa366793a6fffd529701/
 # Check ./source-data/GeoLite2-City-Test.json in this repository for IPs to use in tests
-GEOIP_LITE2_CITY_TEST_DB = Path(os.path.abspath(__file__)).parent / 'GeoLite2-City-Test.tar.gz'
+GEOIP_LITE2_CITY_TEST_DB = DIRECTORY / 'GeoLite2-City-Test.tar.gz'
+
+# Downloaded on 05/oct/2023 from https://www.scitags.org/api.json
+SCITAGS_JSON = DIRECTORY / 'scitags.json'

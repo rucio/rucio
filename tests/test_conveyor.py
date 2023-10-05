@@ -49,6 +49,7 @@ from rucio.db.sqla.session import read_session, transactional_session
 from rucio.tests.common import skip_rse_tests_with_accounts
 from rucio.transfertool.fts3 import FTS3Transfertool
 from tests.ruciopytest import NoParallelGroups
+from tests.mocks.mock_http_server import MockServer
 
 MAX_POLL_WAIT_SECONDS = 60
 TEST_FTS_HOST = 'https://fts:8446'
@@ -116,6 +117,24 @@ def __get_source(request_id, src_rse_id, scope, name, *, session=None):
         .filter(models.Source.name == name) \
         .filter(models.Source.rse_id == src_rse_id) \
         .first()
+
+
+@pytest.fixture
+def scitags_mock(core_config_mock):
+    """Run a mock http server which always returns the content of scitags.json from test/inputs"""
+    from tests.inputs import SCITAGS_JSON
+    from pathlib import Path
+
+    class _SendScitagsJson(MockServer.Handler):
+        def do_GET(self):
+            file_content = Path(SCITAGS_JSON).read_text()
+            self.send_code_and_message(200, {'Content-Type': 'application/json'}, file_content)
+
+    with MockServer(_SendScitagsJson) as mock_server:
+        core_config.set('packet-marking', 'enabled',  True)
+        core_config.set('packet-marking', 'fetch_url',  mock_server.base_url)
+        core_config.set('packet-marking', 'exp_name',  'atlas')
+        yield mock_server
 
 
 @skip_rse_tests_with_accounts
@@ -528,7 +547,7 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
 ]}], indirect=True)
-def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock, metrics_mock):
+def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock, metrics_mock, scitags_mock):
     """
     Verify that the receiver correctly handles successful multihop jobs
     """
@@ -547,7 +566,7 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
 
         did = did_factory.upload_test_file(src_rse)
         rule_priority = 5
-        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None, priority=rule_priority)
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None, priority=rule_priority, activity='test')
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
         request = __wait_for_state_transition(dst_rse_id=jump_rse_id, run_poller=False, **did)
@@ -556,7 +575,9 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
         assert request['state'] == RequestState.DONE
 
         fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query({request['external_id']: {request['id']: request}})
-        assert fts_response[request['external_id']][request['id']].job_response['priority'] == rule_priority
+        fts_response = fts_response[request['external_id']][request['id']]
+        assert fts_response.job_response['priority'] == rule_priority
+        assert fts_response.file_response['file_metadata'].get('scitags_id') is not None
 
         # Two hops; both handled by receiver
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 2

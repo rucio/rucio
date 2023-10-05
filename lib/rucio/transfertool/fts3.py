@@ -31,7 +31,7 @@ from requests.adapters import ReadTimeout
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 
 from rucio.common.cache import make_region_memcached
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE, FTS_COMPLETE_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
 from rucio.common.stopwatch import Stopwatch
@@ -103,6 +103,61 @@ PATH_CHECKSUM_VALIDATION_STRATEGY: dict[tuple[str, str], str] = {
     ('none', 'source'): 'none',
     ('none', 'none'): 'none',
 }
+
+_SCITAGS_NEXT_REFRESH = datetime.datetime.utcnow()
+_SCITAGS_EXP_ID = None
+_SCITAGS_ACTIVITY_IDS = {}
+
+
+def _scitags_ids(logger: Callable[..., Any] = logging.log) -> "tuple[int | None, dict[str, int]]":
+    """
+    Re-fetch if needed and return the scitags ids
+    """
+    enabled = config_get_bool('packet-marking', 'enabled', default=False)
+    if not enabled:
+        return None, {}
+
+    now = datetime.datetime.utcnow()
+    global _SCITAGS_ACTIVITY_IDS
+    global _SCITAGS_EXP_ID
+    global _SCITAGS_NEXT_REFRESH
+    if _SCITAGS_NEXT_REFRESH < now:
+        exp_name = config_get('packet-marking', 'exp_name', default='')
+        fetch_url = config_get('packet-marking', 'fetch_url', default='https://www.scitags.org/api.json')
+        fetch_interval = config_get_int('packet-marking', 'fetch_interval', default=datetime.timedelta(hours=48).seconds)
+        fetch_timeout = config_get_int('packet-marking', 'fetch_timeout', default=5)
+
+        _SCITAGS_NEXT_REFRESH = now + datetime.timedelta(seconds=fetch_interval)
+
+        if exp_name:
+            had_exception = False
+            exp_id = None
+            activity_ids = {}
+            try:
+                result = requests.get(fetch_url, timeout=fetch_timeout)
+                if result and result.status_code == 200:
+                    marks = result.json()
+                    for experiment in marks.get('experiments', []):
+                        if experiment.get('expName') == exp_name:
+                            exp_id = experiment.get('expId')
+                            for activity_dict in experiment.get('activities', []):
+                                activity_name = activity_dict.get('activityName')
+                                activity_id = activity_dict.get('activityId')
+                                if activity_name and activity_id:
+                                    activity_ids[activity_name] = int(activity_id)
+                            break
+            except (requests.exceptions.RequestException, TypeError, ValueError):
+                had_exception = True
+                logger(logging.WARNING, 'Failed to fetch the scitags markings', exc_info=True)
+
+            if had_exception:
+                # Retry quicker after fetch errors
+                _SCITAGS_NEXT_REFRESH = min(_SCITAGS_NEXT_REFRESH, now + datetime.timedelta(minutes=5))
+            else:
+                _SCITAGS_EXP_ID = exp_id
+                _SCITAGS_ACTIVITY_IDS = activity_ids
+
+    return _SCITAGS_EXP_ID, _SCITAGS_ACTIVITY_IDS
 
 
 def _pick_cert_file(vo: "Optional[str]") -> "Optional[str]":
@@ -791,6 +846,8 @@ class FTS3Transfertool(Transfertool):
             self.cert = None
             self.verify = True  # True is the default setting of a requests.* method
 
+        self.scitags_exp_id, self.scitags_activity_ids = _scitags_ids(logger=logger)
+
     @classmethod
     def _pick_fts_servers(cls, source_rse: "RseData", dest_rse: "RseData"):
         """
@@ -882,6 +939,10 @@ class FTS3Transfertool(Transfertool):
             'selection_strategy': self.source_strategy if self.source_strategy else _configured_source_strategy(transfer.rws.activity, logger=self.logger),
             'activity': rws.activity
         }
+        if isinstance(self.scitags_exp_id, int):
+            activity_id = self.scitags_activity_ids.get(rws.activity)
+            if isinstance(activity_id, int):
+                t_file['metadata']['scitags_id'] = self.scitags_exp_id << 6 | activity_id
         return t_file
 
     def submit(self, transfers, job_params, timeout=None):
