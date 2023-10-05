@@ -372,7 +372,7 @@ def db_session():
 
 def __get_fixture_param(request):
     fixture_param = getattr(request, "param", None)
-    if not fixture_param:
+    if not fixture_param and request.instance:
         # Parametrize support is incomplete for legacy unittest test cases
         # Manually retrieve the parameters from the list of marks:
         mark = next(iter(filter(lambda m: m.name == 'parametrize', request.instance.pytestmark)), None)

@@ -1,0 +1,432 @@
+{
+  "experiments": [
+    {
+      "expName": "default",
+      "expId": 1,
+      "activities": [
+        {
+          "activityName": "default",
+          "activityId": 1
+        },
+        {
+          "activityName": "perfsonar",
+          "activityId": 2
+        },
+        {
+          "activityName": "cache",
+          "activityId": 3
+        },
+        {
+          "activityName": "datachallenge",
+          "activityId": 4
+        }
+      ]
+    },
+    {
+      "expName": "atlas",
+      "expId": 2,
+      "activities": [
+        {
+          "activityName": "perfsonar",
+          "activityId": 2
+        },
+        {
+          "activityName": "cache",
+          "activityId": 3
+        },
+        {
+          "activityName": "datachallenge",
+          "activityId": 4
+        },
+        {
+          "activityName": "default",
+          "activityId": 8
+        },
+        {
+          "activityName": "analysis download",
+          "activityId": 9
+        },
+        {
+          "activityName": "analysis download direct io",
+          "activityId": 10
+        },
+        {
+          "activityName": "analysis input",
+          "activityId": 11
+        },
+        {
+          "activityName": "analysis upload",
+          "activityId": 12
+        },
+        {
+          "activityName": "cli download",
+          "activityId": 13
+        },
+        {
+          "activityName": "cli upload",
+          "activityId": 14
+        },
+        {
+          "activityName": "data consolidation",
+          "activityId": 15
+        },
+        {
+          "activityName": "data rebalancing",
+          "activityId": 16
+        },
+        {
+          "activityName": "express",
+          "activityId": 17
+        },
+        {
+          "activityName": "test",
+          "activityId": 18
+        },
+        {
+          "activityName": "production download",
+          "activityId": 19
+        },
+        {
+          "activityName": "production input",
+          "activityId": 20
+        },
+        {
+          "activityName": "production output",
+          "activityId": 21
+        },
+        {
+          "activityName": "production upload",
+          "activityId": 22
+        },
+        {
+          "activityName": "recovery",
+          "activityId": 23
+        },
+        {
+          "activityName": "staging",
+          "activityId": 24
+        },
+        {
+          "activityName": "t0 export",
+          "activityId": 25
+        },
+        {
+          "activityName": "user subscriptions",
+          "activityId": 26
+        }
+      ]
+    },
+    {
+      "expName": "cms",
+      "expId": 3,
+      "activities": [
+        {
+          "activityName": "default",
+          "activityId": 1
+        },
+        {
+          "activityName": "perfsonar",
+          "activityId": 2
+        },
+        {
+          "activityName": "cache",
+          "activityId": 3
+        },
+        {
+          "activityName": "datachallenge",
+          "activityId": 4
+        }
+      ]
+    },
+    {
+      "expName": "lhcb",
+      "expId": 4,
+      "activities": [
+        {
+          "activityName": "default",
+          "activityId": 1
+        },
+        {
+          "activityName": "perfsonar",
+          "activityId": 2
+        },
+        {
+          "activityName": "cache",
+          "activityId": 3
+        },
+        {
+          "activityName": "datachallenge",
+          "activityId": 4
+        }
+      ]
+    },
+    {
+      "expName": "alice",
+      "expId": 5,
+      "activities": [
+        {
+          "activityName": "default",
+          "activityId": 1
+        },
+        {
+          "activityName": "perfsonar",
+          "activityId": 2
+        },
+        {
+          "activityName": "cache",
+          "activityId": 3
+        },
+        {
+          "activityName": "datachallenge",
+          "activityId": 4
+        },
+        {
+          "activityName": "data consolidation",
+          "activityId": 8
+        },
+        {
+          "activityName": "job preparation",
+          "activityId": 9
+        },
+        {
+          "activityName": "data access",
+          "activityId": 10
+        },
+        {
+          "activityName": "calibration data access",
+          "activityId": 11
+        },
+        {
+          "activityName": "job output",
+          "activityId": 12
+        },
+        {
+          "activityName": "data replication",
+          "activityId": 13
+        },
+        {
+          "activityName": "cli download",
+          "activityId": 14
+        },
+        {
+          "activityName": "cli upload",
+          "activityId": 15
+        },
+        {
+          "activityName": "functional tests",
+          "activityId": 16
+        }
+      ]
+    },
+    {
+      "expName": "belleii",
+      "expId": 6,
+      "activities": [
+        {
+          "activityName": "default",
+          "activityId": 1
+        },
+        {
+          "activityName": "perfsonar",
+          "activityId": 2
+        },
+        {
+          "activityName": "cache",
+          "activityId": 3
+        },
+        {
+          "activityName": "datachallenge",
+          "activityId": 4
+        },
+        {
+          "activityName": "data consolidation",
+          "activityId": 8
+        },
+        {
+          "activityName": "data rebalancing",
+          "activityId": 9
+        },
+        {
+          "activityName": "functional test",
+          "activityId": 10
+        },
+        {
+          "activityName": "functional test webdav",
+          "activityId": 11
+        },
+        {
+          "activityName": "recovery",
+          "activityId": 12
+        },
+        {
+          "activityName": "production input",
+          "activityId": 13
+        },
+        {
+          "activityName": "production output",
+          "activityId": 14
+        },
+        {
+          "activityName": "production merge",
+          "activityId": 15
+        },
+        {
+          "activityName": "analysis input",
+          "activityId": 16
+        },
+        {
+          "activityName": "analysis output",
+          "activityId": 17
+        },
+        {
+          "activityName": "staging",
+          "activityId": 18
+        },
+        {
+          "activityName": "raw export",
+          "activityId": 19
+        },
+        {
+          "activityName": "upload/download (job)",
+          "activityId": 20
+        },
+        {
+          "activityName": "upload/download (user)",
+          "activityId": 21
+        },
+        {
+          "activityName": "user merge",
+          "activityId": 22
+        },
+        {
+          "activityName": "user transfers",
+          "activityId": 23
+        },
+        {
+          "activityName": "user subscription",
+          "activityId": 24
+        },
+        {
+          "activityName": "t0 tape",
+          "activityId": 25
+        },
+        {
+          "activityName": "t0 export",
+          "activityId": 26
+        }
+      ]
+    },
+    {
+      "expName": "ska",
+      "expId": 7,
+      "activities": [
+        {
+          "activityName": "default",
+          "activityId": 1
+        },
+        {
+          "activityName": "perfsonar",
+          "activityId": 2
+        },
+        {
+          "activityName": "cache",
+          "activityId": 3
+        },
+        {
+          "activityName": "datachallenge",
+          "activityId": 4
+        }
+      ]
+    },
+    {
+      "expName": "dune",
+      "expId": 8,
+      "activities": [
+        {
+          "activityName": "default",
+          "activityId": 1
+        },
+        {
+          "activityName": "perfsonar",
+          "activityId": 2
+        },
+        {
+          "activityName": "cache",
+          "activityId": 3
+        },
+        {
+          "activityName": "datachallenge",
+          "activityId": 4
+        }
+      ]
+    },
+    {
+      "expName": "lsst",
+      "expId": 9,
+      "activities": [
+        {
+          "activityName": "default",
+          "activityId": 1
+        },
+        {
+          "activityName": "perfsonar",
+          "activityId": 2
+        },
+        {
+          "activityName": "cache",
+          "activityId": 3
+        },
+        {
+          "activityName": "datachallenge",
+          "activityId": 4
+        }
+      ]
+    },
+    {
+      "expName": "ilc",
+      "expId": 10,
+      "activities": [
+        {
+          "activityName": "default",
+          "activityId": 1
+        },
+        {
+          "activityName": "perfsonar",
+          "activityId": 2
+        },
+        {
+          "activityName": "cache",
+          "activityId": 3
+        },
+        {
+          "activityName": "datachallenge",
+          "activityId": 4
+        }
+      ]
+    },
+    {
+      "expName": "auger",
+      "expId": 11,
+      "activities": [
+        {
+          "activityName": "default",
+          "activityId": 1
+        },
+        {
+          "activityName": "perfsonar",
+          "activityId": 2
+        },
+        {
+          "activityName": "cache",
+          "activityId": 3
+        },
+        {
+          "activityName": "datachallenge",
+          "activityId": 4
+        }
+      ]
+    }
+  ],
+  "version": 1,
+  "modified": "2023-04-14T08:45:55.373545+00:00"
+}
