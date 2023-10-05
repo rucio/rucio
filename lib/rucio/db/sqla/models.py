@@ -1600,28 +1600,6 @@ class NamingConvention(BASE, ModelBase):
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='NAMING_CONVENTIONS_SCOPE_FK'))
 
 
-class TemporaryDataIdentifier(BASE, ModelBase):
-    """Represents a temporary DID (pre-merged files, etc.)"""
-    __tablename__ = 'tmp_dids'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
-    rse_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID())
-    path: Mapped[Optional[str]] = mapped_column(String(1024))
-    bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
-    md5: Mapped[Optional[str]] = mapped_column(String(32))
-    adler32: Mapped[Optional[str]] = mapped_column(String(8))
-    expired_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    guid: Mapped[Optional[uuid.UUID]] = mapped_column(GUID())
-    events: Mapped[Optional[int]] = mapped_column(BigInteger)
-    task_id: Mapped[Optional[int]] = mapped_column(Integer())
-    panda_id: Mapped[Optional[int]] = mapped_column(Integer())
-    parent_scope: Mapped[Optional[InternalScope]] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    parent_name: Mapped[Optional[str]] = mapped_column(String(get_schema_value('NAME_LENGTH')))
-    offset: Mapped[Optional[int]] = mapped_column(BigInteger)
-    _table_args = (PrimaryKeyConstraint('scope', 'name', name='TMP_DIDS_PK'),
-                   Index('TMP_DIDS_EXPIRED_AT_IDX', 'expired_at'))
-
-
 class LifetimeExceptions(BASE, ModelBase):
     """Represents the exceptions to the lifetime model"""
     __tablename__ = 'lifetime_except'
@@ -1752,7 +1730,6 @@ def register_models(engine):
               SourceHistory,
               Subscription,
               SubscriptionHistory,
-              TemporaryDataIdentifier,
               Token,
               UpdatedAccountCounter,
               UpdatedDID,
@@ -1823,7 +1800,6 @@ def unregister_models(engine):
               Subscription,
               SubscriptionHistory,
               Token,
-              TemporaryDataIdentifier,
               UpdatedAccountCounter,
               UpdatedDID,
               UpdatedRSECounter,
