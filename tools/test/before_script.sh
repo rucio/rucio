@@ -53,7 +53,7 @@ elif [ $RDBMS == "mysql8" ]; then
     date
     for i in {1..30}; do
         sleep 4
-        cont=$(bash -c 'ping=`docker '"$CONTAINER_RUNTIME_ARGS"' exec '"$CON_DB"' mysqladmin --user=root --password=secret ping`; echo $ping 1>&2; echo $ping | grep "mysqld is alive" 1>&2; echo $?')
+        cont=$(bash -c 'ping=`docker '"$CONTAINER_RUNTIME_ARGS"' exec '"$CON_DB"' mysqladmin --user=rucio --password=rucio ping`; echo $ping 1>&2; echo $ping | grep "mysqld is alive" 1>&2; echo $?')
         [ "$cont" -eq "0" ] && break
     done
     date

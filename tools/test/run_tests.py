@@ -15,6 +15,8 @@
 # limitations under the License.
 
 import json
+import io
+import itertools
 import multiprocessing
 import os
 import pathlib
@@ -24,11 +26,32 @@ import sys
 import time
 import traceback
 import uuid
-from collections.abc import Callable
 from datetime import datetime
-from typing import Optional
+from tempfile import NamedTemporaryFile
+from typing import Optional, Union, NoReturn
 
-from suites import run, Container, rdbms_container, services, CumulativeContextManager, service_hostnames, env_args
+import yaml
+
+
+def run(*args, check=True, return_stdout=False, env=None) -> Union[NoReturn, io.TextIOBase]:
+    kwargs = {'check': check, 'stdout': sys.stderr, 'stderr': subprocess.STDOUT}
+    if env is not None:
+        kwargs['env'] = env
+    if return_stdout:
+        kwargs['stderr'] = sys.stderr
+        kwargs['stdout'] = subprocess.PIPE
+    args = [str(a) for a in args]
+    print("** Running", " ".join(map(lambda a: repr(a) if ' ' in a else a, args)), kwargs, file=sys.stderr, flush=True)
+    proc = subprocess.run(args, **kwargs)
+    if return_stdout:
+        return proc.stdout
+
+
+def env_args(caseenv):
+    environment_args = list(itertools.chain(*map(lambda x: ('--env', f'{x[0]}={x[1]}'), caseenv.items())))
+    environment_args.append('--env')
+    environment_args.append('GITHUB_ACTIONS')
+    return environment_args
 
 
 def matches(small: dict, group: dict):
@@ -177,8 +200,6 @@ def run_case(caseenv, image, use_podman, use_namespace, use_httpd, copy_rucio_lo
             success = run_with_httpd(
                 caseenv=caseenv,
                 image=image,
-                use_podman=use_podman,
-                pod=pod,
                 namespace_args=namespace_args,
                 namespace_env=namespace_env,
                 copy_rucio_logs=copy_rucio_logs,
@@ -254,74 +275,85 @@ def run_test_directly(
 def run_with_httpd(
     caseenv: dict[str, str],
     image: str,
-    use_podman: bool,
-    pod: str,
     namespace_args: list[str],
     namespace_env: dict[str, str],
     copy_rucio_logs: bool,
     logs_dir: pathlib.Path,
     tests: list[str],
 ) -> bool:
-    pod_net_arg = ['--pod', pod] if use_podman else []
-    # Running rucio container from given image
-    with Container(image, runtime_args=namespace_args, run_args=pod_net_arg, environment=caseenv) as rucio_container:
+    compose_version = int(run('docker-compose', 'version', '--short', return_stdout=True).decode().split('.')[0])
+
+    with (NamedTemporaryFile() as compose_override_file):
+        compose_override_content = yaml.dump({
+            'services': {
+                'rucio': {
+                    'image': image,
+                    'environment': [f'{k}={v}' for k, v in caseenv.items()],
+                },
+                'ruciodb': {
+                    'profiles': ['donotstart'],
+                }
+            }
+        })
+        print("Overriding docker-compose configuration with: \n", compose_override_content, flush=True)
+        with open(compose_override_file.name, 'w') as f:
+            f.write(compose_override_content)
+
+        rdbms = caseenv.get('RDBMS', '')
+        project = os.urandom(8).hex()
+        containers = {}
+        up_down_args = (
+            '--file', 'etc/docker/dev/docker-compose.yml',
+            '--file', compose_override_file.name,
+            '--profile', rdbms,
+        )
         try:
-            network_arg = ('--network', 'container:' + rucio_container.cid)
-            container_run_args = pod_net_arg if use_podman else network_arg
-            additional_containers = []
+            # Start docker compose
+            run('docker-compose', '-p', project, *up_down_args, 'up', '-d')
 
-            def create_cnt(cnt_class: Callable) -> Container:
-                return cnt_class(
-                    runtime_args=namespace_args,
-                    run_args=container_run_args,
-                )
+            # Retrieve container names from docker compose
+            # or use pre-defined names for old, v1, docker-compose
+            if compose_version > 1:
+                containers = {
+                    c['Service']: c['Name']
+                    for c in json.loads(
+                        run('docker-compose', '-p', project, 'ps', '--format', 'json', return_stdout=True)
+                    )
+                }
+            else:
+                containers = {
+                    'rucio': f'{project}_rucio_1',
+                    rdbms: f'{project}_{rdbms}_1',
+                }
 
-            db_container = None
-            rdbms = caseenv.get('RDBMS', '')
-            if rdbms:
-                service_key = caseenv.get('SERVICES', 'default')
-                db_container_class = rdbms_container.get(rdbms, None)
-                if db_container_class:
-                    db_container = create_cnt(db_container_class)
-                    additional_containers.append(db_container)
-                additional_containers += list(map(create_cnt, services[service_key]))
+            # Running before_script.sh
+            run(
+                './tools/test/before_script.sh',
+                env={
+                    **os.environ,
+                    **caseenv,
+                    **namespace_env,
+                    "CONTAINER_RUNTIME_ARGS": ' '.join(namespace_args),
+                    "CON_RUCIO": containers['rucio'],
+                    "CON_DB": containers[rdbms],
+                },
+            )
 
-            with CumulativeContextManager(*additional_containers):
-                db_env = dict()
-                if db_container:
-                    db_env['CON_DB'] = db_container.cid
+            # Running install_script.sh
+            run('docker', *namespace_args, 'exec', containers['rucio'], './tools/test/install_script.sh')
 
-                # Running before_script.sh
-                run(
-                    './tools/test/before_script.sh',
-                    env={
-                        **os.environ,
-                        **caseenv,
-                        **namespace_env,
-                        **db_env,
-                        "CONTAINER_RUNTIME_ARGS": ' '.join(namespace_args),
-                        "CON_RUCIO": rucio_container.cid,
-                    },
-                )
+            # Running test.sh
+            if tests:
+                tests_env = ('--env', 'TESTS=' + ' '.join(tests))
+                tests_arg = ('-p', )
+            else:
+                tests_env = ()
+                tests_arg = ()
 
-                # register service hostnames
-                run('docker', *namespace_args, 'exec', rucio_container.cid, '/bin/sh', '-c', f'echo "127.0.0.1 {" ".join(service_hostnames)}" | tee -a /etc/hosts')
+            run('docker', *namespace_args, 'exec', *tests_env, containers['rucio'], './tools/test/test.sh', *tests_arg)
 
-                # Running install_script.sh
-                run('docker', *namespace_args, 'exec', rucio_container.cid, './tools/test/install_script.sh')
-
-                # Running test.sh
-                if tests:
-                    tests_env = ('--env', 'TESTS=' + ' '.join(tests))
-                    tests_arg = ('-p', )
-                else:
-                    tests_env = ()
-                    tests_arg = ()
-
-                run('docker', *namespace_args, 'exec', *tests_env, rucio_container.cid, './tools/test/test.sh', *tests_arg)
-
-                # if everything went through without an exception, mark this case as a success
-                return True
+            # if everything went through without an exception, mark this case as a success
+            return True
         except subprocess.CalledProcessError as error:
             print(
                 f"** Process '{error.cmd}' exited with code {error.returncode}",
@@ -330,22 +362,24 @@ def run_with_httpd(
                 flush=True,
             )
         finally:
-            run('docker', *namespace_args, 'logs', rucio_container.cid, check=False)
-            if copy_rucio_logs:
-                try:
-                    if logs_dir.exists():
-                        shutil.rmtree(logs_dir)
-                    run('docker', *namespace_args, 'cp', f'{rucio_container.cid}:/var/log', str(logs_dir))
-                except Exception:
-                    print(
-                        "** Error on retrieving logs for",
-                        {**caseenv, "IMAGE": image},
-                        '\n',
-                        traceback.format_exc(),
-                        '\n**',
-                        file=sys.stderr,
-                        flush=True,
-                    )
+            if 'rucio' in containers:
+                run('docker', *namespace_args, 'logs', containers['rucio'], check=False)
+                if copy_rucio_logs:
+                    try:
+                        if logs_dir.exists():
+                            shutil.rmtree(logs_dir)
+                        run('docker', *namespace_args, 'cp', f'{containers["rucio"]}:/var/log', str(logs_dir))
+                    except Exception:
+                        print(
+                            "** Error on retrieving logs for",
+                            {**caseenv, "IMAGE": image},
+                            '\n',
+                            traceback.format_exc(),
+                            '\n**',
+                            file=sys.stderr,
+                            flush=True,
+                        )
+            run('docker-compose', '-p', project, *up_down_args, 'down', '-t', '30', check=False)
         return False
 
 

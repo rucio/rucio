@@ -18,7 +18,7 @@ services:
   activemq:
     ports:
       - "127.0.0.1:61613:61613"
-  ruciomy8:
+  mysql8:
     ports:
       - "127.0.0.1:3308:3308"
   oracle:

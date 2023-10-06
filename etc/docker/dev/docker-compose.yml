@@ -3,10 +3,13 @@ services:
   rucioclient:
     image: docker.io/rucio/rucio-dev:latest-alma9
     command: ["sleep", "infinity"]
+    profiles:
+      - client
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:z
       - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:z
+      - ../../certs/rucio_ca.pem:/opt/rucio/etc/rucio_ca.pem:z
       - ../../certs/ruciouser.pem:/opt/rucio/etc/usercert.pem:z
       - ../../certs/ruciouser.key.pem:/opt/rucio/etc/userkey.pem:z
       - ../../certs/ruciouser.certkey.pem:/opt/rucio/etc/usercertkey.pem:z
@@ -26,6 +29,7 @@ services:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:z
       - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:z
+      - ../../certs/rucio_ca.pem:/opt/rucio/etc/rucio_ca.pem:z
       - ../../certs/ruciouser.pem:/opt/rucio/etc/usercert.pem:z
       - ../../certs/ruciouser.key.pem:/opt/rucio/etc/userkey.pem:z
       - ../../certs/ruciouser.certkey.pem:/opt/rucio/etc/usercertkey.pem:z
@@ -73,20 +77,32 @@ services:
       - ACTIVEMQ_CONFIG_SCHEDULERENABLED=true
       - ACTIVEMQ_USERS_hermes=supersecret
       - ACTIVEMQ_CONFIG_QUEUES_events=/queue/events'
-  ruciomy8:
+  postgres14:
+    image: docker.io/postgres:14
+    profiles:
+      - postgres14
+    environment:
+      - POSTGRES_USER=rucio
+      - POSTGRES_DB=rucio
+      - POSTGRES_PASSWORD=rucio
+    command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
+  mysql8:
     image: docker.io/mysql:8
     profiles:
-      - alldb
+      - mysql8
     environment:
       - MYSQL_USER=rucio
       - MYSQL_PASSWORD=rucio
       - MYSQL_ROOT_PASSWORD=rucio
       - MYSQL_DATABASE=rucio
       - MYSQL_TCP_PORT=3308
+    command:
+      - "--default-authentication-plugin=mysql_native_password"
+      - "--character-set-server=latin1"
   oracle:
-    image: docker.io/gvenzl/oracle-xe:21-slim
+    image: docker.io/gvenzl/oracle-xe:18.4.0
     profiles:
-      - alldb
+      - oracle
     environment:
       - ORACLE_PASSWORD=rucio
       - ORACLE_ALLOW_REMOTE=true
