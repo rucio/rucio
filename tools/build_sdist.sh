@@ -50,25 +50,25 @@ fi
 /bin/cp MANIFEST.in.rucio MANIFEST.in
 /bin/cp setup_rucio.py setup.py
 # Pre-build one time to ensure correct vcversion file
-python setup.py build sdist
+python3 setup.py build sdist
 
 if $rucio; then
    /bin/cp MANIFEST.in.rucio MANIFEST.in
    /bin/cp setup_rucio.py setup.py
    # Push on pypi@org
-   python -m build --sdist
+   python3 -m build --sdist
 fi
 
 if $clients; then
     /bin/cp MANIFEST.in.client MANIFEST.in
     /bin/cp setup_rucio_client.py setup.py
     # Push on pypi@org
-    python -m build --sdist
+    python3 -m build --sdist
 fi
 
 if $webui; then
     /bin/cp MANIFEST.in.webui MANIFEST.in
     /bin/cp setup_webui.py setup.py
     # Push on pypi@org
-    python -m build --sdist
+    python3 -m build --sdist
 fi
