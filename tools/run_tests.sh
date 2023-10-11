@@ -71,7 +71,7 @@ if test ${pip_only}; then
 fi
 
 echo 'Cleaning *.pyc files'
-find lib -iname "*.pyc" -0 | xargs -0 rm
+find lib -iname "*.pyc" -print0 | xargs -0 rm
 
 echo 'Cleaning old authentication tokens'
 rm -rf /tmp/.rucio_*/

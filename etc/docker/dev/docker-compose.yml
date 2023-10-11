@@ -110,6 +110,8 @@ services:
       - processes=1000
       - sessions=1105
       - transactions=1215
+    volumes:
+      - ./oracle_setup.sh:/container-entrypoint-initdb.d/oracle_setup.sh:Z
   fts:
     image: docker.io/rucio/fts
     profiles:

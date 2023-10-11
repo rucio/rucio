@@ -301,46 +301,28 @@ def run_with_httpd(
 
         rdbms = caseenv.get('RDBMS', '')
         project = os.urandom(8).hex()
-        containers = {}
         up_down_args = (
             '--file', 'etc/docker/dev/docker-compose.yml',
             '--file', compose_override_file.name,
             '--profile', rdbms,
         )
+        rucio_container = None
         try:
             # Start docker compose
             run('docker-compose', '-p', project, *up_down_args, 'up', '-d')
 
             # Retrieve container names from docker compose
             # or use pre-defined names for old, v1, docker-compose
+            rucio_container = f'{project}_rucio_1'
             if compose_version > 1:
-                containers = {
-                    c['Service']: c['Name']
-                    for c in json.loads(
-                        run('docker-compose', '-p', project, 'ps', '--format', 'json', return_stdout=True)
-                    )
-                }
-            else:
-                containers = {
-                    'rucio': f'{project}_rucio_1',
-                    rdbms: f'{project}_{rdbms}_1',
-                }
-
-            # Running before_script.sh
-            run(
-                './tools/test/before_script.sh',
-                env={
-                    **os.environ,
-                    **caseenv,
-                    **namespace_env,
-                    "CONTAINER_RUNTIME_ARGS": ' '.join(namespace_args),
-                    "CON_RUCIO": containers['rucio'],
-                    "CON_DB": containers[rdbms],
-                },
-            )
+                rucio_container = next(filter(
+                    lambda c: c['Service'] == 'rucio',
+                    json.loads(run('docker-compose', '-p', project, 'ps', '--format', 'json', return_stdout=True))
+                ), {}).get('Name', rucio_container)
 
             # Running install_script.sh
-            run('docker', *namespace_args, 'exec', containers['rucio'], './tools/test/install_script.sh')
+            run('docker', *namespace_args, 'exec', rucio_container, './tools/test/install_script.sh',
+                env={**os.environ, **caseenv, **namespace_env})
 
             # Running test.sh
             if tests:
@@ -350,7 +332,7 @@ def run_with_httpd(
                 tests_env = ()
                 tests_arg = ()
 
-            run('docker', *namespace_args, 'exec', *tests_env, containers['rucio'], './tools/test/test.sh', *tests_arg)
+            run('docker', *namespace_args, 'exec', *tests_env, rucio_container, './tools/test/test.sh', *tests_arg)
 
             # if everything went through without an exception, mark this case as a success
             return True
@@ -362,13 +344,13 @@ def run_with_httpd(
                 flush=True,
             )
         finally:
-            if 'rucio' in containers:
-                run('docker', *namespace_args, 'logs', containers['rucio'], check=False)
+            if rucio_container:
+                run('docker', *namespace_args, 'logs', rucio_container, check=False)
                 if copy_rucio_logs:
                     try:
                         if logs_dir.exists():
                             shutil.rmtree(logs_dir)
-                        run('docker', *namespace_args, 'cp', f'{containers["rucio"]}:/var/log', str(logs_dir))
+                        run('docker', *namespace_args, 'cp', f'{rucio_container}:/var/log', str(logs_dir))
                     except Exception:
                         print(
                             "** Error on retrieving logs for",
