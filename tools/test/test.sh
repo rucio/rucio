@@ -40,7 +40,7 @@ elif [ "$SUITE" == "docs" ]; then
 
 elif [[ "$SUITE" =~ ^client.* ]]; then
     if [ "$SUITE" == "client" ]; then
-        tools/run_tests_docker.sh -i
+        tools/run_tests.sh -i
     fi
 
     srchome
@@ -56,9 +56,9 @@ elif [[ "$SUITE" =~ ^client.* ]]; then
 
 elif [ "$SUITE" == "remote_dbs" ] || [ "$SUITE" == "sqlite" ] || [ "$SUITE" == "py37py38" ]; then
     if [ -n "$TESTS" ]; then
-        tools/run_tests_docker.sh -p
+        tools/run_tests.sh -p
     else
-        tools/run_tests_docker.sh
+        tools/run_tests.sh
     fi
 
 elif [ "$SUITE" == "multi_vo" ]; then
@@ -69,5 +69,5 @@ elif [ "$SUITE" == "votest" ]; then
     VOTEST_HELPER=$RUCIO_HOME/tools/test/votest_helper.py
     VOTEST_CONFIG_FILE=$RUCIO_HOME/etc/docker/test/matrix_policy_package_tests.yml
     export TESTS=$(python $VOTEST_HELPER --vo $POLICY --tests --file $VOTEST_CONFIG_FILE)
-    tools/run_tests_docker.sh -p
+    tools/run_tests.sh -p
 fi

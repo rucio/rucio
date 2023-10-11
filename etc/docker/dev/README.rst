@@ -49,11 +49,11 @@ Finally, you can jump into the container with::
 
 To verify that everything is in order, you can now either run the full unit tests or only set up the database. Running the full testing suite takes ~10 minutes::
 
-    tools/run_tests_docker.sh
+    tools/run_tests.sh
 
 Alternatively, you can bootstrap the test environment once with the `-i` option and then selectively or repeatedly run test case modules, test case groups, or even single test cases, for example::
 
-    tools/run_tests_docker.sh -i
+    tools/run_tests.sh -i
     tools/pytest.sh tests/test_replica.py
     tools/pytest.sh -vvv tests/test_replica.py::TestReplicaCore
     tools/pytest.sh -vvv --full-trace tests/test_replica.py::TestReplicaCore::test_delete_replicas
@@ -69,7 +69,7 @@ This should show you a few more running containers: the Rucio server, the Postgr
 
 With this container you can upload and download data to/from the storage and submit data transfers. To set this up, add the `-r` option to the setup.::
 
-    tools/run_tests_docker.sh -ir
+    tools/run_tests.sh -ir
 
 This creates a few random files and uploads them, creates a few datasets and containers, and requests a replication rule for the container, which starts in state REPLICATING. To demonstrate the transfer capability, the daemons can be run in single-execution mode in order:::
 
@@ -96,7 +96,7 @@ Now you will have the same containers as before plus a full monitoring stack wit
 
 To create some events and write them to Elasticsearch first run again the tests as before::
 
-    tools/run_tests_docker.sh -ir
+    tools/run_tests.sh -ir
 
 
 Then you will have to run the transfer daemons (conveyor-\*) and messaging daemon (hermes) to send the events to ActiveMQ. There a script for that which repeats these daemons in single execution mode from the section in a loop::
@@ -210,7 +210,7 @@ Start the daemons
 
 Daemons are not running in the docker environment, but all daemons support single-execution mode with the --run-once argument. Reset the system first with::
 
-    tools/run_tests_docker.sh -ir
+    tools/run_tests.sh -ir
 
 
 Some files are created. Let's add them to a new dataset::

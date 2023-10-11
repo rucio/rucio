@@ -124,7 +124,7 @@ jobs:
         shell: bash
         run: |
           docker exec -t dev_rucio_1 cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
-          docker exec -t dev_rucio_1 tools/run_tests_docker.sh -ir
+          docker exec -t dev_rucio_1 tools/run_tests.sh -ir
       - name: File Upload/Download Test
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_rucio_server.py
       - name: UploadClient Test
