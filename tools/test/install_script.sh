@@ -24,7 +24,11 @@ if [ "$SUITE" == "client" -o "$SUITE" == "client_syntax" ]; then
 
 elif [ "$SUITE" == "syntax" -o "$SUITE" == "docs" ]; then
     cd /usr/local/src/rucio
-    cp etc/docker/test/extra/rucio_syntax.cfg etc/rucio.cfg
+    python3 tools/merge_rucio_configs.py \
+        -s etc/docker/test/extra/rucio_autotests_common.cfg \
+           etc/docker/test/extra/rucio_syntax.cfg \
+        --use-env \
+        -d etc/rucio.cfg
 
 elif [ "$SUITE" == "votest" ]; then
     RUCIO_HOME=/opt/rucio

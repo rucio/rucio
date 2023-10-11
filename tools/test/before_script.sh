@@ -45,7 +45,11 @@ if [ $RDBMS == "oracle" ]; then
     sleep 3
     docker $CONTAINER_RUNTIME_ARGS exec $CON_DB /oracle_setup.sh
     sleep 3
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_oracle.cfg /opt/rucio/etc/rucio.cfg
+    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO python3 tools/merge_rucio_configs.py \
+        -s /usr/local/src/rucio/etc/docker/test/extra/rucio_autotests_common.cfg  \
+           /usr/local/src/rucio/etc/docker/test/extra/rucio_oracle.cfg  \
+        --use-env \
+        -d /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_oracle.ini /opt/rucio/etc/alembic.ini
     RESTART_HTTPD=1
 
@@ -61,7 +65,11 @@ elif [ $RDBMS == "mysql8" ]; then
         echo Could not connect to MySQL in time.
         exit 1
     fi
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_mysql8.cfg /opt/rucio/etc/rucio.cfg
+    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO python3 tools/merge_rucio_configs.py \
+        -s /usr/local/src/rucio/etc/docker/test/extra/rucio_autotests_common.cfg  \
+           /usr/local/src/rucio/etc/docker/test/extra/rucio_mysql8.cfg  \
+        --use-env \
+        -d /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_mysql8.ini /opt/rucio/etc/alembic.ini
     RESTART_HTTPD=1
 
@@ -80,15 +88,31 @@ elif [ $RDBMS == "postgres14" ]; then
     if [ $SUITE == "multi_vo" ]; then
         docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO mkdir -p /opt/rucio/etc/multi_vo/tst/etc
         docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO mkdir -p /opt/rucio/etc/multi_vo/ts2/etc
-        docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_multi_vo_tst_postgres14.cfg /opt/rucio/etc/multi_vo/tst/etc/rucio.cfg
-        docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_multi_vo_ts2_postgres14.cfg /opt/rucio/etc/multi_vo/ts2/etc/rucio.cfg
+        docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO python3 tools/merge_rucio_configs.py \
+            -s /usr/local/src/rucio/etc/docker/test/extra/rucio_autotests_common.cfg  \
+               /usr/local/src/rucio/etc/docker/test/extra/rucio_multi_vo_tst_postgres14.cfg  \
+            --use-env \
+            -d /opt/rucio/etc/multi_vo/tst/etc/rucio.cfg
+        docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO python3 tools/merge_rucio_configs.py \
+            -s /usr/local/src/rucio/etc/docker/test/extra/rucio_autotests_common.cfg  \
+               /usr/local/src/rucio/etc/docker/test/extra/rucio_multi_vo_ts2_postgres14.cfg  \
+            --use-env \
+            -d /opt/rucio/etc/multi_vo/ts2/etc/rucio.cfg
     fi
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_postgres14.cfg /opt/rucio/etc/rucio.cfg
+    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO python3 tools/merge_rucio_configs.py \
+        -s /usr/local/src/rucio/etc/docker/test/extra/rucio_autotests_common.cfg  \
+           /usr/local/src/rucio/etc/docker/test/extra/rucio_postgres14.cfg \
+        --use-env \
+        -d /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_postgres14.ini /opt/rucio/etc/alembic.ini
     RESTART_HTTPD=1
 
 elif [ $RDBMS == "sqlite" ]; then
-    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/rucio_sqlite.cfg /opt/rucio/etc/rucio.cfg
+    docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO python3 tools/merge_rucio_configs.py \
+        -s /usr/local/src/rucio/etc/docker/test/extra/rucio_autotests_common.cfg  \
+           /usr/local/src/rucio/etc/docker/test/extra/rucio_sqlite.cfg \
+        --use-env \
+        -d /opt/rucio/etc/rucio.cfg
     docker $CONTAINER_RUNTIME_ARGS exec $CON_RUCIO cp /usr/local/src/rucio/etc/docker/test/extra/alembic_sqlite.ini /opt/rucio/etc/alembic.ini
     RESTART_HTTPD=1
 fi
