@@ -22,7 +22,6 @@ services:
     environment:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
-      - RDBMS=postgres14
   rucio:
     image: docker.io/rucio/rucio-dev:latest-alma9
     volumes:
@@ -42,7 +41,6 @@ services:
     environment:
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
-      - RDBMS=postgres14
   ruciodb:
     image: docker.io/postgres:14
     environment:

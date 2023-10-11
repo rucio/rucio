@@ -237,7 +237,6 @@ def run_test_directly(
     pod_net_arg = ['--pod', pod] if use_podman else []
     scripts_to_run = ' && '.join(
         [
-            './tools/test/install_script.sh',
             './tools/test/test.sh' + (' -p' if tests else ''),
         ]
     )
@@ -319,10 +318,6 @@ def run_with_httpd(
                     lambda c: c['Service'] == 'rucio',
                     json.loads(run('docker-compose', '-p', project, 'ps', '--format', 'json', return_stdout=True))
                 ), {}).get('Name', rucio_container)
-
-            # Running install_script.sh
-            run('docker', *namespace_args, 'exec', rucio_container, './tools/test/install_script.sh',
-                env={**os.environ, **caseenv, **namespace_env})
 
             # Running test.sh
             if tests:
