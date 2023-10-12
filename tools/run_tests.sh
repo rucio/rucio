@@ -57,11 +57,11 @@ do
   esac
 done
 
+if [ -z "$RUCIO_HOME" ]; then
+    RUCIO_HOME=/opt/rucio
+fi
 echo 'Clearing memcache'
 echo flush_all > /dev/tcp/127.0.0.1/11211
-
-echo 'Graceful restart of Apache'
-httpd -k graceful
 
 echo 'Update dependencies with pip'
 pip install --upgrade -r requirements.txt
@@ -80,18 +80,18 @@ echo 'Cleaning local RSE directories'
 rm -rf /tmp/rucio_rse/*
 
 if test ${special}; then
-    if [ -f /opt/rucio/etc/rucio.cfg ]; then
+    if [ -f "$RUCIO_HOME"/etc/rucio.cfg ]; then
         echo 'Remove rucio.cfg'
-        rm /opt/rucio/etc/rucio.cfg
+        rm "$RUCIO_HOME"/etc/rucio.cfg
     fi
     echo 'Using the special config'
-    ln -s /opt/rucio/etc/rucio.cfg.special /opt/rucio/etc/rucio.cfg
+    ln -s "$RUCIO_HOME"/etc/rucio.cfg.special "$RUCIO_HOME"/etc/rucio.cfg
 else
-    if [ -f /opt/rucio/etc/rucio.cfg ]; then
+    if [ -f "$RUCIO_HOME"/etc/rucio.cfg ]; then
         echo 'Using the standard config'
     else
         echo 'rucio.cfg not found. Will try to do a symlink'
-        ln -s /opt/rucio/etc/rucio.cfg.default /opt/rucio/etc/rucio.cfg
+        ln -s "$RUCIO_HOME"/etc/rucio.cfg.default "$RUCIO_HOME"/etc/rucio.cfg
     fi
 fi
 
@@ -128,18 +128,21 @@ else
 
     if [ -f /tmp/rucio.db ]; then
         echo 'Disable SQLite database access restriction'
-        chmod 777 /tmp/rucio.db
+        chmod 666 /tmp/rucio.db
     fi
 fi
 
 if test ${alembic}; then
     echo 'Running full alembic migration'
-    ALEMBIC_CONFIG="/opt/rucio/etc/alembic.ini" tools/alembic_migration.sh
+    ALEMBIC_CONFIG="$RUCIO_HOME/etc/alembic.ini" tools/alembic_migration.sh
     if [ $? != 0 ]; then
         echo 'Failed to run alembic migration!'
         exit 1
     fi
 fi
+
+echo 'Graceful restart of Apache'
+httpd -k graceful
 
 echo 'Bootstrapping tests'
 tools/bootstrap_tests.py

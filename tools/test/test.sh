@@ -22,38 +22,15 @@ SOURCE_PATH=/usr/local/src/rucio
 CFG_PATH=/usr/local/src/rucio/etc/docker/test/extra/
 RUCIO_HOME=/opt/rucio
 
-generate_rucio_cfg(){
-  	local override=$1
-  	local destination=$2
-
-    python3 $SOURCE_PATH/tools/merge_rucio_configs.py \
-        -s $CFG_PATH/rucio_autotests_common.cfg "$override" \
-        --use-env \
-        -d "$destination"
-}
-
 # Prepare the test configurations
-
-if [ "$RDBMS" == "oracle" ]; then
-    generate_rucio_cfg $CFG_PATH/rucio_oracle.cfg $RUCIO_HOME/etc/rucio.cfg
-    cp $CFG_PATH/alembic_oracle.ini $RUCIO_HOME/etc/alembic.ini
-
-elif [ "$RDBMS" == "mysql8" ]; then
-    generate_rucio_cfg $CFG_PATH/rucio_mysql8.cfg $RUCIO_HOME/etc/rucio.cfg
-    cp $CFG_PATH/alembic_mysql8.ini $RUCIO_HOME/etc/alembic.ini
-
-elif [ "$RDBMS" == "postgres14" ] || [ -z "$RDBMS" ]; then
-    generate_rucio_cfg $CFG_PATH/rucio_postgres14.cfg $RUCIO_HOME/etc/rucio.cfg
-    cp $CFG_PATH/alembic_postgres14.ini $RUCIO_HOME/etc/alembic.ini
-fi
-
-
-if [ "$SUITE" == "client" -o "$SUITE" == "client_syntax" ]; then
+if [ "$SUITE" == "client" ] || [ "$SUITE" == "client_syntax" ]; then
     cd $SOURCE_PATH
     cp etc/docker/test/extra/rucio_client.cfg etc/rucio.cfg
 
-elif [ "$SUITE" == "syntax" -o "$SUITE" == "docs" ]; then
-    generate_rucio_cfg "$CFG_PATH"/rucio_syntax.cfg "$SOURCE_PATH"/etc/rucio.cfg
+elif [ "$SUITE" == "syntax" ] || [ "$SUITE" == "docs" ]; then
+    python3 $SOURCE_PATH/tools/merge_rucio_configs.py --use-env \
+        -s "$CFG_PATH"/rucio_autotests_common.cfg "$CFG_PATH"/rucio_syntax.cfg \
+        -d "$SOURCE_PATH"/etc/rucio.cfg
 
 elif [ "$SUITE" == "votest" ]; then
     VOTEST_HELPER=$RUCIO_HOME/tools/test/votest_helper.py
@@ -68,8 +45,12 @@ elif [ "$SUITE" == "remote_dbs" ] || [ "$SUITE" == "multi_vo" ]; then
     if [ "$SUITE" == "multi_vo" ]; then
         mkdir -p $RUCIO_HOME/etc/multi_vo/tst/etc
         mkdir -p $RUCIO_HOME/etc/multi_vo/ts2/etc
-        generate_rucio_cfg $CFG_PATH/rucio_multi_vo_tst_postgres14.cfg $RUCIO_HOME/etc/multi_vo/tst/etc/rucio.cfg
-        generate_rucio_cfg $CFG_PATH/rucio_multi_vo_ts2_postgres14.cfg $RUCIO_HOME/etc/multi_vo/ts2/etc/rucio.cfg
+        python3 $SOURCE_PATH/tools/merge_rucio_configs.py --use-env \
+            -s "$CFG_PATH"/rucio_autotests_common.cfg "$CFG_PATH"/rucio_multi_vo_tst_postgres14.cfg \
+            -d $RUCIO_HOME/etc/multi_vo/tst/etc/rucio.cfg
+        python3 $SOURCE_PATH/tools/merge_rucio_configs.py --use-env \
+            -s "$CFG_PATH"/rucio_autotests_common.cfg "$CFG_PATH"/rucio_multi_vo_ts2_postgres14.cfg \
+            -d $RUCIO_HOME/etc/multi_vo/ts2/etc/rucio.cfg
     fi
 
     echo 'Waiting for database to be ready'
@@ -81,11 +62,6 @@ elif [ "$SUITE" == "remote_dbs" ] || [ "$SUITE" == "multi_vo" ]; then
 
     httpd -k restart
 
-elif [ "$SUITE" == "sqlite" ]; then
-    generate_rucio_cfg $CFG_PATH/rucio_sqlite.cfg $RUCIO_HOME/etc/rucio.cfg
-    cp $CFG_PATH/alembic_sqlite.ini $RUCIO_HOME/etc/alembic.ini
-
-    httpd -k restart
 fi
 
 # Run tests

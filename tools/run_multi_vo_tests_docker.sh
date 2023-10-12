@@ -64,7 +64,7 @@ if [ -f /tmp/rucio.db ]; then
 fi
 
 echo 'Running full alembic migration'
-ALEMBIC_CONFIG="/opt/rucio/etc/alembic.ini" tools/alembic_migration.sh
+ALEMBIC_CONFIG="$RUCIO_HOME/etc/alembic.ini" tools/alembic_migration.sh
 if [ $? != 0 ]; then
     echo 'Failed to run alembic migration!'
     exit 1

@@ -2,6 +2,7 @@ version: "3"
 services:
   rucioclient:
     image: docker.io/rucio/rucio-dev:latest-alma9
+    entrypoint: ["/rucio_source/etc/docker/dev/rucio_entrypoint.sh"]
     command: ["sleep", "infinity"]
     profiles:
       - client
@@ -19,11 +20,16 @@ services:
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
       - ../../../tests:/opt/rucio/tests:Z
+      - ../../../:/rucio_source:ro
     environment:
+      - RUCIO_SOURCE_DIR=/rucio_source
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RDBMS
   rucio:
     image: docker.io/rucio/rucio-dev:latest-alma9
+    entrypoint: ["/rucio_source/etc/docker/dev/rucio_entrypoint.sh"]
+    command: ["httpd","-D","FOREGROUND"]
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:z
@@ -38,9 +44,12 @@ services:
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
       - ../../../tests:/opt/rucio/tests:Z
+      - ../../../:/rucio_source:ro
     environment:
+      - RUCIO_SOURCE_DIR=/rucio_source
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RDBMS
   ruciodb:
     image: docker.io/postgres:14
     environment:
