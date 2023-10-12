@@ -21,7 +21,7 @@ import pytest
 
 from rucio.client.baseclient import BaseClient
 from rucio.client.client import Client
-from rucio.common.config import config_get, config_set
+from rucio.common.config import config_get, config_set, Config
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, RucioException
 from rucio.common.utils import execute
 from tests.mocks.mock_http_server import MockServer
@@ -142,7 +142,8 @@ class TestRucioClients:
         thus have to disable the access to it (move it) and make sure to run the
         code in a different environment.
         """
-        rename("/opt/rucio/etc/rucio.cfg", "/opt/rucio/etc/rucio.cfg.tmp")
+        configfile = Config().configfile
+        rename(configfile, f"{configfile}.tmp")
         try:
             exitcode, _, err = execute("python -c 'from rucio.client import Client'")
             print(exitcode, err)
@@ -150,4 +151,4 @@ class TestRucioClients:
             assert "RuntimeError: Could not load Rucio configuration file." not in err
         finally:
             # This is utterly important to not mess up the environment.
-            rename("/opt/rucio/etc/rucio.cfg.tmp", "/opt/rucio/etc/rucio.cfg")
+            rename(f"{configfile}.tmp", configfile)
