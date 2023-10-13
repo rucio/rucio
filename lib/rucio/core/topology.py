@@ -18,6 +18,7 @@ import logging
 import threading
 import weakref
 from collections.abc import Callable, Iterable, Iterator
+from decimal import Decimal
 from typing import TYPE_CHECKING, cast, Any, Generic, Optional, TypeVar, Union
 
 from sqlalchemy import and_, select
@@ -32,7 +33,7 @@ from rucio.db.sqla.session import read_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 
 LoggerFunction = Callable[..., Any]
-_Number = Union[float, int]
+_Number = Union[int, Decimal]
 TN = TypeVar("TN", bound="Node")
 TE = TypeVar("TE", bound="Edge")
 
@@ -49,6 +50,9 @@ if TYPE_CHECKING:
         @property
         def enabled(self) -> bool:
             ...
+
+    TNState = TypeVar("TNState", bound=_StateProvider)
+    TEState = TypeVar("TEState", bound=_StateProvider)
 
 
 DEFAULT_HOP_PENALTY = 10
@@ -344,9 +348,9 @@ class Topology(RseCollection, Generic[TN, TE]):
             self,
             dst_node: TN,
             nodes_to_find: Optional[set[TN]] = None,
-            node_state_provider: "Callable[[TN], _StateProvider]" = lambda x: x,
-            edge_state_provider: "Callable[[TE], _StateProvider]" = lambda x: x,
-    ) -> "Iterator[tuple[TN, _Number, _StateProvider, TE, _StateProvider]]":
+            node_state_provider: "Callable[[TN], TNState]" = lambda x: x,
+            edge_state_provider: "Callable[[TE], TEState]" = lambda x: x,
+    ) -> "Iterator[tuple[TN, _Number, TNState, TE, TEState]]":
         """
         Does a Backwards Dijkstra's algorithm: start from destination and follow inbound links to other nodes.
         If multihop is disabled, stop after analysing direct connections to dest_rse.
@@ -358,7 +362,7 @@ class Topology(RseCollection, Generic[TN, TE]):
 
         priority_q = PriorityQueue()
         priority_q[dst_node] = 0
-        next_hops: dict[TN, tuple[_Number, _StateProvider, Optional[TE], Optional[_StateProvider]]] =\
+        next_hops: dict[TN, tuple[_Number, TNState, Optional[TE], Optional[TEState]]] =\
             {dst_node: (0, node_state_provider(dst_node), None, None)}
         while priority_q:
             node = priority_q.pop()
