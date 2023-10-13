@@ -3427,7 +3427,7 @@ def get_replicas_state(scope=None, name=None, *, session: "Session"):
 
 
 @read_session
-def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logger=logging.log, younger_than=10, nattempts=0, nattempts_exact=False, *, session: "Session", exclude_states=['B', 'R', 'D'], is_suspicious=False):
+def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logger=logging.log, younger_than=5, nattempts=0, nattempts_exact=False, *, session: "Session", exclude_states=['B', 'R', 'D'], is_suspicious=False):
     """
     Gets a list of replicas from bad_replicas table which are: declared more than <nattempts> times since <younger_than> date,
     present on the RSE specified by the <rse_expression> and do not have a state in <exclude_states> list.
@@ -3560,7 +3560,12 @@ def get_suspicious_reason(rse_id, scope, name, nattempts=0, logger=logging.log, 
     query = session.query(bad_replicas_alias.scope, bad_replicas_alias.name, bad_replicas_alias.reason, bad_replicas_alias.rse_id)\
                    .filter(bad_replicas_alias.rse_id == rse_id,
                            bad_replicas_alias.scope == scope,
-                           bad_replicas_alias.name == name)
+                           bad_replicas_alias.name == name,
+                           bad_replicas_alias.state == 'S',
+                           ~exists(select(1).where(and_(bad_replicas_alias.rse_id == rse_id,
+                                                        bad_replicas_alias.scope == scope,
+                                                        bad_replicas_alias.name == name,
+                                                        bad_replicas_alias.state != 'S',))))
     count = query.count()
 
     query_result = query.group_by(bad_replicas_alias.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name, bad_replicas_alias.reason).having(func.count() > nattempts).all()
