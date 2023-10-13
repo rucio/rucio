@@ -9,4 +9,9 @@
         "datatype": ["RAW"],
         "scope": []
     }
+    {
+        "action": "dry run",
+        "datatype": [],
+        "scope": ["mc.*"]
+    }
 ]
