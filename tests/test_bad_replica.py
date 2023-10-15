@@ -249,10 +249,10 @@ def test_client_add_list_bad_replicas(rse_factory, replica_client, did_client):
                     nbbadrep += 1
     assert len(replicas) == nbbadrep
 
-    # InvalidType is raised if list_rep contains a mixture of replicas and PFNs
     list_rep.extend(['srm://%s.cern.ch/test_%s/%s/%s' % (rse2_id, rse2_id, tmp_scope, generate_uuid()), ])
-    with pytest.raises(InvalidType):
-        r = replica_client.declare_bad_file_replicas(list_rep, 'This is a good reason')
+    with pytest.raises(InvalidType):    
+        # this should fail becase the replica list will now contain a mix of PFNs and dictionaries
+        replica_client.declare_bad_file_replicas(list_rep, 'This is a good reason')
 
 
 def test_client_add_suspicious_replicas(rse_factory, replica_client):

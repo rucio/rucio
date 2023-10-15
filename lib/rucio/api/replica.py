@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import datetime
-import uuid
 from typing import TYPE_CHECKING
 
 from rucio.api import permission
@@ -85,21 +84,23 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False, *
     if not replicas:
         return {}
 
-    kwargs = {}
-    rse_map = {}                # RSE name -> RSE id
-    if not permission.has_permission(issuer=issuer, vo=vo, action='declare_bad_file_replicas', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not declare bad replicas' % (issuer))
-
-    issuer = InternalAccount(issuer, vo=vo)
+    as_pfns = isinstance(replicas[0], str)
 
     # make sure all elements are either strings or dicts, without mixing
-    type_ = type(replicas[0])
-    if any(not isinstance(r, type_) for r in replicas):
+    if any(isinstance(r, str) != as_pfns for r in replicas):
         raise exception.InvalidType('The replicas must be specified either as a list of PFNs (strings) or list of dicts')
 
+    rse_map = {}                # RSE name -> RSE id
+
     replicas_lst = replicas
-    if type_ is dict:
-        replicas_lst = []           # need to create new list to convert replica["scope"] from strings to InternalScope objects
+    rse_ids_to_check = set()        # to check for permission to declare bad replicas
+    if as_pfns:
+        scheme, rses_for_replicas, unknowns = replica.get_pfn_to_rse(replicas, vo=vo, session=session)
+        if unknowns:
+            raise exception.ReplicaNotFound("Not all replicas found")
+        rse_ids_to_check = set(rses_for_replicas.keys())
+    else:
+        replicas_lst = []
         for r in replicas:
             if "name" not in r or "scope" not in r or ("rse" not in r and "rse_id" not in r):
                 raise exception.InvalidType('The replica dictionary must include scope and either rse (name) or rse_id')
@@ -109,14 +110,24 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False, *
                 rse = r["rse"]
                 rse_map[rse] = rse_id = get_rse_id(rse=rse, vo=vo, session=session)
             replicas_lst.append({
-                "scope": scope,
                 "rse_id": rse_id,
+                "scope": scope,
                 "name": r["name"]
             })
+            rse_ids_to_check.add(rse_id)
 
     rse_id_to_name = invert_dict(rse_map)   # RSE id -> RSE name
 
-    undeclared = replica.declare_bad_file_replicas(replicas_lst, reason=reason, issuer=issuer, status=BadFilesStatus.BAD,
+    for rse_id in rse_ids_to_check:
+        if not permission.has_permission(issuer=issuer, vo=vo, action='declare_bad_file_replicas',
+                                         kwargs={"rse_id": rse_id},
+                                         session=session):
+            raise exception.AccessDenied('Account %s can not declare bad replicas in RSE %s' %
+                                         (issuer, rse_id_to_name.get(rse_id, rse_id)))
+
+    undeclared = replica.declare_bad_file_replicas(replicas_lst, reason=reason,
+                                                   issuer=InternalAccount(issuer, vo=vo),
+                                                   status=BadFilesStatus.BAD,
                                                    force=force, session=session)
     out = {}
     for rse_id, ulist in undeclared.items():
@@ -128,7 +139,6 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False, *
                 rse_name = rse_id_to_name[rse_id]
             else:
                 try:
-                    uuid.UUID(rse_id)
                     rse_name = get_rse_name(rse_id=rse_id, session=session)
                 except (ValueError, exception.RSENotFound):
                     rse_name = str(rse_id)
