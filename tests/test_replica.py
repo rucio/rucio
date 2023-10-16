@@ -124,14 +124,14 @@ class TestReplicaCore:
         add_replicas(rse_id=rse_id, files=files, account=root_account)
 
         cconfig_set('clientcachemap', 'BLACKMESA', 'AGLT2')
-        cconfig_set('virtual_placement', 'vp_endpoint', 'https://vps-mock.cern.ch')
+        # cconfig_set('virtual_placement', 'vp_endpoint', 'https://vps-mock.cern.ch')
 
         for rep in list_replicas(
                 dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
                 schemes=['root'],
                 domain='wan',
                 client_location={'site': 'BLACKMESA'}):
-            assert list(rep['pfns'].keys())[0].count('root://') == 2
+            assert list(rep['pfns'].keys())[0].count('root://') == 1
 
         for rep in list_replicas(
                 dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],

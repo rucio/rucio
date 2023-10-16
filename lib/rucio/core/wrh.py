@@ -1,3 +1,18 @@
+# -*- coding: utf-8 -*-
+# Copyright European Organization for Nuclear Research (CERN) since 2012
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 import mmh3
 import math
@@ -10,12 +25,12 @@ def hash_to_unit_interval(s: str) -> float:
 
 
 class XCaches:
-    def __init__(self, heartbeats=None):
+    def __init__(self) -> None:
         """ creates map of XCaches based on their heartbeats """
         self.sites = {}
 
-        if not heartbeats:
-            return
+    def refresh(self, heartbeats:list) -> None:
+        self.sites = {}
         for hb in heartbeats:
             instance = json.loads(hb['payload'])
             site = instance['site']
@@ -24,13 +39,16 @@ class XCaches:
             self.sites[site].append(Node(instance['address'], float(instance['size'])))
         print(self.sites)
 
-    def determine_responsible_node(self, site: str, key: str):
+    def determine_responsible_node(self, site: str, key: str) -> str:
         """Determines which node of a site is responsible for the provided key."""
         if site not in self.sites:
             return ''
         rn = max(
             self.sites[site], key=lambda node: node.compute_weighted_score(key), default=None)
-        return rn.name
+        if rn:
+            return rn.name
+        else: 
+            return ''
 
 
 @dataclass
@@ -39,7 +57,7 @@ class Node:
     name: str
     weight: float
 
-    def compute_weighted_score(self, key: str):
+    def compute_weighted_score(self, key: str) -> float:
         score = hash_to_unit_interval(f"{self.name}: {key}")
         log_score = 1.0 / -math.log(score)
         return self.weight * log_score

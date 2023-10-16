@@ -71,7 +71,7 @@ METRICS = MetricManager(module=__name__)
 ScopeName = namedtuple('ScopeName', ['scope', 'name'])
 Association = namedtuple('Association', ['scope', 'name', 'child_scope', 'child_name'])
 
-xcaches = None
+xcaches = wrh.XCaches()
 
 @read_session
 def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, filter_=None, *, session: "Session"):
@@ -688,7 +688,7 @@ def get_vp_endpoint():
     return vp_endpoint
 
 
-def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
+def get_multi_cache_prefix(cache_site: str, filename:str, logger=logging.log) -> str:
     """
     for a givent cache site and filename, return address of the cache node that
     should be prefixed.
@@ -704,16 +704,12 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
         try:
             hbs = heartbeat.list_executable_heartbeats('xcache')
             REGION.set('CacheSites', hbs)
-            xcaches = wrh.XCaches(hbs)
+            xcaches.refresh(hbs)
         except Exception as e:
             REGION.set('CacheSites', {'could not reload': ''})
             logger(logging.WARNING, 'In get_multi_cache_prefix, could not get heartbeats{}'.format(e))
-            return ''
 
-    if not xcaches:
-        return ''
-    else:
-        return xcaches.determine_responsible_node(cache_site, filename)
+    return xcaches.determine_responsible_node(cache_site, filename)
 
 
 def _get_list_replicas_protocols(

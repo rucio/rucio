@@ -229,7 +229,7 @@ def list_heartbeats(*, session: "Session"):
     return json_result
 
 @read_session
-def list_executable_heartbeats(executable, younger_than=600, hash_executable=None, *, session: "Session"):
+def list_executable_heartbeats(executable, younger_than=600, hash_executable=None, *, session: "Session") -> dict:
     """
     Give heartbeats for a given executable.
     :param executable: Executable name as a string, e.g., conveyor-submitter
