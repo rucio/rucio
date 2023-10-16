@@ -29,7 +29,7 @@ class XCaches:
         """ creates map of XCaches based on their heartbeats """
         self.sites = {}
 
-    def refresh(self, heartbeats:list) -> None:
+    def refresh(self, heartbeats: list) -> None:
         self.sites = {}
         for hb in heartbeats:
             instance = json.loads(hb['payload'])
@@ -47,7 +47,7 @@ class XCaches:
             self.sites[site], key=lambda node: node.compute_weighted_score(key), default=None)
         if rn:
             return rn.name
-        else: 
+        else:
             return ''
 
 

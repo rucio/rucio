@@ -73,6 +73,7 @@ Association = namedtuple('Association', ['scope', 'name', 'child_scope', 'child_
 
 xcaches = wrh.XCaches()
 
+
 @read_session
 def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, filter_=None, *, session: "Session"):
     """
@@ -688,7 +689,7 @@ def get_vp_endpoint():
     return vp_endpoint
 
 
-def get_multi_cache_prefix(cache_site: str, filename:str, logger=logging.log) -> str:
+def get_multi_cache_prefix(cache_site: str, filename: str, logger=logging.log) -> str:
     """
     for a givent cache site and filename, return address of the cache node that
     should be prefixed.
