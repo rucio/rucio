@@ -28,6 +28,7 @@ Flask==2.3.2                                                # Python web framewo
 oic==1.6.1                                                  # for authentication via OpenID Connect protocol
 prometheus_client==0.17.1                                   # Python client for the Prometheus monitoring system
 boto3==1.28.5                                               # S3 boto protocol (new version)
+mmh3==4.0.1                                                 # MurmurHash
 
 # All dependencies needed in extras for rucio server/daemons should be defined here
 cx_oracle==8.3.0                                            # oracle_extras

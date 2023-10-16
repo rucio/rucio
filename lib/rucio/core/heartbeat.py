@@ -228,6 +228,30 @@ def list_heartbeats(*, session: "Session"):
         json_result.append(element._asdict())
     return json_result
 
+@read_session
+def list_executable_heartbeats(executable, younger_than=600, hash_executable=None, *, session: "Session"):
+    """
+    Give heartbeats for a given executable.
+    :param executable: Executable name as a string, e.g., conveyor-submitter
+    :param younger_than: Removes heartbeats older than younger_than seconds
+    :param hash_executable: Hash of the executable.
+    :param session: The database session in use.
+    :returns: List of tuples
+    """
+
+    if not hash_executable:
+        hash_executable = calc_hash(executable)
+    query = session.query(Heartbeats.readable,
+                          Heartbeats.hostname,
+                          Heartbeats.pid,
+                          Heartbeats.thread_name,
+                          Heartbeats.updated_at,
+                          Heartbeats.created_at,
+                          Heartbeats.payload)\
+        .filter(Heartbeats.executable == hash_executable)\
+        .filter(Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=younger_than))
+
+    return dict(query.all())
 
 @read_session
 def list_payload_counts(executable, older_than=600, hash_executable=None, *, session: "Session"):
