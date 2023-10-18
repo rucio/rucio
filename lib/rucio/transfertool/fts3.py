@@ -942,7 +942,7 @@ class FTS3Transfertool(Transfertool):
         if isinstance(self.scitags_exp_id, int):
             activity_id = self.scitags_activity_ids.get(rws.activity)
             if isinstance(activity_id, int):
-                t_file['metadata']['scitags_id'] = self.scitags_exp_id << 6 | activity_id
+                t_file['scitag'] = self.scitags_exp_id << 6 | activity_id
         return t_file
 
     def submit(self, transfers, job_params, timeout=None):
