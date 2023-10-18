@@ -108,19 +108,11 @@ FROM python as rucio-runtime
         httpd-devel \
         libnsl libaio \
         memcached \
+        gridsite \
         sqlite \
         gfal2-devel \
         nodejs npm \
         glibc-langpack-en
-
-    RUN printf "%s\n" \
-        "[epel8]" \
-        "name=Extra Packages for Enterprise Linux 8 - x86_64" \
-        "metalink=https://mirrors.fedoraproject.org/metalink?repo=epel-8&arch=x86_64&infra=\$infra&content=\$contentdir" \
-        "enabled=1" \
-        "gpgcheck=0" \
-        > /etc/yum.repos.d/epel8.repo
-    RUN dnf install -y gridsite && rm -rf /etc/yum.repos.d/epel8.repo
 
     RUN mkdir -p /var/log/rucio/trace && \
         chmod -R 777 /var/log/rucio && \

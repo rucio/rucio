@@ -52,7 +52,7 @@ echo 'Removing old SQLite databases'
 rm -f /tmp/rucio.db
 
 echo 'Resetting database tables'
-tools/reset_database.py
+ALEMBIC_CONFIG="$RUCIO_HOME/etc/alembic.ini" tools/reset_database.py
 if [ $? != 0 ]; then
     echo 'Failed to reset the database!'
     exit 1
@@ -64,7 +64,7 @@ if [ -f /tmp/rucio.db ]; then
 fi
 
 echo 'Running full alembic migration'
-ALEMBIC_CONFIG="/opt/rucio/etc/alembic.ini" tools/alembic_migration.sh
+ALEMBIC_CONFIG="$RUCIO_HOME/etc/alembic.ini" tools/alembic_migration.sh
 if [ $? != 0 ]; then
     echo 'Failed to run alembic migration!'
     exit 1
