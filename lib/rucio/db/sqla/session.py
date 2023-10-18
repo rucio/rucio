@@ -14,16 +14,19 @@
 # limitations under the License.
 
 import copy
+import logging
 import os
 import sys
+from datetime import datetime, timedelta
 from functools import update_wrapper
 from inspect import isgeneratorfunction, getfullargspec
 from os.path import basename
+from time import sleep
 from threading import Lock
 from typing import TYPE_CHECKING
 
-from sqlalchemy import create_engine, event, MetaData
-from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, TimeoutError
+from sqlalchemy import create_engine, event, MetaData, text
+from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, TimeoutError, SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session, Session
 from sqlalchemy.pool import QueuePool, SingletonThreadPool, NullPool
 
@@ -278,6 +281,27 @@ def get_session():
     assert _MAKER
     session = scoped_session(_MAKER)
     return session
+
+
+def wait_for_database(timeout: int = 60, interval: int = 2, *, logger=logging.log):
+    """ Wait for the database for a specific amount of time """
+
+    end_time = datetime.utcnow() + timedelta(seconds=timeout)
+    while True:
+        try:
+            session = get_session()
+            if session.bind.dialect.name == 'oracle':
+                session.execute(text('select 1 from dual'))
+            else:
+                session.execute(text('select 1'))
+            session.close()
+            break
+        except SQLAlchemyError as e:
+            logger(logging.WARNING, 'Still waiting for database: %s', e)
+            if datetime.utcnow() >= end_time:
+                raise
+
+        sleep(interval)
 
 
 def retry_if_db_connection_error(exception):

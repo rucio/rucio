@@ -130,6 +130,7 @@ def merge_configs(source_file_paths, dest_file_path, use_env=True, logger=loggin
         logger(logging.INFO, "Merged {} configuration values from ENV".format(config_len(env_config)))
 
     if dest_file_path:
+        logger(logging.INFO, "Writing {}".format(dest_file_path))
         with open(dest_file_path, 'w') as dest_file:
             parser.write(dest_file)
     else:

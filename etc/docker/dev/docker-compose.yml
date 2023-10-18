@@ -2,11 +2,15 @@ version: "3"
 services:
   rucioclient:
     image: docker.io/rucio/rucio-dev:latest-alma9
+    entrypoint: ["/rucio_source/etc/docker/dev/rucio_entrypoint.sh"]
     command: ["sleep", "infinity"]
+    profiles:
+      - client
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:z
       - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:z
+      - ../../certs/rucio_ca.pem:/opt/rucio/etc/rucio_ca.pem:z
       - ../../certs/ruciouser.pem:/opt/rucio/etc/usercert.pem:z
       - ../../certs/ruciouser.key.pem:/opt/rucio/etc/userkey.pem:z
       - ../../certs/ruciouser.certkey.pem:/opt/rucio/etc/usercertkey.pem:z
@@ -16,18 +20,21 @@ services:
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
       - ../../../tests:/opt/rucio/tests:Z
+      - ../../../:/rucio_source:ro
     environment:
+      - RUCIO_SOURCE_DIR=/rucio_source
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
-      - RDBMS=postgres14
+      - RDBMS
   rucio:
     image: docker.io/rucio/rucio-dev:latest-alma9
-    ports:
-      - "127.0.0.1:8443:443"
+    entrypoint: ["/rucio_source/etc/docker/dev/rucio_entrypoint.sh"]
+    command: ["httpd","-D","FOREGROUND"]
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:z
       - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:z
+      - ../../certs/rucio_ca.pem:/opt/rucio/etc/rucio_ca.pem:z
       - ../../certs/ruciouser.pem:/opt/rucio/etc/usercert.pem:z
       - ../../certs/ruciouser.key.pem:/opt/rucio/etc/userkey.pem:z
       - ../../certs/ruciouser.certkey.pem:/opt/rucio/etc/usercertkey.pem:z
@@ -37,14 +44,14 @@ services:
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
       - ../../../tests:/opt/rucio/tests:Z
+      - ../../../:/rucio_source:ro
     environment:
+      - RUCIO_SOURCE_DIR=/rucio_source
       - X509_USER_CERT=/opt/rucio/etc/usercert.pem
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
-      - RDBMS=postgres14
+      - RDBMS
   ruciodb:
     image: docker.io/postgres:14
-    ports:
-      - "127.0.0.1:5432:5432"
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
@@ -52,12 +59,8 @@ services:
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   graphite:
     image: docker.io/graphiteapp/graphite-statsd
-    ports:
-      - "127.0.0.1:8080:80"
   influxdb:
     image: docker.io/influxdb:latest
-    ports:
-      - "127.0.0.1:8086:8086"
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=myusername
@@ -67,16 +70,10 @@ services:
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
   elasticsearch:
     image: docker.io/elasticsearch:7.4.0
-    ports:
-      - "127.0.0.1:9200:9200"
-      - "127.0.0.1:9300:9300"
     environment:
       - discovery.type=single-node
   activemq:
     image: docker.io/webcenter/activemq:latest
-    ports:
-      - "127.0.0.1:61613:61613"
-      - "127.0.0.1:8161:8161"
     environment:
       - ACTIVEMQ_CONFIG_NAME=activemq
       - ACTIVEMQ_CONFIG_DEFAULTACCOUNT=false
@@ -87,3 +84,217 @@ services:
       - ACTIVEMQ_CONFIG_SCHEDULERENABLED=true
       - ACTIVEMQ_USERS_hermes=supersecret
       - ACTIVEMQ_CONFIG_QUEUES_events=/queue/events'
+  postgres14:
+    image: docker.io/postgres:14
+    profiles:
+      - postgres14
+    environment:
+      - POSTGRES_USER=rucio
+      - POSTGRES_DB=rucio
+      - POSTGRES_PASSWORD=rucio
+    command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
+  mysql8:
+    image: docker.io/mysql:8
+    profiles:
+      - mysql8
+    environment:
+      - MYSQL_USER=rucio
+      - MYSQL_PASSWORD=rucio
+      - MYSQL_ROOT_PASSWORD=rucio
+      - MYSQL_DATABASE=rucio
+      - MYSQL_TCP_PORT=3308
+    command:
+      - "--default-authentication-plugin=mysql_native_password"
+      - "--character-set-server=latin1"
+  oracle:
+    image: docker.io/gvenzl/oracle-xe:18.4.0
+    profiles:
+      - oracle
+    environment:
+      - ORACLE_PASSWORD=rucio
+      - ORACLE_ALLOW_REMOTE=true
+      - ORACLE_DISABLE_ASYNCH_IO=true
+      - processes=1000
+      - sessions=1105
+      - transactions=1215
+    volumes:
+      - ./oracle_setup.sh:/container-entrypoint-initdb.d/oracle_setup.sh:Z
+  fts:
+    image: docker.io/rucio/fts
+    profiles:
+      - storage
+    volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/hostcert_fts.pem:/etc/grid-security/hostcert.pem:Z
+      - ../../certs/hostcert_fts.key.pem:/etc/grid-security/hostkey.pem:Z
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
+  ftsdb:
+    image: docker.io/mysql:8
+    profiles:
+      - storage
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      - MYSQL_USER=fts
+      - MYSQL_PASSWORD=fts
+      - MYSQL_ROOT_PASSWORD=fts
+      - MYSQL_DATABASE=fts
+  xrd1:
+    image: docker.io/rucio/xrootd
+    profiles:
+      - storage
+    environment:
+      - XRDPORT=1094
+    volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/hostcert_xrd1.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd1.key.pem:/tmp/xrdkey.pem:Z
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
+  xrd2:
+    image: docker.io/rucio/xrootd
+    profiles:
+      - storage
+    environment:
+      - XRDPORT=1095
+    volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/hostcert_xrd2.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd2.key.pem:/tmp/xrdkey.pem:Z
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
+  xrd3:
+    image: docker.io/rucio/xrootd
+    profiles:
+      - storage
+    environment:
+      - XRDPORT=1096
+    volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/hostcert_xrd3.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd3.key.pem:/tmp/xrdkey.pem:Z
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
+  xrd4:
+    image: docker.io/rucio/xrootd
+    profiles:
+      - storage
+    environment:
+      - XRDPORT=1097
+    volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/hostcert_xrd4.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd4.key.pem:/tmp/xrdkey.pem:Z
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
+  minio:
+    image: docker.io/minio/minio
+    profiles:
+      - storage
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password
+    volumes:
+      - ../../certs/hostcert_minio.pem:/root/.minio/certs/public.crt:Z
+      - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key:Z
+    command: ["server", "/data"]
+  ssh1:
+    image: docker.io/rucio/ssh
+    profiles:
+      - storage
+    volumes:
+      - ../../certs/ssh/ruciouser_sshkey.pub:/tmp/sshkey.pub:Z
+  mongo:
+    image: docker.io/mongo:5.0
+    profiles:
+      - externalmetadata
+  postgres:
+    image: docker.io/postgres:14
+    profiles:
+      - externalmetadata
+    environment:
+      - POSTGRES_USER=rucio
+      - POSTGRES_DB=metadata
+      - POSTGRES_PASSWORD=secret
+    command: ["-p", "5433"]
+  logstash:
+    image: docker.elastic.co/logstash/logstash-oss:7.3.2
+    profiles:
+      - monitoring
+    command: bash -c "logstash-plugin install logstash-input-stomp ; /usr/local/bin/docker-entrypoint"
+    volumes:
+      - ./pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf:Z
+  kibana:
+    image: docker.io/kibana:7.4.0
+    profiles:
+      - monitoring
+  grafana:
+    image: docker.io/grafana/grafana:latest
+    profiles:
+      - monitoring
+  db-iam:
+    image: mariadb:10.11
+    profiles:
+      - iam
+    environment:
+      - TZ=Europe/Paris
+      - MYSQL_ROOT_PASSWORD=supersecret
+      - MYSQL_USER=iam
+      - MYSQL_PASSWORD=secret
+      - MYSQL_DATABASE=iam_db
+  nginx-iam:
+    image: nginx
+    profiles:
+      - iam
+    dns_search: cern.ch
+    environment:
+      TZ: Europe/Paris
+      NGINX_HOST: iam
+      NGINX_PORT: 443
+    volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      # - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:z
+      # - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:z
+      - /etc/grid-security/:/etc/grid-security/
+      - /dev/urandom:/dev/random
+      - ../../iam-assets/iam.conf:/etc/nginx/conf.d/default.conf:ro
+  iam:
+    profiles:
+      - iam
+    image: indigoiam/iam-login-service:v1.8.2
+    volumes:
+      - ../../iam-assets/keystore.jwks:/keystore.jwks:ro
+    environment:
+      - IAM_JAVA_OPTS=-Djava.security.egd=file:/dev/urandom -Dspring.profiles.active=prod,oidc,cern,registration,wlcg-scopes -agentlib:jdwp=transport=dt_socket,server=y,address=1044,suspend=n -Dlogging.file.name=/var/log/iam/iam.log
+      - IAM_HOST=<IAM_HOSTNAME>
+      - IAM_PORT=8090
+      - IAM_BASE_URL=https://<IAM_HOSTNAME>
+      - IAM_ISSUER=https://<IAM_HOSTNAME>
+      - IAM_FORWARD_HEADERS_STRATEGY=native
+      - IAM_KEY_STORE_LOCATION=file:/keystore.jwks
+      - IAM_JWK_CACHE_LIFETIME=21600
+      # - IAM_X509_TRUST_ANCHORS_DIR=/etc/grid-security/certificates
+      # - IAM_X509_TRUST_ANCHORS_REFRESH=14400
+      - IAM_TOMCAT_ACCESS_LOG_ENABLED=false
+      - IAM_TOMCAT_ACCESS_LOG_DIRECTORY=/tmp
+      - IAM_ACTUATOR_USER_USERNAME=user
+      - IAM_ACTUATOR_USER_PASSWORD=secret
+      - IAM_LOCAL_RESOURCES_ENABLE=true
+      - IAM_LOCAL_RESOURCES_LOCATION=file:/indigo-iam/local-resources
+      - IAM_ORGANISATION_NAME=rucio-dc
+      - IAM_TOPBAR_TITLE="INDIGO IAM for rucio-dc"
+      - IAM_DB_HOST=<IAM_DB_HOSTNAME>
+      - IAM_DB_PORT=3307
+      - IAM_DB_NAME=iam_db
+      - IAM_DB_USERNAME=iam
+      - IAM_DB_PASSWORD=secret

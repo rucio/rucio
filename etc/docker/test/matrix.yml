@@ -21,7 +21,7 @@ python:
         - remote_dbs
         - multi_vo
         - client
-        - client_synxtax
+        - client_syntax
         - syntax
         - sqlite
 
