@@ -547,7 +547,7 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse_expression_parser.REGION',  # The list of multihop RSEs is retrieved by rse expression
 ]}], indirect=True)
-def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock, metrics_mock, scitags_mock):
+def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock, metrics_mock):
     """
     Verify that the receiver correctly handles successful multihop jobs
     """
@@ -566,7 +566,7 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
 
         did = did_factory.upload_test_file(src_rse)
         rule_priority = 5
-        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None, priority=rule_priority, activity='test')
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None, priority=rule_priority)
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
         request = __wait_for_state_transition(dst_rse_id=jump_rse_id, run_poller=False, **did)
@@ -577,7 +577,6 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
         fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query({request['external_id']: {request['id']: request}})
         fts_response = fts_response[request['external_id']][request['id']]
         assert fts_response.job_response['priority'] == rule_priority
-        assert fts_response.file_response['file_metadata'].get('scitags_id') is not None
 
         # Two hops; both handled by receiver
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 2
@@ -595,7 +594,7 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
     'rucio.core.rse_expression_parser.REGION',
     'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
 ]}], indirect=True)
-def test_receiver_archiving(vo, did_factory, root_account, caches_mock):
+def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_mock):
     """
     Ensure that receiver doesn't mark archiving requests as DONE
     """
@@ -626,7 +625,7 @@ def test_receiver_archiving(vo, did_factory, root_account, caches_mock):
             rse_core.add_rse_attribute(dst_rse_id, 'archive_timeout', 60)
 
             did = did_factory.upload_test_file(src_rse)
-            rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+            rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, activity='test')
             submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
             # Wait for the reception of the FTS Completion message for the submitted request
@@ -641,6 +640,7 @@ def test_receiver_archiving(vo, did_factory, root_account, caches_mock):
 
             # Receiver must not mark "ARCHIVING" requests as "DONE"
             request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+            assert received_messages[request['id']].get('scitag') == 2 << 6 | 18  # 'atlas' experiment: 2; 'test' activity: 18
             assert request['state'] == RequestState.SUBMITTED
             # Poller should also correctly handle "ARCHIVING" transfers and not mark them as DONE
             poller(once=True, older_than=0, partition_wait_time=0)
