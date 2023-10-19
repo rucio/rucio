@@ -44,6 +44,7 @@ Individual contributors to the source code
 - Andrew Lister <andrew.lister@stfc.ac.uk>, 2019
 - Aristeidis Fkiaras <aristeidis.fkiaras@cern.ch>, 2019
 - Matt Snyder <msnyder@bnl.gov>, 2019
+- Brandon White <bjwhite@fnal.gov> 2019-2023
 - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020
 - Muhammad Aditya Hilmy <mhilmy@hey.com>, 2020
 - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
