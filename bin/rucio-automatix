@@ -30,7 +30,7 @@ def get_parser():
     """
     parser = argparse.ArgumentParser(description="Automatix is a daemon used to inject random generated files to an RSE. It is used to continuosly check that an RSE is reachable and operating as spected.")
     parser.add_argument("--run-once", action="store_true", default=False, help='Runs one loop iteration')
-    parser.add_argument("--input-file", action="store", default=" /opt/rucio/etc/automatix.json", type=str, help='Automatix configuration')
+    parser.add_argument("--input-file", action="store", default="/opt/rucio/etc/automatix.json", type=str, help='Automatix configuration')
     parser.add_argument("--threads-per-process", action="store", default=1, type=int, help='Total number of workers per process')
     parser.add_argument('--sleep-time', action="store", default=-1, type=int, help='Concurrency control: thread sleep time after each chunk of work')
     return parser
