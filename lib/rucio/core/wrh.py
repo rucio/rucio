@@ -1,3 +1,18 @@
+# -*- coding: utf-8 -*-
+# Copyright European Organization for Nuclear Research (CERN) since 2012
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 import mmh3
 import math
@@ -10,26 +25,30 @@ def hash_to_unit_interval(s: str) -> float:
 
 
 class XCaches:
-    def __init__(self, heartbeats=None):
+    def __init__(self) -> None:
         """ creates map of XCaches based on their heartbeats """
         self.sites = {}
 
-        if not heartbeats:
-            return
+    def refresh(self, heartbeats: list) -> None:
+        self.sites = {}
         for hb in heartbeats:
             instance = json.loads(hb['payload'])
             site = instance['site']
             if site not in self.sites:
                 self.sites[site] = []
-            self.sites[site].append(Node(instance['address'], instance['size']))
+            self.sites[site].append(Node(instance['address'], float(instance['size'])))
         print(self.sites)
 
-    def determine_responsible_node(self, site: str, key: str):
+    def determine_responsible_node(self, site: str, key: str) -> str:
         """Determines which node of a site is responsible for the provided key."""
         if site not in self.sites:
             return ''
-        return max(
+        rn = max(
             self.sites[site], key=lambda node: node.compute_weighted_score(key), default=None)
+        if rn:
+            return rn.name
+        else:
+            return ''
 
 
 @dataclass
@@ -38,31 +57,31 @@ class Node:
     name: str
     weight: float
 
-    def compute_weighted_score(self, key: str):
+    def compute_weighted_score(self, key: str) -> float:
         score = hash_to_unit_interval(f"{self.name}: {key}")
         log_score = 1.0 / -math.log(score)
         return self.weight * log_score
 
 
 # # ------------ Test --------------
-# import random
 # import string
-# heartbeats = {
-#     "LRZ-LMU": {
-#         "servers": [["129.187.139.130", "100"], ["129.187.139.131", "200"]],
-#         "ranges": [[1, 0.5], [0, 1]]
-#     },
-#     "Birmingham": {"servers": [["193.62.56.109", ""]], "ranges": [[0, 1]]},
-#     "BNL": {"servers": [["10.42.38.81", "2337187217408"]], "ranges": [[0, 1]]}
-# }
+# import random
+# heartbeats = [
+#     {'readable': 'xcache', 'hostname': 'slate01', 'pid': 0, 'thread_name': 'thread', 'updated_at': 'Fri, 14 Jul 2023 19:05:04 UTC',
+#         'created_at': 'Fri, 14 Jul 2023 00:58:01 UTC', 'payload': '{"site": "UC-AF", "instance": "slate01", "address": "192.170.240.18:1094", "size": "35927165916"}'},
+#     {'readable': 'xcache', 'hostname': 'slate02', 'pid': 0, 'thread_name': 'thread', 'updated_at': 'Fri, 14 Jul 2023 19:05:04 UTC',
+#      'created_at': 'Fri, 14 Jul 2023 00:58:01 UTC', 'payload': '{"site": "UC-AF", "instance": "slate02", "address": "192.170.240.19:1094", "size": "25927165916"}'},
+#     {'readable': 'xcache', 'hostname': 'slate01', 'pid': 0, 'thread_name': 'thread', 'updated_at': 'Fri, 14 Jul 2023 19:05:04 UTC',
+#      'created_at': 'Fri, 14 Jul 2023 00:58:01 UTC', 'payload': '{"site": "MWT2", "instance": "slate01", "address": "192.170.240.20:1094", "size": "127165916"}'}
+# ]
 # xcaches = XCaches(heartbeats=heartbeats)
-# print(xcaches.determine_responsible_node('BNL', 'root://sdf.adf./adfasdf'))
-# print(xcaches.determine_responsible_node('Birmingham', 'root://sdf.adf./adfasdf'))
+# print('BNL:', xcaches.determine_responsible_node('BNL', 'root://sdf.adf./adfasdf'))
+# print('MWT2:', xcaches.determine_responsible_node('MWT2', 'root://sdf.adf./adfasdf'))
 # counts = {}
 # for t in range(10000):
 #     s = string.ascii_lowercase + string.digits
-#     ip = xcaches.determine_responsible_node('LRZ-LMU', ''.join(random.sample(s, 10))).name
+#     ip = xcaches.determine_responsible_node('UC-AF', ''.join(random.sample(s, 10)))
 #     if ip not in counts:
 #         counts[ip] = 1
 #     counts[ip] += 1
-# print(counts)
+# print('UC-AF', counts)
