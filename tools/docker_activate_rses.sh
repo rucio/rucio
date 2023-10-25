@@ -58,10 +58,10 @@ rucio-admin rse set-attribute --rse XRD4 --key test_container_xrd --value True
 rucio-admin rse set-attribute --rse SSH1 --key test_container_ssh --value True
 
 # Workaround, xrootd.py#connect returns with Auth Failed due to execution of the command in subprocess
-XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd1:1094 query config xrd1:1094
-XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd2:1095 query config xrd2:1095
-XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd3:1096 query config xrd3:1096
-XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs xrd3:1096 query config xrd4:1097
+XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 XrdSecGSISRVNAMES=xrd1 xrdfs xrd1:1094 query config xrd1:1094
+XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 XrdSecGSISRVNAMES=xrd2 xrdfs xrd2:1095 query config xrd2:1095
+XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 XrdSecGSISRVNAMES=xrd3 xrdfs xrd3:1096 query config xrd3:1096
+XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 XrdSecGSISRVNAMES=xrd4 xrdfs xrd4:1097 query config xrd4:1097
 
 # Enable FTS
 rucio-admin rse set-attribute --rse XRD1 --key fts --value https://fts:8446
@@ -99,10 +99,10 @@ dd if=/dev/urandom of=file2 bs=10M count=1
 dd if=/dev/urandom of=file3 bs=10M count=1
 dd if=/dev/urandom of=file4 bs=10M count=1
 
-rucio upload --rse XRD1 --scope test file1
-rucio upload --rse XRD1 --scope test file2
-rucio upload --rse XRD2 --scope test file3
-rucio upload --rse XRD2 --scope test file4
+XrdSecGSISRVNAMES=xrd1 rucio upload --rse XRD1 --scope test file1
+XrdSecGSISRVNAMES=xrd1 rucio upload --rse XRD1 --scope test file2
+XrdSecGSISRVNAMES=xrd2 rucio upload --rse XRD2 --scope test file3
+XrdSecGSISRVNAMES=xrd2 rucio upload --rse XRD2 --scope test file4
 
 rucio add-dataset test:dataset1
 rucio attach test:dataset1 test:file1 test:file2
