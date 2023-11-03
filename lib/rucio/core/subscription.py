@@ -25,7 +25,7 @@ from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import NoResultFound
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get_bool
 from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import SubscriptionState
@@ -78,7 +78,7 @@ def add_subscription(name: str,
     :returns:                  The subscriptionid
     """
     try:
-        keep_history = config_get('subscriptions', 'keep_history')
+        keep_history = config_get_bool('subscriptions', 'keep_history')
     except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
 
@@ -146,7 +146,7 @@ def update_subscription(name: str,
     :raises: SubscriptionNotFound if subscription is not found
     """
     try:
-        keep_history = config_get('subscriptions', 'keep_history')
+        keep_history = config_get_bool('subscriptions', 'keep_history')
     except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
     values = {'state': SubscriptionState.UPDATED}
