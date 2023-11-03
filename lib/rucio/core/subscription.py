@@ -99,20 +99,21 @@ def add_subscription(name: str,
                                            lifetime=date_lifetime,
                                            retroactive=retroactive,
                                            policyid=priority, comments=comments)
-    if keep_history:
-        subscription_history = SubscriptionHistory(id=new_subscription.id,
-                                                   name=new_subscription.name,
-                                                   filter=new_subscription.filter,
-                                                   account=new_subscription.account,
-                                                   replication_rules=new_subscription.replication_rules,
-                                                   state=new_subscription.state,
-                                                   lifetime=new_subscription.lifetime,
-                                                   retroactive=new_subscription.retroactive,
-                                                   policyid=new_subscription.policyid,
-                                                   comments=new_subscription.comments)
     try:
         new_subscription.save(session=session)
         if keep_history:
+            subscription_history = SubscriptionHistory(id=new_subscription.id,
+                                                       name=new_subscription.name,
+                                                       filter=new_subscription.filter,
+                                                       account=new_subscription.account,
+                                                       replication_rules=new_subscription.replication_rules,
+                                                       state=new_subscription.state,
+                                                       lifetime=new_subscription.lifetime,
+                                                       retroactive=new_subscription.retroactive,
+                                                       policyid=new_subscription.policyid,
+                                                       created_at=new_subscription.created_at,
+                                                       updated_at=new_subscription.created_at,
+                                                       comments=new_subscription.comments)
             subscription_history.save(session=session)
     except IntegrityError as error:
         if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_PK.*violated.*', error.args[0])\
