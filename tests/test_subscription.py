@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from datetime import datetime
-from json import loads
+from json import loads, dumps
 from json.decoder import JSONDecodeError
 
 import pytest
@@ -177,6 +177,36 @@ class TestSubscriptionCoreApi:
 
         for rule in list_subscription_rule_states(account='root', name=subscription_name, vo=vo):
             assert rule[3] == 2
+
+    @pytest.mark.dirty
+    @pytest.mark.parametrize("file_config_mock", [
+        {"overrides": [('subscriptions', 'keep_history', 'True')]},
+    ], indirect=True)
+    def test_keep_history_option(self, rse_factory, vo, root_account, file_config_mock):
+        """ SUBSCRIPTION (API): Test the keep_history flag """
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
+        rse_expression = '%s|%s' % (rse1, rse2)
+        subscription_name = uuid()
+        filter_ = dumps({'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]})
+        meta1 = {'filter': {'project': ['newproject', ]}}
+        meta2 = {'filter': {'project': ['anothernewproject', ]}}
+        sub_id = subscription_core.add_subscription(name=subscription_name,
+                                  account=root_account,
+                                  filter_=filter_,
+                                  replication_rules=dumps([{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}]),
+                                  lifetime=100000,
+                                  retroactive=False,
+                                  dry_run=False,
+                                  comments='This is a comment')
+        result = subscription_core.update_subscription(name=subscription_name, account=root_account, metadata=meta1)
+        assert result is None
+        result = subscription_core.update_subscription(name=subscription_name, account=root_account, metadata=meta2)
+        assert result is None
+        subscriptions = subscription_core.list_subscription_history(subscription_id=sub_id)
+        assert subscriptions[0]['filter'] == filter_
+        assert subscriptions[1]['filter'] == dumps(meta1['filter'])
+        assert subscriptions[2]['filter'] == dumps(meta2['filter'])
 
 
 def test_create_and_update_and_list_subscription(rse_factory, rest_client, auth_token):

@@ -24,6 +24,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql.expression import select
 
 from rucio.common.config import config_get_bool
 from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException
@@ -298,7 +299,7 @@ def list_subscription_rule_states(name=None, account=None, *, session: "Session"
 
 
 @read_session
-def get_subscription_by_id(subscription_id, *, session: "Session"):
+def get_subscription_by_id(subscription_id: str, *, session: "Session"):
     """
     Get a specific subscription by id.
 
@@ -311,6 +312,35 @@ def get_subscription_by_id(subscription_id, *, session: "Session"):
     try:
         subscription = session.query(models.Subscription).filter_by(id=subscription_id).one()
         return subscription.to_dict()
+    except NoResultFound:
+        raise SubscriptionNotFound('No subscription with the id %s found' % (subscription_id))
+    except StatementError:
+        raise RucioException('Badly formatted subscription id (%s)' % (subscription_id))
+
+
+@read_session
+def list_subscription_history(subscription_id: str, *, session: "Session") -> "Iterator[SubscriptionType]":
+    """
+    Get a specific subscription by id.
+
+    :param subscription_id:    The subscription_id to select.
+    :param session:            The database session in use.
+
+    :raises:                   SubscriptionNotFound if no Subscription can be found.
+    """
+    subscription_history = []
+    try:
+        stmt = select(
+        models.SubscriptionHistory
+        ).where(
+            models.SubscriptionHistory.id == subscription_id
+        ).order_by(
+        models.SubscriptionHistory.updated_at
+        )
+        for row in session.execute(stmt):
+            subscription_history.append(row[0].to_dict())
+        return subscription_history
+
     except NoResultFound:
         raise SubscriptionNotFound('No subscription with the id %s found' % (subscription_id))
     except StatementError:
