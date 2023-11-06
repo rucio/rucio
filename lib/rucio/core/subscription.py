@@ -27,7 +27,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import select
 
 from rucio.common.config import config_get_bool
-from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException
+from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException, UnsupportedOperation
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import SubscriptionState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session
@@ -203,6 +203,12 @@ def update_subscription(name: str,
             subscription_history.save(session=session)
     except NoResultFound:
         raise SubscriptionNotFound(f"Subscription for account '{account}' named '{name}' not found")
+    except IntegrityError as error:
+        if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_HISTORY_PK.*violated.*', error.args[0])\
+           or re.match(".*IntegrityError.*UNIQUE constraint failed: subscriptions_history.id, subscriptions_history.updated_at.*", error.args[0])\
+           or re.match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+           or re.match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]):
+            raise UnsupportedOperation(f"Subscription \'{name}\' owned by \'{account}\' cannot be updated!")
 
 
 @stream_session
@@ -319,7 +325,7 @@ def get_subscription_by_id(subscription_id: str, *, session: "Session"):
 
 
 @read_session
-def list_subscription_history(subscription_id: str, *, session: "Session") -> "Iterator[SubscriptionType]":
+def list_subscription_history(subscription_id: str, *, session: "Session") -> "list[SubscriptionType]":
     """
     Get a specific subscription by id.
 
@@ -331,11 +337,11 @@ def list_subscription_history(subscription_id: str, *, session: "Session") -> "I
     subscription_history = []
     try:
         stmt = select(
-        models.SubscriptionHistory
+            models.SubscriptionHistory
         ).where(
             models.SubscriptionHistory.id == subscription_id
         ).order_by(
-        models.SubscriptionHistory.updated_at
+            models.SubscriptionHistory.updated_at
         )
         for row in session.execute(stmt):
             subscription_history.append(row[0].to_dict())
