@@ -84,7 +84,7 @@ class RseData:
         return self._attributes
 
     @property
-    def info(self) -> dict[str, Any]:
+    def info(self) -> types.RSESettingsDict:
         if self._info is None:
             raise ValueError(f'info not loaded for rse {self}')
         return self._info
