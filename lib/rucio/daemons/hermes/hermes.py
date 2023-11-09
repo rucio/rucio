@@ -149,6 +149,8 @@ def setup_activemq(logger: "Callable"):
 
     port = config_get_int("messaging-hermes", "port")
     vhost = config_get("messaging-hermes", "broker_virtual_host", raise_exception=False)
+    username = None
+    password = None
     if not use_ssl:
         username = config_get("messaging-hermes", "username")
         password = config_get("messaging-hermes", "password")
