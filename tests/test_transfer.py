@@ -148,7 +148,7 @@ def test_get_hops(rse_factory):
     assert hop4['dest_rse'].id == rse6_id
 
 
-def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
+def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope, file_config_mock):
     tape1_rse_name, tape1_rse_id = rse_factory.make_posix_rse(rse_type=RSEType.TAPE)
     tape2_rse_name, tape2_rse_id = rse_factory.make_posix_rse(rse_type=RSEType.TAPE)
     disk1_rse_name, disk1_rse_id = rse_factory.make_posix_rse(rse_type=RSEType.DISK)
@@ -213,6 +213,38 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope):
                                                          requests_with_sources=requests).items()
     assert len(transfer[0].legacy_sources) == 1
     assert transfer[0].legacy_sources[0][0] == tape1_rse_name
+
+
+@pytest.mark.parametrize("file_config_mock", [
+    {"overrides": [('transfers', 'source_ranking_strategies', 'PathDistance')]},
+    {"overrides": [('transfers', 'source_ranking_strategies', 'PreferDiskOverTape,PathDistance')]}
+], indirect=True)
+def test_disk_vs_tape_with_custom_strategy(rse_factory, root_account, mock_scope, file_config_mock):
+    """
+    Disk RSEs are preferred over tape only if the PreferDiskOverTape strategy is set.
+    """
+    disk_rse_name, disk_rse_id = rse_factory.make_posix_rse(rse_type=RSEType.DISK)
+    tape_rse_name, tape_rse_id = rse_factory.make_posix_rse(rse_type=RSEType.TAPE)
+    dst_rse_name, dst_rse_id = rse_factory.make_posix_rse()
+    all_rses = [tape_rse_id, disk_rse_id, dst_rse_id]
+    add_distance(disk_rse_id, dst_rse_id, distance=20)
+    add_distance(tape_rse_id, dst_rse_id, distance=10)
+
+    file = {'scope': mock_scope, 'name': 'lfn.' + generate_uuid(), 'type': 'FILE', 'bytes': 1, 'adler32': 'beefdead'}
+    did = {'scope': file['scope'], 'name': file['name']}
+    for rse_id in [tape_rse_id, disk_rse_id]:
+        add_replicas(rse_id=rse_id, files=[file], account=root_account)
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    topology = Topology().configure_multihop()
+    requests = list_and_mark_transfer_requests_and_source_replicas(rse_collection=topology, rses=all_rses)
+
+    [[_, [transfer]]] = pick_and_prepare_submission_path(topology=topology, protocol_factory=ProtocolFactory(),
+                                                         requests_with_sources=requests).items()
+    if 'PreferDiskOverTape' in file_config_mock.get('transfers', 'source_ranking_strategies'):
+        assert transfer[0].src.rse.name == disk_rse_name
+    else:
+        assert transfer[0].src.rse.name == tape_rse_name
 
 
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [

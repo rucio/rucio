@@ -29,7 +29,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common import constants
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_list
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import (InvalidRSEExpression,
                                     RequestNotFound, RSEProtocolNotSupported,
@@ -921,6 +921,17 @@ class SourceRankingStrategy:
         """
         pass
 
+    class _ClassNameDescriptor(object):
+        """
+        Automatically set the external_name of the strategy to the class name.
+        """
+        def __get__(self, obj, objtype=None):
+            if objtype is not None:
+                return objtype.__name__
+            return type(obj).__name__
+
+    external_name = _ClassNameDescriptor()
+
 
 class SourceFilterStrategy(SourceRankingStrategy):
     filter_only = True
@@ -1101,21 +1112,43 @@ def build_transfer_paths(
         preparer_mode=preparer_mode,
         requested_source_only=requested_source_only,
     )
-    strategies = [
-        EnforceSourceRSEExpression(),
-        SkipBlocklistedRSEs(topology=topology),
-        SkipRestrictedRSEs(admin_accounts=admin_accounts),
-        EnforceStagingBuffer(),
-        RestrictTapeSources(),
+
+    available_strategies = {
+        EnforceSourceRSEExpression.external_name: lambda: EnforceSourceRSEExpression(),
+        SkipBlocklistedRSEs.external_name: lambda: SkipBlocklistedRSEs(topology=topology),
+        SkipRestrictedRSEs.external_name: lambda: SkipRestrictedRSEs(admin_accounts=admin_accounts),
+        EnforceStagingBuffer.external_name: lambda: EnforceStagingBuffer(),
+        RestrictTapeSources.external_name: lambda: RestrictTapeSources(),
+        SkipSchemeMissmatch.external_name: lambda: SkipSchemeMissmatch(transfer_path_builder=transfer_path_builder),
+        SkipIntermediateTape.external_name: lambda: SkipIntermediateTape(transfer_path_builder=transfer_path_builder),
+        HighestAdjustedRankingFirst.external_name: lambda: HighestAdjustedRankingFirst(),
+        PreferDiskOverTape.external_name: lambda: PreferDiskOverTape(),
+        PathDistance.external_name: lambda: PathDistance(transfer_path_builder=transfer_path_builder),
+        PreferSingleHop.external_name: lambda: PreferSingleHop(transfer_path_builder=transfer_path_builder),
+    }
+
+    default_strategies = [
+        EnforceSourceRSEExpression.external_name,
+        SkipBlocklistedRSEs.external_name,
+        SkipRestrictedRSEs.external_name,
+        EnforceStagingBuffer.external_name,
+        RestrictTapeSources.external_name,
         # Without the SkipSchemeMissmatch strategy, requests will never be transitioned to the
         # RequestState.MISMATCH_SCHEME state. It _MUST_ be placed before the other Path-based strategies.
-        SkipSchemeMissmatch(transfer_path_builder=transfer_path_builder),
-        SkipIntermediateTape(transfer_path_builder=transfer_path_builder),
-        HighestAdjustedRankingFirst(),
-        PreferDiskOverTape(),
-        PathDistance(transfer_path_builder=transfer_path_builder),
-        PreferSingleHop(transfer_path_builder=transfer_path_builder),
+        SkipSchemeMissmatch.external_name,
+        SkipIntermediateTape.external_name,
+        HighestAdjustedRankingFirst.external_name,
+        PreferDiskOverTape.external_name,
+        PathDistance.external_name,
+        PreferSingleHop.external_name,
     ]
+    strategy_names = config_get_list('transfers', 'source_ranking_strategies', default=default_strategies)
+
+    try:
+        strategies = list(available_strategies[name]() for name in strategy_names)
+    except KeyError:
+        logger(logging.ERROR, "One of the configured source_ranking_strategies doesn't exist %s", strategy_names, exc_info=True)
+        raise
 
     if admin_accounts is None:
         admin_accounts = set()
@@ -1175,7 +1208,7 @@ def build_transfer_paths(
             for source in sources:
                 verdict = rws_strategy.apply(source)
                 if verdict is SKIP_SOURCE:
-                    rejected_sources[strategy.__class__.__name__].append(source)
+                    rejected_sources[strategy.external_name].append(source)
                     cost_vectors.pop(source)
                 elif not strategy.filter_only:
                     cost_vectors[source].append(verdict)
@@ -1204,11 +1237,11 @@ def build_transfer_paths(
             # It can happen that some sources are skipped because they are TAPE, and others because
             # of scheme mismatch. However, we can only have one state in the database. I picked to
             # prioritize setting only_tape_source without any particular reason.
-            if RestrictTapeSources.__name__ in rejected_sources:
+            if RestrictTapeSources.external_name in rejected_sources:
                 logger(logging.DEBUG, '%s: Only tape sources found' % rws.request_id)
                 reqs_only_tape_source.add(rws.request_id)
                 reqs_no_source.remove(rws.request_id)
-            elif SkipSchemeMissmatch.__name__ in rejected_sources:
+            elif SkipSchemeMissmatch.external_name in rejected_sources:
                 logger(logging.DEBUG, '%s: Scheme mismatch detected' % rws.request_id)
                 reqs_scheme_mismatch.add(rws.request_id)
                 reqs_no_source.remove(rws.request_id)

@@ -519,7 +519,7 @@ def file_config_mock(request):
             if not config_has_section(section):
                 config_add_section(section)
             config_set(section, option, value)
-        yield
+        yield parser
 
 
 @pytest.fixture

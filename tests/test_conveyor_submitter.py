@@ -283,7 +283,11 @@ def test_ignore_availability(rse_factory, did_factory, root_account, caches_mock
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
-def test_scheme_missmatch(rse_factory, did_factory, root_account):
+@pytest.mark.parametrize("file_config_mock", [
+    {"overrides": [('transfers', 'source_ranking_strategies', 'SkipSchemeMissmatch,PathDistance')]},
+    {"overrides": [('transfers', 'source_ranking_strategies', 'PathDistance')]}
+], indirect=True)
+def test_scheme_missmatch(rse_factory, did_factory, root_account, file_config_mock):
     """
     Ensure that the requests are marked MISSMATCH_SCHEME when there is a path, but with wrong schemes.
     """
@@ -298,7 +302,10 @@ def test_scheme_missmatch(rse_factory, did_factory, root_account):
     submitter(once=True, rses=[{'id': rse_id} for rse_id in (src_rse_id, dst_rse_id)], partition_wait_time=None, transfertools=['mock'], transfertype='single')
 
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-    assert request['state'] == RequestState.MISMATCH_SCHEME
+    if 'SkipSchemeMissmatch' in file_config_mock.get('transfers', 'source_ranking_strategies'):
+        assert request['state'] == RequestState.MISMATCH_SCHEME
+    else:
+        assert request['state'] == RequestState.NO_SOURCES
 
 
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER])
