@@ -359,7 +359,8 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     assert len(list(did_core.list_content(**dataset1))) == 2
     with pytest.raises(DataIdentifierNotFound):
         did_core.get_did(**dataset2)
-    assert len(list(did_core.list_content(**dataset2))) == 0
+    with pytest.raises(DataIdentifierNotFound):
+        list(did_core.list_content(**dataset2))
     assert len(list(did_core.list_archive_content(**archive2))) == 0
     assert __get_archive_contents_history_count(archive1) == 4
     assert __get_archive_contents_history_count(archive2) == 3
