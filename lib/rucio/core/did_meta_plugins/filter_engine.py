@@ -265,7 +265,9 @@ class FilterEngine:
             else:
                 return value
         try:
-            value = ast.literal_eval(value)     # will catch float, int and bool
+            operators = ('+', '-', '*', '/')
+            if not any(operator in value for operator in operators):    # fix for lax ast literal_eval in earlier python versions
+                value = ast.literal_eval(value)                         # will catch float, int and bool
         except (ValueError, SyntaxError):
             pass
         return value
