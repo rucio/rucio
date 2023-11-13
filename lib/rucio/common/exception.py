@@ -1090,3 +1090,13 @@ class DeprecationError(RucioException):
         super(DeprecationError, self).__init__(*args, **kwargs)
         self._message = 'Command or function has been deprecated.'
         self.error_code = 105
+
+
+class MetadataPluginGenericError(RucioException):
+    """
+    Generic metadata plugin error.
+    """
+    def __init__(self, *args, **kwargs):
+        super(MetadataPluginGenericError, self).__init__(*args, **kwargs)
+        self._message = 'Generic metadata plugin error.'
+        self.error_code = 106

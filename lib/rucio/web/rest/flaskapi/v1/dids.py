@@ -26,7 +26,8 @@ from rucio.api.did import add_did, add_dids, list_content, list_content_history,
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import ScopeNotFound, DatabaseException, DataIdentifierNotFound, DataIdentifierAlreadyExists, \
     DuplicateContent, AccessDenied, KeyNotFound, Duplicate, InvalidValueForKey, UnsupportedStatus, \
-    UnsupportedOperation, RSENotFound, RuleNotFound, InvalidMetadata, InvalidPath, FileAlreadyExists, InvalidObject, FileConsistencyMismatch
+    UnsupportedOperation, RSENotFound, RuleNotFound, InvalidMetadata, InvalidPath, FileAlreadyExists, InvalidObject, FileConsistencyMismatch, \
+    MetadataPluginGenericError
 from rucio.common.utils import render_json, APIEncoder
 from rucio.db.sqla.constants import DIDType
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
@@ -215,6 +216,8 @@ class Search(ErrorHandlingMethodView):
             description: Not acceptable
           409:
             description: Wrong did type
+          500:
+            description: Error processing request server-side.
         """
         filters = request.args.get('filters', default=None)
         if filters is not None:
@@ -240,6 +243,8 @@ class Search(ErrorHandlingMethodView):
             return generate_http_error_flask(409, error)
         except KeyNotFound as error:
             return generate_http_error_flask(404, error)
+        except MetadataPluginGenericError as error:
+            return generate_http_error_flask(500, error)
 
 
 class BulkDIDS(ErrorHandlingMethodView):
@@ -1207,6 +1212,8 @@ class Meta(ErrorHandlingMethodView):
             description: Did not found
           406:
             description: Not acceptable
+          500:
+            description: Error processing request server-side.
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -1219,6 +1226,8 @@ class Meta(ErrorHandlingMethodView):
             return Response(render_json(**meta), content_type='application/json')
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
+        except MetadataPluginGenericError as error:
+            return generate_http_error_flask(500, error)
 
     def post(self, scope_name):
         """
@@ -1263,6 +1272,8 @@ class Meta(ErrorHandlingMethodView):
             description: Not found
           406:
             description: Not acceptable
+          500:
+            description: Error processing request server-side.
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -1287,6 +1298,8 @@ class Meta(ErrorHandlingMethodView):
             return generate_http_error_flask(409, error)
         except (KeyNotFound, InvalidMetadata, InvalidValueForKey) as error:
             return generate_http_error_flask(400, error)
+        except MetadataPluginGenericError as error:
+            return generate_http_error_flask(500, error)
 
         return "Created", 201
 
@@ -1322,6 +1335,8 @@ class Meta(ErrorHandlingMethodView):
             description: Not acceptable
           409:
             description: Feature is not in current database.
+          500:
+            description: Error processing request server-side.
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -1339,6 +1354,8 @@ class Meta(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
         except NotImplementedError as error:
             return generate_http_error_flask(409, error, 'Feature not in current database')
+        except MetadataPluginGenericError as error:
+            return generate_http_error_flask(500, error)
 
         return '', 200
 
@@ -1393,6 +1410,8 @@ class SingleMeta(ErrorHandlingMethodView):
             description: Matadata already exists
           400:
             description: Invalid key or value
+          500:
+            description: Error processing request server-side.
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
@@ -1418,6 +1437,8 @@ class SingleMeta(ErrorHandlingMethodView):
             return generate_http_error_flask(409, error)
         except (KeyNotFound, InvalidMetadata, InvalidValueForKey) as error:
             return generate_http_error_flask(400, error)
+        except MetadataPluginGenericError as error:
+            return generate_http_error_flask(500, error)
 
         return 'Created', 201
 
@@ -1471,6 +1492,8 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
             description: Not acceptable
           409:
             description: Unsupported Operation
+          500:
+            description: Error processing request server-side.
         """
         parameters = json_parameters()
         dids = param_get(parameters, 'dids')
@@ -1483,6 +1506,8 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
             return generate_http_error_flask(409, error)
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
+        except MetadataPluginGenericError as error:
+            return generate_http_error_flask(500, error)
 
         return 'Created', 201
 
@@ -1590,6 +1615,8 @@ class BulkMeta(ErrorHandlingMethodView):
             description: Did not found
           406:
             description: Not acceptable
+          500:
+            description: Error processing request server-side.
         """
         parameters = json_parameters()
         dids = param_get(parameters, 'dids')
@@ -1605,6 +1632,8 @@ class BulkMeta(ErrorHandlingMethodView):
             return generate_http_error_flask(400, error, 'Cannot decode json parameter list')
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
+        except MetadataPluginGenericError as error:
+            return generate_http_error_flask(500, error)
 
 
 class AssociatedRules(ErrorHandlingMethodView):

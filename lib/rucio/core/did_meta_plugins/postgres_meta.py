@@ -73,6 +73,8 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         }
         self.jsonb_column = table_column_data
 
+        self.db_schema = db_schema
+
         self.table = table
         self.client = psycopg2.connect(
             host=host,
@@ -82,10 +84,14 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
             password=password)
 
         # set search_path to include database schema by default
-        cur = self.client.cursor()
-        statement = "SET search_path TO {};".format(db_schema)
-        cur.execute(statement)
-        cur.close()
+        statement = "SET search_path TO {};".format(self.db_schema)
+        try:
+            with self.client.cursor() as cursor:
+                cursor.execute(statement)
+            self.client.commit()
+        except psycopg2.Error:
+            self.client.rollback()
+            raise exception.MetadataPluginGenericError
 
         if not table_is_managed:                    # not managed by Rucio, so just verify table schema
             self._verify_table_schema(table_column_vo, table_column_scope, table_column_name, table_column_data)
@@ -106,14 +112,15 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
             ("data", "jsonb", "DEFAULT", "'{}'::jsonb"),
             ("UNIQUE", "(scope, name)")  # unique scope+name table constraint, required for ON CONFLICT
         )
-        statement = "CREATE TABLE IF NOT EXISTS {} ({})".format(
-            self.table,
-            ', '.join([' '.join(clause) for clause in table_clauses]))
-
-        cur = self.client.cursor()
-        cur.execute(statement)
-        cur.close()
-        self.client.commit()
+        statement = "CREATE TABLE IF NOT EXISTS {}.{} ({})".format(
+            self.db_schema, self.table, ', '.join([' '.join(clause) for clause in table_clauses]))
+        try:
+            with self.client.cursor() as cursor:
+                cursor.execute(statement)
+            self.client.commit()
+        except psycopg2.Error:
+            self.client.rollback()
+            raise exception.MetadataPluginGenericError
 
     def _verify_table_schema(self, table_column_vo, table_column_scope, table_column_name, table_column_data):
         """
@@ -130,10 +137,15 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         # Check mandatory columns are of right data type and have the right nullable qualifier.
         statement = "SELECT column_name, data_type, is_nullable " \
                     "FROM INFORMATION_SCHEMA.COLUMNS where table_name = '{}';".format(self.table)
-        cur = self.client.cursor()
-        cur.execute(statement)
-        existing_table_columns = cur.fetchall()
-        cur.close()
+        try:
+            with self.client.cursor() as cursor:
+                cursor.execute(statement)
+                existing_table_columns = cursor.fetchall()
+        except psycopg2.Error:
+            self.client.rollback()
+            raise exception.MetadataPluginGenericError
+        finally:
+            self.client.commit()
 
         mandatory_column_specifications = [
             (table_column_vo, "character varying", "NO"),
@@ -156,10 +168,15 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                     "INNER JOIN pg_class rel ON rel.oid = con.conrelid " \
                     "INNER JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace " \
                     "WHERE rel.relname = '{}';".format(self.table)
-        cur = self.client.cursor()
-        cur.execute(statement)
-        existing_table_constraints = cur.fetchall()  # list of (constraint_type, [columns])
-        cur.close()
+        try:
+            with self.client.cursor() as cursor:
+                cursor.execute(statement)
+                existing_table_constraints = cursor.fetchall()
+        except psycopg2.Error:
+            self.client.rollback()
+            raise exception.MetadataPluginGenericError
+        finally:
+            self.client.commit()
 
         mandatory_table_constraints = [
             ("u", [table_column_scope, table_column_name]),  # unique scope+name table constraint
@@ -171,11 +188,14 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                         constraint, len(existing_table_constraints)))
 
     def _drop_metadata_table(self):
-        statement = "DROP TABLE IF EXISTS {};".format(self.table)
-        cur = self.client.cursor()
-        cur.execute(statement)
-        cur.close()
-        self.client.commit()
+        statement = "DROP TABLE IF EXISTS {}.{};".format(self.db_schema, self.table)
+        try:
+            with self.client.cursor() as cursor:
+                cursor.execute(statement)
+            self.client.commit()
+        except psycopg2.Error:
+            self.client.rollback()
+            raise exception.MetadataPluginGenericError
 
     def get_metadata(self, scope, name, *, session: "Optional[Session]" = None):
         """
@@ -186,17 +206,21 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :param session: The database session in use
         :returns: the metadata for the did
         """
-        statement = "SELECT data from {} ".format(self.table) + \
+        statement = "SELECT data FROM {}.{} ".format(self.db_schema, self.table) + \
                     "WHERE scope='{}' AND name='{}';".format(scope.internal, name)
-        cur = self.client.cursor()
-        cur.execute(statement)
-        metadata = cur.fetchone()
-        cur.close()
+        try:
+            with self.client.cursor() as cursor:
+                cursor.execute(statement)
+                metadata = cursor.fetchone()
 
-        if not metadata:
-            raise exception.DataIdentifierNotFound("No metadata found for did '{}:{}".format(scope, name))
-
-        return metadata[0]
+            if not metadata:
+                raise exception.DataIdentifierNotFound("No metadata found for did '{}:{}".format(scope, name))
+            return metadata[0]
+        except psycopg2.Error:
+            self.client.rollback()
+            raise exception.MetadataPluginGenericError
+        finally:
+            self.client.commit()
 
     def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Optional[Session]" = None):
         """
@@ -222,13 +246,18 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :param session: The database session in use
         """
         # upsert metadata
-        statement = "INSERT INTO {} (scope, name, vo, data) ".format(self.table) + \
-                    "VALUES ('{}', '{}', '{}', '{}') ".format(scope.external, name, scope.vo, json.dumps(metadata)) + \
-                    "ON CONFLICT (scope, name) DO UPDATE set data = {}.data || EXCLUDED.data;".format(self.table)
-        cur = self.client.cursor()
-        cur.execute(statement)
-        cur.close()
-        self.client.commit()
+        statement = "INSERT INTO {}.{} (scope, name, vo, data) ".format(self.db_schema, self.table) + \
+                    "VALUES ('{}', '{}', '{}', '{}') ".format(scope.external, name, scope.vo,
+                                                              json.dumps(metadata)) + \
+                    "ON CONFLICT (scope, name) DO UPDATE set data = {}.{}.data || EXCLUDED.data;".format(
+                        self.db_schema, self.table)
+        try:
+            with self.client.cursor() as cursor:
+                cursor.execute(statement)
+            self.client.commit()
+        except psycopg2.Error:
+            self.client.rollback()
+            raise exception.MetadataPluginGenericError
 
     def delete_metadata(self, scope, name, key, *, session: "Optional[Session]" = None):
         """
@@ -239,12 +268,15 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :param key: the key to be deleted
         :param session: the database session in use
         """
-        statement = "UPDATE {} ".format(self.table) + \
+        statement = "UPDATE {}.{} ".format(self.db_schema, self.table) + \
                     "SET data = {}.data - '{}';".format(self.table, key)
-        cur = self.client.cursor()
-        cur.execute(statement)
-        cur.close()
-        self.client.commit()
+        try:
+            with self.client.cursor() as cursor:
+                cursor.execute(statement)
+            self.client.commit()
+        except psycopg2.Error:
+            self.client.rollback()
+            raise exception.MetadataPluginGenericError
 
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
                   offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Optional[Session]" = None):
@@ -277,13 +309,18 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                 "'{}' metadata module does not currently support recursive searches".format(self.plugin_name.lower())
             )
 
-        statement = "SELECT * FROM {} WHERE {} ".format(self.table, postgres_query_str)
+        statement = "SELECT * FROM {}.{} WHERE {} ".format(self.db_schema, self.table, postgres_query_str)
         if limit:
             statement += "LIMIT {}".format(limit)
-        cur = self.client.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute(statement)
-        query_result = cur.fetchall()
-        cur.close()
+        try:
+            with self.client.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute(statement)
+                query_result = cursor.fetchall()
+        except psycopg2.Error:
+            self.client.rollback()
+            raise exception.MetadataPluginGenericError
+        finally:
+            self.client.commit()
 
         if long:
             for row in query_result:
