@@ -660,10 +660,7 @@ def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_
 @pytest.mark.parametrize("file_config_mock", [{
     "overrides": [('conveyor', 'use_preparer', 'true')]
 }], indirect=True)
-@pytest.mark.parametrize("core_config_mock", [{
-    "table_content": [('throttler', 'mode', 'DEST_PER_ALL_ACT')]
-}], indirect=True)
-def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, file_config_mock, core_config_mock, metrics_mock):
+def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, file_config_mock, metrics_mock):
     """
     Integration test of the preparer/throttler workflow.
     """
