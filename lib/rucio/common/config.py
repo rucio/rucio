@@ -347,7 +347,7 @@ def config_get_int(
         default=default,
         check_config_table=check_config_table,
         session=session,
-        use_cache=True,
+        use_cache=use_cache,
         expiration_time=expiration_time,
         convert_type_fnc=int,
     )
@@ -434,7 +434,7 @@ def config_get_float(
         default=default,
         check_config_table=check_config_table,
         session=session,
-        use_cache=True,
+        use_cache=use_cache,
         expiration_time=expiration_time,
         convert_type_fnc=float,
     )
@@ -521,7 +521,7 @@ def config_get_bool(
         default=default,
         check_config_table=check_config_table,
         session=session,
-        use_cache=True,
+        use_cache=use_cache,
         expiration_time=expiration_time,
         convert_type_fnc=_convert_to_boolean,
     )
@@ -608,7 +608,7 @@ def config_get_list(
         default=default,
         check_config_table=check_config_table,
         session=session,
-        use_cache=True,
+        use_cache=use_cache,
         expiration_time=expiration_time,
     )
     if isinstance(value, str):
