@@ -876,6 +876,9 @@ class TestDIDClients:
         files1 = [{'scope': scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb'} for i in range(nbfiles)]
         files2 = [{'scope': scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb'} for i in range(nbfiles)]
 
+        with pytest.raises(DataIdentifierNotFound):
+            did_client.list_content(scope, dataset1)
+
         did_client.add_dataset(scope, dataset1)
 
         with pytest.raises(DataIdentifierAlreadyExists):

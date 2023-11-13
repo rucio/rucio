@@ -1655,20 +1655,22 @@ def list_content(scope, name, *, session: "Session"):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
-    try:
-        stmt = select(
-            models.DataIdentifierAssociation
-        ).with_hint(
-            models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'
-        ).filter_by(
-            scope=scope,
-            name=name
-        )
-        for tmp_did in session.execute(stmt).yield_per(5).scalars():
-            yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type,
-                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
-    except NoResultFound:
-        raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
+    stmt = select(
+        models.DataIdentifierAssociation
+    ).with_hint(
+        models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'
+    ).filter_by(
+        scope=scope,
+        name=name
+    )
+    children_found = False
+    for tmp_did in session.execute(stmt).yield_per(5).scalars():
+        children_found = True
+        yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type,
+               'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
+    if not children_found:
+        # Raise exception if the did doesn't exist
+        __get_did(scope=scope, name=name, session=session)
 
 
 @stream_session
