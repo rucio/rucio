@@ -365,7 +365,7 @@ class RequestList(ErrorHandlingMethodView):
     def get(self):
         """
         ---
-        summary: List Historic Requests
+        summary: List Requests
         description: List requests for a given source and destination RSE or site.
         tags:
           - Requests
@@ -818,6 +818,87 @@ class RequestHistoryList(ErrorHandlingMethodView):
         return try_stream(generate(issuer=flask.request.environ.get('issuer'), vo=flask.request.environ.get('vo')))
 
 
+class RequestStatsGet(ErrorHandlingMethodView):
+    """ REST API to get request stats. """
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def get(self):
+        """
+        ---
+        summary: Get Request Statistics
+        description: Get statistics of requests grouped by source, destination, and activity.
+        tags:
+          - Requests
+        parameters:
+        - name: state
+          in: query
+          description: The accepted request state.
+          schema:
+            type: string
+        responses:
+          200:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: Statistics of requests by source, destination, and activity.
+                  type: array
+                  items:
+                    description: Statistics of the request group for a given (source, destination, activity) tuple.
+                    type: object
+                    properties:
+                      dest_rse_id:
+                        description: The destination RSE id.
+                        type: string
+                      source_rse_id:
+                        description: The source RSE id.
+                        type: string
+                      activity:
+                        description: The activity of the request group.
+                        type: string
+                      state:
+                        description: The state of the request group.
+                        type: string
+                        enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
+                      source_rse:
+                        description: The name of the source RSE.
+                        type: string
+                      dest_rse:
+                        description: The name of the destination RSE.
+                        type: string
+                      account:
+                        description: The account which issued the request group.
+                        type: string
+                      counter:
+                        description: The number of requests in this request group.
+                        type: number
+                      bytes:
+                        description: The total transferred bytes of requests in this request group.
+                        type: number
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Not found
+          406:
+            description: Not acceptable
+        """
+        state = flask.request.args.get('state', default=None)
+
+        if not state:
+            return generate_http_error_flask(400, 'MissingParameter', 'Request state is missing')
+
+        try:
+            request_state = RequestState(state)
+        except ValueError:
+            return generate_http_error_flask(400, 'Invalid', 'Request state value is invalid')
+
+        def generate(issuer, vo):
+            for result in request.get_request_stats(request_state, issuer=issuer, vo=vo):
+                yield render_json(**result) + '\n'
+
+        return try_stream(generate(issuer=flask.request.environ.get('issuer'), vo=flask.request.environ.get('vo')))
+
+
 def blueprint():
     bp = AuthenticatedBlueprint('requests', __name__, url_prefix='/requests')
 
@@ -829,6 +910,8 @@ def blueprint():
     bp.add_url_rule('/list', view_func=request_list_view, methods=['get', ])
     request_history_list_view = RequestHistoryList.as_view('request_history_list')
     bp.add_url_rule('/history/list', view_func=request_history_list_view, methods=['get', ])
+    request_stats_view = RequestStatsGet.as_view('request_stats')
+    bp.add_url_rule('/stats', view_func=request_stats_view, methods=['get', ])
 
     bp.after_request(response_headers)
     return bp
