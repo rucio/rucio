@@ -199,7 +199,6 @@ def list_requests(src_rses, dst_rses, states, issuer, vo='def', *, session: "Ses
 def list_requests_history(src_rses, dst_rses, states, issuer, vo='def', offset=None, limit=None, *, session: "Session"):
     """
     List all historical requests in a specific state from a source RSE to a destination RSE.
-
     :param src_rses: source RSEs.
     :param dst_rses: destination RSEs.
     :param states: list of request states.
@@ -216,5 +215,23 @@ def list_requests_history(src_rses, dst_rses, states, issuer, vo='def', offset=N
         raise exception.AccessDenied(f'{issuer} cannot list requests from RSEs {src_rses} to RSEs {dst_rses}')
 
     for req in request.list_requests_history(src_rse_ids, dst_rse_ids, states, offset, limit, session=session):
+        req = req.to_dict()
+        yield api_update_return_dict(req, session=session)
+
+
+@stream_session
+def get_request_stats(state, issuer, vo='def', *, session: "Session"):
+    """
+    Get statistics of requests in a specific state grouped by source RSE, destination RSE, and activity.
+
+    :param state: request state.
+    :param issuer: Issuing account as a string.
+    :param session: The database session in use.
+    """
+    kwargs = {'issuer': issuer}
+    if not permission.has_permission(issuer=issuer, vo=vo, action='get_request_stats', kwargs=kwargs, session=session):
+        raise exception.AccessDenied(f'{issuer} cannot get request statistics')
+
+    for req in request.get_request_stats(state, session=session):
         req = req.to_dict()
         yield api_update_return_dict(req, session=session)
