@@ -956,12 +956,6 @@ class FTS3Transfertool(Transfertool):
         """
         files = []
         for transfer in transfers:
-            if isinstance(transfer, dict):
-                # Compatibility with scripts form /tools which directly use transfertools and pass a dict to it instead of transfer definitions
-                # TODO: ensure that those scripts are still used and get rid of this compatibility otherwise
-                files.append(transfer)
-                continue
-
             files.append(self._file_from_transfer(transfer, job_params))
 
         # FTS3 expects 'davs' as the scheme identifier instead of https
