@@ -688,7 +688,7 @@ def get_and_mark_next(
     for share in activity_shares:
 
         query = select(
-            models.Request
+            models.Request.id
         ).where(
             models.Request.state.in_(state),
             models.Request.request_type.in_(request_type)
@@ -744,6 +744,21 @@ def get_and_mark_next(
         else:
             query = query.limit(limit)
 
+        if session.bind.dialect.name == 'oracle':
+            query = select(
+                models.Request
+            ).where(
+                models.Request.id.in_(query)
+            ).with_for_update(
+                skip_locked=True
+            )
+        else:
+            query = query.with_only_columns(
+                models.Request
+            ).with_for_update(
+                skip_locked=True,
+                of=models.Request.last_processed_by
+            )
         query_result = session.execute(query).scalars()
         if query_result:
             if mode_all:
