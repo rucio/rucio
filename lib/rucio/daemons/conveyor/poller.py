@@ -66,6 +66,7 @@ def _fetch_requests(
         filter_transfertool,
         cached_topology,
         activity,
+        set_last_processed_by: bool,
         heartbeat_handler
 ):
     worker_number, total_workers, logger = heartbeat_handler.live()
@@ -77,6 +78,7 @@ def _fetch_requests(
         rse_collection=topology,
         request_type=[RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT],
         state=[RequestState.SUBMITTED],
+        processed_by=heartbeat_handler.short_executable if set_last_processed_by else None,
         limit=db_bulk,
         older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
         total_workers=total_workers,
@@ -197,6 +199,7 @@ def poller(
             filter_transfertool=filter_transfertool,
             cached_topology=cached_topology,
             activity=activity,
+            set_last_processed_by=not once,
             heartbeat_handler=heartbeat_handler,
         )
 
