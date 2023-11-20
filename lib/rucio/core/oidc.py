@@ -19,9 +19,10 @@ import random
 import subprocess
 import traceback
 from datetime import datetime, timedelta
-from typing import Any, TYPE_CHECKING, Optional
+from typing import Any, Final, TYPE_CHECKING, Optional
 from urllib.parse import urlparse, parse_qs
 
+from dogpile.cache.api import NoValue
 from jwkest.jws import JWS
 from jwkest.jwt import JWT
 from math import floor
@@ -36,6 +37,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.sql.expression import true
 
 from rucio.common import types
+from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
                                     RucioException)
@@ -52,7 +54,12 @@ from rucio.db.sqla.session import read_session, transactional_session
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+# The WLCG Common JWT Profile dictates that the lifetime of access and ID tokens
+# should range from five minutes to six hours.
+TOKEN_MIN_LIFETIME: Final = int(timedelta(minutes=5).total_seconds())
+TOKEN_MAX_LIFETIME: Final = int(timedelta(hours=6).total_seconds())
 
+REGION: Final = make_region_memcached(expiration_time=TOKEN_MAX_LIFETIME)
 METRICS = MetricManager(module=__name__)
 
 # worokaround for a bug in pyoidc (as of Dec 2019)
@@ -73,6 +80,44 @@ LEEWAY_SECS = 120
 
 # TO-DO permission layer: if scope == 'wlcg.groups'
 # --> check 'profile' info (requested profile scope)
+
+
+@METRICS.time_it
+def _token_cache_get(
+    key: str,
+    min_lifetime: int = TOKEN_MIN_LIFETIME,
+) -> Optional[str]:
+    """Retrieve a token from the cache.
+
+    Return ``None`` if the cache backend did not return a value, the value is
+    not a valid JWT, or the token has a remaining lifetime less than
+    ``min_lifetime`` seconds.
+    """
+    value = REGION.get(key)
+    if isinstance(value, NoValue):
+        METRICS.counter('token_cache.miss').inc()
+        return None
+
+    try:
+        assert isinstance(value, str)
+        payload = JWT().unpack(value).payload()
+    except Exception:
+        METRICS.counter('token_cache.invalid').inc()
+        return None
+
+    now = datetime.utcnow().timestamp()
+    expiration = payload.get('exp', 0)    # type: ignore
+    if now + min_lifetime > expiration:
+        METRICS.counter('token_cache.expired').inc()
+        return None
+
+    METRICS.counter('token_cache.hit').inc()
+    return value
+
+
+def _token_cache_set(key: str, value: str) -> None:
+    """Store a token in the cache."""
+    REGION.set(key, value)
 
 
 def __get_rucio_oidc_clients(keytimeout: int = 43200) -> tuple[dict, dict]:
