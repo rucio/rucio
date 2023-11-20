@@ -15,11 +15,13 @@
 
 import time
 import traceback
+import uuid
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 from urllib.parse import urlparse, parse_qs
 
 import pytest
+from jwkest.jwt import JWT
 from oic import rndstr
 
 from rucio.common.config import config_get_bool
@@ -30,7 +32,8 @@ from rucio.core.account import add_account
 from rucio.core.authentication import redirect_auth_oidc, validate_auth_token
 from rucio.core.identity import add_account_identity
 from rucio.core.oidc import (get_auth_oidc, get_token_oidc, get_token_for_account_operation,
-                             EXPECTED_OIDC_AUDIENCE, EXPECTED_OIDC_SCOPE, oidc_identity_string)
+                             EXPECTED_OIDC_AUDIENCE, EXPECTED_OIDC_SCOPE, oidc_identity_string,
+                             _token_cache_get, _token_cache_set)
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType
 from rucio.db.sqla.constants import IdentityType
@@ -1956,3 +1959,30 @@ class TestAuthCoreAPIoidc:
         # ---------------------------
         # Check if NO token has been received
         assert not new_token_dict
+
+
+def test_token_cache() -> None:
+    KEY = str(uuid.uuid1())
+    assert _token_cache_get(KEY) is None
+
+    valid_token = JWT().pack([{
+        'exp': int((datetime.utcnow() + timedelta(hours=1)).timestamp())
+    }])
+    _token_cache_set(KEY, valid_token)
+    assert _token_cache_get(KEY) == valid_token
+
+    invalid_token = 'invalid'
+    _token_cache_set(KEY, invalid_token)
+    assert _token_cache_get(KEY) is None
+
+    below_min_lifetime_token = JWT().pack([{
+        'exp': int((datetime.utcnow() + timedelta(minutes=1)).timestamp())
+    }])
+    _token_cache_set(KEY, below_min_lifetime_token)
+    assert _token_cache_get(KEY) is None
+
+    expired_token = JWT().pack([{
+        'exp': int((datetime.utcnow() - timedelta(minutes=1)).timestamp())
+    }])
+    _token_cache_set(KEY, expired_token)
+    assert _token_cache_get(KEY) is None
