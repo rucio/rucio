@@ -179,14 +179,12 @@ class Transfertool(object, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def query(self, transfer_ids, details=False, timeout=None):
+    def bulk_query(self, requests_by_eid, timeout=None) -> dict[str, dict[str, TransferStatusReport]]:
         """
-        Query the status of transfers in the transfertool.
+        Query the status of a bulk of transfers in FTS3 via JSON.
 
-        :param transfer_ids: List of transfertool internal identifiers as a string.
-        :param details:      Switch if detailed information should be listed.
-        :param timeout:      Timeout in seconds.
-        :returns:            Transfer status information as list of dictionaries.
+        :param requests_by_eid: dictionary {external_id1: {request_id1: request1, ...}, ...} of request to be queried
+        :returns: Transfer status information as a dictionary.
         """
         pass
 
