@@ -196,16 +196,5 @@ class GlobusTransferTool(Transfertool):
     def cancel(self):
         pass
 
-    def query(self, transfer_ids, details=False, timeout=None):
-        """
-        Query the status of a transfer in Globus Online.
-
-        :param transfer_ids: transfer identifiers as list of strings.
-        :param details:      Switch if detailed information should be listed.
-        :param timeout:      Timeout in seconds.
-        :returns:            Transfer status information as a list of dictionaries.
-        """
-        pass
-
     def update_priority(self):
         pass

@@ -74,9 +74,6 @@ class MockTransfertool(Transfertool):
                 response.setdefault(transfer_id, {})[request_id] = MockTransferStatusReport(request_id, transfer_id)
         return response
 
-    def query(self, transfer_ids: Sequence[str], details: bool = False, timeout: Optional[float] = None):
-        return [{'status': 'ok'}]
-
     def cancel(self, transfer_ids: Sequence[str], timeout: Optional[float] = None):
         return True
 
