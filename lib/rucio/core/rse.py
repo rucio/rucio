@@ -153,8 +153,18 @@ class RseData:
 
     @staticmethod
     @read_session
-    def bulk_load(rse_id_to_data: "dict[str, RseData]", load_name=False, load_columns=False, load_attributes=False,
-                  load_info=False, load_usage=False, load_limits=False, *, session: "Session"):
+    def bulk_load(
+            rse_id_to_data: "dict[str, RseData]",
+            load_name: bool = False,
+            load_columns: bool = False,
+            load_attributes: bool = False,
+            load_info: bool = False,
+            load_usage: bool = False,
+            load_limits: bool = False,
+            include_deleted: bool = False,
+            *,
+            session: "Session"
+    ):
         """
         Given a dict of RseData objects indexed by rse_id, ensure that the desired fields are initialised
         in all objects from the input.
@@ -202,9 +212,11 @@ class RseData:
             temp_table,
             models.RSE,
             models.RSE.id == temp_table.id
-        ).where(
-            models.RSE.deleted == false()
         )
+        if not include_deleted:
+            stmt = stmt.where(
+                models.RSE.deleted == false()
+            )
         db_rses_by_id = {str(db_rse.id): db_rse for db_rse in session.execute(stmt).scalars()}
 
         if len(db_rses_by_id) != len(rse_ids_to_load):
@@ -330,6 +342,7 @@ class RseCollection(Generic[T]):
             load_info: bool = False,
             load_usage: bool = False,
             load_limits: bool = False,
+            include_deleted: bool = False,
             *,
             session: "Session",
     ):
@@ -341,6 +354,7 @@ class RseCollection(Generic[T]):
             load_info=load_info,
             load_usage=load_usage,
             load_limits=load_limits,
+            include_deleted=include_deleted,
             session=session,
         )
 

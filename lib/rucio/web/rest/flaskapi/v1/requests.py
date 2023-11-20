@@ -818,7 +818,7 @@ class RequestHistoryList(ErrorHandlingMethodView):
         return try_stream(generate(issuer=flask.request.environ.get('issuer'), vo=flask.request.environ.get('vo')))
 
 
-class RequestStatsGet(ErrorHandlingMethodView):
+class RequestMetricsGet(ErrorHandlingMethodView):
     """ REST API to get request stats. """
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -830,9 +830,19 @@ class RequestStatsGet(ErrorHandlingMethodView):
         tags:
           - Requests
         parameters:
-        - name: state
+        - name: dest_rse
           in: query
-          description: The accepted request state.
+          description: The destination RSE name
+          schema:
+            type: string
+        - name: source_rse
+          in: query
+          description: The source RSE name
+          schema:
+            type: string
+        - name: activity
+          in: query
+          description: The activity
           schema:
             type: string
         responses:
@@ -882,21 +892,18 @@ class RequestStatsGet(ErrorHandlingMethodView):
           406:
             description: Not acceptable
         """
-        state = flask.request.args.get('state', default=None)
+        dst_rse = flask.request.args.get('dst_rse', default=None)
+        src_rse = flask.request.args.get('src_rse', default=None)
+        activity = flask.request.args.get('activity', default=None)
 
-        if not state:
-            return generate_http_error_flask(400, 'MissingParameter', 'Request state is missing')
-
-        try:
-            request_state = RequestState(state)
-        except ValueError:
-            return generate_http_error_flask(400, 'Invalid', 'Request state value is invalid')
-
-        def generate(issuer, vo):
-            for result in request.get_request_stats(request_state, issuer=issuer, vo=vo):
-                yield render_json(**result) + '\n'
-
-        return try_stream(generate(issuer=flask.request.environ.get('issuer'), vo=flask.request.environ.get('vo')))
+        metrics = request.get_request_metrics(
+            dst_rse=dst_rse,
+            src_rse=src_rse,
+            activity=activity,
+            issuer=flask.request.environ.get('issuer'),
+            vo=flask.request.environ.get('vo')
+        )
+        return Response(json.dumps(metrics, cls=APIEncoder), content_type='application/json')
 
 
 def blueprint():
@@ -910,8 +917,8 @@ def blueprint():
     bp.add_url_rule('/list', view_func=request_list_view, methods=['get', ])
     request_history_list_view = RequestHistoryList.as_view('request_history_list')
     bp.add_url_rule('/history/list', view_func=request_history_list_view, methods=['get', ])
-    request_stats_view = RequestStatsGet.as_view('request_stats')
-    bp.add_url_rule('/stats', view_func=request_stats_view, methods=['get', ])
+    request_metrics_view = RequestMetricsGet.as_view('request_metrics_get')
+    bp.add_url_rule('/metrics', view_func=request_metrics_view, methods=['get', ])
 
     bp.after_request(response_headers)
     return bp

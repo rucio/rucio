@@ -14,12 +14,17 @@
 # limitations under the License.
 
 import datetime
+import itertools
 import json
 import logging
+import math
+import random
+import threading
 import traceback
 import uuid
-from collections import namedtuple
-from collections.abc import Sequence
+from collections import namedtuple, defaultdict
+from collections.abc import Sequence, Mapping, Iterator
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from sqlalchemy import and_, or_, update, select, delete, exists, insert
@@ -27,13 +32,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import asc, true, false, null, func
 
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation, InvalidRSEExpression
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, chunks
+from rucio.core.distance import get_distances
 from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import MetricManager
-from rucio.core.rse import get_rse_attribute, get_rse_name, get_rse_vo, RseData
+from rucio.core.rse import get_rse_attribute, get_rse_name, get_rse_vo, RseData, RseCollection
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg, ReplicaState, TransferLimitDirection
@@ -43,7 +49,6 @@ from rucio.db.sqla.util import temp_table_mngr
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
-    from rucio.core.rse import RseCollection
 
     from sqlalchemy.orm import Session
 
@@ -1307,17 +1312,574 @@ def get_heavy_load_rses(threshold, *, session: "Session"):
         raise RucioException(error.args)
 
 
+class TransferStatsManager:
+
+    @dataclass
+    class _StatsRecord:
+        files_failed: int = 0
+        files_done: int = 0
+        bytes_done: int = 0
+
+    def __init__(self):
+        self.lock = threading.Lock()
+
+        retentions = sorted([
+            # resolution, retention
+            (datetime.timedelta(minutes=5), datetime.timedelta(hours=1)),
+            (datetime.timedelta(hours=1), datetime.timedelta(days=1)),
+            (datetime.timedelta(days=1), datetime.timedelta(days=30)),
+        ])
+
+        self.retentions = retentions
+        self.raw_resolution, raw_retention = self.retentions[0]
+
+        self.current_timestamp = datetime.datetime(year=1970, month=1, day=1)
+        self.current_samples = defaultdict()
+        self._rollover_samples(rollover_time=datetime.datetime.utcnow())
+
+        self.record_stats = True
+        self.save_timer = None
+        self.downsample_timer = None
+        self.downsample_period = math.ceil(raw_retention.total_seconds())
+
+    def __enter__(self):
+        self.record_stats = config_get_bool('transfers', 'stats_enabled', default=self.record_stats)
+        downsample_period = config_get_int('transfers', 'stats_downsample_period', default=self.downsample_period)
+        # Introduce some voluntary jitter to reduce the likely-hood of performing this database
+        # operation multiple times in parallel.
+        self.downsample_period = random.randint(downsample_period * 3 // 4, math.ceil(downsample_period * 5 / 4))
+        if self.record_stats:
+            self.save_timer = threading.Timer(self.raw_resolution.total_seconds(), self.periodic_save)
+            self.save_timer.start()
+            self.downsample_timer = threading.Timer(self.downsample_period, self.periodic_downsample_and_cleanup)
+            self.downsample_timer.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.save_timer is not None:
+            self.save_timer.cancel()
+        if self.downsample_timer is not None:
+            self.downsample_timer.cancel()
+        if self.record_stats:
+            self.force_save()
+
+    def observe(
+            self,
+            src_rse_id: str,
+            dst_rse_id: str,
+            activity: str,
+            state: RequestState,
+            file_size: int,
+            *,
+            session: "Optional[Session]" = None
+    ) -> None:
+        """
+        Increment counters for the given (source_rse, destination_rse, activity) as a result of
+        successful or failed transfer.
+        """
+        if not self.record_stats:
+            return
+        now = datetime.datetime.utcnow()
+        with self.lock:
+            save_timestamp, save_samples = now, {}
+            if now >= self.current_timestamp + self.raw_resolution:
+                save_timestamp, save_samples = self._rollover_samples(now)
+
+            if state in (RequestState.DONE, RequestState.FAILED):
+                record = self.current_samples[dst_rse_id, src_rse_id, activity]
+                if state == RequestState.DONE:
+                    record.files_done += 1
+                    record.bytes_done += file_size
+                else:
+                    record.files_failed += 1
+        if save_samples:
+            self._save_samples(timestamp=save_timestamp, samples=save_samples, session=session)
+
+    def periodic_save(self):
+        """
+        Save samples to the database if the end of the current recording interval was reached.
+        Opportunistically perform down-sampling.
+        """
+        self.save_timer = threading.Timer(self.raw_resolution.total_seconds(), self.periodic_save)
+        self.save_timer.start()
+
+        now = datetime.datetime.utcnow()
+        with self.lock:
+            save_timestamp, save_samples = now, {}
+            if now >= self.current_timestamp + self.raw_resolution:
+                save_timestamp, save_samples = self._rollover_samples(now)
+        if save_samples:
+            self._save_samples(timestamp=save_timestamp, samples=save_samples)
+
+    @transactional_session
+    def force_save(self, *, session: "Session") -> None:
+        """
+        Commit to the database everything without ensuring that
+        the end of the currently recorded time interval is reached.
+
+        Only to be used for the final save operation on shutdown.
+        """
+        with self.lock:
+            save_timestamp, save_samples = self._rollover_samples(datetime.datetime.utcnow())
+        if save_samples:
+            self._save_samples(timestamp=save_timestamp, samples=save_samples, session=session)
+
+    def _rollover_samples(self, rollover_time: datetime.datetime) -> "tuple[datetime.datetime, Mapping[tuple[str, str, str], TransferStatsManager._StatsRecord]]":
+        previous_samples = (self.current_timestamp, self.current_samples)
+        self.current_samples = defaultdict(lambda: self._StatsRecord())
+        _, self.current_timestamp = next(self.slice_time(self.raw_resolution, start_time=rollover_time + self.raw_resolution))
+        return previous_samples
+
+    @transactional_session
+    def _save_samples(
+            self,
+            timestamp: "datetime.datetime",
+            samples: "Mapping[tuple[str, str, str], TransferStatsManager._StatsRecord]",
+            *,
+            session: "Session"
+    ) -> None:
+        """
+        Commit the provided samples to the database.
+        """
+        rows_to_insert = []
+        for (dst_rse_id, src_rse_id, activity), record in samples.items():
+            rows_to_insert.append({
+                models.TransferStats.timestamp.name: timestamp,
+                models.TransferStats.resolution.name: self.raw_resolution.total_seconds(),
+                models.TransferStats.src_rse_id.name: src_rse_id,
+                models.TransferStats.dest_rse_id.name: dst_rse_id,
+                models.TransferStats.activity.name: activity,
+                models.TransferStats.files_failed.name: record.files_failed,
+                models.TransferStats.files_done.name: record.files_done,
+                models.TransferStats.bytes_done.name: record.bytes_done,
+            })
+        if rows_to_insert:
+            session.execute(insert(models.TransferStats), rows_to_insert)
+
+    def periodic_downsample_and_cleanup(self):
+        """
+        Periodically create lower resolution samples from higher resolution ones.
+        """
+        self.downsample_timer = threading.Timer(self.downsample_period, self.periodic_downsample_and_cleanup)
+        self.downsample_timer.start()
+
+        while self.downsample_and_cleanup():
+            continue
+
+    @read_session
+    def _db_time_ranges(self, *, session: "Session") -> "dict[datetime.timedelta, tuple[datetime.datetime, datetime.datetime]]":
+
+        stmt = select(
+            models.TransferStats.resolution,
+            func.max(models.TransferStats.timestamp),
+            func.min(models.TransferStats.timestamp),
+        ).group_by(
+            models.TransferStats.resolution,
+        )
+        db_time_ranges = {
+            datetime.timedelta(seconds=res): (newest_t, oldest_t)
+            for res, newest_t, oldest_t in session.execute(stmt)
+        }
+        return db_time_ranges
+
+    @transactional_session
+    def downsample_and_cleanup(self, *, session: "Session") -> bool:
+        """
+        Housekeeping of samples in the database:
+            - create lower-resolution (but higher-retention) samples from higher-resolution ones;
+            - delete the samples which are older than the desired retention time.
+        Return True if it thinks there is still more cleanup.
+
+        This function handles safely to be executed in parallel from multiple daemons at the
+        same time. However, this is achieved at the cost of introducing duplicate samples at lower
+        resolution into the database. The possibility of having duplicates at lower resolutions must be
+        considered during work with those sample. Code must tolerate duplicates and avoid double-counting.
+        """
+
+        # Delay processing to leave time for all raw metrics to be correctly saved to the database
+        now = datetime.datetime.utcnow() - 4 * self.raw_resolution
+
+        db_time_ranges = self._db_time_ranges(session=session)
+
+        more_to_delete = False
+        id_temp_table = temp_table_mngr(session).create_id_table()
+        for i in range(1, len(self.retentions)):
+            src_resolution, desired_src_retention = self.retentions[i - 1]
+            dst_resolution, desired_dst_retention = self.retentions[i]
+
+            # Always keep samples at source resolution aligned to the destination resolution interval.
+            # Keep, at least, the amount of samples needed to cover the first interval at
+            # destination resolution, but keep more samples if explicitly configured to do so.
+            oldest_desired_src_timestamp, _ = next(self.slice_time(dst_resolution, start_time=now - desired_src_retention))
+
+            _, oldest_available_src_timestamp = db_time_ranges.get(src_resolution, (None, None))
+            newest_available_dst_timestamp, oldest_available_dst_timestamp = db_time_ranges.get(dst_resolution, (None, None))
+            # Only generate down-samples at destination resolution for interval in which:
+            # - are within the desired retention window
+            oldest_time_to_handle = now - desired_dst_retention - dst_resolution
+            # - we didn't already generate the corresponding sample at destination resolution
+            if newest_available_dst_timestamp:
+                oldest_time_to_handle = max(oldest_time_to_handle, newest_available_dst_timestamp + datetime.timedelta(seconds=1))
+            # - we have samples at source resolution to do it
+            if oldest_available_src_timestamp:
+                oldest_time_to_handle = max(oldest_time_to_handle, oldest_available_src_timestamp)
+            else:
+                oldest_time_to_handle = now
+
+            # Create samples at lower resolution from samples at higher resolution
+            for recent_t, older_t in self.slice_time(dst_resolution, start_time=now, end_time=oldest_time_to_handle):
+                additional_fields = {
+                    models.TransferStats.timestamp.name: older_t,
+                    models.TransferStats.resolution.name: dst_resolution.total_seconds(),
+                }
+                src_totals = self._load_totals(resolution=src_resolution, recent_t=recent_t, older_t=older_t, session=session)
+                downsample_stats = [stat | additional_fields for stat in src_totals]
+                if downsample_stats:
+                    session.execute(insert(models.TransferStats), downsample_stats)
+                    if not oldest_available_dst_timestamp or older_t < oldest_available_dst_timestamp:
+                        oldest_available_dst_timestamp = older_t
+                    if not newest_available_dst_timestamp or older_t > newest_available_dst_timestamp:
+                        newest_available_dst_timestamp = older_t
+
+            if oldest_available_dst_timestamp and newest_available_dst_timestamp:
+                db_time_ranges[dst_resolution] = (newest_available_dst_timestamp, oldest_available_dst_timestamp)
+
+            # Delete from the database the samples which are older than desired
+            more_to_delete |= self._cleanup(
+                id_temp_table=id_temp_table,
+                resolution=src_resolution,
+                timestamp=oldest_desired_src_timestamp,
+                session=session
+            )
+
+        # Cleanup samples at the lowest resolution, which were not handled by the previous loop
+        last_resolution, last_retention = self.retentions[-1]
+        _, oldest_desired_timestamp = next(self.slice_time(last_resolution, start_time=now - last_retention))
+        if db_time_ranges.get(last_resolution, (now, now))[1] < oldest_desired_timestamp:
+            more_to_delete |= self._cleanup(
+                id_temp_table=id_temp_table,
+                resolution=last_resolution,
+                timestamp=oldest_desired_timestamp,
+                session=session
+            )
+
+        # Cleanup all resolutions which exist in the database but are not desired by rucio anymore
+        # (probably due to configuration changes).
+        for resolution_to_cleanup in set(db_time_ranges).difference(r[0] for r in self.retentions):
+            more_to_delete |= self._cleanup(
+                id_temp_table=id_temp_table,
+                resolution=resolution_to_cleanup,
+                timestamp=now,
+                session=session
+            )
+        return more_to_delete
+
+    @stream_session
+    def load_totals(
+            self,
+            older_t: "datetime.datetime",
+            dest_rse_id: "Optional[str]" = None,
+            src_rse_id: "Optional[str]" = None,
+            activity: "Optional[str]" = None,
+            by_activity: bool = True,
+            *,
+            session: "Session"
+    ) -> "Iterator[Mapping[str, str | int]]":
+        """
+        Load totals from now up to older_t in the past by automatically picking the best resolution.
+
+        The results will not necessarily be uniquely grouped by src_rse/dest_rse/activity. The caller
+        is responsible for summing identical src_rse/dest_rse/activity pairs to get the actual result
+        """
+
+        db_time_ranges = self._db_time_ranges(session=session)
+
+        oldest_fetched = older_t
+        for resolution, retention in reversed(self.retentions):
+            newest_available_db_timestamp, oldest_available_db_timestamp = db_time_ranges.get(resolution, (None, None))
+
+            if not (newest_available_db_timestamp and oldest_available_db_timestamp):
+                continue
+
+            if newest_available_db_timestamp < oldest_fetched:
+                continue
+
+            yield from self._load_totals(
+                resolution=resolution,
+                recent_t=newest_available_db_timestamp + datetime.timedelta(seconds=1),
+                older_t=oldest_fetched + datetime.timedelta(seconds=1),
+                dest_rse_id=dest_rse_id,
+                src_rse_id=src_rse_id,
+                activity=activity,
+                by_activity=by_activity,
+                session=session,
+            )
+            oldest_fetched = newest_available_db_timestamp + resolution
+
+    @stream_session
+    def _load_totals(
+            self,
+            resolution: "datetime.timedelta",
+            recent_t: "datetime.datetime",
+            older_t: "datetime.datetime",
+            dest_rse_id: "Optional[str]" = None,
+            src_rse_id: "Optional[str]" = None,
+            activity: "Optional[str]" = None,
+            by_activity: bool = True,
+            *,
+            session: "Session"
+    ) -> "Iterator[Mapping[str, str | int]]":
+        """
+        Load aggregated totals for the given resolution and time interval.
+
+        Ignore multiple values for the same timestamp at downsample resolutions.
+        They are result of concurrent downsample operations (two different
+        daemons performing downsampling at the same time). Very probably,
+        the values are identical. Eve if not, these values must not be counted twice.
+        This is to gracefully handle multiple parallel downsample operations.
+        """
+        grouping: "list[Any]" = [
+            models.TransferStats.src_rse_id,
+            models.TransferStats.dest_rse_id,
+        ]
+        if by_activity:
+            grouping.append(models.TransferStats.activity)
+
+        if resolution == self.raw_resolution:
+            sub_query = select(
+                models.TransferStats.timestamp,
+                *grouping,
+                models.TransferStats.files_failed,
+                models.TransferStats.files_done,
+                models.TransferStats.bytes_done
+            )
+        else:
+            sub_query = select(
+                models.TransferStats.timestamp,
+                *grouping,
+                func.max(models.TransferStats.files_failed).label(models.TransferStats.files_failed.name),
+                func.max(models.TransferStats.files_done).label(models.TransferStats.files_done.name),
+                func.max(models.TransferStats.bytes_done).label(models.TransferStats.bytes_done.name),
+            ).group_by(
+                models.TransferStats.timestamp,
+                *grouping,
+            )
+
+        sub_query = sub_query.where(
+            models.TransferStats.resolution == resolution.total_seconds(),
+            models.TransferStats.timestamp >= older_t,
+            models.TransferStats.timestamp < recent_t
+        )
+        if dest_rse_id:
+            sub_query = sub_query.where(
+                models.TransferStats.dest_rse_id == dest_rse_id
+            )
+        if src_rse_id:
+            sub_query = sub_query.where(
+                models.TransferStats.src_rse_id == src_rse_id
+            )
+        if activity:
+            sub_query = sub_query.where(
+                models.TransferStats.activity == activity
+            )
+
+        sub_query = sub_query.subquery()
+
+        grouping = [
+            sub_query.c.src_rse_id,
+            sub_query.c.dest_rse_id,
+        ]
+        if by_activity:
+            grouping.append(sub_query.c.activity)
+
+        stmt = select(
+            *grouping,
+            func.sum(sub_query.c.files_failed).label(models.TransferStats.files_failed.name),
+            func.sum(sub_query.c.files_done).label(models.TransferStats.files_done.name),
+            func.sum(sub_query.c.bytes_done).label(models.TransferStats.bytes_done.name),
+        ).group_by(
+            *grouping,
+        )
+
+        for row in session.execute(stmt):
+            yield row._asdict()
+
+    @staticmethod
+    def _cleanup(
+            id_temp_table,
+            resolution: "datetime.timedelta",
+            timestamp: "datetime.datetime",
+            limit: "Optional[int]" = 10000,
+            *,
+            session: "Session"
+    ) -> bool:
+        """
+        Delete, from the database, the stats older than the given time.
+        Skip locked rows, to tolerate parallel executions by multiple daemons.
+        """
+        stmt = select(
+            models.TransferStats.id
+        ).where(
+            models.TransferStats.resolution == resolution.total_seconds(),
+            models.TransferStats.timestamp < timestamp
+        )
+
+        if limit is not None:
+            stmt = stmt.limit(limit)
+
+        # Oracle does not support chaining order_by(), limit(), and
+        # with_for_update(). Use a nested query to overcome this.
+        if session.bind.dialect.name == 'oracle':
+            stmt = select(
+                models.TransferStats.id
+            ).where(
+                models.TransferStats.id.in_(stmt)
+            ).with_for_update(
+                skip_locked=True
+            )
+        else:
+            stmt = stmt.with_for_update(skip_locked=True)
+
+        session.execute(delete(id_temp_table))
+        session.execute(insert(id_temp_table).from_select(['id'], stmt))
+
+        stmt = delete(
+            models.TransferStats
+        ).where(
+            exists(select(1).where(models.TransferStats.id == id_temp_table.id))
+        ).execution_options(
+            synchronize_session=False
+        )
+        res = session.execute(stmt)
+        return res.rowcount > 0
+
+    @staticmethod
+    def slice_time(
+            resolution: datetime.timedelta,
+            start_time: "Optional[datetime.datetime]" = None,
+            end_time: "Optional[datetime.datetime]" = None
+    ) -> Iterator[tuple[datetime.datetime, datetime.datetime]]:
+        """
+        Iterates, back in time, over time intervals of length `resolution` which are fully
+        included within the input interval (start_time, end_time).
+        Intervals are aligned on boundaries divisible by resolution.
+
+        For example: for start_time=17:09:59, end_time=16:20:01 and resolution = 10minutes, it will yield
+        (17:00:00, 16:50:00), (16:50:00, 16:40:00), (16:40:00, 16:30:00)
+        """
+
+        if start_time is None:
+            start_time = datetime.datetime.utcnow()
+        newer_t = datetime.datetime.fromtimestamp(int(start_time.timestamp()) // resolution.total_seconds() * resolution.total_seconds())
+        older_t = newer_t - resolution
+        while not end_time or older_t >= end_time:
+            yield newer_t, older_t
+            newer_t = older_t
+            older_t = older_t - resolution
+
+
 @read_session
-def get_request_stats(state, *, session: "Session"):
+def get_request_metrics(
+        dest_rse_id: "Optional[str]" = None,
+        src_rse_id: "Optional[str]" = None,
+        activity: "Optional[str]" = None,
+        *,
+        session: "Session"
+):
+    metrics = {}
+    now = datetime.datetime.utcnow()
+
+    # Add the current queues
+    db_stats = get_request_stats(
+        state=[
+            RequestState.QUEUED,
+        ],
+        src_rse_id=src_rse_id,
+        dest_rse_id=dest_rse_id,
+        activity=activity,
+        session=session,
+    )
+    for stat in db_stats:
+        if not stat.source_rse_id:
+            continue
+
+        resp_elem = metrics.setdefault((stat.source_rse_id, stat.dest_rse_id), {})
+
+        files_elem = resp_elem.setdefault('files', {})
+        files_elem.setdefault('queued', {})[stat.activity] = stat.counter
+        files_elem['queued-total'] = files_elem.get('queued-total', 0) + stat.counter
+
+        bytes_elem = resp_elem.setdefault('bytes', {})
+        bytes_elem.setdefault('queued', {})[stat.activity] = stat.bytes
+        bytes_elem['queued-total'] = bytes_elem.get('queued-total', 0) + stat.bytes
+
+    # Add the historical data
+    for duration, duration_label in (
+            (datetime.timedelta(hours=1), '1h'),
+            (datetime.timedelta(hours=6), '6h')
+    ):
+        db_stats = TransferStatsManager().load_totals(
+            older_t=now - duration,
+            dest_rse_id=dest_rse_id,
+            src_rse_id=src_rse_id,
+            activity=activity,
+            session=session,
+        )
+
+        for stat in db_stats:
+            resp_elem = metrics.setdefault((stat['src_rse_id'], stat['dest_rse_id']), {})
+
+            files_elem = resp_elem.setdefault('files', {})
+            if stat['files_done']:
+                activity_elem = files_elem.setdefault('done', {}).setdefault(stat['activity'], {})
+                activity_elem[duration_label] = activity_elem.get(duration_label, 0) + stat['files_done']
+                files_elem[f'done-total-{duration_label}'] = files_elem.get(f'done-total-{duration_label}', 0) + stat['files_done']
+            if stat['files_failed']:
+                activity_elem = files_elem.setdefault('failed', {}).setdefault(stat['activity'], {})
+                activity_elem[duration_label] = activity_elem.get(duration_label, 0) + stat['files_failed']
+                files_elem[f'failed-total-{duration_label}'] = files_elem.get(f'failed-total-{duration_label}', 0) + stat['files_failed']
+
+            bytes_elem = resp_elem.setdefault('bytes', {})
+            if stat['bytes_done']:
+                activity_elem = bytes_elem.setdefault('done', {}).setdefault(stat['activity'], {})
+                activity_elem[duration_label] = activity_elem.get(duration_label, 0) + stat['bytes_done']
+            bytes_elem[f'done-total-{duration_label}'] = bytes_elem.get(f'done-total-{duration_label}', 0) + stat['bytes_done']
+
+    # Add distances
+    for distance in get_distances(dest_rse_id=dest_rse_id, src_rse_id=src_rse_id):
+        resp_elem = metrics.setdefault((distance['src_rse_id'], distance['dest_rse_id']), {})
+
+        resp_elem['distance'] = distance['distance']
+
+    # Fill RSE names
+    rses = RseCollection(rse_ids=itertools.chain.from_iterable(metrics))
+    rses.ensure_loaded(load_name=True, include_deleted=True)
+    response = {}
+    for (src_id, dst_id), metric in metrics.items():
+        src_rse = rses[src_id]
+        dst_rse = rses[dst_id]
+        metric['src'] = src_rse.name
+        metric['dst'] = dst_rse.name
+
+        response[f'{src_rse.name}:{dst_rse.name}'] = metric
+
+    return response
+
+
+@read_session
+def get_request_stats(
+        state: "RequestState | list[RequestState]",
+        dest_rse_id: "Optional[str]" = None,
+        src_rse_id: "Optional[str]" = None,
+        activity: "Optional[str]" = None,
+        *,
+        session: "Session"
+):
     """
     Retrieve statistics about requests by destination, activity and state.
-
-    :param state:           Request state.
-    :param session:         Database session to use.
-    :returns:               List of (activity, dest_rse_id, state, counter).
     """
 
-    if type(state) is not list:
+    if not isinstance(state, list):
         state = [state]
 
     try:
@@ -1341,6 +1903,18 @@ def get_request_stats(state, *, session: "Session"):
             models.Request.source_rse_id,
             models.Request.activity,
         )
+        if src_rse_id:
+            stmt = stmt.where(
+                models.Request.source_rse_id == src_rse_id
+            )
+        if dest_rse_id:
+            stmt = stmt.where(
+                models.Request.dest_rse_id == dest_rse_id
+            )
+        if activity:
+            stmt = stmt.where(
+                models.Request.activity == activity
+            )
 
         return session.execute(stmt).all()
 

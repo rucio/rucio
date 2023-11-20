@@ -1420,6 +1420,24 @@ class Distance(BASE, ModelBase):
                    Index('DISTANCES_DEST_RSEID_IDX', 'dest_rse_id'))
 
 
+class TransferStats(BASE, ModelBase):
+    """Represents counters for transfer link usage"""
+    __tablename__ = 'transfer_stats'
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
+    resolution: Mapped[int] = mapped_column(Integer)
+    timestamp: Mapped[datetime] = mapped_column(DateTime)
+    dest_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    src_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    activity: Mapped[Optional[str]] = mapped_column(String(50))
+    files_done: Mapped[int] = mapped_column(BigInteger)
+    bytes_done: Mapped[int] = mapped_column(BigInteger)
+    files_failed: Mapped[int] = mapped_column(BigInteger)
+    _table_args = (PrimaryKeyConstraint('id', name='TRANSFER_STATS_PK'),
+                   ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='TRANSFER_STATS_DEST_RSE_FK'),
+                   ForeignKeyConstraint(['src_rse_id'], ['rses.id'], name='TRANSFER_STATS_SRC_RSE_FK'),
+                   Index('TRANSFER_STATS_KEY_IDX', 'resolution', 'timestamp', 'dest_rse_id', 'src_rse_id', 'activity'))
+
+
 class Subscription(BASE, ModelBase):
     """Represents a subscription"""
     __tablename__ = 'subscriptions'

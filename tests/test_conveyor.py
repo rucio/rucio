@@ -1364,7 +1364,10 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
     'rucio.core.config.REGION',
     'rucio.daemons.reaper.reaper.REGION',
 ]}], indirect=True)
-def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_account, core_config_mock, caches_mock):
+@pytest.mark.parametrize("file_config_mock", [{"overrides": [
+    ('transfers', 'stats_enabled', 'True'),
+]}], indirect=True)
+def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_account, file_config_mock, core_config_mock, caches_mock):
     """
     Handle correctly two multihop transfers having to both jump via the same intermediate hops
     """
@@ -1379,6 +1382,7 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
     #                             +------>| RSE6 +--->| RSE7 |
     #                                     |      |    |      |
     #                                     +------+    +------+
+    start_time = datetime.utcnow()
     _, _, reaper_cache_region = caches_mock
     rse1, rse1_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
     rse2, rse2_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
@@ -1464,6 +1468,17 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
     for rse_id in [rse2_id, rse3_id, rse4_id, rse6_id]:
         with pytest.raises(ReplicaNotFound):
             replica_core.get_replica(rse_id=rse_id, **did)
+
+    # Verify that the statistics are correctly recorded for executed transfers
+    stats_manager = request_core.TransferStatsManager()
+    dict_stats = {}
+    for stat in stats_manager.load_totals(
+            older_t=start_time - stats_manager.raw_resolution
+    ):
+        dict_stats.setdefault(stat['dest_rse_id'], {})[stat['src_rse_id']] = stat
+    assert dict_stats[rse2_id][rse1_id]['files_failed'] == 1
+    assert dict_stats[rse2_id][rse1_id]['files_done'] == 1
+    assert dict_stats[rse2_id][rse1_id]['bytes_done'] == 2
 
 
 @skip_rse_tests_with_accounts

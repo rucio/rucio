@@ -87,6 +87,7 @@ def has_permission(issuer, action, kwargs, *, session: "Optional[Session]" = Non
             'set_rse_usage': perm_set_rse_usage,
             'set_rse_limits': perm_set_rse_limits,
             'get_request_by_did': perm_get_request_by_did,
+            'get_request_metrics': perm_get_request_metrics,
             'cancel_request': perm_cancel_request,
             'get_next': perm_get_next,
             'set_local_account_limit': perm_set_local_account_limit,
@@ -938,6 +939,18 @@ def perm_get_request_by_did(issuer, kwargs, *, session: "Optional[Session]" = No
     :returns: True if account is allowed, otherwise False
     """
     return True
+
+
+def perm_get_request_metrics(issuer, kwargs, *, session: "Optional[Session]" = None):
+    """
+    Checks if an account can get the request stats
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
 
 def perm_cancel_request(issuer, kwargs, *, session: "Optional[Session]" = None):

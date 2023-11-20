@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from datetime import datetime
 from typing import Union
 
@@ -20,8 +21,9 @@ import pytest
 
 from rucio.common.config import config_get_bool
 from rucio.common.utils import generate_uuid, parse_response
+from rucio.core.distance import add_distance
 from rucio.core.replica import add_replica
-from rucio.core.request import queue_requests, get_request_by_did, list_requests, list_requests_history, set_transfer_limit
+from rucio.core.request import queue_requests, get_request_by_did, list_requests, list_requests_history, set_transfer_limit, TransferStatsManager
 from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla import models, constants
 from rucio.db.sqla.constants import RequestType, RequestState
@@ -286,3 +288,80 @@ def test_api_list(
 
     params = {'request_states': 'S', 'src_site': source_site, 'dst_site': 'unknown'}
     check_error_api(params, 'NotFound', 'Could not resolve site name unknown to RSE', 404)
+
+
+@pytest.mark.parametrize("file_config_mock", [{"overrides": [
+    ('transfers', 'stats_enabled', 'True'),
+]}], indirect=True)
+def test_api_metrics(vo, rest_client, auth_token, rse_factory, did_factory, root_account, file_config_mock):
+
+    src_rse, src_rse_id = rse_factory.make_mock_rse()
+    dst_rse, dst_rse_id = rse_factory.make_mock_rse()
+    add_distance(src_rse_id, dst_rse_id, distance=10)
+
+    replica_bytes = 20
+
+    did1 = did_factory.random_file_did()
+    activity1 = 'User Subscription'
+    add_replica(rse_id=src_rse_id, bytes_=replica_bytes, adler32='beefdead', account=root_account, **did1)
+
+    did2 = did_factory.random_file_did()
+    activity2 = 'Test'
+    add_replica(rse_id=src_rse_id, bytes_=replica_bytes, adler32='beefdead', account=root_account, **did2)
+
+    requests = [
+        {
+            'dest_rse_id': dst_rse_id,
+            'source_rse_id': src_rse_id,
+            'request_type': RequestType.TRANSFER,
+            'request_id': generate_uuid(),
+            'name': did1['name'],
+            'scope': did1['scope'],
+            'rule_id': generate_uuid(),
+            'retry_count': 1,
+            'attributes': {
+                'activity': activity,
+                'bytes': replica_bytes,
+                'md5': '',
+                'adler32': ''
+            }
+        }
+        for did, activity in ((did1, activity1), (did2, activity2))
+    ]
+    queue_requests(requests)
+
+    stats_manager = TransferStatsManager()
+    stats_manager.observe(
+        src_rse_id=src_rse_id,
+        dst_rse_id=dst_rse_id,
+        activity=activity1,
+        state=RequestState.DONE,
+        file_size=367,
+    )
+    stats_manager.observe(
+        src_rse_id=src_rse_id,
+        dst_rse_id=dst_rse_id,
+        activity=activity2,
+        state=RequestState.FAILED,
+        file_size=1020,
+    )
+    stats_manager.force_save()
+    stats_manager.downsample_and_cleanup()
+
+    api_endpoint = '/requests/metrics'
+    params = {'dst_rse': dst_rse, 'src_rse': src_rse}
+    headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': root_account.external}
+    response = rest_client.get(api_endpoint, query_string=params, headers=headers(auth(auth_token), vohdr(vo), hdrdict(headers_dict)))
+    response = json.loads(response.get_data(as_text=True))
+    metric = response.get(f'{src_rse}:{dst_rse}')
+    assert metric is not None
+    assert metric['distance'] == 10
+    assert metric['bytes']['queued'][activity1] == replica_bytes
+    assert metric['bytes']['queued'][activity2] == replica_bytes
+    assert metric['bytes']['queued-total'] == 2 * replica_bytes
+    assert metric['files']['queued'][activity1] == 1
+    assert metric['files']['queued'][activity2] == 1
+    assert metric['files']['queued-total'] == 2
+    assert metric['files']['done'][activity1]['1h'] == 1
+    assert metric['bytes']['done'][activity1]['1h'] == 367
+    assert metric['files']['failed'][activity2]['1h'] == 1
