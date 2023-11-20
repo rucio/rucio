@@ -17,7 +17,7 @@
 Interface for the requests abstraction layer
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from rucio.api import permission
 from rucio.common import exception
@@ -219,19 +219,25 @@ def list_requests_history(src_rses, dst_rses, states, issuer, vo='def', offset=N
         yield api_update_return_dict(req, session=session)
 
 
-@stream_session
-def get_request_stats(state, issuer, vo='def', *, session: "Session"):
+@read_session
+def get_request_metrics(src_rse: Optional[str], dst_rse: Optional[str], activity: Optional[str], issuer, vo='def', *, session: "Session"):
     """
     Get statistics of requests in a specific state grouped by source RSE, destination RSE, and activity.
 
-    :param state: request state.
+    :param src_rse: source RSE.
+    :param dst_rse: destination RSE.
+    :param activity: activity
     :param issuer: Issuing account as a string.
     :param session: The database session in use.
     """
+    src_rse_id = None
+    if src_rse:
+        src_rse_id = get_rse_id(rse=src_rse, vo=vo, session=session)
+    dst_rse_id = None
+    if dst_rse:
+        dst_rse_id = get_rse_id(rse=dst_rse, vo=vo, session=session)
     kwargs = {'issuer': issuer}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='get_request_stats', kwargs=kwargs, session=session):
+    if not permission.has_permission(issuer=issuer, vo=vo, action='get_request_metrics', kwargs=kwargs, session=session):
         raise exception.AccessDenied(f'{issuer} cannot get request statistics')
 
-    for req in request.get_request_stats(state, session=session):
-        req = req.to_dict()
-        yield api_update_return_dict(req, session=session)
+    return request.get_request_metrics(dest_rse_id=dst_rse_id, src_rse_id=src_rse_id, activity=activity, session=session)

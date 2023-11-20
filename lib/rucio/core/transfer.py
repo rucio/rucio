@@ -513,7 +513,13 @@ def set_transfers_state(
 
 
 @transactional_session
-def update_transfer_state(tt_status_report: TransferStatusReport, *, session: "Session", logger=logging.log):
+def update_transfer_state(
+        tt_status_report: TransferStatusReport,
+        stats_manager: request_core.TransferStatsManager,
+        *,
+        session: "Session",
+        logger=logging.log
+):
     """
     Used by poller and consumer to update the internal state of requests,
     after the response by the external transfertool.
@@ -540,6 +546,15 @@ def update_transfer_state(tt_status_report: TransferStatusReport, *, session: "S
                 if request_core.is_intermediate_hop(request):
                     request_core.handle_failed_intermediate_hop(request, session=session)
 
+            if tt_status_report.state:
+                stats_manager.observe(
+                    src_rse_id=request['source_rse_id'],
+                    dst_rse_id=request['dest_rse_id'],
+                    activity=request['activity'],
+                    state=tt_status_report.state,
+                    file_size=request['bytes'],
+                    session=session,
+                )
             request_core.add_monitor_message(
                 new_state=tt_status_report.state,
                 request=request,

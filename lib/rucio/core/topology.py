@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import copy
 import datetime
 import itertools
 import logging
@@ -135,6 +136,36 @@ class Topology(RseCollection, Generic[TN, TE]):
 
         self._lock = threading.RLock()
 
+    @transactional_session
+    def ensure_loaded(
+            self,
+            rse_ids: "Optional[Iterable[str]]" = None,
+            load_name: bool = False,
+            load_columns: bool = False,
+            load_attributes: bool = False,
+            load_info: bool = False,
+            load_usage: bool = False,
+            load_limits: bool = False,
+            include_deleted: bool = False,
+            *,
+            session: "Session",
+    ):
+
+        if not rse_ids:
+            with self._lock:
+                rse_ids = list(self.rse_id_to_data_map)
+        super().ensure_loaded(
+            rse_ids=rse_ids,
+            load_name=load_name,
+            load_columns=load_columns,
+            load_attributes=load_attributes,
+            load_info=load_info,
+            load_usage=load_usage,
+            load_limits=load_limits,
+            include_deleted=include_deleted,
+            session=session,
+        )
+
     def get_or_create(self, rse_id: str) -> "TN":
         rse_data = self.rse_id_to_data_map.get(rse_id)
         if rse_data is None:
@@ -145,6 +176,11 @@ class Topology(RseCollection, Generic[TN, TE]):
                     # A new node added. Edges which were already loaded are probably incomplete now.
                     self._edges_loaded = False
         return rse_data
+
+    @property
+    def edges(self):
+        with self._lock:
+            return copy.copy(self._edges)
 
     def edge(self, src_node: TN, dst_node: TN) -> "Optional[TE]":
         return self._edges.get((src_node, dst_node))

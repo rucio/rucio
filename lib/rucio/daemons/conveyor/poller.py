@@ -26,7 +26,7 @@ import threading
 import time
 from itertools import groupby
 from types import FrameType
-from typing import TYPE_CHECKING, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 
 from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
@@ -43,6 +43,7 @@ from rucio.core.monitor import MetricManager
 from rucio.core.topology import Topology, ExpiringObjectCache
 from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
 from rucio.db.sqla.constants import RequestState, RequestType
+from rucio.transfertool.transfertool import Transfertool
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 from rucio.transfertool.mock import MockTransfertool
@@ -114,6 +115,7 @@ def _handle_requests(
         multi_vo,
         timeout,
         transfertool,
+        transfer_stats_manager: request_core.TransferStatsManager,
         oidc_account: Optional[str],
         *,
         logger=logging.log,
@@ -142,7 +144,13 @@ def _handle_requests(
                         else:
                             account = InternalAccount(oidc_account)
                     transfertool_obj = FTS3Transfertool(external_host=external_host, vo=vo, oidc_account=account)
-                poll_transfers(transfertool_obj=transfertool_obj, transfers_by_eid=chunk, timeout=timeout, logger=logger)
+                poll_transfers(
+                    transfertool_obj=transfertool_obj,
+                    transfers_by_eid=chunk,
+                    transfer_stats_manager=transfer_stats_manager,
+                    timeout=timeout,
+                    logger=logger,
+                )
             except Exception:
                 logger(logging.ERROR, 'Exception', exc_info=True)
 
@@ -182,6 +190,8 @@ def poller(
     if filter_transfertool:
         executable += ' --filter-transfertool ' + filter_transfertool
 
+    transfer_stats_manager = request_core.TransferStatsManager()
+
     @db_workqueue(
         once=once,
         graceful_stop=GRACEFUL_STOP,
@@ -211,13 +221,15 @@ def poller(
             timeout=timeout,
             oidc_account=oidc_account,
             transfertool=transfertool,
+            transfer_stats_manager=transfer_stats_manager,
         )
 
-    ProducerConsumerDaemon(
-        producers=[_db_producer],
-        consumers=[_consumer for _ in range(total_threads)],
-        graceful_stop=GRACEFUL_STOP,
-    ).run()
+    with transfer_stats_manager:
+        ProducerConsumerDaemon(
+            producers=[_db_producer],
+            consumers=[_consumer for _ in range(total_threads)],
+            graceful_stop=GRACEFUL_STOP,
+        ).run()
 
 
 def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> None:
@@ -280,19 +292,20 @@ def run(
     )
 
 
-def poll_transfers(transfertool_obj, transfers_by_eid, timeout=None, logger=logging.log):
+def poll_transfers(
+        transfertool_obj: Transfertool,
+        transfers_by_eid: Mapping[str, Mapping[str, Any]],
+        transfer_stats_manager: request_core.TransferStatsManager,
+        timeout: "Optional[int]" = None,
+        logger=logging.log
+):
     """
     Poll a list of transfers from an FTS server
-
-    :param transfertool_obj: The Transfertool to use for query
-    :param transfers_by_eid: Dict of the form {external_id: list_of_transfers}
-    :param timeout:          Timeout.
-    :param logger:           Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
     poll_individual_transfers = False
     try:
-        _poll_transfers(transfertool_obj, transfers_by_eid, timeout, logger)
+        _poll_transfers(transfertool_obj, transfers_by_eid, transfer_stats_manager, timeout, logger)
     except TransferToolWrongAnswer:
         poll_individual_transfers = True
 
@@ -301,12 +314,18 @@ def poll_transfers(transfertool_obj, transfers_by_eid, timeout=None, logger=logg
         for external_id, transfers in transfers_by_eid.items():
             logger(logging.DEBUG, 'Checking %s on %s' % (external_id, transfertool_obj))
             try:
-                _poll_transfers(transfertool_obj, {external_id: transfers}, timeout, logger)
+                _poll_transfers(transfertool_obj, {external_id: transfers}, transfer_stats_manager, timeout, logger)
             except Exception as err:
                 logger(logging.ERROR, 'Problem querying %s on %s . Error returned : %s' % (external_id, transfertool_obj, str(err)))
 
 
-def _poll_transfers(transfertool_obj, transfers_by_eid, timeout, logger):
+def _poll_transfers(
+        transfertool_obj: Transfertool,
+        transfers_by_eid: Mapping[str, Mapping[str, Any]],
+        transfer_stats_manager: request_core.TransferStatsManager,
+        timeout: "Optional[int]" = None,
+        logger=logging.log
+):
     """
     Helper function for poll_transfers which performs the actual polling and database update.
     """
@@ -355,7 +374,11 @@ def _poll_transfers(transfertool_obj, transfers_by_eid, timeout, logger):
                 METRICS.counter('query_transfer_exception').inc()
             else:
                 for request_id in request_ids.intersection(transf_resp):
-                    ret = transfer_core.update_transfer_state(transf_resp[request_id], logger=logger)
+                    ret = transfer_core.update_transfer_state(
+                        tt_status_report=transf_resp[request_id],
+                        stats_manager=transfer_stats_manager,
+                        logger=logger,
+                    )
                     # if True, really update request content; if False, only touch request
                     if ret:
                         cnt += 1
