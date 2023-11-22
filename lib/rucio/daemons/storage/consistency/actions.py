@@ -174,7 +174,7 @@ def cmp2dark(new_list, old_list, comm_list, stats_file):
     stats_key = "cmp2dark"
     my_stats = stats = None
 
-    with open(new_list, "r") as a_list, open(old_list, "r") as b_list,\
+    with open(new_list, "r") as a_list, open(old_list, "r") as b_list, \
          open(comm_list, "w") as out_list:
 
         if stats_file is not None:

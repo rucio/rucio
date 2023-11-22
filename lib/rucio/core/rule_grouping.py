@@ -59,7 +59,7 @@ def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselec
     # transfers_to_create = [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
 
     if rule.grouping == RuleGrouping.NONE:
-        replicas_to_create, locks_to_create,\
+        replicas_to_create, locks_to_create, \
             transfers_to_create = __apply_rule_to_files_none_grouping(datasetfiles=datasetfiles,
                                                                       locks=locks,
                                                                       replicas=replicas,
@@ -70,7 +70,7 @@ def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselec
                                                                       source_rses=source_rses,
                                                                       session=session)
     elif rule.grouping == RuleGrouping.ALL:
-        replicas_to_create, locks_to_create,\
+        replicas_to_create, locks_to_create, \
             transfers_to_create = __apply_rule_to_files_all_grouping(datasetfiles=datasetfiles,
                                                                      locks=locks,
                                                                      replicas=replicas,
@@ -81,7 +81,7 @@ def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselec
                                                                      source_rses=source_rses,
                                                                      session=session)
     else:  # rule.grouping == RuleGrouping.DATASET:
-        replicas_to_create, locks_to_create,\
+        replicas_to_create, locks_to_create, \
             transfers_to_create = __apply_rule_to_files_dataset_grouping(datasetfiles=datasetfiles,
                                                                          locks=locks,
                                                                          replicas=replicas,
@@ -119,7 +119,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, so
     # locks_to_delete =     {'rse_id': [locks]}
 
     if rule.grouping == RuleGrouping.NONE:
-        replicas_to_create, locks_to_create, transfers_to_create,\
+        replicas_to_create, locks_to_create, transfers_to_create, \
             locks_to_delete = __repair_stuck_locks_with_none_grouping(datasetfiles=datasetfiles,
                                                                       locks=locks,
                                                                       replicas=replicas,
@@ -129,7 +129,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, so
                                                                       source_rses=source_rses,
                                                                       session=session)
     elif rule.grouping == RuleGrouping.ALL:
-        replicas_to_create, locks_to_create, transfers_to_create,\
+        replicas_to_create, locks_to_create, transfers_to_create, \
             locks_to_delete = __repair_stuck_locks_with_all_grouping(datasetfiles=datasetfiles,
                                                                      locks=locks,
                                                                      replicas=replicas,
@@ -139,7 +139,7 @@ def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, so
                                                                      source_rses=source_rses,
                                                                      session=session)
     else:
-        replicas_to_create, locks_to_create, transfers_to_create,\
+        replicas_to_create, locks_to_create, transfers_to_create, \
             locks_to_delete = __repair_stuck_locks_with_dataset_grouping(datasetfiles=datasetfiles,
                                                                          locks=locks,
                                                                          replicas=replicas,

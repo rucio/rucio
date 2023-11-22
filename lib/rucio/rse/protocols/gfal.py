@@ -51,7 +51,7 @@ class Default(protocol.RSEProtocol):
 
         :returns: Fully qualified PFN.
         """
-        lfns = [lfns] if type(lfns) == dict else lfns
+        lfns = [lfns] if isinstance(lfns, dict) else lfns
 
         pfns = {}
         prefix = self.attributes['prefix']

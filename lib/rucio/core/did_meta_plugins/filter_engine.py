@@ -368,7 +368,7 @@ class FilterEngine:
                     # Infer what type key should be cast to from typecasting the value in the expression.
                     try:
                         if isinstance(value, int):                                          # this could be bool or int (as bool subclass of int)
-                            if type(value) == bool:
+                            if isinstance(value, bool):
                                 if is_in_json_column:
                                     expression = "({}->>'{}')::boolean {} {}".format(jsonb_column, key, POSTGRES_OP_MAP[oper], str(value).lower())
                                 else:
@@ -473,7 +473,7 @@ class FilterEngine:
                             # Infer what type key should be cast to from typecasting the value in the expression.
                             try:
                                 if isinstance(value, int):                                          # this could be bool or int (as bool subclass of int)
-                                    if type(value) == bool:
+                                    if isinstance(value, bool):
                                         expression = oper(json_column[key].as_boolean(), value)
                                     else:
                                         expression = oper(json_column[key].as_float(), value)       # cast as float, not integer, to avoid potentially losing precision in key
