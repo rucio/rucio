@@ -1526,6 +1526,7 @@ class Rules(ErrorHandlingMethodView):
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
 
             def generate(vo):
+                get_did(scope=scope, name=name, vo=vo)
                 for rule in list_replication_rules({'scope': scope, 'name': name}, vo=vo):
                     yield dumps(rule, cls=APIEncoder) + '\n'
 
@@ -1533,6 +1534,8 @@ class Rules(ErrorHandlingMethodView):
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except RuleNotFound as error:
+            return generate_http_error_flask(404, error)
+        except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
 
 
