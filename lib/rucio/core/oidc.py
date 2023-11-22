@@ -188,10 +188,6 @@ def __initialize_oidc_clients() -> None:
         pass
 
 
-# try loading OIDC clients uppon module import
-__initialize_oidc_clients()
-
-
 def __get_init_oidc_client(token_object: models.Token = None, token_type: str = None, **kwargs) -> dict[Any, Any]:
     """
     Get an OIDC client object, (re-)initialised with parameters corresponding
