@@ -786,14 +786,14 @@ def get_dsn(scope, name, dsn):
 
 
 def __compress_multihops(
-        candidate_paths: "Iterable[Sequence[DirectTransferDefinition]]",
+        paths_by_source: "Iterable[tuple[RequestSource, Sequence[DirectTransferDefinition]]]",
         sources: "Iterable[RequestSource]",
-) -> "Iterator[Sequence[DirectTransferDefinition]]":
+) -> "Iterator[tuple[RequestSource, Sequence[DirectTransferDefinition]]]":
     # Compress multihop transfers which contain other sources as part of itself.
     # For example: multihop A->B->C and B is a source, compress A->B->C into B->C
     source_rses = {s.rse.id for s in sources}
     seen_source_rses = set()
-    for path in candidate_paths:
+    for source, path in paths_by_source:
         if len(path) > 1:
             # find the index of the first hop starting from the end which is also a source. Path[0] will always be a source.
             last_source_idx = next((idx for idx, hop in reversed(list(enumerate(path))) if hop.src.rse.id in source_rses), (0, None))
@@ -804,7 +804,7 @@ def __compress_multihops(
         src_rse_id = path[0].src.rse.id
         if src_rse_id not in seen_source_rses:
             seen_source_rses.add(src_rse_id)
-            yield path
+            yield source, path
 
 
 class TransferPathBuilder:
@@ -1031,7 +1031,7 @@ class HighestAdjustedRankingFirst(SourceRankingStrategy):
 
 class PreferDiskOverTape(SourceRankingStrategy):
     def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
-        return source.rse.is_tape_or_staging_required()  # rely on the fact that False < True
+        return int(source.rse.is_tape_or_staging_required())  # rely on the fact that False < True
 
 
 class PathDistance(SourceRankingStrategy):
@@ -1229,14 +1229,16 @@ def build_transfer_paths(
                     cost_vectors[source].append(verdict)
 
         transfers_by_rse = transfer_path_builder.build_or_return_cached(rws, cost_vectors, logger=logger, session=session)
-        candidate_paths = (transfers_by_rse[s.rse] for s, _ in sorted(cost_vectors.items(), key=operator.itemgetter(1)))
+        candidate_paths = ((s, transfers_by_rse[s.rse]) for s, _ in sorted(cost_vectors.items(), key=operator.itemgetter(1)))
         if not preparer_mode:
             candidate_paths = __compress_multihops(candidate_paths, all_sources)
         candidate_paths = list(candidate_paths)
 
-        ordered_sources_log = ','.join(
-            ('multihop: ' if len(path) > 1 else '') + '{}:{}:{}'.format(path[0].src.rse, path[0].src.ranking, path[0].src.distance)
-            for path in candidate_paths[:num_sources_in_logs]
+        ordered_sources_log = ', '.join(
+            f"{s.rse}:{':'.join(str(e) for e in cost_vectors[s])}"
+            f"{'(actual source ' + str(path[0].src.rse) + ')' if s.rse != path[0].src.rse else ''}"
+            f"{'(multihop)' if len(path) > 1 else ''}"
+            for s, path in candidate_paths[:num_sources_in_logs]
         )
         if len(candidate_paths) > num_sources_in_logs:
             ordered_sources_log += '... and %d others' % (len(candidate_paths) - num_sources_in_logs)
@@ -1264,7 +1266,7 @@ def build_transfer_paths(
                 logger(logging.DEBUG, '%s: No candidate path found' % rws.request_id)
             continue
 
-        candidate_paths_by_request_id[rws.request_id] = candidate_paths
+        candidate_paths_by_request_id[rws.request_id] = [path for _, path in candidate_paths]
         reqs_no_source.remove(rws.request_id)
 
     return candidate_paths_by_request_id, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source, reqs_unsupported_transfertool
