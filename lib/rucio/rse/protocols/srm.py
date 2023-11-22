@@ -51,7 +51,7 @@ class Default(protocol.RSEProtocol):
         if '://' in hostname:
             hostname = hostname.split("://")[1]
 
-        lfns = [lfns] if type(lfns) == dict else lfns
+        lfns = [lfns] if isinstance(lfns, dict) else lfns
         if not self.attributes['port']:
             for lfn in lfns:
                 scope, name, path = lfn['scope'], lfn['name'], lfn.get('path')

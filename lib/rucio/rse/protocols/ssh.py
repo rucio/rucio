@@ -157,7 +157,7 @@ class Default(protocol.RSEProtocol):
         if not prefix.endswith('/'):
             prefix = ''.join([prefix, '/'])
 
-        lfns = [lfns] if type(lfns) == dict else lfns
+        lfns = [lfns] if isinstance(lfns, dict) else lfns
         for lfn in lfns:
             scope, name = lfn['scope'], lfn['name']
             if 'path' in lfn and lfn['path'] is not None:

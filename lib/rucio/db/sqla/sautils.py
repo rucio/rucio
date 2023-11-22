@@ -30,7 +30,7 @@ class InsertFromSelect(Executable, ClauseElement):
 
 @compiles(InsertFromSelect)
 def visit_insert_from_select(element, compiler, **kw):
-    if type(element.insert_spec) == list:
+    if isinstance(element.insert_spec, list):
         columns = []
         for column in element.insert_spec:
             if element.insert_spec[0].table != column.table:

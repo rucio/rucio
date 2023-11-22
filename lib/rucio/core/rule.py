@@ -2568,7 +2568,7 @@ def __find_stuck_locks_and_repair_them(datasetfiles, locks, replicas, source_rep
 
     logger(logging.DEBUG, "Finding and repairing stuck locks for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
-    replicas_to_create, locks_to_create, transfers_to_create,\
+    replicas_to_create, locks_to_create, transfers_to_create, \
         locks_to_delete = repair_stuck_locks_and_apply_rule_grouping(datasetfiles=datasetfiles,
                                                                      locks=locks,
                                                                      replicas=replicas,
