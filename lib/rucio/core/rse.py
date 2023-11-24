@@ -29,7 +29,7 @@ from sqlalchemy.sql.expression import or_, and_, desc, true, false, func, select
 
 from rucio.common import exception, utils
 from rucio.common.cache import make_region_memcached
-from rucio.common.config import get_lfn2pfn_algorithm_default, config_get_bool
+from rucio.common.config import get_lfn2pfn_algorithm_default
 from rucio.common import types
 from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
 from rucio.core.rse_counter import add_counter, get_counter
@@ -159,8 +159,7 @@ class RseData:
         Given a dict of RseData objects indexed by rse_id, ensure that the desired fields are initialised
         in all objects from the input.
         """
-        use_temp_tables = config_get_bool('core', 'use_temp_tables', default=True, session=session)
-        if not use_temp_tables or len(rse_id_to_data) < 4:
+        if len(rse_id_to_data) < 4:  # 4 was selected without particular reason as "seems good enough"
             for rse_data in rse_id_to_data.values():
                 rse_data.ensure_loaded(
                     load_name=load_name,
@@ -224,7 +223,7 @@ class RseData:
                                                                   session=session))
             for rse_id, db_rse in db_rses_by_id.items():
                 rse_data = rse_id_to_data[rse_id]
-                settings = rse_data._attributes if rse_data._attributes is not None else settings_by_id[rse_id]
+                settings = rse_data._attributes if rse_data._attributes is not None else settings_by_id.get(rse_id, {})
                 columns = _format_get_rse(db_rse=db_rse, rse_attributes=settings, session=session)
                 rse_data._columns = columns
                 rse_data._name = columns['rse']
@@ -281,8 +280,8 @@ class RseData:
         if load_name:
             # The name could have been loaded already (when loading columns or info). Skip loading if it's known.
             if not load_columns and not load_info:
-                for rse_id, rse_data in rse_id_to_data.items():
-                    rse_data._name = db_rses_by_id[rse_id].rse
+                for rse_id in rse_ids_to_load:
+                    rse_id_to_data[rse_id]._name = db_rses_by_id[rse_id].rse
 
 
 class RseCollection(Generic[T]):
