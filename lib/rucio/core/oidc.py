@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import json
 import logging
 import random
@@ -20,8 +21,9 @@ import subprocess
 import traceback
 from datetime import datetime, timedelta
 from typing import Any, Final, TYPE_CHECKING, Optional
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urljoin, urlparse, parse_qs
 
+import requests
 from dogpile.cache.api import NoValue
 from jwkest.jws import JWS
 from jwkest.jwt import JWT
@@ -120,6 +122,40 @@ def _token_cache_set(key: str, value: str) -> None:
     REGION.set(key, value)
 
 
+def request_token(audience: str, scope: str, use_cache: bool = True) -> Optional[str]:
+    """Request a token from the provider.
+
+    Return ``None`` if the configuration was not loaded properly or the request
+    was unsuccessful.
+    """
+    if not all([OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_PROVIDER_ENDPOINT]):
+        if OIDC_CONFIGURATION_RUN or not __load_oidc_configuration():
+            return None
+
+    key = hashlib.md5(f'audience={audience};scope={scope}'.encode()).hexdigest()
+
+    if use_cache and (token := _token_cache_get(key)):
+        return token
+
+    try:
+        response = requests.post(url=OIDC_PROVIDER_ENDPOINT,
+                                 auth=(OIDC_CLIENT_ID, OIDC_CLIENT_SECRET),
+                                 data={'grant_type': 'client_credentials',
+                                       'audience': audience,
+                                       'scope': scope})
+        response.raise_for_status()
+        payload = response.json()
+        token = payload['access_token']
+    except Exception:
+        logging.debug('Failed to procure a token', exc_info=True)
+        return None
+
+    if use_cache:
+        _token_cache_set(key, token)
+
+    return token
+
+
 def __get_rucio_oidc_clients(keytimeout: int = 43200) -> tuple[dict, dict]:
     """
     Creates a Rucio OIDC Client instances per Identity Provider (IdP)
@@ -170,6 +206,11 @@ def __get_rucio_oidc_clients(keytimeout: int = 43200) -> tuple[dict, dict]:
 # global variables to represent the IdP clients
 OIDC_CLIENTS = {}
 OIDC_ADMIN_CLIENTS = {}
+# New-style token support.
+OIDC_CLIENT_ID = ''
+OIDC_CLIENT_SECRET = ''
+OIDC_PROVIDER_ENDPOINT = ''
+OIDC_CONFIGURATION_RUN = False
 
 
 def __initialize_oidc_clients() -> None:
@@ -186,6 +227,33 @@ def __initialize_oidc_clients() -> None:
     except Exception as error:
         logging.debug("OIDC clients not properly loaded: %s", error)
         pass
+
+
+def __load_oidc_configuration() -> bool:
+    """Load the configuration for the new-style token support."""
+    global OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_PROVIDER_ENDPOINT, OIDC_CONFIGURATION_RUN
+
+    OIDC_CONFIGURATION_RUN = True
+
+    if not IDPSECRETS:
+        logging.error('Configuration option "idpsecrets" in section "oidc" is not set')
+        return False
+    if not ADMIN_ISSUER_ID:
+        logging.error('Configuration option "admin_issuer" in section "oidc" is not set')
+        return False
+
+    try:
+        with open(IDPSECRETS) as f:
+            data = json.load(f)
+            OIDC_CLIENT_ID = data[ADMIN_ISSUER_ID]['client_id']
+            OIDC_CLIENT_SECRET = data[ADMIN_ISSUER_ID]['client_secret']
+            OIDC_PROVIDER_ENDPOINT = urljoin(data[ADMIN_ISSUER_ID]['issuer'], 'token')
+    except Exception:
+        logging.error('Failed to parse configuration file "%s"', IDPSECRETS,
+                      exc_info=True)
+        return False
+    else:
+        return True
 
 
 def __get_init_oidc_client(token_object: models.Token = None, token_type: str = None, **kwargs) -> dict[Any, Any]:
