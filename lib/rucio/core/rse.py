@@ -17,7 +17,7 @@ import json
 from collections.abc import Iterator, Iterable
 from datetime import datetime
 from io import StringIO
-from re import match
+from re import match, sub
 from typing import Any, Generic, Optional, TypeVar, Union, TYPE_CHECKING
 
 import sqlalchemy
@@ -1847,3 +1847,42 @@ def fill_rse_expired(rse_id, *, session: "Session"):
                     used=sum_bytes,
                     files=sum_files,
                     source='expired').save(session=session)
+
+
+def determine_audience_for_rse(rse_id: str) -> str:
+    """Construct the Audience claim for an RSE."""
+    rse_protocols = get_rse_protocols(rse_id)
+    # FIXME: At the time of writing, there does not appear to be a common
+    # agreement on how sites will configure their storages.  Rucio had requested
+    # that the protocol hostname be sufficient, but this may not come to pass.
+    filtered_hostnames = {p['hostname']
+                          for p in rse_protocols['protocols']
+                          if p['scheme'] in ('davs', 'root')}
+    return ' '.join(sorted(filtered_hostnames))
+
+
+def determine_scope_for_rse(
+    rse_id: str,
+    scopes: Iterable[str],
+    extra_scopes: Optional[Iterable[str]] = None,
+) -> str:
+    """Construct the Scope claim for an RSE."""
+    if extra_scopes is None:
+        extra_scopes = []
+    rse_protocols = get_rse_protocols(rse_id)
+    filtered_prefixes = set()
+    for protocol in rse_protocols['protocols']:
+        # Skip protocol schemes which do not support tokens.
+        if protocol['scheme'] not in ('davs', 'root'):
+            continue
+        # Squeeze leading double slashes, typically found in XRootD protocols.
+        prefix = sub('^//', '/', protocol['prefix'])
+        # Remove base path from prefix.  Storages typically map an issuer (i.e.
+        # a VO) to a particular area.  If so, then the path to that area acts as
+        # a base which should be removed from the prefix (in order for '/' to
+        # mean the entire resource associated with that issuer).
+        if base_path := get_rse_attribute(rse_id, 'oidc_base_path'):
+            prefix = prefix.removeprefix(base_path)
+        filtered_prefixes.add(prefix)
+    all_scopes = [f'{s}:{p}' for s in scopes for p in filtered_prefixes] + list(extra_scopes)
+    return ' '.join(sorted(all_scopes))
