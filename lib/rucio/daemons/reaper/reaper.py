@@ -40,15 +40,15 @@ from rucio.common.exception import (DatabaseException, RSENotFound,
                                     VONotFound, RSEProtocolNotSupported)
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
 from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import list_payload_counts
 from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
-from rucio.core.oidc import get_token_for_account_operation
+from rucio.core.oidc import request_token
 from rucio.core.replica import list_and_mark_unlocked_replicas, delete_replicas
-from rucio.core.rse import list_rses, RseData
+from rucio.core.rse import (determine_audience_for_rse, determine_scope_for_rse,
+                            list_rses, RseData)
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
 from rucio.core.vo import list_vos
@@ -395,11 +395,6 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     :param auto_exclude_threshold: Number of service unavailable exceptions after which the RSE gets temporarily excluded.
     :param auto_exclude_timeout:   Timeout for temporarily excluded RSEs.
     """
-
-    oidc_account = config_get('reaper', 'oidc_account', False, 'root')
-    oidc_scope = config_get('reaper', 'oidc_scope', False, 'delete')
-    oidc_audience = config_get('reaper', 'oidc_audience', False, 'rse')
-
     run_daemon(
         once=once,
         graceful_stop=GRACEFUL_STOP,
@@ -418,16 +413,13 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
             delay_seconds=delay_seconds,
             auto_exclude_threshold=auto_exclude_threshold,
             auto_exclude_timeout=auto_exclude_timeout,
-            oidc_account=oidc_account,
-            oidc_scope=oidc_scope,
-            oidc_audience=oidc_audience,
         )
     )
 
 
 def run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
              delay_seconds, auto_exclude_threshold, auto_exclude_timeout,
-             heartbeat_handler, oidc_account, oidc_scope, oidc_audience, **_kwargs):
+             heartbeat_handler, **_kwargs):
 
     must_sleep = True
 
@@ -476,9 +468,6 @@ def run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
             auto_exclude_threshold=auto_exclude_threshold,
             auto_exclude_timeout=auto_exclude_timeout,
             heartbeat_handler=heartbeat_handler,
-            oidc_account=oidc_account,
-            oidc_scope=oidc_scope,
-            oidc_audience=oidc_audience,
         )
         if rses_to_process and iteration < max_fast_reiterations:
             logger(logging.INFO, "Will perform fast-reiteration %d/%d with rses: %s", iteration + 1, max_fast_reiterations, [str(rse) for rse in rses_to_process])
@@ -494,7 +483,7 @@ def run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
 
 def _run_once(rses_to_process, chunk_size, greedy, scheme,
               delay_seconds, auto_exclude_threshold, auto_exclude_timeout,
-              heartbeat_handler, oidc_account, oidc_scope, oidc_audience, **_kwargs):
+              heartbeat_handler, **_kwargs):
 
     dict_rses = {}
     _, total_workers, logger = heartbeat_handler.live()
@@ -591,12 +580,16 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
         try:
             rse.ensure_loaded(load_info=True, load_attributes=True)
             auth_token = None
-            if oidc_account and rse.attributes.get('oidc_support', False):
-                account = InternalAccount(oidc_account, vo=rse.columns['vo'])
-                token_dict = get_token_for_account_operation(account, req_audience=oidc_audience, req_scope=oidc_scope, admin=True)
-                if token_dict is not None and 'token' in token_dict:
-                    auth_token = token_dict['token']
-                    logger(logging.DEBUG, 'OIDC authentication used for deletion.')
+            if rse.attributes.get('oidc_support', False):
+                audience = config_get('reaper', 'oidc_audience', False) or determine_audience_for_rse(rse.id)
+                # FIXME: At the time of writing, StoRM requires `storage.read`
+                # in order to perform a stat operation.
+                scope = determine_scope_for_rse(rse.id, scopes=['storage.modify', 'storage.read'])
+                auth_token = request_token(audience, scope)
+                if auth_token:
+                    logger(logging.INFO, 'Using a token to delete on RSE %s', rse.name)
+                else:
+                    logger(logging.WARNING, 'Failed to procure a token to delete on RSE %s', rse.name)
             prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, auth_token=auth_token, logger=logger)
             for file_replicas in chunks(replicas, chunk_size):
                 # Refresh heartbeat
