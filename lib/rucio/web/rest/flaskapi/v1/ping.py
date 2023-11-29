@@ -69,8 +69,8 @@ class Ping(ErrorHandlingMethodView):
         return response
 
 
-def blueprint(with_doc=False):
-    bp = Blueprint('ping', __name__, url_prefix='/ping')
+def blueprint(standalone=False, with_doc=False):
+    bp = Blueprint('ping', __name__, url_prefix='/' if standalone else '/ping')
 
     ping_view = Ping.as_view('ping')
     if not with_doc:
