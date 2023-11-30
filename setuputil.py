@@ -26,6 +26,7 @@ clients_requirements_table = {
         'dogpile.cache',
         'tabulate',
         'jsonschema',
+        'jsonschema-specifications',
         'dataclasses',
     ],
     'ssh': ['paramiko'],
