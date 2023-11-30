@@ -121,7 +121,7 @@ class RseData:
         return self.id == other.id
 
     def is_tape(self):
-        if self.info['rse_type'] == RSEType.TAPE or self.info['rse_type'] == 'TAPE':
+        if self.info['rse_type'] == RSEType.TAPE or self.info['rse_type'] == 'TAPE' or self.attributes.get('staging_required', True):
             return True
         return False
 
