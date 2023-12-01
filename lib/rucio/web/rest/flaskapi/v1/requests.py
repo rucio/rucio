@@ -17,6 +17,7 @@ import json
 
 import flask
 from flask import Flask, Response
+from typing import TYPE_CHECKING
 
 from rucio.api import request
 from rucio.common.exception import RequestNotFound
@@ -26,6 +27,9 @@ from rucio.db.sqla.constants import RequestState
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, parse_scope_name, try_stream, \
     response_headers, generate_http_error_flask, ErrorHandlingMethodView
+
+if TYPE_CHECKING:
+    from typing import Iterator
 
 
 class RequestGet(ErrorHandlingMethodView):
@@ -857,44 +861,95 @@ class RequestMetricsGet(ErrorHandlingMethodView):
                     description: Statistics of the request group for a given (source, destination, activity) tuple.
                     type: object
                     properties:
-                      dest_rse_id:
-                        description: The destination RSE id.
+                      src_rse:
                         type: string
-                      source_rse_id:
-                        description: The source RSE id.
+                        description: The name of this links source RSE
+                      dst_rse:
                         type: string
-                      activity:
-                        description: The activity of the request group.
-                        type: string
-                      state:
-                        description: The state of the request group.
-                        type: string
-                        enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
-                      source_rse:
-                        description: The name of the source RSE.
-                        type: string
-                      dest_rse:
-                        description: The name of the destination RSE.
-                        type: string
-                      account:
-                        description: The account which issued the request group.
-                        type: string
-                      counter:
-                        description: The number of requests in this request group.
-                        type: number
+                        description: The name of this links destination RSE
+                      distance:
+                        type: integer
+                        description: The distance between the source and destination RSE
+                      files:
+                        type: object
+                        properties:
+                          done-total-1h:
+                            type: integer
+                            description: The total number of files successfully transferred in the last 1 hour
+                          done-total-6h:
+                            type: integer
+                            description: The total number of files successfully transferred in the last 6 hours
+                          failed-total-1h:
+                            type: integer
+                            description: The total number of transfer failures in the last 1 hour
+                          failed-total-6h:
+                            type: integer
+                            description: The total number of transfer failures in the last 6 hours
+                          queued-total:
+                            type: integer
+                            description: The total number of files queued in rucio
+                          queued:
+                            type: object
+                            description: Per-activity number of queued files
+                            additionalProperties:
+                              type: integer
+                          done:
+                            type: object
+                            additionalProperties:
+                              type: object
+                              properties:
+                                1h:
+                                  type: integer
+                                6h:
+                                  type: integer
+                          failed:
+                            type: object
+                            description: Per-activity number of transfer failures in the last 1 and 6 hours
+                            additionalProperties:
+                              type: object
+                              properties:
+                                1h:
+                                  type: integer
+                                6h:
+                                  type: integer
                       bytes:
-                        description: The total transferred bytes of requests in this request group.
-                        type: number
+                        type: object
+                        properties:
+                          done-total-1h:
+                            type: integer
+                            description: The total number of bytes successfully transferred in the last 1 hour
+                          done-total-6h:
+                            type: integer
+                            description: The total number of bytes successfully transferred in the last 6 hours
+                          queued-total:
+                            type: integer
+                            description: The total number of bytes queued to be transferred by rucio
+                          queued:
+                            type: object
+                            description: Per-activity amount of queued bytes
+                            additionalProperties:
+                              type: integer
+                          done:
+                            type: object
+                            description: Per-activity number of transferred bytes in the last 1 and 6 hours
+                            additionalProperties:
+                              type: object
+                              properties:
+                                1h:
+                                  type: integer
+                                6h:
+                                  type: integer
+                    required:
+                      - distance
+                      - src_rse
+                      - dst_rse
           401:
             description: Invalid Auth Token
-          404:
-            description: Not found
-          406:
-            description: Not acceptable
         """
         dst_rse = flask.request.args.get('dst_rse', default=None)
         src_rse = flask.request.args.get('src_rse', default=None)
         activity = flask.request.args.get('activity', default=None)
+        format = flask.request.args.get('format', default=None)
 
         metrics = request.get_request_metrics(
             dst_rse=dst_rse,
@@ -903,7 +958,14 @@ class RequestMetricsGet(ErrorHandlingMethodView):
             issuer=flask.request.environ.get('issuer'),
             vo=flask.request.environ.get('vo')
         )
-        return Response(json.dumps(metrics, cls=APIEncoder), content_type='application/json')
+
+        if format == 'panda':
+            return Response(json.dumps(metrics, cls=APIEncoder), content_type='application/json')
+
+        def generate() -> "Iterator[str]":
+            for result in metrics.values():
+                yield render_json(**result) + '\n'
+        return try_stream(generate())
 
 
 def blueprint():

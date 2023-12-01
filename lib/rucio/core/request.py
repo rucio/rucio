@@ -1858,8 +1858,8 @@ def get_request_metrics(
     for (src_id, dst_id), metric in metrics.items():
         src_rse = rses[src_id]
         dst_rse = rses[dst_id]
-        metric['src'] = src_rse.name
-        metric['dst'] = dst_rse.name
+        metric['src_rse'] = src_rse.name
+        metric['dst_rse'] = dst_rse.name
 
         response[f'{src_rse.name}:{dst_rse.name}'] = metric
 
