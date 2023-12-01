@@ -352,9 +352,7 @@ def test_api_metrics(vo, rest_client, auth_token, rse_factory, did_factory, root
     params = {'dst_rse': dst_rse, 'src_rse': src_rse}
     headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': root_account.external}
     response = rest_client.get(api_endpoint, query_string=params, headers=headers(auth(auth_token), vohdr(vo), hdrdict(headers_dict)))
-    response = json.loads(response.get_data(as_text=True))
-    metric = response.get(f'{src_rse}:{dst_rse}')
-    assert metric is not None
+    metric = json.loads(response.get_data(as_text=True))
     assert metric['distance'] == 10
     assert metric['bytes']['queued'][activity1] == replica_bytes
     assert metric['bytes']['queued'][activity2] == replica_bytes
@@ -365,3 +363,11 @@ def test_api_metrics(vo, rest_client, auth_token, rse_factory, did_factory, root
     assert metric['files']['done'][activity1]['1h'] == 1
     assert metric['bytes']['done'][activity1]['1h'] == 367
     assert metric['files']['failed'][activity2]['1h'] == 1
+    assert metric['src_rse'] == src_rse
+    assert metric['dst_rse'] == dst_rse
+
+    params = {'dst_rse': dst_rse, 'src_rse': src_rse, 'format': 'panda'}
+    response = rest_client.get(api_endpoint, query_string=params, headers=headers(auth(auth_token), vohdr(vo), hdrdict(headers_dict)))
+    response = json.loads(response.get_data(as_text=True))
+    metric = response.get(f'{src_rse}:{dst_rse}')
+    assert metric is not None
