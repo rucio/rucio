@@ -37,9 +37,10 @@ from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer,
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import APIEncoder, chunks, PREFERRED_CHECKSUM
 from rucio.core.monitor import MetricManager
-from rucio.core.oidc import get_token_for_account_operation
+from rucio.core.oidc import request_token
 from rucio.core.request import get_source_rse, get_transfer_error
-from rucio.core.rse import get_rse_supported_checksums_from_attributes
+from rucio.core.rse import (determine_audience_for_rse, determine_scope_for_rse,
+                            get_rse_supported_checksums_from_attributes)
 from rucio.db.sqla.constants import RequestState
 from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 
@@ -70,9 +71,6 @@ BULK_QUERY_COUNTER = METRICS.counter(name='{host}.bulk_query.{state}',
 QUERY_DETAILS_COUNTER = METRICS.counter(name='{host}.query_details.{state}',
                                         documentation='Number of detailed status queries', labelnames=('state', 'host'))
 
-ALLOW_USER_OIDC_TOKENS = config_get_bool('conveyor', 'allow_user_oidc_tokens', False, False)
-REQUEST_OIDC_SCOPE = config_get('conveyor', 'request_oidc_scope', False, 'fts:submit-transfer')
-REQUEST_OIDC_AUDIENCE = config_get('conveyor', 'request_oidc_audience', False, 'fts:example')
 REWRITE_HTTPS_TO_DAVS = config_get_bool('transfers', 'rewrite_https_to_davs', default=False)
 VO_CERTS_PATH = config_get('conveyor', 'vo_certs_path', False, None)
 
@@ -797,14 +795,13 @@ class FTS3Transfertool(Transfertool):
     external_name = 'fts3'
     required_rse_attrs = ('fts', )
 
-    def __init__(self, external_host, oidc_account=None, vo=None, group_bulk=1, group_policy='rule', source_strategy=None,
+    def __init__(self, external_host, oidc_account=None, oidc_support: bool = False, vo=None, group_bulk=1, group_policy='rule', source_strategy=None,
                  max_time_in_queue=None, bring_online=43200, default_lifetime=172800, archive_timeout_override=None,
                  logger=logging.log):
         """
         Initializes the transfertool
 
         :param external_host:   The external host where the transfertool API is running
-        :param oidc_account:    optional oidc account to use for submission
         """
         super().__init__(external_host, logger)
 
@@ -816,20 +813,17 @@ class FTS3Transfertool(Transfertool):
         self.default_lifetime = default_lifetime
         self.archive_timeout_override = archive_timeout_override
 
-        # token for OAuth 2.0 OIDC authorization scheme (working only with dCache + davs/https protocols as of Sep 2019)
         self.token = None
-        if oidc_account:
-            getadmintoken = False
-            if ALLOW_USER_OIDC_TOKENS is False:
-                getadmintoken = True
-            self.logger(logging.DEBUG, 'Attempting to get a token for account %s. Admin token option set to %s' % (oidc_account, getadmintoken))
-            # find the appropriate OIDC token and exchange it (for user accounts) if necessary
-            token_dict = get_token_for_account_operation(oidc_account, req_audience=REQUEST_OIDC_AUDIENCE, req_scope=REQUEST_OIDC_SCOPE, admin=getadmintoken)
-            if token_dict is not None:
-                self.logger(logging.DEBUG, 'Access token has been granted.')
-                if 'token' in token_dict:
-                    self.logger(logging.DEBUG, 'Access token used as transfer token.')
-                    self.token = token_dict['token']
+        if oidc_support:
+            fts_hostname = urlparse(external_host).hostname
+            # FIXME: At the time of writing, it is not yet finalised what
+            # audience and/or scope is required by FTS.
+            token = request_token(audience='https://wlcg.cern.ch/jwt/v1/any', scope='fts')
+            if token is not None:
+                self.logger(logging.INFO, 'Using a token to authenticate with FTS instance %s', fts_hostname)
+                self.token = token
+            else:
+                self.logger(logging.WARNING, 'Failed to procure a token to authenticate with FTS instance %s', fts_hostname)
 
         self.deterministic_id = config_get_bool('conveyor', 'use_deterministic_id', False, False)
         self.headers = {'Content-Type': 'application/json'}
@@ -890,11 +884,11 @@ class FTS3Transfertool(Transfertool):
             logger(logging.INFO, 'FTS3Transfertool can only submit {} hops from {}'.format(len(sub_path), [str(hop) for hop in transfer_path]))
 
         if sub_path:
-            oidc_account = None
+            oidc_support = False
             if all(oidc_supported(t) for t in sub_path):
                 logger(logging.DEBUG, 'OAuth2/OIDC available for transfer {}'.format([str(hop) for hop in sub_path]))
-                oidc_account = transfer_path[-1].rws.account
-            return sub_path, TransferToolBuilder(cls, external_host=fts_hosts[0], oidc_account=oidc_account, vo=vo)
+                oidc_support = True
+            return sub_path, TransferToolBuilder(cls, external_host=fts_hosts[0], oidc_support=oidc_support, vo=vo)
         else:
             return [], None
 
@@ -939,10 +933,25 @@ class FTS3Transfertool(Transfertool):
             'selection_strategy': self.source_strategy if self.source_strategy else _configured_source_strategy(transfer.rws.activity, logger=self.logger),
             'activity': rws.activity
         }
+
+        if self.token:
+            t_file['source_tokens'] = []
+            for source in transfer.legacy_sources:
+                src_audience = config_get('conveyor', 'request_oidc_audience', False) or determine_audience_for_rse(rse_id=source[2])
+                src_scope = determine_scope_for_rse(rse_id=source[2], scopes=['storage.read'], extra_scopes=['offline_access'])
+                t_file['source_tokens'].append(request_token(src_audience, src_scope))
+
+            dst_audience = config_get('conveyor', 'request_oidc_audience', False) or determine_audience_for_rse(transfer.dst.rse.id)
+            # FIXME: At the time of writing, StoRM requires `storage.read` in
+            # order to perform a stat operation.
+            dst_scope = determine_scope_for_rse(transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], extra_scopes=['offline_access'])
+            t_file['destination_tokens'] = [request_token(dst_audience, dst_scope)]
+
         if isinstance(self.scitags_exp_id, int):
             activity_id = self.scitags_activity_ids.get(rws.activity)
             if isinstance(activity_id, int):
                 t_file['scitag'] = self.scitags_exp_id << 6 | activity_id
+
         return t_file
 
     def submit(self, transfers, job_params, timeout=None):
