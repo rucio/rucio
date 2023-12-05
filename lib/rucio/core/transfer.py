@@ -1071,6 +1071,44 @@ class PreferSingleHop(PathDistance):
         return int(len(path) > 1)
 
 
+class FailureRate(SourceRankingStrategy):
+    """
+    A source ranking strategy that ranks source nodes based on their failure rates for the past hour. Failure rate is
+    calculated by dividing files failed by files attempted.
+    """
+    class _FailureRateStat:
+        def __init__(self) -> None:
+            self.files_done = 0
+            self.files_failed = 0
+
+        def incorporate_stat(self, stat: "Mapping[str, int]") -> None:
+            self.files_done += stat['files_done']
+            self.files_failed += stat['files_failed']
+
+        def get_failure_rate(self) -> int:
+            files_attempted = self.files_done + self.files_failed
+
+            # If no files have been sent yet, return failure rate as 0
+            if files_attempted == 0:
+                return 0
+
+            return int((self.files_failed / files_attempted) * 10000)
+
+    def __init__(self, stats_manager: "request_core.TransferStatsManager") -> None:
+        super().__init__()
+        self.source_stats = {}
+
+        for stat in stats_manager.load_totals(
+            datetime.datetime.utcnow() - datetime.timedelta(hours=1),
+            by_activity=False
+        ):
+            self.source_stats.setdefault(stat['src_rse_id'], self._FailureRateStat()).incorporate_stat(stat)
+
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+        failure_rate = cast(FailureRate, ctx.strategy).source_stats.get(source.rse.id, self._FailureRateStat()).get_failure_rate()
+        return failure_rate
+
+
 class SkipSchemeMissmatch(PathDistance):
     filter_only = True
 
@@ -1128,6 +1166,8 @@ def build_transfer_paths(
         requested_source_only=requested_source_only,
     )
 
+    stats_manager = request_core.TransferStatsManager()
+
     available_strategies = {
         EnforceSourceRSEExpression.external_name: lambda: EnforceSourceRSEExpression(),
         SkipBlocklistedRSEs.external_name: lambda: SkipBlocklistedRSEs(topology=topology),
@@ -1140,6 +1180,7 @@ def build_transfer_paths(
         PreferDiskOverTape.external_name: lambda: PreferDiskOverTape(),
         PathDistance.external_name: lambda: PathDistance(transfer_path_builder=transfer_path_builder),
         PreferSingleHop.external_name: lambda: PreferSingleHop(transfer_path_builder=transfer_path_builder),
+        FailureRate.external_name: lambda: FailureRate(stats_manager=stats_manager),
     }
 
     default_strategies = [

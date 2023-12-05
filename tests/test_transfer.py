@@ -15,6 +15,7 @@
 
 import pytest
 from concurrent.futures import ThreadPoolExecutor
+import datetime
 
 from rucio.common.exception import NoDistance
 from rucio.core.distance import add_distance
@@ -25,6 +26,7 @@ from rucio.core.topology import get_hops, Topology
 from rucio.core import rule as rule_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import RSEType, RequestState
 from rucio.db.sqla.session import get_session
 from rucio.common.utils import generate_uuid
@@ -245,6 +247,84 @@ def test_disk_vs_tape_with_custom_strategy(rse_factory, root_account, mock_scope
         assert transfer[0].src.rse.name == disk_rse_name
     else:
         assert transfer[0].src.rse.name == tape_rse_name
+
+
+@pytest.mark.parametrize("file_config_mock", [
+    {"overrides": [('transfers', 'source_ranking_strategies', 'PathDistance')]},
+    {"overrides": [('transfers', 'source_ranking_strategies', 'FailureRate,PathDistance')]}
+], indirect=True)
+def test_failure_rate_with_custom_strategy(rse_factory, root_account, mock_scope, file_config_mock):
+    """
+    RSE with lower failure rate is preferred if the FailureRate strategy is set.
+    """
+    low_failure_rse_name, low_failure_rse_id = rse_factory.make_posix_rse()
+    high_failure_rse_name, high_failure_rse_id = rse_factory.make_posix_rse()
+    dst_rse_name, dst_rse_id = rse_factory.make_posix_rse()
+    all_rses = [low_failure_rse_id, high_failure_rse_id, dst_rse_id]
+    add_distance(low_failure_rse_id, dst_rse_id, distance=20)
+    add_distance(high_failure_rse_id, dst_rse_id, distance=10)
+
+    # add mock data to TransferStats table
+    db_session = get_session()
+
+    # ensure that the failure rate for a source RSE is summed across all activities and destinations,
+    # low failure RSE has failure rate of 0.25
+    # high failure RSE has failure rate of 0.5
+    low_failure_transfer_activity_1 = models.TransferStats(
+        resolution=datetime.timedelta(minutes=5).total_seconds(),
+        timestamp=datetime.datetime.utcnow() - datetime.timedelta(minutes=30),
+        dest_rse_id=high_failure_rse_id,
+        src_rse_id=low_failure_rse_id,
+        activity="test activity 1",
+        files_done=2,
+        bytes_done=12345,
+        files_failed=0
+    )
+    low_failure_transfer_activity_2 = models.TransferStats(
+        resolution=datetime.timedelta(minutes=5).total_seconds(),
+        timestamp=datetime.datetime.utcnow() - datetime.timedelta(minutes=30),
+        dest_rse_id=dst_rse_id,
+        src_rse_id=low_failure_rse_id,
+        activity="test activity 2",
+        files_done=1,
+        bytes_done=12345,
+        files_failed=1
+    )
+    high_failure_transfer_activity = models.TransferStats(
+        resolution=datetime.timedelta(minutes=5).total_seconds(),
+        timestamp=datetime.datetime.utcnow() - datetime.timedelta(minutes=30),
+        dest_rse_id=dst_rse_id,
+        src_rse_id=high_failure_rse_id,
+        activity="test activity 1",
+        files_done=1,
+        bytes_done=12345,
+        files_failed=1
+    )
+
+    low_failure_transfer_activity_1.save(session=db_session)
+    low_failure_transfer_activity_2.save(session=db_session)
+    high_failure_transfer_activity.save(session=db_session)
+
+    db_session.commit()
+    db_session.expunge(low_failure_transfer_activity_1)
+    db_session.expunge(low_failure_transfer_activity_2)
+    db_session.expunge(high_failure_transfer_activity)
+
+    file = {'scope': mock_scope, 'name': 'lfn.' + generate_uuid(), 'type': 'FILE', 'bytes': 1, 'adler32': 'beefdead'}
+    did = {'scope': file['scope'], 'name': file['name']}
+    for rse_id in [low_failure_rse_id, high_failure_rse_id]:
+        add_replicas(rse_id=rse_id, files=[file], account=root_account)
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    topology = Topology().configure_multihop()
+    requests = list_and_mark_transfer_requests_and_source_replicas(rse_collection=topology, rses=all_rses)
+
+    [[_, [transfer]]] = pick_and_prepare_submission_path(topology=topology, protocol_factory=ProtocolFactory(),
+                                                         requests_with_sources=requests).items()
+    if 'FailureRate' in file_config_mock.get('transfers', 'source_ranking_strategies'):
+        assert transfer[0].src.rse.name == low_failure_rse_name
+    else:
+        assert transfer[0].src.rse.name == high_failure_rse_name
 
 
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
