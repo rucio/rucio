@@ -65,6 +65,7 @@ Individual contributors to the source code
 - Stefan Piperov <stefan.piperov@cern.ch>, 2021
 - Jensen Zhang <hack@jensen-zhang.site>, 2022
 - Aksel Lunde Aase <aksel.lunde.aase@gmail.com>, 2022
+- Elena Gazzarrini <gazzarrini.elena@gmail.com> 2022-2023
 
 Organisations employing contributors
 ------------------------------------
