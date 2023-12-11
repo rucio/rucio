@@ -580,7 +580,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
         try:
             rse.ensure_loaded(load_info=True, load_attributes=True)
             auth_token = None
-            if rse.attributes.get('oidc_support', False):
+            if rse.attributes.get('oidc_support') is True and scheme == 'davs':
                 audience = config_get('reaper', 'oidc_audience', False) or determine_audience_for_rse(rse.id)
                 # FIXME: At the time of writing, StoRM requires `storage.read`
                 # in order to perform a stat operation.
