@@ -196,22 +196,6 @@ def _configured_source_strategy(activity: str, logger: Callable[..., Any]) -> st
     return activity_source_strategy.get(str(activity), default_source_strategy)
 
 
-def oidc_supported(transfer_hop) -> bool:
-    """
-    checking OIDC AuthN/Z support per destination and source RSEs;
-
-    for oidc_support to be activated, all sources and the destination must explicitly support it
-    """
-    # assumes use of boolean 'oidc_support' RSE attribute
-    if not transfer_hop.dst.rse.attributes.get('oidc_support', False):
-        return False
-
-    for source in transfer_hop.sources:
-        if not source.rse.attributes.get('oidc_support', False):
-            return False
-    return True
-
-
 def _available_checksums(
         transfer: "DirectTransferDefinition",
 ) -> tuple[set[str], set[str]]:
@@ -885,7 +869,7 @@ class FTS3Transfertool(Transfertool):
 
         if sub_path:
             oidc_support = False
-            if all(oidc_supported(t) for t in sub_path):
+            if all(t.use_tokens for t in sub_path):
                 logger(logging.DEBUG, 'OAuth2/OIDC available for transfer {}'.format([str(hop) for hop in sub_path]))
                 oidc_support = True
             return sub_path, TransferToolBuilder(cls, external_host=fts_hosts[0], oidc_support=oidc_support, vo=vo)

@@ -17,7 +17,7 @@ import json
 from collections.abc import Iterator, Iterable
 from datetime import datetime
 from io import StringIO
-from re import match, sub
+from re import match
 from typing import Any, Generic, Optional, TypeVar, Union, TYPE_CHECKING
 
 import sqlalchemy
@@ -1857,7 +1857,7 @@ def determine_audience_for_rse(rse_id: str) -> str:
     # that the protocol hostname be sufficient, but this may not come to pass.
     filtered_hostnames = {p['hostname']
                           for p in rse_protocols['protocols']
-                          if p['scheme'] in ('davs', 'root')}
+                          if p['scheme'] == 'davs'}
     return ' '.join(sorted(filtered_hostnames))
 
 
@@ -1872,15 +1872,14 @@ def determine_scope_for_rse(
     rse_protocols = get_rse_protocols(rse_id)
     filtered_prefixes = set()
     for protocol in rse_protocols['protocols']:
-        # Skip protocol schemes which do not support tokens.
-        if protocol['scheme'] not in ('davs', 'root'):
+        # Token support is exclusive to WebDAV.
+        if protocol['scheme'] != 'davs':
             continue
-        # Squeeze leading double slashes, typically found in XRootD protocols.
-        prefix = sub('^//', '/', protocol['prefix'])
         # Remove base path from prefix.  Storages typically map an issuer (i.e.
         # a VO) to a particular area.  If so, then the path to that area acts as
         # a base which should be removed from the prefix (in order for '/' to
         # mean the entire resource associated with that issuer).
+        prefix = protocol['prefix']
         if base_path := get_rse_attribute(rse_id, 'oidc_base_path'):
             prefix = prefix.removeprefix(base_path)
         filtered_prefixes.add(prefix)
