@@ -167,6 +167,19 @@ class DirectTransferDefinition:
         return self.dst.rse.attributes.get('use_ipv4', False) or any(src.rse.attributes.get('use_ipv4', False)
                                                                      for src in self.sources)
 
+    @property
+    def use_tokens(self) -> bool:
+        """Whether a transfer can be performed with tokens.
+
+        In order to be so, all the involved RSEs must have it explicitly enabled
+        and the protocol being used must be WebDAV.
+        """
+        for endpoint in [*self.sources, self.destination]:
+            if (endpoint.rse.attributes.get('oidc_support') is not True
+                    or endpoint.scheme != 'davs'):
+                return False
+        return True
+
     @staticmethod
     def __rewrite_source_url(source_url, source_sign_url, dest_sign_url, source_scheme):
         """
