@@ -18,6 +18,7 @@ import time
 from datetime import datetime, timedelta
 from unittest.mock import patch
 from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
+from sqlalchemy import update
 
 import pytest
 
@@ -742,6 +743,50 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
     throttler(once=True, partition_wait_time=0)
     request = request_core.get_request_by_did(rse_id=dst_rse_id1, **waiting_did)
     assert request['state'] == RequestState.QUEUED
+
+    # Check that resetting stale waiting requests works properly
+    request_core.set_transfer_limit(dst_rse2, max_transfers=1, activity='all_activities', strategy='fifo')
+    did3 = did_factory.upload_test_file(src_rse)
+    did4 = did_factory.upload_test_file(src_rse)
+    rule_core.add_rule(dids=[did3], account=root_account, copies=1, rse_expression=dst_rse2, grouping='ALL',
+                       weight=None, lifetime=3600, locked=False, subscription_id=None)
+    rule_core.add_rule(dids=[did4], account=root_account, copies=1, rse_expression=dst_rse2, grouping='ALL',
+                       weight=None, lifetime=3600, locked=False, subscription_id=None)
+    request3 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did3)
+    request4 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did4)
+    assert request3['state'] == RequestState.PREPARING
+    assert request4['state'] == RequestState.PREPARING
+
+    # Run the preparer so requests are in waiting state
+    preparer(once=True, sleep_time=1, bulk=100, partition_wait_time=0, ignore_availability=False)
+    request3 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did3)
+    request4 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did4)
+    assert request3['state'] == RequestState.WAITING
+    assert request4['state'] == RequestState.WAITING
+
+    # Artificially set both requests' last_processed_at timestamp as >1 day old
+    @transactional_session
+    def __set_process_timestamp(request_ids, timestamp, *, session=None):
+        stmt = update(
+            models.Request
+        ).where(
+            models.Request.id.in_(request_ids)
+        ).values(
+            {
+                models.Request.last_processed_at: timestamp
+            }
+        )
+        session.execute(stmt)
+
+    __set_process_timestamp([request['id'] for request in [request3, request4]], datetime.utcnow() - timedelta(days=2))
+
+    # Run throttler: one request reset to PREPARING state and Null source_rse_id, and one request QUEUED
+    throttler(once=True, partition_wait_time=0)
+    request3 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did3)
+    request4 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did4)
+
+    assert ((request3['source_rse_id'] is None and request3['state'] == RequestState.PREPARING and request4['state'] == RequestState.QUEUED)
+            or (request4['source_rse_id'] is None and request4['state'] == RequestState.PREPARING and request3['state'] == RequestState.QUEUED))
 
 
 @skip_rse_tests_with_accounts
