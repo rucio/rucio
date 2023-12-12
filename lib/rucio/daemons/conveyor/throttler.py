@@ -31,7 +31,8 @@ from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.request import (get_request_stats, release_all_waiting_requests, release_waiting_requests_fifo,
-                                release_waiting_requests_grouped_fifo, set_transfer_limit_stats, re_sync_all_transfer_limits)
+                                release_waiting_requests_grouped_fifo, set_transfer_limit_stats, re_sync_all_transfer_limits,
+                                reset_stale_waiting_requests)
 from rucio.core.rse import RseCollection
 from rucio.core.transfer import applicable_rse_transfer_limits
 from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
@@ -82,6 +83,7 @@ def throttler(
             _handle_requests(release_groups, logger=logger)
         except Exception:
             logger(logging.CRITICAL, "Failed to schedule requests, error: %s" % (traceback.format_exc()))
+        reset_stale_waiting_requests()
 
     ProducerConsumerDaemon(
         producers=[_db_producer],
