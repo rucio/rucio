@@ -530,7 +530,7 @@ class States(ErrorHandlingMethodView):
             description: Not acceptable
         """
         def generate(vo):
-            for row in list_subscription_rule_states(account=account, vo=vo):
+            for row in list_subscription_rule_states(name=name, account=account, vo=vo):
                 yield dumps(row, cls=APIEncoder) + '\n'
 
         return try_stream(generate(vo=request.environ.get('vo')))
