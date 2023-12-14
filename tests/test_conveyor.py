@@ -917,7 +917,7 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
 
     # mock a successful stagein
     request = request_core.get_request(request_id=request['id'])
-    request_core.set_request_state(request_id=request['id'], state=RequestState.DONE, external_id=request['external_id'])
+    request_core.transition_request_state(request_id=request['id'], state=RequestState.DONE, external_id=request['external_id'])
     finisher(once=True, partition_wait_time=0)
 
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.OK
@@ -956,7 +956,7 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
 
     # mock a failed transfer
     request = request_core.get_request(request_id=request['id'])
-    request_core.set_request_state(request_id=request['id'], state=RequestState.FAILED, external_id=request['external_id'])
+    request_core.transition_request_state(request_id=request['id'], state=RequestState.FAILED, external_id=request['external_id'])
     finisher(once=True, partition_wait_time=0)
     lock_core.failed_transfer(scope=did['scope'], name=did['name'], rse_id=dst_rse_id)
 
@@ -979,7 +979,7 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
 
     # mock a failed transfer for the second rule
     request = request_core.get_request(request_id=request['id'])
-    request_core.set_request_state(request_id=request['id'], state=RequestState.FAILED, external_id=request['external_id'])
+    request_core.transition_request_state(request_id=request['id'], state=RequestState.FAILED, external_id=request['external_id'])
     finisher(once=True, partition_wait_time=0)
     lock_core.failed_transfer(scope=did['scope'], name=did['name'], rse_id=dst_rse_id)
 

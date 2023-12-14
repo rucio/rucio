@@ -31,7 +31,7 @@ from rucio.common.stopwatch import Stopwatch
 from rucio.core import request as request_core, transfer as transfer_core
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
-from rucio.core.request import set_request_state, queue_requests
+from rucio.core.request import transition_request_state, queue_requests
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.transfer import build_transfer_paths
@@ -119,13 +119,13 @@ def pick_and_prepare_submission_path(requests_with_sources, topology, protocol_f
     reqs_no_source.update(reqs_no_host)
     if reqs_no_source:
         logger(logging.INFO, "Marking requests as no-sources: %s", reqs_no_source)
-        request_core.set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
+        request_core.transition_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
     if reqs_only_tape_source:
         logger(logging.INFO, "Marking requests as only-tape-sources: %s", reqs_only_tape_source)
-        request_core.set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
+        request_core.transition_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
     if reqs_scheme_mismatch:
         logger(logging.INFO, "Marking requests as scheme-mismatch: %s", reqs_scheme_mismatch)
-        request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
+        request_core.transition_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
 
     return paths_by_transfertool_builder
 
@@ -396,7 +396,7 @@ def submit_transfer(transfertool_obj, transfers, job_params, timeout=None, logge
             return
         except Exception:
             logger(logging.ERROR, 'Failed to prepare requests %s state to SUBMITTING. Mark it SUBMISSION_FAILED and abort submission.' % [str(t.rws) for t in transfers], exc_info=True)
-            set_request_state(request_id=transfer.rws.request_id, state=RequestState.SUBMISSION_FAILED)
+            transition_request_state(request_id=transfer.rws.request_id, state=RequestState.SUBMISSION_FAILED)
             return
 
     try:
