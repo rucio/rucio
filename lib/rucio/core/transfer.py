@@ -38,7 +38,7 @@ from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.account import list_accounts
 from rucio.core.monitor import MetricManager
-from rucio.core.request import set_request_state, RequestWithSources, RequestSource
+from rucio.core.request import transition_request_state, RequestWithSources, RequestSource
 from rucio.core.rse import RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -539,8 +539,11 @@ def update_transfer_state(
         else:
             logger(logging.INFO, 'UPDATING REQUEST %s FOR %s with changes: %s' % (str(request_id), tt_status_report, fields_to_update))
 
-            set_request_state(request_id, session=session, **fields_to_update)
-            request = tt_status_report.request(session)
+            request = request_core.get_request(request_id, session=session)
+            updated = transition_request_state(request_id, request=request, session=session, **fields_to_update)
+
+            if not updated:
+                return False
 
             if tt_status_report.state == RequestState.FAILED:
                 if request_core.is_intermediate_hop(request):
@@ -575,7 +578,7 @@ def mark_transfer_lost(request, *, session: "Session", logger=logging.log):
     reason = "The FTS job lost"
 
     err_msg = request_core.get_transfer_error(new_state, reason)
-    set_request_state(request['id'], state=new_state, external_id=request['external_id'], err_msg=err_msg, session=session, logger=logger)
+    transition_request_state(request['id'], state=new_state, external_id=request['external_id'], err_msg=err_msg, session=session, logger=logger)
 
     request_core.add_monitor_message(new_state=new_state, request=request, additional_fields={'reason': reason}, session=session)
 
