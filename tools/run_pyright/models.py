@@ -48,9 +48,12 @@ class ReportDiagnostic:
 
     @classmethod
     def from_dict(cls, obj: dict[str, Any]):
+        file = obj.get('file')
+        if file is None:
+            file = obj.get('uri', {}).get('_filePath')
         return cls(
             severity=Severity(obj['severity']),
-            file=obj['file'],
+            file=file,
             rule=obj['rule'],
             message=obj['message'],
             range_start_line=obj['range']['start']['line'],
