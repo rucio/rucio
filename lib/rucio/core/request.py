@@ -870,7 +870,7 @@ def update_request(
 
 @METRICS.count_it
 @transactional_session
-def set_request_state(
+def transition_request_state(
         request_id: str,
         state: Optional[RequestState] = None,
         external_id: Optional[str] = None,
@@ -882,52 +882,51 @@ def set_request_state(
         err_msg: Optional[str] = None,
         attributes: Optional[dict[str, str]] = None,
         *,
+        request: "Optional[dict[str, Any]]" = None,
         session: "Session",
         logger=logging.log
-):
+) -> bool:
     """
-    Update the state of a request.
-
-    :param request_id:           Request-ID as a 32 character hex string.
-    :param state:                New state as string.
-    :param external_id:          External transfer job id as a string.
-    :param transferred_at:       Transferred at timestamp
-    :param started_at:           Started at timestamp
-    :param staging_started_at:   Timestamp indicating the moment the stage beggins
-    :param staging_finished_at:  Timestamp indicating the moment the stage ends
-    :param logger:               Optional decorated logger that can be passed from the calling daemons or servers.
-    :param session:              Database session to use.
+    Update the request if its state changed. Return a boolean showing if the request was actually updated or not.
     """
 
     # TODO: Should this be a private method?
 
-    request = get_request(request_id, session=session)
+    if request is None:
+        request = get_request(request_id, session=session)
+
     if not request:
         # The request was deleted in the meantime. Ignore it.
         logger(logging.WARNING, "Request %s not found. Cannot set its state to %s", request_id, state)
-        return
+        return False
+
+    if request['state'] == state:
+        logger(logging.INFO, "Request %s state is already %s. Will skip the update.", request_id, state)
+        return False
 
     if state in [RequestState.FAILED, RequestState.DONE, RequestState.LOST] and (request["external_id"] != external_id):
         logger(logging.ERROR, "Request %s should not be updated to 'Failed' or 'Done' without external transfer_id" % request_id)
-    else:
-        update_request(
-            request_id=request_id,
-            state=state,
-            transferred_at=transferred_at,
-            started_at=started_at,
-            staging_started_at=staging_started_at,
-            staging_finished_at=staging_finished_at,
-            source_rse_id=source_rse_id,
-            err_msg=err_msg,
-            attributes=attributes,
-            raise_on_missing=True,
-            session=session,
-        )
+        return False
+
+    update_request(
+        request_id=request_id,
+        state=state,
+        transferred_at=transferred_at,
+        started_at=started_at,
+        staging_started_at=staging_started_at,
+        staging_finished_at=staging_finished_at,
+        source_rse_id=source_rse_id,
+        err_msg=err_msg,
+        attributes=attributes,
+        raise_on_missing=True,
+        session=session,
+    )
+    return True
 
 
 @METRICS.count_it
 @transactional_session
-def set_requests_state_if_possible(request_ids, new_state, *, session: "Session", logger=logging.log):
+def transition_requests_state_if_possible(request_ids, new_state, *, session: "Session", logger=logging.log):
     """
     Bulk update the state of requests. Skips silently if the request_id does not exist.
 
@@ -940,7 +939,7 @@ def set_requests_state_if_possible(request_ids, new_state, *, session: "Session"
     try:
         for request_id in request_ids:
             try:
-                set_request_state(request_id, new_state, session=session, logger=logger)
+                transition_request_state(request_id, new_state, session=session, logger=logger)
             except UnsupportedOperation:
                 continue
     except IntegrityError as error:
