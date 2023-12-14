@@ -20,6 +20,11 @@ Conveyor finisher is a daemon to update replicas and rules based on requests.
 import datetime
 import functools
 import logging
+import socket
+import stomp
+import json
+import random
+
 import os
 import re
 import threading
@@ -46,6 +51,7 @@ from rucio.core.topology import Topology, ExpiringObjectCache
 from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
 from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, BadFilesStatus
 from rucio.db.sqla.session import transactional_session
+from rucio.common.stomp_utils import get_stomp_config, setup_activemq_conns
 
 if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
@@ -243,6 +249,17 @@ def _finish_requests(topology: "Topology", reqs, suspicious_patterns, retry_prot
     undeterministic_rses = __get_undeterministic_rses(logger=logger)
     protocol_factory = ProtocolFactory()
     replicas = {}
+    
+    brokers, vhost, username, password, port, use_ssl, cert_file, key_file, destination = get_stomp_config('messaging-finisher')
+    conns = setup_activemq_conns(
+        brokers=brokers,
+        vhost=vhost,
+        port=port,
+        use_ssl=use_ssl,
+        key_file=key_file,
+        cert_file=cert_file,
+        connection_kargs={"reconnect_attempts_max":3, 'timeout':3})
+
     for req in reqs:
         try:
             replica = {'scope': req['scope'], 'name': req['name'], 'rse_id': req['dest_rse_id'], 'bytes': req['bytes'], 'adler32': req['adler32'], 'request_id': req['request_id']}
@@ -272,6 +289,16 @@ def _finish_requests(topology: "Topology", reqs, suspicious_patterns, retry_prot
                 # replica should not be added to replicas until all info are filled
                 replicas[req['request_type']][req['rule_id']].append(replica)
 
+                if conns != None:
+                    msg = {
+                        "replica" : {
+                            "scope": str(req['scope']),
+                            "name": str(req['name'])
+                        },
+                        "created_at": datetime.datetime.utcnow()
+                    }
+                    deliver_to_activemq([msg],conns,destination,username,password,use_ssl,logger)
+                
             # Standard failure from the transfer tool
             elif req['state'] == RequestState.FAILED:
                 __check_suspicious_files(req, suspicious_patterns, logger=logger)
@@ -490,3 +517,83 @@ def __update_replica(replica, *, session, logger=logging.log):
         raise
 
     logger(logging.INFO, "HANDLED REQUEST %s DID %s:%s AT RSE %s STATE %s", replica['request_id'], replica['scope'], replica['name'], replica['rse_id'], str(replica['state']))
+
+class FinisherListener(stomp.ConnectionListener):
+    """
+    Finisher Listener
+    """
+
+    def __init__(self, broker):
+        """
+        __init__
+        """
+        self.__broker = broker
+
+    def on_error(self, frame):
+        """
+        Error handler
+        """
+        logging.error("[broker] [%s]: %s", self.__broker, frame.body)
+
+
+def deliver_to_activemq(
+    messages, conns, destination, username, password, use_ssl, logger
+):
+    """
+    Deliver messages to ActiveMQ
+
+    :param messages:           The list of messages.
+    :param conns:              A list of connections.
+    :param destination:        The destination topic or queue.
+    :param username:           The username if no SSL connection.
+    :param password:           The username if no SSL connection.
+    :param use_ssl:            Boolean to choose if SSL connection is used.
+    :param logger:             The logger object.
+
+    :returns:                  List of message_id to delete
+    """
+    for message in messages:
+        try:
+            conn = random.sample(conns, 1)[0]
+            if not conn.is_connected():
+                host_and_ports = conn.transport._Transport__host_and_ports[0][0]
+                if not use_ssl:
+                    logger(
+                        logging.INFO,
+                        "[broker] - connecting with USERPASS to %s",
+                        host_and_ports,
+                    )
+                    conn.connect(username, password, wait=True)
+                else:
+                    logger(
+                        logging.INFO,
+                        "[broker] - connecting with SSL to %s",
+                        host_and_ports,
+                    )
+                    conn.connect(wait=True)
+            logger(logging.INFO, message['replica'])
+            conn.send(
+                body=json.dumps(
+                    {
+                        "event_type": "replica_available",
+                        "payload": message['replica'],
+                        "created_at": str(message["created_at"]),
+                    }
+                ),
+                destination=destination,
+                headers={
+                    "persistent": "true",
+                    "event_type": "replica_available",
+                },
+            )
+        except ValueError:
+            logger(
+                logging.ERROR,
+                "[broker] Cannot serialize payload to JSON: %s",
+                str(message["payload"]),
+            )
+            continue
+        except Exception as error:
+            logger(logging.ERROR, "[broker] Could not deliver message: %s", str(error))
+            continue
+    return                # RECONNECT_COUNTER.labels(host=host_and_ports.split(".")[0]).inc()

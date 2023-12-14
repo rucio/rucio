@@ -17,6 +17,9 @@
 Conveyor throttler is a daemon to manage rucio internal queue.
 """
 import logging
+import json
+import time
+import socket
 import threading
 import traceback
 from collections import defaultdict
@@ -26,17 +29,22 @@ from typing import TYPE_CHECKING, Optional
 import math
 from sqlalchemy import null
 
+import stomp
+from rucio.common.types import InternalScope
+
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.request import (get_request_stats, release_all_waiting_requests, release_waiting_requests_fifo,
                                 release_waiting_requests_grouped_fifo, set_transfer_limit_stats, re_sync_all_transfer_limits,
-                                reset_stale_waiting_requests)
+                                reset_stale_waiting_requests, reset_available_replica_requests)
 from rucio.core.rse import RseCollection
 from rucio.core.transfer import applicable_rse_transfer_limits
 from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
 from rucio.db.sqla.constants import RequestState, TransferLimitDirection
+from rucio.common.config import config_get_bool, config_get, config_get_int
+from rucio.common.stomp_utils import setup_activemq_conns, get_stomp_config
 
 if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
@@ -56,6 +64,7 @@ def throttler(
     """
 
     logging.info('Throttler starting')
+    enabled_available_replica_queue = config_get_bool('messaging-finisher','use_source_recalculation',raise_exception=False, default=False)
 
     @db_workqueue(
         once=once,
@@ -84,6 +93,9 @@ def throttler(
         except Exception:
             logger(logging.CRITICAL, "Failed to schedule requests, error: %s" % (traceback.format_exc()))
         reset_stale_waiting_requests()
+        if enabled_available_replica_queue:
+            logger(logging.INFO, "checking available replica message queue")
+            recieve_available_replicas()
 
     ProducerConsumerDaemon(
         producers=[_db_producer],
@@ -468,3 +480,53 @@ def _handle_requests(release_groups, logger):
                 rse_expression = limit_stat['limit']['rse_expression']
                 limit_stat['stat']['residual_capacity'] -= total_released
                 METRICS.counter('released_waiting_requests.{activity}.{rse}').labels(activity=activity, rse=rse_expression).inc(total_released)
+
+class FinisherListner(object):
+    def __init__(self, broker):
+        self.__broker = broker
+
+    @METRICS.count_it
+    def on_error(self, frame):
+        logging.error('[%s] %s' % (self.__broker, frame.body))
+
+    def on_message(self, frame):
+        msg = json.loads(frame.body)
+        logging.info("recieved_available_replica_msg : " + frame.body )
+        reset_available_replica_requests(scope=InternalScope(msg['payload']['scope']),name=msg['payload']['name'])
+
+
+def recieve_available_replicas():
+    """
+    Function to consume messages from the finisher producer and recalculate source transfers.
+    """
+
+    logging.info('finisher receiver starting')
+    brokers, vhost, username, password, port, use_ssl, cert_file, key_file, destination = get_stomp_config('messaging-finisher')
+    conns = setup_activemq_conns(
+        brokers=brokers,
+        vhost=vhost,
+        port=port,
+        use_ssl=use_ssl,
+        key_file=key_file,
+        cert_file=cert_file,
+        connection_kargs={"reconnect_attempts_max":3})
+
+    for conn in conns:
+        if not conn.is_connected():
+            conn.set_listener(
+                'rucio-messaging-throttler',
+                FinisherListner(broker=conn.transport._Transport__host_and_ports[0])
+            )
+            if not use_ssl:
+                conn.connect(username, password, wait=True)
+            else:
+                conn.connect(wait=True)
+            conn.subscribe(destination=destination,
+                            id='rucio-messaging-throttler',
+                            ack='auto')
+    time.sleep(1)
+    for conn in conns:
+        try:
+            conn.disconnect()
+        except Exception:
+            pass

@@ -787,6 +787,67 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
 
     assert ((request3['source_rse_id'] is None and request3['state'] == RequestState.PREPARING and request4['state'] == RequestState.QUEUED)
             or (request4['source_rse_id'] is None and request4['state'] == RequestState.PREPARING and request3['state'] == RequestState.QUEUED))
+    # Finish all transfers.
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+
+    request = __wait_for_state_transition(dst_rse_id=dst_rse_id1, **waiting_did)
+    assert request['state'] == RequestState.DONE
+    
+
+    request_core.set_transfer_limit(dst_rse2, max_transfers=1, activity='all_activities', strategy='fifo')
+
+    # Setup requests to reach the DONE state
+    did5 = did_factory.upload_test_file(src_rse)
+    did6 = did_factory.upload_test_file(src_rse)
+
+    rule_core.add_rule(dids=[did5], account=root_account, copies=1, rse_expression=dst_rse1, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None)
+    rule_core.add_rule(dids=[did6], account=root_account, copies=1, rse_expression=dst_rse1, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None)
+    
+    preparer(once=True, sleep_time=1, bulk=100, partition_wait_time=0, ignore_availability=False)    
+    throttler(once=True, partition_wait_time=0)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+
+    done_request1 = __wait_for_state_transition(dst_rse_id=dst_rse_id1, **did5)
+
+    throttler(once=True, partition_wait_time=0)
+    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+
+    done_request2 = __wait_for_state_transition(dst_rse_id=dst_rse_id1, **did6)
+    assert done_request1['state'] == RequestState.DONE
+    assert done_request2['state'] == RequestState.DONE
+
+
+    # Create rules and another set of requests to send to throttler.
+    rule_core.add_rule(dids=[did5], account=root_account, copies=1, rse_expression=dst_rse2, grouping='ALL',
+                    weight=None, lifetime=3600, locked=False, subscription_id=None)
+    rule_core.add_rule(dids=[did6], account=root_account, copies=1, rse_expression=dst_rse2, grouping='ALL',
+                    weight=None, lifetime=3600, locked=False, subscription_id=None)
+    
+    
+    request5 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did5)
+    request7 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did6)
+    assert request5['state'] == RequestState.PREPARING
+    assert request7['state'] == RequestState.PREPARING
+
+    # Run the preparer so requests are in waiting state
+    preparer(once=True, sleep_time=1, bulk=100, partition_wait_time=0, ignore_availability=False)
+    
+    request5 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did5)
+    request7 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did6)
+    assert request5['state'] == RequestState.WAITING
+    assert request7['state'] == RequestState.WAITING
+
+    # Finish previous request and send messages through queue to ensure .
+    finisher(once=True, partition_wait_time=0)
+
+    # Run throttler: one request reset to PREPARING state and Null source_rse_id, and one request QUEUED
+    throttler(once=True, partition_wait_time=0)
+
+    request5 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did5)
+    request7 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did6)
+
+    assert ((request5['source_rse_id'] is None and request5['state'] == RequestState.PREPARING and request7['state'] == RequestState.QUEUED)
+            or (request7['source_rse_id'] is None and request7['state'] == RequestState.PREPARING and request5['state'] == RequestState.QUEUED))
 
 
 @skip_rse_tests_with_accounts

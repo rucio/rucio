@@ -2817,8 +2817,6 @@ def list_requests_history(src_rse_ids, dst_rse_ids, states=None, offset=None, li
         stmt = stmt.limit(limit)
     for request in session.execute(stmt).yield_per(500).scalars():
         yield request
-
-
 @transactional_session
 def reset_stale_waiting_requests(time_limit: Optional[datetime.timedelta] = datetime.timedelta(days=1), *, session: "Session") -> None:
     """
@@ -2853,3 +2851,35 @@ def reset_stale_waiting_requests(time_limit: Optional[datetime.timedelta] = date
 
     except IntegrityError as error:
         raise RucioException(error.args)
+
+@transactional_session
+def reset_available_replica_requests(scope: InternalScope, name: str, *, session : "Session", logger=logging.log):
+    """
+    Clear source_rse_id for all requests with the same DID when a new replica is available and transition back to preparing state.
+    This allows requests being throttled to react to source changes directly in order to provide the most efficent request.
+    :param msg: 
+    :param session: The database session in use.
+    """
+    try:
+        # Select all waiting requests that contain the same file and scope, then clear source_rse_id and reset state to preparing
+        stmt = update(
+            models.Request
+        ).where(
+            and_(
+                models.Request.state == RequestState.WAITING,
+                models.Request.scope == scope,
+                models.Request.name == name
+            )
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            {
+                models.Request.source_rse_id: None,
+                models.Request.state: RequestState.PREPARING
+            }
+        )
+        session.execute(stmt)
+
+    except IntegrityError as error:
+        raise RucioException(error.args)
+    
