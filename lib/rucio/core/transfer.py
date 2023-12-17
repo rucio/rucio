@@ -16,6 +16,7 @@
 import datetime
 import logging
 import operator
+import random
 import re
 import sys
 import time
@@ -1063,6 +1064,94 @@ class PathDistance(SourceRankingStrategy):
         return path[0].src.distance
 
 
+class TransferWaitTime(SourceRankingStrategy):
+    """
+    A source ranking strategy that ranks source nodes based on the expected wait time in queue with exploration embedded
+    through randomization. Note that smaller expected wait times are better.
+    """
+    # There is ~10 s of overhead for any file transfer
+    FILE_OVERHEAD_MS = 10000
+    # Assume 10 Mbps transfer speed
+    PER_BYTE_MS = 1000 / ((10 ** 7) / 8)
+    # Probability we choose an above-average transfer time source node
+    ABOVE_AVG_EXPLORATION = 0.1
+
+    class _RankingContext(RequestRankingContext):
+        def __init__(
+                self,
+                strategy: "TransferWaitTime",
+                rws: "RequestWithSources",
+                costs: "Mapping[RseData, int]"
+        ) -> None:
+            super().__init__(strategy, rws)
+            self.costs = costs
+
+    def for_request(
+            self,
+            rws: RequestWithSources,
+            sources: "Iterable[RequestSource]",
+            *,
+            logger: "LoggerFunction" = logging.log,
+            session: "Session"
+    ) -> "RequestRankingContext":
+        wait_by_rse = {}
+
+        # For each source, estimate the average queue waiting time
+        for src in sources:
+            src_files_queued = 0
+            src_bytes_queued = 0
+
+            src_stats = request_core.get_request_stats(
+                state=RequestState.QUEUED,
+                src_rse_id=src.rse.id,
+                session=session
+            )
+            for stat in src_stats:
+                src_files_queued += stat.counter
+                src_bytes_queued += stat.bytes
+
+            wait_by_rse[src.rse] = src_files_queued * self.FILE_OVERHEAD_MS + src_bytes_queued * self.PER_BYTE_MS
+            # For sources with no queue, give them a non-zero value so that weighting works out nicely
+            wait_by_rse[src.rse] = max(wait_by_rse[src.rse], self.PER_BYTE_MS)
+
+        costs = defaultdict(int)
+        total_wait = sum(wait_by_rse.values())
+
+        # If all sources have no average queue waiting time, then all source choices are considered equal
+        if total_wait == 0:
+            return TransferWaitTime._RankingContext(self, rws, costs)
+
+        # Use the solution to the weighted random sampling (WRS) problem to rank sources among each other. Each source
+        # computes a weighted random key where larger keys are higher ranked. Smaller wait times are better so we
+        # calculate weight by taking reciprocal and normalizing. We weight above average and below average wait time
+        # sources differently.
+        # Reference: Weighted Random Sampling (2005; Efraimidis, Spirakis)
+        avg_wait = total_wait / len(wait_by_rse)
+        above_avg_norm_wait = sum([1 / wait for wait in wait_by_rse.values() if wait >= avg_wait])
+        below_avg_norm_wait = sum([1 / wait for wait in wait_by_rse.values() if wait < avg_wait])
+
+        for src, wait in wait_by_rse.items():
+            if wait >= avg_wait:
+                norm_wait = above_avg_norm_wait
+                exploration = self.ABOVE_AVG_EXPLORATION
+            else:
+                norm_wait = below_avg_norm_wait
+                exploration = 1 - self.ABOVE_AVG_EXPLORATION
+
+            weight = exploration * ((1 / wait) / norm_wait)
+            # Ensure weight is not 0
+            weight = max(weight, 10 ** -9)
+            key = random.random() ** (1.0 / weight)
+            scale = 1 << 30
+            # Keys typically have high floating precision and are guaranteed to be between 0 and 1
+            costs[src] = -round(key * scale)
+
+        return TransferWaitTime._RankingContext(self, rws, costs)
+
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+        return cast(TransferWaitTime._RankingContext, ctx).costs[source.rse]
+
+
 class PreferSingleHop(PathDistance):
     def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
         path = cast(PathDistance._RankingContext, ctx).paths_for_rws.get(source.rse)
@@ -1140,6 +1229,7 @@ def build_transfer_paths(
         PreferDiskOverTape.external_name: lambda: PreferDiskOverTape(),
         PathDistance.external_name: lambda: PathDistance(transfer_path_builder=transfer_path_builder),
         PreferSingleHop.external_name: lambda: PreferSingleHop(transfer_path_builder=transfer_path_builder),
+        TransferWaitTime.external_name: lambda: TransferWaitTime(),
     }
 
     default_strategies = [
