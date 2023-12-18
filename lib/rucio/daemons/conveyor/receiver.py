@@ -40,6 +40,8 @@ from rucio.daemons.common import HeartbeatHandler
 from rucio.db.sqla.session import transactional_session
 from rucio.transfertool.fts3 import FTS3CompletionMessageTransferStatusReport
 
+from rucio.common.stomp_utils import setup_activemq_conns,get_stomp_config
+
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 METRICS = MetricManager(module=__name__)
@@ -105,51 +107,9 @@ def receiver(id_, total_threads=1, all_vos=False):
 
     logging.info('receiver starting')
 
-    brokers_alias = []
-    brokers_resolved = []
-    try:
-        brokers_alias = [b.strip() for b in config_get('messaging-fts3', 'brokers').split(',')]
-    except Exception:
-        raise Exception('Could not load brokers from configuration')
-
-    logging.info('resolving broker dns alias: %s' % brokers_alias)
-
-    brokers_resolved = []
-    for broker in brokers_alias:
-        addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
-        brokers_resolved.extend(ai[4][0] for ai in addrinfos)
-
-    logging.info('brokers resolved to %s', brokers_resolved)
-
-    logging.info('checking authentication method')
-    use_ssl = True
-    try:
-        use_ssl = config_get_bool('messaging-fts3', 'use_ssl')
-    except:
-        logging.info('could not find use_ssl in configuration -- please update your rucio.cfg')
-
-    port = config_get_int('messaging-fts3', 'port')
-    vhost = config_get('messaging-fts3', 'broker_virtual_host', raise_exception=False)
-    if not use_ssl:
-        username = config_get('messaging-fts3', 'username')
-        password = config_get('messaging-fts3', 'password')
-        port = config_get_int('messaging-fts3', 'nonssl_port')
-
-    conns = []
-    for broker in brokers_resolved:
-        if not use_ssl:
-            logging.info('setting up username/password authentication: %s' % broker)
-        else:
-            logging.info('setting up ssl cert/key authentication: %s' % broker)
-        con = stomp.Connection12(host_and_ports=[(broker, port)],
-                                 vhost=vhost,
-                                 reconnect_attempts_max=999)
-        if use_ssl:
-            con.set_ssl(
-                key_file=config_get('messaging-fts3', 'ssl_key_file'),
-                cert_file=config_get('messaging-fts3', 'ssl_cert_file'),
-            )
-        conns.append(con)
+    
+    brokers, vhost, username, password, port, use_ssl, cert_file, key_file, destination = get_stomp_config('messaging-fts3')
+    conns = setup_activemq_conns(brokers,port,vhost,use_ssl,key_file,cert_file, connection_kargs={"reconnect_attempts_max":999})
 
     logging.info('receiver started')
 
@@ -178,7 +138,7 @@ def receiver(id_, total_threads=1, all_vos=False):
                         conn.connect(username, password, wait=True)
                     else:
                         conn.connect(wait=True)
-                    conn.subscribe(destination=config_get('messaging-fts3', 'destination'),
+                    conn.subscribe(destination=destination,
                                    id='rucio-messaging-fts3',
                                    ack='auto')
             time.sleep(1)
