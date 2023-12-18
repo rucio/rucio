@@ -25,7 +25,6 @@ import logging
 import random
 import re
 import smtplib
-import socket
 import sys
 import threading
 import time
@@ -40,7 +39,6 @@ import rucio.db.sqla.util
 from rucio.common.config import (
     config_get,
     config_get_bool,
-    config_get_int,
     config_get_list,
 )
 from rucio.common.exception import DatabaseException
@@ -48,6 +46,8 @@ from rucio.common.logging import setup_logging
 from rucio.core.message import delete_messages, retrieve_messages
 from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon
+from rucio.common.stomp_utils import setup_activemq_conns, stomp_connect, get_stomp_config
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -92,104 +92,6 @@ class HermesListener(stomp.ConnectionListener):
         logging.error("[broker] [%s]: %s", self.__broker, frame.body)
 
 
-def setup_activemq(logger: "Callable"):
-    """
-    Deliver messages to ActiveMQ
-
-    :param logger:             The logger object.
-    """
-
-    logger(logging.INFO, "[broker] Resolving brokers")
-
-    brokers_alias = []
-    brokers_resolved = []
-    try:
-        brokers_alias = [
-            broker.strip()
-            for broker in config_get("messaging-hermes", "brokers").split(",")
-        ]
-    except:
-        raise Exception("Could not load brokers from configuration")
-
-    logger(logging.INFO, "[broker] Resolving broker dns alias: %s", brokers_alias)
-    brokers_resolved = []
-    for broker in brokers_alias:
-        try:
-            addrinfos = socket.getaddrinfo(
-                broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP
-            )
-            brokers_resolved.extend(ai[4][0] for ai in addrinfos)
-        except socket.gaierror as ex:
-            logger(
-                logging.ERROR,
-                "[broker] Cannot resolve domain name %s (%s)",
-                broker,
-                str(ex),
-            )
-
-    logger(logging.DEBUG, "[broker] Brokers resolved to %s", brokers_resolved)
-
-    if not brokers_resolved:
-        logger(logging.FATAL, "[broker] No brokers resolved.")
-        return None, None, None, None, None
-
-    broker_timeout = 3
-    if not broker_timeout:  # Allow zero in config
-        broker_timeout = None
-
-    logger(logging.INFO, "[broker] Checking authentication method")
-    use_ssl = True
-    try:
-        use_ssl = config_get_bool("messaging-hermes", "use_ssl")
-    except:
-        logger(
-            logging.INFO,
-            "[broker] Could not find use_ssl in configuration -- please update your rucio.cfg",
-        )
-
-    port = config_get_int("messaging-hermes", "port")
-    vhost = config_get("messaging-hermes", "broker_virtual_host", raise_exception=False)
-    if not use_ssl:
-        username = config_get("messaging-hermes", "username")
-        password = config_get("messaging-hermes", "password")
-        port = config_get_int("messaging-hermes", "nonssl_port")
-
-    conns = []
-    for broker in brokers_resolved:
-        if not use_ssl:
-            logger(
-                logging.INFO,
-                "[broker] setting up username/password authentication: %s",
-                broker,
-            )
-        else:
-            logger(
-                logging.INFO,
-                "[broker] setting up ssl cert/key authentication: %s",
-                broker,
-            )
-
-        con = stomp.Connection12(
-            host_and_ports=[(broker, port)],
-            vhost=vhost,
-            keepalive=True,
-            timeout=broker_timeout,
-        )
-        if use_ssl:
-            con.set_ssl(
-                key_file=config_get("messaging-hermes", "ssl_key_file"),
-                cert_file=config_get("messaging-hermes", "ssl_cert_file"),
-            )
-
-        con.set_listener(
-            "rucio-hermes", HermesListener(con.transport._Transport__host_and_ports[0])
-        )
-
-        conns.append(con)
-    destination = config_get("messaging-hermes", "destination")
-    return conns, destination, username, password, use_ssl
-
-
 def deliver_to_activemq(
     messages, conns, destination, username, password, use_ssl, logger
 ):
@@ -211,22 +113,10 @@ def deliver_to_activemq(
         try:
             conn = random.sample(conns, 1)[0]
             if not conn.is_connected():
-                host_and_ports = conn.transport._Transport__host_and_ports[0][0]
-                RECONNECT_COUNTER.labels(host=host_and_ports.split(".")[0]).inc()
-                if not use_ssl:
-                    logger(
-                        logging.INFO,
-                        "[broker] - connecting with USERPASS to %s",
-                        host_and_ports,
-                    )
-                    conn.connect(username, password, wait=True)
-                else:
-                    logger(
-                        logging.INFO,
-                        "[broker] - connecting with SSL to %s",
-                        host_and_ports,
-                    )
-                    conn.connect(wait=True)
+                conn.set_listener(
+                    "rucio-hermes", HermesListener(conn.transport._Transport__host_and_ports[0])
+                )
+                stomp_connect(conn, use_ssl, logger, username, password, RECONNECT_COUNTER)
 
             conn.send(
                 body=json.dumps(
@@ -251,20 +141,6 @@ def deliver_to_activemq(
                 str(message["payload"]),
             )
             to_delete.append(message["id"])
-            continue
-        except stomp.exception.NotConnectedException as error:
-            logger(
-                logging.WARNING,
-                "[broker] Could not deliver message due to NotConnectedException: %s",
-                str(error),
-            )
-            continue
-        except stomp.exception.ConnectFailedException as error:
-            logger(
-                logging.WARNING,
-                "[broker] Could not deliver message due to ConnectFailedException: %s",
-                str(error),
-            )
             continue
         except Exception as error:
             logger(logging.ERROR, "[broker] Could not deliver message: %s", str(error))
@@ -481,7 +357,7 @@ def aggregate_to_influx(
     return 204
 
 
-def hermes(once: bool = False, bulk: int = 1000, sleep_time: int = 10) -> None:
+def hermes(once: bool = False, bulk: int = 1000, sleep_time: int = 10, broker_timeout: int = 3) -> None:
     """
     Creates a Hermes Worker that can submit messages to different services (InfluXDB, ElasticSearch, ActiveMQ)
     The list of services need to be define in the config service in the hermes section.
@@ -538,12 +414,17 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     conns = None
     if "activemq" in services_list:
         try:
-            conns, destination, username, password, use_ssl = setup_activemq(logger)
+            brokers, vhost, username, password, port, use_ssl, cert_file, key_file, destination = get_stomp_config("messaging-hermes", logger)
+            conns = setup_activemq_conns(brokers, port, vhost, use_ssl, key_file, cert_file, logger, {
+                "keepalive": True,
+                "timeout": 3
+            })
             if not conns:
                 logger(
                     logging.ERROR,
                     "ActiveMQ defined in the services list, cannot be setup",
                 )
+
         except Exception as err:
             logger(logging.ERROR, str(err))
 

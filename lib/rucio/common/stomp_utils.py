@@ -20,9 +20,10 @@ Common utility functions for stomp connections
 import logging
 import socket
 from time import monotonic
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from stomp import Connection
+from stomp import Connection, Connection12, exception
+from rucio.common.config import config_get, config_get_bool, config_get_int
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -35,8 +36,16 @@ def resolve_ips(fqdns: "Sequence[str]", logger: "LoggerFunction" = logging.log):
     logger(logging.DEBUG, 'resolving dns aliases: %s' % fqdns)
     resolved = []
     for fqdn in fqdns:
-        addrinfos = socket.getaddrinfo(fqdn, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
-        resolved.extend(ai[4][0] for ai in addrinfos)
+        try:
+            addrinfos = socket.getaddrinfo(fqdn, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+            resolved.extend(ai[4][0] for ai in addrinfos)
+        except socket.gaierror as ex:
+            logger(
+                logging.ERROR,
+                "[broker] Cannot resolve domain name %s (%s)",
+                fqdn,
+                str(ex),
+            )
     logger(logging.DEBUG, 'dns aliases resolved to %s', resolved)
     return resolved
 
@@ -158,3 +167,129 @@ class StompConnectionManager:
             logger(logging.INFO, f"Stomp connections refreshed. Deleted: {list(to_delete)}. Added: {list(to_create)}")
 
         return created_conns, deleted_conns
+
+
+def get_stomp_config(section: str, logger=logging.log):
+    brokers = config_get(section, "brokers")
+    use_ssl = True
+    try:
+        use_ssl = config_get_bool(section, "use_ssl")
+    except:
+        logger(
+            logging.INFO,
+            "[broker] Could not find use_ssl in configuration -- please update your rucio.cfg",
+        )
+    port = config_get_int(section, "port")
+    vhost = config_get(section, "broker_virtual_host", raise_exception=False)
+    cert_file = None
+    key_file = None
+    username = None
+    password = None
+    if not use_ssl:
+        username = config_get(section, "username")
+        password = config_get(section, "password")
+        port = config_get_int(section, "nonssl_port")
+    else:
+        cert_file = config_get(section, "ssl_cert_file"),
+        key_file = config_get(section, "ssl_key_file"),
+
+    destination = config_get(section, "destination")
+    return brokers, vhost, username, password, port, use_ssl, cert_file, key_file, destination
+
+
+def setup_activemq_conns(
+        brokers: str,
+        port: int,
+        vhost: str,
+        use_ssl: bool,
+        key_file,
+        cert_file,
+        logger=logging.log,
+        connection_kargs={}
+) -> "Optional[Sequence[Connection12]]":
+    """
+    Setup Connections to Activemq brokers
+
+    :param logger:  The logger object.
+    """
+
+    logger(logging.INFO, "[broker] Resolving brokers")
+
+    brokers_alias = []
+    brokers_resolved = []
+    try:
+        brokers_alias = [
+            broker.strip() for broker in brokers.split(",")
+        ]
+    except:
+        raise Exception("Could not load brokers given")
+
+    brokers_resolved = resolve_ips(brokers_alias)
+
+    if not brokers_resolved:
+        logger(logging.FATAL, "[broker] No brokers resolved.")
+        return None
+
+    conns = []
+    for broker in brokers_resolved:
+        if not use_ssl:
+            logger(
+                logging.INFO,
+                "[broker] setting up username/password authentication: %s",
+                broker,
+            )
+        else:
+            logger(
+                logging.INFO,
+                "[broker] setting up ssl cert/key authentication: %s",
+                broker,
+            )
+
+        con = Connection12(
+            host_and_ports=[(broker, port)],
+            vhost=vhost,
+            **connection_kargs
+        )
+        if use_ssl:
+            con.set_ssl(
+                key_file,
+                cert_file
+            )
+        conns.append(con)
+    return conns
+
+
+def stomp_connect(conn: Connection12, use_ssl: bool, logger: "Callable", username=None, password=None, metrics_counter=None, ):
+    try:
+        host_and_ports = conn.transport._Transport__host_and_ports[0][0]
+        if metrics_counter is not None:
+            metrics_counter.labels(host=host_and_ports.split(".")[0]).inc()
+
+        if not use_ssl:
+            logger(
+                logging.INFO,
+                "[broker] - connecting with USERPASS to %s",
+                host_and_ports,
+            )
+            conn.connect(username, password, wait=True)
+        else:
+            logger(
+                logging.INFO,
+                "[broker] - connecting with SSL to %s",
+                host_and_ports,
+            )
+            conn.connect(wait=True)
+    except exception.NotConnectedException as error:
+        logger(
+            logging.WARNING,
+            "[broker] Could not deliver message due to NotConnectedException: %s",
+            str(error),
+        )
+        raise error
+    except exception.ConnectFailedException as error:
+        logger(
+            logging.WARNING,
+            "[broker] Could not deliver message due to ConnectFailedException: %s",
+            str(error),
+        )
+        raise error
