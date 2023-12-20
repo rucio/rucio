@@ -189,6 +189,11 @@ class Default(protocol.RSEProtocol):
         self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
         auth_configured = False
         if self.auth_token:
+            for key in ["CERT", "KEY"]:
+                try:
+                    self.__ctx.remove_opt("X509", key)
+                except gfal2.GError:  # pylint: disable=no-member
+                    pass
             self.__ctx.set_opt_string("BEARER", "TOKEN", self.auth_token)
             auth_configured = True
         # Configure gfal authentication to use the rucio client proxy if and only if gfal didn't initialize its credentials already
