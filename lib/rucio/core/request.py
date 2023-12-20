@@ -1371,6 +1371,9 @@ class TransferStatsManager:
             state: RequestState,
             file_size: int,
             *,
+            submitted_at: Optional[datetime.datetime] = None,
+            started_at: Optional[datetime.datetime] = None,
+            transferred_at: Optional[datetime.datetime] = None,
             session: "Optional[Session]" = None
     ) -> None:
         """
@@ -1390,6 +1393,20 @@ class TransferStatsManager:
                 if state == RequestState.DONE:
                     record.files_done += 1
                     record.bytes_done += file_size
+
+                    transfer_time_buckets = (
+                        10, 30, 60, 5 * 60, 10 * 60, 20 * 60, 40 * 60, 60 * 60, 1.5 * 60 * 60, 3 * 60 * 60, 6 * 60 * 60,
+                        12 * 60 * 60, 24 * 60 * 60, 3 * 24 * 60 * 60, 4 * 24 * 60 * 60, 5 * 24 * 60 * 60,
+                        6 * 24 * 60 * 60, 7 * 24 * 60 * 60, 10 * 24 * 60 * 60, 14 * 24 * 60 * 60, 30 * 24 * 60 * 60,
+                        float('inf')
+                    )
+                    if submitted_at is not None:
+                        if started_at is not None:
+                            wait_time = (started_at - submitted_at).total_seconds()
+                            METRICS.timer(name='wait_time', buckets=transfer_time_buckets).observe(wait_time)
+                        if transferred_at is not None:
+                            transfer_time = (transferred_at - submitted_at).total_seconds()
+                            METRICS.timer(name='transfer_time', buckets=transfer_time_buckets).observe(transfer_time)
                 else:
                     record.files_failed += 1
         if save_samples:
