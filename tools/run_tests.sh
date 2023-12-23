@@ -63,8 +63,10 @@ fi
 echo 'Clearing memcache'
 echo flush_all > /dev/tcp/127.0.0.1/11211
 
-echo 'Update dependencies with pip'
-pip install --upgrade -r requirements.txt
+if [ -f 'requirements.txt' ]; then
+    echo 'Update dependencies with pip'
+    pip install --upgrade -r requirements.txt
+fi
 
 if test ${pip_only}; then
     exit
@@ -116,8 +118,10 @@ if test ${keep_db}; then
 else
     echo 'Resetting database tables'
 
-    echo 'Removing old SQLite databases'
-    rm -f /tmp/rucio.db
+    if [ -f /tmp/rucio.db ]; then
+        echo 'Removing old SQLite databases'
+        rm -f /tmp/rucio.db
+    fi
 
     tools/reset_database.py
 
