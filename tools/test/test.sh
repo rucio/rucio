@@ -29,13 +29,22 @@ function srchome() {
     cd $SOURCE_PATH
 }
 
+function wait_for_httpd() {
+    echo 'Waiting for httpd'
+    curl --output /dev/null --silent --retry 15 --retry-all-errors --retry-delay 1 -k https://localhost/ping
+}
+
 function wait_for_database() {
     echo 'Waiting for database to be ready'
-    if ! python3 -c "from rucio.db.sqla.session import wait_for_database; wait_for_database()"
-    then
-        echo 'Cannot access database'
-        exit 1
-    fi
+    while ! python3 -c "from rucio.db.sqla.session import wait_for_database; wait_for_database()"
+    do
+        if (( SECONDS > 60 ))
+        then
+           echo 'Cannot access database'
+           exit 1
+        fi
+        sleep 1
+    done
 }
 
 if [ "$SUITE" == "client" ]; then
@@ -75,11 +84,13 @@ elif [ "$SUITE" == "docs" ]; then
     tools/test/check_rest_api_documentation.sh $REST_API_DOC_FILENAME
 
 elif [ "$SUITE" == "votest" ]; then
+    wait_for_database
     VOTEST_HELPER=$RUCIO_HOME/tools/test/votest_helper.py
     VOTEST_CONFIG_FILE=$RUCIO_HOME/etc/docker/test/matrix_policy_package_tests.yml
     echo "VOTEST: Overriding policy section in rucio.cfg"
     python $VOTEST_HELPER --vo "$POLICY" --vo-config --file $VOTEST_CONFIG_FILE
     echo "VOTEST: Restarting httpd to load config"
+    wait_for_httpd
     httpd -k restart
 
     TESTS=$(python $VOTEST_HELPER --vo "$POLICY" --tests --file $VOTEST_CONFIG_FILE)
@@ -89,23 +100,27 @@ elif [ "$SUITE" == "votest" ]; then
 elif [ "$SUITE" == "multi_vo" ]; then
     VO1_HOME="$RUCIO_HOME"
     mkdir -p "$VO1_HOME/etc"
-    python3 $SOURCE_PATH/tools/merge_rucio_configs.py --use-env \
-        -s "$CFG_PATH"/rucio_autotests_common.cfg "$CFG_PATH"/rucio_multi_vo_tst_postgres14.cfg \
-        -d "$VO1_HOME"/etc/rucio.cfg
-    httpd -k restart
-
     VO2_HOME="$RUCIO_HOME/../ts2"
     mkdir -p "$VO2_HOME/etc"
+
     python3 $SOURCE_PATH/tools/merge_rucio_configs.py --use-env \
         -s "$CFG_PATH"/rucio_autotests_common.cfg "$CFG_PATH"/rucio_multi_vo_ts2_postgres14.cfg \
         -d "$VO2_HOME"/etc/rucio.cfg
 
+    python3 $SOURCE_PATH/tools/merge_rucio_configs.py --use-env \
+        -s "$CFG_PATH"/rucio_autotests_common.cfg "$CFG_PATH"/rucio_multi_vo_tst_postgres14.cfg \
+        -d "$VO1_HOME"/etc/rucio.cfg
+
     wait_for_database
+    wait_for_httpd
+
+    httpd -k restart
 
     tools/run_multi_vo_tests_docker.sh
 
 elif [ "$SUITE" == "remote_dbs" ] || [ "$SUITE" == "sqlite" ]; then
     wait_for_database
+    wait_for_httpd
 
     if [ -n "$TESTS" ]; then
         tools/run_tests.sh -p
