@@ -54,6 +54,9 @@ class AddFiles(ErrorHandlingMethodView):
                   ignore_availability:
                     description: If the availability should be ignored.
                     type: boolean
+                  parents_metadata:
+                    description: "Metadata for selected hierarchy DIDs."
+                    type: dict
         responses:
           201:
             description: OK
@@ -78,10 +81,10 @@ class AddFiles(ErrorHandlingMethodView):
         parameters = json_parameters(parse_response)
         lfns = param_get(parameters, 'lfns')
         ignore_availability = param_get(parameters, 'ignore_availability', default=False)
-
+        parents_metadata = param_get(parameters, 'parents_metadata', default=None) 
         try:
             add_files(lfns=lfns, issuer=request.environ.get('issuer'), ignore_availability=ignore_availability,
-                      vo=request.environ.get('vo'))
+                      parents_metadata=parents_metadata, vo=request.environ.get('vo'))
         except InvalidPath as error:
             return generate_http_error_flask(400, error)
         except AccessDenied as error:
