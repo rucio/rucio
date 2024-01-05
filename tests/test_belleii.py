@@ -110,13 +110,13 @@ def test_dirac_addfile_with_parents_meta(rse_factory, did_factory, root_account,
     # check if metadata if properly created for file and parents
     for lfn in lfns:
         scope, name = extract_scope(lfn['lfn'], [])
-        metadata = did_client.get_metadata(scope, name)
+        metadata = did_client.get_metadata(scope, name, plugin='ALL')
         assert all(item in metadata.items() for item in lfn_meta.items())
         dsn_scope, dsn_name = extract_scope(dataset, [])
-        metadata = did_client.get_metadata(dsn_scope, dsn_name)
+        metadata = did_client.get_metadata(dsn_scope, dsn_name, plugin='ALL')
         assert all(item in metadata.items() for item in dataset_meta.items())
         con_scope, con_name = extract_scope(container, [])
-        metadata = did_client.get_metadata(con_scope , con_name )
+        metadata = did_client.get_metadata(con_scope , con_name, plugin='ALL')
         assert all(item in metadata.items() for item in container_meta.items())
 
 @skip_non_belleii
