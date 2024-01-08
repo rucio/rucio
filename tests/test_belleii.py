@@ -101,7 +101,7 @@ def test_dirac_addfile_with_parents_meta(rse_factory, did_factory, root_account,
     container = "/".join(lfns[0]['lfn'].split('/')[:-2])
     dataset_meta = {'project': 'data13_hip', 'run_number': 300000, 'mykey': 'myvalue'}
     container_meta = {'containerkey': 'containervalue'}
-    parents_metadata = {dataset : dataset_meta, container: container_meta}
+    parents_metadata = {dataset: dataset_meta, container: container_meta}
     dirac_client.add_files(lfns=lfns, ignore_availability=False, parents_metadata=parents_metadata)
     replicas = [rep for rep in replica_client.list_replicas(dids=files)]
     for replica in replicas:
