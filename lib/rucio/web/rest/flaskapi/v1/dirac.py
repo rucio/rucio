@@ -56,7 +56,7 @@ class AddFiles(ErrorHandlingMethodView):
                     type: boolean
                   parents_metadata:
                     description: "Metadata for selected hierarchy DIDs."
-                    type: dict
+                    type: object
         responses:
           201:
             description: OK
@@ -81,7 +81,7 @@ class AddFiles(ErrorHandlingMethodView):
         parameters = json_parameters(parse_response)
         lfns = param_get(parameters, 'lfns')
         ignore_availability = param_get(parameters, 'ignore_availability', default=False)
-        parents_metadata = param_get(parameters, 'parents_metadata', default=None) 
+        parents_metadata = param_get(parameters, 'parents_metadata', default=None)
         try:
             add_files(lfns=lfns, issuer=request.environ.get('issuer'), ignore_availability=ignore_availability,
                       parents_metadata=parents_metadata, vo=request.environ.get('vo'))

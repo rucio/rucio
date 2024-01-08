@@ -16,7 +16,7 @@
 import re
 from json import loads
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -54,7 +54,7 @@ def _exists(scope, name, *, session: "Session"):
 
 
 @transactional_session
-def add_files(lfns, account, ignore_availability, parents_metadata=None ,  vo='def', *, session: "Session"):
+def add_files(lfns: list[dict], account: str, ignore_availability: bool, parents_metadata: Optional[dict] = None, vo: str = 'def', *, session: "Session"):
     """
     Bulk add files :
     - Create the file and replica.
