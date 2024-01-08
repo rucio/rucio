@@ -24,6 +24,13 @@ from rucio.rse.protocols import protocol
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the XRootD protocol using GSI authentication."""
 
+    @property
+    def _auth_env(self):
+        if self.auth_token:
+            return f"XrdSecPROTOCOL=ztn BEARER_TOKEN='{self.auth_token}'"
+        else:
+            return 'XrdSecPROTOCOL=gsi'
+
     def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.
 
@@ -66,7 +73,7 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, 'xrootd.exists: pfn: {}'.format(pfn))
         try:
             path = self.pfn2path(pfn)
-            cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s stat %s' % (self.hostname, self.port, path)
+            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} stat {path}'
             self.logger(logging.DEBUG, 'xrootd.exists: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
@@ -86,7 +93,7 @@ class Default(protocol.RSEProtocol):
 
         :returns: a dict with two keys, filesize and an element of GLOBALLY_SUPPORTED_CHECKSUMS.
         """
-        self.logger(logging.DEBUG, 'xrootd.stat: path: {}'.format(path))
+        self.logger(logging.DEBUG, f'xrootd.stat: path: {path}')
         ret = {}
         chsum = None
         if path.startswith('root:'):
@@ -94,7 +101,7 @@ class Default(protocol.RSEProtocol):
 
         try:
             # xrdfs stat for getting filesize
-            cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s stat %s' % (self.hostname, self.port, path)
+            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} stat {path}'
             self.logger(logging.DEBUG, 'xrootd.stat: filesize cmd: {}'.format(cmd))
             status_stat, out, err = execute(cmd)
             if status_stat == 0:
@@ -106,7 +113,7 @@ class Default(protocol.RSEProtocol):
                             break
 
             # xrdfs query checksum for getting checksum
-            cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s query checksum %s' % (self.hostname, self.port, path)
+            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} query checksum {path}'
             self.logger(logging.DEBUG, 'xrootd.stat: checksum cmd: {}'.format(cmd))
             status_query, out, err = execute(cmd)
             if status_query == 0:
@@ -183,7 +190,7 @@ class Default(protocol.RSEProtocol):
         try:
             # The query stats call is not implemented on some xroot doors.
             # Workaround: fail, if server does not reply within 10 seconds for static config query
-            cmd = 'XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 xrdfs %s:%s query config %s:%s' % (self.hostname, self.port, self.hostname, self.port)
+            cmd = f'{self._auth_env} XRD_REQUESTTIMEOUT=10 xrdfs {self.hostname}:{self.port} query config {self.hostname}:{self.port}'
             self.logger(logging.DEBUG, 'xrootd.connect: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
@@ -206,7 +213,7 @@ class Default(protocol.RSEProtocol):
         """
         self.logger(logging.DEBUG, 'xrootd.get: pfn: {}'.format(pfn))
         try:
-            cmd = 'XrdSecPROTOCOL=gsi xrdcp -f %s %s' % (pfn, dest)
+            cmd = f'{self._auth_env} xrdcp -f {pfn} {dest}'
             self.logger(logging.DEBUG, 'xrootd.get: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status == 54:
@@ -237,7 +244,7 @@ class Default(protocol.RSEProtocol):
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
         try:
-            cmd = 'XrdSecPROTOCOL=gsi xrdcp -f %s %s' % (source_url, path)
+            cmd = f'{self._auth_env} xrdcp -f {source_url} {path}'
             self.logger(logging.DEBUG, 'xrootd.put: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
@@ -259,7 +266,7 @@ class Default(protocol.RSEProtocol):
             raise exception.SourceNotFound()
         try:
             path = self.pfn2path(pfn)
-            cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s rm %s' % (self.hostname, self.port, path)
+            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} rm {path}'
             self.logger(logging.DEBUG, 'xrootd.delete: cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
@@ -283,10 +290,10 @@ class Default(protocol.RSEProtocol):
             path = self.pfn2path(pfn)
             new_path = self.pfn2path(new_pfn)
             new_dir = new_path[:new_path.rindex('/') + 1]
-            cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s mkdir -p %s' % (self.hostname, self.port, new_dir)
+            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} mkdir -p {new_dir}'
             self.logger(logging.DEBUG, 'xrootd.stat: mkdir cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
-            cmd = 'XrdSecPROTOCOL=gsi xrdfs %s:%s mv %s %s' % (self.hostname, self.port, path, new_path)
+            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} mv {path} {new_path}'
             self.logger(logging.DEBUG, 'xrootd.stat: rename cmd: {}'.format(cmd))
             status, out, err = execute(cmd)
             if status != 0:
