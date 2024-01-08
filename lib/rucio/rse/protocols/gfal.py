@@ -394,6 +394,9 @@ class Default(protocol.RSEProtocol):
 
         ret['filesize'] = stats[7]
 
+        if not self.rse.get('verify_checksum', True):
+            return ret
+
         message = "\n"
         try:
             ret[PREFERRED_CHECKSUM] = ctx.checksum(path, str(PREFERRED_CHECKSUM.upper()))
