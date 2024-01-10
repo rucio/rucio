@@ -154,7 +154,7 @@ class GlobusTransferTool(Transfertool):
         submitjob = [
             {
                 # Some dict elements are not needed by globus transfertool, but are accessed by further common fts/globus code
-                'sources': [s[1] for s in transfer.legacy_sources],
+                'sources': [transfer.source_url(s) for s in transfer.sources],
                 'destinations': [transfer.dest_url],
                 'metadata': {
                     'src_rse': transfer.src.rse.name,

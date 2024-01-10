@@ -337,7 +337,7 @@ def build_job_params(transfer_path, bring_online, default_lifetime, archive_time
     if len(transfer_path) > 1:
         job_params['multihop'] = True
         job_params['job_metadata']['multihop'] = True
-    elif len(last_hop.legacy_sources) > 1:
+    elif len(last_hop.sources) > 1:
         job_params['job_metadata']['multi_sources'] = True
     if strict_copy:
         job_params['strict_copy'] = strict_copy
@@ -894,7 +894,7 @@ class FTS3Transfertool(Transfertool):
         rws = transfer.rws
         checksum_to_use = _pick_fts_checksum(transfer, path_strategy=job_params['verify_checksum'])
         t_file = {
-            'sources': [s[1] for s in transfer.legacy_sources],
+            'sources': [transfer.source_url(s) for s in transfer.sources],
             'destinations': [transfer.dest_url],
             'metadata': {
                 'request_id': rws.request_id,
@@ -920,9 +920,9 @@ class FTS3Transfertool(Transfertool):
 
         if self.token:
             t_file['source_tokens'] = []
-            for source in transfer.legacy_sources:
-                src_audience = config_get('conveyor', 'request_oidc_audience', False) or determine_audience_for_rse(rse_id=source[2])
-                src_scope = determine_scope_for_rse(rse_id=source[2], scopes=['storage.read'], extra_scopes=['offline_access'])
+            for source in transfer.sources:
+                src_audience = config_get('conveyor', 'request_oidc_audience', False) or determine_audience_for_rse(rse_id=source.rse.id)
+                src_scope = determine_scope_for_rse(rse_id=source.rse.id, scopes=['storage.read'], extra_scopes=['offline_access'])
                 t_file['source_tokens'].append(request_token(src_audience, src_scope))
 
             dst_audience = config_get('conveyor', 'request_oidc_audience', False) or determine_audience_for_rse(transfer.dst.rse.id)
