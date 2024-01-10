@@ -72,8 +72,7 @@ services:
       - DOCKER_INFLUXDB_INIT_BUCKET=rucio
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
   elasticsearch:
-    image: docker.io/elasticsearch:7.4.0
-    platform: linux/amd64
+    image: docker.io/elasticsearch:7.8.0
     environment:
       - discovery.type=single-node
   activemq:
