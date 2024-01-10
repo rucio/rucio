@@ -88,7 +88,7 @@ def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_clie
     paths, *_ = build_transfer_paths(topology=topology, protocol_factory=ProtocolFactory(), requests_with_sources=requests)
     [[_, [transfer_path]]] = paths.items()
     assert transfer_path[0].rws.rule_id == rule_id[0]
-    src_url = transfer_path[0].legacy_sources[0][1]
+    src_url = transfer_path[0].source_url(transfer_path[0].sources[0])
     dest_url = transfer_path[0].dest_url
     check_url(src_url, rse1_hostname, test_file_expected_pfn)
     check_url(dest_url, rse2_hostname, test_file_expected_pfn)

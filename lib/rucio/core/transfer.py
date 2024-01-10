@@ -122,7 +122,7 @@ class DirectTransferDefinition:
         self.operation_dest = operation_dest
 
         self._dest_url = None
-        self._legacy_sources = None
+        self._source_urls = {}
 
     def __str__(self):
         return '{sources}--{request_id}->{destination}'.format(
@@ -140,26 +140,22 @@ class DirectTransferDefinition:
         return self.destination
 
     @property
-    def dest_url(self):
+    def dest_url(self) -> str:
         if not self._dest_url:
             self._dest_url = self._generate_dest_url(self.dst, self.rws, self.protocol_factory, self.operation_dest)
         return self._dest_url
 
-    @property
-    def legacy_sources(self):
-        if not self._legacy_sources:
-            self._legacy_sources = [
-                (src.rse.name,
-                 self._generate_source_url(src,
-                                           self.dst,
-                                           rws=self.rws,
-                                           protocol_factory=self.protocol_factory,
-                                           operation=self.operation_src),
-                 src.rse.id,
-                 src.ranking)
-                for src in self.sources
-            ]
-        return self._legacy_sources
+    def source_url(self, source: RequestSource) -> str:
+        url = self._source_urls.get(source.rse)
+        if not url:
+            self._source_urls[source.rse] = url = self._generate_source_url(
+                source,
+                self.dst,
+                rws=self.rws,
+                protocol_factory=self.protocol_factory,
+                operation=self.operation_src
+            )
+        return url
 
     @property
     def use_ipv4(self):
@@ -288,7 +284,7 @@ class StageinTransferDefinition(DirectTransferDefinition):
         super().__init__(source, destination, rws, protocol_factory, operation_src, operation_dest)
 
     @property
-    def dest_url(self):
+    def dest_url(self) -> str:
         if not self._dest_url:
             self._dest_url = self.src.url if self.src.url else self._generate_source_url(self.src,
                                                                                          self.dst,
@@ -297,16 +293,9 @@ class StageinTransferDefinition(DirectTransferDefinition):
                                                                                          operation=self.operation_dest)
         return self._dest_url
 
-    @property
-    def legacy_sources(self):
-        if not self._legacy_sources:
-            self._legacy_sources = [(
-                self.src.rse.name,
-                self.dest_url,  # Source and dest url is the same for stagein requests
-                self.src.rse.id,
-                self.src.ranking
-            )]
-        return self._legacy_sources
+    def source_url(self, source: RequestSource) -> str:
+        # Source and dest url is the same for stagein requests
+        return self.dest_url
 
 
 def transfer_path_str(transfer_path: "list[DirectTransferDefinition]") -> str:
@@ -353,7 +342,7 @@ def mark_submitting(
                                                                                                           transfer.rws.scope,
                                                                                                           transfer.rws.name,
                                                                                                           transfer.rws.previous_attempt_id,
-                                                                                                          transfer.legacy_sources,
+                                                                                                          [transfer.source_url(s) for s in transfer.sources],
                                                                                                           transfer.dest_url,
                                                                                                           external_host)
     logger(logging.DEBUG, "%s", log_str)
@@ -394,15 +383,15 @@ def ensure_db_sources(
     desired_sources = []
     for transfer in transfer_path:
 
-        for src_rse, src_url, src_rse_id, rank in transfer.legacy_sources:
+        for source in transfer.sources:
             common_source_attrs = {
                 "scope": transfer.rws.scope,
                 "name": transfer.rws.name,
-                "rse_id": src_rse_id,
+                "rse_id": source.rse.id,
                 "dest_rse_id": transfer.dst.rse.id,
-                "ranking": rank if rank else 0,
+                "ranking": source.ranking,
                 "bytes": transfer.rws.byte_count,
-                "url": src_url,
+                "url": transfer.source_url(source),
                 "is_using": True,
             }
 
