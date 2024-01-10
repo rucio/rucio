@@ -29,6 +29,7 @@ services:
       - RDBMS
   rucio:
     image: docker.io/rucio/rucio-dev:latest-alma9
+    platform: linux/amd64
     entrypoint: ["/rucio_source/etc/docker/dev/rucio/entrypoint.sh"]
     command: ["httpd","-D","FOREGROUND"]
     volumes:
@@ -72,6 +73,7 @@ services:
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
   elasticsearch:
     image: docker.io/elasticsearch:7.4.0
+    platform: linux/amd64
     environment:
       - discovery.type=single-node
   activemq:
