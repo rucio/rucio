@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+sed "s/XRDPORT/$XRDPORT/g" /configs/xrootd.cfg > /etc/xrootd/xrdrucio.cfg
+sed "s/XRDHOST/$XRDHOST/g" /configs/scitokens.cfg > /etc/xrootd/scitokens.cfg
+cp /configs/Authfile /etc/xrootd/Authfile
 
 echo 'Fixing ownership and permissions'
 cp /tmp/xrdcert.pem /etc/grid-security/xrd/xrdcert.pem
