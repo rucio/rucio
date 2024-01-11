@@ -507,7 +507,8 @@ LOCK TABLES `client_authority` WRITE;
 /*!40000 ALTER TABLE `client_authority` DISABLE KEYS */;
 INSERT INTO `client_authority` VALUES
 (2,'ROLE_CLIENT'),
-(7,'ROLE_CLIENT');
+(7,'ROLE_CLIENT'),
+(8,'ROLE_CLIENT');
 /*!40000 ALTER TABLE `client_authority` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -627,7 +628,7 @@ CREATE TABLE `client_details` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `client_id` (`client_id`),
   KEY `cd_ci_idx` (`client_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -638,7 +639,8 @@ LOCK TABLES `client_details` WRITE;
 /*!40000 ALTER TABLE `client_details` DISABLE KEYS */;
 INSERT INTO `client_details` VALUES
 (2,NULL,0,0,1,600,'85e6f7a5-580b-4a1c-a6d2-39055143063d','AIYIneAVGs9PTVvQnxNGqDmh3rNTsyFOrrwRIqy1Zc6ngPN9hQe6I2VzDzN2uGLCPsvQI8nhYxf_V09NHk-yv7o',3600,2592000,NULL,'rucio','SECRET_BASIC',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,'2023-12-12 07:32:39',NULL,0,NULL,NULL,NULL,NULL,600),
-(7,NULL,0,0,1,600,'9841f5c5-fb77-454c-a4a5-acd220e0faf2','ALORjpM78x3jvUzPZxJJw94Uu6tFu55dYf7NbQ97uNpbF-32Sxb0bprsUSqSrzWgZzLK64cqVlNwya6i3nvU_LU',3600,2592000,NULL,'web1','SECRET_BASIC',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,'2023-12-23 06:08:01',NULL,0,NULL,NULL,NULL,NULL,600);
+(7,NULL,0,0,1,600,'9841f5c5-fb77-454c-a4a5-acd220e0faf2','ALORjpM78x3jvUzPZxJJw94Uu6tFu55dYf7NbQ97uNpbF-32Sxb0bprsUSqSrzWgZzLK64cqVlNwya6i3nvU_LU',3600,2592000,NULL,'web1','SECRET_BASIC',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,'2023-12-23 06:08:01',NULL,0,NULL,NULL,NULL,NULL,600),
+(8,NULL,0,0,1,600,'d6dad80f-11f7-4cf4-a4ef-fbd081ec7f98','AJWL5JZtM6I2iaj7XHYq98kPGo6-8Wde2ScSHJhHNvCLeKppTj9fBmeq2xGWi3RCFlj6cPJFjz-BxXIBva4kDYo',3600,2592000,NULL,'fts3','SECRET_BASIC',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,'2024-01-11 15:15:44',NULL,0,NULL,NULL,NULL,NULL,600);
 /*!40000 ALTER TABLE `client_details` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -664,7 +666,11 @@ LOCK TABLES `client_grant_type` WRITE;
 INSERT INTO `client_grant_type` VALUES
 (2,'client_credentials'),
 (2,'urn:ietf:params:oauth:grant-type:token-exchange'),
-(7,'authorization_code');
+(7,'authorization_code'),
+(2,'refresh_token'),
+(8,'client_credentials'),
+(8,'refresh_token'),
+(8,'urn:ietf:params:oauth:grant-type:token-exchange');
 /*!40000 ALTER TABLE `client_grant_type` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -808,7 +814,15 @@ INSERT INTO `client_scope` VALUES
 (7,'openid'),
 (7,'profile'),
 (7,'email'),
-(7,'web1');
+(7,'web1'),
+(2,'fts'),
+(2,'offline_access'),
+(8,'openid'),
+(8,'profile'),
+(8,'email'),
+(8,'offline_access'),
+(8,'storage.read:/'),
+(8,'storage.modify:/');
 /*!40000 ALTER TABLE `client_scope` ENABLE KEYS */;
 UNLOCK TABLES;
 

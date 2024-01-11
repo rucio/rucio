@@ -126,9 +126,14 @@ services:
     profiles:
       - storage
     volumes:
+      - ./fts/entrypoint.sh:/docker-entrypoint.sh:ro
+      - ../../certs/rucio_ca.pem:/etc/pki/ca-trust/source/anchors/rucio_ca.pem:ro
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_fts.pem:/etc/grid-security/hostcert.pem:Z
       - ../../certs/hostcert_fts.key.pem:/etc/grid-security/hostkey.pem:Z
+      - ./fts/fts3restconfig:/etc/fts3/fts3restconfig:ro
+    environment:
+      - REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
     ulimits:
       nofile:
         soft: 10240
@@ -148,6 +153,7 @@ services:
     profiles:
       - storage
     environment:
+      - XRDHOST=xrd1
       - XRDPORT=1094
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
@@ -162,6 +168,7 @@ services:
     profiles:
       - storage
     environment:
+      - XRDHOST=xrd2
       - XRDPORT=1095
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
@@ -176,6 +183,7 @@ services:
     profiles:
       - storage
     environment:
+      - XRDHOST=xrd3
       - XRDPORT=1096
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
@@ -189,14 +197,30 @@ services:
     image: docker.io/rucio/xrootd
     profiles:
       - storage
+    environment:
+      - XRDHOST=xrd4
+      - XRDPORT=1097
     volumes:
-      - ./xrd4/xrootd.cfg:/etc/xrootd/xrdrucio.cfg:ro
-      - ./xrd4/entrypoint.sh:/docker-entrypoint.sh:ro
-      - ./xrd4/scitokens.cfg:/etc/xrootd/scitokens.cfg:ro
-      - ./xrd4/Authfile:/etc/xrootd/Authfile:ro
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_xrd4.pem:/tmp/xrdcert.pem:Z
       - ../../certs/hostcert_xrd4.key.pem:/tmp/xrdkey.pem:Z
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
+  xrd5:
+    image: docker.io/rucio/xrootd
+    profiles:
+      - storage
+    environment:
+      - XRDHOST=xrd5
+      - XRDPORT=1098
+    volumes:
+      - ./xrd/entrypoint.sh:/docker-entrypoint.sh:ro
+      - ./xrd:/configs:ro
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/hostcert_xrd5.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd5.key.pem:/tmp/xrdkey.pem:Z
     ulimits:
       nofile:
         soft: 10240
@@ -209,12 +233,6 @@ services:
       - ../../certs/hostcert_web1.key.pem:/etc/grid-security/hostkey.pem:ro
       - ../../certs/hostcert_web1.pem:/etc/grid-security/hostcert.pem:Z
       - ./web1/default-ssl.conf:/etc/apache2/sites-available/default-ssl.conf
-  web2:
-    image: rucio/webdav
-    volumes:
-      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:ro
-      - ../../certs/hostcert_web2.key.pem:/etc/grid-security/hostkey.pem:ro
-      - ../../certs/hostcert_web2.pem:/etc/grid-security/hostcert.pem:Z
   minio:
     image: docker.io/minio/minio
     profiles:
