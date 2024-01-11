@@ -83,9 +83,7 @@ def reset_rses():
 
 def test_active():
     db_session = session.get_session()
-    if db_session.bind.dialect.name == 'sqlite':
-        return False
-    return True
+    assert db_session.bind.dialect.name != 'sqlite'
 
 
 @pytest.fixture
