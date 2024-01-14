@@ -48,7 +48,7 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
     :param vo: The VO to act on.
     :param session: The database session in use.
     """
-    scope = InternalScope(scope, vo=vo)
+    scope = [InternalScope(s, vo=vo) for s in scope.split(',')]
 
     # replace account and scope in filters with internal representation
     for or_group in filters:

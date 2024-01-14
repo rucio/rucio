@@ -27,7 +27,7 @@ from rucio.api.rule import list_replication_rules, list_associated_replication_r
 from rucio.common.exception import ScopeNotFound, DatabaseException, DataIdentifierNotFound, DataIdentifierAlreadyExists, \
     DuplicateContent, AccessDenied, KeyNotFound, Duplicate, InvalidValueForKey, UnsupportedStatus, \
     UnsupportedOperation, RSENotFound, RuleNotFound, InvalidMetadata, InvalidPath, FileAlreadyExists, InvalidObject, FileConsistencyMismatch
-from rucio.common.utils import render_json, APIEncoder
+from rucio.common.utils import render_json, APIEncoder, config_get
 from rucio.db.sqla.constants import DIDType
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
@@ -216,6 +216,13 @@ class Search(ErrorHandlingMethodView):
           409:
             description: Wrong did type
         """
+        # If a user is using a wildcard, but it only matches a single scope (e.g. t* only fits test), it is allowed. Can be changed by also
+        # For scope-level wildcards earlier in the process.
+        scope_amount = len(scope.split(','))
+        scope_wildcard_allowed = config_get('policy', 'scope_wildcard_allowed')
+        if scope_amount > 1 and scope_wildcard_allowed != 'true':
+            return generate_http_error_flask(406, UnsupportedOperation('Scope-level wildcard is disabled in the config.'))
+
         filters = request.args.get('filters', default=None)
         if filters is not None:
             filters = ast.literal_eval(filters)

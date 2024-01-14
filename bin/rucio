@@ -28,6 +28,7 @@ import time
 import traceback
 import unittest
 import uuid
+from fnmatch import fnmatch
 from copy import deepcopy
 from datetime import datetime
 from functools import wraps
@@ -554,7 +555,14 @@ def list_dids(args):
         scope = args.did[0]
         name = '*'
 
-    if scope not in client.list_scopes():
+    all_available_scopes = client.list_scopes()
+    if '*' in scope:
+        scopeset = set(matched_scope for matched_scope in all_available_scopes if fnmatch(matched_scope, scope))
+        scope = (",").join(scopeset)
+    else:
+        scope = scope if scope in all_available_scopes else None
+
+    if not scope:
         logger.error('Scope not found')
         return FAILURE
 

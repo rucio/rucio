@@ -217,6 +217,11 @@ class DidColumnMeta(DidMetaPlugin):
                 or_group['did_type'] = mapped_did_type
                 filters_tmp.append(or_group.copy())
         filters = filters_tmp
+        
+        if len(scope) == 1:
+            scopefilter = (models.DataIdentifier.scope, operator.eq, scope[0])
+        else:
+            scopefilter = (models.DataIdentifier.scope, operator.contains, scope)
 
         # instantiate fe and create sqla query
         fe = FilterEngine(filters, model_class=models.DataIdentifier)
@@ -228,7 +233,7 @@ class DidColumnMeta(DidMetaPlugin):
                 models.DataIdentifier.bytes,
                 models.DataIdentifier.length
             ], additional_filters=[
-                (models.DataIdentifier.scope, operator.eq, scope),
+                scopefilter,
                 (models.DataIdentifier.suppressed, operator.ne, true())
             ],
             session=session

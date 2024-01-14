@@ -437,7 +437,10 @@ class FilterEngine:
                             elif oper == operator.ne:
                                 expression = key.notlike(value.replace('*', '%').replace('_', '\_'), escape='\\')  # NOQA: W605
                     else:
-                        expression = oper(key, value)
+                        if oper == operator.contains:
+                            expression = key.in_(value)
+                        else:
+                            expression = oper(key, value)
                     if oper == operator.ne:                                                         # set .ne operator to include NULLs.
                         expression = or_(expression, key.is_(None))
                 elif json_column:                                                                   # -> this key filters on the content of a json column
