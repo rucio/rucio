@@ -23,7 +23,7 @@ else
     if echo $EDITMSG | grep "# Please enter the commit message for your changes.*"
     then
 	echo "No commit message given, preparing template for editing."
-	sed -i "1s/^/\#\<component\>: \<message\>; Fix \#$NUMBER\n/" $1
+	sed -i.bak "1s/^/\#\<component\>: \<message\>; Fix \#$NUMBER\n/" $1 && rm $1.bak
     else
 	echo "Using CLI commit message."
     fi
