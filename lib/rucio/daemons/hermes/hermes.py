@@ -48,6 +48,7 @@ from rucio.common.logging import setup_logging
 from rucio.core.message import delete_messages, retrieve_messages
 from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon
+from requests.auth import HTTPBasicAuth
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -365,10 +366,18 @@ def submit_to_elastic(messages: list[dict], endpoint: str, logger: "Callable") -
     :returns:                  HTTP status code. 200 and 204 OK. Rest is failure.
     """
     text = ""
+    elastic_username = config_get("hermes", "elastic_username",
+                                  raise_exception=False, default=None)
+    elastic_password = config_get("hermes", "elastic_password",
+                                  raise_exception=False, default=None)
+    auth = None
+    if elastic_username and elastic_password:
+        auth = HTTPBasicAuth(elastic_username, elastic_password)
+
     for message in messages:
         text += '{ "index":{ } }\n%s\n' % json.dumps(message, default=default)
     res = requests.post(
-        endpoint, data=text, headers={"Content-Type": "application/json"}
+        endpoint, data=text, headers={"Content-Type": "application/json"}, auth=auth
     )
     return res.status_code
 
