@@ -540,10 +540,11 @@ def update_transfer_state(
     :param tt_status_report:      The transfertool status update, retrieved via request.query_request().
     :param session:               The database session to use.
     :param logger:                Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns commit_or_rollback:  Boolean.
+    :returns:                     The number of updated requests
     """
 
     request_id = tt_status_report.request_id
+    nb_updated = 0
     try:
         fields_to_update = tt_status_report.get_db_fields_to_update(session=session, logger=logger)
         if not fields_to_update:
@@ -556,11 +557,12 @@ def update_transfer_state(
             updated = transition_request_state(request_id, request=request, session=session, **fields_to_update)
 
             if not updated:
-                return False
+                return nb_updated
+            nb_updated += 1
 
             if tt_status_report.state == RequestState.FAILED:
                 if request_core.is_intermediate_hop(request):
-                    request_core.handle_failed_intermediate_hop(request, session=session)
+                    nb_updated += request_core.handle_failed_intermediate_hop(request, session=session)
 
             if tt_status_report.state:
                 stats_manager.observe(
@@ -580,10 +582,10 @@ def update_transfer_state(
                 additional_fields=tt_status_report.get_monitor_msg_fields(session=session, logger=logger),
                 session=session
             )
-            return True
+            return nb_updated
     except UnsupportedOperation as error:
         logger(logging.WARNING, "Request %s doesn't exist - Error: %s" % (request_id, str(error).replace('\n', '')))
-        return False
+        return 0
     except Exception:
         logger(logging.CRITICAL, "Exception", exc_info=True)
 

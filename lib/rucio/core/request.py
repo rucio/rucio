@@ -1096,9 +1096,10 @@ def is_intermediate_hop(request):
 
 
 @transactional_session
-def handle_failed_intermediate_hop(request, *, session: "Session"):
+def handle_failed_intermediate_hop(request, *, session: "Session") -> int:
     """
     Perform housekeeping behind a failed intermediate hop
+    Returns the number of updated requests
     """
     # mark all hops following this one (in any multihop path) as Failed
     new_state = RequestState.FAILED
@@ -1123,6 +1124,7 @@ def handle_failed_intermediate_hop(request, *, session: "Session"):
             err_msg=get_transfer_error(new_state, reason=reason),
         )
         session.execute(stmt)
+    return len(dependent_requests)
 
 
 @METRICS.count_it
