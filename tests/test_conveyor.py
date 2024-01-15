@@ -823,6 +823,7 @@ def test_non_deterministic_dst(did_factory, did_client, root_account, vo, caches
 
 
 @skip_rse_tests_with_accounts
+@pytest.mark.dirty(reason="Submits a transfer to FTS which cannot be ever executed in this test env.")
 @pytest.mark.noparallel(groups=[NoParallelGroups.STAGER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 def test_stager(rse_factory, did_factory, root_account, replica_client):
     """
@@ -860,8 +861,8 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
                                            'requested_at': datetime.utcnow()}])
     stager(once=True, rses=[{'id': rse_id} for rse_id in all_rses])
 
-    replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=2 * MAX_POLL_WAIT_SECONDS, **did)
-    assert replica['state'] == ReplicaState.AVAILABLE
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.SUBMITTED
 
 
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.FINISHER])
