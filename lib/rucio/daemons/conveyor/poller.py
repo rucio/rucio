@@ -379,10 +379,11 @@ def _poll_transfers(
                         stats_manager=transfer_stats_manager,
                         logger=logger,
                     )
-                    # if True, really update request content; if False, only touch request
+                    cnt += ret
                     if ret:
-                        cnt += 1
-                    METRICS.counter('update_request_state.{updated}').labels(updated=ret).inc()
+                        METRICS.counter('update_request_state.{updated}').labels(updated=True).inc(delta=ret)
+                    else:
+                        METRICS.counter('update_request_state.{updated}').labels(updated=False).inc()
 
             # should touch transfers.
             # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
