@@ -625,7 +625,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     logger(
                         logging.ERROR,
                         "Failure to submit %s messages to elastic. Returned status: %s",
-                        len(message_dict["influx"]),
+                        len(message_dict["elastic"]),
                         state,
                     )
             except Exception as error:
