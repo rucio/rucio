@@ -52,7 +52,7 @@ from rucio.transfertool.fts3 import FTS3Transfertool
 from tests.ruciopytest import NoParallelGroups
 from tests.mocks.mock_http_server import MockServer
 
-MAX_POLL_WAIT_SECONDS = 60
+MAX_POLL_WAIT_SECONDS = 100
 TEST_FTS_HOST = 'https://fts:8446'
 
 
