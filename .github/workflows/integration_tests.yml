@@ -64,9 +64,9 @@ jobs:
               GIT_REF=$(git describe --tags --abbrev=0)
               IFS=. read major minor micro build <<<"${GIT_REF}"
 
-              RELEASE_FAMILY=$major.$minor
+              RELEASE_FAMILY=$major
               LATEST_RELEASE_IN_RELEASE_FAMILY=$(git for-each-ref --format '%(refname)' refs/tags/$RELEASE_FAMILY.* | sort -k 1.11V | tail -1 | awk -F'/' '{print $3}')
-              LATEST_RUCIO_RELEASE_FAMILY=$(git for-each-ref --format '%(refname)' refs/tags | sort -k 1.11V | tail -1 | awk -F'/' '{print $3}' | awk -F'.' '{print $1 "." $2}')
+              LATEST_RUCIO_RELEASE_FAMILY=$(git for-each-ref --format '%(refname)' refs/tags | sort -k 1.11V | tail -1 | awk -F'/' '{print $3}' | awk -F'.' '{print $1}')
 
               echo "Release line for ${BRANCH} is ${RELEASE_FAMILY}"
               echo "The latest release line for rucio is ${LATEST_RUCIO_RELEASE_FAMILY}"
