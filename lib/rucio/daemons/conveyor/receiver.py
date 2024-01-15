@@ -93,7 +93,10 @@ class Receiver(object):
                     session=session,
                     logger=logger,
                 )
-                METRICS.counter('update_request_state.{updated}').labels(updated=ret).inc()
+                if ret:
+                    METRICS.counter('update_request_state.{updated}').labels(updated=True).inc(delta=ret)
+                else:
+                    METRICS.counter('update_request_state.{updated}').labels(updated=False).inc()
         except Exception:
             logging.critical(traceback.format_exc())
 
