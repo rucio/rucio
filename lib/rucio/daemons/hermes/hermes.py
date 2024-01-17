@@ -366,9 +366,9 @@ def submit_to_elastic(messages: list[dict], endpoint: str, logger: "Callable") -
     :returns:                  HTTP status code. 200 and 204 OK. Rest is failure.
     """
     text = ""
-    elastic_username = config_get("hermes", "elasticsearch_username",
+    elastic_username = config_get("hermes", "elastic_username",
                                   raise_exception=False, default=None)
-    elastic_password = config_get("hermes", "elasticsearch_password",
+    elastic_password = config_get("hermes", "elastic_password",
                                   raise_exception=False, default=None)
     auth = None
     if elastic_username and elastic_password:
