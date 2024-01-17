@@ -38,6 +38,7 @@ def add_files(lfns, issuer, ignore_availability, parents_metadata=None, vo='def'
     :param lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
     :param issuer: The issuer account.
     :param ignore_availability: A boolean to ignore blocked sites.
+    :param parents_metadata: Metadata for selected hierarchy DIDs. (dictionary {'lpn': {key : value}}). Default=None
     :param vo: The VO to act on.
     :param session: The database session in use.
 
