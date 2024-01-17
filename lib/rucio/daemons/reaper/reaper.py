@@ -579,8 +579,8 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
         # Physical  deletion will take place there
         try:
             rse.ensure_loaded(load_info=True, load_attributes=True)
-            auth_token = None
-            if rse.attributes.get('oidc_support') is True and scheme == 'davs':
+            prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, logger=logger)
+            if rse.attributes.get('oidc_support') is True and prot.attributes['scheme'] == 'davs':
                 audience = config_get('reaper', 'oidc_audience', False) or determine_audience_for_rse(rse.id)
                 # FIXME: At the time of writing, StoRM requires `storage.read`
                 # in order to perform a stat operation.
@@ -588,9 +588,9 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
                 auth_token = request_token(audience, scope)
                 if auth_token:
                     logger(logging.INFO, 'Using a token to delete on RSE %s', rse.name)
+                    prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, auth_token=auth_token, logger=logger)
                 else:
                     logger(logging.WARNING, 'Failed to procure a token to delete on RSE %s', rse.name)
-            prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, auth_token=auth_token, logger=logger)
             for file_replicas in chunks(replicas, chunk_size):
                 # Refresh heartbeat
                 _, total_workers, logger = heartbeat_handler.live(payload=hb_payload)
