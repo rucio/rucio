@@ -116,7 +116,7 @@ class Transfertool(object, metaclass=ABCMeta):
     """
 
     external_name = ''
-    required_rse_attrs = ('globus_endpoint_id', )
+    required_rse_attrs = ()
 
     def __init__(self, external_host, logger=logging.log):
         """
