@@ -32,7 +32,7 @@ from rucio.core.did import get_metadata
 from rucio.core.replica import (update_replicas_states, get_replicas_state,
                                 bulk_delete_bad_replicas, list_expired_temporary_unavailable_replicas)
 from rucio.daemons.common import run_daemon
-from rucio.db.sqla.constants import BadFilesStatus, ReplicaState
+from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, BadFilesStatus, ReplicaState
 from rucio.db.sqla.session import get_session
 
 if TYPE_CHECKING:
@@ -129,7 +129,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     session.commit()  # pylint: disable=no-member
             session = get_session()
         except (DatabaseException, DatabaseError) as error:
-            if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+            if re.match(ORACLE_RESOURCE_BUSY_REGEX, error.args[0]) or re.match(ORACLE_DEADLOCK_DETECTED_REGEX, error.args[0]) or MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED in error.args[0]:
                 logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
             else:
                 logger(logging.ERROR, 'Exception', exc_info=True)
