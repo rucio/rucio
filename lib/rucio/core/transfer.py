@@ -38,7 +38,7 @@ from rucio.common.utils import construct_surl
 from rucio.core import did, message as message_core, request as request_core
 from rucio.core.account import list_accounts
 from rucio.core.monitor import MetricManager
-from rucio.core.request import transition_request_state, RequestWithSources, RequestSource
+from rucio.core.request import transition_request_state, RequestWithSources, RequestSource, TransferDestination, DirectTransfer
 from rucio.core.rse import RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
     from rucio.common.types import InternalAccount
     from rucio.core.topology import Topology
+    from rucio.rse.protocols.protocol import RSEProtocol
 
     LoggerFunction = Callable[..., Any]
 
@@ -81,15 +82,6 @@ TRANSFERTOOL_CLASSES_BY_NAME: "dict[str, Type[Transfertool]]" = {
 }
 
 
-class TransferDestination:
-    def __init__(self, rse: RseData, scheme):
-        self.rse = rse
-        self.scheme = scheme
-
-    def __str__(self):
-        return "dst_rse={}".format(self.rse)
-
-
 class ProtocolFactory:
     """
     Creates and caches protocol objects. Allowing to reuse them.
@@ -106,7 +98,7 @@ class ProtocolFactory:
         return protocol
 
 
-class DirectTransferDefinition:
+class DirectTransferImplementation(DirectTransfer):
     """
     The configuration for a direct (non-multi-hop) transfer. It can be a multi-source transfer.
 
@@ -115,10 +107,9 @@ class DirectTransferDefinition:
     """
     def __init__(self, source: RequestSource, destination: TransferDestination, rws: RequestWithSources,
                  protocol_factory: ProtocolFactory, operation_src: str, operation_dest: str):
-        self.sources = [source]
+        super().__init__(sources=[source], rws=rws)
         self.destination = destination
 
-        self.rws = rws
         self.protocol_factory = protocol_factory
         self.operation_src = operation_src
         self.operation_dest = operation_dest
@@ -134,11 +125,11 @@ class DirectTransferDefinition:
         )
 
     @property
-    def src(self):
+    def src(self) -> RequestSource:
         return self.sources[0]
 
     @property
-    def dst(self):
+    def dst(self) -> TransferDestination:
         return self.destination
 
     @property
@@ -159,30 +150,11 @@ class DirectTransferDefinition:
             )
         return url
 
-    def dest_protocol(self):
+    def dest_protocol(self) -> "RSEProtocol":
         return self.protocol_factory.protocol(self.dst.rse, self.dst.scheme, self.operation_dest)
 
-    def source_protocol(self, source: RequestSource):
+    def source_protocol(self, source: RequestSource) -> "RSEProtocol":
         return self.protocol_factory.protocol(source.rse, source.scheme, self.operation_src)
-
-    @property
-    def use_ipv4(self):
-        # If any source or destination rse is ipv4 only
-        return self.dst.rse.attributes.get('use_ipv4', False) or any(src.rse.attributes.get('use_ipv4', False)
-                                                                     for src in self.sources)
-
-    @property
-    def use_tokens(self) -> bool:
-        """Whether a transfer can be performed with tokens.
-
-        In order to be so, all the involved RSEs must have it explicitly enabled
-        and the protocol being used must be WebDAV.
-        """
-        for endpoint in [*self.sources, self.destination]:
-            if (endpoint.rse.attributes.get('oidc_support') is not True
-                    or endpoint.scheme != 'davs'):
-                return False
-        return True
 
     @staticmethod
     def __rewrite_source_url(source_url, source_sign_url, dest_sign_url, source_scheme):
@@ -269,7 +241,7 @@ class DirectTransferDefinition:
         return dest_url
 
 
-class StageinTransferDefinition(DirectTransferDefinition):
+class StageinTransferImplementation(DirectTransferImplementation):
     """
     A definition of a transfer which triggers a stagein operation.
         - The source and destination url are identical
@@ -306,7 +278,7 @@ class StageinTransferDefinition(DirectTransferDefinition):
         return self.dest_url
 
 
-def transfer_path_str(transfer_path: "list[DirectTransferDefinition]") -> str:
+def transfer_path_str(transfer_path: "list[DirectTransfer]") -> str:
     """
     an implementation of __str__ for a transfer path, which is a list of direct transfers, so not really an object
     """
@@ -333,7 +305,7 @@ def transfer_path_str(transfer_path: "list[DirectTransferDefinition]") -> str:
 
 @transactional_session
 def mark_submitting(
-        transfer: "DirectTransferDefinition",
+        transfer: "DirectTransfer",
         external_host: str,
         *,
         logger: "Callable",
@@ -379,7 +351,7 @@ def mark_submitting(
 
 @transactional_session
 def ensure_db_sources(
-        transfer_path: "list[DirectTransferDefinition]",
+        transfer_path: "list[DirectTransfer]",
         *,
         logger: "Callable",
         session: "Session",
@@ -640,7 +612,7 @@ def _create_transfer_definitions(
         domain: str,
         *,
         session: "Session",
-) -> "dict[RseData, list[DirectTransferDefinition]]":
+) -> "dict[RseData, list[DirectTransfer]]":
     """
     Find the all paths from sources towards the destination of the given transfer request.
     Create the transfer definitions for each point-to-point transfer (multi-source, when possible)
@@ -668,7 +640,7 @@ def _create_transfer_definitions(
                 rse=hop_dst_rse,
                 scheme=hop['dest_scheme'],
             )
-            hop_definition = DirectTransferDefinition(
+            hop_definition = DirectTransferImplementation(
                 source=src,
                 destination=dst,
                 operation_src=operation_src,
@@ -764,13 +736,13 @@ def _create_stagein_definitions(
         operation_src: str,
         operation_dest: str,
         protocol_factory: ProtocolFactory,
-) -> "dict[RseData, list[StageinTransferDefinition]]":
+) -> "dict[RseData, list[DirectTransfer]]":
     """
     for each source, create a single-hop transfer path with a one stageing definition inside
     """
     transfers_by_source = {
         source.rse: [
-            StageinTransferDefinition(
+            cast(DirectTransfer, StageinTransferImplementation(
                 source=RequestSource(
                     rse=source.rse,
                     file_path=source.file_path,
@@ -785,7 +757,7 @@ def _create_stagein_definitions(
                 operation_dest=operation_dest,
                 rws=rws,
                 protocol_factory=protocol_factory,
-            )
+            ))
 
         ]
         for source in sources
@@ -804,9 +776,9 @@ def get_dsn(scope, name, dsn):
 
 
 def __compress_multihops(
-        paths_by_source: "Iterable[tuple[RequestSource, Sequence[DirectTransferDefinition]]]",
+        paths_by_source: "Iterable[tuple[RequestSource, Sequence[DirectTransfer]]]",
         sources: "Iterable[RequestSource]",
-) -> "Iterator[tuple[RequestSource, Sequence[DirectTransferDefinition]]]":
+) -> "Iterator[tuple[RequestSource, Sequence[DirectTransfer]]]":
     # Compress multihop transfers which contain other sources as part of itself.
     # For example: multihop A->B->C and B is a source, compress A->B->C into B->C
     source_rses = {s.rse.id for s in sources}
@@ -853,7 +825,7 @@ class TransferPathBuilder:
             *,
             logger: "LoggerFunction" = logging.log,
             session: "Session"
-    ) -> "Mapping[RseData, Sequence[DirectTransferDefinition]]":
+    ) -> "Mapping[RseData, Sequence[DirectTransfer]]":
         """
         Warning: The function currently caches the result for the given request and returns it for later calls
         with the same request id. As a result: it can return more (or less) sources than what is provided in the
@@ -1055,7 +1027,7 @@ class PreferDiskOverTape(SourceRankingStrategy):
 class PathDistance(SourceRankingStrategy):
 
     class _RankingContext(RequestRankingContext):
-        def __init__(self, strategy: "SourceRankingStrategy", rws: "RequestWithSources", paths_for_rws: "Mapping[RseData, Sequence[DirectTransferDefinition]]"):
+        def __init__(self, strategy: "SourceRankingStrategy", rws: "RequestWithSources", paths_for_rws: "Mapping[RseData, Sequence[DirectTransfer]]"):
             super().__init__(strategy, rws)
             self.paths_for_rws = paths_for_rws
 
@@ -1414,7 +1386,7 @@ def cancel_transfer(transfertool_obj, transfer_id):
 
 @transactional_session
 def prepare_transfers(
-        candidate_paths_by_request_id: "dict[str, list[list[DirectTransferDefinition]]]",
+        candidate_paths_by_request_id: "dict[str, list[list[DirectTransfer]]]",
         logger: "LoggerFunction" = logging.log,
         transfertools: "Optional[list[str]]" = None,
         *,

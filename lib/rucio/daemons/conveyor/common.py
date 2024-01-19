@@ -43,16 +43,29 @@ from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
-    from typing import Optional
-    from rucio.core.transfer import DirectTransferDefinition
+    from typing import Optional, Mapping
+    from rucio.common.types import InternalAccount
+    from rucio.core.request import DirectTransfer, RequestWithSources
+    from rucio.core.topology import Topology
+    from rucio.core.transfer import ProtocolFactory
     from rucio.transfertool.transfertool import TransferToolBuilder
     from sqlalchemy.orm import Session
 
 METRICS = MetricManager(module=__name__)
 
 
-def pick_and_prepare_submission_path(requests_with_sources, topology, protocol_factory, default_tombstone_delay=transfer_core.DEFAULT_MULTIHOP_TOMBSTONE_DELAY,
-                                     admin_accounts=None, schemes=None, failover_schemes=None, max_sources=4, transfertools=None, logger=logging.log):
+def pick_and_prepare_submission_path(
+        requests_with_sources: "Mapping[str, RequestWithSources]",
+        topology: "Topology",
+        protocol_factory: "ProtocolFactory",
+        default_tombstone_delay: int = transfer_core.DEFAULT_MULTIHOP_TOMBSTONE_DELAY,
+        admin_accounts: "Optional[set[InternalAccount]]" = None,
+        schemes: "Optional[list[str]]" = None,
+        failover_schemes: "Optional[list[str]]" = None,
+        max_sources: int = 4,
+        transfertools: "Optional[list[str]]" = None,
+        logger=logging.log
+) -> "dict[TransferToolBuilder, list[list[DirectTransfer]]]":
     """
     For each transfer, pick a (sub)path; and a transfertool to be used to submit that (sub)path
     """
@@ -131,10 +144,10 @@ def pick_and_prepare_submission_path(requests_with_sources, topology, protocol_f
 
 
 def __assign_to_transfertool(
-        transfer_path: "list[DirectTransferDefinition]",
+        transfer_path: "list[DirectTransfer]",
         transfertools: "Optional[list[str]]",
         logger: "Callable",
-) -> "list[tuple[list[DirectTransferDefinition], Optional[TransferToolBuilder]]]":
+) -> "list[tuple[list[DirectTransfer], Optional[TransferToolBuilder]]]":
     """
     Iterate over a multihop path and assign sub-paths to transfertools in chucks from left to right.
 
@@ -174,11 +187,11 @@ def __assign_to_transfertool(
 
 
 def assign_paths_to_transfertool_and_create_hops(
-        candidate_paths_by_request_id: "dict[str: list[DirectTransferDefinition]]",
+        candidate_paths_by_request_id: "dict[str: list[DirectTransfer]]",
         default_tombstone_delay: int,
         transfertools: "Optional[list[str]]" = None,
         logger: "Callable" = logging.log,
-) -> "tuple[dict[TransferToolBuilder, list[DirectTransferDefinition]], set[str]]":
+) -> "tuple[dict[TransferToolBuilder, list[list[DirectTransfer]]], set[str]]":
     """
     for each request, pick the first path which can be submitted by one of the transfertools.
     If the chosen path is multihop, create all missing intermediate requests and replicas.
@@ -214,13 +227,13 @@ def assign_paths_to_transfertool_and_create_hops(
 @transactional_session
 def __assign_paths_to_transfertool_and_create_hops(
         request_id: str,
-        candidate_paths: "Sequence[list[DirectTransferDefinition]]",
+        candidate_paths: "Sequence[list[DirectTransfer]]",
         default_tombstone_delay: int,
         transfertools: "Optional[list[str]]" = None,
         *,
         logger: "Callable" = logging.log,
         session: "Session",
-) -> "tuple[Optional[list[DirectTransferDefinition]], Optional[TransferToolBuilder]]":
+) -> "tuple[Optional[list[DirectTransfer]], Optional[TransferToolBuilder]]":
     """
     Out of a sequence of candidate paths for the given request, pick the first path which can
     be submitted by one of the transfertools.
@@ -290,7 +303,7 @@ def __assign_paths_to_transfertool_and_create_hops(
 
 @transactional_session
 def __create_missing_replicas_and_requests(
-        transfer_path: "list[DirectTransferDefinition]",
+        transfer_path: "list[DirectTransfer]",
         default_tombstone_delay: int,
         *,
         logger: "Callable",

@@ -22,6 +22,7 @@ import random
 import threading
 import traceback
 import uuid
+from abc import ABCMeta, abstractmethod
 from collections import namedtuple, defaultdict
 from collections.abc import Sequence, Mapping, Iterator
 from dataclasses import dataclass
@@ -51,6 +52,7 @@ RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
+    from rucio.rse.protocols.protocol import RSEProtocol
 
 """
 The core request.py is specifically for handling requests.
@@ -71,6 +73,15 @@ class RequestSource:
 
     def __str__(self):
         return "src_rse={}".format(self.rse)
+
+
+class TransferDestination:
+    def __init__(self, rse: RseData, scheme):
+        self.rse = rse
+        self.scheme = scheme
+
+    def __str__(self):
+        return "dst_rse={}".format(self.rse)
 
 
 class RequestWithSources:
@@ -144,6 +155,43 @@ class RequestWithSources:
             attr['dsn'] = attr["ds_name"] if (attr and "ds_name" in attr) else None
             attr['lifetime'] = attr.get('lifetime', -1)
         return attr
+
+
+class DirectTransfer(metaclass=ABCMeta):
+    """
+    The configuration for a direct (non-multi-hop) transfer. It can be a multi-source transfer.
+    """
+
+    def __init__(self, sources: list[RequestSource], rws: RequestWithSources) -> None:
+        self.sources: list[RequestSource] = sources
+        self.rws: RequestWithSources = rws
+
+    @property
+    @abstractmethod
+    def src(self) -> RequestSource:
+        pass
+
+    @property
+    @abstractmethod
+    def dst(self) -> TransferDestination:
+        pass
+
+    @property
+    @abstractmethod
+    def dest_url(self) -> str:
+        pass
+
+    @abstractmethod
+    def source_url(self, source: RequestSource) -> str:
+        pass
+
+    @abstractmethod
+    def dest_protocol(self) -> "RSEProtocol":
+        pass
+
+    @abstractmethod
+    def source_protocol(self, source: RequestSource) -> "RSEProtocol":
+        pass
 
 
 def should_retry_request(req, retry_protocol_mismatches):
