@@ -26,6 +26,7 @@ from datetime import datetime, timedelta
 from random import randint
 from re import match
 from typing import TYPE_CHECKING
+from rucio.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX
 
 from sqlalchemy.exc import DatabaseError
 
@@ -100,14 +101,14 @@ def run_once(paused_rules, delta, heartbeat_handler, **_kwargs):
             repair_rule(rule_id=rule_id)
             logger(logging.DEBUG, 'repairing of %s took %f' % (rule_id, time.time() - start))
         except (DatabaseException, DatabaseError) as e:
-            if match('.*ORA-00054.*', str(e.args[0])):
+            if match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])):
                 paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
                 logger(logging.WARNING, 'Locks detected for %s' % (rule_id))
                 METRICS.counter('exceptions.{exception}').labels(exception='LocksDetected').inc()
             elif match('.*QueuePool.*', str(e.args[0])):
                 logger(logging.WARNING, traceback.format_exc())
                 METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
-            elif match('.*ORA-03135.*', str(e.args[0])):
+            elif match(ORACLE_CONNECTION_LOST_CONTACT_REGEX, str(e.args[0])):
                 logger(logging.WARNING, traceback.format_exc())
                 METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
             else:

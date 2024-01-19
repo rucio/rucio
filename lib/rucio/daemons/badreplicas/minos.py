@@ -35,7 +35,7 @@ from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_r
                                 bulk_delete_bad_pfns, get_replicas_state)
 from rucio.core.rse import get_rse_name
 from rucio.daemons.common import run_daemon
-from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, ReplicaState
+from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, BadFilesStatus, BadPFNStatus, ReplicaState
 from rucio.db.sqla.session import get_session
 
 if TYPE_CHECKING:
@@ -209,7 +209,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                         bulk_delete_bad_pfns(pfns=chunk, session=session)
                         session.commit()  # pylint: disable=no-member
         except (DatabaseException, DatabaseError) as error:
-            if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+            if re.match(ORACLE_RESOURCE_BUSY_REGEX, error.args[0]) or re.match(ORACLE_DEADLOCK_DETECTED_REGEX, error.args[0]) or MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED in error.args[0]:
                 logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
             else:
                 logger(logging.ERROR, 'Exception', exc_info=True)
@@ -262,7 +262,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     __update_temporary_unavailable(chunk=chunk, reason=reason, expires_at=expires_at, account=account, logger=logger)
                     session = get_session()
                 except (DatabaseException, DatabaseError) as error:
-                    if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                    if re.match(ORACLE_RESOURCE_BUSY_REGEX, error.args[0]) or re.match(ORACLE_DEADLOCK_DETECTED_REGEX, error.args[0]) or MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED in error.args[0]:
                         logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
                     else:
                         logger(logging.ERROR, 'Exception', exc_info=True)

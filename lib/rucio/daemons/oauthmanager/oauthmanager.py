@@ -32,6 +32,7 @@ import threading
 import traceback
 from re import match
 from typing import TYPE_CHECKING
+from rucio.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX
 
 from sqlalchemy.exc import DatabaseError
 
@@ -107,7 +108,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, max_rows: int, sleep_time: int
         if match('.*QueuePool.*', str(err.args[0])):
             logger(logging.WARNING, traceback.format_exc())
             METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
-        elif match('.*ORA-03135.*', str(err.args[0])):
+        elif match(ORACLE_CONNECTION_LOST_CONTACT_REGEX, str(err.args[0])):
             logger(logging.WARNING, traceback.format_exc())
             METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
         else:
@@ -134,7 +135,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, max_rows: int, sleep_time: int
         if match('.*QueuePool.*', str(err.args[0])):
             logger(logging.WARNING, traceback.format_exc())
             METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
-        elif match('.*ORA-03135.*', str(err.args[0])):
+        elif match(ORACLE_CONNECTION_LOST_CONTACT_REGEX, str(err.args[0])):
             logger(logging.WARNING, traceback.format_exc())
             METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
         else:
@@ -157,7 +158,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, max_rows: int, sleep_time: int
         if match('.*QueuePool.*', str(err.args[0])):
             logger(logging.WARNING, traceback.format_exc())
             METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
-        elif match('.*ORA-03135.*', str(err.args[0])):
+        elif match(ORACLE_CONNECTION_LOST_CONTACT_REGEX, str(err.args[0])):
             logger(logging.WARNING, traceback.format_exc())
             METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
         else:

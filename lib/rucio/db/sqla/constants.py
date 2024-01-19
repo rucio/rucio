@@ -20,6 +20,16 @@ from enum import Enum
 
 OBSOLETE = datetime(year=1970, month=1, day=1)  # Tombstone value to mark obsolete replicas
 
+# Regex patterns
+
+ORACLE_CONNECTION_LOST_CONTACT_REGEX = r".*ORA-03135.*"
+ORACLE_DEADLOCK_DETECTED_REGEX = r".*ORA-00060.*"
+ORACLE_RESOURCE_BUSY_REGEX = r".*ORA-00054.*"
+ORACLE_UNIQUE_CONSTRAINT_VIOLATED_REGEX = r".*ORA-00001.*"
+PSQL_LOCK_NOT_AVAILABLE_REGEX = r".*55P03.*"
+MYSQL_LOCK_NOWAIT_REGEX = r".*3572.*"
+MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED = "ERROR 1205 (HY000)"
+
 
 # The enum values below are the actual strings stored in the database -- these must be string types.
 # This is done explicitly via values_callable to SQLAlchemy enums in models.py and alembic scripts,
