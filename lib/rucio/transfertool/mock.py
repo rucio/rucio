@@ -53,6 +53,7 @@ class MockTransfertool(Transfertool):
 
     external_name = 'mock'
     required_rse_attrs = ()
+    supported_schemes = {'mock', 'file'}
 
     def __init__(self, external_host: str, logger=logging.log):
         super(MockTransfertool, self).__init__(external_host, logger)

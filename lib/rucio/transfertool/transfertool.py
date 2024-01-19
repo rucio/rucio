@@ -17,6 +17,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
+from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core.request import get_request
 
 if TYPE_CHECKING:
@@ -117,6 +118,7 @@ class Transfertool(object, metaclass=ABCMeta):
 
     external_name = ''
     required_rse_attrs = ()
+    supported_schemes = set(SUPPORTED_PROTOCOLS)
 
     def __init__(self, external_host, logger=logging.log):
         """

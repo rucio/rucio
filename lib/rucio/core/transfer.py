@@ -880,7 +880,7 @@ class TransferPathBuilder:
                 sources=candidate_sources,
                 max_sources=self.max_sources,
                 multi_source_sources=[] if self.preparer_mode else sources,
-                limit_dest_schemes=[],
+                limit_dest_schemes=transfer_schemes,
                 operation_src='third_party_copy_read',
                 operation_dest='third_party_copy_write',
                 domain='wan',

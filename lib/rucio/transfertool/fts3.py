@@ -778,6 +778,7 @@ class FTS3Transfertool(Transfertool):
 
     external_name = 'fts3'
     required_rse_attrs = ('fts', )
+    supported_schemes = Transfertool.supported_schemes.union(('mock', ))
 
     def __init__(self, external_host, oidc_account=None, oidc_support: bool = False, vo=None, group_bulk=1, group_policy='rule', source_strategy=None,
                  max_time_in_queue=None, bring_online=43200, default_lifetime=172800, archive_timeout_override=None,
