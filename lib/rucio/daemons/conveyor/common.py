@@ -231,9 +231,9 @@ def __assign_paths_to_transfertool_and_create_hops(
 
     # Selects the first path which can be submitted using a chain of supported transfertools
     # and for which the creation of intermediate hops (if it is a multihop) works correctly
-    best_path = None
+    best_path = []
     builder_to_use = None
-    hops_to_submit = None
+    hops_to_submit = []
     must_skip_submission = False
 
     tt_assignments = [(transfer_path, __assign_to_transfertool(transfer_path, transfertools, logger=logger))
