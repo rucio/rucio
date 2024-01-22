@@ -95,9 +95,10 @@ class SubscriptionClient(BaseClient):
         result = self._send_request(url, type_='GET')
         if result.status_code == codes.ok:   # pylint: disable=no-member
             return self._load_json_data(result)
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
-            raise exc_cls(exc_msg)
+        if result.status_code == codes.not_found:
+            return []
+        exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
+        raise exc_cls(exc_msg)
 
     def update_subscription(self, name, account=None, filter_=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, priority=None):
         """
