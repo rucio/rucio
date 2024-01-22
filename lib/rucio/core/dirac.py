@@ -16,7 +16,7 @@
 import re
 from json import loads
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -54,7 +54,7 @@ def _exists(scope, name, *, session: "Session"):
 
 
 @transactional_session
-def add_files(lfns, account, ignore_availability, vo='def', *, session: "Session"):
+def add_files(lfns: list[dict], account: str, ignore_availability: bool, parents_metadata: Optional[dict] = None, vo: str = 'def', *, session: "Session"):
     """
     Bulk add files :
     - Create the file and replica.
@@ -64,11 +64,14 @@ def add_files(lfns, account, ignore_availability, vo='def', *, session: "Session
     :param lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
     :param issuer: The issuer account.
     :param ignore_availability: A boolean to ignore blocklisted sites.
+    :param parents_metadata: Metadata for selected hierarchy DIDs. (dictionary {'lpn': {key : value}})
     :param vo: The VO to act on
     :param session: The session used
     """
     rule_extension_list = []
     attachments = []
+    if not parents_metadata:
+        parents_metadata = {}
     # The list of scopes is necessary for the extract_scope
     filter_ = {'scope': InternalScope(scope='*', vo=vo)}
     scopes = list_scopes(filter_=filter_, session=session)
@@ -104,6 +107,7 @@ def add_files(lfns, account, ignore_availability, vo='def', *, session: "Session
         dsn_name = lpns[0]
         dsn_scope, _ = extract_scope(dsn_name, scopes)
         dsn_scope = InternalScope(dsn_scope, vo=vo)
+        dsn_meta = parents_metadata.get(dsn_name, {})
 
         # Compute lifetime
         lifetime = None
@@ -126,7 +130,7 @@ def add_files(lfns, account, ignore_availability, vo='def', *, session: "Session
                     DIDType.DATASET,
                     account=InternalAccount(account, vo=vo),
                     statuses=None,
-                    meta=None,
+                    meta=dsn_meta,
                     rules=[{'copies': 1, 'rse_expression': 'ANY=true', 'weight': None, 'account': InternalAccount(account, vo=vo), 'lifetime': lifetime, 'grouping': 'NONE'}],
                     lifetime=None,
                     dids=None,
@@ -153,11 +157,12 @@ def add_files(lfns, account, ignore_availability, vo='def', *, session: "Session
         guid = lfn.get('guid', None)
         adler32 = lfn.get('adler32', None)
         pfn = lfn.get('pfn', None)
-        files = {'scope': lfn_scope, 'name': filename, 'bytes': bytes_, 'adler32': adler32}
+        meta = lfn.get('meta', {})
+        files = {'scope': lfn_scope, 'name': filename, 'bytes': bytes_, 'adler32': adler32, 'meta': meta}
         if pfn:
             files['pfn'] = str(pfn)
         if guid:
-            files['meta'] = {'guid': guid}
+            files['meta']['guid'] = guid
         add_replicas(rse_id=rse_id,
                      files=[files],
                      dataset_meta=None,
@@ -181,6 +186,7 @@ def add_files(lfns, account, ignore_availability, vo='def', *, session: "Session
             child_scope, _ = extract_scope(lpn, scopes)
             child_scope = InternalScope(child_scope, vo=vo)
             exists, did_type = _exists(child_scope, lpn)
+            child_meta = parents_metadata.get(lpn, {})
             if exists and did_type == DIDType.DATASET:
                 raise UnsupportedOperation('Cannot create %s as container' % lpn)
             if (lpn not in exist_lfn) and not exists:
@@ -190,7 +196,7 @@ def add_files(lfns, account, ignore_availability, vo='def', *, session: "Session
                         DIDType.CONTAINER,
                         account=InternalAccount(account, vo=vo),
                         statuses=None,
-                        meta=None,
+                        meta=child_meta,
                         rules=None,
                         lifetime=None,
                         dids=None,

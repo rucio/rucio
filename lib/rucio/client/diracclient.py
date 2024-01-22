@@ -28,7 +28,7 @@ class DiracClient(BaseClient):
 
     DIRAC_BASEURL = 'dirac'
 
-    def add_files(self, lfns, ignore_availability=False):
+    def add_files(self, lfns, ignore_availability=False, parents_metadata=None):
         """
         Bulk add files :
         - Create the file and replica.
@@ -37,10 +37,11 @@ class DiracClient(BaseClient):
 
         :param lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
         :param ignore_availability: A boolean to ignore blocked sites.
+        :param parents_metadata: Metadata for selected hierarchy DIDs. (dictionary {'lpn': {key : value}}). Default=None
         """
         path = '/'.join([self.DIRAC_BASEURL, 'addfiles'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='POST', data=dumps({'lfns': lfns, 'ignore_availability': ignore_availability}))
+        r = self._send_request(url, type_='POST', data=dumps({'lfns': lfns, 'ignore_availability': ignore_availability, 'parents_metadata': parents_metadata}))
         if r.status_code == codes.created:
             return True
         else:
