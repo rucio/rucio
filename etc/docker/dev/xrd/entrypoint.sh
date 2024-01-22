@@ -1,3 +1,4 @@
+#!/bin/bash
 # -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
@@ -13,20 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import enum
+sed "s/XRDPORT/$XRDPORT/g" /configs/xrootd.cfg > /etc/xrootd/xrdrucio.cfg
+sed "s/XRDHOST/$XRDHOST/g" /configs/scitokens.cfg > /etc/xrootd/scitokens.cfg
+cp /configs/Authfile /etc/xrootd/Authfile
 
-class NoParallelGroups(enum.Enum):
-    # Special group. Tests with this marker will never run in parallel with any other test
-    EXCLUSIVE = 'exclusive'
-    # Per-daemon-groups. Running the same daemon multiple times in parallel will fail due to job assignment by hash
-    PREPARER = 'preparer'
-    THROTTLER = 'throttler'
-    STAGER = 'stager'
-    SUBMITTER = 'submitter'
-    POLLER = 'poller'
-    RECEIVER = 'receiver'
-    FINISHER = 'finisher'
-    # Accessing predefined RSEs
-    XRD = 'xrd'
-    WEB = 'web'
+echo 'Fixing ownership and permissions'
+cp /tmp/xrdcert.pem /etc/grid-security/xrd/xrdcert.pem
+cp /tmp/xrdkey.pem /etc/grid-security/xrd/xrdkey.pem
+chown -R xrootd:xrootd /etc/grid-security/xrd
+chmod 0400 /etc/grid-security/xrd/xrdkey.pem
 
+xrootd -R xrootd -n rucio -c /etc/xrootd/xrdrucio.cfg
+
+exec "$@"

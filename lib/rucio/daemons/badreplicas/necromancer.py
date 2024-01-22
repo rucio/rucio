@@ -35,7 +35,7 @@ from rucio.core.replica import list_bad_replicas, get_replicas_state, get_bad_re
 from rucio.core.rule import (update_rules_for_lost_replica, update_rules_for_bad_replica,
                              get_evaluation_backlog)
 from rucio.daemons.common import run_daemon
-from rucio.db.sqla.constants import ReplicaState
+from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, ReplicaState
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -140,7 +140,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                         update_rules_for_lost_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
                         METRICS.counter(name='badfiles.lostfile').inc()
                     except (DatabaseException, DatabaseError) as error:
-                        if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                        if re.match(ORACLE_RESOURCE_BUSY_REGEX, error.args[0]) or re.match(ORACLE_DEADLOCK_DETECTED_REGEX, error.args[0]) or MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED in error.args[0]:
                             logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
                         else:
                             logger(logging.ERROR, str(error))
@@ -153,7 +153,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                         update_rules_for_bad_replica(scope=scope, name=name, rse_id=rse_id, nowait=True)
                         METRICS.counter(name='badfiles.recovering').inc()
                     except (DatabaseException, DatabaseError) as error:
-                        if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+                        if re.match(ORACLE_RESOURCE_BUSY_REGEX, error.args[0]) or re.match(ORACLE_DEADLOCK_DETECTED_REGEX, error.args[0]) or MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED in error.args[0]:
                             logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
                         else:
                             logger(logging.ERROR, str(error))
