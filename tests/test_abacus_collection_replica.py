@@ -23,7 +23,7 @@ from rucio.core.replica import delete_replicas, get_cleaned_updated_collection_r
 from rucio.daemons.abacus import collection_replica
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
-from rucio.daemons.undertaker import undertaker
+from rucio.daemons.undertaker.undertaker import Undertaker
 from rucio.db.sqla import models, session
 from rucio.db.sqla.constants import DIDType, ReplicaState
 from rucio.tests.common import did_name_generator
@@ -55,7 +55,8 @@ class TestAbacusCollectionReplica():
         db_session.commit()
         assert len(get_cleaned_updated_collection_replicas(1, 1)) == 3
         did_client.set_metadata(mock_scope.external, dataset, 'lifetime', -1)
-        undertaker.run(once=True)
+        undertaker = Undertaker(once=True)
+        undertaker.run()
         cleaner.run(once=True)
         if vo:
             reaper.run(once=True, include_rses='vo=%s&(%s|%s)' % (str(vo), rse1, rse2), greedy=True)
