@@ -59,6 +59,13 @@ Requests accessed by external_id (So called transfers), are covered in the core 
 
 METRICS = MetricManager(module=__name__)
 
+TRANSFER_TIME_BUCKETS = (
+    10, 30, 60, 5 * 60, 10 * 60, 20 * 60, 40 * 60, 60 * 60, 1.5 * 60 * 60, 3 * 60 * 60, 6 * 60 * 60,
+    12 * 60 * 60, 24 * 60 * 60, 3 * 24 * 60 * 60, 4 * 24 * 60 * 60, 5 * 24 * 60 * 60,
+    6 * 24 * 60 * 60, 7 * 24 * 60 * 60, 10 * 24 * 60 * 60, 14 * 24 * 60 * 60, 30 * 24 * 60 * 60,
+    float('inf')
+)
+
 
 class RequestSource:
     def __init__(self, rse: RseData, ranking=None, distance=None, file_path=None, scheme=None, url=None):
@@ -1395,19 +1402,12 @@ class TransferStatsManager:
                     record.files_done += 1
                     record.bytes_done += file_size
 
-                    transfer_time_buckets = (
-                        10, 30, 60, 5 * 60, 10 * 60, 20 * 60, 40 * 60, 60 * 60, 1.5 * 60 * 60, 3 * 60 * 60, 6 * 60 * 60,
-                        12 * 60 * 60, 24 * 60 * 60, 3 * 24 * 60 * 60, 4 * 24 * 60 * 60, 5 * 24 * 60 * 60,
-                        6 * 24 * 60 * 60, 7 * 24 * 60 * 60, 10 * 24 * 60 * 60, 14 * 24 * 60 * 60, 30 * 24 * 60 * 60,
-                        float('inf')
-                    )
-                    if submitted_at is not None:
-                        if started_at is not None:
-                            wait_time = (started_at - submitted_at).total_seconds()
-                            METRICS.timer(name='wait_time', buckets=transfer_time_buckets).observe(wait_time)
+                    if submitted_at is not None and started_at is not None:
+                        wait_time = (started_at - submitted_at).total_seconds()
+                        METRICS.timer(name='wait_time', buckets=TRANSFER_TIME_BUCKETS).observe(wait_time)
                         if transferred_at is not None:
-                            transfer_time = (transferred_at - submitted_at).total_seconds()
-                            METRICS.timer(name='transfer_time', buckets=transfer_time_buckets).observe(transfer_time)
+                            transfer_time = (transferred_at - started_at).total_seconds()
+                            METRICS.timer(name='transfer_time', buckets=TRANSFER_TIME_BUCKETS).observe(transfer_time)
                 else:
                     record.files_failed += 1
         if save_samples:
