@@ -21,7 +21,7 @@ Undertaker is a daemon to manage expired did.
 import argparse
 import signal
 
-from rucio.daemons.undertaker.undertaker import run, stop
+from rucio.daemons.undertaker.undertaker import Undertaker, run, stop
 
 
 def get_parser():
@@ -70,8 +70,9 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, stop)
     parser = get_parser()
     args = parser.parse_args()
-    try:
-        run(total_workers=args.total_workers, chunk_size=args.chunk_size, once=args.run_once,
+    undertaker = Undertaker(total_workers=args.total_workers, chunk_size=args.chunk_size, once=args.run_once,
             sleep_time=args.sleep_time)
+    try:
+        undertaker.run()
     except KeyboardInterrupt:
-        stop()
+        undertaker.stop()

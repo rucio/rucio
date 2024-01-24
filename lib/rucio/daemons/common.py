@@ -23,22 +23,96 @@ import threading
 import time
 from collections.abc import Callable, Generator, Iterator, Sequence
 from typing import Any, Generic, Optional, TypeVar, Union
+from types import TracebackType
 
-from rucio.common.logging import formatted_logger
+import rucio.db.sqla.util
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.utils import PriorityQueue
 from rucio.core import heartbeat as heartbeat_core
 from rucio.core.monitor import MetricManager
+from rucio.common.exception import DatabaseException
 
 T = TypeVar('T')
 METRICS = MetricManager(module=__name__)
 
+class BaseDaemon:
+    """
+    Base daemon class
+    """
+
+    def __init__(self, daemon_name: str = "undefined_daemon", once: bool = False, total_workers: int = 1, chunk_size: int = 10, sleep_time: int = 60, partition_wait_time: int = 1) -> None:
+        self.daemon_name = daemon_name
+        self.once = once
+        self.total_workers = total_workers
+        self.chunk_size = chunk_size
+        self.sleep_time = sleep_time
+        self.partition_wait_time = partition_wait_time
+        self.graceful_stop = threading.Event()
+        setup_logging(process_name=daemon_name)
+
+    def _pre_run_checks() -> None:
+        """
+        Checks to run before daemon execution
+        """
+        if rucio.db.sqla.util.is_old_db():
+            raise DatabaseException("Database was not updated, daemon won't start")
+
+    def run(self) -> None:
+        self.pre_run_checks()
+        run_once_fnc=functools.partial(
+                    self._run_once
+                )
+
+        if self.once:
+            self.call_daemon(run_once_fnc=run_once_fnc)
+        else:
+            logging.info('main: starting threads')
+            threads = [threading.Thread(target=self.call_daemon, kwargs={'run_once_fnc': run_once_fnc}) for _ in range(0, self.total_workers)]
+            [t.start() for t in threads]
+            logging.info('main: waiting for interrupts')
+
+            # Interruptible joins require a timeout.
+            while threads[0].is_alive():
+                [t.join(timeout=3.14) for t in threads]
+
+    def _run_once() -> None:
+        """
+        Daemon-specific logic (to be defined in child classes) for a single iteration
+        """
+        pass
+
+
+    def call_daemon(self,
+            run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, Any]]]],
+            activities: Optional[list[str]] = None) -> None:
+        """
+        Run the daemon loop and call the function run_once_fnc at each iteration
+        """
+
+        daemon = db_workqueue(
+            once=self.once,
+            graceful_stop=self.graceful_stop,
+            executable=self.daemon_name,
+            partition_wait_time=self.partition_wait_time,
+            sleep_time=self.sleep_time,
+            activities=activities,
+        )(run_once_fnc)
+
+        for _ in daemon():
+            pass
+
+    def stop(self) -> None:
+        """
+        Graceful exit.
+        """
+        self.graceful_stop.set()
 
 class HeartbeatHandler:
     """
     Simple contextmanager which sets a heartbeat and associated logger on entry and cleans up the heartbeat on exit.
     """
 
-    def __init__(self, executable: str, renewal_interval: int):
+    def __init__(self, executable: str, renewal_interval: int) -> None:
         """
         :param executable: the executable name which will be set in heartbeats
         :param renewal_interval: the interval at which the heartbeat will be renewed in the database.
@@ -58,28 +132,28 @@ class HeartbeatHandler:
         self.last_time = None
         self.last_payload = None
 
-    def __enter__(self):
+    def __enter__(self) -> "HeartbeatHandler":
         heartbeat_core.sanity_check(executable=self.executable, hostname=self.hostname)
         self.live()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType) -> None:
         if self.last_heart_beat:
             heartbeat_core.die(self.executable, self.hostname, self.pid, self.hb_thread)
             if self.logger:
                 self.logger(logging.INFO, 'Heartbeat cleaned up')
 
     @property
-    def hash_executable(self):
+    def hash_executable(self) -> str:
         if not self._hash_executable:
             self._hash_executable = heartbeat_core.calc_hash(self.executable)
         return self._hash_executable
 
     @property
-    def short_executable(self):
+    def short_executable(self) -> str:
         return min(self.executable, self.hash_executable, key=len)
 
-    def live(self, force_renew: bool = False, payload: Optional[str] = None):
+    def live(self, force_renew: bool = False, payload: Optional[str] = None) -> tuple[int, int, Callable]:
         """
         :return: a tuple: <the number of the current worker>, <total number of workers>, <decorated logger>
         """
@@ -254,7 +328,7 @@ def run_daemon(
         partition_wait_time: int,
         sleep_time: int,
         run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, Any]]]],
-        activities: Optional[list[str]] = None):
+        activities: Optional[list[str]] = None) -> None:
     """
     Run the daemon loop and call the function run_once_fnc at each iteration
     """
