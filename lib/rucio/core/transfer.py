@@ -561,8 +561,8 @@ def update_transfer_state(
                     state=tt_status_report.state,
                     file_size=request['bytes'],
                     submitted_at=request.get('submitted_at', None),
-                    started_at=request.get('started_at', None),
-                    transferred_at=request.get('transferred_at', None),
+                    started_at=fields_to_update.get('started_at', None),
+                    transferred_at=fields_to_update.get('transferred_at', None),
                     session=session,
                 )
             request_core.add_monitor_message(
