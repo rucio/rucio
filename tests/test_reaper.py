@@ -36,7 +36,8 @@ from rucio.daemons.reaper.dark_reaper import reaper as dark_reaper
 from rucio.daemons.reaper.reaper import run as run_reaper
 from rucio.db.sqla.models import ConstituentAssociationHistory
 from rucio.db.sqla.session import read_session
-from rucio.tests.common import rse_name_generator
+from rucio.tests.common import rse_name_generator, skip_rse_tests_with_accounts
+from tests.ruciopytest import NoParallelGroups
 
 __mock_protocol = {'scheme': 'MOCK',
                    'hostname': 'localhost',
@@ -481,3 +482,21 @@ def test_reaper_without_rse_usage(vo, caches_mock):
     cache_region.invalidate()
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == nb_files - nb_epoch_tombstone
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.dirty(reason="leaves files in XRD containers")
+@pytest.mark.noparallel(groups=[NoParallelGroups.WEB])
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
+@pytest.mark.parametrize("file_config_mock", [
+    {"overrides": [('oidc', 'admin_issuer', 'indigoiam')]},
+], indirect=True)
+def test_deletion_with_tokens(vo, did_factory, root_account, caches_mock, file_config_mock):
+    rse_name = 'WEB1'
+    did = did_factory.upload_test_file(rse_name)
+    for rule in list(rule_core.list_associated_rules_for_file(**did)):
+        rule_core.delete_rule(rule['id'])
+
+    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, greedy=True, scheme='davs')

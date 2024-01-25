@@ -52,7 +52,7 @@ from rucio.transfertool.fts3 import FTS3Transfertool
 from tests.ruciopytest import NoParallelGroups
 from tests.mocks.mock_http_server import MockServer
 
-MAX_POLL_WAIT_SECONDS = 60
+MAX_POLL_WAIT_SECONDS = 100
 TEST_FTS_HOST = 'https://fts:8446'
 
 
@@ -823,7 +823,6 @@ def test_non_deterministic_dst(did_factory, did_client, root_account, vo, caches
 
 
 @skip_rse_tests_with_accounts
-@pytest.mark.dirty(reason="Submits a transfer to FTS which cannot be ever executed in this test env.")
 @pytest.mark.noparallel(groups=[NoParallelGroups.STAGER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 def test_stager(rse_factory, did_factory, root_account, replica_client):
     """
@@ -861,8 +860,8 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
                                            'requested_at': datetime.utcnow()}])
     stager(once=True, rses=[{'id': rse_id} for rse_id in all_rses])
 
-    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-    assert request['state'] == RequestState.SUBMITTED
+    replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=2 * MAX_POLL_WAIT_SECONDS, **did)
+    assert replica['state'] == ReplicaState.AVAILABLE
 
 
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.FINISHER])
@@ -1577,6 +1576,53 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
     request = __wait_for_state_transition(dst_rse_id=dst_rse3_id, **did)
     assert 'Source and destination checksums do not match' in request['err_msg']
     assert request['state'] == RequestState.FAILED
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
+@pytest.mark.parametrize("file_config_mock", [
+    {"overrides": [('oidc', 'admin_issuer', 'indigoiam')]},
+], indirect=True)
+def test_transfer_with_tokens(vo, did_factory, root_account, caches_mock, file_config_mock):
+    src_rse = 'WEB1'
+    src_rse_id = rse_core.get_rse_id(rse=src_rse, vo=vo)
+    dst_rse = 'XRD5'
+    dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
+    all_rses = [src_rse_id, dst_rse_id]
+
+    did = did_factory.upload_test_file(src_rse)
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    received_messages = {}
+
+    class ReceiverWrapper(Receiver):
+        """
+        Wrap receiver to record the last handled message for each given request_id
+        """
+        def _perform_request_update(self, msg, *, session=None, logger=logging.log):
+            ret = super()._perform_request_update(msg, session=session, logger=logger)
+            received_messages[msg['file_metadata']['request_id']] = msg
+            return ret
+
+    with patch('rucio.daemons.conveyor.receiver.Receiver', ReceiverWrapper):
+        receiver_thread = threading.Thread(target=receiver, kwargs={'id_': 0, 'all_vos': True, 'total_threads': 1})
+        receiver_thread.start()
+        try:
+            submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+            # Wait for the reception of the FTS Completion message for the submitted request
+            request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+            for i in range(MAX_POLL_WAIT_SECONDS):
+                if request['id'] in received_messages:
+                    break
+                if i == MAX_POLL_WAIT_SECONDS - 1:
+                    assert False  # Waited too long; fail the test
+                time.sleep(1)
+            assert received_messages[request['id']]['job_metadata']['auth_method'] == 'oauth2'
+        finally:
+            receiver_graceful_stop.set()
+            receiver_thread.join(timeout=5)
+            receiver_graceful_stop.clear()
 
 
 @pytest.mark.noparallel(groups=[NoParallelGroups.PREPARER])

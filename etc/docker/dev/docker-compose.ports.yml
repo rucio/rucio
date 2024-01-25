@@ -43,6 +43,9 @@ services:
   xrd4:
     ports:
       - "127.0.0.1:1097:1097"
+  xrd5:
+    ports:
+      - "127.0.0.1:1098:1098"
   minio:
     ports:
       - "127.0.0.1:9000:9000"
@@ -64,12 +67,12 @@ services:
   grafana:
     ports:
       - "127.0.0.1:3000:3000"
-  db-iam:
+  indigoiam-db:
     ports:
       - "127.0.0.1:3307:3306"
-  nginx-iam:
+  indigoiam:
     ports:
       - "127.0.0.1:9443:443"
-  iam:
+  indigoiam-login-service:
     ports:
       - "127.0.0.1:8090:8090"
