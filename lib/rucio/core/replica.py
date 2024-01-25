@@ -1947,7 +1947,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                      association_temp_table.name == models.DataIdentifier.name)
             ).where(
                 or_(models.DataIdentifier.complete == true(),
-                    models.DataIdentifier.complete is None),
+                    models.DataIdentifier.complete.is_(None)),
             )
             for parent_scope, parent_name, parent_did_type in session.execute(stmt):
                 message = {'scope': parent_scope,
@@ -2442,9 +2442,10 @@ def update_replicas_states(replicas, nowait=False, *, session: "Session"):
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
             stmt_bad_replicas = select(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
             result_bad_replicas = session.execute(stmt_bad_replicas)
-            if result_bad_replicas.scalar_one_or_none():
+            one_or_none = result_bad_replicas.scalar_one_or_none()
+            if one_or_none:
                 update_stmt = update(models.BadReplicas).where(
-                    models.BadReplicas.rse_id == result_bad_replicas.scalar_one_or_none().rse_id
+                    models.BadReplicas.rse_id == one_or_none.rse_id
                 ).execution_options(synchronize_session=False).values(
                     {'state': BadFilesStatus.RECOVERED, 'updated_at': datetime.utcnow()}
                 )
