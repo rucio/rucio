@@ -45,8 +45,6 @@ from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
 from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, RequestState, RequestType
 from rucio.transfertool.transfertool import Transfertool
 from rucio.transfertool.fts3 import FTS3Transfertool
-from rucio.transfertool.globus import GlobusTransferTool
-from rucio.transfertool.mock import MockTransfertool
 
 if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
@@ -132,18 +130,22 @@ def _handle_requests(
 
         for chunk in dict_chunks(transfers_by_eid, fts_bulk):
             try:
-                if transfertool == 'mock':
-                    transfertool_obj = MockTransfertool(external_host=MockTransfertool.external_name)
-                elif transfertool == 'globus':
-                    transfertool_obj = GlobusTransferTool(external_host=GlobusTransferTool.external_name)
-                else:
+                transfertool_cls = transfer_core.TRANSFERTOOL_CLASSES_BY_NAME.get(transfertool, FTS3Transfertool)
+
+                transfertool_kwargs = {}
+                if transfertool_cls.external_name == FTS3Transfertool.external_name:
                     account = None
                     if oidc_account:
                         if vo:
                             account = InternalAccount(oidc_account, vo=vo)
                         else:
                             account = InternalAccount(oidc_account)
-                    transfertool_obj = FTS3Transfertool(external_host=external_host, vo=vo, oidc_account=account)
+                    transfertool_kwargs.update({
+                        'vo': vo,
+                        'oidc_account': account,
+                    })
+
+                transfertool_obj = transfertool_cls(external_host=external_host, **transfertool_kwargs)
                 poll_transfers(
                     transfertool_obj=transfertool_obj,
                     transfers_by_eid=chunk,

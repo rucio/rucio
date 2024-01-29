@@ -219,8 +219,28 @@ def submitter(
 
     partition_hash_var = config_get('conveyor', 'partition_hash_var', default=None, raise_exception=False)
 
-    schemes = config_get_list('conveyor', 'scheme', default=None, raise_exception=False)
-    failover_schemes = config_get_list('conveyor', 'failover_scheme', default=None, raise_exception=False)
+    config_schemes = set(config_get_list('conveyor', 'scheme', raise_exception=False) or [])
+    config_failover_schemes = set(config_get_list('conveyor', 'failover_scheme', raise_exception=False) or [])
+
+    schemes_supported_by_tt = set()
+    for transfertool in transfertools:
+        schemes_supported_by_tt.update(TRANSFERTOOL_CLASSES_BY_NAME[transfertool].supported_schemes)
+
+    schemes = config_schemes.intersection(schemes_supported_by_tt)
+    failover_schemes = config_failover_schemes.intersection(schemes_supported_by_tt)
+
+    if config_schemes and not schemes:
+        logging.critical(f'None of the configured schemes ({list(config_schemes)}) is supported '
+                         f'by any configured transfertool ({transfertools}). This configuration is invalid. Aborting')
+        return
+    if config_failover_schemes and not failover_schemes:
+        logging.critical(f'None of the configured failover schemes ({list(config_failover_schemes)}) is supported '
+                         f'by any configured transfertool ({transfertools}). This configuration is invalid. Aborting')
+        return
+    if config_schemes.difference(schemes):
+        logging.info(f'Following schemes filtered out: {list(config_schemes.difference(schemes))}')
+    if config_failover_schemes.difference(failover_schemes):
+        logging.info(f'Following failover schemes filtered out: {list(config_failover_schemes.difference(failover_schemes))}')
 
     timeout = config_get_float('conveyor', 'submit_timeout', default=None, raise_exception=False)
 
@@ -281,8 +301,8 @@ def submitter(
         return _handle_requests(
             batch,
             transfertools=transfertools,
-            schemes=schemes,
-            failover_schemes=failover_schemes,
+            schemes=list(schemes),
+            failover_schemes=list(failover_schemes),
             max_sources=max_sources,
             timeout=timeout,
             transfertool_kwargs=transfertool_kwargs,

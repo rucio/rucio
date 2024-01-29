@@ -45,7 +45,7 @@ from rucio.db.sqla.constants import RequestState
 from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 
 if TYPE_CHECKING:
-    from rucio.core.transfer import DirectTransferDefinition
+    from rucio.core.request import DirectTransfer
     from rucio.core.rse import RseData
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -197,7 +197,7 @@ def _configured_source_strategy(activity: str, logger: Callable[..., Any]) -> st
 
 
 def _available_checksums(
-        transfer: "DirectTransferDefinition",
+        transfer: "DirectTransfer",
 ) -> tuple[set[str], set[str]]:
     """
     Get checksums which can be used for file validation on the source and the destination RSE
@@ -218,7 +218,7 @@ def _available_checksums(
 
 
 def _hop_checksum_validation_strategy(
-        transfer: "DirectTransferDefinition",
+        transfer: "DirectTransfer",
         logger: Callable[..., Any],
 ) -> tuple[str, set[str]]:
     """
@@ -244,7 +244,7 @@ def _hop_checksum_validation_strategy(
 
 
 def _path_checksum_validation_strategy(
-        transfer_path: "list[DirectTransferDefinition]",
+        transfer_path: "list[DirectTransfer]",
         logger: Callable[..., Any],
 ) -> str:
     """
@@ -261,7 +261,7 @@ def _path_checksum_validation_strategy(
 
 
 def _pick_fts_checksum(
-        transfer: "DirectTransferDefinition",
+        transfer: "DirectTransfer",
         path_strategy: "str",
 ) -> Optional[str]:
     """
@@ -293,6 +293,19 @@ def _pick_fts_checksum(
             break
 
     return checksum_to_use
+
+
+def _use_tokens(transfer_hop: "DirectTransfer"):
+    """Whether a transfer can be performed with tokens.
+
+    In order to be so, all the involved RSEs must have it explicitly enabled
+    and the protocol being used must be WebDAV.
+    """
+    for endpoint in [*transfer_hop.sources, transfer_hop.dst]:
+        if (endpoint.rse.attributes.get('oidc_support') is not True
+                or endpoint.scheme != 'davs'):
+            return False
+    return True
 
 
 def build_job_params(transfer_path, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger):
@@ -343,7 +356,8 @@ def build_job_params(transfer_path, bring_online, default_lifetime, archive_time
         job_params['strict_copy'] = strict_copy
     if dest_spacetoken:
         job_params['spacetoken'] = dest_spacetoken
-    if last_hop.use_ipv4:
+    if (last_hop.dst.rse.attributes.get('use_ipv4', False)
+            or any(src.rse.attributes.get('use_ipv4', False) for src in last_hop.sources)):
         job_params['ipv4'] = True
         job_params['ipv6'] = False
 
@@ -778,6 +792,7 @@ class FTS3Transfertool(Transfertool):
 
     external_name = 'fts3'
     required_rse_attrs = ('fts', )
+    supported_schemes = Transfertool.supported_schemes.union(('mock', ))
 
     def __init__(self, external_host, oidc_account=None, oidc_support: bool = False, vo=None, group_bulk=1, group_policy='rule', source_strategy=None,
                  max_time_in_queue=None, bring_online=43200, default_lifetime=172800, archive_timeout_override=None,
@@ -869,7 +884,7 @@ class FTS3Transfertool(Transfertool):
 
         if sub_path:
             oidc_support = False
-            if all(t.use_tokens for t in sub_path):
+            if all(_use_tokens(t) for t in sub_path):
                 logger(logging.DEBUG, 'OAuth2/OIDC available for transfer {}'.format([str(hop) for hop in sub_path]))
                 oidc_support = True
             return sub_path, TransferToolBuilder(cls, external_host=fts_hosts[0], oidc_support=oidc_support, vo=vo)

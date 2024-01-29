@@ -14,21 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-sed "s/XRDPORT/$XRDPORT/g" /configs/xrootd.cfg > /etc/xrootd/xrdrucio.cfg
-sed "s/XRDHOST/$XRDHOST/g" /configs/scitokens.cfg > /etc/xrootd/scitokens.cfg
-cp /configs/Authfile /etc/xrootd/Authfile
+set -e
 
-echo 'Fixing ownership and permissions'
-cp /tmp/xrdcert.pem /etc/grid-security/xrd/xrdcert.pem
-cp /tmp/xrdkey.pem /etc/grid-security/xrd/xrdkey.pem
-chown -R xrootd:xrootd /etc/grid-security/xrd
-chmod 0400 /etc/grid-security/xrd/xrdkey.pem
+. /etc/apache2/envvars
+
+a2dismod want_digest
+a2dismod zgridsite
+a2ensite default-ssl
+a2dissite default
 
 if [ -n "$QBITTORRENT_UI_PORT" ]
 then
-  export QBITTORRENT_UI_CERT=/tmp/xrdcert.pem
-  export QBITTORRENT_UI_KEY=/tmp/xrdkey.pem
-  su -s /bin/bash -c qbittorrent-nox xrootd | tee >(python3 /configure_qbittorrent.py) &
+  export QBITTORRENT_UI_CERT=/etc/grid-security/hostcert.pem
+  export QBITTORRENT_UI_KEY=/etc/grid-security/hostkey.pem
+  chown www-data /var/www/
+  su -s /bin/bash -c qbittorrent-nox www-data | tee >(python3 /configure_qbittorrent.py) &
 fi
 
-xrootd -R xrootd -n rucio -c /etc/xrootd/xrdrucio.cfg
+exec "$@"

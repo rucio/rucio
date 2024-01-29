@@ -22,6 +22,7 @@ import random
 import threading
 import traceback
 import uuid
+from abc import ABCMeta, abstractmethod
 from collections import namedtuple, defaultdict
 from collections.abc import Sequence, Mapping, Iterator
 from dataclasses import dataclass
@@ -51,6 +52,7 @@ RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
+    from rucio.rse.protocols.protocol import RSEProtocol
 
 """
 The core request.py is specifically for handling requests.
@@ -58,6 +60,13 @@ Requests accessed by external_id (So called transfers), are covered in the core 
 """
 
 METRICS = MetricManager(module=__name__)
+
+TRANSFER_TIME_BUCKETS = (
+    10, 30, 60, 5 * 60, 10 * 60, 20 * 60, 40 * 60, 60 * 60, 1.5 * 60 * 60, 3 * 60 * 60, 6 * 60 * 60,
+    12 * 60 * 60, 24 * 60 * 60, 3 * 24 * 60 * 60, 4 * 24 * 60 * 60, 5 * 24 * 60 * 60,
+    6 * 24 * 60 * 60, 7 * 24 * 60 * 60, 10 * 24 * 60 * 60, 14 * 24 * 60 * 60, 30 * 24 * 60 * 60,
+    float('inf')
+)
 
 
 class RequestSource:
@@ -71,6 +80,15 @@ class RequestSource:
 
     def __str__(self):
         return "src_rse={}".format(self.rse)
+
+
+class TransferDestination:
+    def __init__(self, rse: RseData, scheme):
+        self.rse = rse
+        self.scheme = scheme
+
+    def __str__(self):
+        return "dst_rse={}".format(self.rse)
 
 
 class RequestWithSources:
@@ -144,6 +162,43 @@ class RequestWithSources:
             attr['dsn'] = attr["ds_name"] if (attr and "ds_name" in attr) else None
             attr['lifetime'] = attr.get('lifetime', -1)
         return attr
+
+
+class DirectTransfer(metaclass=ABCMeta):
+    """
+    The configuration for a direct (non-multi-hop) transfer. It can be a multi-source transfer.
+    """
+
+    def __init__(self, sources: list[RequestSource], rws: RequestWithSources) -> None:
+        self.sources: list[RequestSource] = sources
+        self.rws: RequestWithSources = rws
+
+    @property
+    @abstractmethod
+    def src(self) -> RequestSource:
+        pass
+
+    @property
+    @abstractmethod
+    def dst(self) -> TransferDestination:
+        pass
+
+    @property
+    @abstractmethod
+    def dest_url(self) -> str:
+        pass
+
+    @abstractmethod
+    def source_url(self, source: RequestSource) -> str:
+        pass
+
+    @abstractmethod
+    def dest_protocol(self) -> "RSEProtocol":
+        pass
+
+    @abstractmethod
+    def source_protocol(self, source: RequestSource) -> "RSEProtocol":
+        pass
 
 
 def should_retry_request(req, retry_protocol_mismatches):
@@ -774,8 +829,8 @@ def get_and_mark_next(
 
                     dst_id = res_dict['dest_rse_id']
                     src_id = res_dict['source_rse_id']
-                    res_dict['dst_rse'] = rse_collection[dst_id].ensure_loaded(load_name=True)
-                    res_dict['src_rse'] = rse_collection[src_id].ensure_loaded(load_name=True) if src_id is not None else None
+                    res_dict['dst_rse'] = rse_collection[dst_id].ensure_loaded(load_name=True, load_attributes=True)
+                    res_dict['src_rse'] = rse_collection[src_id].ensure_loaded(load_name=True, load_attributes=True) if src_id is not None else None
 
                     result.append(res_dict)
             else:
@@ -1395,19 +1450,12 @@ class TransferStatsManager:
                     record.files_done += 1
                     record.bytes_done += file_size
 
-                    transfer_time_buckets = (
-                        10, 30, 60, 5 * 60, 10 * 60, 20 * 60, 40 * 60, 60 * 60, 1.5 * 60 * 60, 3 * 60 * 60, 6 * 60 * 60,
-                        12 * 60 * 60, 24 * 60 * 60, 3 * 24 * 60 * 60, 4 * 24 * 60 * 60, 5 * 24 * 60 * 60,
-                        6 * 24 * 60 * 60, 7 * 24 * 60 * 60, 10 * 24 * 60 * 60, 14 * 24 * 60 * 60, 30 * 24 * 60 * 60,
-                        float('inf')
-                    )
-                    if submitted_at is not None:
-                        if started_at is not None:
-                            wait_time = (started_at - submitted_at).total_seconds()
-                            METRICS.timer(name='wait_time', buckets=transfer_time_buckets).observe(wait_time)
+                    if submitted_at is not None and started_at is not None:
+                        wait_time = (started_at - submitted_at).total_seconds()
+                        METRICS.timer(name='wait_time', buckets=TRANSFER_TIME_BUCKETS).observe(wait_time)
                         if transferred_at is not None:
-                            transfer_time = (transferred_at - submitted_at).total_seconds()
-                            METRICS.timer(name='transfer_time', buckets=transfer_time_buckets).observe(transfer_time)
+                            transfer_time = (transferred_at - started_at).total_seconds()
+                            METRICS.timer(name='transfer_time', buckets=TRANSFER_TIME_BUCKETS).observe(transfer_time)
                 else:
                     record.files_failed += 1
         if save_samples:

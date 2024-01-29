@@ -164,6 +164,13 @@ def dirac_client():
 
 
 @pytest.fixture
+def download_client():
+    from rucio.client.downloadclient import DownloadClient
+
+    return DownloadClient()
+
+
+@pytest.fixture
 def rest_client():
     from rucio.tests.common import print_response
 

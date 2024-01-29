@@ -16,6 +16,7 @@ import logging
 import threading
 import time
 from datetime import datetime, timedelta
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
 from sqlalchemy import update
@@ -24,7 +25,7 @@ import pytest
 
 import rucio.daemons.reaper.reaper
 from rucio.common.types import InternalAccount
-from rucio.common.utils import generate_uuid
+from rucio.common.utils import generate_uuid, adler32
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
 from rucio.core import config as core_config
 from rucio.core import did as did_core
@@ -54,6 +55,11 @@ from tests.mocks.mock_http_server import MockServer
 
 MAX_POLL_WAIT_SECONDS = 100
 TEST_FTS_HOST = 'https://fts:8446'
+
+
+@transactional_session
+def __update_request(request_id, *, session=None, **kwargs):
+    session.query(models.Request).filter_by(id=request_id).update(kwargs, synchronize_session=False)
 
 
 def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=MAX_POLL_WAIT_SECONDS, transfertool=None):
@@ -223,6 +229,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         assert __get_source(request_id=request['id'], src_rse_id=src_rse2_id, **did).ranking == 0
         # Only group_bulk=1 part of the path was submitted.
         # run submitter again to copy from jump rse to destination rse
+        __update_request(request_core.get_request_by_did(rse_id=dst_rse_id, **did)['id'], last_processed_by=None)
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
         # Wait for the destination replica to become ready
@@ -1007,10 +1014,6 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
 
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    @transactional_session
-    def __update_request(request_id, *, session=None, **kwargs):
-        session.query(models.Request).filter_by(id=request_id).update(kwargs, synchronize_session=False)
-
     # Fake that the transfer is submitted and lost
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
@@ -1391,7 +1394,6 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
         assert sorted(certs_used_by_submitter) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']
 
-    with patch('rucio.daemons.conveyor.poller.FTS3Transfertool', _FTSWrapper):
         poller(once=True, older_than=0, partition_wait_time=0)
         assert sorted(certs_used_by_poller) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']
 
@@ -1503,6 +1505,7 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
         replica_core.get_replica(rse_id=rse_id, **did)
 
     # Final hop
+    __update_request(request_core.get_request_by_did(rse_id=rse_id_queued, **did)['id'], last_processed_by=None)
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=0, transfertype='single', filter_transfertool=None)
     replica = __wait_for_replica_transfer(dst_rse_id=rse_id_queued, **did)
     assert replica['state'] == ReplicaState.AVAILABLE
@@ -1657,3 +1660,47 @@ def test_preparer_ignore_availability(rse_factory, did_factory, root_account, fi
     preparer(once=True, sleep_time=1, bulk=100, partition_wait_time=0, ignore_availability=True)
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     assert request['state'] == RequestState.QUEUED
+
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
+@pytest.mark.parametrize("file_config_mock", [{
+    "overrides": [('client', 'register_bittorrent_meta', 'true')]
+}], indirect=True)
+def test_bittorrent_submission(did_factory, root_account, vo, download_client, file_config_mock):
+    src_rse = 'WEB1'
+    src_rse_id = rse_core.get_rse_id(rse=src_rse, vo=vo)
+    dst_rse = 'XRD5'
+    dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
+    all_rses = [src_rse_id, dst_rse_id]
+
+    did = did_factory.upload_test_file(src_rse)
+
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+
+    mocked_credentials = {
+        src_rse_id: {
+            "qbittorrent_username": "rucio",
+            "qbittorrent_password": "rucio90df"
+        },
+        dst_rse_id: {
+            "qbittorrent_username": "rucio",
+            "qbittorrent_password": "rucio90df"
+        }
+    }
+    with patch('rucio.transfertool.bittorrent_driver_qbittorrent.get_rse_credentials', return_value=mocked_credentials):
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertools=['bittorrent'], filter_transfertool=None)
+        request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+        assert request['state'] == RequestState.SUBMITTED
+
+        replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, max_wait_seconds=MAX_POLL_WAIT_SECONDS, transfertool='bittorrent', **did)
+        assert replica['state'] == ReplicaState.AVAILABLE
+
+    with TemporaryDirectory() as tmp_dir:
+        download_client.download_dids([{
+            'did': '{scope}:{name}'.format(**did),
+            'base_dir': tmp_dir,
+            'rse': dst_rse,
+            'no_subdir': True,
+        }])
+        assert adler32(f'{tmp_dir}/{did["name"]}') == did_core.get_did(**did)['adler32']
