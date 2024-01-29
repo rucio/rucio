@@ -22,7 +22,7 @@ from rucio.core.account_counter import update_account_counter_history
 from rucio.core.account_limit import get_local_account_usage, set_local_account_limit
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.judge import cleaner
-from rucio.daemons.reaper import reaper
+from rucio.daemons.reaper.reaper import Reaper
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
 
@@ -71,6 +71,8 @@ class TestAbacusAccount2():
         assert account_usages['files'] == 0
 
         if vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (str(vo), rse), greedy=True)
+            reaper = Reaper(once=True, include_rses='vo=%s&(%s)' % (str(vo), rse), greedy=True)
+            reaper.run()
         else:
-            reaper.run(once=True, include_rses=rse, greedy=True)
+            reaper = Reaper(once=True, include_rses='vo=%s&(%s)' % (str(vo), rse), greedy=True)
+            reaper.run()

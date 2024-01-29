@@ -24,6 +24,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from random import randint
 from re import match
+from typing import Any
 
 from sqlalchemy.exc import DatabaseError
 from rucio.db.sqla.constants import MYSQL_LOCK_NOWAIT_REGEX, ORACLE_RESOURCE_BUSY_REGEX, PSQL_LOCK_NOT_AVAILABLE_REGEX
@@ -39,17 +40,21 @@ logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
-DAEMON_NAME = "undertaker"
 
 
 class Undertaker(Daemon):
     def __init__(self, chunk_size: int = 10, **_kwargs) -> None:
+        """
+        :param chunk_size: Size of each chunk of DIDs to process
+        """
         super().__init__(daemon_name="undertaker", **_kwargs)
         self.chunk_size = chunk_size
         self.paused_dids = {}
 
-    def _run_once(self, heartbeat_handler: HeartbeatHandler, **_kwargs) -> None:
+    def _run_once(self, heartbeat_handler: "HeartbeatHandler", **_kwargs) -> tuple[bool, Any]:
         worker_number, total_workers, logger = heartbeat_handler.live()
+
+        must_sleep = False
 
         try:
             # Refresh paused dids
@@ -70,7 +75,7 @@ class Undertaker(Daemon):
 
             if not dids:
                 logger(logging.INFO, "did not get any work")
-                return
+                return must_sleep, None
 
             for chunk in chunks(dids, self.chunk_size):
                 _, _, logger = heartbeat_handler.live()
@@ -105,3 +110,4 @@ class Undertaker(Daemon):
                         logger(logging.ERROR, "Got database error %s.", str(e))
         except:
             logging.critical(traceback.format_exc())
+        return must_sleep, None

@@ -21,7 +21,7 @@ import argparse
 import signal
 
 from rucio.common.utils import StoreAndDeprecateWarningAction
-from rucio.daemons.reaper.reaper import run, stop
+from rucio.daemons.reaper.reaper import Reaper
 
 
 def get_parser():
@@ -61,24 +61,23 @@ def get_parser():
 
 if __name__ == "__main__":
 
-    # Bind our callback to the SIGTERM signal and run the daemon:
-    signal.signal(signal.SIGTERM, stop)
-
     parser = get_parser()
     args = parser.parse_args()
+    reaper = Reaper(threads=args.threads,
+                    chunk_size=args.chunk_size,
+                    include_rses=args.include_rses,
+                    exclude_rses=args.exclude_rses,
+                    rses=args.rses,
+                    vos=args.vos,
+                    once=args.run_once,
+                    greedy=args.greedy,
+                    scheme=args.scheme,
+                    delay_seconds=args.delay_seconds,
+                    sleep_time=args.sleep_time,
+                    auto_exclude_threshold=args.auto_exclude_threshold,
+                    auto_exclude_timeout=args.auto_exclude_timeout)
+    signal.signal(signal.SIGTERM, reaper.stop)
     try:
-        run(threads=args.threads,
-            chunk_size=args.chunk_size,
-            include_rses=args.include_rses,
-            exclude_rses=args.exclude_rses,
-            rses=args.rses,
-            vos=args.vos,
-            once=args.run_once,
-            greedy=args.greedy,
-            scheme=args.scheme,
-            delay_seconds=args.delay_seconds,
-            sleep_time=args.sleep_time,
-            auto_exclude_threshold=args.auto_exclude_threshold,
-            auto_exclude_timeout=args.auto_exclude_timeout)
+        reaper.run()
     except KeyboardInterrupt:
-        stop()
+        reaper.stop()

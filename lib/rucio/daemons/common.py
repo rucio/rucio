@@ -76,9 +76,17 @@ class Daemon(ABC):
             raise DatabaseException("Database was not updated, daemon won't start")
 
     @abstractmethod
-    def _run_once(self, heartbeat_handler: "HeartbeatHandler", **_kwargs) -> None:
+    def _run_once(
+        self, heartbeat_handler: "HeartbeatHandler", **_kwargs
+    ) -> tuple[bool, Any]:
         """
         Daemon-specific logic (to be defined in child classes) for a single iteration
+
+        :param heartbeat_handler: Handler to set and manage the heartbeat for this execution.
+
+        :returns: Tuple of (must_sleep, ret_value).
+                  must_sleep: set to True to signal to the calling context that it must sleep before next execution, False otherwise
+                  ret_value: Daemon-specific return value
         """
         pass
 
@@ -107,20 +115,23 @@ class Daemon(ABC):
         """
         self._pre_run_checks()
 
-        if self.once:
-            self._call_daemon()
-        else:
-            logging.info("main: starting threads")
-            threads = [
-                threading.Thread(target=self._call_daemon)
-                for _ in range(0, self.total_workers)
-            ]
-            [t.start() for t in threads]
-            logging.info("main: waiting for interrupts")
+        logging.info(f"{self.daemon_name}: starting threads")
+        thread_list = [
+            threading.Thread(target=self._call_daemon)
+            for _ in range(0, self.total_workers)
+        ]
+        [t.start() for t in thread_list]
 
-            # Interruptible joins require a timeout.
-            while threads[0].is_alive():
-                [t.join(timeout=3.14) for t in threads]
+        if not self.once:
+            logging.info(f"{self.daemon_name}: waiting for interrupts")
+
+        # Interruptible joins require a timeout.
+        while thread_list:
+            thread_list = [
+                thread.join(timeout=3.14)
+                for thread in thread_list
+                if thread and thread.is_alive()
+            ]
 
     def stop(
         self, signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None

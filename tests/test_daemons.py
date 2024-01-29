@@ -30,7 +30,7 @@ from rucio.daemons.follower import follower
 from rucio.daemons.hermes import hermes
 from rucio.daemons.judge import cleaner, evaluator, injector, repairer
 from rucio.daemons.oauthmanager import oauthmanager
-from rucio.daemons.reaper import dark_reaper, reaper
+from rucio.daemons.reaper import dark_reaper
 from rucio.daemons.replicarecoverer import suspicious_replica_recoverer
 from rucio.daemons.tracer import kronos
 from rucio.daemons.transmogrifier import transmogrifier
@@ -62,7 +62,6 @@ DAEMONS = [
     repairer,
     oauthmanager,
     dark_reaper,
-    reaper,
     suspicious_replica_recoverer,
     kronos,
     transmogrifier,
@@ -85,9 +84,10 @@ def test_fail_on_old_database_parametrized(mock_is_old_db, daemon):
     assert mock_is_old_db.call_count > 1
 
 
-class TestDaemon(Daemon):
+class DaemonTest(Daemon):
     def _run_once(self, heartbeat_handler, **_kwargs):
         pass
+
 
 @mock.patch('rucio.db.sqla.util.is_old_db')
 def test_fail_on_old_database(mock_is_old_db):
@@ -96,6 +96,6 @@ def test_fail_on_old_database(mock_is_old_db):
     assert rucio.db.sqla.util.is_old_db() is True
 
     with pytest.raises(exception.DatabaseException, match='Database was not updated, daemon won\'t start'):
-        TestDaemon().run()
+        DaemonTest().run()
 
     assert mock_is_old_db.call_count > 1

@@ -29,7 +29,7 @@ from rucio.core import replica as replica_core
 from rucio.core import rule as rule_core
 from rucio.core import config as core_config
 from rucio.daemons.conveyor.submitter import submitter
-from rucio.daemons.reaper.reaper import reaper
+from rucio.daemons.reaper.reaper import Reaper
 from rucio.db.sqla.models import Request, Source
 from rucio.db.sqla.constants import RequestState
 from rucio.db.sqla.session import read_session, transactional_session
@@ -218,7 +218,8 @@ def test_source_avoid_deletion(caches_mock, rse_factory, did_factory, root_accou
 
     # Reaper will not delete a file which only has one replica if there is any pending transfer for it
     reaper_region.invalidate()
-    reaper(once=True, rses=[], include_rses=any_source, exclude_rses=None)
+    reaper = Reaper(once=True, rses=[], include_rses=any_source, exclude_rses=None)
+    reaper._call_daemon()
     replica = next(iter(replica_core.list_replicas(dids=[did], rse_expression=any_source)))
     assert len(replica['pfns']) == 1
 
@@ -232,7 +233,7 @@ def test_source_avoid_deletion(caches_mock, rse_factory, did_factory, root_accou
 
     # None of the replicas will be removed. They are protected by an entry in the sources table
     reaper_region.invalidate()
-    reaper(once=True, rses=[], include_rses=any_source, exclude_rses=None)
+    reaper._call_daemon()
     replica = next(iter(replica_core.list_replicas(dids=[did], rse_expression=any_source)))
     assert len(replica['pfns']) == 2
 
@@ -247,7 +248,7 @@ def test_source_avoid_deletion(caches_mock, rse_factory, did_factory, root_accou
     __delete_sources(src_rse1_id, **did)
     __delete_sources(src_rse2_id, **did)
     reaper_region.invalidate()
-    reaper(once=True, rses=[], include_rses=any_source, exclude_rses=None)
+    reaper._call_daemon()
     replica = next(iter(replica_core.list_replicas(dids=[did], rse_expression=any_source)))
     assert len(replica['pfns']) == 1
 

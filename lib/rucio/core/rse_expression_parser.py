@@ -42,7 +42,7 @@ REGION = make_region_memcached(expiration_time=600)
 
 
 @transactional_session
-def parse_expression(expression, filter_=None, *, session: "Session"):
+def parse_expression(expression: str, filter_=None, *, session: "Session"):
     """
     Parse a RSE expression and return the list of RSE dictionaries.
 
