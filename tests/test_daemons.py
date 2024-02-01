@@ -28,7 +28,7 @@ from rucio.daemons.cache import consumer
 from rucio.daemons.conveyor import finisher, poller, receiver, stager, submitter, throttler, preparer
 from rucio.daemons.follower import follower
 from rucio.daemons.hermes import hermes
-from rucio.daemons.judge import cleaner, evaluator, injector, repairer
+from rucio.daemons.judge import cleaner, evaluator, injector
 from rucio.daemons.oauthmanager import oauthmanager
 from rucio.daemons.reaper import dark_reaper
 from rucio.daemons.replicarecoverer import suspicious_replica_recoverer
@@ -59,7 +59,6 @@ DAEMONS = [
     cleaner,
     evaluator,
     injector,
-    repairer,
     oauthmanager,
     dark_reaper,
     suspicious_replica_recoverer,

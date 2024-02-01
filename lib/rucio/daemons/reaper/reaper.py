@@ -19,7 +19,6 @@ Reaper is a daemon to manage file deletion.
 
 import logging
 import random
-import threading
 import time
 import traceback
 from configparser import NoOptionError, NoSectionError
@@ -56,7 +55,7 @@ from rucio.rse import rsemanager as rsemgr
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-GRACEFUL_STOP = threading.Event()
+
 METRICS = MetricManager(module=__name__)
 REGION = make_region_memcached(expiration_time=600)
 

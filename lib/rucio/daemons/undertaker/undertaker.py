@@ -18,7 +18,6 @@ Undertaker is a daemon to manage expired did.
 '''
 
 import logging
-import threading
 import traceback
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -39,7 +38,6 @@ from rucio.daemons.common import Daemon, HeartbeatHandler
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 METRICS = MetricManager(module=__name__)
-graceful_stop = threading.Event()
 
 
 class Undertaker(Daemon):
