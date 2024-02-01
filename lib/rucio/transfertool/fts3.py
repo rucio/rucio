@@ -31,11 +31,11 @@ from requests.adapters import ReadTimeout
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 
 from rucio.common.cache import make_region_memcached
-from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE, FTS_COMPLETE_STATE
 from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.utils import APIEncoder, chunks, PREFERRED_CHECKSUM
+from rucio.common.utils import APIEncoder, chunks, PREFERRED_CHECKSUM, deep_merge_dict
 from rucio.core.monitor import MetricManager
 from rucio.core.oidc import request_token
 from rucio.core.request import get_source_rse, get_transfer_error
@@ -43,6 +43,7 @@ from rucio.core.rse import (determine_audience_for_rse, determine_scope_for_rse,
                             get_rse_supported_checksums_from_attributes)
 from rucio.db.sqla.constants import RequestState
 from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
+from rucio.transfertool.fts3_plugins import FTS3MetadataPlugin
 
 if TYPE_CHECKING:
     from rucio.core.request import DirectTransfer
@@ -812,6 +813,9 @@ class FTS3Transfertool(Transfertool):
         self.default_lifetime = default_lifetime
         self.archive_timeout_override = archive_timeout_override
 
+        plugins = config_get_list("transfers", "plugins", False, "[]")
+        self.plugins = [FTS3MetadataPlugin(plugin.strip(" ")) for plugin in plugins]
+
         self.token = None
         if oidc_support:
             fts_hostname = urlparse(external_host).hostname
@@ -950,6 +954,11 @@ class FTS3Transfertool(Transfertool):
             activity_id = self.scitags_activity_ids.get(rws.activity)
             if isinstance(activity_id, int):
                 t_file['scitag'] = self.scitags_exp_id << 6 | activity_id
+
+        for plugin in self.plugins:
+            plugin_hints = plugin.hints(t_file['metadata'])
+
+            t_file = deep_merge_dict(source=plugin_hints, destination=t_file)
 
         return t_file
 
