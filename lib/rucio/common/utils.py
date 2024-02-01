@@ -2180,3 +2180,16 @@ def retrying(
                 time.sleep(wait_fixed / 1000.0)
         return _wrapper
     return _decorator
+
+
+def deep_merge_dict(source: dict, destination: dict) -> dict:
+    """Merge two dictionaries together recurively"""
+    for key, value in source.items():
+        if isinstance(value, dict):
+            # get node or create one
+            node = destination.setdefault(key, {})
+            deep_merge_dict(value, node)
+        else:
+            destination[key] = value
+
+    return destination

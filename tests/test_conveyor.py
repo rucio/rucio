@@ -138,9 +138,9 @@ def scitags_mock(core_config_mock):
             self.send_code_and_message(200, {'Content-Type': 'application/json'}, file_content)
 
     with MockServer(_SendScitagsJson) as mock_server:
-        core_config.set('packet-marking', 'enabled',  True)
-        core_config.set('packet-marking', 'fetch_url',  mock_server.base_url)
-        core_config.set('packet-marking', 'exp_name',  'atlas')
+        core_config.set('packet-marking', 'enabled', True)
+        core_config.set('packet-marking', 'fetch_url', mock_server.base_url)
+        core_config.set('packet-marking', 'exp_name', 'atlas')
         yield mock_server
 
 
