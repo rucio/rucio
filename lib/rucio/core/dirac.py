@@ -61,7 +61,7 @@ def add_files(lfns: list[dict], account: str, ignore_availability: bool, parents
     - If doesn't exist create the dataset containing the file as well as a rule on the dataset on ANY sites.
     - Create all the ascendants of the dataset if they do not exist
 
-    :param lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
+    :param lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>, 'state': <state>})'}
     :param issuer: The issuer account.
     :param ignore_availability: A boolean to ignore blocklisted sites.
     :param parents_metadata: Metadata for selected hierarchy DIDs. (dictionary {'lpn': {key : value}})
@@ -158,11 +158,14 @@ def add_files(lfns: list[dict], account: str, ignore_availability: bool, parents
         adler32 = lfn.get('adler32', None)
         pfn = lfn.get('pfn', None)
         meta = lfn.get('meta', {})
+        state = lfn.get('state', None)
         files = {'scope': lfn_scope, 'name': filename, 'bytes': bytes_, 'adler32': adler32, 'meta': meta}
         if pfn:
             files['pfn'] = str(pfn)
         if guid:
             files['meta']['guid'] = guid
+        if state:
+            files['state'] = state
         add_replicas(rse_id=rse_id,
                      files=[files],
                      dataset_meta=None,

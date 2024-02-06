@@ -31,7 +31,7 @@ from rucio.common.exception import (RucioException, RSEWriteBlocked, DataIdentif
                                     ResourceTemporaryUnavailable, ServiceUnavailable, InputValidationError, RSEChecksumUnavailable,
                                     ScopeNotFound)
 from rucio.common.utils import (adler32, detect_client_location, execute, generate_uuid, make_valid_did, md5, send_trace,
-                                retry, bittorrent_v2_merkle_sha256, GLOBALLY_SUPPORTED_CHECKSUMS)
+                                retry, bittorrent_v2_merkle_sha256, GLOBALLY_SUPPORTED_CHECKSUMS, extract_scope)
 from rucio.rse import rsemanager as rsemgr
 
 
@@ -68,7 +68,7 @@ class UploadClient:
         self.trace['eventType'] = 'upload'
         self.trace['eventVersion'] = version.RUCIO_VERSION[0]
 
-    def upload(self, items, summary_file_path=None, traces_copy_out=None, ignore_availability=False, activity=None):
+    def upload(self, items, summary_file_path=None, traces_copy_out=None, ignore_availability=False, activity=None, dirac: bool = False):
         """
         :param items: List of dictionaries. Each dictionary describing a file to upload. Keys:
             path                  - path of the file that will be uploaded
@@ -83,7 +83,7 @@ class UploadClient:
             pfn                   - Optional: use a given PFN (this sets no_register to True, and no_register becomes mandatory)
             no_register           - Optional: if True, the file will not be registered in the rucio catalogue
             register_after_upload - Optional: if True, the file will be registered after successful upload
-            lifetime              - Optional: the lifetime of the file after it was uploaded
+            lifetime              - Optional: the lifetime of the file after it was uploaded. (ignored if dirac=True as lifetime is created from cfg dirac section.)
             transfer_timeout      - Optional: time after the upload will be aborted
             guid                  - Optional: guid of the file
             recursive             - Optional: if set, parses the folder structure recursively into collections
@@ -91,6 +91,7 @@ class UploadClient:
         :param traces_copy_out: reference to an external list, where the traces should be uploaded
         :param ignore_availability: ignore the availability of a RSE
         :param activity: the activity set to the rule if no dataset is specified
+        :param dirac: boolean to trigger register using dirac add_files method for heirachial namespace. (Default: False)
 
         :returns: 0 on success
 
@@ -126,19 +127,34 @@ class UploadClient:
                 if not ignore_availability and rse_settings['availability_write'] != 1:
                     raise RSEWriteBlocked('%s is not available for writing. No actions have been taken' % rse)
 
+            file['rse'] = rse
             dataset_scope = file.get('dataset_scope')
             dataset_name = file.get('dataset_name')
-            file['rse'] = rse
-            if dataset_scope and dataset_name:
-                dataset_did_str = ('%s:%s' % (dataset_scope, dataset_name))
-                file['dataset_did_str'] = dataset_did_str
-                registered_dataset_dids.add(dataset_did_str)
+            if not dirac:
+                registered_file_dids.add('%s:%s' % (file['did_scope'], file['did_name']))
+                if dataset_scope and dataset_name:
+                    dataset_did_str = ('%s:%s' % (dataset_scope, dataset_name))
+                    file['dataset_did_str'] = dataset_did_str
+                    registered_dataset_dids.add(dataset_did_str)
+                wrong_dids = registered_file_dids.intersection(registered_dataset_dids)
+                if len(wrong_dids):
+                    raise InputValidationError('DIDs used to address both files and datasets: %s' % str(wrong_dids))
+            logger(logging.DEBUG, 'Input validation done.')
 
-            registered_file_dids.add('%s:%s' % (file['did_scope'], file['did_name']))
-        wrong_dids = registered_file_dids.intersection(registered_dataset_dids)
-        if len(wrong_dids):
-            raise InputValidationError('DIDs used to address both files and datasets: %s' % str(wrong_dids))
-        logger(logging.DEBUG, 'Input validation done.')
+            if dirac:
+                scopes = self.client.list_scopes()
+                if not dataset_name and not file['did_name']:
+                    raise InputValidationError('Either dataset_name or did_name must be specified for dirac upload')
+                scope, _ = extract_scope(file['did_name'], scopes=scopes)
+                if file['did_scope']:
+                    if file['did_scope'] != scope:
+                        logger(logging.WARNING, 'replacing scope %s provided for the file %s and using the proper scope %s from extract_scope algorithm.\
+                            ' % (str(file['did_scope']), str(file['did_name']), str(scope)))
+                if dataset_scope and dataset_name:
+                    scope, _ = extract_scope(dataset_name, scopes=scopes)
+                    if dataset_scope != scope:
+                        logger(logging.WARNING, 'replacing scope %s provided for the dataset %s and using the proper scope %s from extract_scope algorithm.\
+                           ' % (str(dataset_scope), str(dataset_name), str(scope)))
 
         # clear this set again to ensure that we only try to register datasets once
         registered_dataset_dids = set()
@@ -198,7 +214,7 @@ class UploadClient:
             #    impl = self.preferred_impl(rse_settings, domain)
 
             if not no_register and not register_after_upload:
-                self._register_file(file, registered_dataset_dids, ignore_availability=ignore_availability, activity=activity)
+                self._register_file(file, registered_dataset_dids, ignore_availability=ignore_availability, activity=activity, dirac=dirac)
 
             # if register_after_upload, file should be overwritten if it is not registered
             # otherwise if file already exists on RSE we're done
@@ -288,7 +304,7 @@ class UploadClient:
 
                 if not no_register:
                     if register_after_upload:
-                        self._register_file(file, registered_dataset_dids, ignore_availability=ignore_availability, activity=activity)
+                        self._register_file(file, registered_dataset_dids, ignore_availability=ignore_availability, activity=activity, dirac=dirac)
                     else:
                         replica_for_api = self._convert_file_for_api(file)
                         try:
@@ -296,14 +312,14 @@ class UploadClient:
                         except Exception as error:
                             logger(logging.ERROR, 'Failed to update replica state for file {}'.format(basename))
                             logger(logging.DEBUG, 'Details: {}'.format(str(error)))
-
-                # add file to dataset if needed
-                if dataset_did_str and not no_register:
-                    try:
-                        self.client.attach_dids(file['dataset_scope'], file['dataset_name'], [file_did])
-                    except Exception as error:
-                        logger(logging.WARNING, 'Failed to attach file to the dataset')
-                        logger(logging.DEBUG, 'Attaching to dataset {}'.format(str(error)))
+                if not dirac:
+                    # add file to dataset if needed
+                    if dataset_did_str and not no_register:
+                        try:
+                            self.client.attach_dids(file['dataset_scope'], file['dataset_name'], [file_did])
+                        except Exception as error:
+                            logger(logging.WARNING, 'Failed to attach file to the dataset')
+                            logger(logging.DEBUG, 'Attaching to dataset {}'.format(str(error)))
             else:
                 trace['clientState'] = 'FAILED'
                 trace['stateReason'] = state_reason
@@ -349,7 +365,7 @@ class UploadClient:
         }
         self.client.set_metadata_bulk(scope=file['did_scope'], name=file['did_name'], meta=bittorrent_meta)
 
-    def _register_file(self, file, registered_dataset_dids, ignore_availability=False, activity=None):
+    def _register_file(self, file, registered_dataset_dids, ignore_availability=False, activity=None, dirac: bool = False):
         """
         Registers the given file in Rucio. Creates a dataset if
         needed. Registers the file DID and creates the replication
@@ -377,33 +393,35 @@ class UploadClient:
 
         rse = file['rse']
         dataset_did_str = file.get('dataset_did_str')
-        # register a dataset if we need to
-        if dataset_did_str and dataset_did_str not in registered_dataset_dids:
-            registered_dataset_dids.add(dataset_did_str)
-            try:
-                logger(logging.DEBUG, 'Trying to create dataset: %s' % dataset_did_str)
-                self.client.add_dataset(scope=file['dataset_scope'],
-                                        name=file['dataset_name'],
-                                        meta=file.get('dataset_meta'),
-                                        rules=[{'account': self.client.account,
-                                                'copies': 1,
-                                                'rse_expression': rse,
-                                                'grouping': 'DATASET',
-                                                'lifetime': file.get('lifetime')}])
-                logger(logging.INFO, 'Successfully created dataset %s' % dataset_did_str)
-            except DataIdentifierAlreadyExists:
-                logger(logging.INFO, 'Dataset %s already exists - no rule will be created' % dataset_did_str)
+        if not dirac:
+            # register a dataset if we need to
+            if dataset_did_str and dataset_did_str not in registered_dataset_dids:
+                registered_dataset_dids.add(dataset_did_str)
+                try:
+                    logger(logging.DEBUG, 'Trying to create dataset: %s' % dataset_did_str)
+                    self.client.add_dataset(scope=file['dataset_scope'],
+                                            name=file['dataset_name'],
+                                            meta=file.get('dataset_meta'),
+                                            rules=[{'account': self.client.account,
+                                                    'copies': 1,
+                                                    'rse_expression': rse,
+                                                    'grouping': 'DATASET',
+                                                    'lifetime': file.get('lifetime')}])
+                    logger(logging.INFO, 'Successfully created dataset %s' % dataset_did_str)
+                except DataIdentifierAlreadyExists:
+                    logger(logging.INFO, 'Dataset %s already exists - no rule will be created' % dataset_did_str)
 
-                if file.get('lifetime') is not None:
-                    raise InputValidationError('Dataset %s exists and lifetime %s given. Prohibited to modify parent dataset lifetime.' % (dataset_did_str,
-                                                                                                                                           file.get('lifetime')))
-        else:
-            logger(logging.DEBUG, 'Skipping dataset registration')
-
+                    if file.get('lifetime') is not None:
+                        raise InputValidationError('Dataset %s exists and lifetime %s given. Prohibited to modify parent dataset lifetime.' % (dataset_did_str,
+                                                                                                                                               file.get('lifetime')))
+            else:
+                logger(logging.DEBUG, 'Skipping dataset registration')
         file_scope = file['did_scope']
         file_name = file['did_name']
         file_did = {'scope': file_scope, 'name': file_name}
         replica_for_api = self._convert_file_for_api(file)
+        if dirac:
+            replica_for_api_dirac = self._convert_file_for_dirac(file)
         try:
             # if the remote checksum is different this did must not be used
             meta = self.client.get_metadata(file_scope, file_name)
@@ -422,13 +440,20 @@ class UploadClient:
                 logger(logging.INFO, 'Successfully added replica in Rucio catalogue at %s' % rse)
         except DataIdentifierNotFound:
             logger(logging.DEBUG, 'File DID does not exist')
-            self.client.add_replicas(rse=rse, files=[replica_for_api])
+            if not dirac:
+                self.client.add_replicas(rse=rse, files=[replica_for_api])
+            else:
+                parents_metadata = None
+                if file.get('dataset_meta'):
+                    parents_metadata = {file['dataset_name']: file['dataset_meta']}
+                self.client.add_files([replica_for_api_dirac], ignore_availability=ignore_availability, parents_metadata=parents_metadata)
             self._add_bittorrent_meta(file=file, logger=logger)
             logger(logging.INFO, 'Successfully added replica in Rucio catalogue at %s' % rse)
-            if not dataset_did_str:
-                # only need to add rules for files if no dataset is given
-                self.client.add_replication_rule([file_did], copies=1, rse_expression=rse, lifetime=file.get('lifetime'), ignore_availability=ignore_availability, activity=activity)
-                logger(logging.INFO, 'Successfully added replication rule at %s' % rse)
+            if not dirac:
+                if not dataset_did_str:
+                    # only need to add rules for files if no dataset is given
+                    self.client.add_replication_rule([file_did], copies=1, rse_expression=rse, lifetime=file.get('lifetime'), ignore_availability=ignore_availability, activity=activity)
+                    logger(logging.INFO, 'Successfully added replication rule at %s' % rse)
 
     def _get_file_guid(self, file):
         """
@@ -456,7 +481,7 @@ class UploadClient:
             guid = generate_uuid()
         return guid
 
-    def _collect_file_info(self, filepath, item):
+    def _collect_file_info(self, filepath, item, dirac: bool = False):
         """
         Collects infos (e.g. size, checksums, etc.) about the file and
         returns them as a dictionary
@@ -464,9 +489,12 @@ class UploadClient:
 
         :param filepath: path where the file is stored
         :param item: input options for the given file
+        :param dirac: True if the upload is dirac. (Default: False)
 
         :returns: a dictionary containing all collected info and the input options
         """
+        logger = self.logger
+        logger(logging.DEBUG, 'Collecting file info')
         new_item = copy.deepcopy(item)
         new_item['path'] = filepath
         new_item['dirname'] = os.path.dirname(filepath)
@@ -477,20 +505,37 @@ class UploadClient:
         new_item['md5'] = md5(filepath)
         new_item['meta'] = {'guid': self._get_file_guid(new_item)}
         new_item['state'] = 'C'
-        if not new_item.get('did_scope'):
-            new_item['did_scope'] = self.default_file_scope
-        if not new_item.get('did_name'):
-            new_item['did_name'] = new_item['basename']
+        if dirac:
+            if new_item.get('did_name') and new_item.get('dataset_name'):
+                # check for the dataset name compatibility with the DID name.
+                logger(logging.INFO, 'Checking if dataset name %s is compatible with DID name %s' % (new_item['dataset_name'], new_item['did_name']))
+                if new_item.get('did_name').rsplit('/', 1)[0] == new_item.get('dataset_name'):
+                    logger(logging.INFO, 'Dataset name %s is compatible with DID name %s' % (new_item['dataset_name'], new_item['did_name']))
+                else:
+                    logger(logging.ERROR, 'Dataset name %s is not compatible with file name %s' % (new_item['dataset_name'], new_item['did_name']))
+                    raise InputValidationError('Dataset name %s is not compatible with file name %s' % (new_item['dataset_name'], new_item['did_name']))
+            if not new_item.get('did_name'):
+                if new_item.get('dataset_name'):
+                    new_item['did_name'] = new_item['dataset_name'] + "/" + new_item['basename']
+            if not new_item.get('did_scope'):
+                scope, _ = extract_scope(new_item['did_name'])
+                new_item['did_scope'] = scope
+        else:
+            if not new_item.get('did_scope'):
+                new_item['did_scope'] = self.default_file_scope
+            if not new_item.get('did_name'):
+                new_item['did_name'] = new_item['basename']
 
         return new_item
 
-    def _collect_and_validate_file_info(self, items):
+    def _collect_and_validate_file_info(self, items, dirac: bool = False):
         """
         Checks if there are any inconsistencies within the given input
         options and stores the output of _collect_file_info for every file
         (This function is meant to be used as class internal only)
 
         :param filepath: list of dictionaries with all input files and options
+        :param dirac: True if the upload is dirac. (Default: False)
 
         :returns: a list of dictionaries containing all descriptions of the files to upload
 
@@ -521,16 +566,18 @@ class UploadClient:
             if os.path.isdir(path) and not recursive:
                 dname, subdirs, fnames = next(os.walk(path))
                 for fname in fnames:
-                    file = self._collect_file_info(os.path.join(dname, fname), item)
+                    file = self._collect_file_info(os.path.join(dname, fname), item, dirac=dirac)
                     files.append(file)
                 if not len(fnames) and not len(subdirs):
                     logger(logging.WARNING, 'Skipping %s because it is empty.' % dname)
                 elif not len(fnames):
                     logger(logging.WARNING, 'Skipping %s because it has no files in it. Subdirectories are not supported.' % dname)
+            elif dirac and recursive:
+                logger(logging.WARNING, 'Skipping %s because dirac and recursive flag combined is not supported' % path)
             elif os.path.isdir(path) and recursive:
                 files.extend(self._recursive(item))
             elif os.path.isfile(path) and not recursive:
-                file = self._collect_file_info(path, item)
+                file = self._collect_file_info(path, item, dirac=dirac)
                 files.append(file)
             elif os.path.isfile(path) and recursive:
                 logger(logging.WARNING, 'Skipping %s because of --recursive flag' % path)
@@ -563,6 +610,32 @@ class UploadClient:
         pfn = file.get('pfn')
         if pfn:
             replica['pfn'] = pfn
+        return replica
+
+    def _convert_file_for_dirac(self, file: dict) -> dict:
+        """
+        Creates a new dictionary that contains only the values
+        that are needed for the upload with the correct keys for dirac client.
+        (This function is meant to be used as class internal only)
+
+        :param file: dictionary describing a file to upload
+
+        :returns: dictionary containing not more then the needed values for the upload
+        """
+        replica = {}
+        replica['lfn'] = file['did_name']
+        replica['bytes'] = file['bytes']
+        replica['adler32'] = file['adler32']
+        replica['rse'] = file['rse']
+        pfn = file.get('pfn')
+        if pfn:
+            replica['pfn'] = pfn
+        guid = file.get('guid')
+        if guid:
+            replica['guid'] = guid
+        state = file.get('state')
+        if state:
+            replica['state'] = state
         return replica
 
     def _upload_item(self, rse_settings, rse_attributes, lfn, source_dir=None, domain='wan', impl=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None):

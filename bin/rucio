@@ -924,6 +924,10 @@ def upload(args):
             return FAILURE
         args.lifetime = (expiration_date - datetime.utcnow()).total_seconds()
 
+    if args.dirac:
+        if args.lifetime:
+            logger.warning("Ignoring --lifetime as --dirac is set where the lifetime is taken from cfg file for dataset")
+
     dsscope = None
     dsname = None
     for arg in args.args:
@@ -960,7 +964,12 @@ def upload(args):
 
     if len(items) < 1:
         raise InputValidationError('No files could be extracted from the given arguments')
-
+    if args.dirac and args.recursive:
+        logger.error("--recursive and --dirac cannot be specified at the same time.")
+        logger.error("As dirac will register the heirachy to rucio.")
+    if args.dirac and not (args.name or dsname):
+        logger.error("Either --name or dataset(scope:datasetname) must be specified for dirac")
+        raise InputValidationError('Invalid input argument composition')
     if len(items) > 1 and args.guid:
         logger.error("A single GUID was specified on the command line, but there are multiple files to upload.")
         logger.error("If GUID auto-detection is not used, only one file may be uploaded at a time")
@@ -979,7 +988,7 @@ def upload(args):
     from rucio.client.uploadclient import UploadClient
     upload_client = UploadClient(client, logger=logger)
     summary_file_path = 'rucio_upload.json' if args.summary else None
-    upload_client.upload(items, summary_file_path)
+    upload_client.upload(items, summary_file_path, dirac=args.dirac)
     return SUCCESS
 
 
@@ -2288,6 +2297,7 @@ You can filter by key/value, e.g.::
     upload_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get_float('upload', 'transfer_timeout', False, 360), help='Transfer timeout (in seconds).')
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
     upload_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='Convert recursively the folder structure into collections')
+    upload_parser.add_argument('--dirac', dest='dirac', action='store_true', default=False, help='Does the registriation to rucio in herirachial namespace as dirac.')
 
     # The download and get subparser
     get_parser = subparsers.add_parser('get', help='Download method (synonym for download)')
