@@ -230,14 +230,13 @@ def get_auth_token_ssh(account, signature, appid, ip=None, vo='def', *, session:
 
 
 @transactional_session
-def get_ssh_challenge_token(account, appid, ip=None, vo='def', *, session: "Session"):
+def get_ssh_challenge_token(account, ip=None, vo='def', *, session: "Session"):
     """
     Get a challenge token for subsequent SSH public key authentication.
 
     The challenge token lifetime is 5 seconds.
 
     :param account: Account identifier as a string.
-    :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
     :param vo: The VO to act on.
     :param session: The database session in use.
@@ -251,7 +250,7 @@ def get_ssh_challenge_token(account, appid, ip=None, vo='def', *, session: "Sess
 
     account = InternalAccount(account, vo=vo)
 
-    return authentication.get_ssh_challenge_token(account, appid, ip, session=session)
+    return authentication.get_ssh_challenge_token(account, ip, session=session)
 
 
 @transactional_session

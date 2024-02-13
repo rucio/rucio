@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from typing import Any, Callable, Optional, TypedDict, Union
+from datetime import datetime
 
 
 class InternalType(object):
@@ -159,3 +160,8 @@ class RSESettingsDict(TypedDict):
     deterministic: bool
     domain: list[str]
     protocols: list[RSEProtocolDict]
+
+
+class TokenDict(TypedDict):
+    token: str
+    expires_at: datetime

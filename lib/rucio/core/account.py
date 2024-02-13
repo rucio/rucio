@@ -17,8 +17,7 @@ from datetime import datetime
 from enum import Enum
 from re import match
 from traceback import format_exc
-from typing import TYPE_CHECKING, Any
-from collections.abc import Generator
+from typing import TYPE_CHECKING, Any, Iterator, Optional
 import uuid
 
 from sqlalchemy import select, and_
@@ -84,7 +83,7 @@ def account_exists(account: InternalAccount, *, session: "Session") -> bool:
 
 
 @read_session
-def get_account(account: InternalAccount, *, session: "Session") -> dict:
+def get_account(account: InternalAccount, *, session: "Session") -> models.Account:
     """ Returns an account for the given account name.
 
     :param account: the name of the account.
@@ -118,11 +117,10 @@ def del_account(account: InternalAccount, *, session: "Session"):
         models.Account.status == AccountStatus.ACTIVE
     )
     try:
-        account = session.execute(query).scalar_one()
+        account_result = session.execute(query).scalar_one()
+        account_result.update({'status': AccountStatus.DELETED, 'deleted_at': datetime.utcnow()})
     except exc.NoResultFound:
         raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
-
-    account.update({'status': AccountStatus.DELETED, 'deleted_at': datetime.utcnow()})
 
 
 @transactional_session
@@ -140,22 +138,22 @@ def update_account(account: InternalAccount, key: str, value: Any, *, session: "
         models.Account.account == account
     )
     try:
-        account = session.execute(query).scalar_one()
+        account_result = session.execute(query).scalar_one()
+        if key == 'status':
+            if isinstance(value, str):
+                value = AccountStatus[value]
+            if value == AccountStatus.SUSPENDED:
+                account_result.update({'status': value, 'suspended_at': datetime.utcnow()})
+            elif value == AccountStatus.ACTIVE:
+                account_result.update({'status': value, 'suspended_at': None})
+        else:
+            account_result.update({key: value})
     except exc.NoResultFound:
         raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
-    if key == 'status':
-        if isinstance(value, str):
-            value = AccountStatus[value]
-        if value == AccountStatus.SUSPENDED:
-            account.update({'status': value, 'suspended_at': datetime.utcnow()})
-        elif value == AccountStatus.ACTIVE:
-            account.update({'status': value, 'suspended_at': None})
-    else:
-        account.update({key: value})
 
 
 @stream_session
-def list_accounts(filter_: dict = None, *, session: "Session") -> Generator[dict]:
+def list_accounts(filter_: Optional[dict] = None, *, session: "Session") -> Iterator[dict]:
     """ Returns a list of all account names.
 
     :param filter_: Dictionary of attributes by which the input data should be filtered
@@ -403,14 +401,14 @@ def get_all_rse_usages_per_account(account: InternalAccount, *, session: "Sessio
 
 
 @read_session
-def get_usage_history(rse_id: uuid.UUID, account: InternalAccount, *, session: "Session") -> dict:
+def get_usage_history(rse_id: uuid.UUID, account: InternalAccount, *, session: "Session") -> list[dict]:
     """
     Returns historical values of the specified counter, or raises CounterNotFound if the counter does not exist.
 
     :param rse_id:           The id of the RSE.
     :param account:          The account name.
     :param session:          The database session in use.
-    :returns:                A dictionary {'bytes', 'files', 'updated_at'}
+    :returns:                A list of dictionaries {'bytes', 'files', 'updated_at'}
     """
     query = select(
         models.AccountUsageHistory.bytes,

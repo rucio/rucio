@@ -570,7 +570,7 @@ def str_to_date(string):
     return datetime.datetime.strptime(string, DATE_FORMAT) if string else None
 
 
-def val_to_space_sep_str(vallist):
+def val_to_space_sep_str(vallist: list) -> str:
     """ Converts a list of values into a string of space separated values
 
     :param vallist: the list of values to to convert into string

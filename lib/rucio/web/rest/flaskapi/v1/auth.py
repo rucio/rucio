@@ -1327,10 +1327,9 @@ class SSHChallengeToken(ErrorHandlingMethodView):
 
         vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
-        appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
-        result = get_ssh_challenge_token(account, appid, ip, vo=vo)
+        result = get_ssh_challenge_token(account, ip, vo=vo)
 
         if not result:
             return generate_http_error_flask(

@@ -127,7 +127,7 @@ class TestAuthCoreApi:
         except Duplicate:
             pass  # might already exist, can skip
 
-        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', vo=vo).get('token')
+        challenge_token = get_ssh_challenge_token(account='root', ip='127.0.0.1', vo=vo).get('token')
 
         signature = base64.b64decode(ssh_sign(PRIVATE_KEY, challenge_token))
 
@@ -163,7 +163,7 @@ class TestAuthCoreApi:
         except Duplicate:
             pass  # might already exist, can skip
 
-        challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', vo=vo).get('token')
+        challenge_token = get_ssh_challenge_token(account='root', ip='127.0.0.1', vo=vo).get('token')
 
         ssh_sign_string = ssh_sign(PRIVATE_KEY, challenge_token)
         signature = base64.b64decode(ssh_sign_string)
