@@ -12,23 +12,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import uuid
 import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import literal, insert, select
 from sqlalchemy.orm.exc import NoResultFound
 
+from rucio.common.types import InternalAccount
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
+    from sqlalchemy.orm import Session, Query
 
 MAX_COUNTERS = 10
 
 
 @transactional_session
-def add_counter(rse_id, account, *, session: "Session"):
+def add_counter(rse_id: uuid.UUID, account: InternalAccount, *, session: "Session"):
     """
     Creates the specified counter for a rse_id and account.
 
@@ -41,7 +44,7 @@ def add_counter(rse_id, account, *, session: "Session"):
 
 
 @transactional_session
-def increase(rse_id, account, files, bytes_, *, session: "Session"):
+def increase(rse_id: uuid.UUID, account: InternalAccount, files: int, bytes_: int, *, session: "Session"):
     """
     Increments the specified counter by the specified amount.
 
@@ -55,7 +58,7 @@ def increase(rse_id, account, files, bytes_, *, session: "Session"):
 
 
 @transactional_session
-def decrease(rse_id, account, files, bytes_, *, session: "Session"):
+def decrease(rse_id: uuid.UUID, account: InternalAccount, files: int, bytes_: int, *, session: "Session") -> None:
     """
     Decreases the specified counter by the specified amount.
 
@@ -69,7 +72,7 @@ def decrease(rse_id, account, files, bytes_, *, session: "Session"):
 
 
 @transactional_session
-def del_counter(rse_id, account, *, session: "Session"):
+def del_counter(rse_id: uuid.UUID, account: InternalAccount, *, session: "Session"):
     """
     Resets the specified counter and initializes it by the specified amounts.
 
@@ -82,7 +85,7 @@ def del_counter(rse_id, account, *, session: "Session"):
 
 
 @read_session
-def get_updated_account_counters(total_workers, worker_number, *, session: "Session"):
+def get_updated_account_counters(total_workers: int, worker_number: int, *, session: "Session") -> list["Query"]:
     """
     Get updated rse_counters.
 
@@ -105,7 +108,7 @@ def get_updated_account_counters(total_workers, worker_number, *, session: "Sess
 
 
 @transactional_session
-def update_account_counter(account, rse_id, *, session: "Session"):
+def update_account_counter(account: InternalAccount, rse_id: uuid.UUID, *, session: "Session"):
     """
     Read the updated_account_counters and update the account_counter.
 
@@ -131,7 +134,7 @@ def update_account_counter(account, rse_id, *, session: "Session"):
 
 
 @transactional_session
-def update_account_counter_history(account, rse_id, *, session: "Session"):
+def update_account_counter_history(account: InternalAccount, rse_id: uuid.UUID, *, session: "Session"):
     """
     Read the AccountUsage and update the AccountUsageHistory.
 
