@@ -58,8 +58,8 @@ if TYPE_CHECKING:
 
 # The WLCG Common JWT Profile dictates that the lifetime of access and ID tokens
 # should range from five minutes to six hours.
-TOKEN_MIN_LIFETIME: Final = int(timedelta(minutes=5).total_seconds())
-TOKEN_MAX_LIFETIME: Final = int(timedelta(hours=6).total_seconds())
+TOKEN_MIN_LIFETIME: Final = config_get_int('oidc', 'token_min_lifetime', default=300)
+TOKEN_MAX_LIFETIME: Final = config_get_int('oidc', 'token_max_lifetime', default=21600)
 
 REGION: Final = make_region_memcached(expiration_time=TOKEN_MAX_LIFETIME)
 METRICS = MetricManager(module=__name__)
