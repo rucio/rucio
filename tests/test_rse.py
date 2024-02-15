@@ -35,7 +35,7 @@ from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses
                             parse_checksum_support_attribute,
                             get_rse_supported_checksums_from_attributes,
                             update_rse)
-from rucio.daemons.abacus.account import account_update
+from rucio.daemons.abacus.account import AbacusAccount
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import RSEType, DIDType
 from rucio.rse import rsemanager as mgr
@@ -1370,7 +1370,7 @@ class TestRSEClient:
         attach_dids(mock_scope, dataset, files, jdoe_account)
         rules = add_rule(dids=[{'scope': mock_scope, 'name': dataset}], account=jdoe_account, copies=1, rse_expression=rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, activity=activity)
         assert rules
-        account_update(once=True)
+        AbacusAccount(once=True).run()
         usages = rucio_client.get_rse_usage(rse=rse, filters={'per_account': True})
         for usage in usages:
             assert usage['account_usages']

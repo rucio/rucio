@@ -19,24 +19,22 @@ import logging
 import os
 import queue
 import socket
-import signal
 import threading
 import time
-from collections.abc import Callable, Generator, Iterator, Sequence
-from typing import Any, Generic, Optional, TypeVar, Union
-from types import TracebackType, FrameType
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Generator, Iterator, Sequence
+from types import FrameType, TracebackType
+from typing import Any, Final, Generic, Optional, TypeVar, Union
 
-import rucio.db.sqla.util
+from rucio.common.exception import DatabaseException
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.utils import PriorityQueue
+import rucio.db.sqla.util
 from rucio.core import heartbeat as heartbeat_core
 from rucio.core.monitor import MetricManager
-from rucio.common.exception import DatabaseException
 
-T = TypeVar("T")
+T = TypeVar('T')
 METRICS = MetricManager(module=__name__)
-
 
 class Daemon(ABC):
     """
@@ -58,13 +56,12 @@ class Daemon(ABC):
         :param partition_wait_time: Time to wait for database partition rebalancing before starting the actual daemon loop.
         :param daemon_name: Name of daemon that is constructed.
         """
-        self.once = once
-        self.total_workers = total_workers
-        self.sleep_time = sleep_time
-        self.partition_wait_time = partition_wait_time
+        self.once: Final[bool] = once
+        self.total_workers: Final[int] = total_workers
+        self.sleep_time: Final[int] = sleep_time
+        self.partition_wait_time: Final[int] = partition_wait_time
         self.daemon_name = daemon_name
         self.graceful_stop = threading.Event()
-        signal.signal(signal.SIGTERM, self.stop)
         setup_logging(process_name=daemon_name)
 
     @staticmethod
@@ -115,15 +112,17 @@ class Daemon(ABC):
         """
         self._pre_run_checks()
 
-        logging.info(f"{self.daemon_name}: starting threads")
+        logging.info("%s: starting threads", self.daemon_name)
         thread_list = [
             threading.Thread(target=self._call_daemon)
-            for _ in range(0, self.total_workers)
+            for _ in range(self.total_workers)
         ]
-        [t.start() for t in thread_list]
+
+        for t in thread_list:
+            t.start()
 
         if not self.once:
-            logging.info(f"{self.daemon_name}: waiting for interrupts")
+            logging.info("%s: waiting for interrupts", self.daemon_name)
 
         # Interruptible joins require a timeout.
         while thread_list:
@@ -134,7 +133,7 @@ class Daemon(ABC):
             ]
 
     def stop(
-        self, signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None
+        self, signum: Optional[int] = None, frame: Optional[FrameType] = None
     ) -> None:
         """
         Graceful exit the daemon. Used as handler for SIGTERM.
@@ -144,7 +143,6 @@ class Daemon(ABC):
         :param frame: stack frame
         """
         self.graceful_stop.set()
-
 
 class HeartbeatHandler:
     """
@@ -160,9 +158,7 @@ class HeartbeatHandler:
         self.executable = executable
         self._hash_executable = None
         self.renewal_interval = renewal_interval
-        self.older_than = (
-            renewal_interval * 10 if renewal_interval and renewal_interval > 0 else None
-        )  # 10 was chosen without any particular reason
+        self.older_than = renewal_interval * 10 if renewal_interval > 0 else None  # 10 was chosen without any particular reason
 
         self.hostname = socket.getfqdn()
         self.pid = os.getpid()
@@ -178,16 +174,11 @@ class HeartbeatHandler:
         self.live()
         return self
 
-    def __exit__(
-        self,
-        exc_type: type[BaseException],
-        exc_val: BaseException,
-        exc_tb: TracebackType,
-    ) -> None:
+    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
         if self.last_heart_beat:
             heartbeat_core.die(self.executable, self.hostname, self.pid, self.hb_thread)
             if self.logger:
-                self.logger(logging.INFO, "Heartbeat cleaned up")
+                self.logger(logging.INFO, 'Heartbeat cleaned up')
 
     @property
     def hash_executable(self) -> str:
@@ -199,64 +190,38 @@ class HeartbeatHandler:
     def short_executable(self) -> str:
         return min(self.executable, self.hash_executable, key=len)
 
-    def live(
-        self, force_renew: bool = False, payload: Optional[str] = None
-    ) -> tuple[int, int, Callable]:
+    def live(self, force_renew: bool = False, payload: Optional[str] = None):
         """
         :return: a tuple: <the number of the current worker>, <total number of workers>, <decorated logger>
         """
-        if (
-            force_renew
-            or not self.last_time
-            or not self.last_heart_beat
-            or self.last_time
-            < datetime.datetime.now()
-            - datetime.timedelta(seconds=self.renewal_interval)
-            or self.last_payload != payload
-        ):
+        if force_renew \
+                or not self.last_time \
+                or not self.last_heart_beat \
+                or self.last_time < datetime.datetime.now() - datetime.timedelta(seconds=self.renewal_interval) \
+                or self.last_payload != payload:
             if self.older_than:
-                self.last_heart_beat = heartbeat_core.live(
-                    self.executable,
-                    self.hostname,
-                    self.pid,
-                    self.hb_thread,
-                    payload=payload,
-                    older_than=self.older_than,
-                )
+                self.last_heart_beat = heartbeat_core.live(self.executable, self.hostname, self.pid, self.hb_thread, payload=payload, older_than=self.older_than)
             else:
-                self.last_heart_beat = heartbeat_core.live(
-                    self.executable,
-                    self.hostname,
-                    self.pid,
-                    self.hb_thread,
-                    payload=payload,
-                )
+                self.last_heart_beat = heartbeat_core.live(self.executable, self.hostname, self.pid, self.hb_thread, payload=payload)
 
-            prefix = "[%i/%i]: " % (
-                self.last_heart_beat["assign_thread"],
-                self.last_heart_beat["nr_threads"],
-            )
-            self.logger = formatted_logger(logging.log, prefix + "%s")
+            prefix = '[%i/%i]: ' % (self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'])
+            self.logger = formatted_logger(logging.log, prefix + '%s')
 
             if not self.last_time:
-                self.logger(logging.DEBUG, "First heartbeat set")
+                self.logger(logging.DEBUG, 'First heartbeat set')
             else:
-                self.logger(logging.DEBUG, "Heartbeat renewed")
+                self.logger(logging.DEBUG, 'Heartbeat renewed')
             self.last_time = datetime.datetime.now()
             self.last_payload = payload
 
-        return (
-            self.last_heart_beat["assign_thread"],
-            self.last_heart_beat["nr_threads"],
-            self.logger,
-        )
+        return self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'], self.logger
 
 
 def _activity_looper(
-    once: bool,
-    sleep_time: int,
-    activities: Optional[Sequence[str]],
-    heartbeat_handler: HeartbeatHandler,
+        once: bool,
+        sleep_time: int,
+        activities: Optional[Sequence[str]],
+        heartbeat_handler: HeartbeatHandler,
 ) -> Generator[tuple[str, float], tuple[float, bool], None]:
     """
     Generator which loops (either once, or indefinitely) over all activities while ensuring that `sleep_time`
@@ -289,19 +254,14 @@ def _activity_looper(
         logger = heartbeat_handler.logger
         if time_to_sleep > 0:
             if activity:
-                logger(
-                    logging.DEBUG,
-                    "Switching to activity %s and sleeping %s seconds",
-                    activity,
-                    time_to_sleep,
-                )
+                logger(logging.DEBUG, 'Switching to activity %s and sleeping %s seconds', activity, time_to_sleep)
             else:
-                logger(logging.DEBUG, "Sleeping %s seconds", time_to_sleep)
+                logger(logging.DEBUG, 'Sleeping %s seconds', time_to_sleep)
         else:
             if activity:
-                logger(logging.DEBUG, "Switching to activity %s", activity)
+                logger(logging.DEBUG, 'Switching to activity %s', activity)
             else:
-                logger(logging.DEBUG, "Starting next iteration")
+                logger(logging.DEBUG, 'Starting next iteration')
 
         # The calling context notifies us when the activity actually got handled. And if sleeping is desired.
         actual_exe_time, must_sleep = yield activity, time_to_sleep
@@ -316,12 +276,12 @@ def _activity_looper(
 
 
 def db_workqueue(
-    once: bool,
-    graceful_stop: threading.Event,
-    executable: str,
-    partition_wait_time: int,
-    sleep_time: int,
-    activities: Optional[Sequence[str]] = None,
+        once: bool,
+        graceful_stop: threading.Event,
+        executable: str,
+        partition_wait_time: int,
+        sleep_time: int,
+        activities: Optional[Sequence[str]] = None,
 ):
     """
     Used to wrap a function for interacting with the database as a work queue: i.e. to select
@@ -337,29 +297,20 @@ def db_workqueue(
     :param activities: optional list of activities on which to work. The run_once_fnc will be called on activities one by one.
     """
 
-    def _decorate(
-        run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, T]]]]
-    ) -> Callable[[], Iterator[Optional[T]]]:
+    def _decorate(run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, T]]]]) -> Callable[[], Iterator[Optional[T]]]:
 
         @functools.wraps(run_once_fnc)
         def _generator():
 
-            with HeartbeatHandler(
-                executable=executable, renewal_interval=sleep_time - 1
-            ) as heartbeat_handler:
+            with HeartbeatHandler(executable=executable, renewal_interval=sleep_time - 1) as heartbeat_handler:
                 logger = heartbeat_handler.logger
-                logger(logging.INFO, "started")
+                logger(logging.INFO, 'started')
 
                 if partition_wait_time:
                     graceful_stop.wait(partition_wait_time)
                     _, _, logger = heartbeat_handler.live(force_renew=True)
 
-                activity_loop = _activity_looper(
-                    once=once,
-                    sleep_time=sleep_time,
-                    activities=activities,
-                    heartbeat_handler=heartbeat_handler,
-                )
+                activity_loop = _activity_looper(once=once, sleep_time=sleep_time, activities=activities, heartbeat_handler=heartbeat_handler)
                 activity, time_to_sleep = next(activity_loop, (None, None))
                 while time_to_sleep is not None:
                     if graceful_stop.is_set():
@@ -373,9 +324,7 @@ def db_workqueue(
                     must_sleep = True
                     start_time = time.time()
                     try:
-                        result = run_once_fnc(
-                            heartbeat_handler=heartbeat_handler, activity=activity
-                        )
+                        result = run_once_fnc(heartbeat_handler=heartbeat_handler, activity=activity)
 
                         # Handle return values already existing in the code
                         # TODO: update all existing daemons to always explicitly return (must_sleep, ret_value)
@@ -391,22 +340,18 @@ def db_workqueue(
                         if ret_value is not None:
                             yield ret_value
                     except Exception as e:
-                        METRICS.counter("exceptions.{exception}").labels(
-                            exception=e.__class__.__name__
-                        ).inc()
+                        METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
                         logger(logging.CRITICAL, "Exception", exc_info=True)
                         if once:
                             raise
 
                     try:
-                        activity, time_to_sleep = activity_loop.send(
-                            (start_time, must_sleep)
-                        )
+                        activity, time_to_sleep = activity_loop.send((start_time, must_sleep))
                     except StopIteration:
                         break
 
                 if not once:
-                    logger(logging.INFO, "Graceful stop requested")
+                    logger(logging.INFO, 'Graceful stop requested')
 
         return _generator
 
@@ -414,14 +359,13 @@ def db_workqueue(
 
 
 def run_daemon(
-    once: bool,
-    graceful_stop: threading.Event,
-    executable: str,
-    partition_wait_time: int,
-    sleep_time: int,
-    run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, Any]]]],
-    activities: Optional[list[str]] = None,
-) -> None:
+        once: bool,
+        graceful_stop: threading.Event,
+        executable: str,
+        partition_wait_time: int,
+        sleep_time: int,
+        run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, Any]]]],
+        activities: Optional[list[str]] = None):
     """
     Run the daemon loop and call the function run_once_fnc at each iteration
     """
@@ -455,7 +399,11 @@ class ProducerConsumerDaemon(Generic[T]):
         self.producers_done_event = threading.Event()
         self.logger = logger
 
-    def _produce(self, it: Callable[[], Iterator[T]], wait_for_consumers: bool = False):
+    def _produce(
+            self,
+            it: Callable[[], Iterator[T]],
+            wait_for_consumers: bool = False
+    ):
         """
         Iterate over the generator function and put the extracted elements into the queue.
 
@@ -477,9 +425,7 @@ class ProducerConsumerDaemon(Generic[T]):
                 except StopIteration:
                     break
                 except Exception as e:
-                    METRICS.counter("exceptions.{exception}").labels(
-                        exception=e.__class__.__name__
-                    ).inc()
+                    METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
                     self.logger(logging.CRITICAL, "Exception", exc_info=True)
         finally:
             with self.lock:
@@ -490,7 +436,10 @@ class ProducerConsumerDaemon(Generic[T]):
             if wait_for_consumers:
                 self.queue.join()
 
-    def _consume(self, fnc: Callable[[T], Any]):
+    def _consume(
+            self,
+            fnc: Callable[[T], Any]
+    ):
         """
         Wait for elements to arrive via the queue and call the given function on each element.
 
@@ -506,9 +455,7 @@ class ProducerConsumerDaemon(Generic[T]):
             try:
                 fnc(product)
             except Exception as e:
-                METRICS.counter("exceptions.{exception}").labels(
-                    exception=e.__class__.__name__
-                ).inc()
+                METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
                 self.logger(logging.CRITICAL, "Exception", exc_info=True)
             finally:
                 self.queue.task_done()
@@ -519,8 +466,11 @@ class ProducerConsumerDaemon(Generic[T]):
         for i, producer in enumerate(self.producers):
             thread = threading.Thread(
                 target=self._produce,
-                name=f"producer-{i}-{producer.__name__}",
-                kwargs={"it": producer, "wait_for_consumers": True},
+                name=f'producer-{i}-{producer.__name__}',
+                kwargs={
+                    'it': producer,
+                    'wait_for_consumers': True
+                }
             )
             thread.start()
             producer_threads.append(thread)
@@ -529,28 +479,24 @@ class ProducerConsumerDaemon(Generic[T]):
         for i, consumer in enumerate(self.consumers):
             thread = threading.Thread(
                 target=self._consume,
-                name=f"consumer-{i}-{consumer.__name__}",
+                name=f'consumer-{i}-{consumer.__name__}',
                 kwargs={
-                    "fnc": consumer,
-                },
+                    'fnc': consumer,
+                }
             )
             thread.start()
             consumer_threads.append(thread)
 
-        logging.info("waiting for interrupts")
+        logging.info('waiting for interrupts')
 
         while producer_threads:
             for thread in producer_threads:
                 thread.join(timeout=3.14)
-            producer_threads = [
-                thread for thread in producer_threads if thread.is_alive()
-            ]
+            producer_threads = [thread for thread in producer_threads if thread.is_alive()]
 
         self.producers_done_event.set()
 
         while consumer_threads:
             for thread in consumer_threads:
                 thread.join(timeout=3.14)
-            consumer_threads = [
-                thread for thread in consumer_threads if thread.is_alive()
-            ]
+            consumer_threads = [thread for thread in consumer_threads if thread.is_alive()]

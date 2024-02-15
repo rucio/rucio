@@ -19,6 +19,7 @@ Judge-Repairer is a daemon to repair stuck replication rules.
 """
 
 import argparse
+import signal
 
 from rucio.daemons.judge.repairer import JudgeRepairer
 
@@ -38,6 +39,7 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
     judge_repairer = JudgeRepairer(once=args.run_once, threads=args.threads, sleep_time=args.sleep_time)
+    signal.signal(signal.SIGTERM, judge_repairer.stop)
     try:
         judge_repairer.run()
     except KeyboardInterrupt:

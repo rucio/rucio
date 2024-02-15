@@ -20,8 +20,8 @@ Abacus account is a daemon to update account counters.
 
 import argparse
 import signal
-
-from rucio.daemons.abacus.account import run, stop
+from rucio.daemons.abacus.account import AbacusAccount
+from rucio.daemons.abacus.common import ABACUS_HISTORY_TABLE_INTERVAL
 
 
 def get_parser():
@@ -57,19 +57,18 @@ Check account usage again::
     ''', formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads on this process')
-    parser.add_argument("--enable-history", action="store_true", default=False, help='Record account usage into history table every hour.')
+    parser.add_argument("--enable-history", action="store_true", default=False, help=f'Record account usage into history table every {ABACUS_HISTORY_TABLE_INTERVAL} seconds.')
     parser.add_argument('--sleep-time', action="store", default=10, type=int, help='Concurrency control: thread sleep time after each chunk of work')
 
     return parser
 
 
 if __name__ == "__main__":
-
-    signal.signal(signal.SIGTERM, stop)
-
     parser = get_parser()
     args = parser.parse_args()
+    abacus_account = AbacusAccount(once=args.run_once, threads=args.threads, fill_history_table=args.enable_history, sleep_time=args.sleep_time)
+    signal.signal(signal.SIGTERM, abacus_account.stop)
     try:
-        run(once=args.run_once, threads=args.threads, fill_history_table=args.enable_history, sleep_time=args.sleep_time)
+        abacus_account.run()
     except KeyboardInterrupt:
-        stop()
+        abacus_account.stop()

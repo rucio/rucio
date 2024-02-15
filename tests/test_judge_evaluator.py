@@ -25,7 +25,7 @@ from rucio.core.lock import get_dataset_locks, get_replica_locks, get_replica_lo
 from rucio.core.replica import add_replica
 from rucio.core.rse import add_rse_attribute
 from rucio.core.rule import add_rule, get_rule
-from rucio.daemons.abacus.account import account_update
+from rucio.daemons.abacus.account import AbacusAccount
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.db.sqla.constants import DIDType, LockState
 from rucio.db.sqla.models import UpdatedDID
@@ -198,7 +198,7 @@ class TestJudgeEvaluator:
     def test_account_counter_judge_evaluate_attach(self):
         """ JUDGE EVALUATOR: Test if the account counter is updated correctly when a file is added to a DS"""
         re_evaluator(once=True, did_limit=None)
-        account_update(once=True)
+        AbacusAccount(once=True).run()
 
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes_=100)
@@ -213,7 +213,7 @@ class TestJudgeEvaluator:
 
         # Fake judge
         re_evaluator(once=True, did_limit=None)
-        account_update(once=True)
+        AbacusAccount(once=True).run()
 
         account_counter_after = get_usage(self.rse1_id, self.jdoe)
         assert account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes']
@@ -223,7 +223,7 @@ class TestJudgeEvaluator:
     def test_account_counter_judge_evaluate_detach(self):
         """ JUDGE EVALUATOR: Test if the account counter is updated correctly when a file is removed from a DS"""
         re_evaluator(once=True, did_limit=None)
-        account_update(once=True)
+        AbacusAccount(once=True).run()
 
         scope = InternalScope('mock', **self.vo)
         files = create_files(3, scope, self.rse1_id, bytes_=100)
@@ -234,7 +234,7 @@ class TestJudgeEvaluator:
         # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        account_update(once=True)
+        AbacusAccount(once=True).run()
 
         account_counter_before = get_usage(self.rse1_id, self.jdoe)
 
@@ -242,7 +242,7 @@ class TestJudgeEvaluator:
 
         # Fake judge
         re_evaluator(once=True, did_limit=None)
-        account_update(once=True)
+        AbacusAccount(once=True).run()
 
         account_counter_after = get_usage(self.rse1_id, self.jdoe)
         assert account_counter_before['bytes'] - 100 == account_counter_after['bytes']

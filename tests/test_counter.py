@@ -19,7 +19,7 @@ import pytest
 
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_usage
-from rucio.daemons.abacus.account import account_update
+from rucio.daemons.abacus.account import AbacusAccount
 from rucio.daemons.abacus.rse import rse_update
 from rucio.db.sqla import models
 
@@ -91,7 +91,7 @@ class TestCoreAccountCounter:
     def test_inc_dec_get_counter(self, jdoe_account, rse_factory, db_session):
         """ACCOUNT COUNTER (CORE): Increase, decrease and get counter """
         db_session.commit()
-        account_update(once=True)
+        AbacusAccount(once=True).run()
         _, rse_id = rse_factory.make_mock_rse(session=db_session)
         db_session.commit()
         account = jdoe_account
@@ -104,7 +104,7 @@ class TestCoreAccountCounter:
         count, sum_ = 0, 0
         for i in range(10):
             account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9)
-            account_update(once=True)
+            AbacusAccount(once=True).run()
             count += 1
             sum_ += 2.147e+9
             cnt = get_usage(rse_id=rse_id, account=account)
@@ -113,7 +113,7 @@ class TestCoreAccountCounter:
 
         for i in range(4):
             account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9)
-            account_update(once=True)
+            AbacusAccount(once=True).run()
             count -= 1
             sum_ -= 2.147e+9
             cnt = get_usage(rse_id=rse_id, account=account)
@@ -122,7 +122,7 @@ class TestCoreAccountCounter:
 
         for i in range(5):
             account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9)
-            account_update(once=True)
+            AbacusAccount(once=True).run()
             count += 1
             sum_ += 2.147e+9
             cnt = get_usage(rse_id=rse_id, account=account)
@@ -131,7 +131,7 @@ class TestCoreAccountCounter:
 
         for i in range(8):
             account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9)
-            account_update(once=True)
+            AbacusAccount(once=True).run()
             count -= 1
             sum_ -= 2.147e+9
             cnt = get_usage(rse_id=rse_id, account=account)

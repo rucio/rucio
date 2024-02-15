@@ -15,14 +15,14 @@
 # limitations under the License.
 
 # Script with all tools to count the missing python type annotations in the
-# project. Installs all necessary python packages temporarily if needed. To use
+# project. Installes all necessary python packages temporarly if needed. To use
 # it run: `scource count_missing_annotations_utils.sh`.
 
 set -e
 
 
 ensure_install() {
-    # Checks if a python package is installed via pip. It installs the package,
+    # Checks if a python package is installed via pip. It installes the package,
     # and removes it after the script run automatically.
     #
     # All debug output is redirected to the stderr stream, to not interfear with

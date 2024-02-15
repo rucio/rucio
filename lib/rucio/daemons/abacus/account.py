@@ -18,89 +18,37 @@ Abacus-Account is a daemon to update Account counters.
 """
 
 import logging
-import threading
 import time
-from typing import TYPE_CHECKING
+from typing import Any
 
-import rucio.db.sqla.util
-from rucio.common import exception
-from rucio.common.logging import setup_logging
-from rucio.common.utils import get_thread_with_periodic_running_function
-from rucio.core.account_counter import get_updated_account_counters, update_account_counter, fill_account_counter_history_table
-from rucio.daemons.common import run_daemon
-
-if TYPE_CHECKING:
-    from types import FrameType
-    from typing import Optional
-
-graceful_stop = threading.Event()
-DAEMON_NAME = 'abacus-account'
+from rucio.core.account_counter import get_updated_account_counters, update_account_counter
+from rucio.daemons.common import HeartbeatHandler
+from rucio.daemons.abacus.common import AbacusDaemon
 
 
-def account_update(once=False, sleep_time=10):
-    """
-    Main loop to check and update the Account Counters.
-    """
-    run_daemon(
-        once=once,
-        graceful_stop=graceful_stop,
-        executable=DAEMON_NAME,
-        partition_wait_time=1,
-        sleep_time=sleep_time,
-        run_once_fnc=run_once,
-    )
+class AbacusAccount(AbacusDaemon):
+    def __init__(self, **_kwargs) -> None:
+        super().__init__(daemon_name="abacus-account", **_kwargs)
 
-
-def run_once(heartbeat_handler, **_kwargs):
-    worker_number, total_workers, logger = heartbeat_handler.live()
-
-    start = time.time()  # NOQA
-    account_rse_ids = get_updated_account_counters(total_workers=total_workers,
-                                                   worker_number=worker_number)
-    logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(account_rse_ids)))
-
-    # If the list is empty, sent the worker to sleep
-    if not account_rse_ids:
-        logger(logging.INFO, 'did not get any work')
-        return
-
-    for account_rse_id in account_rse_ids:
+    def _run_once(self, heartbeat_handler: "HeartbeatHandler", **_kwargs) -> tuple[bool, Any]:
         worker_number, total_workers, logger = heartbeat_handler.live()
-        if graceful_stop.is_set():
-            break
-        start_time = time.time()
-        update_account_counter(account=account_rse_id[0], rse_id=account_rse_id[1])
-        logger(logging.DEBUG, 'update of account-rse counter "%s-%s" took %f' % (account_rse_id[0], account_rse_id[1], time.time() - start_time))
+        must_sleep = False
 
+        start = time.time()  # NOQA
+        account_rse_ids = get_updated_account_counters(total_workers=total_workers,
+                                                       worker_number=worker_number)
+        logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(account_rse_ids)))
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
-    """
-    Graceful exit.
-    """
+        # If the list is empty, sent the worker to sleep
+        if not account_rse_ids:
+            logger(logging.INFO, 'did not get any work')
+            return must_sleep, None
 
-    graceful_stop.set()
-
-
-def run(once=False, threads=1, fill_history_table=False, sleep_time=10):
-    """
-    Starts up the Abacus-Account threads.
-    """
-    setup_logging(process_name=DAEMON_NAME)
-
-    if rucio.db.sqla.util.is_old_db():
-        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
-
-    if once:
-        logging.info('main: executing one iteration only')
-        account_update(once)
-    else:
-        logging.info('main: starting threads')
-        threads = [threading.Thread(target=account_update, kwargs={'once': once, 'sleep_time': sleep_time}) for i in
-                   range(0, threads)]
-        if fill_history_table:
-            threads.append(get_thread_with_periodic_running_function(3600, fill_account_counter_history_table, graceful_stop))
-        [t.start() for t in threads]
-        logging.info('main: waiting for interrupts')
-        # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+        for account_rse_id in account_rse_ids:
+            worker_number, total_workers, logger = heartbeat_handler.live()
+            if self.graceful_stop.is_set():
+                break
+            start_time = time.time()
+            update_account_counter(account=account_rse_id[0], rse_id=account_rse_id[1])
+            logger(logging.DEBUG, 'update of account-rse counter "%s-%s" took %f' % (account_rse_id[0], account_rse_id[1], time.time() - start_time))
+        return must_sleep, None
