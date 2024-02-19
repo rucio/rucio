@@ -122,7 +122,7 @@ def _scitags_ids(logger: Callable[..., Any] = logging.log) -> "tuple[int | None,
     if _SCITAGS_NEXT_REFRESH < now:
         exp_name = config_get('packet-marking', 'exp_name', default='')
         fetch_url = config_get('packet-marking', 'fetch_url', default='https://www.scitags.org/api.json')
-        fetch_interval = config_get_int('packet-marking', 'fetch_interval', default=datetime.timedelta(hours=48).seconds)
+        fetch_interval = config_get_int('packet-marking', 'fetch_interval', default=int(datetime.timedelta(hours=48).total_seconds()))
         fetch_timeout = config_get_int('packet-marking', 'fetch_timeout', default=5)
 
         _SCITAGS_NEXT_REFRESH = now + datetime.timedelta(seconds=fetch_interval)
