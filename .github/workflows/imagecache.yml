@@ -9,7 +9,7 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Identify branches
         id: branches
         run: |
@@ -28,7 +28,7 @@ jobs:
       matrix:
         branch: ${{ fromJson(needs.setup.outputs.branches) }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ matrix.branch }}
       - name: Check and get files
@@ -93,11 +93,11 @@ jobs:
         branch: ${{ fromJson(needs.setup.outputs.branches) }}
     steps:
       - name: Checkout rucio containers repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: rucio/containers
       - name: Checkout rucio source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: dev/rucio
           ref: ${{ matrix.branch }}
