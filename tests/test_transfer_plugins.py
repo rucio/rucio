@@ -22,7 +22,7 @@ from rucio.core.transfer import ProtocolFactory, build_transfer_paths
 from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas
 
 from rucio.db.sqla.session import get_session
-from rucio.transfertool.fts3_plugins import FTS3MetadataPlugin
+from rucio.transfertool.fts3_plugins import FTS3TapeMetadataPlugin
 
 from rucio.core import distance as distance_core
 from rucio.core import replica as replica_core
@@ -73,7 +73,7 @@ def _make_transfer_path(did, rse_factory, root_account):
     {
         "overrides": [
             ('tape_priority', 'User Subscriptions', '100'),
-            ("transfers", "plugins", "activity")
+            ("transfers", "fts3tape_metadata_plugins", "activity")
         ]
     }
 ], indirect=True)
@@ -88,7 +88,7 @@ def test_scheduling_hints(file_config_mock, did_factory, rse_factory, root_accou
     transfer_path = _make_transfer_path(mock_did, rse_factory, root_account)
 
     # Need to re-init the module once the config is set
-    FTS3MetadataPlugin(" ")
+    FTS3TapeMetadataPlugin(" ")
 
     # Mock Transfer Tool
     fts3_tool = FTS3Transfertool(TEST_FTS_HOST)
@@ -104,7 +104,7 @@ def test_scheduling_hints(file_config_mock, did_factory, rse_factory, root_accou
     # Get the job params used for each transfer
     job_params = fts3_tool._file_from_transfer(transfer_path[0], job_params)
 
-    # Exstract the hints
+    # Extract the hints
     assert "archive_metadata" in job_params
     assert len(job_params["archive_metadata"].keys()) == 1
     generated_scheduling_hints = job_params["archive_metadata"]["scheduling_hints"]
@@ -116,7 +116,7 @@ def test_scheduling_hints(file_config_mock, did_factory, rse_factory, root_accou
 @pytest.mark.parametrize("file_config_mock", [
     {
         "overrides": [
-            ("transfers", "plugins", "activity")
+            ("transfers", "fts3tape_metadata_plugins", "activity")
         ]
     }
 ], indirect=True)
@@ -147,7 +147,7 @@ def test_activity_missing(file_config_mock, did_factory, rse_factory, root_accou
 
     job_params = fts3_tool._file_from_transfer(transfer_params, job_params)
 
-    # Exstract the hints
+    # Extract the hints
     assert "archive_metadata" in job_params
     generated_scheduling_hints = job_params["archive_metadata"]["scheduling_hints"]
 
@@ -158,7 +158,7 @@ def test_activity_missing(file_config_mock, did_factory, rse_factory, root_accou
 @pytest.mark.parametrize("file_config_mock", [
     {
         "overrides": [
-            ("transfers", "plugins", "test")
+            ("transfers", "fts3tape_metadata_plugins", "test")
         ]
     }
 ], indirect=True)
@@ -203,7 +203,7 @@ def test_collocation_hints(file_config_mock, did_factory, rse_factory, root_acco
 @pytest.mark.parametrize("file_config_mock", [
     {
         "overrides": [
-            ("transfers", "plugins", "activity, test")
+            ("transfers", "fts3tape_metadata_plugins", "activity, test")
         ]
     }
 ], indirect=True)
@@ -244,7 +244,7 @@ def test_multiple_plugin_concat(file_config_mock, did_factory, rse_factory, root
     {
         "overrides": [
             ("transfers", "metadata_byte_limit", "4"),
-            ("transfers", "plugins", "def")
+            ("transfers", "fts3tape_metadata_plugins", "def")
 
         ]
     }

@@ -1663,6 +1663,67 @@ def test_preparer_ignore_availability(rse_factory, did_factory, root_account, fi
 
 
 @skip_rse_tests_with_accounts
+@pytest.mark.noparallel(groups=[NoParallelGroups.PREPARER, NoParallelGroups.SUBMITTER])
+@pytest.mark.parametrize("file_config_mock", [
+    {
+        "overrides": [
+            ("transfers", "fts3tape_metadata_plugins", "activity"),
+            ('tape_priority', 'fast', '100'),
+            ('tape_priority', 'slow', '1')
+        ]
+    }
+], indirect=True)
+def test_transfer_plugins(rse_factory, did_factory, root_account, file_config_mock):
+    """
+        Add existing plugin to fts3 transfertool, verify submission goes through.
+    """
+    def __setup_test():
+        src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+        dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
+
+        distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
+        rse_core.add_rse_attribute(dst_rse_id, 'verify_checksum', False)
+
+        for rse_id in [src_rse_id, dst_rse_id]:
+            rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+
+        did_fast = did_factory.upload_test_file(src_rse)
+        did_slow = did_factory.upload_test_file(src_rse)
+
+        activity_dict = {did_fast['name']: "fast", did_slow['name']: "slow"}
+
+        rule_core.add_rule(dids=[did_fast, did_slow], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+        return src_rse_id, dst_rse_id, did_fast, did_slow, activity_dict
+
+    src_rse_id, dst_rse_id, did_fast, did_slow, activity_dict = __setup_test()
+
+    class _Fts3PluginTestWrapper(FTS3Transfertool):
+        def _file_from_transfer(self, transfer, job_params):
+            transfer.rws.activity = activity_dict[transfer.rws.name]
+            super()._file_from_transfer(transfer, job_params)
+
+    preparer(once=True, sleep_time=1, bulk=2, partition_wait_time=0, ignore_availability=False)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did_fast)
+    assert request['state'] == RequestState.QUEUED
+
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did_slow)
+    assert request['state'] == RequestState.QUEUED
+
+    with patch("rucio.transfertool.fts3.FTS3Transfertool", _Fts3PluginTestWrapper):
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in (src_rse_id, dst_rse_id)], group_bulk=1, partition_wait_time=0, transfertools=['fts3'], transfertype='single')
+
+    # Verify that both the submission works
+    request_fast = request_core.get_request_by_did(rse_id=dst_rse_id, **did_fast)
+    request_slow = request_core.get_request_by_did(rse_id=dst_rse_id, **did_slow)
+
+    # Does not impact the actual prority of the transfer - is read by placement algorithm not fts3.
+    assert request_fast['state'] != RequestState.SUBMISSION_FAILED
+    assert request_slow['state'] != RequestState.SUBMISSION_FAILED
+    assert request_fast['state'] != RequestState.FAILED
+    assert request_slow['state'] != RequestState.FAILED
+
+
+@skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 @pytest.mark.parametrize("file_config_mock", [{
     "overrides": [('client', 'register_bittorrent_meta', 'true')]
