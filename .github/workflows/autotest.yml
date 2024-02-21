@@ -128,15 +128,15 @@ jobs:
         run: python3 -m pip install -U PyYAML
       - name: Identify branch
         id: branch
-        run: python3 -c 'from os import environ as env; print("::set-output name=branch::" + (env.get("GITHUB_BASE_REF", None) if env.get("GITHUB_BASE_REF", None) else env.get("GITHUB_REF", "master")))'
+        run: python3 tools/github/workflow/set_branch_output_env.py
       - name: Identify Matrix
         id: matrix
         run: |
           EVENT="${{ github.event_name }}"
           if [ $EVENT != 'schedule' ]; then
-            echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)"
+            echo "matrix=$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix_nightly.yml)"
+            echo "matrix=$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix_nightly.yml)" >> $GITHUB_OUTPUT
           fi
     outputs:
       branch: ${{ steps.branch.outputs.branch }}
@@ -167,7 +167,7 @@ jobs:
           done
           docker logout https://ghcr.io
           if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
-          echo "::set-output name=images::$IMAGES"
+          echo "images=$IMAGES" >> $GITHUB_OUTPUT
       - name: Run test with cfg
         run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
   release-patch-setup:
@@ -183,10 +183,10 @@ jobs:
         run: python3 -m pip install -U sh PyYAML
       - name: Grab latest release branch
         id: grabrelease
-        run: echo "::set-output name=release_branch::$(echo "${{ github.event.repository.branches_url }}" | ./tools/github/workflow/grabrelease.py)"
+        run: echo "release_branch=$(echo "${{ github.event.repository.branches_url }}" | ./tools/github/workflow/grabrelease.py)" >> $GITHUB_OUTPUT
       - name: Fetch pull request commit range
         id: prcommits
-        run: echo "::set-output name=source_commits::$(echo "${{ github.event.pull_request.commits_url }}" | ./tools/github/workflow/prcommits.py)"
+        run: echo "source_commits=$(echo "${{ github.event.pull_request.commits_url }}" | ./tools/github/workflow/prcommits.py)" >> $GITHUB_OUTPUT
       - name: Test cherry-picking pull request changes
         run: |
           echo '{
@@ -198,7 +198,7 @@ jobs:
           }' | ./tools/github/workflow/mergetest.py
       - name: Identify Matrix
         id: matrix
-        run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)"
+        run: echo "matrix=$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)" >> $GITHUB_OUTPUT
     outputs:
       release_branch: ${{ steps.grabrelease.outputs.release_branch }}
       source_commits: ${{ steps.prcommits.outputs.source_commits }}
@@ -242,6 +242,6 @@ jobs:
           done
           docker logout https://ghcr.io
           if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
-          echo "::set-output name=images::$IMAGES"
+          echo "images=$IMAGES" >> $GITHUB_OUTPUT
       - name: Run test with cfg
         run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'

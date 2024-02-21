@@ -15,10 +15,10 @@ jobs:
         run: python3 -m pip install -U PyYAML
       - name: Identify branch
         id: branch
-        run: python3 -c 'from os import environ as env; print("::set-output name=branch::" + (env.get("GITHUB_BASE_REF", None) if env.get("GITHUB_BASE_REF", None) else env.get("GITHUB_REF", "master")))'
+        run: python3 tools/github/workflow/set_branch_output_env.py
       - name: Identify Matrix
         id: matrix
-        run: echo "::set-output name=matrix::$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix_integration_tests.yml)"
+        run: echo "matrix=$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix_integration_tests.yml)" >> $GITHUB_OUTPUT
     outputs:
       branch: ${{ steps.branch.outputs.branch }}
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -111,7 +111,7 @@ jobs:
           done
           docker logout https://ghcr.io
           if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
-          echo "::set-output name=images::$IMAGES"
+          echo "images=$IMAGES" >> $GITHUB_OUTPUT
       - name: Prepare Docker Compose
         shell: bash
         run: |
@@ -149,7 +149,7 @@ jobs:
         run: |
           docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short --export-artifacts-from="test_tpc" tests/test_tpc.py
           FTS_LOG_FILE=$(docker exec -t dev_rucio_1 cat /tmp/test_tpc.artifact)
-          echo "::set-output name=fts3log::$FTS_LOG_FILE"
+          echo "fts3log=$FTS_LOG_FILE" >> $GITHUB_OUTPUT
       - name: Verify TPC transfers from FTS logs
         shell: bash
         run: |

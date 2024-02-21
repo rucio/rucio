@@ -16,10 +16,10 @@ jobs:
         run: python3 -m pip install -U PyYAML
       - name: Identify branch
         id: branch
-        run: python3 -c 'from os import environ as env; print("::set-output name=branch::" + (env.get("GITHUB_BASE_REF", None) if env.get("GITHUB_BASE_REF", None) else env.get("GITHUB_REF", "master")))'
+        run: python3 tools/github/workflow/set_branch_output_env.py
       - name: Identify Matrix
         id: matrix
-        run: echo "::set-output name=matrix::$(./tools/test/votest_helper.py)"
+        run: echo "matrix=$(./tools/test/votest_helper.py)" >> $GITHUB_OUTPUT
     outputs:
       branch: ${{ steps.branch.outputs.branch }}
       matrix: ${{ steps.matrix.outputs.matrix }}
