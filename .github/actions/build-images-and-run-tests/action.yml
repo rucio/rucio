@@ -30,7 +30,7 @@ runs:
         done
         docker logout https://ghcr.io
         if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
-        echo "::set-output name=images::$IMAGES"
+        echo "images=$IMAGES" >> $GITHUB_OUTPUT
     - name: Run test with cfg
       shell: bash
       run: 'echo ''{"matrix": ${{ inputs.cfg }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
