@@ -16,7 +16,7 @@ jobs:
           BRANCHES="$(echo "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches{/branch}" | \
               ./tools/github/workflow/grabrelease.py --all --json --add master)"
           echo "Will build image cache for branches: ${BRANCHES}"
-          echo "::set-output name=branches::${BRANCHES}"
+          echo "branches=${BRANCHES}" >> $GITHUB_OUTPUT
     outputs:
       branches: ${{ steps.branches.outputs.branches }}
   build_autotests:
@@ -38,10 +38,10 @@ jobs:
           MATRIX_PARSER_PY="${{ github.workspace }}/tools/test/matrix_parser.py"
           MATRIX_CONF="${{ github.workspace }}/etc/docker/test/matrix.yml"
           BUILD_IMAGES_PY="${{ github.workspace }}/tools/test/build_images.py"
-          echo "::set-output name=requirements_met::$(if [[ -r "$MATRIX_CONF" && -x "$MATRIX_PARSER_PY" && -x "$BUILD_IMAGES_PY" ]]; then echo "true"; else echo "false"; fi)"
-          echo "::set-output name=matrix_parser::$MATRIX_PARSER_PY"
-          echo "::set-output name=matrix_configuration::$MATRIX_CONF"
-          echo "::set-output name=build_images::$BUILD_IMAGES_PY"
+          echo "requirements_met=$(if [[ -r "$MATRIX_CONF" && -x "$MATRIX_PARSER_PY" && -x "$BUILD_IMAGES_PY" ]]; then echo "true"; else echo "false"; fi)" >> $GITHUB_OUTPUT
+          echo "matrix_parser=$MATRIX_PARSER_PY" >> $GITHUB_OUTPUT
+          echo "matrix_configuration=$MATRIX_CONF" >> $GITHUB_OUTPUT
+          echo "build_images=$BUILD_IMAGES_PY" >> $GITHUB_OUTPUT
       - name: Update pip, install python requirements for matrix parser
         if: ${{ steps.files.outputs.requirements_met == 'true' }}
         run: |
@@ -50,7 +50,7 @@ jobs:
       - name: Identify Matrix
         if: ${{ steps.files.outputs.requirements_met == 'true' }}
         id: matrix
-        run: echo "::set-output name=matrix::$(${{ steps.files.outputs.matrix_parser }} < ${{ steps.files.outputs.matrix_configuration }})"
+        run: echo "matrix=$(${{ steps.files.outputs.matrix_parser }} < ${{ steps.files.outputs.matrix_configuration }})" >> $GITHUB_OUTPUT
       - name: Build and upload images
         if: ${{ steps.files.outputs.requirements_met == 'true' }}
         id: images
@@ -108,10 +108,10 @@ jobs:
           MATRIX_PARSER_PY="${{ github.workspace }}/dev/rucio/tools/test/matrix_parser.py"
           MATRIX_CONF="${{ github.workspace }}/dev/rucio/etc/docker/test/matrix_integration_tests.yml"
           BUILD_IMAGES_PY="${{ github.workspace }}/dev/rucio/tools/test/build_images.py"
-          echo "::set-output name=requirements_met::$(if [[ -r "$MATRIX_CONF" && -x "$MATRIX_PARSER_PY" && -x "$BUILD_IMAGES_PY" ]]; then echo "true"; else echo "false"; fi)"
-          echo "::set-output name=matrix_parser::$MATRIX_PARSER_PY"
-          echo "::set-output name=matrix_configuration::$MATRIX_CONF"
-          echo "::set-output name=build_images::$BUILD_IMAGES_PY"
+          echo "requirements_met=$(if [[ -r "$MATRIX_CONF" && -x "$MATRIX_PARSER_PY" && -x "$BUILD_IMAGES_PY" ]]; then echo "true"; else echo "false"; fi)" >> $GITHUB_OUTPUT
+          echo "matrix_parser=$MATRIX_PARSER_PY" >> $GITHUB_OUTPUT
+          echo "matrix_configuration=$MATRIX_CONF" >> $GITHUB_OUTPUT
+          echo "build_images=$BUILD_IMAGES_PY" >> $GITHUB_OUTPUT
       - name: Update pip, install python requirements for matrix parser
         if: ${{ steps.files.outputs.requirements_met == 'true' }}
         run: |
@@ -120,7 +120,7 @@ jobs:
       - name: Identify Matrix
         if: ${{ steps.files.outputs.requirements_met == 'true' }}
         id: matrix
-        run: echo "::set-output name=matrix::$(${{ steps.files.outputs.matrix_parser }} < ${{ steps.files.outputs.matrix_configuration }})"
+        run: echo "matrix=$(${{ steps.files.outputs.matrix_parser }} < ${{ steps.files.outputs.matrix_configuration }})" >> $GITHUB_OUTPUT
       - name: Build and upload images
         if: ${{ steps.files.outputs.requirements_met == 'true' }}
         id: images
