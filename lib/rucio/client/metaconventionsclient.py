@@ -21,17 +21,19 @@ from requests.status_codes import codes
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
 from rucio.common.utils import build_url
+from rucio.db.sqla.constants import KeyType
+from typing import Union, Optional
 
 
-class MetaClient(BaseClient):
+class MetaConventionClient(BaseClient):
 
-    """Meta client class for working with data identifier attributes"""
+    """Metadata client class for working with data identifier attributes"""
 
-    META_BASEURL = 'meta'
+    META_BASEURL = 'meta_conventions'
 
-    def add_key(self, key, key_type, value_type=None, value_regexp=None):
+    def add_key(self, key: str, key_type: Union[KeyType, str], value_type: Optional[str] = None, value_regexp: Optional[str] = None) -> Optional[bool]:
         """
-        Sends the request to add a new key.
+        Sends the request to add an allowed key for DID metadata (update the DID Metadata Conventions table with a new key).
 
         :param key: the name for the new key.
         :param key_type: the type of the key: all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection).
@@ -56,9 +58,9 @@ class MetaClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_keys(self):
+    def list_keys(self) -> Optional[list[str]]:
         """
-        Sends the request to list all keys.
+        Sends the request to list all keys for DID Metadata Conventions.
 
         :return: a list containing the names of all keys.
         """
@@ -72,9 +74,10 @@ class MetaClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_values(self, key):
+    def list_values(self, key: str) -> Optional[list[str]]:
         """
-        Sends the request to list all values for a key.
+        Sends the request to lists all allowed values for a DID key (all values for a key in DID Metadata Conventions).
+.
 
         :return: a list containing the names of all values for a key.
         """
@@ -88,9 +91,9 @@ class MetaClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def add_value(self, key, value):
+    def add_value(self, key: str, value: str) -> Optional[bool]:
         """
-        Sends the request to add a value to a key.
+        Sends the request to add a value for a key in DID Metadata Convention.
 
         :param key: the name for key.
         :param value: the value.
@@ -111,7 +114,7 @@ class MetaClient(BaseClient):
 
     def del_value(self, key, value):
         """
-        Delete a value for a key.
+        Delete a key in the DID Metadata Conventions table.
 
         :param key: the name for key.
         :param value: the value.

@@ -13,33 +13,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union, Optional
 
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
-from rucio.core import meta
+from rucio.core import meta_conventions
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.constants import KeyType
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+    from rucio.common.types import InternalAccount
 
 
 @read_session
 def list_keys(*, session: "Session"):
     """
-    Lists all keys.
+    Lists all keys for DID Metadata Conventions.
 
     :param session: The database session in use.
 
     :returns: A list containing all keys.
     """
-    return meta.list_keys(session=session)
+    return meta_conventions.list_keys(session=session)
 
 
 @read_session
-def list_values(key, *, session: "Session"):
+def list_values(key: str, *, session: "Session"):
     """
-    Lists all values for a key.
+    Lists all allowed values for a DID key (all values for a key in DID Metadata Conventions).
 
     :param key: the name for the key.
     :param session: The database session in use.
@@ -47,13 +49,13 @@ def list_values(key, *, session: "Session"):
 
     :returns: A list containing all values.
     """
-    return meta.list_values(key=key, session=session)
+    return meta_conventions.list_values(key=key, session=session)
 
 
 @transactional_session
-def add_key(key, key_type, issuer, value_type=None, value_regexp=None, vo='def', *, session: "Session"):
+def add_key(key: str, key_type: Union[KeyType, str], issuer: "InternalAccount", value_type: Optional[str] = None, value_regexp: Optional[str] = None, vo: str = 'def', *, session: "Session"):
     """
-    Add a new allowed key.
+    Add an allowed key for DID metadata (update the DID Metadata Conventions table with a new key).
 
     :param key: the name for the new key.
     :param key_type: the type of the key: all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection).
@@ -66,13 +68,13 @@ def add_key(key, key_type, issuer, value_type=None, value_regexp=None, vo='def',
     kwargs = {'key': key, 'key_type': key_type, 'value_type': value_type, 'value_regexp': value_regexp}
     if not has_permission(issuer=issuer, vo=vo, action='add_key', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not add key' % (issuer))
-    return meta.add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp, session=session)
+    return meta_conventions.add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp, session=session)
 
 
 @transactional_session
-def add_value(key, value, issuer, vo='def', *, session: "Session"):
+def add_value(key: str, value: str, issuer: "InternalAccount", vo: str = 'def', *, session: "Session"):
     """
-    Add a new value to a key.
+    Add an allowed value for DID metadata (update a key in DID Metadata Conventions table).
 
     :param key: the name for the key.
     :param value: the value.
@@ -82,4 +84,4 @@ def add_value(key, value, issuer, vo='def', *, session: "Session"):
     kwargs = {'key': key, 'value': value}
     if not has_permission(issuer=issuer, vo=vo, action='add_value', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not add value %s to key %s' % (issuer, value, key))
-    return meta.add_value(key=key, value=value, session=session)
+    return meta_conventions.add_value(key=key, value=value, session=session)

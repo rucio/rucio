@@ -15,15 +15,15 @@
 
 from flask import Flask, request, jsonify
 
-from rucio.api.meta import add_key, add_value, list_keys, list_values
+from rucio.api.meta_conventions import add_key, add_value, list_keys, list_values
 from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, UnsupportedKeyType
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, response_headers, \
     generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
 
 
-class Meta(ErrorHandlingMethodView):
-    """ REST APIs for data identifier attribute keys. """
+class MetaConventions(ErrorHandlingMethodView):
+    """ REST APIs for managing data identifier attribute metadata key formats. """
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
@@ -207,9 +207,23 @@ class Values(ErrorHandlingMethodView):
 
 
 def blueprint():
+    bp = AuthenticatedBlueprint('meta_conventions', __name__, url_prefix='/meta_conventions')
+
+    meta_view = MetaConventions.as_view('meta_conventions')
+    bp.add_url_rule('/', view_func=meta_view, methods=['get', ])
+    bp.add_url_rule('/<key>', view_func=meta_view, methods=['post', ])
+    values_view = Values.as_view('values')
+    bp.add_url_rule('/<key>/', view_func=values_view, methods=['get', 'post'])
+
+    bp.after_request(response_headers)
+    return bp
+
+
+def blueprint_legacy():
+    # TODO: Remove in 38.0
     bp = AuthenticatedBlueprint('meta', __name__, url_prefix='/meta')
 
-    meta_view = Meta.as_view('meta')
+    meta_view = MetaConventions.as_view('meta')
     bp.add_url_rule('/', view_func=meta_view, methods=['get', ])
     bp.add_url_rule('/<key>', view_func=meta_view, methods=['post', ])
     values_view = Values.as_view('values')
@@ -222,5 +236,8 @@ def blueprint():
 def make_doc():
     """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
+
     doc_app.register_blueprint(blueprint())
+    doc_app.register_blueprint(blueprint_legacy())
+
     return doc_app

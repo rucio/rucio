@@ -27,7 +27,7 @@ from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
 from rucio.client.lifetimeclient import LifetimeClient
 from rucio.client.lockclient import LockClient
-from rucio.client.metaclient import MetaClient
+from rucio.client.metaconventionsclient import MetaConventionClient
 from rucio.client.pingclient import PingClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.requestclient import RequestClient
@@ -40,7 +40,7 @@ from rucio.client.touchclient import TouchClient
 
 class Client(AccountClient,
              AccountLimitClient,
-             MetaClient,
+             MetaConventionClient,
              PingClient,
              ReplicaClient,
              RequestClient,
