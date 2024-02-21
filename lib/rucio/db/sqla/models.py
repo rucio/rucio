@@ -605,8 +605,8 @@ class QuarantinedReplicaHistory(BASE, ModelBase):
     _table_args = ()
 
 
-class DIDKey(BASE, ModelBase):
-    """Represents Data IDentifier property keys"""
+class DIDMetaConventionsKey(BASE, ModelBase):
+    """Represents allowed keys of DID Metadata"""
     __tablename__ = 'did_keys'
     key: Mapped[str] = mapped_column(String(255))
     is_enum: Mapped[bool] = mapped_column(Boolean(name='DID_KEYS_IS_ENUM_CHK', create_constraint=True),
@@ -621,8 +621,8 @@ class DIDKey(BASE, ModelBase):
                    CheckConstraint('is_enum IS NOT NULL', name='DID_KEYS_IS_ENUM_NN'))
 
 
-class DIDKeyValueAssociation(BASE, ModelBase):
-    """Represents Data IDentifier property key/values"""
+class DIDMetaConventionsConstraints(BASE, ModelBase):
+    """Represents a map for constraint values a DID metadata key must follow """
     __tablename__ = 'did_key_map'
     key: Mapped[str] = mapped_column(String(255))
     value: Mapped[str] = mapped_column(String(255))
@@ -1696,8 +1696,8 @@ def register_models(engine):
               ConstituentAssociationHistory,
               DataIdentifierAssociation,
               DataIdentifierAssociationHistory,
-              DIDKey,
-              DIDKeyValueAssociation,
+              DIDMetaConventionsKey,
+              DIDMetaConventionsConstraints,
               DataIdentifier,
               DidMeta,
               VirtualPlacements,
@@ -1766,8 +1766,8 @@ def unregister_models(engine):
               ConstituentAssociationHistory,
               DataIdentifierAssociation,
               DataIdentifierAssociationHistory,
-              DIDKey,
-              DIDKeyValueAssociation,
+              DIDMetaConventionsKey,
+              DIDMetaConventionsConstraints,
               DidMeta,
               DataIdentifier,
               DeletedDataIdentifier,

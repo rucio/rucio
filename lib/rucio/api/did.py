@@ -22,8 +22,9 @@ from rucio.common.exception import RucioException
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict
-from rucio.core import did, naming_convention, meta as meta_core
+from rucio.core import did, naming_convention
 from rucio.core.rse import get_rse_id
+from rucio.core import meta_conventions as meta_convention_core
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
@@ -117,7 +118,7 @@ def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, r
                 raise rucio.common.exception.InvalidObject("Provided metadata %s doesn't match the naming convention: %s != %s" % (k, meta[k], extra_meta[k]))
 
         # Validate metadata
-        meta_core.validate_meta(meta=meta, did_type=DIDType[did_type.upper()], session=session)
+        meta_convention_core.validate_meta(meta=meta, did_type=DIDType[did_type.upper()], session=session)
 
     return did.add_did(scope=scope, name=name, did_type=DIDType[did_type.upper()], account=account or issuer,
                        statuses=statuses, meta=meta, rules=rules, lifetime=lifetime,

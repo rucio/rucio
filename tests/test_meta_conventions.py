@@ -17,13 +17,13 @@ import pytest
 
 from rucio.common.exception import InvalidValueForKey, RucioException, UnsupportedValueType, UnsupportedKeyType
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.meta import add_key
+from rucio.core.meta_conventions import add_key
 from rucio.db.sqla import session, models
 from rucio.db.sqla.constants import DIDType, KeyType
 
 
 @pytest.mark.dirty
-class TestMetaClient:
+class TestMetaConventionsClient:
 
     def test_add_and_list_keys(self, rucio_client):
         """ META (CLIENTS): Add a key and List all keys."""
@@ -99,7 +99,7 @@ class TestMetaClient:
         for key_type in types:
             key_name = 'datatype%s' % str(uuid())
             rucio_client.add_key(key_name, key_type['type'])
-            stored_key_type = session.get_session().query(models.DIDKey).filter_by(key=key_name).one()['key_type']
+            stored_key_type = session.get_session().query(models.DIDMetaConventionsKey).filter_by(key=key_name).one()['key_type']
             assert stored_key_type, key_type['expected']
 
         with pytest.raises(UnsupportedKeyType):
@@ -131,7 +131,7 @@ def test_add_key():
     for key_type in types:
         key_name = 'datatype%s' % str(uuid())
         add_key(key_name, key_type['type'])
-        stored_key_type = session.get_session().query(models.DIDKey).filter_by(key=key_name).one()['key_type']
+        stored_key_type = session.get_session().query(models.DIDMetaConventionsKey).filter_by(key=key_name).one()['key_type']
         assert stored_key_type, key_type['expected']
 
     with pytest.raises(UnsupportedKeyType):
