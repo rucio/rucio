@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+from collections.abc import Iterable
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import and_, or_, exists, update, insert
 from sqlalchemy.orm.exc import NoResultFound
@@ -32,14 +32,13 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def add_volatile_replicas(rse_id, replicas, *, session: "Session"):
+def add_volatile_replicas(rse_id: str, replicas: Iterable[dict[str, Any]], *, session: "Session") -> None:
     """
     Bulk add volatile replicas.
 
     :param rse_id: the rse id.
-    :param replicas: the list of volatile replicas.
+    :param replicas: the iterable of volatile replicas.
     :param session: The database session in use.
-    :returns: True is successful.
     """
     # first check that the rse is a volatile one
     try:
@@ -95,14 +94,13 @@ def add_volatile_replicas(rse_id, replicas, *, session: "Session"):
 
 
 @transactional_session
-def delete_volatile_replicas(rse_id, replicas, *, session: "Session"):
+def delete_volatile_replicas(rse_id: str, replicas: Iterable[dict[str, Any]], *, session: "Session") -> None:
     """
     Bulk delete volatile replicas.
 
     :param rse_id: the rse id.
-    :param replicas: the list of volatile replicas.
+    :param replicas: the iterable of volatile replicas.
     :param session: The database session in use.
-    :returns: True is successful.
     """
     # first check that the rse is a volatile one
     try:

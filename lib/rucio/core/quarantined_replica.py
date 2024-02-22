@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Iterable
 import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import and_, or_
 from sqlalchemy.sql.expression import false, insert
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def add_quarantined_replicas(rse_id, replicas, *, session: "Session"):
+def add_quarantined_replicas(rse_id: str, replicas: list[dict[str, Any]], *, session: "Session") -> None:
     """
     Bulk add quarantined file replicas.
 
@@ -77,12 +78,12 @@ def add_quarantined_replicas(rse_id, replicas, *, session: "Session"):
 
 
 @transactional_session
-def delete_quarantined_replicas(rse_id, replicas, *, session: "Session"):
+def delete_quarantined_replicas(rse_id: str, replicas: Iterable[dict[str, Any]], *, session: "Session") -> None:
     """
     Delete file replicas.
 
     :param rse_id: the rse id.
-    :param replicas: A list of dicts with the replica information.
+    :param replicas: An iterable of dicts with the replica information.
     :param session: The database session in use.
     """
 
@@ -108,7 +109,7 @@ def delete_quarantined_replicas(rse_id, replicas, *, session: "Session"):
 
 
 @read_session
-def list_quarantined_replicas(rse_id, limit, worker_number=None, total_workers=None, *, session: "Session"):
+def list_quarantined_replicas(rse_id: str, limit: int, worker_number: Optional[int] = None, total_workers: Optional[int] = None, *, session: "Session") -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """
     List RSE Quarantined File replicas.
 
@@ -171,7 +172,7 @@ def list_quarantined_replicas(rse_id, limit, worker_number=None, total_workers=N
 
 
 @read_session
-def list_rses_with_quarantined_replicas(filters=None, *, session: "Session"):
+def list_rses_with_quarantined_replicas(filters: Optional[dict[str, Any]] = None, *, session: "Session") -> list[str]:
     """
     List RSEs in the Quarantined Queues.
 
