@@ -15,7 +15,7 @@
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence, Any
 
 from sqlalchemy import func
 from sqlalchemy.orm.exc import NoResultFound
@@ -26,6 +26,7 @@ import rucio.core.replica
 from rucio.common.config import config_get_int
 from rucio.common.exception import InsufficientTargetRSEs
 from rucio.core import account_counter, rse_counter, request as request_core
+from rucio.core.rse_selector import RSESelector
 from rucio.core.rse import get_rse, get_rse_attribute, get_rse_name
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
@@ -36,7 +37,13 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], *, session: "Session"):
+def apply_rule_grouping(datasetfiles: Sequence[dict[str, Any]], locks: dict[tuple[str, str], models.ReplicaLock],
+                        replicas: dict[tuple[str, str], Any], source_replicas: dict[tuple[str, str], Any],
+                        rseselector: RSESelector, rule: models.ReplicationRule, preferred_rse_ids: Sequence[str] = [],
+                        source_rses: Sequence[str] = [], *,
+                        session: "Session") -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
+                                                     dict[str, list[dict[str, models.ReplicaLock]]],
+                                                     list[dict[str, Any]]]:
     """
     Apply rule grouping to files.
 
@@ -49,7 +56,7 @@ def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselec
     :param preferred_rse_ids:  Preferred RSE's to select.
     :param source_rses:        RSE ids of eglible source replicas.
     :param session:            Session of the db.
-    :returns:                  List of replicas to create, List of locks to create, List of transfers to create
+    :returns:                  Dict of replicas to create, Dict of locks to create, List of transfers to create
     :raises:                   InsufficientQuota, InsufficientTargetRSEs, RSEOverQuota
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
@@ -96,7 +103,13 @@ def apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselec
 
 
 @transactional_session
-def repair_stuck_locks_and_apply_rule_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, *, session: "Session"):
+def repair_stuck_locks_and_apply_rule_grouping(datasetfiles: Sequence[dict[str, Any]], locks: dict[tuple[str, str], models.ReplicaLock],
+                                               replicas: dict[tuple[str, str], Any], source_replicas: dict[tuple[str, str], Any],
+                                               rseselector: RSESelector, rule: models.ReplicationRule, source_rses: Sequence[str], *,
+                                               session: "Session") -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
+                                                                            dict[str, list[dict[str, models.ReplicaLock]]],
+                                                                            list[dict[str, Any]],
+                                                                            dict[str, list[dict[str, models.ReplicaLock]]]]:
     """
     Apply rule grouping to files.
 
