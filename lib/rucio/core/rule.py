@@ -1134,11 +1134,7 @@ def repair_rule(rule_id, *, session: "Session", logger=logging.log):
         if hard_repair:
             __find_surplus_locks_and_remove_them(datasetfiles=datasetfiles,
                                                  locks=locks,
-                                                 replicas=replicas,
-                                                 source_replicas=source_replicas,
-                                                 rseselector=rseselector,
                                                  rule=rule,
-                                                 source_rses=[rse['id'] for rse in source_rses],
                                                  session=session)
 
             session.flush()
@@ -2568,17 +2564,13 @@ def __find_missing_locks_and_create_them(datasetfiles, locks, replicas, source_r
 
 
 @transactional_session
-def __find_surplus_locks_and_remove_them(datasetfiles, locks, replicas, source_replicas, rseselector, rule, source_rses, *, session: "Session", logger=logging.log):
+def __find_surplus_locks_and_remove_them(datasetfiles, locks, rule, *, session: "Session", logger=logging.log):
     """
     Find surplocks locks for a rule and delete them.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding locks.
-    :param replicas:           Dict holding replicas.
-    :param source_replicas:    Dict holding all source replicas.
-    :param rseselector:        The RSESelector to be used.
     :param rule:               The rule.
-    :param source_rses:        RSE ids for eglible source RSEs.
     :param session:            Session of the db.
     :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
     :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs
