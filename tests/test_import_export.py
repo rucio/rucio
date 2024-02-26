@@ -81,13 +81,6 @@ def reset_rses():
     db_session.commit()
 
 
-def test_active():
-    db_session = session.get_session()
-    if db_session.bind.dialect.name == 'sqlite':
-        return False
-    return True
-
-
 @pytest.fixture
 def importer_example_data(vo):
     if not config_has_section('importer'):

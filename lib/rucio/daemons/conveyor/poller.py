@@ -42,11 +42,9 @@ from rucio.core import transfer as transfer_core, request as request_core
 from rucio.core.monitor import MetricManager
 from rucio.core.topology import Topology, ExpiringObjectCache
 from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
-from rucio.db.sqla.constants import RequestState, RequestType
+from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, RequestState, RequestType
 from rucio.transfertool.transfertool import Transfertool
 from rucio.transfertool.fts3 import FTS3Transfertool
-from rucio.transfertool.globus import GlobusTransferTool
-from rucio.transfertool.mock import MockTransfertool
 
 if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler
@@ -132,18 +130,22 @@ def _handle_requests(
 
         for chunk in dict_chunks(transfers_by_eid, fts_bulk):
             try:
-                if transfertool == 'mock':
-                    transfertool_obj = MockTransfertool(external_host=MockTransfertool.external_name)
-                elif transfertool == 'globus':
-                    transfertool_obj = GlobusTransferTool(external_host=GlobusTransferTool.external_name)
-                else:
+                transfertool_cls = transfer_core.TRANSFERTOOL_CLASSES_BY_NAME.get(transfertool, FTS3Transfertool)
+
+                transfertool_kwargs = {}
+                if transfertool_cls.external_name == FTS3Transfertool.external_name:
                     account = None
                     if oidc_account:
                         if vo:
                             account = InternalAccount(oidc_account, vo=vo)
                         else:
                             account = InternalAccount(oidc_account)
-                    transfertool_obj = FTS3Transfertool(external_host=external_host, vo=vo, oidc_account=account)
+                    transfertool_kwargs.update({
+                        'vo': vo,
+                        'oidc_account': account,
+                    })
+
+                transfertool_obj = transfertool_cls(external_host=external_host, **transfertool_kwargs)
                 poll_transfers(
                     transfertool_obj=transfertool_obj,
                     transfers_by_eid=chunk,
@@ -379,16 +381,17 @@ def _poll_transfers(
                         stats_manager=transfer_stats_manager,
                         logger=logger,
                     )
-                    # if True, really update request content; if False, only touch request
+                    cnt += ret
                     if ret:
-                        cnt += 1
-                    METRICS.counter('update_request_state.{updated}').labels(updated=ret).inc()
+                        METRICS.counter('update_request_state.{updated}').labels(updated=True).inc(delta=ret)
+                    else:
+                        METRICS.counter('update_request_state.{updated}').labels(updated=False).inc()
 
             # should touch transfers.
             # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
             transfer_core.touch_transfer(transfertool_obj.external_host, transfer_id)
         except (DatabaseException, DatabaseError) as error:
-            if re.match('.*ORA-00054.*', error.args[0]) or re.match('.*ORA-00060.*', error.args[0]) or 'ERROR 1205 (HY000)' in error.args[0]:
+            if re.match(ORACLE_RESOURCE_BUSY_REGEX, error.args[0]) or re.match(ORACLE_DEADLOCK_DETECTED_REGEX, error.args[0]) or MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED in error.args[0]:
                 logger(logging.WARNING, "Lock detected when handling request %s - skipping" % transfer_id)
             else:
                 logger(logging.ERROR, 'Exception', exc_info=True)

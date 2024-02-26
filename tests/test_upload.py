@@ -21,7 +21,6 @@ import shutil
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from rucio.client.downloadclient import DownloadClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_add_section, config_set
 from rucio.common.exception import InputValidationError, NoFilesUploaded, NotAllFilesUploaded
@@ -35,11 +34,6 @@ def upload_client():
     logger.addHandler(logging.StreamHandler())
     logger.setLevel(logging.DEBUG)
     return UploadClient(logger=logger)
-
-
-@pytest.fixture
-def download_client():
-    return DownloadClient()
 
 
 @pytest.fixture

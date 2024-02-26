@@ -181,16 +181,16 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope, file_confi
     # On equal priority and distance, disk should be preferred over tape. Both disk sources will be returned
     [[_, [transfer]]] = pick_and_prepare_submission_path(topology=topology, protocol_factory=ProtocolFactory(),
                                                          requests_with_sources=requests).items()
-    assert len(transfer[0].legacy_sources) == 2
-    assert transfer[0].legacy_sources[0][0] in (disk1_rse_name, disk2_rse_name)
+    assert len(transfer[0].sources) == 2
+    assert transfer[0].sources[0].rse.name in (disk1_rse_name, disk2_rse_name)
 
     # Change the rating of the disk RSEs. Disk still preferred, because it must fail twice before tape is tried
     disk1_source.ranking = -1
     disk2_source.ranking = -1
     [[_, [transfer]]] = pick_and_prepare_submission_path(topology=topology, protocol_factory=ProtocolFactory(),
                                                          requests_with_sources=requests).items()
-    assert len(transfer[0].legacy_sources) == 2
-    assert transfer[0].legacy_sources[0][0] in (disk1_rse_name, disk2_rse_name)
+    assert len(transfer[0].sources) == 2
+    assert transfer[0].sources[0].rse.name in (disk1_rse_name, disk2_rse_name)
 
     # Change the rating of the disk RSEs again. Tape RSEs must now be preferred.
     # Multiple tape sources are not allowed. Only one tape RSE source must be returned.
@@ -200,21 +200,21 @@ def test_disk_vs_tape_priority(rse_factory, root_account, mock_scope, file_confi
                                                         requests_with_sources=requests).items()
     assert len(transfers) == 1
     transfer = transfers[0]
-    assert len(transfer[0].legacy_sources) == 1
-    assert transfer[0].legacy_sources[0][0] in (tape1_rse_name, tape2_rse_name)
+    assert len(transfer[0].sources) == 1
+    assert transfer[0].sources[0].rse.name in (tape1_rse_name, tape2_rse_name)
 
     # On equal source ranking, but different distance; the smaller distance is preferred
     [[_, [transfer]]] = pick_and_prepare_submission_path(topology=topology, protocol_factory=ProtocolFactory(),
                                                          requests_with_sources=requests).items()
-    assert len(transfer[0].legacy_sources) == 1
-    assert transfer[0].legacy_sources[0][0] == tape2_rse_name
+    assert len(transfer[0].sources) == 1
+    assert transfer[0].sources[0].rse.name == tape2_rse_name
 
     # On different source ranking, the bigger ranking is preferred
     tape2_source.ranking = -1
     [[_, [transfer]]] = pick_and_prepare_submission_path(topology=topology, protocol_factory=ProtocolFactory(),
                                                          requests_with_sources=requests).items()
-    assert len(transfer[0].legacy_sources) == 1
-    assert transfer[0].legacy_sources[0][0] == tape1_rse_name
+    assert len(transfer[0].sources) == 1
+    assert transfer[0].sources[0].rse.name == tape1_rse_name
 
 
 @pytest.mark.parametrize("file_config_mock", [

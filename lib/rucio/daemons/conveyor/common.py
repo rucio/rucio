@@ -31,7 +31,7 @@ from rucio.common.stopwatch import Stopwatch
 from rucio.core import request as request_core, transfer as transfer_core
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
-from rucio.core.request import set_request_state, queue_requests
+from rucio.core.request import transition_request_state, queue_requests
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.transfer import build_transfer_paths
@@ -43,16 +43,29 @@ from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
-    from typing import Optional
-    from rucio.core.transfer import DirectTransferDefinition
+    from typing import Optional, Mapping
+    from rucio.common.types import InternalAccount
+    from rucio.core.request import DirectTransfer, RequestWithSources
+    from rucio.core.topology import Topology
+    from rucio.core.transfer import ProtocolFactory
     from rucio.transfertool.transfertool import TransferToolBuilder
     from sqlalchemy.orm import Session
 
 METRICS = MetricManager(module=__name__)
 
 
-def pick_and_prepare_submission_path(requests_with_sources, topology, protocol_factory, default_tombstone_delay=transfer_core.DEFAULT_MULTIHOP_TOMBSTONE_DELAY,
-                                     admin_accounts=None, schemes=None, failover_schemes=None, max_sources=4, transfertools=None, logger=logging.log):
+def pick_and_prepare_submission_path(
+        requests_with_sources: "Mapping[str, RequestWithSources]",
+        topology: "Topology",
+        protocol_factory: "ProtocolFactory",
+        default_tombstone_delay: int = transfer_core.DEFAULT_MULTIHOP_TOMBSTONE_DELAY,
+        admin_accounts: "Optional[set[InternalAccount]]" = None,
+        schemes: "Optional[list[str]]" = None,
+        failover_schemes: "Optional[list[str]]" = None,
+        max_sources: int = 4,
+        transfertools: "Optional[list[str]]" = None,
+        logger=logging.log
+) -> "dict[TransferToolBuilder, list[list[DirectTransfer]]]":
     """
     For each transfer, pick a (sub)path; and a transfertool to be used to submit that (sub)path
     """
@@ -119,22 +132,22 @@ def pick_and_prepare_submission_path(requests_with_sources, topology, protocol_f
     reqs_no_source.update(reqs_no_host)
     if reqs_no_source:
         logger(logging.INFO, "Marking requests as no-sources: %s", reqs_no_source)
-        request_core.set_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
+        request_core.transition_requests_state_if_possible(reqs_no_source, RequestState.NO_SOURCES, logger=logger)
     if reqs_only_tape_source:
         logger(logging.INFO, "Marking requests as only-tape-sources: %s", reqs_only_tape_source)
-        request_core.set_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
+        request_core.transition_requests_state_if_possible(reqs_only_tape_source, RequestState.ONLY_TAPE_SOURCES, logger=logger)
     if reqs_scheme_mismatch:
         logger(logging.INFO, "Marking requests as scheme-mismatch: %s", reqs_scheme_mismatch)
-        request_core.set_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
+        request_core.transition_requests_state_if_possible(reqs_scheme_mismatch, RequestState.MISMATCH_SCHEME, logger=logger)
 
     return paths_by_transfertool_builder
 
 
 def __assign_to_transfertool(
-        transfer_path: "list[DirectTransferDefinition]",
+        transfer_path: "list[DirectTransfer]",
         transfertools: "Optional[list[str]]",
         logger: "Callable",
-) -> "list[tuple[list[DirectTransferDefinition], Optional[TransferToolBuilder]]]":
+) -> "list[tuple[list[DirectTransfer], Optional[TransferToolBuilder]]]":
     """
     Iterate over a multihop path and assign sub-paths to transfertools in chucks from left to right.
 
@@ -174,11 +187,11 @@ def __assign_to_transfertool(
 
 
 def assign_paths_to_transfertool_and_create_hops(
-        candidate_paths_by_request_id: "dict[str: list[DirectTransferDefinition]]",
+        candidate_paths_by_request_id: "dict[str: list[DirectTransfer]]",
         default_tombstone_delay: int,
         transfertools: "Optional[list[str]]" = None,
         logger: "Callable" = logging.log,
-) -> "tuple[dict[TransferToolBuilder, list[DirectTransferDefinition]], set[str]]":
+) -> "tuple[dict[TransferToolBuilder, list[list[DirectTransfer]]], set[str]]":
     """
     for each request, pick the first path which can be submitted by one of the transfertools.
     If the chosen path is multihop, create all missing intermediate requests and replicas.
@@ -214,13 +227,13 @@ def assign_paths_to_transfertool_and_create_hops(
 @transactional_session
 def __assign_paths_to_transfertool_and_create_hops(
         request_id: str,
-        candidate_paths: "Sequence[list[DirectTransferDefinition]]",
+        candidate_paths: "Sequence[list[DirectTransfer]]",
         default_tombstone_delay: int,
         transfertools: "Optional[list[str]]" = None,
         *,
         logger: "Callable" = logging.log,
         session: "Session",
-) -> "tuple[Optional[list[DirectTransferDefinition]], Optional[TransferToolBuilder]]":
+) -> "tuple[Optional[list[DirectTransfer]], Optional[TransferToolBuilder]]":
     """
     Out of a sequence of candidate paths for the given request, pick the first path which can
     be submitted by one of the transfertools.
@@ -231,9 +244,9 @@ def __assign_paths_to_transfertool_and_create_hops(
 
     # Selects the first path which can be submitted using a chain of supported transfertools
     # and for which the creation of intermediate hops (if it is a multihop) works correctly
-    best_path = None
+    best_path = []
     builder_to_use = None
-    hops_to_submit = None
+    hops_to_submit = []
     must_skip_submission = False
 
     tt_assignments = [(transfer_path, __assign_to_transfertool(transfer_path, transfertools, logger=logger))
@@ -290,7 +303,7 @@ def __assign_paths_to_transfertool_and_create_hops(
 
 @transactional_session
 def __create_missing_replicas_and_requests(
-        transfer_path: "list[DirectTransferDefinition]",
+        transfer_path: "list[DirectTransfer]",
         default_tombstone_delay: int,
         *,
         logger: "Callable",
@@ -396,7 +409,7 @@ def submit_transfer(transfertool_obj, transfers, job_params, timeout=None, logge
             return
         except Exception:
             logger(logging.ERROR, 'Failed to prepare requests %s state to SUBMITTING. Mark it SUBMISSION_FAILED and abort submission.' % [str(t.rws) for t in transfers], exc_info=True)
-            set_request_state(request_id=transfer.rws.request_id, state=RequestState.SUBMISSION_FAILED)
+            transition_request_state(request_id=transfer.rws.request_id, state=RequestState.SUBMISSION_FAILED)
             return
 
     try:

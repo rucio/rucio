@@ -2,53 +2,56 @@ version: "3"
 services:
   rucioclient:
     image: docker.io/rucio/rucio-dev:latest-alma9
-    entrypoint: ["/rucio_source/etc/docker/dev/rucio_entrypoint.sh"]
+    entrypoint: ["/rucio_source/etc/docker/dev/rucio/entrypoint.sh"]
     command: ["sleep", "infinity"]
     profiles:
       - client
     volumes:
-      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:ro
+      - ../../certs/rucio_ca.pem:/opt/rucio/etc/rucio_ca.pem:ro
+      - ../../certs/rucio_ca.pem:/etc/pki/ca-trust/source/anchors/rucio_ca.pem:ro
       - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:z
       - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:z
-      - ../../certs/rucio_ca.pem:/opt/rucio/etc/rucio_ca.pem:z
-      - ../../certs/ruciouser.pem:/opt/rucio/etc/usercert.pem:z
-      - ../../certs/ruciouser.key.pem:/opt/rucio/etc/userkey.pem:z
+      - ../../certs/ruciouser.pem:/tmp/usercert.pem:z
+      - ../../certs/ruciouser.key.pem:/tmp/userkey.pem:z
       - ../../certs/ruciouser.certkey.pem:/opt/rucio/etc/usercertkey.pem:z
       - ../../certs/ssh/ruciouser_sshkey.pub:/root/.ssh/ruciouser_sshkey.pub:z
       - ../../certs/ssh/ruciouser_sshkey:/root/.ssh/ruciouser_sshkey:z
+      - ./rucio/idpsecrets.json:/opt/rucio/etc/idpsecrets.json:ro
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
       - ../../../tests:/opt/rucio/tests:Z
       - ../../../:/rucio_source:ro
     environment:
+      - REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
       - RUCIO_SOURCE_DIR=/rucio_source
-      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
-      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
       - RDBMS
   rucio:
     image: docker.io/rucio/rucio-dev:latest-alma9
-    entrypoint: ["/rucio_source/etc/docker/dev/rucio_entrypoint.sh"]
+    platform: linux/amd64
+    entrypoint: ["/rucio_source/etc/docker/dev/rucio/entrypoint.sh"]
     command: ["httpd","-D","FOREGROUND"]
     volumes:
-      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:ro
+      - ../../certs/rucio_ca.pem:/opt/rucio/etc/rucio_ca.pem:ro
+      - ../../certs/rucio_ca.pem:/etc/pki/ca-trust/source/anchors/rucio_ca.pem:ro
       - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:z
       - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:z
-      - ../../certs/rucio_ca.pem:/opt/rucio/etc/rucio_ca.pem:z
-      - ../../certs/ruciouser.pem:/opt/rucio/etc/usercert.pem:z
-      - ../../certs/ruciouser.key.pem:/opt/rucio/etc/userkey.pem:z
+      - ../../certs/ruciouser.pem:/tmp/usercert.pem:z
+      - ../../certs/ruciouser.key.pem:/tmp/userkey.pem:z
       - ../../certs/ruciouser.certkey.pem:/opt/rucio/etc/usercertkey.pem:z
       - ../../certs/ssh/ruciouser_sshkey.pub:/root/.ssh/ruciouser_sshkey.pub:z
       - ../../certs/ssh/ruciouser_sshkey:/root/.ssh/ruciouser_sshkey:z
+      - ./rucio/idpsecrets.json:/opt/rucio/etc/idpsecrets.json:ro
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
       - ../../../tests:/opt/rucio/tests:Z
       - ../../../:/rucio_source:ro
     environment:
+      - REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
       - RUCIO_SOURCE_DIR=/rucio_source
-      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
-      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
       - RDBMS
   ruciodb:
     image: docker.io/postgres:14
@@ -69,7 +72,7 @@ services:
       - DOCKER_INFLUXDB_INIT_BUCKET=rucio
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
   elasticsearch:
-    image: docker.io/elasticsearch:7.4.0
+    image: docker.io/elasticsearch:7.8.0
     environment:
       - discovery.type=single-node
   activemq:
@@ -124,9 +127,14 @@ services:
     profiles:
       - storage
     volumes:
+      - ./fts/entrypoint.sh:/docker-entrypoint.sh:ro
+      - ../../certs/rucio_ca.pem:/etc/pki/ca-trust/source/anchors/rucio_ca.pem:ro
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_fts.pem:/etc/grid-security/hostcert.pem:Z
       - ../../certs/hostcert_fts.key.pem:/etc/grid-security/hostkey.pem:Z
+      - ./fts/fts3restconfig:/etc/fts3/fts3restconfig:ro
+    environment:
+      - REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
     ulimits:
       nofile:
         soft: 10240
@@ -146,6 +154,7 @@ services:
     profiles:
       - storage
     environment:
+      - XRDHOST=xrd1
       - XRDPORT=1094
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
@@ -160,6 +169,7 @@ services:
     profiles:
       - storage
     environment:
+      - XRDHOST=xrd2
       - XRDPORT=1095
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
@@ -174,6 +184,7 @@ services:
     profiles:
       - storage
     environment:
+      - XRDHOST=xrd3
       - XRDPORT=1096
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
@@ -188,6 +199,7 @@ services:
     profiles:
       - storage
     environment:
+      - XRDHOST=xrd4
       - XRDPORT=1097
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
@@ -197,6 +209,42 @@ services:
       nofile:
         soft: 10240
         hard: 10240
+  xrd5:
+    image: docker.io/rucio/xrootd
+    profiles:
+      - storage
+    environment:
+      - XRDHOST=xrd5
+      - XRDPORT=1098
+      - QBITTORRENT_UI_USERNAME=rucio
+      - QBITTORRENT_UI_PASSWORD=rucio90df
+      - QBITTORRENT_UI_PORT=8098
+      - QBITTORRENT_LISTEN_PORT=10000
+    volumes:
+      - ./xrd/entrypoint.sh:/docker-entrypoint.sh:ro
+      - ./xrd:/configs:ro
+      - ./configure_qbittorrent.py:/configure_qbittorrent.py:ro
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/hostcert_xrd5.pem:/tmp/xrdcert.pem:Z
+      - ../../certs/hostcert_xrd5.key.pem:/tmp/xrdkey.pem:Z
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
+  web1:
+    image: rucio/webdav
+    environment:
+      - QBITTORRENT_UI_USERNAME=rucio
+      - QBITTORRENT_UI_PASSWORD=rucio90df
+      - QBITTORRENT_UI_PORT=8099
+      - QBITTORRENT_LISTEN_PORT=10000
+    volumes:
+      - ./web1/entrypoint.sh:/usr/local/bin/docker-entrypoint.sh:ro
+      - ./configure_qbittorrent.py:/configure_qbittorrent.py:ro
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:ro
+      - ../../certs/hostcert_web1.key.pem:/etc/grid-security/hostkey.pem:ro
+      - ../../certs/hostcert_web1.pem:/etc/grid-security/hostcert.pem:Z
+      - ./web1/default-ssl.conf:/etc/apache2/sites-available/default-ssl.conf
   minio:
     image: docker.io/minio/minio
     profiles:
@@ -242,44 +290,49 @@ services:
     image: docker.io/grafana/grafana:latest
     profiles:
       - monitoring
-  db-iam:
+  iam-db:
     image: mariadb:10.11
     profiles:
       - iam
+    healthcheck:
+      test: mysql -u indigoiam -psecret indigoiam -e "select * from client_details where client_name='rucio'" | grep 'rucio' > /dev/null
+      interval: 5s
+      retries: 10
     environment:
       - TZ=Europe/Paris
-      - MYSQL_ROOT_PASSWORD=supersecret
-      - MYSQL_USER=iam
-      - MYSQL_PASSWORD=secret
-      - MYSQL_DATABASE=iam_db
-  nginx-iam:
+      - MARIADB_ROOT_PASSWORD=supersecret
+    volumes:
+      - ./iam/dbs_and_users.sql:/docker-entrypoint-initdb.d/01_dbs_and_users.sql:ro
+      - ./iam/keycloak_db.sql:/docker-entrypoint-initdb.d/02_keycloak.sql:ro
+      - ./iam/indigoiam_db.sql:/docker-entrypoint-initdb.d/03_indigoiam.sql:ro
+  indigoiam:
     image: nginx
     profiles:
       - iam
     dns_search: cern.ch
     environment:
       TZ: Europe/Paris
-      NGINX_HOST: iam
+      NGINX_HOST: indigoiam
       NGINX_PORT: 443
     volumes:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
-      # - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:z
-      # - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:z
-      - /etc/grid-security/:/etc/grid-security/
+      - ../../certs/hostcert_indigoiam.pem:/etc/grid-security/hostcert.pem:z
+      - ../../certs/hostcert_indigoiam.key.pem:/etc/grid-security/hostkey.pem:z
       - /dev/urandom:/dev/random
-      - ../../iam-assets/iam.conf:/etc/nginx/conf.d/default.conf:ro
-  iam:
+      - ./iam/indigoiam_nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - indigoiam-login-service
+  indigoiam-login-service:
+    image: indigoiam/iam-login-service:v1.8.2p2
     profiles:
       - iam
-    image: indigoiam/iam-login-service:v1.8.2
-    volumes:
-      - ../../iam-assets/keystore.jwks:/keystore.jwks:ro
     environment:
       - IAM_JAVA_OPTS=-Djava.security.egd=file:/dev/urandom -Dspring.profiles.active=prod,oidc,cern,registration,wlcg-scopes -agentlib:jdwp=transport=dt_socket,server=y,address=1044,suspend=n -Dlogging.file.name=/var/log/iam/iam.log
-      - IAM_HOST=<IAM_HOSTNAME>
+      - IAM_JWT_DEFAULT_PROFILE=wlcg
+      - IAM_HOST=indigoiam
       - IAM_PORT=8090
-      - IAM_BASE_URL=https://<IAM_HOSTNAME>
-      - IAM_ISSUER=https://<IAM_HOSTNAME>
+      - IAM_BASE_URL=https://indigoiam/
+      - IAM_ISSUER=https://indigoiam/
       - IAM_FORWARD_HEADERS_STRATEGY=native
       - IAM_KEY_STORE_LOCATION=file:/keystore.jwks
       - IAM_JWK_CACHE_LIFETIME=21600
@@ -293,8 +346,28 @@ services:
       - IAM_LOCAL_RESOURCES_LOCATION=file:/indigo-iam/local-resources
       - IAM_ORGANISATION_NAME=rucio-dc
       - IAM_TOPBAR_TITLE="INDIGO IAM for rucio-dc"
-      - IAM_DB_HOST=<IAM_DB_HOSTNAME>
-      - IAM_DB_PORT=3307
-      - IAM_DB_NAME=iam_db
-      - IAM_DB_USERNAME=iam
+      - IAM_DB_HOST=iam-db
+      - IAM_DB_PORT=3306
+      - IAM_DB_NAME=indigoiam
+      - IAM_DB_USERNAME=indigoiam
       - IAM_DB_PASSWORD=secret
+    volumes:
+      - ./iam/indigoiam_keystore.jwks:/keystore.jwks:ro
+    depends_on:
+      iam-db:
+        condition: service_healthy
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.1
+    command: start-dev --features=token-exchange,admin-fine-grained-authz,dynamic-scopes --db mariadb --db-url-host iam-db --db-username keycloak --db-password secret --https-certificate-file=/cert.pem --https-certificate-key-file=/key.pem
+    profiles:
+      - iam
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=password
+    volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
+      - ../../certs/hostcert_keycloak.pem:/cert.pem:z
+      - ../../certs/hostcert_keycloak.key.pem:/key.pem:z
+    depends_on:
+      iam-db:
+        condition: service_healthy

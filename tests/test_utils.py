@@ -15,12 +15,13 @@
 
 import datetime
 import logging
+import os
 from re import match
 
 import pytest
 
 from rucio.common.exception import InvalidType
-from rucio.common.utils import md5, adler32, parse_did_filter_from_string, Availability, retrying
+from rucio.common.utils import md5, adler32, parse_did_filter_from_string, Availability, retrying, bittorrent_v2_merkle_sha256
 from rucio.common.logging import formatted_logger
 
 
@@ -181,3 +182,26 @@ def test_retrying():
     with pytest.raises(ValueError):
         retry_on_attribute_error()
     assert len(attempts) == 1
+
+
+def test_bittorrent_sa256_merkle(file_factory):
+
+    def _sha256_merkle_via_libtorrent(file, piece_size=0):
+        import libtorrent as lt
+        file = str(file)
+        fs = lt.file_storage()
+        lt.add_files(fs, file)
+        t = lt.create_torrent(fs, flags=lt.create_torrent.v2_only, piece_size=piece_size)
+        lt.set_piece_hashes(t, os.path.dirname(file))
+
+        torrent = t.generate()
+        pieces_root = next(iter(next(iter(torrent[b'info'][b'file tree'].values())).values()))[b'pieces root']
+        pieces_layers = torrent.get(b'piece layers', {}).get(pieces_root, b'')
+        piece_size = t.piece_length()
+
+        return pieces_root, pieces_layers, piece_size
+
+    for size in (1, 333, 1024, 16384, 16390, 32768, 32769, 49152, 65530, 65536, 81920, 2**20 - 2**17, 2**20, 2**20 + 2):
+        file = file_factory.file_generator(size=size)
+        root, layers, piece_size = bittorrent_v2_merkle_sha256(file)
+        assert (root, layers, piece_size) == _sha256_merkle_via_libtorrent(file, piece_size=piece_size)

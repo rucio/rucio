@@ -28,6 +28,7 @@ from re import match
 from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import DatabaseError
+from rucio.db.sqla.constants import MYSQL_LOCK_NOWAIT_REGEX, ORACLE_RESOURCE_BUSY_REGEX, PSQL_LOCK_NOT_AVAILABLE_REGEX
 
 import rucio.db.sqla.util
 from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
@@ -96,7 +97,7 @@ def run_once(paused_dids: dict[tuple, datetime], chunk_size: int, heartbeat_hand
             except RuleNotFound as error:
                 logger(logging.ERROR, error)
             except (DatabaseException, DatabaseError, UnsupportedOperation) as e:
-                if match('.*ORA-00054.*', str(e.args[0])) or match('.*55P03.*', str(e.args[0])) or match('.*3572.*', str(e.args[0])):
+                if match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])) or match(PSQL_LOCK_NOT_AVAILABLE_REGEX, str(e.args[0])) or match(MYSQL_LOCK_NOWAIT_REGEX, str(e.args[0])):
                     for did in chunk:
                         paused_dids[(did['scope'], did['name'])] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
                     METRICS.counter('delete_dids.exceptions.{exception}').labels(exception='LocksDetected').inc()
@@ -121,7 +122,7 @@ def run(once: bool = False, total_workers: int = 1, chunk_size: int = 10, sleep_
     setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
-        raise DatabaseException('Database was not updated, daemon won\'t start')
+        raise DatabaseException("Database was not updated, daemon won't start")
 
     if once:
         undertaker(once)

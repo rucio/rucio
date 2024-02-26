@@ -20,7 +20,6 @@ import itertools
 import logging
 import math
 import os
-import re
 import signal
 import subprocess
 import sys
@@ -50,7 +49,6 @@ from rucio.common.test_rucio_server import TestRucioServer
 from rucio.common.utils import sizefmt, Color, detect_client_location, chunks, parse_did_filter_from_string, \
     parse_did_filter_from_string_fe, extract_scope, setup_logger, StoreAndDeprecateWarningAction
 from rucio.common.constants import ReplicaState
-from rucio.rse.protocols.protocol import RSEProtocol
 
 EXTRA_MODULES = import_extras(['argcomplete'])
 
@@ -873,44 +871,6 @@ def erase(args):
             except RucioException as error:
                 logger.warning('Failed to erase DID: %s' % did)
                 logger.debug('Error: %s' % error)
-    return SUCCESS
-
-
-@exception_handler
-def list_impls(args):
-    """
-    %(prog)s list-impls
-
-    List protocol implementations.
-    """
-
-    PROTOCOL_DIRECTORY = '/opt/rucio/lib/rucio/rse/protocols'
-
-    for filename in os.listdir(PROTOCOL_DIRECTORY):
-        if os.path.isdir(os.path.join(PROTOCOL_DIRECTORY, filename)) or filename in ["__init__.py", "cache.py", "http_cache.py", "dummy.py", "protocol.py"]:
-            continue
-        else:
-            filename = re.sub(r".py", r"", filename)
-            __import__("rucio.rse.protocols", fromlist=[filename])
-
-    impls = []
-
-    def get_subclasses(cls):
-        for subclass in cls.__subclasses__():
-            if (str(subclass)[28:-2]).endswith('Default'):
-                class_name = str(subclass)[28:-10]
-            else:
-                class_name = str(subclass)[28:-2]
-            impls.append([class_name, subclass.__doc__])
-            get_subclasses(subclass)
-
-    get_subclasses(RSEProtocol)
-    impls = sorted(impls)
-    table = []
-    for impl in impls:
-        table.append([impl[0], impl[1]])
-
-    print(tabulate(table, tablefmt=tablefmt, headers=['impl', 'DESCRIPTION']))
     return SUCCESS
 
 
@@ -2272,10 +2232,6 @@ You can filter by key/value, e.g.::
     list_content_history_parser = subparsers.add_parser('list-content-history', help='List the content history of a collection.')
     list_content_history_parser.set_defaults(function=list_content_history)
     list_content_history_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
-
-    # The list-impls command
-    list_impls_parser = subparsers.add_parser('list-impls', help='List all supported protocol implementations.')
-    list_impls_parser.set_defaults(function=list_impls)
 
 # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method.')

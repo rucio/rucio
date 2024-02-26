@@ -17,10 +17,14 @@ import logging
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
+from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core.request import get_request
 
 if TYPE_CHECKING:
+    from typing import Optional
+
     from rucio.core.rse import RseData
+    from rucio.core.request import DirectTransfer
 
 
 class TransferToolBuilder(object):
@@ -116,7 +120,8 @@ class Transfertool(object, metaclass=ABCMeta):
     """
 
     external_name = ''
-    required_rse_attrs = ('globus_endpoint_id', )
+    required_rse_attrs = ()
+    supported_schemes = set(SUPPORTED_PROTOCOLS).difference(('magnet', ))
 
     def __init__(self, external_host, logger=logging.log):
         """
@@ -144,18 +149,20 @@ class Transfertool(object, metaclass=ABCMeta):
         return False
 
     @classmethod
-    def submission_builder_for_path(cls, transfer_path, logger=logging.log):
+    @abstractmethod
+    def submission_builder_for_path(cls, transfer_path, logger=logging.log) -> "tuple[list[DirectTransfer], Optional[TransferToolBuilder]]":
         """
         Analyze the transfer path. If this transfertool class can submit the given transfers, return
         a TransferToolBuilder instance capable to build transfertool objects configured for this
         particular submission.
-        :param transfer_path:  List of DirectTransferDefinitions
+        :param transfer_path:  List of DirectTransfer
         :param logger: logger instance
         :return: a tuple: a sub-path starting at the first node from transfer_path, and a TransfertoolBuilder instance
         capable to submit this sub-path. Returns ([], None) if submission is impossible.
         """
         pass
 
+    @abstractmethod
     @abstractmethod
     def group_into_submit_jobs(self, transfer_paths):
         """

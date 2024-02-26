@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def add_files(lfns, issuer, ignore_availability, vo='def', *, session: "Session"):
+def add_files(lfns, issuer, ignore_availability, parents_metadata=None, vo='def', *, session: "Session"):
     """
     Bulk add files :
     - Create the file and replica.
@@ -38,6 +38,7 @@ def add_files(lfns, issuer, ignore_availability, vo='def', *, session: "Session"
     :param lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
     :param issuer: The issuer account.
     :param ignore_availability: A boolean to ignore blocked sites.
+    :param parents_metadata: Metadata for selected hierarchy DIDs. (dictionary {'lpn': {key : value}}). Default=None
     :param vo: The VO to act on.
     :param session: The database session in use.
 
@@ -68,4 +69,4 @@ def add_files(lfns, issuer, ignore_availability, vo='def', *, session: "Session"
     if not has_permission(issuer=issuer, action='add_dids', kwargs=kwargs, vo=vo, session=session):
         raise AccessDenied('Account %s can not bulk add data identifier for VO %s' % (issuer, vo))
 
-    dirac.add_files(lfns=lfns, account=issuer, ignore_availability=ignore_availability, vo=vo, session=session)
+    dirac.add_files(lfns=lfns, account=issuer, ignore_availability=ignore_availability, parents_metadata=parents_metadata, vo=vo, session=session)

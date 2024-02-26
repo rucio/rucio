@@ -112,8 +112,9 @@ def run_shell_command(cmd):
 
 
 def get_rucio_version():
+    python_executable = "'" + sys.executable + "'"
     ver = run_shell_command(
-        "PYTHONPATH=lib " + sys.executable + " -c "
+        "PYTHONPATH=lib " + python_executable + " -c "
         '"from rucio import version; print(version.version_string())"'
     )
     if not ver:

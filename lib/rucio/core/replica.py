@@ -60,7 +60,7 @@ from rucio.db.sqla.util import temp_table_mngr
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterator, Sequence
     from rucio.rse.protocols.protocol import RSEProtocol
     from typing import Any, Optional
     from sqlalchemy.orm import Session
@@ -3039,6 +3039,27 @@ def list_datasets_per_rse(rse_id, filters=None, limit=None, *, session: "Session
         yield row._asdict()
 
 
+@stream_session
+def list_replicas_per_rse(
+    rse_id: str,
+    limit: "Optional[int]" = None,
+    *,
+    session: "Session"
+) -> "Iterator[dict[str, Any]]":
+    """List all replicas at a given RSE."""
+    list_stmt = select(
+        models.RSEFileAssociation
+    ).where(
+        models.RSEFileAssociation.rse_id == rse_id
+    )
+
+    if limit:
+        list_stmt = list_stmt.limit(limit)
+
+    for replica in session.execute(list_stmt).yield_per(100).scalars():
+        yield replica.to_dict()
+
+
 @transactional_session
 def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=None, *, session: "Session"):
     """
@@ -3406,7 +3427,7 @@ def get_replicas_state(scope=None, name=None, *, session: "Session"):
 
 
 @read_session
-def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logger=logging.log, younger_than=10, nattempts=0, nattempts_exact=False, *, session: "Session", exclude_states=['B', 'R', 'D'], is_suspicious=False):
+def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logger=logging.log, younger_than=5, nattempts=0, nattempts_exact=False, *, session: "Session", exclude_states=['B', 'R', 'D'], is_suspicious=False):
     """
     Gets a list of replicas from bad_replicas table which are: declared more than <nattempts> times since <younger_than> date,
     present on the RSE specified by the <rse_expression> and do not have a state in <exclude_states> list.
@@ -3539,7 +3560,12 @@ def get_suspicious_reason(rse_id, scope, name, nattempts=0, logger=logging.log, 
     query = session.query(bad_replicas_alias.scope, bad_replicas_alias.name, bad_replicas_alias.reason, bad_replicas_alias.rse_id)\
                    .filter(bad_replicas_alias.rse_id == rse_id,
                            bad_replicas_alias.scope == scope,
-                           bad_replicas_alias.name == name)
+                           bad_replicas_alias.name == name,
+                           bad_replicas_alias.state == 'S',
+                           ~exists(select(1).where(and_(bad_replicas_alias.rse_id == rse_id,
+                                                        bad_replicas_alias.scope == scope,
+                                                        bad_replicas_alias.name == name,
+                                                        bad_replicas_alias.state != 'S',))))
     count = query.count()
 
     query_result = query.group_by(bad_replicas_alias.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name, bad_replicas_alias.reason).having(func.count() > nattempts).all()

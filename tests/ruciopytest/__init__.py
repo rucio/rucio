@@ -28,4 +28,5 @@ class NoParallelGroups(enum.Enum):
     FINISHER = 'finisher'
     # Accessing predefined RSEs
     XRD = 'xrd'
+    WEB = 'web'
 

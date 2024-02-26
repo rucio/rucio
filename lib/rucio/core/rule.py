@@ -15,6 +15,7 @@
 
 import json
 import logging
+from collections.abc import Iterator
 from configparser import NoOptionError, NoSectionError
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -2451,6 +2452,72 @@ def release_parent_rule(child_rule_id, remove_parent_expiration=False, *, sessio
             rule.expires_at = None
         rule.child_rule_id = None
         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
+
+
+@stream_session
+def list_rules_for_rse_decommissioning(
+    rse_id: str,
+    *,
+    session: "Session"
+) -> Iterator[dict[str, Any]]:
+    """Return a generator of rules at the RSE that is being decommissioned.
+
+    Decommissioning of an RSE involves deleting or moving away all rules that are
+    locking the replicas that exist at the RSE. The rules can be enforcing
+    dataset-level and/or file-level locks. Because rules are defined in terms of
+    RSE expressions, we need to first identify the locks with the RSE id and make
+    the list of rules that are enforcing such locks.
+    This function has two yield statements corresponding to the two types
+    (dataset-level and file-level) of locks. To avoid listing duplicates, the
+    rules identified through the dataset-level locks are excluded from the
+    second query using file-level locks.
+
+    :param rse_id: Id of the RSE being decommissioned.
+    :param session: The database session in use.
+    :returns: A generator that yields rule dictionaries.
+    """
+    # Get rules with dataset locks first.
+    query_rules_from_dataset_locks = select(
+        models.ReplicationRule
+    ).distinct(
+    ).join_from(
+        models.DatasetLock,
+        models.ReplicationRule,
+        models.DatasetLock.rule_id == models.ReplicationRule.id
+    ).where(
+        models.DatasetLock.rse_id == rse_id
+    )
+
+    for rule in session.execute(query_rules_from_dataset_locks).yield_per(5).scalars():
+        yield rule.to_dict()
+
+    # Make a subquery from the previous query to be excluded from the next query
+    dataset_rule_ids = query_rules_from_dataset_locks.with_only_columns(models.ReplicationRule.id)
+
+    # ReplicaLock ("locks") table is not indexed by RSE ID, so we instead go
+    # through the RSEFileAssociation ("replicas") table.
+    query_rules_from_replicas = select(
+        models.ReplicationRule
+    ).prefix_with(
+        '/*+ USE_NL(locks) LEADING(replicas locks) */',
+        dialect='oracle'
+    ).distinct(
+    ).join_from(
+        models.RSEFileAssociation,
+        models.ReplicaLock,
+        and_(models.RSEFileAssociation.scope == models.ReplicaLock.scope,
+             models.RSEFileAssociation.name == models.ReplicaLock.name,
+             models.RSEFileAssociation.rse_id == models.ReplicaLock.rse_id)
+    ).join(
+        models.ReplicationRule,
+        models.ReplicaLock.rule_id == models.ReplicationRule.id
+    ).where(
+        models.RSEFileAssociation.rse_id == rse_id,
+        models.ReplicaLock.rule_id.not_in(dataset_rule_ids)
+    )
+
+    for rule in session.execute(query_rules_from_replicas).yield_per(5).scalars():
+        yield rule.to_dict()
 
 
 @transactional_session
