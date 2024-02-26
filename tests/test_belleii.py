@@ -17,6 +17,7 @@ from datetime import datetime
 
 import pytest
 import os
+from tempfile import TemporaryDirectory
 
 
 from rucio.common.exception import InvalidObject
@@ -138,7 +139,6 @@ def test_upload_file_with_dirac(rse_factory, rse_client, did_factory, download_c
     config_set('dirac', 'lifetime', '{"user.*": 2592400}')
     local_file1 = file_factory.file_generator(use_basedir=True)
     local_file2 = file_factory.file_generator(use_basedir=True)
-    download_dir = file_factory.base_dir
     fn1 = did_name_generator('file', name_prefix='user')
     fn2 = did_name_generator('file', name_prefix='user')
     scope1 = extract_scope(fn1, [])[0]
@@ -166,17 +166,18 @@ def test_upload_file_with_dirac(rse_factory, rse_client, did_factory, download_c
     # download the files
     did1 = f"{scope1}:{fn1}"
     did2 = f"{scope2}:{fn2}"
-    download_client.download_dids([
-        {'did': did1, 'base_dir': download_dir},
-        {'did': did2, 'base_dir': download_dir}
-    ])
-    print(os.listdir(download_dir))
-    # match checksums
-    downloaded_file1 = f"{download_dir}/{fn1}"
-    assert adler32(local_file1) == adler32(downloaded_file1)
+    with TemporaryDirectory() as tmp_dir:
+        download_client.download_dids([
+            {'did': did1, 'base_dir': tmp_dir},
+            {'did': did2, 'base_dir': tmp_dir}
+        ])
 
-    downloaded_file2 = f"{download_dir}/{fn2}"
-    assert adler32(local_file2) == adler32(downloaded_file2)
+        # match checksums
+        downloaded_file1 = f"{tmp_dir}/{scope1}/{fn1}"
+        assert adler32(local_file1) == adler32(downloaded_file1)
+
+        downloaded_file2 = f"{tmp_dir}/{scope2}/{fn2}"
+        assert adler32(local_file2) == adler32(downloaded_file2)
 
     # extra check for heriarchy
     # Check the existence of all parents from the files
