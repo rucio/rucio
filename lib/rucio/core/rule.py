@@ -2420,7 +2420,8 @@ def get_evaluation_backlog(expiration_time: int = 600, *, session: "Session") ->
 
     cached_backlog = REGION.get('rule_evaluation_backlog', expiration_time=expiration_time)
     if cached_backlog is NO_VALUE:
-        result = session.query(func.count(models.UpdatedDID.created_at), func.min(models.UpdatedDID.created_at)).one()
+        stmt = select(func.count(models.UpdatedDID.created_at), func.min(models.UpdatedDID.created_at))
+        result = session.execute(stmt).scalars().one()
         REGION.set('rule_evaluation_backlog', result)
         return result
     else:
