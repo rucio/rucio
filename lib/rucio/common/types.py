@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Optional, TypedDict, Union
+from typing import Any, Callable, Literal, Optional, TypedDict, Union
 
 
 class InternalType(object):
@@ -159,3 +159,18 @@ class RSESettingsDict(TypedDict):
     deterministic: bool
     domain: list[str]
     protocols: list[RSEProtocolDict]
+
+
+class RuleDict(TypedDict):
+    account: InternalAccount
+    copies: int
+    rse_expression: str
+    grouping: Literal['ALL', 'DATASET', 'NONE']
+    weight: str
+    lifetime: int
+    locked: bool
+    subscription_id: str
+    source_replica_expression: Optional[str]
+    activity: str
+    notify: Optional[Literal['Y', 'N', 'C']]
+    purge_replicas: bool
