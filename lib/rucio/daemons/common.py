@@ -18,6 +18,7 @@ import functools
 import logging
 import os
 import queue
+import signal
 import socket
 import threading
 import time
@@ -35,6 +36,7 @@ from rucio.core.monitor import MetricManager
 
 T = TypeVar('T')
 METRICS = MetricManager(module=__name__)
+
 
 class Daemon(ABC):
     """
@@ -92,19 +94,20 @@ class Daemon(ABC):
         Run the daemon loop and call the function _run_once at each iteration
         """
 
-        run_once_fnc = functools.partial(self._run_once)
+        while not self.graceful_stop.is_set():
+            run_once_fnc = functools.partial(self._run_once)
 
-        daemon = db_workqueue(
-            once=self.once,
-            graceful_stop=self.graceful_stop,
-            executable=self.daemon_name,
-            partition_wait_time=self.partition_wait_time,
-            sleep_time=self.sleep_time,
-            activities=activities,
-        )(run_once_fnc)
+            daemon = db_workqueue(
+                once=self.once,
+                graceful_stop=self.graceful_stop,
+                executable=self.daemon_name,
+                partition_wait_time=self.partition_wait_time,
+                sleep_time=self.sleep_time,
+                activities=activities,
+            )(run_once_fnc)
 
-        for _ in daemon():
-            pass
+            for _ in daemon():
+                pass
 
     def run(self) -> None:
         """
@@ -121,16 +124,11 @@ class Daemon(ABC):
         for t in thread_list:
             t.start()
 
+        for t in thread_list:
+            t.join()
+
         if not self.once:
             logging.info("%s: waiting for interrupts", self.daemon_name)
-
-        # Interruptible joins require a timeout.
-        while thread_list:
-            thread_list = [
-                thread.join(timeout=3.14)
-                for thread in thread_list
-                if thread and thread.is_alive()
-            ]
 
     def stop(
         self, signum: Optional[int] = None, frame: Optional[FrameType] = None
@@ -143,6 +141,13 @@ class Daemon(ABC):
         :param frame: stack frame
         """
         self.graceful_stop.set()
+        logging.info("%s: terminating", self.daemon_name)
+        if signum == signal.SIGINT or signum == signal.SIGTERM:
+            if hasattr(self.stop, 'received_sigint_or_sigterm'):
+                exit(1)
+            else:
+                self.stop.received_sigint_or_sigterm = True
+
 
 class HeartbeatHandler:
     """

@@ -58,6 +58,7 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 REGION = make_region_memcached(expiration_time=600)
+EXCLUDED_RSE_GAUGE = METRICS.gauge('excluded_rses.{rse}', documentation='Temporarly excluded RSEs')
 
 
 class Reaper(Daemon):

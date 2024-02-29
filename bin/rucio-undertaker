@@ -70,6 +70,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     undertaker = Undertaker(total_workers=args.total_workers, chunk_size=args.chunk_size, once=args.run_once, sleep_time=args.sleep_time)
     signal.signal(signal.SIGTERM, undertaker.stop)
+    signal.signal(signal.SIGINT, undertaker.stop)
     try:
         undertaker.run()
     except KeyboardInterrupt:

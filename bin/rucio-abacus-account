@@ -68,6 +68,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     abacus_account = AbacusAccount(once=args.run_once, threads=args.threads, fill_history_table=args.enable_history, sleep_time=args.sleep_time)
     signal.signal(signal.SIGTERM, abacus_account.stop)
+    signal.signal(signal.SIGINT, abacus_account.stop)
     try:
         abacus_account.run()
     except KeyboardInterrupt:

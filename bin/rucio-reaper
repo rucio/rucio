@@ -77,6 +77,7 @@ if __name__ == "__main__":
                     auto_exclude_threshold=args.auto_exclude_threshold,
                     auto_exclude_timeout=args.auto_exclude_timeout)
     signal.signal(signal.SIGTERM, reaper.stop)
+    signal.signal(signal.SIGINT, reaper.stop)
     try:
         reaper.run()
     except KeyboardInterrupt:

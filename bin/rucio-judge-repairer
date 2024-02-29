@@ -40,6 +40,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     judge_repairer = JudgeRepairer(once=args.run_once, threads=args.threads, sleep_time=args.sleep_time)
     signal.signal(signal.SIGTERM, judge_repairer.stop)
+    signal.signal(signal.SIGINT, judge_repairer.stop)
     try:
         judge_repairer.run()
     except KeyboardInterrupt:
