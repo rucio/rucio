@@ -16,6 +16,7 @@
 from re import match
 from typing import TYPE_CHECKING, Optional, Union
 
+from sqlalchemy import select, and_
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
@@ -87,7 +88,8 @@ def del_key(key: str, *, session: "Session") -> None:
     :param key: the name for the key.
     :param session: The database session in use.
     """
-    session.query(models.DIDMetaConventionsKey).filter(key == key).delete()
+    statement = select(models.DIDMetaConventionsKey.key).where(models.DIDMetaConventionsKey.key == key)
+    session.delete(statement)
 
 
 @read_session
@@ -100,9 +102,10 @@ def list_keys(*, session: "Session") -> list[str]:
     :returns: A list containing all keys.
     """
     key_list = []
-    query = session.query(models.DIDMetaConventionsKey)
+    statement = select(models.DIDMetaConventionsKey.key)
+    query = session.execute(statement).scalars()
     for row in query:
-        key_list.append(row.key)
+        key_list.append(row)
     return key_list
 
 
@@ -140,16 +143,21 @@ def add_value(key: str, value: str, *, session: "Session") -> None:
 
         raise RucioException(error.args)
 
-    k = session.query(models.DIDMetaConventionsKey).filter_by(key=key).one()
+    statement = select(
+        models.DIDMetaConventionsKey,
+    ).where(
+        models.DIDMetaConventionsKey.key == key
+    )
+    query = session.execute(statement).scalar_one()
 
     # Check value against regexp, if defined
-    if k.value_regexp and not match(k.value_regexp, value):
-        raise InvalidValueForKey("The value '%s' for the key '%s' does not match the regular expression '%s'" % (value, key, k.value_regexp))
+    if query.value_regexp and not match(query.value_regexp, value):
+        raise InvalidValueForKey(f"The value {value} for the key {key} does not match the regular expression {query.value_regexp}")
 
     # Check value type, if defined
     type_map = dict([(str(t), t) for t in AUTHORIZED_VALUE_TYPES])
-    if k.value_type and not isinstance(value, type_map.get(k.value_type)):  # type: ignore ; Typing error caused by 'isinstaince' not thinking types count as classes
-        raise InvalidValueForKey("The value '%s' for the key '%s' does not match the required type '%s'" % (value, key, k.value_type))
+    if query.value_type and not isinstance(value, type_map.get(query.value_type)):  # type: ignore ; Typing error caused by 'isinstaince' not thinking types count as classes
+        raise InvalidValueForKey(f"The value {value} for the key {key} does not match the required type {query.value_type}")
 
 
 @read_session
@@ -163,9 +171,10 @@ def list_values(key: str, *, session: "Session") -> list[str]:
     :returns: A list containing all values.
     """
     value_list = []
-    query = session.query(models.DIDMetaConventionsConstraints).filter_by(key=key)
+    statement = select(models.DIDMetaConventionsConstraints.value).where(models.DIDMetaConventionsConstraints.key == key)
+    query = session.execute(statement).scalars()
     for row in query:
-        value_list.append(row.value)
+        value_list.append(row)
     return value_list
 
 
@@ -184,10 +193,11 @@ def validate_meta(meta: dict, did_type: DIDType, *, session: "Session") -> None:
     key = 'datatype'
     if did_type == DIDType.DATASET and key in meta:
         try:
-            session.query(models.DIDMetaConventionsConstraints.value).\
-                filter_by(key=key).\
-                filter_by(value=meta[key]).\
-                one()
+            statement = select(
+                models.DIDMetaConventionsConstraints.value
+            ).where(
+                and_(models.DIDMetaConventionsConstraints.value == meta[key], models.DIDMetaConventionsConstraints.key == key)
+            )
+            session.execute(statement).one()
         except NoResultFound:
-            print("The value '%s' for the key '%s' is not valid" % (meta[key], key))
-            raise InvalidObject("The value '%s' for the key '%s' is not valid" % (meta[key], key))
+            raise InvalidObject(f"The value {meta[key]}' for the key {key} is not valid")
