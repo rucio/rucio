@@ -18,7 +18,6 @@ import pytest
 
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.common.schema import get_schema_value
-from rucio.common.types import InternalAccount
 from rucio.core.did import add_did, get_did
 from rucio.core.replica import delete_replicas, get_cleaned_updated_collection_replicas
 from rucio.daemons.abacus import collection_replica
@@ -33,7 +32,7 @@ from rucio.tests.common import did_name_generator
 @pytest.mark.noparallel(reason='uses daemons, fails when run in parallel')
 class TestAbacusCollectionReplica():
 
-    def test_abacus_collection_replica_cleanup(self, vo, mock_scope, rse_factory, did_client):
+    def test_abacus_collection_replica_cleanup(self, vo, mock_scope, rse_factory, did_client, jdoe_account):
         """ ABACUS (COLLECTION REPLICA): Test if the cleanup procedure works correctly. """
         collection_replica.run(once=True)
         db_session = session.get_session()
@@ -41,8 +40,7 @@ class TestAbacusCollectionReplica():
         rse2, rse_id2 = rse_factory.make_rse()
 
         dataset = did_name_generator('dataset')
-        jdoe = InternalAccount('jdoe', vo)
-        add_did(mock_scope, dataset, DIDType.DATASET, jdoe)
+        add_did(mock_scope, dataset, DIDType.DATASET, jdoe_account)
 
         models.CollectionReplica(scope=mock_scope, name=dataset, rse_id=rse_id1, did_type=DIDType.DATASET,
                                  state=ReplicaState.AVAILABLE, bytes=1, length=1).save(session=db_session, flush=False)

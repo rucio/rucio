@@ -82,7 +82,7 @@ def reset_rses():
 
 
 @pytest.fixture
-def importer_example_data(vo):
+def importer_example_data(vo, jdoe_account):
     if not config_has_section('importer'):
         config_add_section('importer')
     config_set('importer', 'rse_sync_method', 'hard')
@@ -291,7 +291,7 @@ def importer_example_data(vo):
                 }
             ]
         }, {
-            'account': InternalAccount('jdoe', vo=vo),
+            'account': jdoe_account,
             'email': 'email'
         }]
     }

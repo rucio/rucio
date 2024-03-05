@@ -23,7 +23,6 @@ from tempfile import mkstemp
 import geoip2.database
 import pytest
 
-from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import parse_replicas_from_string
 from rucio.common.config import config_get
 from rucio.core import rse_expression_parser, replica_sorter
@@ -101,17 +100,16 @@ def mock_get_lat_long():
 
 
 @pytest.fixture
-def protocols_setup(vo):
+def protocols_setup(vo, root_account, mock_scope):
     rse_info = copy.deepcopy(base_rse_info)
 
-    files = [{'scope': InternalScope('mock', vo=vo), 'name': 'element_0', 'bytes': 1234, 'adler32': 'deadbeef'}]
-    root = InternalAccount('root', vo=vo)
+    files = [{'scope': mock_scope, 'name': 'element_0', 'bytes': 1234, 'adler32': 'deadbeef'}]
 
     for idx in range(len(rse_info)):
         rse_info[idx]['name'] = '%s_%s' % (rse_info[idx]['site'], rse_name_generator())
         rse_info[idx]['id'] = add_rse(rse_info[idx]['name'], vo=vo)
         add_rse_attribute(rse_id=rse_info[idx]['id'], key='site', value=base_rse_info[idx]['site'])
-        add_replicas(rse_id=rse_info[idx]['id'], files=files, account=root)
+        add_replicas(rse_id=rse_info[idx]['id'], files=files, account=root_account)
 
     # invalidate cache for parse_expression('site=…')
     rse_expression_parser.REGION.invalidate()

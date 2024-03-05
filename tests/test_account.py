@@ -53,25 +53,23 @@ class TestAccountCoreApi:
         assert email == 'test'
         del_account(usr, 'root', vo=vo)
 
-    def test_list_account_identities(self, vo):
+    def test_list_account_identities(self, root_account):
         """ ACCOUNT (CORE): Test listing of account identities """
         email = 'email'
         identity = uuid()
         identity_type = IdentityType.USERPASS
-        account = InternalAccount('root', vo=vo)
-        add_account_identity(identity, identity_type, account, email, password='secret')
-        identities = list_identities(account)
+        add_account_identity(identity, identity_type, root_account, email, password='secret')
+        identities = list_identities(root_account)
         assert {'type': identity_type, 'identity': identity, 'email': email} in identities
 
-    def test_add_account_attribute(self, vo):
+    def test_add_account_attribute(self, root_account):
         """ ACCOUNT (CORE): Test adding attribute to account """
-        account = InternalAccount('root', vo=vo)
         key = account_name_generator()
         value = True
-        add_account_attribute(account, key, value)
-        assert {'key': key, 'value': True} in list_account_attributes(account)
+        add_account_attribute(root_account, key, value)
+        assert {'key': key, 'value': True} in list_account_attributes(root_account)
         with pytest.raises(Duplicate):
-            add_account_attribute(account, key, value)
+            add_account_attribute(root_account, key, value)
 
 
 def test_create_user_success(rest_client, auth_token):

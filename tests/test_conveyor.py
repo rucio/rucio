@@ -1349,7 +1349,7 @@ def test_overwrite_corrupted_files(overwrite_on_tape_topology, core_config_mock,
     ('conveyor', 'usercert', 'DEFAULT_DUMMY_CERT'),
     ('vo_certs', 'new', 'NEW_VO_DUMMY_CERT'),
 ]}], indirect=True)
-def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope_factory, vo, second_vo):
+def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope_factory, vo, second_vo, root_account):
     """
     Test that submitter and poller call fts with correct certificates in multi-vo env
     """

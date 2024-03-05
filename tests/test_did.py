@@ -24,7 +24,7 @@ from rucio.common import exception
 from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
                                     InvalidPath, UnsupportedOperation,
                                     UnsupportedStatus, ScopeNotFound, FileAlreadyExists, FileConsistencyMismatch)
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
                             get_metadata, set_metadata, get_did, get_did_access_cnt, add_did_to_followed,
@@ -434,7 +434,6 @@ class TestDIDClients:
         tmp_rse, rse_id = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
         tmp_dsn = did_name_generator('dataset')
-        root = InternalAccount('root', vo=vo)
 
         # PFN example: rfio://castoratlas.cern.ch/castor/cern.ch/grid/atlas/tzero/xx/xx/xx/filename
         dataset_meta = {'project': 'data13_hip',
