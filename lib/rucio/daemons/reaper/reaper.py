@@ -33,7 +33,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
 from rucio.common.cache import make_region_memcached
-from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.exception import (DatabaseException, RSENotFound,
                                     ReplicaUnAvailable, ReplicaNotFound, ServiceUnavailable,
                                     RSEAccessDenied, ResourceTemporaryUnavailable, SourceNotFound,
@@ -581,7 +581,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
             rse.ensure_loaded(load_info=True, load_attributes=True)
             prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, logger=logger)
             if rse.attributes.get('oidc_support') is True and prot.attributes['scheme'] == 'davs':
-                audience = config_get('reaper', 'oidc_audience', False) or determine_audience_for_rse(rse.id)
+                audience = determine_audience_for_rse(rse.id)
                 # FIXME: At the time of writing, StoRM requires `storage.read`
                 # in order to perform a stat operation.
                 scope = determine_scope_for_rse(rse.id, scopes=['storage.modify', 'storage.read'])
