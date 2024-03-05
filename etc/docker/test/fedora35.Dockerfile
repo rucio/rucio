@@ -27,7 +27,7 @@ RUN test "x${PYTHON}" = "x3.10" && \
     alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 && \
     python -m pip --no-cache-dir install --upgrade pip && \
     # setuptools will be reinstalled via pip when installing requirements
-    dnf remove python3-setuptools && \
+    dnf remove -y python3-setuptools && \
     dnf clean all && \
     rpm -i https://download.oracle.com/otn_software/linux/instantclient/1912000/oracle-instantclient19.12-basiclite-19.12.0.0.0-1.x86_64.rpm && \
     echo "/usr/lib/oracle/19.12/client64/lib" > /etc/ld.so.conf.d/oracle-instantclient.conf && \
