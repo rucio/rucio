@@ -936,11 +936,11 @@ class FTS3Transfertool(Transfertool):
         if self.token:
             t_file['source_tokens'] = []
             for source in transfer.sources:
-                src_audience = config_get('conveyor', 'request_oidc_audience', False) or determine_audience_for_rse(rse_id=source.rse.id)
+                src_audience = determine_audience_for_rse(rse_id=source.rse.id)
                 src_scope = determine_scope_for_rse(rse_id=source.rse.id, scopes=['storage.read'], extra_scopes=['offline_access'])
                 t_file['source_tokens'].append(request_token(src_audience, src_scope))
 
-            dst_audience = config_get('conveyor', 'request_oidc_audience', False) or determine_audience_for_rse(transfer.dst.rse.id)
+            dst_audience = determine_audience_for_rse(transfer.dst.rse.id)
             # FIXME: At the time of writing, StoRM requires `storage.read` in
             # order to perform a stat operation.
             dst_scope = determine_scope_for_rse(transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], extra_scopes=['offline_access'])
