@@ -86,7 +86,7 @@ class SubscriptionClient(BaseClient):
             if name:
                 path += '/%s' % (name)
         elif name:
-            path += '/Name/%s' % (name)
+            path += '/name/%s' % (name)
         else:
             path += '/'
         url = build_url(choice(self.list_hosts), path=path)
@@ -150,7 +150,7 @@ class SubscriptionClient(BaseClient):
         :param name:    Name of the subscription.
         """
 
-        path = '/'.join([self.SUB_BASEURL, account, name, 'Rules'])
+        path = '/'.join([self.SUB_BASEURL, account, name, 'rules'])
         url = build_url(choice(self.list_hosts), path=path)
         result = self._send_request(url, type_='GET')
         if result.status_code == codes.ok:   # pylint: disable=no-member

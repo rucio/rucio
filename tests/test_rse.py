@@ -19,8 +19,8 @@ from rucio.common import exception
 from rucio.common.constants import RseAttr
 from rucio.common.exception import Duplicate, InputValidationError, InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSENotFound, RSEOperationNotSupported, RSEProtocolNotSupported
 from rucio.common.schema import get_schema_value
-from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
-from rucio.core.account_limit import get_rse_account_usage, set_local_account_limit
+from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_KEY
+from rucio.core.account_limit import set_local_account_limit, get_rse_account_usage
 from rucio.core.did import add_did, attach_dids
 from rucio.core.request import delete_transfer_limit, set_transfer_limit
 from rucio.core.rse import (
