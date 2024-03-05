@@ -218,7 +218,7 @@ def test_create_and_list_subscription_by_id(rse_factory, rest_client, auth_token
     assert response.status_code == 201
 
     subscription_id = response.get_data(as_text=True)
-    response = rest_client.get('/subscriptions/Id/' + subscription_id, headers=headers(auth(auth_token)))
+    response = rest_client.get('/subscriptions/id/' + subscription_id, headers=headers(auth(auth_token)))
     assert response.status_code == 200
     assert loads(loads(response.get_data(as_text=True))['filter'])['project'][0] == 'data12_900GeV'
 
@@ -287,7 +287,7 @@ def test_list_rules_states(vo, rse_factory, rest_client, auth_token, root_accoun
     add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root_account, copies=1, rse_expression=rse3, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
     add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root_account, copies=1, rse_expression=rse4, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
 
-    response = rest_client.get('/subscriptions/%s/%s/Rules/States' % ('root', subscription_name), headers=headers(auth(auth_token)))
+    response = rest_client.get('/subscriptions/%s/%s/rules/states' % ('root', subscription_name), headers=headers(auth(auth_token)))
     assert response.status_code == 200
 
     rulestates = None
