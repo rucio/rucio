@@ -502,9 +502,8 @@ def get_pfn_to_rse(pfns, vo='def', *, session: "Session"):
         models.RSE, models.RSE.id == models.RSEProtocols.rse_id
     ).where(
         and_(or_(*se_condition),
-             models.RSEProtocols.scheme == scheme)
-    ).where(
-        and_(models.RSE.deleted == false(),
+             models.RSEProtocols.scheme == scheme,
+             models.RSE.deleted == false(),
              models.RSE.staging_area == false())
     )
 
@@ -552,22 +551,22 @@ def get_bad_replicas_backlog(*, session: "Session"):
     :returns: a list of dictionary {'rse_id': cnt_bad_replicas}.
     """
     stmt = select(
-        func.count(models.BadReplicas.scope),
-        models.BadReplicas.rse_id
+        func.count(models.RSEFileAssociation.rse_id),
+        models.RSEFileAssociation.rse_id
     ).with_hint(
         models.RSEFileAssociation, 'INDEX(DIDS DIDS_PK) USE_NL(DIDS) INDEX_RS_ASC(REPLICAS ("REPLICAS"."STATE"))', 'oracle'
     ).where(
-        models.BadReplicas.state == BadFilesStatus.BAD
+        models.RSEFileAssociation.state == ReplicaState.BAD
     )
 
     stmt = stmt.join(
         models.DataIdentifier,
-        and_(models.DataIdentifier.scope == models.BadReplicas.scope,
-             models.DataIdentifier.name == models.BadReplicas.name)
+        and_(models.DataIdentifier.scope == models.RSEFileAssociation.scope,
+             models.DataIdentifier.name == models.RSEFileAssociation.name)
     ).where(
         models.DataIdentifier.availability != DIDAvailability.LOST
     ).group_by(
-        models.BadReplicas.rse_id
+        models.RSEFileAssociation.rse_id
     )
 
     result = dict()
@@ -2629,7 +2628,8 @@ def get_and_lock_file_replicas(scope, name, nowait=False, restrict_rses=None, *,
     )
     if restrict_rses is not None and len(restrict_rses) < 10:
         rse_clause = [models.RSEFileAssociation.rse_id == rse_id for rse_id in restrict_rses]
-        stmt = stmt.where(or_(*rse_clause))
+        if rse_clause:
+            stmt = stmt.where(or_(*rse_clause))
 
     stmt = stmt.with_for_update(nowait=nowait)
     return session.execute(stmt).scalars().all()
@@ -3595,16 +3595,16 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
                 and_(models.BadReplicas.scope == replica['scope'],
                      models.BadReplicas.name == replica['name'],
                      models.BadReplicas.rse_id == replica['rse_id'],
-                     models.BadReplicas.state == BadFilesStatus.TEMPORARY_UNAVAILABLE)
+                     models.BadReplicas.state == state)
             )
-            if session.execute(stmt).scalar():
+            if session.execute(stmt).scalar_one_or_none():
                 stmt = update(
                     models.BadReplicas
                 ).where(
                     and_(models.BadReplicas.scope == replica['scope'],
                          models.BadReplicas.name == replica['name'],
                          models.BadReplicas.rse_id == replica['rse_id'],
-                         models.BadReplicas.state == BadFilesStatus.TEMPORARY_UNAVAILABLE)
+                         models.BadReplicas.state == state)
                 ).values(
                     state=BadFilesStatus.TEMPORARY_UNAVAILABLE,
                     updated_at=datetime.utcnow(),
@@ -4027,7 +4027,7 @@ def get_RSEcoverage_of_dataset(scope, name, *, session: "Session"):
 
     stmt = select(
         models.RSEFileAssociation.rse_id,
-        func.sum(models.RSEFileAssociation.bytes)
+        func.sum(models.DataIdentifierAssociation.bytes)
     ).where(
         and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
              models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
