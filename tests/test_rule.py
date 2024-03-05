@@ -1303,19 +1303,18 @@ class TestCore:
         assert (len(dsl3) == 0)
 
 
-def test_rule_boost(vo, mock_scope, rse_factory, file_factory):
+def test_rule_boost(vo, mock_scope, rse_factory, jdoe_account):
     """ REPLICATION RULE (CORE): Update a replication rule to quicken the translation from stuck to replicating """
-    jdoe = InternalAccount('jdoe', vo)
     _, tmp_rse_id = rse_factory.make_mock_rse()
     rse, rse_id = rse_factory.make_mock_rse()
     update_rse(rse_id, {'availability_write': False})
-    set_local_account_limit(jdoe, rse_id, -1)
+    set_local_account_limit(jdoe_account, rse_id, -1)
     files = create_files(3, mock_scope, tmp_rse_id)
     dataset1 = 'dataset_' + str(uuid())
-    add_did(mock_scope, dataset1, DIDType.DATASET, jdoe)
-    attach_dids(mock_scope, dataset1, files, jdoe)
+    add_did(mock_scope, dataset1, DIDType.DATASET, jdoe_account)
+    attach_dids(mock_scope, dataset1, files, jdoe_account)
 
-    rule_id = add_rule(dids=[{'scope': mock_scope, 'name': dataset1}], account=jdoe, copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]
+    rule_id = add_rule(dids=[{'scope': mock_scope, 'name': dataset1}], account=jdoe_account, copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=True)[0]
     before_update_rule = {}
     for file in files:
         for filtered_lock in [lock for lock in get_replica_locks(scope=file['scope'], name=file['name'])]:

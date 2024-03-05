@@ -45,7 +45,7 @@ from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_remove_option, config_set, config_has_section, config_add_section
 from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, UnsupportedAccountName, \
     UnsupportedOperation, RucioException
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid, get_tmp_dir, parse_response, ssh_sign
 from rucio.core import config as core_config
 from rucio.core.account_counter import add_counter
@@ -56,7 +56,7 @@ from rucio.core.rule import add_rule
 from rucio.core.vo import map_vo
 from rucio.daemons.automatix.automatix import automatix
 from rucio.db.sqla import models, session as db_session
-from rucio.tests.common import execute, headers, hdrdict, vohdr, auth, loginhdr, get_long_vo
+from rucio.tests.common import execute, headers, hdrdict, vohdr, auth, loginhdr
 from .test_authentication import PRIVATE_KEY, PUBLIC_KEY
 from .test_oidc import get_mock_oidc_client, NEW_TOKEN_DICT
 
@@ -83,17 +83,16 @@ class TestVOCoreAPI:
             config_set('common', 'multi_vo', 'True')
 
     @pytest.mark.noparallel(reason='uses global RSE (MOCK) and fails when run in parallel')
-    def test_access_rule_vo(self, vo, second_vo):
+    def test_access_rule_vo(self, vo, second_vo, root_account, mock_scope):
         """ MULTI VO (CORE): Test accessing rules from a different VO """
-        scope = InternalScope('mock', vo=vo)
+        scope = mock_scope
         dataset = 'dataset_' + str(generate_uuid())
-        account = InternalAccount('root', vo=vo)
         rse_str = ''.join(choice(ascii_uppercase) for x in range(10))
         rse_name = 'MOCK_%s' % rse_str
         rse_id = add_rse(rse_name, 'root', vo=vo)
 
-        add_replica(rse_id=rse_id, scope=scope, name=dataset, bytes_=10, account=account)
-        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=account, copies=1, rse_expression='MOCK', grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        add_replica(rse_id=rse_id, scope=scope, name=dataset, bytes_=10, account=root_account)
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=root_account, copies=1, rse_expression='MOCK', grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         with pytest.raises(AccessDenied):
             delete_replication_rule(rule_id=rule_id, purge_replicas=False, issuer='root', vo=second_vo)
@@ -641,14 +640,13 @@ class TestVORestAPI:
 
 class TestMultiVoClients:
 
-    def test_get_vo_from_config(self, vo):
+    def test_get_vo_from_config(self, long_vo):
         """ MULTI VO (CLIENT): Get vo from config file when starting clients """
         # Start clients with vo explicitly set to None
         replica_client = ReplicaClient(vo=None)
         client = Client(vo=None)
         upload_client = UploadClient(_client=client)
         # Check the vo has been got from the config file
-        long_vo = get_long_vo()
         assert replica_client.vo == long_vo
         assert upload_client.client.vo == long_vo
 

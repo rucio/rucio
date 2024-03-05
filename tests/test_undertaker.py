@@ -19,7 +19,7 @@ from logging import getLogger
 import pytest
 
 from rucio.common.policy import get_policy
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalScope
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_dids, attach_dids, list_expired_dids, get_did, set_metadata
 from rucio.core.replica import add_replicas, get_replica
@@ -37,15 +37,13 @@ LOG = getLogger(__name__)
 @pytest.mark.noparallel(reason='uses pre-defined rses; runs undertaker, which impacts other tests')
 class TestUndertaker:
 
-    def test_undertaker(self, vo, rse_factory, mock_scope, root_account):
+    def test_undertaker(self, vo, rse_factory, mock_scope, root_account, jdoe_account):
         """ UNDERTAKER (CORE): Test the undertaker. """
-        jdoe = InternalAccount('jdoe', vo=vo)
-
         nbdatasets = 5
         nbfiles = 5
         rse, rse_id = rse_factory.make_rse()
 
-        set_local_account_limit(jdoe, rse_id, -1)
+        set_local_account_limit(jdoe_account, rse_id, -1)
 
         dsns1 = [{'name': did_name_generator('dataset'),
                   'scope': mock_scope,
@@ -56,7 +54,7 @@ class TestUndertaker:
                   'scope': mock_scope,
                   'type': 'DATASET',
                   'lifetime': -1,
-                  'rules': [{'account': jdoe, 'copies': 1,
+                  'rules': [{'account': jdoe_account, 'copies': 1,
                              'rse_expression': rse,
                              'grouping': 'DATASET'}]} for _ in range(nbdatasets)]
 
@@ -75,7 +73,7 @@ class TestUndertaker:
             attach_dids(scope=mock_scope, name=dsn['name'], rse_id=rse_id, dids=files, account=root_account)
             replicas += files
 
-        add_rules(dids=dsns1, rules=[{'account': jdoe, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET'}])
+        add_rules(dids=dsns1, rules=[{'account': jdoe_account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET'}])
 
         undertaker(once=True)
         undertaker(once=True)
@@ -83,19 +81,18 @@ class TestUndertaker:
         for replica in replicas:
             assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse_id)['tombstone'] is not None
 
-    def test_list_expired_dids_with_locked_rules(self, rse_factory, vo, mock_scope, root_account):
+    def test_list_expired_dids_with_locked_rules(self, rse_factory, vo, mock_scope, root_account, jdoe_account):
         """ UNDERTAKER (CORE): Test that the undertaker does not list expired dids with locked rules"""
-        jdoe = InternalAccount('jdoe', vo=vo)
 
         # Add quota
         rse, rse_id = rse_factory.make_rse()
-        set_local_account_limit(jdoe, rse_id, -1)
+        set_local_account_limit(jdoe_account, rse_id, -1)
 
         dsn = {'name': did_name_generator('dataset'),
                'scope': mock_scope,
                'type': 'DATASET',
                'lifetime': -1,
-               'rules': [{'account': jdoe, 'copies': 1,
+               'rules': [{'account': jdoe_account, 'copies': 1,
                           'rse_expression': rse, 'locked': True,
                           'grouping': 'DATASET'}]}
 
@@ -104,13 +101,11 @@ class TestUndertaker:
         for did in list_expired_dids(limit=1000):
             assert (did['scope'], did['name']) != (dsn['scope'], dsn['name'])
 
-    def test_atlas_archival_policy(self, vo, mock_scope, root_account):
+    def test_atlas_archival_policy(self, vo, mock_scope, root_account, jdoe_account):
         """ UNDERTAKER (CORE): Test the atlas archival policy. """
         if get_policy() != 'atlas':
             LOG.info("Skipping atlas-specific test")
             return
-
-        jdoe = InternalAccount('jdoe', vo=vo)
 
         nbdatasets = 5
         nbfiles = 5
@@ -118,13 +113,13 @@ class TestUndertaker:
         rse = 'LOCALGROUPDISK_%s' % rse_name_generator()
         rse_id = add_rse(rse, vo=vo)
 
-        set_local_account_limit(jdoe, rse_id, -1)
+        set_local_account_limit(jdoe_account, rse_id, -1)
 
         dsns2 = [{'name': did_name_generator('dataset'),
                   'scope': mock_scope,
                   'type': 'DATASET',
                   'lifetime': -1,
-                  'rules': [{'account': jdoe, 'copies': 1,
+                  'rules': [{'account': jdoe_account, 'copies': 1,
                              'rse_expression': rse,
                              'grouping': 'DATASET'}]} for _ in range(nbdatasets)]
 

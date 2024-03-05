@@ -94,7 +94,7 @@ class TestDatasetReplicaClient:
                                                      filters={'scope': mock_scope, 'name': pattern})]
         assert replicas != []
 
-    def test_list_dataset_replicas_archive(self, vo):
+    def test_list_dataset_replicas_archive(self, vo, did_client):
         """ REPLICA (CLIENT): List dataset replicas with archives. """
 
         activity = get_schema_value('ACTIVITY')['enum'][0]

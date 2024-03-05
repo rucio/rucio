@@ -22,7 +22,6 @@ from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSuppor
                                     RSEAttributeNotFound, RSEOperationNotSupported,
                                     InputValidationError)
 from rucio.common.schema import get_schema_value
-from rucio.common.types import InternalScope
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_KEY
 from rucio.core.account_limit import set_local_account_limit, get_rse_account_usage
 from rucio.core.did import add_did, attach_dids
@@ -1358,19 +1357,18 @@ class TestRSEClient:
         finally:
             rucio_client.delete_rse(protocol_rse)
 
-    def test_get_rse_usage(self, vo, rucio_client, rse_factory, jdoe_account, root_account):
+    def test_get_rse_usage(self, vo, rucio_client, rse_factory, jdoe_account, root_account, mock_scope):
         """ RSE (CLIENTS): Test getting the RSE usage. """
         file_sizes = 100
         nfiles = 3
         rse, rse_id = rse_factory.make_posix_rse()
         set_local_account_limit(account=jdoe_account, rse_id=rse_id, bytes_=10000)
-        tmp_scope = InternalScope('mock', vo=vo)
         activity = get_schema_value('ACTIVITY')['enum'][0]
-        files = create_files(nfiles, tmp_scope, rse_id, bytes_=file_sizes)
+        files = create_files(nfiles, mock_scope, rse_id, bytes_=file_sizes)
         dataset = did_name_generator('dataset')
-        add_did(tmp_scope, dataset, DIDType.DATASET, jdoe_account)
-        attach_dids(tmp_scope, dataset, files, jdoe_account)
-        rules = add_rule(dids=[{'scope': tmp_scope, 'name': dataset}], account=jdoe_account, copies=1, rse_expression=rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, activity=activity)
+        add_did(mock_scope, dataset, DIDType.DATASET, jdoe_account)
+        attach_dids(mock_scope, dataset, files, jdoe_account)
+        rules = add_rule(dids=[{'scope': mock_scope, 'name': dataset}], account=jdoe_account, copies=1, rse_expression=rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, activity=activity)
         assert rules
         account_update(once=True)
         usages = rucio_client.get_rse_usage(rse=rse, filters={'per_account': True})

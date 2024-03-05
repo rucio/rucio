@@ -142,11 +142,10 @@ class TestSubscriptionCoreApi:
         with pytest.raises(SubscriptionNotFound):
             update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root', vo=vo)
 
-    def test_list_rules_states(self, vo, rse_factory):
+    def test_list_rules_states(self, vo, rse_factory, root_account):
         """ SUBSCRIPTION (API): Test listing of rule states for subscription """
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-        root = InternalAccount('root', vo=vo)
-        add_scope(tmp_scope, root)
+        add_scope(tmp_scope, root_account)
         rse1, _ = rse_factory.make_mock_rse()
         rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
@@ -157,7 +156,7 @@ class TestSubscriptionCoreApi:
         # add a new dataset
         dsn = did_name_generator('dataset')
         add_did(scope=tmp_scope, name=dsn,
-                did_type=DIDType.DATASET, account=root)
+                did_type=DIDType.DATASET, account=root_account)
 
         subscription_name = uuid()
         subid = add_subscription(name=subscription_name,
@@ -172,8 +171,8 @@ class TestSubscriptionCoreApi:
                                  vo=vo)
 
         # Add two rules
-        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=rse3, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
-        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=rse4, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root_account, copies=1, rse_expression=rse3, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
+        add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root_account, copies=1, rse_expression=rse4, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
 
         for rule in list_subscription_rule_states(account='root', name=subscription_name, vo=vo):
             assert rule[3] == 2
@@ -257,11 +256,10 @@ def test_update_nonexisting_subscription(rest_client, auth_token):
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE')
-def test_list_rules_states(vo, rse_factory, rest_client, auth_token):
+def test_list_rules_states(vo, rse_factory, rest_client, auth_token, root_account):
     """ SUBSCRIPTION (REST): Test listing of rule states for subscription """
     tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-    root = InternalAccount('root', vo=vo)
-    add_scope(tmp_scope, root)
+    add_scope(tmp_scope, root_account)
     activity = get_schema_value('ACTIVITY')['enum'][0]
     rse1, _ = rse_factory.make_mock_rse()
     rse2, _ = rse_factory.make_mock_rse()
@@ -273,7 +271,7 @@ def test_list_rules_states(vo, rse_factory, rest_client, auth_token):
     # add a new dataset
     dsn = 'dataset-%s' % uuid()
     add_did(scope=tmp_scope, name=dsn,
-            did_type=DIDType.DATASET, account=root)
+            did_type=DIDType.DATASET, account=root_account)
 
     subscription_name = uuid()
     subid = add_subscription(name=subscription_name,
@@ -288,8 +286,8 @@ def test_list_rules_states(vo, rse_factory, rest_client, auth_token):
                              vo=vo)
 
     # Add two rules
-    add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=rse3, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
-    add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root, copies=1, rse_expression=rse4, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
+    add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root_account, copies=1, rse_expression=rse3, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
+    add_rule(dids=[{'scope': tmp_scope, 'name': dsn}], account=root_account, copies=1, rse_expression=rse4, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=subid)
 
     response = rest_client.get('/subscriptions/%s/%s/Rules/States' % ('root', subscription_name), headers=headers(auth(auth_token)))
     assert response.status_code == 200
@@ -380,7 +378,7 @@ class TestSubscriptionClient:
         assert subid == result[0]
 
     @pytest.mark.noparallel(reason='runs transmogrifier. Cannot be run at the same time with other tests running it')
-    def test_run_transmogrifier(self, vo, rse_factory, rucio_client):
+    def test_run_transmogrifier(self, vo, rse_factory, rucio_client, root_account):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier and the split_rule mode """
         new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
         set_new_dids(new_dids, None)
@@ -390,12 +388,11 @@ class TestSubscriptionClient:
         rse3, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s|%s' % (rse1, rse2, rse3)
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-        root = InternalAccount('root', vo=vo)
-        add_scope(tmp_scope, root)
+        add_scope(tmp_scope, root_account)
         subscription_name = uuid()
         dsn_prefix = did_name_generator('dataset')
         dsn = '%sdataset-%s' % (dsn_prefix, uuid())
-        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
 
         subid = rucio_client.add_subscription(name=subscription_name, account='root', filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True},
                                               replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
@@ -409,7 +406,7 @@ class TestSubscriptionClient:
         assert len(rules) == 2
 
     @pytest.mark.noparallel(reason='runs transmogrifier. Cannot be run at the same time with other tests running it')
-    def test_run_transmogrifier_did_type(self, vo, rse_factory, rucio_client):
+    def test_run_transmogrifier_did_type(self, vo, rse_factory, rucio_client, root_account):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with did_type subscriptions """
         new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
         set_new_dids(new_dids, None)
@@ -418,12 +415,11 @@ class TestSubscriptionClient:
         rse3, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s|%s' % (rse1, rse2, rse3)
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-        root = InternalAccount('root', vo=vo)
-        add_scope(tmp_scope, root)
+        add_scope(tmp_scope, root_account)
         subscription_name = uuid()
         dsn_prefix = did_name_generator('dataset')
         dsn = '%sdataset-%s' % (dsn_prefix, uuid())
-        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root)
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
 
         subid = rucio_client.add_subscription(name=subscription_name, account='root', filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
                                               replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],

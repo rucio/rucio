@@ -23,7 +23,6 @@ import time
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token, \
     get_auth_token_saml
 from rucio.common.exception import Duplicate, AccessDenied, CannotAuthenticate
-from rucio.common.types import InternalAccount
 from rucio.common.utils import ssh_sign
 from rucio.core.identity import add_account_identity, del_account_identity
 from rucio.core.authentication import strip_x509_proxy_attributes
@@ -118,12 +117,11 @@ class TestAuthCoreApi:
         result = get_auth_token_user_pass(account='root', username='ddmlab', password='not_secret', appid='test', ip='127.0.0.1', vo=vo)
         assert result is None
 
-    def test_get_auth_token_ssh_success(self, vo):
+    def test_get_auth_token_ssh_success(self, vo, root_account):
         """AUTHENTICATION (CORE): SSH RSA public key exchange (good signature)."""
 
-        root = InternalAccount('root', vo=vo)
         try:
-            add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
+            add_account_identity(PUBLIC_KEY, IdentityType.SSH, root_account, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
@@ -135,14 +133,13 @@ class TestAuthCoreApi:
 
         assert result is not None
 
-        del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
+        del_account_identity(PUBLIC_KEY, IdentityType.SSH, root_account)
 
-    def test_get_auth_token_ssh_fail(self, vo):
+    def test_get_auth_token_ssh_fail(self, vo, root_account):
         """AUTHENTICATION (CORE): SSH RSA public key exchange (wrong signature)."""
 
-        root = InternalAccount('root', vo=vo)
         try:
-            add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
+            add_account_identity(PUBLIC_KEY, IdentityType.SSH, root_account, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
@@ -152,14 +149,13 @@ class TestAuthCoreApi:
 
         assert result is None
 
-        del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
+        del_account_identity(PUBLIC_KEY, IdentityType.SSH, root_account)
 
-    def test_invalid_padding(self, vo):
+    def test_invalid_padding(self, vo, root_account):
         """AUTHENTICATION (CORE): SSH RSA public key exchange (public key with invalid padding)."""
 
-        root = InternalAccount('root', vo=vo)
         try:
-            add_account_identity(INVALID_PADDED_PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
+            add_account_identity(INVALID_PADDED_PUBLIC_KEY, IdentityType.SSH, root_account, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
@@ -170,33 +166,31 @@ class TestAuthCoreApi:
         result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', vo=vo)
         assert result is not None
 
-        del_account_identity(INVALID_PADDED_PUBLIC_KEY, IdentityType.SSH, root)
+        del_account_identity(INVALID_PADDED_PUBLIC_KEY, IdentityType.SSH, root_account)
 
-    def test_get_auth_token_saml_success(self, vo):
+    def test_get_auth_token_saml_success(self, vo, root_account):
         """AUTHENTICATION (CORE): SAML NameID (correct credentials)."""
-        root = InternalAccount('root', vo=vo)
         try:
-            add_account_identity('ddmlab', IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
+            add_account_identity('ddmlab', IdentityType.SAML, root_account, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
         result = get_auth_token_saml(account='root', saml_nameid='ddmlab', appid='test', ip='127.0.0.1', vo=vo)
         assert result is not None
 
-        del_account_identity('ddmlab', IdentityType.SAML, root)
+        del_account_identity('ddmlab', IdentityType.SAML, root_account)
 
-    def test_get_auth_token_saml_fail(self, vo):
+    def test_get_auth_token_saml_fail(self, vo, root_account):
         """AUTHENTICATION (CORE): SAML NameID (wrong credentials)."""
-        root = InternalAccount('root', vo=vo)
         try:
-            add_account_identity('ddmlab', IdentityType.SAML, root, email='ph-adp-ddm-lab@cern.ch')
+            add_account_identity('ddmlab', IdentityType.SAML, root_account, email='ph-adp-ddm-lab@cern.ch')
         except Duplicate:
             pass  # might already exist, can skip
 
         with pytest.raises(AccessDenied):
             get_auth_token_saml(account='root', saml_nameid='not_ddmlab', appid='test', ip='127.0.0.1', vo=vo)
 
-        del_account_identity('ddmlab', IdentityType.SAML, root)
+        del_account_identity('ddmlab', IdentityType.SAML, root_account)
 
 
 def test_userpass_fail(vo, rest_client):
@@ -213,12 +207,11 @@ def test_userpass_success(vo, rest_client):
 
 
 @pytest.mark.noparallel(reason='changes identities of the same account')
-def test_ssh_success(vo, rest_client):
+def test_ssh_success(vo, rest_client, root_account):
     """AUTHENTICATION (REST): SSH RSA public key exchange (correct credentials)."""
 
-    root = InternalAccount('root', vo=vo)
     try:
-        add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
+        add_account_identity(PUBLIC_KEY, IdentityType.SSH, root_account, email='ph-adp-ddm-lab@cern.ch')
     except Duplicate:
         pass  # might already exist, can skip
 
@@ -234,16 +227,15 @@ def test_ssh_success(vo, rest_client):
     assert response.status_code == 200
     assert len(response.headers.get('X-Rucio-Auth-Token')) > 32
 
-    del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
+    del_account_identity(PUBLIC_KEY, IdentityType.SSH, root_account)
 
 
 @pytest.mark.noparallel(reason='changes identities of the same account')
-def test_ssh_fail(vo, rest_client):
+def test_ssh_fail(vo, rest_client, root_account):
     """AUTHENTICATION (REST): SSH RSA public key exchange (wrong credentials)."""
 
-    root = InternalAccount('root', vo=vo)
     try:
-        add_account_identity(PUBLIC_KEY, IdentityType.SSH, root, email='ph-adp-ddm-lab@cern.ch')
+        add_account_identity(PUBLIC_KEY, IdentityType.SSH, root_account, email='ph-adp-ddm-lab@cern.ch')
     except Duplicate:
         pass  # might already exist, can skip
 
@@ -253,7 +245,7 @@ def test_ssh_fail(vo, rest_client):
     response = rest_client.get('/auth/ssh', headers=headers(hdrdict(headers_dict), vohdr(vo)))
     assert response.status_code == 401
 
-    del_account_identity(PUBLIC_KEY, IdentityType.SSH, root)
+    del_account_identity(PUBLIC_KEY, IdentityType.SSH, root_account)
 
 
 @pytest.mark.xfail(reason='The WebUI isn\'t linked to CERN SSO yet so this needs to be fixed once it is linked')

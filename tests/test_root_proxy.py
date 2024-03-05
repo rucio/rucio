@@ -17,7 +17,6 @@ from urllib.parse import urlencode
 
 import pytest
 
-from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.config import set as config_set
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_rse, add_rse_attribute, del_rse, add_protocol
@@ -33,7 +32,7 @@ client_location_with_proxy = {'ip': '10.0.1.1',
 
 
 @pytest.fixture(scope='module', autouse=True)
-def root_proxy_example_data(vo):
+def root_proxy_example_data(vo, root_account, mock_scope):
     rse_without_proxy = rse_name_generator()
     rse_without_proxy_id = add_rse(rse_without_proxy, vo=vo)
     add_rse_attribute(rse_id=rse_without_proxy_id,
@@ -49,7 +48,7 @@ def root_proxy_example_data(vo):
     # APERTURE1 site has an internal proxy
     config_set('root-proxy-internal', 'APERTURE1', 'proxy.aperture.com:1094')
 
-    files = [{'scope': InternalScope('mock', vo=vo),
+    files = [{'scope': mock_scope,
               'name': 'half-life_%s' % i,
               'bytes': 1234,
               'adler32': 'deadbeef',
@@ -57,7 +56,7 @@ def root_proxy_example_data(vo):
     for rse_id in [rse_with_proxy_id, rse_without_proxy_id]:
         add_replicas(rse_id=rse_id,
                      files=files,
-                     account=InternalAccount('root', vo=vo),
+                     account=root_account,
                      ignore_availability=True)
 
     add_protocol(rse_without_proxy_id, {'scheme': 'root',

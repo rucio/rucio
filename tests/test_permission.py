@@ -15,7 +15,7 @@
 
 from rucio.api.permission import has_permission
 from rucio.common.config import config_get
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalScope
 from rucio.core.scope import add_scope
 from rucio.core.account import add_account_attribute
 from rucio.tests.common import scope_name_generator, skip_non_belleii
@@ -28,10 +28,10 @@ class TestPermissionCoreApi:
 
     usr = 'jdoe'
 
-    def test_permission_add_did(self, vo):
+    def test_permission_add_did(self, vo, root_account):
         """ PERMISSION(CORE): Check permission to add a did"""
         scope = scope_name_generator()
-        add_scope(scope=InternalScope(scope, vo=vo), account=InternalAccount('root', vo=vo))
+        add_scope(scope=InternalScope(scope, vo=vo), account=root_account)
         assert has_permission(issuer='panda', action='add_did', kwargs={'scope': scope}, vo=vo)
         assert not has_permission(issuer='spock', action='add_did', kwargs={'scope': scope}, vo=vo)
 
