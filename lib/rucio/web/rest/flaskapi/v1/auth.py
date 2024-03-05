@@ -26,17 +26,16 @@ from werkzeug.datastructures import Headers
 from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, \
     get_auth_token_ssh, get_ssh_challenge_token, validate_auth_token, get_auth_oidc, redirect_auth_oidc, \
     get_token_oidc, refresh_cli_auth_token, get_auth_token_saml
-from rucio.api.identity import list_accounts_for_identity, get_default_account, verify_identity
 from rucio.common.config import config_get
 from rucio.common.exception import AccessDenied, IdentityError, IdentityNotFound, CannotAuthenticate, CannotAuthorize
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
 from rucio.core.authentication import strip_x509_proxy_attributes
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, error_headers, \
-    extract_vo, generate_http_error_flask, ErrorHandlingMethodView
+    extract_vo, generate_http_error_flask, ErrorHandlingMethodView, get_account_from_verified_identity
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import Optional, Union
     from rucio.web.rest.flaskapi.v1.common import HeadersType
 
 EXTRA_MODULES = import_extras(['onelogin'])
@@ -60,7 +59,7 @@ class UserPass(ErrorHandlingMethodView):
         headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token, X-Rucio-Auth-Token-Expires, X-Rucio-Auth-Account, X-Rucio-Auth-Accounts'
         return headers
 
-    def options(self):
+    def options(self) -> tuple[str, int, "Optional[HeadersType]"]:
         """
         ---
         summary: UserPass Allow cross-site scripting
@@ -96,7 +95,7 @@ class UserPass(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self):
+    def get(self) -> 'Union[Response, tuple[str, int, "Optional[HeadersType]"]]':
         """
         ---
         summary: UserPass
@@ -185,40 +184,42 @@ class UserPass(ErrorHandlingMethodView):
         password = request.headers.get('X-Rucio-Password', default=None)
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
-
         if not username or not password:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate without passing all required arguments', headers=headers)
 
+        accounts: list[str] = []
         if not account:
-            accounts = list_accounts_for_identity(identity_key=username, id_type='USERPASS')
-            if accounts is None or len(accounts) == 0:
-                try:
-                    verify_identity(identity_key=username, id_type='USERPASS', password=password)
-                except IdentityNotFound:
-                    return generate_http_error_flask(401, IdentityNotFound.__name__, 'Cannot authenticate. Username/Password pair does not exist.', headers=headers)
-                except IdentityError:
-                    return generate_http_error_flask(401, IdentityError.__name__, 'Cannot authenticate. The identity does not exist.', headers=headers)
-                return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Cannot authenticate with provided username or password. Identity is not mapped to any accounts.', headers=headers)
-            if len(accounts) > 1:
-                try:
-                    account = get_default_account(identity_key=username, id_type='USERPASS')
-                except IdentityError:
-                    headers['X-Rucio-Auth-Accounts'] = ','.join(accounts)
-                    return json.dumps(accounts), 206, headers
-            else:
-                account = accounts[0]
+            try:
+                accounts = get_account_from_verified_identity(identity_key=username, id_type='USERPASS', password=password)
+            except IdentityNotFound:
+                return generate_http_error_flask(401, IdentityNotFound.__name__, 'Cannot authenticate. Username/Password pair does not exist.', headers=headers)
+            except IdentityError:
+                return generate_http_error_flask(401, IdentityError.__name__, 'Cannot authenticate. The identity does not exist.', headers=headers)
+        else:
+            accounts = [account]
+
+        if len(accounts) > 1:
+            account_names: list[str] = []
+            for account in accounts:
+                if isinstance(account, str):
+                    account_names.append(account)
+                else:
+                    account_names.append(account.external)
+            headers['X-Rucio-Auth-Accounts'] = ','.join(accounts)
+            return json.dumps(account_names), 206, headers
+
+        account = accounts[0]
         account_name = account if isinstance(account, str) else account.external
         try:
             result = get_auth_token_user_pass(account_name, username, password, appid, ip, vo=vo)
+            if not result:
+                return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot authenticate to account {account} with given credentials', headers=headers)
+            headers['X-Rucio-Auth-Account'] = account_name
+            headers['X-Rucio-Auth-Token'] = result['token']
+            headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result['expires_at'])
+            return '', 200, headers
         except AccessDenied:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot authenticate to account {account} with given credentials', headers=headers)
-
-        if not result:
-            return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot authenticate to account {account} with given credentials', headers=headers)
-        headers['X-Rucio-Auth-Account'] = account_name
-        headers['X-Rucio-Auth-Token'] = result['token']
-        headers['X-Rucio-Auth-Token-Expires'] = date_to_str(result['expires_at'])
-        return '', 200, headers
 
 
 class OIDC(ErrorHandlingMethodView):
@@ -945,7 +946,7 @@ class x509(ErrorHandlingMethodView):
         headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token, X-Rucio-Auth-Token-Expires, X-Rucio-Auth-Account, X-Rucio-Auth-Accounts'
         return headers
 
-    def options(self):
+    def options(self) -> tuple[str, int, "Optional[HeadersType]"]:
         """
         ---
         summary: x509 Allow cross-site scripting
@@ -980,7 +981,7 @@ class x509(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self):
+    def get(self) -> 'Union[Response, tuple[str, int, "Optional[HeadersType]"]]':
         """
         ---
         summary: x509
@@ -1048,39 +1049,45 @@ class x509(ErrorHandlingMethodView):
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
         return_multiple_accounts = request.headers.get('X-Rucio-Allow-Return-Multiple-Accounts', default=None)
 
+        accounts: list[str] = []
+        if not account:
+            try:
+                accounts = get_account_from_verified_identity(identity_key=dn, id_type='X509')
+            except IdentityError as e:
+                return generate_http_error_flask(401, IdentityError.__name__, str(e), headers=headers)
+        else:
+            accounts = [account]
+
+        if len(accounts) > 1:
+            if return_multiple_accounts is None or return_multiple_accounts.lower() != 'true':
+                return generate_http_error_flask(401, CannotAuthenticate.__name__, 'Multiple accounts associated with the provided identity', headers=headers)
+            account_names: list[str] = []
+            for account in accounts:
+                if isinstance(account, str):
+                    account_names.append(account)
+                else:
+                    account_names.append(account.external)
+            headers['X-Rucio-Auth-Accounts'] = ','.join(accounts)
+            return json.dumps(account_names), 206, headers
+        account = accounts[0]
+        account_name = account if isinstance(account, str) else account.external
         result = None
         try:
-            result = get_auth_token_x509(account, dn, appid, ip, vo=vo)
+            result = get_auth_token_x509(account_name, dn, appid, ip, vo=vo)
         except AccessDenied:
             return generate_http_error_flask(
                 status_code=401,
                 exc=CannotAuthenticate.__name__,
-                exc_msg=f'Cannot authenticate to account {account} with given credentials',
+                exc_msg=f'Cannot authenticate to account {account_name} with given credentials',
                 headers=headers
             )
-        except IdentityError:
-            if not return_multiple_accounts:
-                return generate_http_error_flask(
-                    status_code=401,
-                    exc=CannotAuthenticate.__name__,
-                    exc_msg=f'No default account set for {dn}',
-                    headers=headers
-                )
-            accounts = list_accounts_for_identity(identity_key=dn, id_type='X509')
-            if len(accounts) == 1:
-                account = accounts[0]
-                account_name = account if isinstance(account, str) else account.external
-                result = get_auth_token_x509(account_name, dn, appid, ip, vo=vo)
-            elif len(accounts) > 1:
-                headers['X-Rucio-Auth-Accounts'] = ','.join(accounts)
-                return json.dumps(accounts), 206, headers
-            else:
-                return generate_http_error_flask(
-                    status_code=401,
-                    exc=CannotAuthenticate.__name__,
-                    exc_msg=f'No account set for {dn}',
-                    headers=headers
-                )
+        except IdentityError as e:
+            return generate_http_error_flask(
+                status_code=401,
+                exc=CannotAuthenticate.__name__,
+                exc_msg=str(e),
+                headers=headers
+            )
 
         if not result:
             return generate_http_error_flask(

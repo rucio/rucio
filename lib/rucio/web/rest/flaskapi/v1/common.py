@@ -29,15 +29,16 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers import Request, Response
 
 from rucio.api.authentication import validate_auth_token
+from rucio.api.identity import list_accounts_for_identity, get_default_account, verify_identity
 from rucio.common import config
-from rucio.common.exception import DatabaseException, RucioException, CannotAuthenticate, UnsupportedRequestedContentType
+from rucio.common.exception import DatabaseException, IdentityError, RucioException, CannotAuthenticate, UnsupportedRequestedContentType
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
 from rucio.core.vo import map_vo
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
-    from typing import Optional, Union, Any
+    from typing import Optional, Union, Literal, Any
 
     HeadersType = Union[Headers, dict[str, str], Sequence[tuple[str, str]]]
 
@@ -383,3 +384,32 @@ def extract_vo(headers: "HeadersType") -> "str":
     except RucioException as err:
         # VO Name doesn't match allowed spec
         flask.abort(generate_http_error_flask(status_code=400, exc=err))
+
+
+def get_account_from_verified_identity(identity_key, id_type: 'Literal["USERPASS", "X509"]', password: 'Union[str, None]' = None) -> list:
+    """ Verifies the provided identity and tries to return a matching account.
+        If no account is found, raises an IdentityError after trying to verify the identity.
+        If multiple accounts are found, returns the default account if available, otherwise all accounts.
+    :param identity_key: The identity key name. For example x509 DN, or a username.
+    :param id_type: The type of the authentication (x509, USERPASS).
+    :param password: required only if id_type==USERPASS.
+    :raises IdentityError: if no account is found for the identity or if the identity could not be verified.
+    :returns: a list of account names.
+    """
+    accounts = list_accounts_for_identity(identity_key=identity_key, id_type=id_type)
+    if accounts is None or len(accounts) == 0:
+        if id_type == 'USERPASS':
+            verify_identity(identity_key=identity_key, id_type=id_type, password=password)
+        elif id_type == 'X509':
+            verify_identity(identity_key=identity_key, id_type=id_type)
+        else:
+            raise IdentityError('No account found for identity')
+    if len(accounts) > 1:
+        try:
+            default_account = get_default_account(identity_key=identity_key, id_type=id_type)
+            return [default_account]
+        except IdentityError:
+            return accounts
+    else:
+        account = accounts[0]
+        return [account]
