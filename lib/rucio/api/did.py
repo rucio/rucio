@@ -28,10 +28,8 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Optional, List
+    from typing import Any, Optional, Iterator
     from sqlalchemy.orm import Session
-
-    DIDListType = List[Dict]
 
 
 @stream_session
@@ -330,11 +328,11 @@ def list_content_history(scope, name, vo='def', *, session: "Session"):
 
 
 @stream_session
-def bulk_list_files(dids: "DIDListType", long: bool = False, vo: str = 'def', *, session: "Session"):
+def bulk_list_files(dids: "list[dict[str, Any]]", long: bool = False, vo: str = 'def', *, session: "Session") -> "Iterator[dict[str, Any]]":
     """
-    List file contents of a list of data identifier.
+    List file contents of a list of data identifiers.
 
-    :param dids:       A list of dids.
+    :param dids:       A list of DIDs.
     :param long:       A boolean to choose if more metadata are returned or not.
     :param vo:         The VO to act on.
     :param session:    The database session in use.
