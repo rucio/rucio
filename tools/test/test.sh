@@ -31,7 +31,7 @@ function srchome() {
 
 function wait_for_httpd() {
     echo 'Waiting for httpd'
-    curl --output /dev/null --silent --retry 15 --retry-all-errors --retry-delay 1 -k https://localhost/ping
+    curl --retry 15 --retry-all-errors --retry-delay 1 -k https://localhost/ping
 }
 
 function wait_for_database() {
