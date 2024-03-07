@@ -33,7 +33,7 @@ import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.exception import DatabaseException, RSENotFound
 from rucio.common.logging import setup_logging
-from rucio.common.stomp_utils import StompConnectionManager
+from rucio.common.stomp_utils import StompConnectionManager, ListenerBase
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.did import list_parent_dids, touch_dids
@@ -55,12 +55,13 @@ METRICS = MetricManager(module=__name__)
 graceful_stop = Event()
 
 
-class AMQConsumer:
+class AMQConsumer(ListenerBase):
     """ActiveMQ message consumer"""
 
-    def __init__(self, broker, conn, queue, chunksize, subscription_id, excluded_usrdns, dataset_queue, bad_files_patterns, logger=logging.log):
-        self.__broker = broker
-        self.__conn = conn
+    def __init__(self, conn, queue, chunksize, subscription_id,
+                 excluded_usrdns, dataset_queue, bad_files_patterns,
+                 logger=logging.log):
+        super().__init__(conn=conn, logger=logger)
         self.__queue = queue
         self.__reports = []
         self.__ids = []
@@ -72,15 +73,6 @@ class AMQConsumer:
         self.__excluded_usrdns = excluded_usrdns
         self.__dataset_queue = dataset_queue
         self.__bad_files_patterns = bad_files_patterns
-        self.__logger = logger
-
-    @METRICS.count_it
-    def on_heartbeat_timeout(self):
-        self.__conn.disconnect()
-
-    @METRICS.count_it
-    def on_error(self, frame):
-        self.__logger(logging.ERROR, 'Message receive error: [%s] %s' % (self.__broker, frame.body))
 
     @METRICS.count_it
     def on_message(self, frame):
@@ -94,7 +86,7 @@ class AMQConsumer:
 
         try:
             if appversion == 'dq2':
-                self.__conn.ack(msg_id, self.__subscription_id)
+                self._conn.ack(msg_id, self.__subscription_id)
                 return
             else:
                 report = jloads(frame.body)
@@ -102,22 +94,22 @@ class AMQConsumer:
             # message is corrupt, not much to do here
             # send count to graphite, send ack to broker and return
             METRICS.counter('json_error').inc()
-            self.__logger(logging.ERROR, 'json error', exc_info=True)
-            self.__conn.ack(msg_id, self.__subscription_id)
+            self._logger(logging.ERROR, 'json error', exc_info=True)
+            self._conn.ack(msg_id, self.__subscription_id)
             return
 
         self.__ids.append(msg_id)
         self.__reports.append(report)
 
         try:
-            self.__logger(logging.DEBUG, 'message received: %s %s %s' % (str(report['eventType']), report['filename'], report['remoteSite']))
+            self._logger(logging.DEBUG, 'message received: %s %s %s' % (str(report['eventType']), report['filename'], report['remoteSite']))
         except Exception:
             pass
 
         if len(self.__ids) >= self.__chunksize:
             self.__update_atime()
             for msg_id in self.__ids:
-                self.__conn.ack(msg_id, self.__subscription_id)
+                self._conn.ack(msg_id, self.__subscription_id)
 
             self.__reports = []
             self.__ids = []
@@ -140,16 +132,16 @@ class AMQConsumer:
                             if 'stateReason' in report and report['stateReason'] and isinstance(report['stateReason'], str) and pattern.match(report['stateReason']):
                                 reason = report['stateReason'][:255]
                                 if 'url' not in report or not report['url']:
-                                    self.__logger(logging.ERROR, 'Missing url in the following trace : ' + str(report))
+                                    self._logger(logging.ERROR, 'Missing url in the following trace : ' + str(report))
                                 else:
                                     try:
                                         surl = report['url']
                                         declare_bad_file_replicas([surl, ], reason=reason, issuer=InternalAccount('root', vo=report['vo']), status=BadFilesStatus.SUSPICIOUS)
-                                        self.__logger(logging.INFO, 'Declare suspicious file %s with reason %s' % (report['url'], reason))
+                                        self._logger(logging.INFO, 'Declare suspicious file %s with reason %s' % (report['url'], reason))
                                     except Exception as error:
-                                        self.__logger(logging.ERROR, 'Failed to declare suspicious file' + str(error))
+                                        self._logger(logging.ERROR, 'Failed to declare suspicious file' + str(error))
                 except Exception as error:
-                    self.__logger(logging.ERROR, 'Problem with bad trace : %s . Error %s' % (str(report), str(error)))
+                    self._logger(logging.ERROR, 'Problem with bad trace : %s . Error %s' % (str(report), str(error)))
 
                 # check if scope in report. if not skip this one.
                 if 'scope' not in report:
@@ -212,7 +204,7 @@ class AMQConsumer:
                         try:
                             rse_id = get_rse_id(rse=rse, vo=report['vo'])
                         except RSENotFound:
-                            self.__logger(logging.WARNING, "Cannot lookup rse_id for %s. Will skip this report.", rse)
+                            self._logger(logging.WARNING, "Cannot lookup rse_id for %s. Will skip this report.", rse)
                             METRICS.counter('rse_not_found').inc()
                             continue
                         replicas.append({'name': report['filename'], 'scope': report['scope'], 'rse': rse, 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix']),
@@ -228,7 +220,7 @@ class AMQConsumer:
                         try:
                             rse_id = get_rse_id(rse=rse, vo=report['vo'])
                         except RSENotFound:
-                            self.__logger(logging.WARNING, "Cannot lookup rse_id for %s.", rse)
+                            self._logger(logging.WARNING, "Cannot lookup rse_id for %s.", rse)
                             METRICS.counter('rse_not_found').inc()
                     if 'datasetScope' in report:
                         self.__dataset_queue.put({'scope': InternalScope(report['datasetScope'], vo=report['vo']),
@@ -246,11 +238,11 @@ class AMQConsumer:
                                          'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
 
             except (KeyError, AttributeError):
-                self.__logger(logging.ERROR, "Cannot handle report.", exc_info=True)
+                self._logger(logging.ERROR, "Cannot handle report.", exc_info=True)
                 METRICS.counter('report_error').inc()
                 continue
             except Exception:
-                self.__logger(logging.ERROR, "Exception", exc_info=True)
+                self._logger(logging.ERROR, "Exception", exc_info=True)
                 continue
 
             for did in list_parent_dids(report['scope'], report['filename']):
@@ -263,7 +255,7 @@ class AMQConsumer:
                     try:
                         rse_id = get_rse_id(rse=rse, vo=report['vo'])
                     except RSENotFound:
-                        self.__logger(logging.WARNING, "Cannot lookup rse_id for %s. Will skip this report.", rse)
+                        self._logger(logging.WARNING, "Cannot lookup rse_id for %s. Will skip this report.", rse)
                         METRICS.counter('rse_not_found').inc()
                         continue
                     self.__dataset_queue.put({'scope': did['scope'], 'name': did['name'], 'did_type': did['type'], 'rse_id': rse_id, 'accessed_at': datetime.utcfromtimestamp(report['traceTimeentryUnix'])})
@@ -271,7 +263,7 @@ class AMQConsumer:
         if not len(replicas):
             return
 
-        self.__logger(logging.DEBUG, "trying to update replicas: %s", replicas)
+        self._logger(logging.DEBUG, "trying to update replicas: %s", replicas)
 
         stopwatch = Stopwatch()
         try:
@@ -288,11 +280,11 @@ class AMQConsumer:
                                 'eventVersion': replica['eventVersion']}
                     if replica['scope'].vo != 'def':
                         resubmit['vo'] = replica['scope'].vo
-                    self.__conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
+                    self._conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
                     METRICS.counter('sent_resubmitted').inc()
             METRICS.timer('update_atime').observe(stopwatch.elapsed)
         except Exception:
-            self.__logger(logging.ERROR, "Cannot update replicas.", exc_info=True)
+            self._logger(logging.ERROR, "Cannot update replicas.", exc_info=True)
             METRICS.counter('update_error').inc()
 
         METRICS.counter('updated_replicas').inc()
@@ -302,7 +294,17 @@ def kronos_file(once: bool = False, dataset_queue: Queue = None, sleep_time: int
     """
     Main loop to consume tracer reports.
     """
-    stomp_conn_mngr = StompConnectionManager()
+    # stomp_conn_mngr = STOMPConnectionManager(config_section='tracer-kronos',
+    #                                          logger=logging.getLogger("stomp"))
+    # stomp_conn_mngr.set_listener_factory('rucio-tracer-kronos',
+    #                                      AMQConsumer,
+    #                                      queue=config_get('tracer-kronos', 'queue'),
+    #                                      chunksize=chunksize,
+    #                                      subscription_id=subscription_id,
+    #                                      excluded_usrdns=excluded_usrdns,
+    #                                      dataset_queue=dataset_queue,
+    #                                      bad_files_patterns=bad_files_patterns)
+    
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
@@ -325,68 +327,87 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
     """
     _, _, logger = heartbeat_handler.live()
 
-    chunksize = config_get_int('tracer-kronos', 'chunksize')
+    # chunksize = config_get_int('tracer-kronos', 'chunksize')
     prefetch_size = config_get_int('tracer-kronos', 'prefetch_size')
-    subscription_id = config_get('tracer-kronos', 'subscription_id')
+    # subscription_id = config_get('tracer-kronos', 'subscription_id')
     # Load bad file patterns from config
+    bad_files_patterns = []
     try:
-        bad_files_patterns = []
-        pattern = config_get(section='kronos', option='bad_files_patterns', session=None)
-        pattern = str(pattern)
-        patterns = pattern.split(",")
+        # bad_files_patterns = []
+        patterns = str(config_get(section='kronos', option='bad_files_patterns', session=None)).split(",")
+        # pattern = str(pattern)
+        # patterns = pattern.split(",")
         for pat in patterns:
             bad_files_patterns.append(re.compile(pat.strip()))
     except (NoOptionError, NoSectionError, RuntimeError):
-        bad_files_patterns = []
+        logger.exception("Failed to get bad_file_patterns")
+        bad_files_patterns.clear()
     except Exception as error:
         logger.error(f'Failed to get bad_file_patterns {str(error)}')
-        bad_files_patterns = []
+        bad_files_patterns.clear()
 
-    use_ssl = config_get_bool('tracer-kronos', 'use_ssl', default=True, raise_exception=False)
-    if not use_ssl:
-        username = config_get('tracer-kronos', 'username')
-        password = config_get('tracer-kronos', 'password')
+    #use_ssl = config_get_bool('tracer-kronos', 'use_ssl', default=True, raise_exception=False)
+    #if not use_ssl:
+    #    username = config_get('tracer-kronos', 'username')
+    #    password = config_get('tracer-kronos', 'password')
 
     excluded_usrdns = set(config_get('tracer-kronos', 'excluded_usrdns').split(','))
-    vhost = config_get('tracer-kronos', 'broker_virtual_host', raise_exception=False)
+    #vhost = config_get('tracer-kronos', 'broker_virtual_host', raise_exception=False)
 
-    brokers_alias = config_get_list('tracer-kronos', 'brokers')
-    port = config_get_int('tracer-kronos', 'port')
-    reconnect_attempts = config_get_int('tracer-kronos', 'reconnect_attempts')
-    ssl_key_file = config_get('tracer-kronos', 'ssl_key_file', raise_exception=False)
-    ssl_cert_file = config_get('tracer-kronos', 'ssl_cert_file', raise_exception=False)
+    #brokers_alias = config_get_list('tracer-kronos', 'brokers')
+    #port = config_get_int('tracer-kronos', 'port')
+    #reconnect_attempts = config_get_int('tracer-kronos', 'reconnect_attempts')
+    #ssl_key_file = config_get('tracer-kronos', 'ssl_key_file', raise_exception=False)
+    #ssl_cert_file = config_get('tracer-kronos', 'ssl_cert_file', raise_exception=False)
 
-    created_conns, _ = stomp_conn_mngr.re_configure(
-        brokers=brokers_alias,
-        port=port,
-        use_ssl=use_ssl,
-        vhost=vhost,
-        reconnect_attempts=reconnect_attempts,
-        ssl_key_file=ssl_key_file,
-        ssl_cert_file=ssl_cert_file,
-        timeout=sleep_time,
-        heartbeats=(0, 5000),
-        logger=logger,
-    )
+    # created_conns, _ = stomp_conn_mngr.re_configure(
+    #     brokers=brokers_alias,
+    #     port=port,
+    #     use_ssl=use_ssl,
+    #     vhost=vhost,
+    #     reconnect_attempts=reconnect_attempts,
+    #     ssl_key_file=ssl_key_file,
+    #     ssl_cert_file=ssl_cert_file,
+    #     timeout=sleep_time,  # TODO: this and heartbeats below
+    #     heartbeats=(0, 5000),
+    #     logger=logger,
+    # )
 
-    for conn in created_conns:
-        if not conn.is_connected():
-            logger(logging.INFO, 'connecting to %s' % str(conn.transport._Transport__host_and_ports[0]))
-            METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0]).inc()
-            conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0],
-                                                                 conn=conn,
-                                                                 queue=config_get('tracer-kronos', 'queue'),
-                                                                 chunksize=chunksize,
-                                                                 subscription_id=subscription_id,
-                                                                 excluded_usrdns=excluded_usrdns,
-                                                                 dataset_queue=dataset_queue,
-                                                                 bad_files_patterns=bad_files_patterns,
-                                                                 logger=logger))
-            if not use_ssl:
-                conn.connect(username, password)
-            else:
-                conn.connect()
-            conn.subscribe(destination=config_get('tracer-kronos', 'queue'), ack='client-individual', id=subscription_id, headers={'activemq.prefetchSize': prefetch_size})
+    subscription_id = config_get('tracer-kronos', 'subscription_id')
+    stomp_conn_mngr = StompConnectionManager(config_section='tracer-kronos',
+                                             logger=logger)
+    stomp_conn_mngr.set_listener_factory('rucio-tracer-kronos',
+                                         AMQConsumer,
+                                         queue=config_get('tracer-kronos', 'queue'),
+                                         chunksize=config_get_int('tracer-kronos', 'chunksize'),
+                                         subscription_id=subscription_id,
+                                         excluded_usrdns=excluded_usrdns,
+                                         dataset_queue=dataset_queue,
+                                         bad_files_patterns=bad_files_patterns)
+
+    stomp_conn_mngr.subscribe(id_=subscription_id,
+                              ack='client-individual',
+                              destination=config_get('tracer-kronos', 'queue'),
+                              headers={'activemq.prefetchSize': prefetch_size})
+
+    # for conn in created_conns:
+    #     if not conn.is_connected():
+    #         logger(logging.INFO, 'connecting to %s' % str(conn.transport._Transport__host_and_ports[0]))
+    #         METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0]).inc()
+    #         conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0],
+    #                                                              conn=conn,
+    #                                                              queue=config_get('tracer-kronos', 'queue'),
+    #                                                              chunksize=chunksize,
+    #                                                              subscription_id=subscription_id,
+    #                                                              excluded_usrdns=excluded_usrdns,
+    #                                                              dataset_queue=dataset_queue,
+    #                                                              bad_files_patterns=bad_files_patterns,
+    #                                                              logger=logger))
+    #         if not use_ssl:
+    #             conn.connect(username, password)
+    #         else:
+    #             conn.connect()
+    #         conn.subscribe(destination=config_get('tracer-kronos', 'queue'), ack='client-individual', id=subscription_id, headers={'activemq.prefetchSize': prefetch_size})
 
 
 def kronos_dataset(dataset_queue: Queue, once: bool = False, sleep_time: int = 60):

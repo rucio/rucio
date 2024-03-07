@@ -44,6 +44,7 @@ from rucio.common.config import (
     config_get_int,
     config_get_list,
 )
+from rucio.common.stomp_utils import ListenerBase, StompConnectionManager
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.core.message import delete_messages, retrieve_messages
@@ -75,120 +76,110 @@ def default(datetype):
         return datetype.isoformat()
 
 
-class HermesListener(stomp.ConnectionListener):
+class HermesListener(ListenerBase):
     """
     Hermes Listener
     """
 
-    def __init__(self, broker):
-        """
-        __init__
-        """
-        self.__broker = broker
 
-    def on_error(self, frame):
-        """
-        Error handler
-        """
-        logging.error("[broker] [%s]: %s", self.__broker, frame.body)
+# def setup_activemq(logger: "Callable"):
+#     """
+#     Deliver messages to ActiveMQ
+
+#     :param logger:             The logger object.
+#     """
+
+#     logger(logging.INFO, "[broker] Resolving brokers")
 
 
-def setup_activemq(logger: "Callable"):
-    """
-    Deliver messages to ActiveMQ
 
-    :param logger:             The logger object.
-    """
+    # brokers_alias = []
+    # brokers_resolved = []
+    # try:
+    #     brokers_alias = [
+    #         broker.strip()
+    #         for broker in config_get("messaging-hermes", "brokers").split(",")
+    #     ]
+    # except:
+    #     raise Exception("Could not load brokers from configuration")
 
-    logger(logging.INFO, "[broker] Resolving brokers")
+    # logger(logging.INFO, "[broker] Resolving broker dns alias: %s", brokers_alias)
+    # brokers_resolved = []
+    # for broker in brokers_alias:
+    #     try:
+    #         addrinfos = socket.getaddrinfo(
+    #             broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP
+    #         )
+    #         brokers_resolved.extend(ai[4][0] for ai in addrinfos)
+    #     except socket.gaierror as ex:
+    #         logger(
+    #             logging.ERROR,
+    #             "[broker] Cannot resolve domain name %s (%s)",
+    #             broker,
+    #             str(ex),
+    #         )
 
-    brokers_alias = []
-    brokers_resolved = []
-    try:
-        brokers_alias = [
-            broker.strip()
-            for broker in config_get("messaging-hermes", "brokers").split(",")
-        ]
-    except:
-        raise Exception("Could not load brokers from configuration")
+    # logger(logging.DEBUG, "[broker] Brokers resolved to %s", brokers_resolved)
 
-    logger(logging.INFO, "[broker] Resolving broker dns alias: %s", brokers_alias)
-    brokers_resolved = []
-    for broker in brokers_alias:
-        try:
-            addrinfos = socket.getaddrinfo(
-                broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP
-            )
-            brokers_resolved.extend(ai[4][0] for ai in addrinfos)
-        except socket.gaierror as ex:
-            logger(
-                logging.ERROR,
-                "[broker] Cannot resolve domain name %s (%s)",
-                broker,
-                str(ex),
-            )
+    # if not brokers_resolved:
+    #     logger(logging.FATAL, "[broker] No brokers resolved.")
+    #     return None, None, None, None, None
 
-    logger(logging.DEBUG, "[broker] Brokers resolved to %s", brokers_resolved)
+    # broker_timeout = 3
+    # if not broker_timeout:  # Allow zero in config
+    #     broker_timeout = None
 
-    if not brokers_resolved:
-        logger(logging.FATAL, "[broker] No brokers resolved.")
-        return None, None, None, None, None
+    # logger(logging.INFO, "[broker] Checking authentication method")
+    # use_ssl = True
+    # try:
+    #     use_ssl = config_get_bool("messaging-hermes", "use_ssl")
+    # except:
+    #     logger(
+    #         logging.INFO,
+    #         "[broker] Could not find use_ssl in configuration -- please update your rucio.cfg",
+    #     )
 
-    broker_timeout = 3
-    if not broker_timeout:  # Allow zero in config
-        broker_timeout = None
+    # port = config_get_int("messaging-hermes", "port")
+    # vhost = config_get("messaging-hermes", "broker_virtual_host", raise_exception=False)
+    # if not use_ssl:
+    #     username = config_get("messaging-hermes", "username")
+    #     password = config_get("messaging-hermes", "password")
+    #     port = config_get_int("messaging-hermes", "nonssl_port")
 
-    logger(logging.INFO, "[broker] Checking authentication method")
-    use_ssl = True
-    try:
-        use_ssl = config_get_bool("messaging-hermes", "use_ssl")
-    except:
-        logger(
-            logging.INFO,
-            "[broker] Could not find use_ssl in configuration -- please update your rucio.cfg",
-        )
+    # conns = []
+    # for broker in brokers_resolved:
+    #     if not use_ssl:
+    #         logger(
+    #             logging.INFO,
+    #             "[broker] setting up username/password authentication: %s",
+    #             broker,
+    #         )
+    #     else:
+    #         logger(
+    #             logging.INFO,
+    #             "[broker] setting up ssl cert/key authentication: %s",
+    #             broker,
+    #         )
 
-    port = config_get_int("messaging-hermes", "port")
-    vhost = config_get("messaging-hermes", "broker_virtual_host", raise_exception=False)
-    if not use_ssl:
-        username = config_get("messaging-hermes", "username")
-        password = config_get("messaging-hermes", "password")
-        port = config_get_int("messaging-hermes", "nonssl_port")
+    #     con = stomp.Connection12(
+    #         host_and_ports=[(broker, port)],
+    #         vhost=vhost,
+    #         keepalive=True,
+    #         timeout=broker_timeout,
+    #     )
+    #     if use_ssl:
+    #         con.set_ssl(
+    #             key_file=config_get("messaging-hermes", "ssl_key_file"),
+    #             cert_file=config_get("messaging-hermes", "ssl_cert_file"),
+    #         )
 
-    conns = []
-    for broker in brokers_resolved:
-        if not use_ssl:
-            logger(
-                logging.INFO,
-                "[broker] setting up username/password authentication: %s",
-                broker,
-            )
-        else:
-            logger(
-                logging.INFO,
-                "[broker] setting up ssl cert/key authentication: %s",
-                broker,
-            )
+    #     con.set_listener(
+    #         "rucio-hermes", HermesListener(con.transport._Transport__host_and_ports[0])
+    #     )
 
-        con = stomp.Connection12(
-            host_and_ports=[(broker, port)],
-            vhost=vhost,
-            keepalive=True,
-            timeout=broker_timeout,
-        )
-        if use_ssl:
-            con.set_ssl(
-                key_file=config_get("messaging-hermes", "ssl_key_file"),
-                cert_file=config_get("messaging-hermes", "ssl_cert_file"),
-            )
-
-        con.set_listener(
-            "rucio-hermes", HermesListener(con.transport._Transport__host_and_ports[0])
-        )
-
-        conns.append(con)
-    destination = config_get("messaging-hermes", "destination")
-    return conns, destination, username, password, use_ssl
+    #     conns.append(con)
+    # destination = config_get("messaging-hermes", "destination")
+    # return conns, destination, username, password, use_ssl
 
 
 def deliver_to_activemq(
@@ -546,15 +537,18 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             logger(logging.ERROR, str(err))
     conns = None
     if "activemq" in services_list:
-        try:
-            conns, destination, username, password, use_ssl = setup_activemq(logger)
-            if not conns:
-                logger(
-                    logging.ERROR,
-                    "ActiveMQ defined in the services list, cannot be setup",
-                )
-        except Exception as err:
-            logger(logging.ERROR, str(err))
+        conn_mgr = StompConnectionManager(config_section='messaging-hermes', logger=logger)
+        conn_mgr.set_listener_factory("rucio-hermes", HermesListener)
+        # try:
+        #     conn_mgr = nsu.STOMPConnectionManager('messaging-hermes', HermesListener, logger)
+        #     # conns, destination, username, password, use_ssl = setup_activemq(logger)
+        #     if not conns:
+        #         logger(
+        #             logging.ERROR,
+        #             "ActiveMQ defined in the services list, cannot be setup",
+        #         )
+        # except Exception as err:
+        #     logger(logging.ERROR, str(err))
 
     worker_number, total_workers, logger = heartbeat_handler.live()
     message_dict = {}
@@ -659,6 +653,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                 logger(logging.ERROR, "Error sending email : %s", str(error))
 
         if "activemq" in message_dict and conns:
+            conn_mgr.deliver_message()
             t_time = time.time()
             try:
                 messages_sent = deliver_to_activemq(
