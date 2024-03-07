@@ -20,7 +20,7 @@ import re
 import sys
 import traceback
 from base64 import b64decode
-from typing import TYPE_CHECKING
+from typing import Any, cast, TYPE_CHECKING, Optional, Union
 
 import paramiko
 from dogpile.cache import make_region
@@ -30,9 +30,10 @@ from sqlalchemy import delete, null, or_, select
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get_bool
 from rucio.common.exception import CannotAuthenticate, RucioException
+from rucio.common.types import InternalAccount, TokenDict, TokenValidationDict
 from rucio.common.utils import chunks, generate_uuid, date_to_str
 from rucio.core.account import account_exists
-from rucio.core.oidc import validate_jwt
+from rucio.core.oidc import validate_jwt, token_dictionary
 from rucio.db.sqla import filter_thread_work
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
@@ -40,7 +41,6 @@ from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-    from typing import Any, Union
 
 
 def strip_x509_proxy_attributes(dn: str) -> str:
@@ -214,22 +214,20 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, *, session: "Session")
 
 
 @transactional_session
-def get_auth_token_ssh(account, signature, appid, ip=None, *, session: "Session"):
+def get_auth_token_ssh(account: InternalAccount, signature: bytes, appid: str, ip: Optional[str] = None, *, session: "Session") -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via SSH key exchange.
 
     The token lifetime is 1 hour.
 
     :param account: Account identifier as a string.
-    :param signature: Response to server challenge signed with SSH private key as string.
+    :param signature: Response to server challenge signed with SSH private key.
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
     :param session: The database session in use.
 
     :returns: A dict with token and expires_at entries.
     """
-    if not isinstance(signature, bytes):
-        signature = signature.encode()
 
     # Make sure the account exists
     if not account_exists(account, session=session):
