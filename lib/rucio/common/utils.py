@@ -40,7 +40,7 @@ from enum import Enum
 from functools import partial, wraps
 from io import StringIO
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import Any, Callable, Optional, TYPE_CHECKING
 from urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
@@ -568,7 +568,7 @@ def str_to_date(string):
     return datetime.datetime.strptime(string, DATE_FORMAT) if string else None
 
 
-def val_to_space_sep_str(vallist):
+def val_to_space_sep_str(vallist: Any) -> str:
     """ Converts a list of values into a string of space separated values
 
     :param vallist: the list of values to to convert into string
