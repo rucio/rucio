@@ -16,7 +16,8 @@
 import itertools
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any, Optional, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.db.sqla.constants import RequestState
 from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
