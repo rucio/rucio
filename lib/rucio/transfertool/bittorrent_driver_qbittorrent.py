@@ -14,7 +14,8 @@
 # limitations under the License.
 
 import logging
-from typing import TYPE_CHECKING, cast, Optional, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, cast, Optional
 from urllib.parse import urlparse
 
 import qbittorrentapi

@@ -15,14 +15,14 @@
 
 import json
 import logging
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from configparser import NoOptionError, NoSectionError
 from copy import deepcopy
 from datetime import datetime, timedelta
 from os import path
 from re import match
 from string import Template
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Type, TypeVar, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Type, TypeVar
 
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy import select, update

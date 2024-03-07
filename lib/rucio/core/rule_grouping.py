@@ -14,8 +14,9 @@
 # limitations under the License.
 
 import logging
+from collections.abc import Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING, Sequence, Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func
 from sqlalchemy.orm.exc import NoResultFound

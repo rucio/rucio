@@ -15,8 +15,9 @@
 
 import base64
 import logging
+from collections.abc import Sequence
 from os import path
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Type
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Type
 
 from rucio.common import types
 from rucio.common.config import config_get
