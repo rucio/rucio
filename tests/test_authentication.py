@@ -143,7 +143,7 @@ class TestAuthCoreApi:
         except Duplicate:
             pass  # might already exist, can skip
 
-        signature = ssh_sign(PRIVATE_KEY, 'sign_something_else')
+        signature = base64.b64decode(ssh_sign(PRIVATE_KEY, 'sign_something_else'))
 
         result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', vo=vo)
 

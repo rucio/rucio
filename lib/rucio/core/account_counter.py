@@ -12,12 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import datetime
-from typing import TYPE_CHECKING
+from typing import cast, TYPE_CHECKING
 
 from sqlalchemy import literal, insert, select
 from sqlalchemy.orm.exc import NoResultFound
 
+from rucio.common.types import InternalAccount, RSEAccountCounterDict
 from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
 
@@ -28,7 +30,7 @@ MAX_COUNTERS = 10
 
 
 @transactional_session
-def add_counter(rse_id, account, *, session: "Session"):
+def add_counter(rse_id: str, account: InternalAccount, *, session: "Session") -> None:
     """
     Creates the specified counter for a rse_id and account.
 
@@ -41,7 +43,7 @@ def add_counter(rse_id, account, *, session: "Session"):
 
 
 @transactional_session
-def increase(rse_id, account, files, bytes_, *, session: "Session"):
+def increase(rse_id: str, account: InternalAccount, files: int, bytes_: int, *, session: "Session") -> None:
     """
     Increments the specified counter by the specified amount.
 
@@ -55,7 +57,7 @@ def increase(rse_id, account, files, bytes_, *, session: "Session"):
 
 
 @transactional_session
-def decrease(rse_id, account, files, bytes_, *, session: "Session"):
+def decrease(rse_id: str, account: InternalAccount, files: int, bytes_: int, *, session: "Session") -> None:
     """
     Decreases the specified counter by the specified amount.
 
@@ -69,7 +71,7 @@ def decrease(rse_id, account, files, bytes_, *, session: "Session"):
 
 
 @transactional_session
-def del_counter(rse_id, account, *, session: "Session"):
+def del_counter(rse_id: str, account: InternalAccount, *, session: "Session") -> None:
     """
     Resets the specified counter and initializes it by the specified amounts.
 
@@ -82,7 +84,7 @@ def del_counter(rse_id, account, *, session: "Session"):
 
 
 @read_session
-def get_updated_account_counters(total_workers, worker_number, *, session: "Session"):
+def get_updated_account_counters(total_workers: int, worker_number: int, *, session: "Session") -> list[RSEAccountCounterDict]:
     """
     Get updated rse_counters.
 
@@ -91,21 +93,20 @@ def get_updated_account_counters(total_workers, worker_number, *, session: "Sess
     :param session:            Database session in use.
     :returns:                  List of rse_ids whose rse_counters need to be updated.
     """
-    query = session.query(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id).\
-        distinct(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id)
 
-    if session.bind.dialect.name == 'oracle':
-        hash_variable = 'CONCAT(account, rse_id)'''
-    else:
-        hash_variable = 'concat(account, rse_id)'
+    query = select(
+        models.UpdatedAccountCounter.account,
+        models.UpdatedAccountCounter.rse_id,
+    ).distinct(
+    )
 
-    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable=hash_variable)
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='CONCAT(account, rse_id)')
 
-    return query.all()
+    return [cast(RSEAccountCounterDict, row._asdict()) for row in session.execute(query).all()]
 
 
 @transactional_session
-def update_account_counter(account, rse_id, *, session: "Session"):
+def update_account_counter(account: InternalAccount, rse_id: str, *, session: "Session") -> None:
     """
     Read the updated_account_counters and update the account_counter.
 
@@ -131,7 +132,7 @@ def update_account_counter(account, rse_id, *, session: "Session"):
 
 
 @transactional_session
-def update_account_counter_history(account, rse_id, *, session: "Session"):
+def update_account_counter_history(account: InternalAccount, rse_id: str, *, session: "Session") -> None:
     """
     Read the AccountUsage and update the AccountUsageHistory.
 
@@ -147,7 +148,7 @@ def update_account_counter_history(account, rse_id, *, session: "Session"):
 
 
 @transactional_session
-def fill_account_counter_history_table(*, session: "Session"):
+def fill_account_counter_history_table(*, session: "Session") -> None:
     """
     Make a snapshot of current counters
 

@@ -13,7 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from datetime import datetime
 from typing import Any, Callable, Literal, Optional, TypedDict, Union
+
+from rucio.db.sqla.constants import AccountType, IdentityType
 
 
 class InternalType(object):
@@ -174,3 +177,96 @@ class RuleDict(TypedDict):
     activity: str
     notify: Optional[Literal['Y', 'N', 'C']]
     purge_replicas: bool
+
+
+class RSEAccountCounterDict(TypedDict):
+    account: InternalAccount
+    rse_id: str
+
+
+class RSEAccountUsageDict(TypedDict):
+    rse_id: str
+    rse: str
+    account: InternalAccount
+    used_files: int
+    used_bytes: int
+    quota_bytes: int
+
+
+class RSEGlobalAccountUsageDict(TypedDict):
+    rse_expression: str
+    bytes: int
+    files: int
+    bytes_limit: int
+    bytes_remaining: int
+
+
+class RSELocalAccountUsageDict(TypedDict):
+    rse_id: str
+    rse: str
+    bytes: int
+    files: int
+    bytes_limit: int
+    bytes_remaining: int
+
+
+class RSEResolvedGlobalAccountLimitDict(TypedDict):
+    resolved_rses: str
+    resolved_rse_ids: list[str]
+    limit: float
+
+
+class TokenDict(TypedDict):
+    token: str
+    expires_at: datetime
+
+
+class TokenValidationDict(TypedDict):
+    account: Optional[InternalAccount]
+    identity: Optional[str]
+    lifetime: Optional[datetime]
+    audience: Optional[str]
+    authz_scope: Optional[str]
+
+
+class AccountDict(TypedDict):
+    account: InternalAccount
+    type: AccountType
+    email: str
+
+
+class AccountAttributesDict(TypedDict):
+    key: str
+    value: Union[bool, str]
+
+
+class IdentityDict(TypedDict):
+    type: IdentityType
+    identity: str
+    email: str
+
+
+class UsageDict(TypedDict):
+    bytes: int
+    files: int
+    updated_at: Optional[datetime]
+
+
+class TokenOIDCAutoDict(TypedDict, total=False):
+    webhome: Optional[str]
+    token: Optional[TokenDict]
+
+
+class TokenOIDCNoAutoDict(TypedDict):
+    fetchcode: str
+
+
+class TokenOIDCPollingDict(TypedDict):
+    polling: bool
+
+
+class AccountUsageModelDict(TypedDict):
+    account: InternalAccount
+    rse_id: str
+    files: int
+    bytes: int
