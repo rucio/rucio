@@ -19,9 +19,9 @@ import sys
 from configparser import NoSectionError
 from typing import Any, Callable, Optional
 
-from rucio.core.plugins import PolicyPackageAlgorithms
 from rucio.common.config import config_get_int, config_get_items
 from rucio.common.exception import InvalidRequest
+from rucio.common.plugins import PolicyPackageAlgorithms
 
 
 class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):

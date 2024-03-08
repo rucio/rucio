@@ -22,9 +22,10 @@ import hashlib
 import logging
 from configparser import NoOptionError, NoSectionError
 from urllib.parse import urlparse
+from typing import TypeVar
 
 from rucio.common import config, exception
-from rucio.common.utils import register_policy_package_algorithms
+from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.rse import rsemanager
 
 if getattr(rsemanager, 'CLIENT_MODE', None):
@@ -36,13 +37,16 @@ if getattr(rsemanager, 'SERVER_MODE', None):
     from rucio.core.rse import get_rse_vo
 
 
-class RSEDeterministicTranslation(object):
+RSEDeterministicTranslationT = TypeVar('RSEDeterministicTranslationT', bound='RSEDeterministicTranslation')
+
+
+class RSEDeterministicTranslation(PolicyPackageAlgorithms):
     """
     Execute the logic for translating a LFN to a path.
     """
 
-    _LFN2PFN_ALGORITHMS = {}
     _DEFAULT_LFN2PFN = "hash"
+    _algorithm_type = "lfn2pfn"
 
     def __init__(self, rse=None, rse_attributes=None, protocol_attributes=None):
         """
@@ -53,10 +57,10 @@ class RSEDeterministicTranslation(object):
         :param rse_attributes: A dictionary of RSE-specific attributes for use in the translation.
         :param protocol_attributes: A dictionary of RSE/protocol-specific attributes.
         """
+        super().__init__()
         self.rse = rse
         self.rse_attributes = rse_attributes if rse_attributes else {}
         self.protocol_attributes = protocol_attributes if protocol_attributes else {}
-        self.loaded_policy_modules = False
 
     @classmethod
     def supports(cls, name):
@@ -64,12 +68,12 @@ class RSEDeterministicTranslation(object):
         Check to see if a specific algorithm is supported.
 
         :param name: Name of the deterministic algorithm.
-        :returns: True if `name` is an algorithm supported by the translator class, False otherwise.
+        :returns: True if `name` is an algorithm supported by the translator class, False otherwise
         """
-        return name in cls._LFN2PFN_ALGORITHMS
+        return super()._supports(cls._algorithm_type, name)
 
-    @staticmethod
-    def register(lfn2pfn_callable, name=None):
+    @classmethod
+    def register(cls, lfn2pfn_callable, name=None):
         """
         Provided a callable function, register it as one of the valid LFN2PFN algorithms.
 
@@ -87,7 +91,8 @@ class RSEDeterministicTranslation(object):
         """
         if name is None:
             name = lfn2pfn_callable.__name__
-        RSEDeterministicTranslation._LFN2PFN_ALGORITHMS[name] = lfn2pfn_callable
+        algorithm_dict = {name: lfn2pfn_callable}
+        super()._register(cls._algorithm_type, algorithm_dict)
 
     @staticmethod
     def __hash(scope, name, rse, rse_attrs, protocol_attrs):
@@ -247,15 +252,10 @@ class RSEDeterministicTranslation(object):
 
             :returns: RSE specific URI of the physical file
         """
-        # on first call, register any lfn2pfn algorithms from the policy package(s) (server only)
-        if getattr(rsemanager, 'SERVER_MODE', None) and not self.loaded_policy_modules:
-            register_policy_package_algorithms('lfn2pfn', RSEDeterministicTranslation._LFN2PFN_ALGORITHMS)
-            self.loaded_policy_modules = True
-
         algorithm = self.rse_attributes.get('lfn2pfn_algorithm', 'default')
         if algorithm == 'default':
             algorithm = RSEDeterministicTranslation._DEFAULT_LFN2PFN
-        algorithm_callable = RSEDeterministicTranslation._LFN2PFN_ALGORITHMS[algorithm]
+        algorithm_callable = super()._get_one_algorithm(RSEDeterministicTranslation._algorithm_type, algorithm)
         return algorithm_callable(scope, name, self.rse, self.rse_attributes, self.protocol_attributes)
 
 

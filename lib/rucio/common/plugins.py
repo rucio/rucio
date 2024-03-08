@@ -20,8 +20,6 @@ from typing import Any, Callable, Dict, TypeVar, Type
 
 from rucio.common import config
 from rucio.common.exception import InvalidAlgorithmName
-from rucio.common.utils import check_policy_package_version
-from rucio.core.vo import list_vos
 
 
 PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPackageAlgorithms')
@@ -114,6 +112,7 @@ class PolicyPackageAlgorithms():
                 cls._try_importing_policy(vo)
             # on server, list all VOs and register their algorithms
             else:
+                from rucio.core.vo import list_vos
                 # policy package per VO
                 vos = list_vos()
                 for vo in vos:
@@ -122,6 +121,9 @@ class PolicyPackageAlgorithms():
     @classmethod
     def _try_importing_policy(cls: Type[PolicyPackageAlgorithmsT], vo: str = "") -> None:
         try:
+            # import from utils here to avoid circular import
+            from rucio.common.utils import check_policy_package_version
+
             env_name = 'RUCIO_POLICY_PACKAGE' + ('' if not vo else '_' + vo.upper())
             package = getattr(os.environ, env_name, "")
             if not package:
