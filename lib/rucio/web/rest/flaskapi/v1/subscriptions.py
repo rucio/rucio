@@ -21,7 +21,7 @@ from rucio.api.rule import list_replication_rules
 from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, \
     list_subscription_rule_states, get_subscription_by_id
 from rucio.common.exception import InvalidObject, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound, \
-    AccessDenied
+    AccessDenied, UnsupportedOperation
 from rucio.common.utils import render_json, APIEncoder
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, \
@@ -182,6 +182,8 @@ class Subscription(ErrorHandlingMethodView):
             description: Invalid Auth Token
           404:
             description: Not found
+          409:
+            description: Unsupported Operation
         """
         parameters = json_parameters()
         options = param_get(parameters, 'options')
@@ -202,6 +204,8 @@ class Subscription(ErrorHandlingMethodView):
             return generate_http_error_flask(400, InvalidObject.__name__, error.args[0])
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
+        except UnsupportedOperation as error:
+            return generate_http_error_flask(409, error)
         except SubscriptionNotFound as error:
             return generate_http_error_flask(404, error)
 

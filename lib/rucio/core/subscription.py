@@ -24,9 +24,10 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql.expression import select
 
-from rucio.common.config import config_get
-from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException
+from rucio.common.config import config_get_bool
+from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException, UnsupportedOperation
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import SubscriptionState
 from rucio.db.sqla.session import transactional_session, stream_session, read_session
@@ -78,7 +79,7 @@ def add_subscription(name: str,
     :returns:                  The subscriptionid
     """
     try:
-        keep_history = config_get('subscriptions', 'keep_history')
+        keep_history = config_get_bool('subscriptions', 'keep_history')
     except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
 
@@ -99,20 +100,21 @@ def add_subscription(name: str,
                                            lifetime=date_lifetime,
                                            retroactive=retroactive,
                                            policyid=priority, comments=comments)
-    if keep_history:
-        subscription_history = SubscriptionHistory(id=new_subscription.id,
-                                                   name=new_subscription.name,
-                                                   filter=new_subscription.filter,
-                                                   account=new_subscription.account,
-                                                   replication_rules=new_subscription.replication_rules,
-                                                   state=new_subscription.state,
-                                                   lifetime=new_subscription.lifetime,
-                                                   retroactive=new_subscription.retroactive,
-                                                   policyid=new_subscription.policyid,
-                                                   comments=new_subscription.comments)
     try:
         new_subscription.save(session=session)
         if keep_history:
+            subscription_history = SubscriptionHistory(id=new_subscription.id,
+                                                       name=new_subscription.name,
+                                                       filter=new_subscription.filter,
+                                                       account=new_subscription.account,
+                                                       replication_rules=new_subscription.replication_rules,
+                                                       state=new_subscription.state,
+                                                       lifetime=new_subscription.lifetime,
+                                                       retroactive=new_subscription.retroactive,
+                                                       policyid=new_subscription.policyid,
+                                                       created_at=new_subscription.created_at,
+                                                       updated_at=new_subscription.created_at,
+                                                       comments=new_subscription.comments)
             subscription_history.save(session=session)
     except IntegrityError as error:
         if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_PK.*violated.*', error.args[0])\
@@ -146,7 +148,7 @@ def update_subscription(name: str,
     :raises: SubscriptionNotFound if subscription is not found
     """
     try:
-        keep_history = config_get('subscriptions', 'keep_history')
+        keep_history = config_get_bool('subscriptions', 'keep_history')
     except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
     values = {'state': SubscriptionState.UPDATED}
@@ -201,6 +203,12 @@ def update_subscription(name: str,
             subscription_history.save(session=session)
     except NoResultFound:
         raise SubscriptionNotFound(f"Subscription for account '{account}' named '{name}' not found")
+    except IntegrityError as error:
+        if re.match('.*IntegrityError.*ORA-00001: unique constraint.*SUBSCRIPTIONS_HISTORY_PK.*violated.*', error.args[0])\
+           or re.match(".*IntegrityError.*UNIQUE constraint failed: subscriptions_history.id, subscriptions_history.updated_at.*", error.args[0])\
+           or re.match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+           or re.match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]):
+            raise UnsupportedOperation(f"Subscription \'{name}\' owned by \'{account}\' cannot be updated!")
 
 
 @stream_session
@@ -297,7 +305,7 @@ def list_subscription_rule_states(name=None, account=None, *, session: "Session"
 
 
 @read_session
-def get_subscription_by_id(subscription_id, *, session: "Session"):
+def get_subscription_by_id(subscription_id: str, *, session: "Session"):
     """
     Get a specific subscription by id.
 
@@ -310,6 +318,35 @@ def get_subscription_by_id(subscription_id, *, session: "Session"):
     try:
         subscription = session.query(models.Subscription).filter_by(id=subscription_id).one()
         return subscription.to_dict()
+    except NoResultFound:
+        raise SubscriptionNotFound('No subscription with the id %s found' % (subscription_id))
+    except StatementError:
+        raise RucioException('Badly formatted subscription id (%s)' % (subscription_id))
+
+
+@read_session
+def list_subscription_history(subscription_id: str, *, session: "Session") -> "list[SubscriptionType]":
+    """
+    Get a specific subscription by id.
+
+    :param subscription_id:    The subscription_id to select.
+    :param session:            The database session in use.
+
+    :raises:                   SubscriptionNotFound if no Subscription can be found.
+    """
+    subscription_history = []
+    try:
+        stmt = select(
+            models.SubscriptionHistory
+        ).where(
+            models.SubscriptionHistory.id == subscription_id
+        ).order_by(
+            models.SubscriptionHistory.updated_at
+        )
+        for row in session.execute(stmt):
+            subscription_history.append(row[0].to_dict())
+        return subscription_history
+
     except NoResultFound:
         raise SubscriptionNotFound('No subscription with the id %s found' % (subscription_id))
     except StatementError:
