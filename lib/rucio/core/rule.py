@@ -43,6 +43,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
                                     InvalidObject, RSEWriteBlocked, RuleReplaceFailed, RequestNotFound,
                                     ManualRuleApprovalBlocked, UnsupportedOperation, UndefinedPolicy, InvalidValueForKey,
                                     InvalidSourceReplicaExpression)
+from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.policy import policy_filter, get_scratchdisk_lifetime
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalScope, InternalAccount, LoggerFunction, RuleDict
@@ -53,7 +54,6 @@ from rucio.core.account import has_account_attribute
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
-from rucio.core.plugins import PolicyPackageAlgorithms
 from rucio.core.rse import get_rse_name, list_rse_attributes, get_rse, get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector

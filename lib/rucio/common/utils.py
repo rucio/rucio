@@ -35,12 +35,12 @@ import tempfile
 import threading
 import time
 from collections import OrderedDict
-from configparser import NoOptionError, NoSectionError
+from collections.abc import Callable, Sequence
 from enum import Enum
 from functools import partial, wraps
 from io import StringIO
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Optional, Type, TypeVar
 from urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
@@ -52,8 +52,9 @@ import zlib
 
 from rucio.common.config import config_get, config_has_section
 from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException, \
-    DuplicateCriteriaInDIDFilter, DIDFilterSyntaxError, InvalidAlgorithmName, PolicyPackageVersionError
+    DuplicateCriteriaInDIDFilter, DIDFilterSyntaxError, PolicyPackageVersionError
 from rucio.common.extra import import_extras
+from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.types import InternalAccount, InternalScope
 
 EXTRA_MODULES = import_extras(['paramiko'])
@@ -65,7 +66,6 @@ if EXTRA_MODULES['paramiko']:
         EXTRA_MODULES['paramiko'] = False
 
 if TYPE_CHECKING:
-    from typing import TypeVar
     T = TypeVar('T')
 
 
@@ -723,96 +723,157 @@ def my_key_generator(namespace, fn, **kw):
     return generate_key
 
 
-def construct_surl_DQ2(dsn: str, scope: str, filename: str) -> str:
-    """
-    Defines relative SURL for new replicas. This method
-    contains DQ2 convention. To be used for non-deterministic sites.
-    Method imported from DQ2.
+SurlAlgorithmsT = TypeVar('SurlAlgorithmsT', bound='SurlAlgorithms')
 
-    @return: relative SURL for new replica.
-    @rtype: str
-    """
-    # check how many dots in dsn
-    fields = dsn.split('.')
-    nfields = len(fields)
 
-    if nfields == 0:
-        return '/other/other/%s' % (filename)
-    elif nfields == 1:
-        stripped_dsn = __strip_dsn(dsn)
-        return '/other/%s/%s' % (stripped_dsn, filename)
-    elif nfields == 2:
-        project = fields[0]
-        stripped_dsn = __strip_dsn(dsn)
-        return '/%s/%s/%s' % (project, stripped_dsn, filename)
-    elif nfields < 5 or re.match('user*|group*', fields[0]):
-        project = fields[0]
-        f2 = fields[1]
-        f3 = fields[2]
-        stripped_dsn = __strip_dsn(dsn)
-        return '/%s/%s/%s/%s/%s' % (project, f2, f3, stripped_dsn, filename)
-    else:
-        project = fields[0]
-        dataset_type = fields[4]
-        if nfields == 5:
-            tag = 'other'
+class SurlAlgorithms(PolicyPackageAlgorithms):
+    """
+    Handle SURL construction, including registration of SURL algorithms from policy packages
+    """
+
+    _algorithm_type = 'surl'
+
+    def __init__(self) -> None:
+        """
+        Initialises a SURL construction object
+        """
+        super().__init__()
+
+    def construct_surl(self, dsn: str, scope: str, filename: str, naming_convention: str) -> str:
+        """
+        Calls the correct algorithm to generate a SURL
+        """
+        return self.get_algorithm(naming_convention)(dsn, scope, filename)
+
+    @classmethod
+    def supports(cls: Type[SurlAlgorithmsT], naming_convention: str) -> bool:
+        """
+        Checks whether a SURL algorithm is supported
+        """
+        return super()._supports(cls._algorithm_type, naming_convention)
+
+    @classmethod
+    def _module_init_(cls: Type[SurlAlgorithmsT]) -> None:
+        """
+        Registers the included SURL algorithms
+        """
+        cls.register('T0', cls.construct_surl_T0)
+        cls.register('DQ2', cls.construct_surl_DQ2)
+        cls.register('BelleII', cls.construct_surl_BelleII)
+
+    @classmethod
+    def get_algorithm(cls: Type[SurlAlgorithmsT], naming_convention: str) -> Callable[[str, str, str], str]:
+        """
+        Looks up a SURL algorithm by name
+        """
+        return super()._get_one_algorithm(cls._algorithm_type, naming_convention)
+
+    @classmethod
+    def register(cls: Type[SurlAlgorithmsT], name: str, fn_construct_surl: Callable[[str, str, str], str]) -> None:
+        """
+        Register a new SURL algorithm
+        """
+        algorithm_dict = {name: fn_construct_surl}
+        super()._register(cls._algorithm_type, algorithm_dict)
+
+    @staticmethod
+    def __strip_dsn(dsn: str) -> str:
+        """
+        Drop the _sub and _dis suffixes for panda datasets from the lfc path
+        they will be registered in.
+        Method imported from DQ2.
+        """
+
+        suffixes_to_drop = ['_dis', '_sub', '_frag']
+        fields = dsn.split('.')
+        last_field = fields[-1]
+        try:
+            for suffix in suffixes_to_drop:
+                last_field = re.sub('%s.*$' % suffix, '', last_field)
+        except IndexError:
+            return dsn
+        fields[-1] = last_field
+        stripped_dsn = '.'.join(fields)
+        return stripped_dsn
+
+    @staticmethod
+    def construct_surl_DQ2(dsn: str, scope: str, filename: str) -> str:
+        """
+        Defines relative SURL for new replicas. This method
+        contains DQ2 convention. To be used for non-deterministic sites.
+        Method imported from DQ2.
+
+        @return: relative SURL for new replica.
+        @rtype: str
+        """
+        # check how many dots in dsn
+        fields = dsn.split('.')
+        nfields = len(fields)
+
+        if nfields == 0:
+            return '/other/other/%s' % (filename)
+        elif nfields == 1:
+            stripped_dsn = SurlAlgorithms.__strip_dsn(dsn)
+            return '/other/%s/%s' % (stripped_dsn, filename)
+        elif nfields == 2:
+            project = fields[0]
+            stripped_dsn = SurlAlgorithms.__strip_dsn(dsn)
+            return '/%s/%s/%s' % (project, stripped_dsn, filename)
+        elif nfields < 5 or re.match('user*|group*', fields[0]):
+            project = fields[0]
+            f2 = fields[1]
+            f3 = fields[2]
+            stripped_dsn = SurlAlgorithms.__strip_dsn(dsn)
+            return '/%s/%s/%s/%s/%s' % (project, f2, f3, stripped_dsn, filename)
         else:
-            tag = __strip_tag(fields[-1])
-        stripped_dsn = __strip_dsn(dsn)
-        return '/%s/%s/%s/%s/%s' % (project, dataset_type, tag, stripped_dsn, filename)
+            project = fields[0]
+            dataset_type = fields[4]
+            if nfields == 5:
+                tag = 'other'
+            else:
+                tag = __strip_tag(fields[-1])
+            stripped_dsn = SurlAlgorithms.__strip_dsn(dsn)
+            return '/%s/%s/%s/%s/%s' % (project, dataset_type, tag, stripped_dsn, filename)
+
+    @staticmethod
+    def construct_surl_T0(dsn: str, scope: str, filename: str) -> str:
+        """
+        Defines relative SURL for new replicas. This method
+        contains Tier0 convention. To be used for non-deterministic sites.
+
+        @return: relative SURL for new replica.
+        @rtype: str
+        """
+        fields = dsn.split('.')
+        nfields = len(fields)
+        if nfields >= 3:
+            return '/%s/%s/%s/%s/%s' % (fields[0], fields[2], fields[1], dsn, filename)
+        elif nfields == 1:
+            return '/%s/%s/%s/%s/%s' % (fields[0], 'other', 'other', dsn, filename)
+        elif nfields == 2:
+            return '/%s/%s/%s/%s/%s' % (fields[0], fields[2], 'other', dsn, filename)
+        elif nfields == 0:
+            return '/other/other/other/other/%s' % (filename)
+
+    @staticmethod
+    def construct_surl_BelleII(dsn: str, scope: str, filename: str) -> str:
+        """
+        Defines relative SURL for Belle II specific replicas.
+        This method contains the Belle II convention.
+        To be used for non-deterministic Belle II sites.
+        DSN (or datablock in the Belle II naming) contains /
+        """
+
+        fields = dsn.split("/")
+        nfields = len(fields)
+        if nfields == 0:
+            return '/other/%s' % (filename)
+        else:
+            return '%s/%s' % (dsn, filename)
 
 
-def construct_surl_T0(dsn: str, scope: str, filename: str) -> str:
-    """
-    Defines relative SURL for new replicas. This method
-    contains Tier0 convention. To be used for non-deterministic sites.
-
-    @return: relative SURL for new replica.
-    @rtype: str
-    """
-    fields = dsn.split('.')
-    nfields = len(fields)
-    if nfields >= 3:
-        return '/%s/%s/%s/%s/%s' % (fields[0], fields[2], fields[1], dsn, filename)
-    elif nfields == 1:
-        return '/%s/%s/%s/%s/%s' % (fields[0], 'other', 'other', dsn, filename)
-    elif nfields == 2:
-        return '/%s/%s/%s/%s/%s' % (fields[0], fields[2], 'other', dsn, filename)
-    elif nfields == 0:
-        return '/other/other/other/other/%s' % (filename)
-
-
-def construct_surl_BelleII(dsn: str, scope: str, filename: str) -> str:
-    """
-    Defines relative SURL for Belle II specific replicas.
-    This method contains the Belle II convention.
-    To be used for non-deterministic Belle II sites.
-    DSN (or datablock in the Belle II naming) contains /
-
-    """
-
-    fields = dsn.split("/")
-    nfields = len(fields)
-    if nfields == 0:
-        return '/other/%s' % (filename)
-    else:
-        return '%s/%s' % (dsn, filename)
-
-
-_SURL_ALGORITHMS = {}
 _DEFAULT_SURL = 'DQ2'
-_loaded_policy_modules = False
-
-
-def register_surl_algorithm(surl_callable, name=None):
-    if name is None:
-        name = surl_callable.__name__
-    _SURL_ALGORITHMS[name] = surl_callable
-
-
-register_surl_algorithm(construct_surl_T0, 'T0')
-register_surl_algorithm(construct_surl_DQ2, 'DQ2')
-register_surl_algorithm(construct_surl_BelleII, 'BelleII')
+SurlAlgorithms._module_init_()
 
 
 def construct_surl(dsn: str, scope: str, filename: str, naming_convention: str = None) -> str:
@@ -823,35 +884,10 @@ def construct_surl(dsn: str, scope: str, filename: str, naming_convention: str =
     which are not implemented inside this main rucio repository, so changing the
     argument list must be done with caution.
     """
-    global _loaded_policy_modules
-    if not _loaded_policy_modules:
-        # on first call, register any SURL functions from the policy packages
-        register_policy_package_algorithms('surl', _SURL_ALGORITHMS)
-        _loaded_policy_modules = True
-
-    if naming_convention is None or naming_convention not in _SURL_ALGORITHMS:
+    surl_algorithms = SurlAlgorithms()
+    if naming_convention is None or not SurlAlgorithms.supports(naming_convention):
         naming_convention = _DEFAULT_SURL
-    return _SURL_ALGORITHMS[naming_convention](dsn, scope, filename)
-
-
-def __strip_dsn(dsn):
-    """
-    Drop the _sub and _dis suffixes for panda datasets from the lfc path
-    they will be registered in.
-    Method imported from DQ2.
-    """
-
-    suffixes_to_drop = ['_dis', '_sub', '_frag']
-    fields = dsn.split('.')
-    last_field = fields[-1]
-    try:
-        for suffix in suffixes_to_drop:
-            last_field = re.sub('%s.*$' % suffix, '', last_field)
-    except IndexError:
-        return dsn
-    fields[-1] = last_field
-    stripped_dsn = '.'.join(fields)
-    return stripped_dsn
+    return surl_algorithms.construct_surl(dsn, scope, filename, naming_convention)
 
 
 def __strip_tag(tag):
@@ -887,135 +923,174 @@ def clean_surls(surls):
     return res
 
 
-_EXTRACT_SCOPE_ALGORITHMS = {}
-_DEFAULT_EXTRACT = 'atlas'
-_loaded_policy_package_scope_algorithms = False
+ScopeExtractionAlgorithmsT = TypeVar('ScopeExtractionAlgorithmsT', bound='ScopeExtractionAlgorithms')
 
 
-def extract_scope_atlas(did, scopes):
-    # Try to extract the scope from the DSN
-    if did.find(':') > -1:
-        if len(did.split(':')) > 2:
-            raise RucioException('Too many colons. Cannot extract scope and name')
-        scope, name = did.split(':')[0], did.split(':')[1]
-        if name.endswith('/'):
-            name = name[:-1]
-        return scope, name
-    else:
-        scope = did.split('.')[0]
-        if did.startswith('user') or did.startswith('group'):
-            scope = ".".join(did.split('.')[0:2])
-        if did.endswith('/'):
-            did = did[:-1]
+class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
+    """
+    Handle scope extraction algorithms
+    """
+
+    _algorithm_type = 'scope'
+
+    def __init__(self) -> None:
+        """
+        Initialises scope extraction algorithms object
+        """
+        super().__init__()
+
+    def extract_scope(self, did: str, scopes: Optional[Sequence[str]], extract_scope_convention: str) -> Sequence[str]:
+        """
+        Calls the correct algorithm for scope extraction
+        """
+        return self.get_algorithm(extract_scope_convention)(did, scopes)
+
+    @classmethod
+    def supports(cls: Type[ScopeExtractionAlgorithmsT], extract_scope_convention: str) -> bool:
+        """
+        Checks whether the specified scope extraction algorithm is supported
+        """
+        return super()._supports(cls._algorithm_type, extract_scope_convention)
+
+    @classmethod
+    def _module_init_(cls: Type[ScopeExtractionAlgorithmsT]) -> None:
+        """
+        Registers the included scope extraction algorithms
+        """
+        cls.register('atlas', cls.extract_scope_atlas)
+        cls.register('belleii', cls.extract_scope_belleii)
+        cls.register('dirac', cls.extract_scope_dirac)
+
+    @classmethod
+    def get_algorithm(cls: Type[ScopeExtractionAlgorithmsT], extract_scope_convention: str) -> Callable[[str, Optional[Sequence[str]]], Sequence[str]]:
+        """
+        Looks up a scope extraction algorithm by name
+        """
+        return super()._get_one_algorithm(cls._algorithm_type, extract_scope_convention)
+
+    @classmethod
+    def register(cls: Type[ScopeExtractionAlgorithmsT], name: str, fn_extract_scope: Callable[[str, Optional[Sequence[str]]], Sequence[str]]) -> None:
+        """
+        Registers a new scope extraction algorithm
+        """
+        algorithm_dict = {name: fn_extract_scope}
+        super()._register(cls._algorithm_type, algorithm_dict)
+
+    @staticmethod
+    def extract_scope_atlas(did: str, scopes: Optional[Sequence[str]]) -> Sequence[str]:
+        # Try to extract the scope from the DSN
+        if did.find(':') > -1:
+            if len(did.split(':')) > 2:
+                raise RucioException('Too many colons. Cannot extract scope and name')
+            scope, name = did.split(':')[0], did.split(':')[1]
+            if name.endswith('/'):
+                name = name[:-1]
+            return scope, name
+        else:
+            scope = did.split('.')[0]
+            if did.startswith('user') or did.startswith('group'):
+                scope = ".".join(did.split('.')[0:2])
+            if did.endswith('/'):
+                did = did[:-1]
+            return scope, did
+
+    @staticmethod
+    def extract_scope_dirac(did: str, scopes: Optional[Sequence[str]]) -> Sequence[str]:
+        # Default dirac scope extract algorithm. Scope is the second element in the LFN or the first one (VO name)
+        # if only one element is the result of a split.
+        elem = did.rstrip('/').split('/')
+        if len(elem) > 2:
+            scope = elem[2]
+        else:
+            scope = elem[1]
         return scope, did
 
-
-def extract_scope_dirac(did, scopes):
-    # Default dirac scope extract algorithm. Scope is the second element in the LFN or the first one (VO name)
-    # if only one element is the result of a split.
-    elem = did.rstrip('/').split('/')
-    if len(elem) > 2:
-        scope = elem[2]
-    else:
-        scope = elem[1]
-    return scope, did
-
-
-def extract_scope_belleii(did, scopes):
-    split_did = did.split('/')
-    if did.startswith('/belle/mock/'):
-        return 'mock', did
-    if did.startswith('/belle/MC/'):
-        if did.startswith('/belle/MC/BG') or \
-           did.startswith('/belle/MC/build') or \
-           did.startswith('/belle/MC/generic') or \
-           did.startswith('/belle/MC/log') or \
-           did.startswith('/belle/MC/mcprod') or \
-           did.startswith('/belle/MC/prerelease') or \
-           did.startswith('/belle/MC/release'):
-            return 'mc', did
-        if did.startswith('/belle/MC/cert') or \
-           did.startswith('/belle/MC/dirac') or \
-           did.startswith('/belle/MC/dr3') or \
-           did.startswith('/belle/MC/fab') or \
-           did.startswith('/belle/MC/hideki') or \
-           did.startswith('/belle/MC/merge') or \
-           did.startswith('/belle/MC/migration') or \
-           did.startswith('/belle/MC/skim') or \
-           did.startswith('/belle/MC/test'):
-            return 'mc_tmp', did
-        if len(split_did) > 4:
-            if split_did[3].find('fab') > -1 or split_did[3].find('merge') > -1 or split_did[3].find('skim') > -1:
-                return 'mc_tmp', did
-            if split_did[3].find('release') > -1:
+    @staticmethod
+    def extract_scope_belleii(did: str, scopes: Optional[Sequence[str]]) -> Sequence[str]:
+        split_did = did.split('/')
+        if did.startswith('/belle/mock/'):
+            return 'mock', did
+        if did.startswith('/belle/MC/'):
+            if did.startswith('/belle/MC/BG') or \
+               did.startswith('/belle/MC/build') or \
+               did.startswith('/belle/MC/generic') or \
+               did.startswith('/belle/MC/log') or \
+               did.startswith('/belle/MC/mcprod') or \
+               did.startswith('/belle/MC/prerelease') or \
+               did.startswith('/belle/MC/release'):
                 return 'mc', did
-        return 'mc_tmp', did
-    if did.startswith('/belle/Raw/'):
-        return 'raw', did
-    if did.startswith('/belle/hRaw'):
-        return 'hraw', did
-    if did.startswith('/belle/user/'):
-        if len(split_did) > 4:
-            if len(split_did[3]) == 1 and 'user.%s' % (split_did[4]) in scopes:
-                return 'user.%s' % split_did[4], did
-        if len(split_did) > 3:
-            if 'user.%s' % (split_did[3]) in scopes:
-                return 'user.%s' % split_did[3], did
-        return 'user', did
-    if did.startswith('/belle/group/'):
-        if len(split_did) > 4:
-            if 'group.%s' % (split_did[4]) in scopes:
-                return 'group.%s' % split_did[4], did
-        return 'group', did
-    if did.startswith('/belle/data/') or did.startswith('/belle/Data/'):
-        if len(split_did) > 4:
-            if split_did[3] in ['fab', 'skim']:  # /belle/Data/fab --> data_tmp
-                return 'data_tmp', did
-            if split_did[3].find('release') > -1:  # /belle/Data/release --> data
-                return 'data', did
-        if len(split_did) > 5:
-            if split_did[3] in ['proc']:  # /belle/Data/proc
-                if split_did[4].find('release') > -1:  # /belle/Data/proc/release*
-                    if len(split_did) > 7 and split_did[6] in ['GCR2c', 'prod00000007', 'prod6b', 'proc7b',
-                                                               'proc8b', 'Bucket4', 'Bucket6test', 'bucket6',
-                                                               'proc9', 'bucket7', 'SKIMDATAx1', 'proc10Valid',
-                                                               'proc10', 'SkimP10x1', 'SkimP11x1', 'SkimB9x1',
-                                                               'SkimB10x1', 'SkimB11x1']:  # /belle/Data/proc/release*/*/proc10/* --> data_tmp (Old convention)
-                        return 'data_tmp', did
-                    else:  # /belle/Data/proc/release*/*/proc11/* --> data (New convention)
-                        return 'data', did
-                if split_did[4].find('fab') > -1:  # /belle/Data/proc/fab* --> data_tmp
+            if did.startswith('/belle/MC/cert') or \
+               did.startswith('/belle/MC/dirac') or \
+               did.startswith('/belle/MC/dr3') or \
+               did.startswith('/belle/MC/fab') or \
+               did.startswith('/belle/MC/hideki') or \
+               did.startswith('/belle/MC/merge') or \
+               did.startswith('/belle/MC/migration') or \
+               did.startswith('/belle/MC/skim') or \
+               did.startswith('/belle/MC/test'):
+                return 'mc_tmp', did
+            if len(split_did) > 4:
+                if split_did[3].find('fab') > -1 or split_did[3].find('merge') > -1 or split_did[3].find('skim') > -1:
+                    return 'mc_tmp', did
+                if split_did[3].find('release') > -1:
+                    return 'mc', did
+            return 'mc_tmp', did
+        if did.startswith('/belle/Raw/'):
+            return 'raw', did
+        if did.startswith('/belle/hRaw'):
+            return 'hraw', did
+        if did.startswith('/belle/user/'):
+            if len(split_did) > 4:
+                if len(split_did[3]) == 1 and scopes is not None and 'user.%s' % (split_did[4]) in scopes:
+                    return 'user.%s' % split_did[4], did
+            if len(split_did) > 3:
+                if scopes is not None and 'user.%s' % (split_did[3]) in scopes:
+                    return 'user.%s' % split_did[3], did
+            return 'user', did
+        if did.startswith('/belle/group/'):
+            if len(split_did) > 4:
+                if scopes is not None and 'group.%s' % (split_did[4]) in scopes:
+                    return 'group.%s' % split_did[4], did
+            return 'group', did
+        if did.startswith('/belle/data/') or did.startswith('/belle/Data/'):
+            if len(split_did) > 4:
+                if split_did[3] in ['fab', 'skim']:  # /belle/Data/fab --> data_tmp
                     return 'data_tmp', did
-        return 'data_tmp', did
-    if did.startswith('/belle/ddm/functional_tests/') or did.startswith('/belle/ddm/tests/') or did.startswith('/belle/test/ddm_test'):
-        return 'test', did
-    if did.startswith('/belle/BG/'):
-        return 'data', did
-    if did.startswith('/belle/collection'):
-        return 'collection', did
-    return 'other', did
+                if split_did[3].find('release') > -1:  # /belle/Data/release --> data
+                    return 'data', did
+            if len(split_did) > 5:
+                if split_did[3] in ['proc']:  # /belle/Data/proc
+                    if split_did[4].find('release') > -1:  # /belle/Data/proc/release*
+                        if len(split_did) > 7 and split_did[6] in ['GCR2c', 'prod00000007', 'prod6b', 'proc7b',
+                                                                   'proc8b', 'Bucket4', 'Bucket6test', 'bucket6',
+                                                                   'proc9', 'bucket7', 'SKIMDATAx1', 'proc10Valid',
+                                                                   'proc10', 'SkimP10x1', 'SkimP11x1', 'SkimB9x1',
+                                                                   'SkimB10x1', 'SkimB11x1']:  # /belle/Data/proc/release*/*/proc10/* --> data_tmp (Old convention)
+                            return 'data_tmp', did
+                        else:  # /belle/Data/proc/release*/*/proc11/* --> data (New convention)
+                            return 'data', did
+                    if split_did[4].find('fab') > -1:  # /belle/Data/proc/fab* --> data_tmp
+                        return 'data_tmp', did
+            return 'data_tmp', did
+        if did.startswith('/belle/ddm/functional_tests/') or did.startswith('/belle/ddm/tests/') or did.startswith('/belle/test/ddm_test'):
+            return 'test', did
+        if did.startswith('/belle/BG/'):
+            return 'data', did
+        if did.startswith('/belle/collection'):
+            return 'collection', did
+        return 'other', did
 
 
-def register_extract_scope_algorithm(extract_callable, name=[]):
-    if name is None:
-        name = extract_callable.__name__
-    _EXTRACT_SCOPE_ALGORITHMS[name] = extract_callable
-
-
-register_extract_scope_algorithm(extract_scope_atlas, 'atlas')
-register_extract_scope_algorithm(extract_scope_belleii, 'belleii')
-register_extract_scope_algorithm(extract_scope_dirac, 'dirac')
+_DEFAULT_EXTRACT = 'atlas'
+ScopeExtractionAlgorithms._module_init_()
 
 
 def extract_scope(did, scopes=None, default_extract=_DEFAULT_EXTRACT):
-    global _loaded_policy_package_scope_algorithms
-    if not _loaded_policy_package_scope_algorithms:
-        register_policy_package_algorithms('scope', _EXTRACT_SCOPE_ALGORITHMS)
-        _loaded_policy_package_scope_algorithms = True
+    scope_extraction_algorithms = ScopeExtractionAlgorithms()
     extract_scope_convention = config_get('common', 'extract_scope', False, None) or config_get('policy', 'extract_scope', False, None)
-    if extract_scope_convention is None or extract_scope_convention not in _EXTRACT_SCOPE_ALGORITHMS:
+    if extract_scope_convention is None or not ScopeExtractionAlgorithms.supports(extract_scope_convention):
         extract_scope_convention = default_extract
-    return _EXTRACT_SCOPE_ALGORITHMS[extract_scope_convention](did=did, scopes=scopes)
+    return scope_extraction_algorithms.extract_scope(did, scopes, extract_scope_convention)
 
 
 def pid_exists(pid):
@@ -1984,76 +2059,6 @@ class PriorityQueue:
 
         self.container[self.heap[pos]].pos = pos
         return heap_changed
-
-
-def register_policy_package_algorithms(algorithm_type, dictionary):
-    '''
-    Loads all the algorithms of a given type from the policy package(s) and registers them
-    :param algorithm_type: the type of algorithm to register (e.g. 'surl', 'lfn2pfn')
-    :param dictionary: the dictionary to register them in
-    :param vo: the name of the relevant VO (None for single VO)
-    '''
-    def try_importing_policy(algorithm_type, dictionary, vo=None):
-        import importlib
-        try:
-            env_name = 'RUCIO_POLICY_PACKAGE' + ('' if not vo else '_' + vo.upper())
-            if env_name in os.environ:
-                package = os.environ[env_name]
-            else:
-                package = config.config_get('policy', 'package' + ('' if not vo else '-' + vo))
-            check_policy_package_version(package)
-            module = importlib.import_module(package)
-            if hasattr(module, 'get_algorithms'):
-                all_algorithms = module.get_algorithms()
-                if algorithm_type in all_algorithms:
-                    algorithms = all_algorithms[algorithm_type]
-                    if not vo:
-                        dictionary.update(algorithms)
-                    else:
-                        # check that the names are correctly prefixed
-                        for k in algorithms.keys():
-                            if k.lower().startswith(vo.lower()):
-                                dictionary[k] = algorithms[k]
-                            else:
-                                raise InvalidAlgorithmName(k, vo)
-        except (NoOptionError, NoSectionError, ImportError):
-            pass
-
-    from rucio.common import config
-    try:
-        multivo = config.config_get_bool('common', 'multi_vo')
-    except (NoOptionError, NoSectionError):
-        multivo = False
-    if not multivo:
-        # single policy package
-        try_importing_policy(algorithm_type, dictionary)
-    else:
-        # determine whether on client or server
-        client = False
-        if 'RUCIO_CLIENT_MODE' not in os.environ:
-            if not config.config_has_section('database') and config.config_has_section('client'):
-                client = True
-        else:
-            if os.environ['RUCIO_CLIENT_MODE']:
-                client = True
-
-        # on client, only register algorithms for selected VO
-        if client:
-            if 'RUCIO_VO' in os.environ:
-                vo = os.environ['RUCIO_VO']
-            else:
-                try:
-                    vo = config.config_get('client', 'vo')
-                except (NoOptionError, NoSectionError):
-                    vo = 'def'
-            try_importing_policy(algorithm_type, dictionary, vo)
-        # on server, list all VOs and register their algorithms
-        else:
-            from rucio.core.vo import list_vos
-            # policy package per VO
-            vos = list_vos()
-            for vo in vos:
-                try_importing_policy(algorithm_type, dictionary, vo['vo'])
 
 
 def check_policy_package_version(package):
