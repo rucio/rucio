@@ -685,11 +685,15 @@ class TestBinRucio:
         print(out, err)
 
         # download files
+        download_dir = "/temp"
         replica_pfn = list(self.replica_client.list_replicas([{'scope': self.user, 'name': name}]))[0]['rses'][self.def_rse][0]
-        cmd = 'rucio -v download --rse {0} --pfn {1} {2}:{3}'.format(self.def_rse, replica_pfn, self.user, name)
+        cmd = f'rucio -v download  --dir {download_dir} --rse {self.def_rse} --pfn {replica_pfn} {self.user}:{name}'
         exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search('Total files.*1', out) is not None
+
+        if "Access to local destination denied." in err:  # Known issue - see #6506
+            assert False, "test `test_download_pfn` unable to access file {self.user}/{name} in {download_dir}"
+        else:
+            assert re.search('Total files.*1', out) is not None
 
         try:
             for i in listdir('data13_hip'):
