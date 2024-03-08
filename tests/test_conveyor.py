@@ -1663,7 +1663,7 @@ def test_preparer_ignore_availability(rse_factory, did_factory, root_account, fi
 
 
 @skip_rse_tests_with_accounts
-@pytest.mark.noparallel(groups=[NoParallelGroups.PREPARER, NoParallelGroups.SUBMITTER])
+@pytest.mark.noparallel(groups=[NoParallelGroups.PREPARER, NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 @pytest.mark.parametrize("file_config_mock", [
     {
         "overrides": [
