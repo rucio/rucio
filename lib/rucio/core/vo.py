@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 
 @read_session
-def vo_exists(vo, *, session: "Session"):
+def vo_exists(vo: str, *, session: "Session") -> bool:
     """
     Verify that the vo exists.
 
@@ -46,7 +46,7 @@ def vo_exists(vo, *, session: "Session"):
 
 
 @transactional_session
-def add_vo(vo, description, email, *, session: "Session"):
+def add_vo(vo: str, description: str, email: str, *, session: "Session") -> None:
     """
     Add a VO and setup a new root user.
     New root user will have account name 'root' and a userpass identity with username: 'root@<vo>' and password: 'password'
@@ -88,7 +88,7 @@ def add_vo(vo, description, email, *, session: "Session"):
 
 
 @read_session
-def list_vos(*, session: "Session"):
+def list_vos(*, session: "Session") -> list[dict[str, Any]]:
     """
     List all the VOs in the db.
 
@@ -113,7 +113,7 @@ def list_vos(*, session: "Session"):
 
 
 @transactional_session
-def update_vo(vo, parameters, *, session: "Session"):
+def update_vo(vo: str, parameters: dict[str, Any], *, session: "Session") -> None:
     """
     Update VO properties (email, description).
 
@@ -135,7 +135,7 @@ def update_vo(vo, parameters, *, session: "Session"):
     query.update(param)
 
 
-def map_vo(vo):
+def map_vo(vo: str) -> str:
     """
     Converts a long VO name into the internal short (three letter)
     tag mapping.
