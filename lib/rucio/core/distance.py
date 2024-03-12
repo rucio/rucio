@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def add_distance(src_rse_id, dest_rse_id, distance=None, *, session: "Session"):
+def add_distance(src_rse_id: str, dest_rse_id: str, distance: Optional[int] = None, *, session: "Session") -> None:
     """
     Add a src-dest distance.
 
@@ -47,9 +47,9 @@ def add_distance(src_rse_id, dest_rse_id, distance=None, *, session: "Session"):
 
 
 @read_session
-def get_distances(src_rse_id=None, dest_rse_id=None, *, session: "Session") -> list[dict]:
+def get_distances(src_rse_id: Optional[str] = None, dest_rse_id: Optional[str] = None, *, session: "Session") -> list[dict[str, Any]]:
     """
-    Get distances between rses.
+    Get distances between RSEs.
 
     :param src_rse_id: The source RSE ID.
     :param dest_rse_id: The destination RSE ID.
@@ -78,9 +78,9 @@ def get_distances(src_rse_id=None, dest_rse_id=None, *, session: "Session") -> l
 
 
 @transactional_session
-def delete_distances(src_rse_id=None, dest_rse_id=None, *, session: "Session"):
+def delete_distances(src_rse_id: Optional[str] = None, dest_rse_id: Optional[str] = None, *, session: "Session") -> None:
     """
-    Delete distances with the given RSE ids.
+    Delete distances with the given RSE IDs.
 
     :param src_rse_id: The source RSE ID.
     :param dest_rse_id: The destination RSE ID.
@@ -101,9 +101,9 @@ def delete_distances(src_rse_id=None, dest_rse_id=None, *, session: "Session"):
 
 
 @transactional_session
-def update_distances(src_rse_id=None, dest_rse_id=None, distance=None, *, session: "Session"):
+def update_distances(src_rse_id: Optional[str] = None, dest_rse_id: Optional[str] = None, distance: Optional[str] = None, *, session: "Session") -> None:
     """
-    Update distances with the given RSE ids.
+    Update distances with the given RSE IDs.
 
     :param src_rse_id: The source RSE ID.
     :param dest_rse_id: The destination RSE ID.
@@ -122,7 +122,7 @@ def update_distances(src_rse_id=None, dest_rse_id=None, distance=None, *, sessio
 
 
 @read_session
-def list_distances(filter_={}, *, session: "Session"):
+def list_distances(filter_: dict[str, Any] = {}, *, session: "Session") -> list[dict[str, Any]]:
     """
     Get distances between all the RSEs.
 
@@ -133,7 +133,7 @@ def list_distances(filter_={}, *, session: "Session"):
 
 
 @read_session
-def export_distances(vo='def', *, session: "Session"):
+def export_distances(vo: str = 'def', *, session: "Session") -> dict[str, Any]:
     """
     Export distances between all the RSEs using RSE ids.
     :param vo: The VO to export.
