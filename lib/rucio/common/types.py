@@ -166,11 +166,11 @@ class RuleDict(TypedDict):
     copies: int
     rse_expression: str
     grouping: Literal['ALL', 'DATASET', 'NONE']
-    weight: str
-    lifetime: int
+    weight: Optional[str]
+    lifetime: Optional[int]
     locked: bool
-    subscription_id: str
+    subscription_id: Optional[str]
     source_replica_expression: Optional[str]
     activity: str
-    notify: Optional[Literal['Y', 'N', 'C']]
+    notify: Optional[Literal['Y', 'N', 'C', 'P']]
     purge_replicas: bool

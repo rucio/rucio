@@ -143,32 +143,33 @@ class AutoApprove(PolicyPackageAlgorithms):
 
 
 @transactional_session
-def add_rule(dids: Sequence[dict[str, Any]],
-             account: InternalAccount,
-             copies: int,
-             rse_expression: str,
-             grouping: Literal['ALL', 'DATASET', 'NONE'],
-             weight: str,
-             lifetime: int,
-             locked: bool,
-             subscription_id: str,
-             source_replica_expression: Optional[str] = None,
-             activity: str = 'User Subscriptions',
-             notify: Optional[Literal['Y', 'N', 'C']] = None,
-             purge_replicas: bool = False,
-             ignore_availability: bool = False,
-             comment: Optional[str] = None,
-             ask_approval: bool = False,
-             asynchronous: bool = False,
-             ignore_account_limit: bool = False,
-             priority: int = 3,
-             delay_injection: Optional[int] = None,
-             split_container: bool = False,
-             meta: Optional[dict[str, Any]] = None,
-             *,
-             session: "Session",
-             logger: LoggerFunction = logging.log
-             ) -> list[str]:
+def add_rule(
+    dids: Sequence[dict[str, Any]],
+    account: InternalAccount,
+    copies: int,
+    rse_expression: str,
+    grouping: Literal['ALL', 'DATASET', 'NONE'],
+    weight: Optional[str],
+    lifetime: Optional[int],
+    locked: bool,
+    subscription_id: Optional[str],
+    source_replica_expression: Optional[str] = None,
+    activity: str = 'User Subscriptions',
+    notify: Optional[Literal['Y', 'N', 'C', 'P']] = None,
+    purge_replicas: bool = False,
+    ignore_availability: bool = False,
+    comment: Optional[str] = None,
+    ask_approval: bool = False,
+    asynchronous: bool = False,
+    ignore_account_limit: bool = False,
+    priority: int = 3,
+    delay_injection: Optional[int] = None,
+    split_container: bool = False,
+    meta: Optional[dict[str, Any]] = None,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> list[str]:
     """
     Adds a replication rule for every did in dids
 
@@ -253,7 +254,7 @@ def add_rule(dids: Sequence[dict[str, Any]],
 
         expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
 
-        notify_value = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE, 'P': RuleNotification.PROGRESS}.get(str(notify or ''), RuleNotification.NO)
+        notify_value = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE, 'P': RuleNotification.PROGRESS}.get(notify or '', RuleNotification.NO)
 
         for elem in dids:
             # 3. Get the did
@@ -409,12 +410,13 @@ def add_rule(dids: Sequence[dict[str, Any]],
 
 
 @transactional_session
-def add_rules(dids: Sequence[dict[str, Any]],
-              rules: Sequence[RuleDict],
-              *,
-              session: "Session",
-              logger: LoggerFunction = logging.log
-              ) -> dict[tuple[InternalScope, str], list[str]]:
+def add_rules(
+    dids: Sequence[dict[str, Any]],
+    rules: Sequence[RuleDict],
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> dict[tuple[InternalScope, str], list[str]]:
     """
     Adds a list of replication rules to every did in dids
 
@@ -548,7 +550,8 @@ def add_rules(dids: Sequence[dict[str, Any]],
                     with METRICS.timer('add_rules.create_rule'):
                         grouping = {'ALL': RuleGrouping.ALL, 'NONE': RuleGrouping.NONE}.get(str(rule.get('grouping')), RuleGrouping.DATASET)
 
-                        expires_at: Optional[datetime] = datetime.utcnow() + timedelta(seconds=rule.get('lifetime')) if rule.get('lifetime') is not None else None
+                        rule_lifetime: Optional[int] = rule.get('lifetime')
+                        expires_at: Optional[datetime] = datetime.utcnow() + timedelta(seconds=rule_lifetime) if rule_lifetime is not None else None
 
                         notify = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE, 'P': RuleNotification.PROGRESS, None: RuleNotification.NO}.get(rule.get('notify'))
 
@@ -673,7 +676,12 @@ def add_rules(dids: Sequence[dict[str, Any]],
 
 
 @transactional_session
-def inject_rule(rule_id: str, *, session: "Session", logger: LoggerFunction = logging.log) -> None:
+def inject_rule(
+    rule_id: str,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Inject a replication rule.
 
@@ -792,7 +800,11 @@ def inject_rule(rule_id: str, *, session: "Session", logger: LoggerFunction = lo
 
 
 @stream_session
-def list_rules(filters: Optional[dict[str, Any]] = None, *, session: "Session") -> Iterator[dict[str, Any]]:
+def list_rules(
+    filters: Optional[dict[str, Any]] = None,
+    *,
+    session: "Session"
+) -> Iterator[dict[str, Any]]:
     """
     List replication rules.
 
@@ -855,7 +867,11 @@ def list_rules(filters: Optional[dict[str, Any]] = None, *, session: "Session") 
 
 
 @stream_session
-def list_rule_history(rule_id: str, *, session: "Session") -> Iterator[dict[str, Any]]:
+def list_rule_history(
+    rule_id: str,
+    *,
+    session: "Session"
+) -> Iterator[dict[str, Any]]:
     """
     List the rule history of a rule.
 
@@ -878,7 +894,12 @@ def list_rule_history(rule_id: str, *, session: "Session") -> Iterator[dict[str,
 
 
 @stream_session
-def list_rule_full_history(scope: InternalScope, name: str, *, session: "Session") -> Iterator[dict[str, Any]]:
+def list_rule_full_history(
+    scope: InternalScope,
+    name: str,
+    *,
+    session: "Session"
+) -> Iterator[dict[str, Any]]:
     """
     List the rule history of a DID.
 
@@ -907,7 +928,12 @@ def list_rule_full_history(scope: InternalScope, name: str, *, session: "Session
 
 
 @stream_session
-def list_associated_rules_for_file(scope: InternalScope, name: str, *, session: "Session") -> Iterator[dict[str, Any]]:
+def list_associated_rules_for_file(
+    scope: InternalScope,
+    name: str,
+    *,
+    session: "Session"
+) -> Iterator[dict[str, Any]]:
     """
     List replication rules a file is affected from.
 
@@ -930,15 +956,16 @@ def list_associated_rules_for_file(scope: InternalScope, name: str, *, session: 
 
 
 @transactional_session
-def delete_rule(rule_id: str,
-                purge_replicas: Optional[bool] = None,
-                soft: bool = False,
-                delete_parent: bool = False,
-                nowait: bool = False,
-                *,
-                session: "Session",
-                ignore_rule_lock: bool = False
-                ) -> None:
+def delete_rule(
+    rule_id: str,
+    purge_replicas: Optional[bool] = None,
+    soft: bool = False,
+    delete_parent: bool = False,
+    nowait: bool = False,
+    *,
+    session: "Session",
+    ignore_rule_lock: bool = False
+) -> None:
     """
     Delete a replication rule.
 
@@ -1021,7 +1048,12 @@ def delete_rule(rule_id: str,
 
 
 @transactional_session
-def repair_rule(rule_id: str, *, session: "Session", logger: LoggerFunction = logging.log) -> None:
+def repair_rule(
+    rule_id: str,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Repair a STUCK replication rule.
 
@@ -1249,7 +1281,11 @@ def repair_rule(rule_id: str, *, session: "Session", logger: LoggerFunction = lo
 
 
 @read_session
-def get_rule(rule_id: str, *, session: "Session") -> dict[str, Any]:
+def get_rule(
+    rule_id: str,
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Get a specific replication rule.
 
@@ -1268,7 +1304,12 @@ def get_rule(rule_id: str, *, session: "Session") -> dict[str, Any]:
 
 
 @transactional_session
-def update_rule(rule_id: str, options: dict[str, Any], *, session: "Session") -> None:
+def update_rule(
+    rule_id: str,
+    options: dict[str, Any],
+    *,
+    session: "Session"
+) -> None:
     """
     Update a rules options.
 
@@ -1570,7 +1611,13 @@ def update_rule(rule_id: str, options: dict[str, Any], *, session: "Session") ->
 
 
 @transactional_session
-def reduce_rule(rule_id: str, copies: int, exclude_expression: Optional[str] = None, *, session: "Session") -> str:
+def reduce_rule(
+    rule_id: str,
+    copies: int,
+    exclude_expression: Optional[str] = None,
+    *,
+    session: "Session"
+) -> str:
     """
     Reduce the number of copies for a rule by atomically replacing the rule.
 
@@ -1636,7 +1683,13 @@ def reduce_rule(rule_id: str, copies: int, exclude_expression: Optional[str] = N
 
 
 @transactional_session
-def move_rule(rule_id: str, rse_expression: str, override: Optional[dict[str, Any]] = None, *, session: "Session") -> str:
+def move_rule(
+    rule_id: str,
+    rse_expression: str,
+    override: Optional[dict[str, Any]] = None,
+    *,
+    session: "Session"
+) -> str:
     """
     Move a replication rule to another RSE and, once done, delete the original one.
 
@@ -1705,7 +1758,13 @@ def move_rule(rule_id: str, rse_expression: str, override: Optional[dict[str, An
 
 
 @transactional_session
-def re_evaluate_did(scope: InternalScope, name: str, rule_evaluation_action: DIDReEvaluation, *, session: "Session") -> None:
+def re_evaluate_did(
+    scope: InternalScope,
+    name: str,
+    rule_evaluation_action: DIDReEvaluation,
+    *,
+    session: "Session"
+) -> None:
     """
     Re-Evaluates a did.
 
@@ -1747,7 +1806,14 @@ def re_evaluate_did(scope: InternalScope, name: str, rule_evaluation_action: DID
 
 
 @read_session
-def get_updated_dids(total_workers: int, worker_number: int, limit: int = 100, blocked_dids: Iterable[tuple[str, str]] = [], *, session: "Session") -> list[tuple[str, str]]:
+def get_updated_dids(
+    total_workers: int,
+    worker_number: int,
+    limit: int = 100,
+    blocked_dids: Iterable[tuple[str, str]] = [],
+    *,
+    session: "Session"
+) -> list[tuple[str, InternalScope, str, DIDReEvaluation]]:
     """
     Get updated dids.
 
@@ -1785,7 +1851,19 @@ def get_updated_dids(total_workers: int, worker_number: int, limit: int = 100, b
 
 
 @read_session
-def get_rules_beyond_eol(date_check: datetime, worker_number: int, total_workers: int, *, session: "Session") -> list[dict[str, Any]]:
+def get_rules_beyond_eol(
+    date_check: datetime,
+    worker_number: int,
+    total_workers: int, *,
+    session: "Session"
+) -> list[tuple[InternalScope,
+                str,
+                str,
+                bool,
+                str,
+                Optional[datetime],
+                Optional[datetime],
+                InternalAccount]]:
     """
     Get rules which have eol_at before a certain date.
 
@@ -1809,13 +1887,14 @@ def get_rules_beyond_eol(date_check: datetime, worker_number: int, total_workers
 
 
 @read_session
-def get_expired_rules(total_workers: int,
-                      worker_number: int,
-                      limit: int = 100,
-                      blocked_rules: Sequence[str] = [],
-                      *,
-                      session: "Session"
-                      ) -> list[tuple[str, str]]:
+def get_expired_rules(
+    total_workers: int,
+    worker_number: int,
+    limit: int = 100,
+    blocked_rules: Sequence[str] = [],
+    *,
+    session: "Session"
+) -> list[tuple[str, str]]:
     """
     Get expired rules.
 
@@ -1850,13 +1929,14 @@ def get_expired_rules(total_workers: int,
 
 
 @read_session
-def get_injected_rules(total_workers: int,
-                       worker_number: int,
-                       limit: int = 100,
-                       blocked_rules: Sequence[str] = [],
-                       *,
-                       session: "Session"
-                       ) -> list[str]:
+def get_injected_rules(
+    total_workers: int,
+    worker_number: int,
+    limit: int = 100,
+    blocked_rules: Sequence[str] = [],
+    *,
+    session: "Session"
+) -> list[str]:
     """
     Get rules to be injected.
 
@@ -1891,14 +1971,15 @@ def get_injected_rules(total_workers: int,
 
 
 @read_session
-def get_stuck_rules(total_workers: int,
-                    worker_number: int,
-                    delta: int = 600,
-                    limit: int = 10,
-                    blocked_rules: Sequence[str] = [],
-                    *,
-                    session: "Session"
-                    ) -> list[str]:
+def get_stuck_rules(
+    total_workers: int,
+    worker_number: int,
+    delta: int = 600,
+    limit: int = 10,
+    blocked_rules: Sequence[str] = [],
+    *,
+    session: "Session"
+) -> list[str]:
     """
     Get stuck rules.
 
@@ -1937,7 +2018,11 @@ def get_stuck_rules(total_workers: int,
 
 
 @transactional_session
-def delete_updated_did(id_: str, *, session: "Session") -> None:
+def delete_updated_did(
+    id_: str,
+    *,
+    session: "Session"
+) -> None:
     """
     Delete an updated_did by id.
 
@@ -1948,14 +2033,15 @@ def delete_updated_did(id_: str, *, session: "Session") -> None:
 
 
 @transactional_session
-def update_rules_for_lost_replica(scope: InternalScope,
-                                  name: str,
-                                  rse_id: str,
-                                  nowait: bool = False,
-                                  *,
-                                  session: "Session",
-                                  logger: LoggerFunction = logging.log
-                                  ) -> None:
+def update_rules_for_lost_replica(
+    scope: InternalScope,
+    name: str,
+    rse_id: str,
+    nowait: bool = False,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Update rules if a file replica is lost.
 
@@ -2035,12 +2121,15 @@ def update_rules_for_lost_replica(scope: InternalScope,
 
 
 @transactional_session
-def update_rules_for_bad_replica(scope: InternalScope,
-                                 name: str,
-                                 rse_id: str,
-                                 nowait: bool = False,
-                                 *, session: "Session",
-                                 logger: LoggerFunction = logging.log) -> None:
+def update_rules_for_bad_replica(
+    scope: InternalScope,
+    name: str,
+    rse_id: str,
+    nowait: bool = False,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Update rules if a file replica is bad and has to be recreated.
 
@@ -2114,11 +2203,12 @@ def update_rules_for_bad_replica(scope: InternalScope,
 
 
 @transactional_session
-def generate_rule_notifications(rule: models.ReplicationRule,
-                                replicating_locks_before: Optional[int] = None,
-                                *,
-                                session: "Session"
-                                ) -> None:
+def generate_rule_notifications(
+    rule: models.ReplicationRule,
+    replicating_locks_before: Optional[int] = None,
+    *,
+    session: "Session"
+) -> None:
     """
     Generate (If necessary) a callback for a rule (DATASETLOCK_OK, RULE_OK, DATASETLOCK_PROGRESS)
 
@@ -2226,11 +2316,12 @@ def generate_rule_notifications(rule: models.ReplicationRule,
 
 
 @transactional_session
-def generate_email_for_rule_ok_notification(rule: models.ReplicationRule,
-                                            *,
-                                            session: "Session",
-                                            logger: LoggerFunction = logging.log
-                                            ) -> None:
+def generate_email_for_rule_ok_notification(
+    rule: models.ReplicationRule,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Generate (If necessary) an eMail for a rule with notification mode Y.
 
@@ -2281,12 +2372,13 @@ def generate_email_for_rule_ok_notification(rule: models.ReplicationRule,
 
 
 @transactional_session
-def insert_rule_history(rule: models.ReplicationRule,
-                        recent: bool = True,
-                        longterm: bool = False,
-                        *,
-                        session: "Session"
-                        ) -> None:
+def insert_rule_history(
+    rule: models.ReplicationRule,
+    recent: bool = True,
+    longterm: bool = False,
+    *,
+    session: "Session"
+) -> None:
     """
     Insert rule history to recent/longterm history.
 
@@ -2316,7 +2408,13 @@ def insert_rule_history(rule: models.ReplicationRule,
 
 
 @transactional_session
-def approve_rule(rule_id: str, approver: Optional[str] = None, notify_approvers: bool = True, *, session: "Session") -> None:
+def approve_rule(
+    rule_id: str,
+    approver: Optional[str] = None,
+    notify_approvers: bool = True,
+    *,
+    session: "Session"
+) -> None:
     """
     Approve a specific replication rule.
 
@@ -2376,7 +2474,13 @@ def approve_rule(rule_id: str, approver: Optional[str] = None, notify_approvers:
 
 
 @transactional_session
-def deny_rule(rule_id: str, approver: Optional[str] = None, reason: Optional[str] = None, *, session: "Session") -> None:
+def deny_rule(
+    rule_id: str,
+    approver: Optional[str] = None,
+    reason: Optional[str] = None,
+    *,
+    session: "Session"
+) -> None:
     """
     Deny a specific replication rule.
 
@@ -2435,7 +2539,11 @@ def deny_rule(rule_id: str, approver: Optional[str] = None, reason: Optional[str
 
 
 @transactional_session
-def examine_rule(rule_id: str, *, session: "Session") -> dict[str, Any]:
+def examine_rule(
+    rule_id: str,
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Examine a replication rule for transfer errors.
 
@@ -2492,7 +2600,11 @@ def examine_rule(rule_id: str, *, session: "Session") -> dict[str, Any]:
 
 
 @transactional_session
-def get_evaluation_backlog(expiration_time: int = 600, *, session: "Session") -> tuple[int, datetime]:
+def get_evaluation_backlog(
+    expiration_time: int = 600,
+    *,
+    session: "Session"
+) -> tuple[int, datetime]:
     """
     Counts the number of entries in the rule evaluation backlog.
     (Number of files to be evaluated)
@@ -2513,7 +2625,12 @@ def get_evaluation_backlog(expiration_time: int = 600, *, session: "Session") ->
 
 
 @transactional_session
-def release_parent_rule(child_rule_id: str, remove_parent_expiration: bool = False, *, session: "Session") -> None:
+def release_parent_rule(
+    child_rule_id: str,
+    remove_parent_expiration: bool = False,
+    *,
+    session: "Session"
+) -> None:
     """
     Release a potential parent rule, because the child_rule is OK.
 
@@ -2600,17 +2717,18 @@ def list_rules_for_rse_decommissioning(
 
 
 @transactional_session
-def __find_missing_locks_and_create_them(datasetfiles: Sequence[dict[str, Any]],
-                                         locks: dict[tuple[str, str], Sequence[models.ReplicaLock]],
-                                         replicas: dict[tuple[str, str], Any],
-                                         source_replicas: dict[tuple[str, str], Any],
-                                         rseselector: RSESelector,
-                                         rule: models.ReplicationRule,
-                                         source_rses: Sequence[str],
-                                         *,
-                                         session: "Session",
-                                         logger: LoggerFunction = logging.log
-                                         ) -> None:
+def __find_missing_locks_and_create_them(
+    datasetfiles: Sequence[dict[str, Any]],
+    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
+    replicas: dict[tuple[InternalScope, str], Any],
+    source_replicas: dict[tuple[InternalScope, str], Any],
+    rseselector: RSESelector,
+    rule: models.ReplicationRule,
+    source_rses: Sequence[str],
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Find missing locks for a rule and create them.
 
@@ -2657,13 +2775,14 @@ def __find_missing_locks_and_create_them(datasetfiles: Sequence[dict[str, Any]],
 
 
 @transactional_session
-def __find_surplus_locks_and_remove_them(datasetfiles: Sequence[dict[str, Any]],
-                                         locks: dict[tuple[str, str], list[models.ReplicaLock]],
-                                         rule: models.ReplicationRule,
-                                         *,
-                                         session: "Session",
-                                         logger: LoggerFunction = logging.log
-                                         ) -> None:
+def __find_surplus_locks_and_remove_them(
+    datasetfiles: Sequence[dict[str, Any]],
+    locks: dict[tuple[InternalScope, str], list[models.ReplicaLock]],
+    rule: models.ReplicationRule,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Find surplocks locks for a rule and delete them.
 
@@ -2707,16 +2826,18 @@ def __find_surplus_locks_and_remove_them(datasetfiles: Sequence[dict[str, Any]],
 
 
 @transactional_session
-def __find_stuck_locks_and_repair_them(datasetfiles: Sequence[dict[str, Any]],
-                                       locks: dict[tuple[str, str], Sequence[models.ReplicaLock]],
-                                       replicas: dict[tuple[str, str], Any],
-                                       source_replicas: dict[tuple[str, str], Any],
-                                       rseselector: RSESelector,
-                                       rule: models.ReplicationRule,
-                                       source_rses: Sequence[str],
-                                       *,
-                                       session: "Session",
-                                       logger: LoggerFunction = logging.log) -> None:
+def __find_stuck_locks_and_repair_them(
+    datasetfiles: Sequence[dict[str, Any]],
+    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
+    replicas: dict[tuple[InternalScope, str], Any],
+    source_replicas: dict[tuple[InternalScope, str], Any],
+    rseselector: RSESelector,
+    rule: models.ReplicationRule,
+    source_rses: Sequence[str],
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Find stuck locks for a rule and repair them.
 
@@ -2775,11 +2896,12 @@ def __find_stuck_locks_and_repair_them(datasetfiles: Sequence[dict[str, Any]],
 
 
 @transactional_session
-def __evaluate_did_detach(eval_did: models.DataIdentifier,
-                          *,
-                          session: "Session",
-                          logger: LoggerFunction = logging.log
-                          ) -> None:
+def __evaluate_did_detach(
+    eval_did: models.DataIdentifier,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Evaluate a parent did which has children removed.
 
@@ -2868,7 +2990,12 @@ def __evaluate_did_detach(eval_did: models.DataIdentifier,
 
 
 @transactional_session
-def __oldest_file_under(scope: InternalScope, name: str, *, session: "Session") -> Optional[tuple[InternalScope, str]]:
+def __oldest_file_under(
+    scope: InternalScope,
+    name: str,
+    *,
+    session: "Session"
+) -> Optional[tuple[InternalScope, str]]:
     """
     Finds oldest file in oldest container/dataset in the container or the dataset, recursively.
     Oldest means attached to its parent first.
@@ -2892,7 +3019,12 @@ def __oldest_file_under(scope: InternalScope, name: str, *, session: "Session") 
 
 
 @transactional_session
-def __evaluate_did_attach(eval_did: models.DataIdentifier, *, session: "Session", logger: LoggerFunction = logging.log) -> None:
+def __evaluate_did_attach(
+    eval_did: models.DataIdentifier,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Evaluate a parent did which has new childs
 
@@ -3082,17 +3214,18 @@ def __evaluate_did_attach(eval_did: models.DataIdentifier, *, session: "Session"
 
 
 @transactional_session
-def __resolve_did_to_locks_and_replicas(did: models.DataIdentifier,
-                                        nowait: bool = False,
-                                        restrict_rses: Optional[Sequence[str]] = None,
-                                        source_rses: Optional[Sequence[str]] = None,
-                                        only_stuck: bool = False,
-                                        *,
-                                        session: "Session"
-                                        ) -> tuple[list[dict[str, Any]],
-                                                   dict[tuple[str, str], models.ReplicaLock],
-                                                   dict[tuple[str, str], Any],
-                                                   dict[tuple[str, str], str]]:
+def __resolve_did_to_locks_and_replicas(
+    did: models.DataIdentifier,
+    nowait: bool = False,
+    restrict_rses: Optional[Sequence[str]] = None,
+    source_rses: Optional[Sequence[str]] = None,
+    only_stuck: bool = False,
+    *,
+    session: "Session"
+) -> tuple[list[dict[str, Any]],
+           dict[tuple[str, str], models.ReplicaLock],
+           dict[tuple[str, str], models.RSEFileAssociation],
+           dict[tuple[str, str], str]]:
     """
     Resolves a did to its constituent childs and reads the locks and replicas of all the constituent files.
 
@@ -3189,16 +3322,17 @@ def __resolve_did_to_locks_and_replicas(did: models.DataIdentifier,
 
 
 @transactional_session
-def __resolve_dids_to_locks_and_replicas(dids: Sequence[models.DataIdentifierAssociation],
-                                         nowait: bool = False,
-                                         restrict_rses: Sequence[str] = [],
-                                         source_rses: Optional[Sequence[str]] = None,
-                                         *,
-                                         session: "Session"
-                                         ) -> tuple[list[dict[str, Any]],
-                                                    dict[tuple[str, str], models.ReplicaLock],
-                                                    dict[tuple[str, str], Any],
-                                                    dict[tuple[str, str], str]]:
+def __resolve_dids_to_locks_and_replicas(
+    dids: Sequence[models.DataIdentifierAssociation],
+    nowait: bool = False,
+    restrict_rses: Sequence[str] = [],
+    source_rses: Optional[Sequence[str]] = None,
+    *,
+    session: "Session"
+) -> tuple[list[dict[str, Any]],
+           dict[tuple[str, str], models.ReplicaLock],
+           dict[tuple[str, str], models.RSEFileAssociation],
+           dict[tuple[str, str], str]]:
     """
     Resolves a list of dids to its constituent childs and reads the locks and replicas of all the constituent files.
 
@@ -3310,18 +3444,19 @@ def __resolve_dids_to_locks_and_replicas(dids: Sequence[models.DataIdentifierAss
 
 
 @transactional_session
-def __create_locks_replicas_transfers(datasetfiles: Sequence[dict[str, Any]],
-                                      locks: dict[tuple[str, str], Sequence[models.ReplicaLock]],
-                                      replicas: dict[tuple[str, str], Any],
-                                      source_replicas: dict[tuple[str, str], Any],
-                                      rseselector: RSESelector,
-                                      rule: models.ReplicationRule,
-                                      preferred_rse_ids: Sequence[str] = [],
-                                      source_rses: Sequence[str] = [],
-                                      *,
-                                      session: "Session",
-                                      logger: LoggerFunction = logging.log
-                                      ) -> None:
+def __create_locks_replicas_transfers(
+    datasetfiles: Sequence[dict[str, Any]],
+    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
+    replicas: dict[tuple[InternalScope, str], Any],
+    source_replicas: dict[tuple[InternalScope, str], Any],
+    rseselector: RSESelector,
+    rule: models.ReplicationRule,
+    preferred_rse_ids: Sequence[str] = [],
+    source_rses: Sequence[str] = [],
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Apply a created replication rule to a set of files
 
@@ -3374,13 +3509,14 @@ def __create_locks_replicas_transfers(datasetfiles: Sequence[dict[str, Any]],
 
 
 @transactional_session
-def __delete_lock_and_update_replica(lock: models.ReplicaLock,
-                                     purge_replicas: bool = False,
-                                     nowait: bool = False,
-                                     *,
-                                     session: "Session",
-                                     logger: LoggerFunction = logging.log
-                                     ) -> bool:
+def __delete_lock_and_update_replica(
+    lock: models.ReplicaLock,
+    purge_replicas: bool = False,
+    nowait: bool = False,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> bool:
     """
     Delete a lock and update the associated replica.
 
@@ -3419,7 +3555,11 @@ def __delete_lock_and_update_replica(lock: models.ReplicaLock,
 
 
 @transactional_session
-def __create_rule_approval_email(rule: models.ReplicationRule, *, session: "Session") -> None:
+def __create_rule_approval_email(
+    rule: models.ReplicationRule,
+    *,
+    session: "Session"
+) -> None:
     """
     Create the rule notification email.
 
@@ -3505,11 +3645,12 @@ def __create_rule_approval_email(rule: models.ReplicationRule, *, session: "Sess
 
 
 @transactional_session
-def _create_recipients_list(rse_expression: str,
-                            filter_: Optional[str] = None,
-                            *,
-                            session: "Session"
-                            ) -> list[tuple[str, InternalAccount]]:
+def _create_recipients_list(
+    rse_expression: str,
+    filter_: Optional[str] = None,
+    *,
+    session: "Session"
+) -> list[tuple[str, Union[str, InternalAccount]]]:
     """
     Create a list of recipients for a notification email based on rse_expression.
 
@@ -3602,12 +3743,13 @@ def __progress_class(replicating_locks, total_locks):
 
 @policy_filter
 @transactional_session
-def archive_localgroupdisk_datasets(scope: InternalScope,
-                                    name: str,
-                                    *,
-                                    session: "Session",
-                                    logger: LoggerFunction = logging.log
-                                    ) -> None:
+def archive_localgroupdisk_datasets(
+    scope: InternalScope,
+    name: str,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     ATLAS policy to archive a dataset which has a replica on LOCALGROUPDISK
 
@@ -3675,7 +3817,13 @@ def archive_localgroupdisk_datasets(scope: InternalScope,
 
 @policy_filter
 @read_session
-def get_scratch_policy(account: str, rses: Sequence[dict[str, Any]], lifetime: int, *, session: "Session") -> int:
+def get_scratch_policy(
+    account: InternalAccount,
+    rses: Sequence[dict[str, Any]],
+    lifetime: Optional[int],
+    *,
+    session: "Session"
+) -> Optional[int]:
     """
     ATLAS policy for rules on SCRATCHDISK
 

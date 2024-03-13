@@ -26,6 +26,7 @@ import rucio.core.lock
 import rucio.core.replica
 from rucio.common.config import config_get_int
 from rucio.common.exception import InsufficientTargetRSEs
+from rucio.common.types import InternalScope
 from rucio.core import account_counter, rse_counter, request as request_core
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rse import get_rse, get_rse_attribute, get_rse_name
@@ -38,13 +39,19 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def apply_rule_grouping(datasetfiles: Sequence[dict[str, Any]], locks: dict[tuple[str, str], models.ReplicaLock],
-                        replicas: dict[tuple[str, str], Any], source_replicas: dict[tuple[str, str], Any],
-                        rseselector: RSESelector, rule: models.ReplicationRule, preferred_rse_ids: Sequence[str] = [],
-                        source_rses: Sequence[str] = [], *,
-                        session: "Session") -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
-                                                     dict[str, list[dict[str, models.ReplicaLock]]],
-                                                     list[dict[str, Any]]]:
+def apply_rule_grouping(
+    datasetfiles: Sequence[dict[str, Any]],
+    locks: dict[tuple[InternalScope, str], models.ReplicaLock],
+    replicas: dict[tuple[InternalScope, str], Any],
+    source_replicas: dict[tuple[InternalScope, str], Any],
+    rseselector: RSESelector, rule: models.ReplicationRule,
+    preferred_rse_ids: Sequence[str] = [],
+    source_rses: Sequence[str] = [],
+    *,
+    session: "Session"
+) -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
+           dict[str, list[dict[str, models.ReplicaLock]]],
+           list[dict[str, Any]]]:
     """
     Apply rule grouping to files.
 
@@ -104,13 +111,19 @@ def apply_rule_grouping(datasetfiles: Sequence[dict[str, Any]], locks: dict[tupl
 
 
 @transactional_session
-def repair_stuck_locks_and_apply_rule_grouping(datasetfiles: Sequence[dict[str, Any]], locks: dict[tuple[str, str], models.ReplicaLock],
-                                               replicas: dict[tuple[str, str], Any], source_replicas: dict[tuple[str, str], Any],
-                                               rseselector: RSESelector, rule: models.ReplicationRule, source_rses: Sequence[str], *,
-                                               session: "Session") -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
-                                                                            dict[str, list[dict[str, models.ReplicaLock]]],
-                                                                            list[dict[str, Any]],
-                                                                            dict[str, list[dict[str, models.ReplicaLock]]]]:
+def repair_stuck_locks_and_apply_rule_grouping(
+    datasetfiles: Sequence[dict[str, Any]],
+    locks: dict[tuple[InternalScope, str], models.ReplicaLock],
+    replicas: dict[tuple[InternalScope, str], Any],
+    source_replicas: dict[tuple[InternalScope, str], Any],
+    rseselector: RSESelector, rule: models.ReplicationRule,
+    source_rses: Sequence[str],
+    *,
+    session: "Session"
+) -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
+           dict[str, list[dict[str, models.ReplicaLock]]],
+           list[dict[str, Any]],
+           dict[str, list[dict[str, models.ReplicaLock]]]]:
     """
     Apply rule grouping to files.
 
