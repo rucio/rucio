@@ -792,7 +792,7 @@ def inject_rule(rule_id: str, *, session: "Session", logger: LoggerFunction = lo
 
 
 @stream_session
-def list_rules(filters: dict[str, Any] = {}, *, session: "Session") -> Iterator[dict]:
+def list_rules(filters: Optional[dict[str, Any]] = None, *, session: "Session") -> Iterator[dict[str, Any]]:
     """
     List replication rules.
 
@@ -811,7 +811,7 @@ def list_rules(filters: dict[str, Any] = {}, *, session: "Session") -> Iterator[
             models.ReplicationRule.name == models.DataIdentifier.name
         )
     )
-    if filters:
+    if filters is not None:
         for (key, value) in filters.items():
             if key in ['account', 'scope']:
                 if '*' in value.internal:
