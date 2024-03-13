@@ -797,6 +797,22 @@ class SurlAlgorithms(PolicyPackageAlgorithms):
         return stripped_dsn
 
     @staticmethod
+    def __strip_tag(tag: str) -> str:
+        """
+        Drop the _sub and _dis suffixes for panda datasets from the lfc path
+        they will be registered in
+        Method imported from DQ2.
+        """
+        suffixes_to_drop = ['_dis', '_sub', '_tid']
+        stripped_tag = tag
+        try:
+            for suffix in suffixes_to_drop:
+                stripped_tag = re.sub('%s.*$' % suffix, '', stripped_tag)
+        except IndexError:
+            return stripped_tag
+        return stripped_tag
+
+    @staticmethod
     def construct_surl_DQ2(dsn: str, scope: str, filename: str) -> str:
         """
         Defines relative SURL for new replicas. This method
@@ -831,7 +847,7 @@ class SurlAlgorithms(PolicyPackageAlgorithms):
             if nfields == 5:
                 tag = 'other'
             else:
-                tag = __strip_tag(fields[-1])
+                tag = SurlAlgorithms.__strip_tag(fields[-1])
             stripped_dsn = SurlAlgorithms.__strip_dsn(dsn)
             return '/%s/%s/%s/%s/%s' % (project, dataset_type, tag, stripped_dsn, filename)
 
@@ -888,22 +904,6 @@ def construct_surl(dsn: str, scope: str, filename: str, naming_convention: str =
     if naming_convention is None or not SurlAlgorithms.supports(naming_convention):
         naming_convention = _DEFAULT_SURL
     return surl_algorithms.construct_surl(dsn, scope, filename, naming_convention)
-
-
-def __strip_tag(tag):
-    """
-    Drop the _sub and _dis suffixes for panda datasets from the lfc path
-    they will be registered in
-    Method imported from DQ2.
-    """
-    suffixes_to_drop = ['_dis', '_sub', '_tid']
-    stripped_tag = tag
-    try:
-        for suffix in suffixes_to_drop:
-            stripped_tag = re.sub('%s.*$' % suffix, '', stripped_tag)
-    except IndexError:
-        return stripped_tag
-    return stripped_tag
 
 
 def clean_surls(surls):
