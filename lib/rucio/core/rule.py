@@ -1856,7 +1856,7 @@ def get_injected_rules(total_workers: int,
                        blocked_rules: Sequence[str] = [],
                        *,
                        session: "Session"
-                       ) -> list[tuple[str, str]]:
+                       ) -> list[str]:
     """
     Get rules to be injected.
 
@@ -1877,7 +1877,7 @@ def get_injected_rules(total_workers: int,
 
     if limit:
         fetched_rules = query.limit(limit).all()
-        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blocked_rules]
+        filtered_rules = [rule[0] for rule in fetched_rules if rule[0] not in blocked_rules]
         if len(fetched_rules) == limit and not filtered_rules:
             return get_injected_rules(total_workers=total_workers,
                                       worker_number=worker_number,
@@ -1887,7 +1887,7 @@ def get_injected_rules(total_workers: int,
         else:
             return filtered_rules
     else:
-        return [rule for rule in query.all() if rule[0] not in blocked_rules]
+        return [rule[0] for rule in query.all() if rule[0] not in blocked_rules]
 
 
 @read_session
@@ -1898,7 +1898,7 @@ def get_stuck_rules(total_workers: int,
                     blocked_rules: Sequence[str] = [],
                     *,
                     session: "Session"
-                    ) -> list[tuple[str, str]]:
+                    ) -> list[str]:
     """
     Get stuck rules.
 
@@ -1922,7 +1922,7 @@ def get_stuck_rules(total_workers: int,
 
     if limit:
         fetched_rules = query.limit(limit).all()
-        filtered_rules = [rule for rule in fetched_rules if rule[0] not in blocked_rules]
+        filtered_rules = [rule[0] for rule in fetched_rules if rule[0] not in blocked_rules]
         if len(fetched_rules) == limit and not filtered_rules:
             return get_stuck_rules(total_workers=total_workers,
                                    worker_number=worker_number,
@@ -1933,7 +1933,7 @@ def get_stuck_rules(total_workers: int,
         else:
             return filtered_rules
     else:
-        return [rule for rule in query.all() if rule[0] not in blocked_rules]
+        return [rule[0] for rule in query.all() if rule[0] not in blocked_rules]
 
 
 @transactional_session

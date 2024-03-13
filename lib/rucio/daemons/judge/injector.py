@@ -85,9 +85,8 @@ def run_once(paused_rules, heartbeat_handler, **_kwargs):
         logger(logging.DEBUG, 'did not get any work (paused_rules=%s)' % str(len(paused_rules)))
         return
 
-    for rule in rules:
+    for rule_id in rules:
         _, _, logger = heartbeat_handler.live()
-        rule_id = rule[0]
         logger(logging.INFO, 'Injecting rule %s' % rule_id)
         if graceful_stop.is_set():
             break
