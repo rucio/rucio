@@ -37,7 +37,7 @@ REGION = make_region_memcached(expiration_time=900)
 METRICS = MetricManager(module=__name__)
 
 
-def get_signed_url(rse_id: str, service: str, operation: str, url: str, lifetime=600) -> str:
+def get_signed_url(rse_id: str, service: str, operation: str, url: str, lifetime: int = 600) -> str:
     """
     Get a signed URL for a particular service and operation.
 
@@ -87,8 +87,8 @@ def get_signed_url(rse_id: str, service: str, operation: str, url: str, lifetime
         else:
             # GCS is timezone-sensitive, don't use UTC
             # has to be converted to Unixtime
-            lifetime = datetime.datetime.now() + datetime.timedelta(seconds=lifetime)
-            lifetime = int(time.mktime(lifetime.timetuple()))
+            lifetime_datetime = datetime.datetime.now() + datetime.timedelta(seconds=lifetime)
+            lifetime = int(time.mktime(lifetime_datetime.timetuple()))
 
         # sign the path only
         path = components.path
