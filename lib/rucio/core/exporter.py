@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from rucio.core import rse as rse_module, distance as distance_module
 from rucio.db.sqla.session import transactional_session
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def export_rses(vo='def', *, session: "Session"):
+def export_rses(vo: str = 'def', *, session: "Session") -> dict[str, dict[str, Any]]:
     """
     Export RSE data.
 
@@ -39,7 +39,7 @@ def export_rses(vo='def', *, session: "Session"):
 
 
 @transactional_session
-def export_data(vo='def', distance=True, *, session: "Session"):
+def export_data(vo: str = 'def', distance: bool = True, *, session: "Session") -> dict[str, Any]:
     """
     Export data.
 
