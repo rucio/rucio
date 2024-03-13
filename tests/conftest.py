@@ -31,7 +31,7 @@ pytest_plugins = ('tests.ruciopytest.artifacts_plugin', )
 
 def pytest_configure(config):
     config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
-    config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests' )
+    config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests')
 
     if config.pluginmanager.hasplugin("xdist"):
         from .ruciopytest import xdist_noparallel_scheduler
@@ -579,3 +579,45 @@ def metrics_mock():
             mock.patch('rucio.core.monitor.TIMINGS', new={}), \
             mock.patch('prometheus_client.values.ValueClass', new=values.MutexValue):
         yield registry
+
+
+@pytest.fixture
+def upload_success_str():
+    return lambda x: f'Successfully uploaded file {x}'
+
+
+@pytest.fixture
+def account_name_generator():
+    from rucio.common.utils import generate_uuid
+    return lambda: 'jdoe-' + str(generate_uuid()).lower()[:16]
+
+
+@pytest.fixture
+def scope_name_generator():
+    from rucio.common.utils import generate_uuid
+    return lambda: 'mock_' + str(generate_uuid()).lower()[:16]
+
+
+@pytest.fixture
+def rse_name_generator():
+    def generator(size=10):
+        return 'MOCK-' + ''.join(choice(ascii_uppercase) for _ in range(size))
+    return generator
+
+
+@pytest.fixture
+def client_rse_factory(rse_client, rse_factory):
+    """
+    Makes an rse factory that does not require a new session
+    """
+    if environ.get('SUITE', 'remote_dbs') != 'client':
+        yield rse_factory
+    else:
+        # MOCK4 always exists and is defined as a posix
+        class MockRSEFactory:
+            @staticmethod
+            def make_posix_rse():
+                def_rse_name = 'MOCK4'
+                def_rse_id = rse_client.get_rse(rse=def_rse_name)['id']
+                return def_rse_name, def_rse_id
+        yield MockRSEFactory
