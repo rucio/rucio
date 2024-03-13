@@ -31,9 +31,8 @@ from rucio.core import message as message_core
 from rucio.core import replica as replica_core
 from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
-from rucio.daemons.reaper.reaper import reaper
+from rucio.daemons.reaper.reaper import Reaper
 from rucio.daemons.reaper.dark_reaper import reaper as dark_reaper
-from rucio.daemons.reaper.reaper import run as run_reaper
 from rucio.db.sqla.models import ConstituentAssociationHistory
 from rucio.db.sqla.session import read_session
 from rucio.tests.common import rse_name_generator, skip_rse_tests_with_accounts
@@ -90,14 +89,15 @@ def test_reaper(vo, caches_mock, message_mock):
     # Check first if the reaper does not delete anything if no space is needed
     cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
+    reaper = Reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
+    reaper._call_daemon()
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
     # Now put it over threshold and delete
     cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
+    reaper._call_daemon()
+    reaper._call_daemon()
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 200
 
     msgs = message_core.retrieve_messages()
@@ -128,14 +128,15 @@ def test_reaper_bulk_delete(vo, caches_mock):
     # Check first if the reaper does not delete anything if no space is needed
     cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
+    reaper = Reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
+    reaper._call_daemon()
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
     # Now put it over threshold and delete
     cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
+    reaper._call_daemon()
+    reaper._call_daemon()
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 200
 
 
@@ -167,7 +168,8 @@ def test_reaper_multi_vo_via_run(vo, second_vo, scope_factory, caches_mock):
 
     # Check we reap all VOs by default
     cache_region.invalidate()
-    run_reaper(once=True, rses=[rse_name])
+    reaper = Reaper(once=True, rses=[rse_name])
+    reaper.run()
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == 25
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
 
@@ -200,7 +202,8 @@ def test_reaper_affect_other_vo_via_run(vo, second_vo, scope_factory, caches_moc
 
     # Check we don't affect a second VO that isn't specified
     cache_region.invalidate()
-    run_reaper(once=True, rses=[rse_name], vos=['new'])
+    reaper = Reaper(once=True, rses=[rse_name], vos=['new'])
+    reaper.run()
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
     assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
 
@@ -229,8 +232,9 @@ def test_reaper_multi_vo(vo, second_vo, scope_factory, caches_mock):
     rse_core.set_rse_usage(rse_id=rse1_id, source='storage', used=nb_files * file_size, free=1)
     rse_core.set_rse_usage(rse_id=rse2_id, source='storage', used=nb_files * file_size, free=1)
     both_rses = '%s|%s' % (rse1_name, rse2_name)
-    reaper(once=True, rses=[], include_rses=both_rses, exclude_rses=None)
-    reaper(once=True, rses=[], include_rses=both_rses, exclude_rses=None)
+    reaper = Reaper(once=True, rses=[], include_rses=both_rses, exclude_rses=None)
+    reaper._call_daemon()
+    reaper._call_daemon()
     assert len(list(replica_core.list_replicas(dids=dids1, rse_expression=both_rses))) == 200
     assert len(list(replica_core.list_replicas(dids=dids2, rse_expression=both_rses))) == 200
 
@@ -295,7 +299,8 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     cache_region.invalidate()
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=2 * archive_size + nb_c_outside_archive * constituent_size)
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=2 * archive_size + nb_c_outside_archive * constituent_size, free=1)
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
+    reaper = Reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
+    reaper._call_daemon()
     for did in constituents + [archive1, archive2]:
         assert did_core.get_did(**did)
     for did in [archive1, archive2, c_with_replica, c_with_replica_and_rule]:
@@ -322,7 +327,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     cache_region.invalidate()
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=2 * archive_size + nb_c_outside_archive * constituent_size)
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=2 * archive_size + nb_c_outside_archive * constituent_size, free=1)
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
+    reaper._call_daemon()
     with pytest.raises(DataIdentifierNotFound):
         assert did_core.get_did(**archive1)
     with pytest.raises(DataIdentifierNotFound):
@@ -343,7 +348,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     cache_region.invalidate()
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=archive_size + nb_c_outside_archive * constituent_size)
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=archive_size + nb_c_outside_archive * constituent_size, free=1)
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
+    reaper._call_daemon()
     # The archive must be removed
     with pytest.raises(DataIdentifierNotFound):
         assert did_core.get_did(**archive2)
@@ -394,7 +399,8 @@ def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock
 
     reaper_cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, greedy=True)
+    reaper = Reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, greedy=True)
+    reaper._call_daemon()
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == 0
 
     file_clause = []
@@ -446,7 +452,8 @@ def test_run_on_non_existing_scheme(vo, caches_mock):
     # The reaper will set a flag pause_deletion_<rse_id>
     cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='https')
+    reaper = Reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='https')
+    reaper._call_daemon()
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 250
     assert cache_region.get('pause_deletion_%s' % rse_id)
 
@@ -470,7 +477,8 @@ def test_reaper_without_rse_usage(vo, caches_mock):
 
     # Check first if the reaper does not delete anything if there's nothing obsolete
     cache_region.invalidate()
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
+    reaper = Reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
+    reaper._call_daemon()
     assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
 
     # Now set Epoch tombstone for a few replicas
@@ -480,7 +488,7 @@ def test_reaper_without_rse_usage(vo, caches_mock):
 
     # The reaper should delete the replica with Epoch tombstone even if the rse_usage is not set
     cache_region.invalidate()
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
+    reaper._call_daemon()
     assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == nb_files - nb_epoch_tombstone
 
 
@@ -499,4 +507,5 @@ def test_deletion_with_tokens(vo, did_factory, root_account, caches_mock, file_c
     for rule in list(rule_core.list_associated_rules_for_file(**did)):
         rule_core.delete_rule(rule['id'])
 
-    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, greedy=True, scheme='davs')
+    reaper = Reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, greedy=True, scheme='davs')
+    reaper._call_daemon()

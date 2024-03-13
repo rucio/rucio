@@ -1834,7 +1834,7 @@ class TestBinRucio:
         """ CLIENT (USER): list account usage. """
         from rucio.db.sqla import session, models
         from rucio.core.account_counter import increase
-        from rucio.daemons.abacus import account as abacus_account
+        from rucio.daemons.abacus.account import AbacusAccount
 
         db_session = session.get_session()
         db_session.query(models.AccountUsage).delete()
@@ -1854,7 +1854,7 @@ class TestBinRucio:
         self.account_client.set_local_account_limit(account, rse, local_limit)
         self.account_client.set_global_account_limit(account, rse_exp, global_limit)
         increase(rse_id, InternalAccount(account, **self.vo), 1, usage)
-        abacus_account.run(once=True)
+        AbacusAccount(once=True).run()
         cmd = 'rucio list-account-usage {0}'.format(account)
         exitcode, out, err = execute(cmd)
         assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None

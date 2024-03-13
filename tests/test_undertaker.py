@@ -26,12 +26,11 @@ from rucio.core.replica import add_replicas, get_replica
 from rucio.core.rse import add_rse
 from rucio.core.rule import add_rules, list_rules
 from rucio.daemons.judge.cleaner import rule_cleaner
-from rucio.daemons.undertaker.undertaker import undertaker
+from rucio.daemons.undertaker.undertaker import Undertaker
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import rse_name_generator, did_name_generator
 
 LOG = getLogger(__name__)
-
 
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='uses pre-defined rses; runs undertaker, which impacts other tests')
@@ -75,8 +74,9 @@ class TestUndertaker:
 
         add_rules(dids=dsns1, rules=[{'account': jdoe_account, 'copies': 1, 'rse_expression': rse, 'grouping': 'DATASET'}])
 
-        undertaker(once=True)
-        undertaker(once=True)
+        undertaker = Undertaker(once=True)
+        undertaker._call_daemon()
+        undertaker._call_daemon()
 
         for replica in replicas:
             assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse_id)['tombstone'] is not None
@@ -132,7 +132,9 @@ class TestUndertaker:
             attach_dids(scope=mock_scope, name=dsn['name'], rse_id=rse_id, dids=files, account=root_account)
             replicas += files
 
-        undertaker(once=True)
+        undertaker = Undertaker(once=True)
+        undertaker._call_daemon()
+        undertaker._call_daemon()
 
         for replica in replicas:
             assert (get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse_id)['tombstone'] is None)
@@ -183,8 +185,11 @@ def test_removal_all_replicas2(rse_factory, root_account, mock_scope, core_confi
     rule_cleaner(once=True)
     for replica in replicas:
         assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse2_id)['tombstone'] is not None
-    undertaker(once=True)
-    undertaker(once=True)
+
+
+    undertaker = Undertaker(once=True)
+    undertaker._call_daemon()
+    undertaker._call_daemon()
 
     for replica in replicas:
         assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse1_id)['tombstone'] == datetime(year=1970, month=1, day=1)

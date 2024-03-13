@@ -42,7 +42,7 @@ from rucio.core.rse import add_rse_attribute, add_rse, update_rse, get_rse_id, d
 from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule, move_rule, list_rules
 from rucio.core.scope import add_scope
-from rucio.daemons.abacus.account import account_update
+from rucio.daemons.abacus.account import AbacusAccount
 from rucio.daemons.abacus.rse import rse_update
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.db.sqla import models
@@ -606,7 +606,7 @@ class TestCore:
     def test_account_counter_rule_create(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when new rule is created"""
 
-        account_update(once=True)
+        AbacusAccount(once=True).run()
         account_counter_before = get_usage(self.rse1_id, jdoe_account)
 
         files = create_files(3, mock_scope, self.rse1_id, bytes_=100)
@@ -617,7 +617,7 @@ class TestCore:
         add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         # Check if the counter has been updated correctly
-        account_update(once=True)
+        AbacusAccount(once=True).run()
         account_counter_after = get_usage(self.rse1_id, jdoe_account)
         assert (account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes'])
         assert (account_counter_before['files'] + 3 == account_counter_after['files'])
@@ -633,11 +633,11 @@ class TestCore:
 
         rule_id = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
-        account_update(once=True)
+        AbacusAccount(once=True).run()
         account_counter_before = get_usage(self.rse1_id, jdoe_account)
 
         delete_rule(rule_id)
-        account_update(once=True)
+        AbacusAccount(once=True).run()
 
         # Check if the counter has been updated correctly
         account_counter_after = get_usage(self.rse1_id, jdoe_account)
@@ -655,12 +655,12 @@ class TestCore:
 
         rule_id = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
-        account_update(once=True)
+        AbacusAccount(once=True).run()
         account_counter_before_1 = get_usage(self.rse1_id, jdoe_account)
         account_counter_before_2 = get_usage(self.rse1_id, root_account)
 
         rucio.api.rule.update_replication_rule(rule_id, {'account': 'root'}, issuer='root', vo=vo)
-        account_update(once=True)
+        AbacusAccount(once=True).run()
 
         # Check if the counter has been updated correctly
         account_counter_after_1 = get_usage(self.rse1_id, jdoe_account)

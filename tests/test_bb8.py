@@ -30,7 +30,7 @@ from rucio.daemons.bb8.common import rebalance_rule
 from rucio.daemons.bb8.bb8 import run as bb8_run
 from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.daemons.judge.evaluator import re_evaluator
-from rucio.daemons.undertaker import undertaker
+from rucio.daemons.undertaker.undertaker import Undertaker
 from rucio.db.sqla.constants import RuleState
 from .test_rule import create_files, tag_generator
 
@@ -92,7 +92,8 @@ def test_bb8_rebalance_rule(vo, root_account, jdoe_account, rse_factory, mock_sc
     rule_cleaner(once=True)
     assert (get_rule(child_rule)['state'] == RuleState.OK)
     set_metadata(mock_scope, dataset['name'], 'lifetime', -86400)
-    undertaker.run(once=True)
+    undertaker = Undertaker(once=True)
+    undertaker.run()
 
 
 @pytest.mark.noparallel(reason='uses daemons')
@@ -267,4 +268,5 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
 
     for dataset in dsn:
         set_metadata(mock_scope, dataset, 'lifetime', -86400)
-    undertaker.run(once=True)
+    undertaker = Undertaker(once=True)
+    undertaker.run()

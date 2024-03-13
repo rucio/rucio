@@ -19,7 +19,7 @@ from rucio.common.schema import get_schema_value
 from rucio.core.rse import get_rse_usage
 from rucio.daemons.abacus.rse import rse_update
 from rucio.daemons.judge import cleaner
-from rucio.daemons.reaper import reaper
+from rucio.daemons.reaper.reaper import Reaper
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
 
@@ -57,9 +57,11 @@ class TestAbacusRSE():
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
         cleaner.run(once=True)
         if vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (str(vo), rse), greedy=True)
+            reaper = Reaper(once=True, include_rses='vo=%s&(%s)' % (str(vo), rse), greedy=True)
+            reaper.run()
         else:
-            reaper.run(once=True, include_rses=rse, greedy=True)
+            reaper = Reaper(once=True, include_rses=rse, greedy=True)
+            reaper.run()
         rse_update(once=True)
         rse_usage = get_rse_usage(rse_id=rse_id)[0]
         assert rse_usage['used'] == 0

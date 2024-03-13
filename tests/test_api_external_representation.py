@@ -39,7 +39,7 @@ from rucio.common.utils import api_update_return_dict, generate_uuid
 from rucio.core.vo import add_vo, vo_exists
 from rucio.daemons.abacus import rse as abacus_rse
 from rucio.daemons.judge import cleaner
-from rucio.daemons.reaper import reaper
+from rucio.daemons.reaper.reaper import Reaper
 from rucio.db.sqla import constants
 from rucio.tests.common import rse_name_generator, did_name_generator
 
@@ -398,9 +398,11 @@ class TestApiExternalRepresentation:
         # clean up files
         cleaner.run(once=True)
         if vo2:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (vo, rse_mock), greedy=True)
+            reaper = Reaper(once=True, include_rses='vo=%s&(%s)' % (vo, rse_mock), greedy=True)
+            reaper.run()
         else:
-            reaper.run(once=True, include_rses=rse_mock, greedy=True)
+            reaper = Reaper(once=True, include_rses=rse_mock, greedy=True)
+            reaper.run()
         abacus_rse.run(once=True)
 
         out = api_rse.parse_rse_expression(f'{rse1}|{rse2}', vo=vo)

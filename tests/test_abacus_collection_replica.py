@@ -22,8 +22,9 @@ from rucio.core.did import add_did, get_did
 from rucio.core.replica import delete_replicas, get_cleaned_updated_collection_replicas
 from rucio.daemons.abacus import collection_replica
 from rucio.daemons.judge import cleaner
-from rucio.daemons.reaper import reaper
-from rucio.daemons.undertaker import undertaker
+import rucio.daemons.reaper.reaper
+from rucio.daemons.reaper.reaper import Reaper
+from rucio.daemons.undertaker.undertaker import Undertaker
 from rucio.db.sqla import models, session
 from rucio.db.sqla.constants import DIDType, ReplicaState
 from rucio.tests.common import did_name_generator
@@ -55,12 +56,16 @@ class TestAbacusCollectionReplica():
         db_session.commit()
         assert len(get_cleaned_updated_collection_replicas(1, 1)) == 3
         did_client.set_metadata(mock_scope.external, dataset, 'lifetime', -1)
-        undertaker.run(once=True)
+        undertaker = Undertaker(once=True)
+        undertaker.run()
         cleaner.run(once=True)
         if vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s|%s)' % (str(vo), rse1, rse2), greedy=True)
+
+            reaper = Reaper(once=True, include_rses='vo=%s&(%s|%s)' % (str(vo), rse1, rse2), greedy=True)
+            reaper.run()
         else:
-            reaper.run(once=True, include_rses='(%s|%s)' % (rse1, rse2), greedy=True)
+            reaper = Reaper(once=True, include_rses='(%s|%s)' % (rse1, rse2), greedy=True)
+            reaper.run()
 
     def test_abacus_collection_replica(self, vo, mock_scope, rse_factory, did_factory, rucio_client):
         """ ABACUS (COLLECTION REPLICA): Test update of collection replica. """
@@ -110,11 +115,13 @@ class TestAbacusCollectionReplica():
         # Delete all files -> collection replica should be deleted
         # Old behaviour (doesn't delete the DID)
         cleaner.run(once=True)
-        reaper.REGION.invalidate()
+        rucio.daemons.reaper.reaper.REGION.invalidate()
         if vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (str(vo), rse), greedy=True)
+            reaper = Reaper(once=True, include_rses='vo=%s&(%s)' % (str(vo), rse), greedy=True)
+            reaper.run()
         else:
-            reaper.run(once=True, include_rses=rse, greedy=True)
+            reaper = Reaper(once=True, include_rses=rse, greedy=True)
+            reaper.run()
         activity = get_schema_value('ACTIVITY')['enum'][0]
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
         collection_replica.run(once=True)

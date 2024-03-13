@@ -1090,3 +1090,13 @@ class DeprecationError(RucioException):
         super(DeprecationError, self).__init__(*args, **kwargs)
         self._message = 'Command or function has been deprecated.'
         self.error_code = 105
+
+
+class ReaperNoRSEsToProcess(RucioException):
+    """
+    Reaper found no RSEs to process.
+    """
+    def __init__(self, *args, **kwargs):
+        super(ReaperNoRSEsToProcess, self).__init__(*args, **kwargs)
+        self._message = 'Reaper: No RSEs to process found.'
+        self.error_code = 106

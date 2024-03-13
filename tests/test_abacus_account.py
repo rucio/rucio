@@ -20,9 +20,9 @@ from rucio.common.schema import get_schema_value
 from rucio.core.account import get_usage_history
 from rucio.core.account_counter import update_account_counter_history
 from rucio.core.account_limit import get_local_account_usage, set_local_account_limit
-from rucio.daemons.abacus.account import account_update
+from rucio.daemons.abacus.account import AbacusAccount
 from rucio.daemons.judge import cleaner
-from rucio.daemons.reaper import reaper
+from rucio.daemons.reaper.reaper import Reaper
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
 
@@ -45,7 +45,7 @@ class TestAbacusAccount2():
         dataset = dids[0]['dataset_name']
         activity = get_schema_value('ACTIVITY')['enum'][0]
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
-        account_update(once=True)
+        AbacusAccount(once=True).run()
         account_usage = get_local_account_usage(account=root_account, rse_id=rse_id)[0]
         assert account_usage['bytes'] == nfiles * file_sizes
         assert account_usage['files'] == nfiles
@@ -63,7 +63,7 @@ class TestAbacusAccount2():
 
         # Delete rules -> account usage should decrease
         cleaner.run(once=True)
-        account_update(once=True)
+        AbacusAccount(once=True).run()
         # set account limit because return value of get_local_account_usage differs if a limit is set or not
         set_local_account_limit(account=root_account, rse_id=rse_id, bytes_=10)
         account_usages = get_local_account_usage(account=root_account, rse_id=rse_id)[0]
@@ -71,6 +71,8 @@ class TestAbacusAccount2():
         assert account_usages['files'] == 0
 
         if vo:
-            reaper.run(once=True, include_rses='vo=%s&(%s)' % (str(vo), rse), greedy=True)
+            reaper = Reaper(once=True, include_rses='vo=%s&(%s)' % (str(vo), rse), greedy=True)
+            reaper.run()
         else:
-            reaper.run(once=True, include_rses=rse, greedy=True)
+            reaper = Reaper(once=True, include_rses='vo=%s&(%s)' % (str(vo), rse), greedy=True)
+            reaper.run()

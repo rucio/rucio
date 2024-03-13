@@ -21,7 +21,7 @@ Judge-Repairer is a daemon to repair stuck replication rules.
 import argparse
 import signal
 
-from rucio.daemons.judge.repairer import run, stop
+from rucio.daemons.judge.repairer import JudgeRepairer
 
 
 def get_parser():
@@ -36,10 +36,12 @@ def get_parser():
 
 
 if __name__ == "__main__":
-    signal.signal(signal.SIGTERM, stop)
     parser = get_parser()
     args = parser.parse_args()
+    judge_repairer = JudgeRepairer(once=args.run_once, threads=args.threads, sleep_time=args.sleep_time)
+    signal.signal(signal.SIGTERM, judge_repairer.stop)
+    signal.signal(signal.SIGINT, judge_repairer.stop)
     try:
-        run(once=args.run_once, threads=args.threads, sleep_time=args.sleep_time)
+        judge_repairer.run()
     except KeyboardInterrupt:
-        stop()
+        judge_repairer.stop()
