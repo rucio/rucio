@@ -35,23 +35,23 @@ REGION = make_region_memcached(expiration_time=900)
 SECTIONS_CACHE_KEY = 'sections'
 
 
-def _has_section_cache_key(section):
+def _has_section_cache_key(section: str) -> str:
     return 'has_section_%s' % section
 
 
-def _options_cache_key(section):
+def _options_cache_key(section: str) -> str:
     return 'options_%s' % section
 
 
-def _has_option_cache_key(section, option):
+def _has_option_cache_key(section: str, option: str) -> str:
     return 'has_option_%s_%s' % (section, option)
 
 
-def _items_cache_key(section):
+def _items_cache_key(section: str) -> str:
     return 'items_%s' % section
 
 
-def _value_cache_key(section, option):
+def _value_cache_key(section: str, option: str) -> str:
     return 'get_%s_%s' % (section, option)
 
 
@@ -61,7 +61,7 @@ def sections(
         use_cache: bool = True,
         expiration_time: int = 900,
         session: "Session"
-):
+) -> list[str]:
     """
     Return a list of the sections available.
 
@@ -83,7 +83,7 @@ def sections(
 
 
 @transactional_session
-def add_section(section: str, *, session: "Session"):
+def add_section(section: str, *, session: "Session") -> None:
     """
     Add a section to the configuration.
     :param session: The database session in use.
@@ -151,13 +151,13 @@ def options(
 
 @read_session
 def has_option(
-        section,
-        option,
+        section: str,
+        option: str,
         *,
-        use_cache=True,
-        expiration_time=900,
+        use_cache: bool = True,
+        expiration_time: int = 900,
         session: "Session"
-):
+) -> bool:
     """
     Check if the given section exists and contains the given option.
 
@@ -260,7 +260,7 @@ def set(
         value: Any,
         *,
         session: "Session"
-):
+) -> None:
     """
     Set the given option to the specified value. If the option doesn't exist, it is created.
 
@@ -353,7 +353,7 @@ def remove_option(section: str, option: str, *, session: "Session") -> bool:
         return True
 
 
-def read_from_cache(key, expiration_time=900):
+def read_from_cache(key: str, expiration_time: int = 900) -> Any:
     """
     Try to read a value from a cache.
 
@@ -365,7 +365,7 @@ def read_from_cache(key, expiration_time=900):
     return value
 
 
-def write_to_cache(key, value):
+def write_to_cache(key: str, value: Any) -> None:
     """
     Set a value on a key in a cache.
 
@@ -376,7 +376,7 @@ def write_to_cache(key, value):
     REGION.set(key, value)
 
 
-def delete_from_cache(key):
+def delete_from_cache(key: str) -> None:
     """
     Delete from cache any data stored for the given key
 
