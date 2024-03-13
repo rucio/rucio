@@ -22,9 +22,9 @@ from datetime import datetime, timedelta
 from os import path
 from re import match
 from string import Template
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Type, TypeVar, Union
 
-from dogpile.cache.api import NO_VALUE
+from dogpile.cache.api import NoValue
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.exc import NoResultFound  # https://pydoc.dev/sqlalchemy/latest/sqlalchemy.exc.NoResultFound.html
@@ -2422,14 +2422,16 @@ def get_evaluation_backlog(expiration_time: int = 600, *, session: "Session") ->
     :returns:     Tuple (Count, Datetime of oldest entry)
     """
 
-    cached_backlog = REGION.get('rule_evaluation_backlog', expiration_time=expiration_time)
-    if cached_backlog is NO_VALUE:
-        stmt = select(func.count(models.UpdatedDID.created_at), func.min(models.UpdatedDID.created_at))
-        result = session.execute(stmt).scalars().one()
+    cached_backlog: Union[NoValue, tuple[int, datetime]] = REGION.get('rule_evaluation_backlog', expiration_time=expiration_time)
+    if isinstance(cached_backlog, NoValue):
+        stmt = select(
+            func.count(models.UpdatedDID.created_at),
+            func.min(models.UpdatedDID.created_at)
+        )
+        result = session.execute(stmt).one()._tuple()
         REGION.set('rule_evaluation_backlog', result)
         return result
-    else:
-        return cached_backlog  # type: ignore
+    return cached_backlog
 
 
 @transactional_session
