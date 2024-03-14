@@ -29,8 +29,10 @@ from typing import TYPE_CHECKING
 from stomp import Connection12, ConnectionListener
 from stomp.exception import ConnectFailedException, NotConnectedException
 
-from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.core.monitor import MetricManager
+from rucio.common.config import (config_get, config_get_bool, config_get_int,
+                                 config_get_float, config_get_list)
+
 if TYPE_CHECKING:
     from collections.abc import Generator
     from stomp.connect import Frame
@@ -104,8 +106,7 @@ class ListenerBase(ConnectionListener):
 StompConfig = namedtuple("StompConfig", ('brokers', 'use_ssl', 'port', 'vhost',
                                          'destination', 'key_file', 'cert_file',
                                          'username', 'password', 'nonssl_port',
-                                         'reconnect_attempts_max'))
-# TODO: timeout and heartbeat, see stomp_utils
+                                         'reconnect_attempts_max', 'timeout', 'heartbeats'))
 
 
 class StompConnectionManager:
@@ -131,7 +132,9 @@ class StompConnectionManager:
         for broker in self._config.brokers:
             conn = Connection(host_and_ports=[broker],
                               vhost=self._config.vhost,
-                              reconnect_attempts_max=self._config.reconnect_attempts_max)
+                              reconnect_attempts_max=self._config.reconnect_attempts_max,
+                              timeout=self._config.timeout,
+                              heartbeats=self._config.heartbeats)
             if self._config.use_ssl:
                 conn.set_ssl(cert_file=self._config.cert_file, key_file=self._config.key_file)
             self._conns.append(conn)
@@ -186,6 +189,8 @@ class StompConnectionManager:
         username = config_get(config_section, 'username', default=None, raise_exception=False)
         password = config_get(config_section, 'password', default=None, raise_exception=False)
         nonssl_port = config_get_int(config_section, 'nonssl_port', default=0, raise_exception=False)
+        timeout = config_get_float(config_section, 'timeout', default=None, raise_exception=False)
+        heartbeats = config_get_list(config_section, 'heartbeats', default=[0., 0.], raise_exception=False)
         reconnect_attempts = config_get_int(config_section, 'reconnect_attempts', default=100)
         if use_ssl and (key_file is None or cert_file is None):
             self._logger.error("If use_ssl is True in config you must provide both 'ssl_cert_file' and 'ssl_key_file'")
@@ -200,7 +205,7 @@ class StompConnectionManager:
                            port=port, vhost=vhost,
                            destination=destination, key_file=key_file, cert_file=cert_file,
                            username=username, password=password, nonssl_port=nonssl_port,
-                           reconnect_attempts_max=reconnect_attempts)
+                           reconnect_attempts_max=reconnect_attempts, timeout=timeout, heartbeats=heartbeats)
 
     def _resolve_host_and_port(self, fqdns: str | list[str], port: int) -> list[tuple[str, int]]:
         """
@@ -230,11 +235,20 @@ class StompConnectionManager:
         return hosts_and_ports
 
     def _is_stalled(self, conn: Connection) -> bool:
+        """
+        Determine if a connection is stalled.
+
+        Args:
+            conn (Connection): The Connection object
+
+        Returns:
+            bool: Whether the connection has stalled.
+        """
         received_heartbeat = getattr(conn, 'received_heartbeat', None)
-        if None in (self._heartbeats, received_heartbeat):
+        if received_heartbeat is None or not any(self._config.heartbeats):
             return False
 
-        heartbeat_period_seconds = max(0, self._heartbeats[0], self._heartbeats[1]) / 1000
+        heartbeat_period_seconds = max(0, self._config.heartbeats[0], self._config.heartbeats[1]) / 1000
         if heartbeat_period_seconds == 0.:
             return False
 
@@ -243,16 +257,6 @@ class StompConnectionManager:
             return False
 
         return True
-
-        # if self._heartbeats and received_heartbeat is not None:
-        #     heartbeat_period_seconds = max(0, self._heartbeats[0], self._heartbeats[1]) / 1000
-        #     if heartbeat_period_seconds:
-        #         now = monotonic()
-        #         if received_heartbeat + 10 * heartbeat_period_seconds < now:
-        #             self._logger.warning("Stomp connection missed heartbeats for a long time")
-        #             return True
-
-        # return False
 
     def connect(self) -> Generator[Connection, None, None]:
         """
@@ -267,6 +271,11 @@ class StompConnectionManager:
             params.update(username=config.username, password=config.password)
 
         for conn in self._conns:
+            if self._is_stalled(conn):
+                try:
+                    conn.disconnect()
+                except Exception:
+                    self._logger.exception("[broker] Stalled connection could not be disconnected")
             if not conn.is_connected():
                 self._logger.info('connecting to %s:%s', *conn.brokers[0])
                 # self._logger.info('connecting to %s', conn.transport._Transport__host_and_ports[0][0])
