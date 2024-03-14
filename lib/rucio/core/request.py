@@ -114,7 +114,6 @@ class RequestWithSources:
             transfertool: str,
             requested_at: Optional[datetime.datetime] = None,
     ):
-
         self.request_id = id_
         self.request_type = request_type
         self.rule_id = rule_id
@@ -1856,6 +1855,7 @@ def get_request_metrics(
         dest_rse_id: "Optional[str]" = None,
         src_rse_id: "Optional[str]" = None,
         activity: "Optional[str]" = None,
+        group_by_rse_attribute: "Optional[str]" = None,
         *,
         session: "Session"
 ):
@@ -1934,7 +1934,13 @@ def get_request_metrics(
         metric['src_rse'] = src_rse.name
         metric['dst_rse'] = dst_rse.name
 
-        response[f'{src_rse.name}:{dst_rse.name}'] = metric
+        if group_by_rse_attribute:
+            src_rse_group = src_rse.attributes.get(group_by_rse_attribute, 'UNKNOWN')
+            dst_rse_group = dst_rse.attributes.get(group_by_rse_attribute, 'UNKNOWN')
+            if src_rse_group is not None and dst_rse_group is not None:
+                response[f'{src_rse_group}:{dst_rse_group}'] = metric
+        else:
+            response[f'{src_rse.name}:{dst_rse.name}'] = metric
 
     return response
 
