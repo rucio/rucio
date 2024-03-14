@@ -28,24 +28,45 @@ from typing import TYPE_CHECKING
 
 from stomp import Connection12, ConnectionListener
 from stomp.exception import ConnectFailedException, NotConnectedException
+
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.core.monitor import MetricManager
-
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from stomp.connect import Frame
 
 
 METRICS = MetricManager(module=__name__)
 
 
 class Connection(Connection12):
+    """
+    Connection class.
 
-    def __init__(self, host_and_ports, **kwargs):
+    Wraps Stomp Connection but knows the brokers without accessing
+    hidden variables from the Transport.
+    """
+    def __init__(self, host_and_ports: list[tuple[str, int]], **kwargs):
+        """
+        Initialise.
+
+        Args:
+            host_and_ports (list[tuple[str, int]]): brokers list
+
+        Kwargs:
+            Arguments to pass to the Constructor12 base class.
+        """
         super().__init__(host_and_ports=host_and_ports, **kwargs)
         self._brokers = host_and_ports
 
     @property
-    def brokers(self):
+    def brokers(self) -> list[tuple[str, int]]:
+        """
+        List brokers.
+
+        Returns:
+            list[tuple[str, int]]: All assigned brokers in (host, port) format.
+        """
         return self._brokers
 
 
@@ -61,33 +82,23 @@ class ListenerBase(ConnectionListener):
         Initialise.
 
         Args:
-            conn (Connection12): _description_
-            logger (logging.Logger): _description_. Defaults to logging.getLogger(__name__).getChild(__qualname__).
+            conn (Connection12): The connection object that is using this listener
+            logger (logging.Logger): Logger to use. Defaults to logging.getLogger(__name__).getChild(__qualname__).
         """
         self._conn = conn
         if logger is not None:
             self._logger = logger
-
-    @property
-    def broker(self) -> str:
-        """
-        broker.
-
-        Returns:
-            str: _description_
-        """
-        return self._conn.brokers[0]
 
     @METRICS.count_it
     def on_heartbeat_timeout(self):
         self._conn.disconnect()
 
     @METRICS.count_it
-    def on_error(self, frame):
+    def on_error(self, frame: Frame):
         """
         on_error
         """
-        self._logger.error('Message receive error: [%s] %s', self.broker, frame.body)
+        self._logger.error('Message receive error: [%s] %s', self._conn.brokers[0][0], frame.body)
 
 
 StompConfig = namedtuple("StompConfig", ('brokers', 'use_ssl', 'port', 'vhost',
@@ -104,21 +115,18 @@ class StompConnectionManager:
 
     def __init__(self,
                  config_section: str,
-                 # metrics: None | MetricManager = None,
                  logger: None | logging.Logger = None):
         """
         Initialise.
 
         Args:
-            config_section (str): _description_
-            metrics (None | MetricManager): _description_. Defaults to None.
-            logger (logging.Logger): _description_. Defaults to logging.getLogger(__name__).getChild(__qualname__).
+            config_section (str): The name of the config section for this manager to parse for configuration.
+            logger (logging.Logger): logger to use. Defaults to logging.getLogger(__name__).getChild(__qualname__).
         """
         if logger is not None:
             self._logger = logger
         self._config = self._parse_config(config_section)
         self._listener_factory = None
-        # self._metrics = metrics
         self._conns = []
         for broker in self._config.brokers:
             conn = Connection(host_and_ports=[broker],
@@ -126,16 +134,18 @@ class StompConnectionManager:
                               reconnect_attempts_max=self._config.reconnect_attempts_max)
             if self._config.use_ssl:
                 conn.set_ssl(cert_file=self._config.cert_file, key_file=self._config.key_file)
-            # conn.set_listener('', listener)
             self._conns.append(conn)
 
-    def set_listener_factory(self, name: str, listener_cls: ListenerBase, **kwargs):
+    def set_listener_factory(self, name: str, listener_cls: type, **kwargs):
         """
-        Set listener factory
+        Setup listener factory
+
+        This method will setup a factory to create a name and listener for the arguments to
+        connection.set_listener based on pre-defined argument values.
 
         Args:
-            name (str): _description_
-            listener_cls (ListenerBase): _description_
+            name (str): Listener name
+            listener_cls (ListenerBase): Listener class.
         """
         def create_listener(name, listener_factory, conn):
             return name, listener_factory(conn=conn)
@@ -148,25 +158,24 @@ class StompConnectionManager:
         Parse config section.
 
         Args:
-            config_section (str): _description_
+            config_section (str): The name of the config section for this manager to parse for configuration.
 
         Raises:
-            RuntimeError: _description_
-            RuntimeError: _description_
-            RuntimeError: _description_
-            RuntimeError: _description_
+            RuntimeError: If cannot parse config sections 'brokers' or 'use_ssl' or if misconfigured.
 
         Returns:
-            StompConfig: _description_
+            StompConfig: Stomp manager configuration object.
         """
         try:
             brokers = config_get(config_section, 'brokers')
         except Exception as exc:
+            self._logger.exception("Could not load brokers from configuration")
             raise RuntimeError('Could not load brokers from configuration') from exc
 
         try:
             use_ssl = config_get_bool(config_section, 'use_ssl')
         except Exception as exc:
+            self._logger.exception("could not find use_ssl in configuration -- please update your rucio.cfg")
             raise RuntimeError('could not find use_ssl in configuration -- please update your rucio.cfg') from exc
 
         port = config_get_int(config_section, 'port')
@@ -179,10 +188,15 @@ class StompConnectionManager:
         nonssl_port = config_get_int(config_section, 'nonssl_port', default=0, raise_exception=False)
         reconnect_attempts = config_get_int(config_section, 'reconnect_attempts', default=100)
         if use_ssl and (key_file is None or cert_file is None):
+            self._logger.error("If use_ssl is True in config you must provide both 'ssl_cert_file' and 'ssl_key_file'")
             raise RuntimeError("If use_ssl is True in config you must provide both 'ssl_cert_file' and 'ssl_key_file'")
         if not use_ssl and (username is None or password is None or nonssl_port == 0):
-            raise RuntimeError("If use_ssl is False in config you must provide 'username' and 'password' and 'nonssl_port'")
-        return StompConfig(brokers=self._resolve_host_and_port(brokers, port if use_ssl else nonssl_port), use_ssl=use_ssl,
+            self._logger.error("If use_ssl is False in config you must provide "
+                               "'username', 'password' and 'nonssl_port'")
+            raise RuntimeError("If use_ssl is False in config you must provide "
+                               "'username', 'password' and 'nonssl_port'")
+        return StompConfig(brokers=self._resolve_host_and_port(brokers, port if use_ssl else nonssl_port),
+                           use_ssl=use_ssl,
                            port=port, vhost=vhost,
                            destination=destination, key_file=key_file, cert_file=cert_file,
                            username=username, password=password, nonssl_port=nonssl_port,
@@ -193,11 +207,11 @@ class StompConnectionManager:
         Resolve host and port.
 
         Args:
-            fqdns (str | list[str]): _description_
-            port (int): _description_
+            fqdns (str | list[str]): fully qualified domain name(s)
+            port (int): port
 
         Returns:
-            list[tuple[str, int]]: _description_
+            list[tuple[str, int]]: list of (host, port) tuples.
         """
         if isinstance(fqdns, str):
             fqdns = fqdns.split(',')
@@ -207,7 +221,7 @@ class StompConnectionManager:
             try:
                 addrinfos = socket.getaddrinfo(fqdn.strip(), port, socket.AF_INET, 0, socket.IPPROTO_TCP)
             except socket.gaierror as exc:
-                logging.log(logging.ERROR, "[broker] Cannot resolve domain name %s (%s)", fqdn, str(exc))
+                self._logger.error("[broker] Cannot resolve domain name %s (%s)", fqdn.strip(), str(exc))
                 continue
 
             hosts_and_ports.extend(addrinfo[4] for addrinfo in addrinfos)
@@ -240,12 +254,12 @@ class StompConnectionManager:
 
         # return False
 
-    def connect(self) -> Generator[Connection12, None, None]:
+    def connect(self) -> Generator[Connection, None, None]:
         """
         Connect.
 
         Yields:
-            Generator[Connection12, None, None]: _description_
+            Generator[Connection, None, None]: Each connection object after ensuring it's connected.
         """
         config = self._config
         params = {'wait': True}
@@ -277,12 +291,12 @@ class StompConnectionManager:
             except Exception:
                 self._logger.error("[broker] Error in yielded code, skipping to next connection.")
 
-    def deliver_messages(self, messages) -> list[int]:
+    def deliver_messages(self, messages: dict) -> list[int]:
         """
         Deliver messages.
 
         Args:
-            messages (_type_): _description_
+            messages (dict): Messages to deliver.
 
         Returns:
             list[int]: delivered message ids, ready for deletion.
@@ -359,7 +373,6 @@ class StompConnectionManager:
             else:
                 self._logger.debug("[broker] Other message: %s", message)
 
-        # delete_messages(messages=to_delete)
         return to_delete
 
     def subscribe(self, id_: str, ack: str, destination: None | str = None, **kwargs):
@@ -367,9 +380,13 @@ class StompConnectionManager:
         Subscribe
 
         Args:
-            id_ (str): _description_
-            ack (str): _description_
-            destination (None | str, optional): _description_. Defaults to None.
+            id_ (str): The identifier to uniquely identify the subscription
+            ack (str): Either auto, client or client-individual
+            destination (None | str, optional): The topic or queue to subscribe to. If None then
+                                                destination is taken from the rucio config Defaults to None.
+
+        Kwargs:
+            Arguments to pass to the Construction objects subscribe method.
         """
         if destination is None:
             destination = self._config.destination
