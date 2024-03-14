@@ -83,7 +83,7 @@ def build_images(matrix, script_args):
 
             args = ()
             env = {"DOCKER_BUILDKIT": "1"}
-            if buildargs.IMAGE_IDENTIFIER == 'integration-test':
+            if buildargs.IMAGE_IDENTIFIER == 'integration-test' or buildargs.IMAGE_IDENTIFIER == 'dune-test':
                 buildfile = pathlib.Path(script_args.buildfiles_dir) / 'alma9.Dockerfile'
                 args = (
                     'docker',
