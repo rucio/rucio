@@ -1084,24 +1084,29 @@ def list_associated_rules_for_file(
     :param session: The database session in use.
     :raises:        RucioException
     """
-
     rucio.core.did.get_did(scope=scope, name=name, session=session)  # Check if the did acually exists
     stmt = select(
-        models.ReplicationRule
+        models.ReplicationRule,
+        models.DataIdentifier.bytes
     ).distinct(
     ).join(
         models.ReplicaLock,
         models.ReplicationRule.id == models.ReplicaLock.rule_id
+    ).join(
+        models.DataIdentifier,
+        and_(models.ReplicationRule.scope == models.DataIdentifier.scope,
+             models.ReplicationRule.name == models.DataIdentifier.name)
     ).with_hint(
         models.ReplicaLock, 'INDEX(LOCKS LOCKS_PK)', 'oracle'
     ).where(
         and_(models.ReplicaLock.scope == scope,
              models.ReplicaLock.name == name)
     )
-
     try:
-        for result in session.execute(stmt).yield_per(5):
-            yield result[0].to_dict()
+        for rule, data_identifier_bytes in session.execute(stmt).yield_per(5):
+            d = rule.to_dict()
+            d['bytes'] = data_identifier_bytes
+            yield d
     except StatementError as exc:
         raise RucioException('Badly formatted input (IDs?)') from exc
 
