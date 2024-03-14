@@ -1381,6 +1381,21 @@ class TestClient:
         assert rule_id_1 in ids
         assert rule_id_2 in ids
 
+    def test_list_rules_by_name(self, mock_scope, did_factory, jdoe_account, rucio_client):
+        """ NAME (CLIENT): List Replication Rules per NAME """
+        files = create_files(1, mock_scope, self.rse1_id)
+        dataset = did_factory.random_dataset_did()
+        add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset)
+        attach_dids(dids=files, account=jdoe_account, **dataset)
+
+        rule_id_1 = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse1, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        rule_id_2 = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse2, grouping='NONE', weight='fakeweight', lifetime=None, locked=False, subscription_id=None)[0]
+        ret = rucio_client.list_associated_rules_for_file(scope=mock_scope.external, name=files[0]['name'])
+        ids = [rule['id'] for rule in ret]
+
+        assert rule_id_1 in ids
+        assert rule_id_2 in ids
+
     def test_get_rule(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CLIENT): Get Replication Rule by id """
         activity = get_schema_value('ACTIVITY')['enum'][0]
