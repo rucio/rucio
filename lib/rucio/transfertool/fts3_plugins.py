@@ -17,11 +17,13 @@ import logging
 import json
 import sys
 from configparser import NoSectionError
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Type, TypeVar
 
 from rucio.common.config import config_get_int, config_get_items
 from rucio.common.exception import InvalidRequest
 from rucio.common.plugins import PolicyPackageAlgorithms
+
+FTS3TapeMetadataPluginType = TypeVar('FTS3TapeMetadataPluginType', bound='FTS3TapeMetadataPlugin')
 
 
 class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
@@ -39,10 +41,6 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         :param policy_algorithm: policy algorithm indentifier - choose from any of the policy package algorithms registered under the `fts3_tape_metadata_plugins` group.
         """
         super().__init__()
-        self.register("activity", func=self._activity_hints, init_func=self._init_instance_activity_hints)
-        self.register(self.DEFAULT, func=lambda x: self._collocation(self._default, x))
-        self.register("test", func=lambda x: self._collocation(self._test_collocation, x))
-
         self.transfer_limit = config_get_int(
             "transfers",
             option="metadata_byte_limit",
@@ -62,7 +60,16 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         self.set_in_hints = self._get_one_algorithm(self.ALGORITHM_NAME, name=policy_algorithm)
 
     @classmethod
-    def register(cls, name: str, func: Callable, init_func: Optional[Callable] = None) -> None:
+    def _module_init(cls: Type[FTS3TapeMetadataPluginType]) -> None:
+        cls.register(
+            "activity",
+            func=lambda x: cls._activity_hints(cls, x),  # type: ignore
+            init_func=lambda: cls._init_instance_activity_hints(cls))  # type: ignore
+        cls.register(cls.DEFAULT, func=lambda x: cls._collocation(cls, cls._default, x))  # type: ignore
+        cls.register("test", func=lambda x: cls._collocation(cls, cls._test_collocation, x))  # type: ignore
+
+    @classmethod
+    def register(cls: Type[FTS3TapeMetadataPluginType], name: str, func: Callable, init_func: Optional[Callable] = None) -> None:
         """
         Register a fts3 transfer plugin
 
@@ -138,4 +145,4 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
 
 
 # Register the policies
-FTS3TapeMetadataPlugin("")
+FTS3TapeMetadataPlugin._module_init()
