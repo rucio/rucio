@@ -241,12 +241,14 @@ def ddmendpoint_url(ddmendpoint):
     return '{scheme}://{hostname}:{port}'.format(**preferred_protocol) + prefix
 
 
-def http_download_to_file(url, file_, session=None):
+def http_download_to_file(url, file_, session=None, force_decode=False):
     '''
     Download the file in `url` storing it in the `file_` file-like
     object.
     If given `session` must be a requests.Session instance, and will be
     used to download the file, otherwise requests.get() will be used.
+    `force_decode` will force the response to be decoded to text. If no
+    encoding is given, utf-8 will be assumed.
     '''
     if session is None:
         response = requests.get(url, stream=True)
@@ -261,8 +263,14 @@ def http_download_to_file(url, file_, session=None):
         )
         raise HTTPDownloadFailed('Error downloading ' + url, response.status_code)
 
-    for chunk in response.iter_content(CHUNK_SIZE):
-        file_.write(chunk)
+    if force_decode:
+        if response.encoding is None:
+            response.encoding = 'utf-8'
+        for chunk in response.iter_content(CHUNK_SIZE, decode_unicode=True):
+            file_.write(chunk)
+    else:
+        for chunk in response.iter_content(CHUNK_SIZE):
+            file_.write(chunk)
 
 
 def http_download(url, filename):
