@@ -2113,8 +2113,8 @@ def get_updated_dids(
         stmt = stmt.where(tuple_(models.UpdatedDID.scope, models.UpdatedDID.name).notin_(chunk))
 
     if limit:
-        fetched_dids = stmt.order_by(models.UpdatedDID.created_at).limit(limit).all()
-        filtered_dids = [did for did in fetched_dids if (did.scope, did.name) not in blocked_dids]
+        fetched_dids = session.execute(stmt.order_by(models.UpdatedDID.created_at).limit(limit)).all()
+        filtered_dids = [did._tuple() for did in fetched_dids if (did.scope, did.name) not in blocked_dids]
         if len(fetched_dids) == limit and not filtered_dids:
             return get_updated_dids(total_workers=total_workers,
                                     worker_number=worker_number,
