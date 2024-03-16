@@ -165,7 +165,6 @@ def add_files(lfns: list[dict], account: str, ignore_availability: bool, parents
             files['meta']['guid'] = guid
         add_replicas(rse_id=rse_id,
                      files=[files],
-                     dataset_meta=None,
                      account=InternalAccount(account, vo=vo),
                      ignore_availability=ignore_availability,
                      session=session)
