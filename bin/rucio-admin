@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,26 +24,36 @@ import signal
 import sys
 import time
 import traceback
-from textwrap import dedent
-from functools import wraps
-
 from configparser import NoOptionError, NoSectionError
-from tabulate import tabulate
+from functools import wraps
+from textwrap import dedent
 
 from rucio import version
 from rucio.client import Client
 from rucio.common.config import config_get
-from rucio.common.exception import (AccountNotFound, DataIdentifierAlreadyExists, AccessDenied,
-                                    DataIdentifierNotFound, InvalidObject, ReplicaNotFound,
-                                    RSENotFound, RSEOperationNotSupported, InvalidRSEExpression,
-                                    DuplicateContent, RuleNotFound, CannotAuthenticate,
-                                    Duplicate, ReplicaIsLocked, ConfigNotFound, ScopeNotFound,
-                                    InputValidationError)
+from rucio.common.exception import (
+    AccessDenied,
+    AccountNotFound,
+    CannotAuthenticate,
+    ConfigNotFound,
+    DataIdentifierAlreadyExists,
+    DataIdentifierNotFound,
+    Duplicate,
+    DuplicateContent,
+    InputValidationError,
+    InvalidObject,
+    InvalidRSEExpression,
+    ReplicaIsLocked,
+    ReplicaNotFound,
+    RSENotFound,
+    RSEOperationNotSupported,
+    RuleNotFound,
+    ScopeNotFound,
+)
 from rucio.common.extra import import_extras
-from rucio.common.utils import (chunks, construct_surl, sizefmt, get_bytes_value_from_string,
-                                render_json, parse_response, extract_scope, clean_surls,
-                                StoreAndDeprecateWarningAction)
+from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_surls, construct_surl, extract_scope, get_bytes_value_from_string, parse_response, render_json, sizefmt
 from rucio.rse import rsemanager as rsemgr
+from tabulate import tabulate
 
 EXTRA_MODULES = import_extras(['argcomplete'])
 
@@ -1277,7 +1286,7 @@ def import_data(args):
         print('There was problem with decoding your file.')
         print(error)
         return FAILURE
-    except IOError as error:
+    except OSError as error:
         print('There was a problem with reading your file.')
         print(error)
         return FAILURE
@@ -1309,7 +1318,7 @@ def export_data(args):
             print('File successfully written.')
         print('Data successfully exported to %s' % args.file_path)
         return SUCCESS
-    except IOError as error:
+    except OSError as error:
         print('There was a problem with reading your file.')
         print(error)
         return FAILURE
