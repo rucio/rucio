@@ -83,7 +83,7 @@ def test_smart_open_for_bz2_file():
     fd, path = tempfile.mkstemp()
     comp = bz2.BZ2Compressor()
     with os.fdopen(fd, 'wb') as f:
-        f.write(comp.compress('abcdef'.encode()))
+        f.write(comp.compress(b'abcdef'))
         f.write(comp.flush())
     assert not isinstance(dumper.smart_open(path), bz2.BZ2File)
     os.unlink(path)
