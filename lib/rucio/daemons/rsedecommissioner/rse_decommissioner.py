@@ -20,19 +20,19 @@ RSEs, etc.) that are performed on the RSEs depend on the "decommissioning
 profile", which must be specified for each RSE upon triggering decommissioning.
 """
 
-from collections.abc import Callable
 import logging
 import random
 import socket
 import threading
+from collections.abc import Callable
 from types import FrameType
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from rucio.common.config import config_get_int
-from rucio.common.logging import setup_logging
 from rucio.common.exception import RucioException
+from rucio.common.logging import setup_logging
 from rucio.core.heartbeat import sanity_check
-from rucio.core.rse import get_rses_with_attribute, get_rse_attribute
+from rucio.core.rse import get_rse_attribute, get_rses_with_attribute
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import RuleState
 

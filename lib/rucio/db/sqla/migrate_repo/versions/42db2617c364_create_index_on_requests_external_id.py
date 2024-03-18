@@ -18,7 +18,6 @@
 from alembic import context
 from alembic.op import create_index, drop_index
 
-
 # Alembic revision identifiers
 revision = '42db2617c364'
 down_revision = '4bab9edd01fc'

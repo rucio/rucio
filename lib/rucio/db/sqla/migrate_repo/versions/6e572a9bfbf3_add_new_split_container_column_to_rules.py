@@ -16,10 +16,8 @@
 ''' add new split_container column to rules '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '6e572a9bfbf3'

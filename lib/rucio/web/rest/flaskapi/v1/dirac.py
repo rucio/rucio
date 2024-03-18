@@ -16,12 +16,10 @@
 from flask import Flask, request
 
 from rucio.api.dirac import add_files
-from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DatabaseException, \
-    Duplicate, InvalidPath, ResourceTemporaryUnavailable, RSENotFound, UnsupportedOperation
+from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierAlreadyExists, Duplicate, InvalidPath, ResourceTemporaryUnavailable, RSENotFound, UnsupportedOperation
 from rucio.common.utils import parse_response
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import response_headers, generate_http_error_flask, \
-    ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, generate_http_error_flask, json_parameters, param_get, response_headers
 
 
 class AddFiles(ErrorHandlingMethodView):

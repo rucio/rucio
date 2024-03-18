@@ -13,16 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Union, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
 from rucio.core import meta_conventions
-from rucio.db.sqla.session import read_session, transactional_session
 from rucio.db.sqla.constants import KeyType
+from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
     from rucio.common.types import InternalAccount
 
 

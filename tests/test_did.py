@@ -16,23 +16,35 @@
 from datetime import datetime, timedelta
 
 import pytest
-
-from rucio.api import did
-from rucio.api import scope
-from rucio.db.sqla.util import json_implemented
+from rucio.api import did, scope
 from rucio.common import exception
-from rucio.common.exception import (DataIdentifierNotFound, DataIdentifierAlreadyExists,
-                                    InvalidPath, UnsupportedOperation,
-                                    UnsupportedStatus, ScopeNotFound, FileAlreadyExists, FileConsistencyMismatch)
+from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
-from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
-                            get_metadata, set_metadata, get_did, get_did_access_cnt, add_did_to_followed,
-                            get_users_following_did, remove_did_from_followed, set_status, list_new_dids,
-                            set_new_dids, bulk_list_files)
+from rucio.core.did import (
+    add_did,
+    add_did_to_followed,
+    attach_dids,
+    bulk_list_files,
+    delete_dids,
+    detach_dids,
+    get_did,
+    get_did_access_cnt,
+    get_did_atime,
+    get_metadata,
+    get_users_following_did,
+    list_dids,
+    list_new_dids,
+    remove_did_from_followed,
+    set_metadata,
+    set_new_dids,
+    set_status,
+    touch_dids,
+)
 from rucio.core.replica import add_replica, get_replica
 from rucio.db.sqla.constants import DIDType
-from rucio.tests.common import rse_name_generator, scope_name_generator, did_name_generator
+from rucio.db.sqla.util import json_implemented
+from rucio.tests.common import did_name_generator, rse_name_generator, scope_name_generator
 
 
 def skip_without_json():

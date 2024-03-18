@@ -13,45 +13,56 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import namedtuple
 import json
 import random
 import string
+from collections import namedtuple
 from logging import getLogger
+from typing import TYPE_CHECKING
 
 import pytest
-
 import rucio.api.rule
 from rucio.api.account import add_account
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get_bool
-from rucio.common.exception import (RucioException, RuleNotFound, AccessDenied, InsufficientAccountLimit, DuplicateRule, RSEWriteBlocked,
-                                    RSEOverQuota, RuleReplaceFailed, ManualRuleApprovalBlocked, InputValidationError,
-                                    UnsupportedOperation, InvalidValueForKey, InvalidSourceReplicaExpression)
+from rucio.common.exception import (
+    AccessDenied,
+    DuplicateRule,
+    InputValidationError,
+    InsufficientAccountLimit,
+    InvalidSourceReplicaExpression,
+    InvalidValueForKey,
+    ManualRuleApprovalBlocked,
+    RSEOverQuota,
+    RSEWriteBlocked,
+    RucioException,
+    RuleNotFound,
+    RuleReplaceFailed,
+    UnsupportedOperation,
+)
 from rucio.common.policy import get_policy
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.account import add_account_attribute, get_usage, get_account
-from rucio.core.account_limit import set_local_account_limit, set_global_account_limit
+from rucio.core.account import add_account_attribute, get_account, get_usage
+from rucio.core.account_limit import set_global_account_limit, set_local_account_limit
 from rucio.core.did import add_did, attach_dids, set_status
-from rucio.core.lock import get_replica_locks, get_dataset_locks, successful_transfer
+from rucio.core.lock import get_dataset_locks, get_replica_locks, successful_transfer
 from rucio.core.replica import add_replica, get_replica
 from rucio.core.request import get_request_by_did
-from rucio.core.rse import add_rse_attribute, add_rse, update_rse, get_rse_id, del_rse, del_rse_attribute, set_rse_limits
+from rucio.core.rse import add_rse, add_rse_attribute, del_rse, del_rse_attribute, get_rse_id, set_rse_limits, update_rse
 from rucio.core.rse_counter import get_counter as get_rse_counter
-from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule, move_rule, list_rules
+from rucio.core.rule import add_rule, add_rules, delete_rule, get_rule, list_rules, move_rule, reduce_rule, update_rule
 from rucio.core.scope import add_scope
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState, LockState
+from rucio.db.sqla.constants import OBSOLETE, DIDType, LockState, RuleState
 from rucio.db.sqla.session import transactional_session
-from rucio.tests.common import rse_name_generator, account_name_generator, did_name_generator
+from rucio.tests.common import account_name_generator, did_name_generator, rse_name_generator
 from rucio.tests.common_server import get_vo
 
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .temp_factories import TemporaryDidFactory, TemporaryRSEFactory
 
@@ -181,8 +192,9 @@ class TestCore:
         evaluates to an empty set.
         """
 
-        from dogpile.cache.api import NO_VALUE
         from hashlib import sha256
+
+        from dogpile.cache.api import NO_VALUE
 
         # create RSEs A, B, C (structured into namedtuples)
         rseA, rseB, rseC = (

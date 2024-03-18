@@ -19,7 +19,7 @@ from re import match
 from traceback import format_exc
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import exc
 
@@ -30,7 +30,7 @@ from rucio.common.config import config_get_bool
 from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType
-from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

@@ -18,13 +18,12 @@ from logging import getLogger
 from os import remove
 from random import choice
 from re import search
-from string import ascii_uppercase, ascii_lowercase, ascii_letters, digits
+from string import ascii_letters, ascii_lowercase, ascii_uppercase, digits
 from unittest.mock import patch
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from oic import rndstr
-
 from rucio.api import vo as vo_api
 from rucio.api.account import add_account, list_accounts
 from rucio.api.account_limit import set_local_account_limit
@@ -42,23 +41,24 @@ from rucio.client.client import Client
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_remove_option, config_set, config_has_section, config_add_section
-from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, UnsupportedAccountName, \
-    UnsupportedOperation, RucioException
+from rucio.common.config import config_add_section, config_has_section, config_remove_option, config_set
+from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, RucioException, UnsupportedAccountName, UnsupportedOperation
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid, get_tmp_dir, parse_response, ssh_sign
 from rucio.core import config as core_config
 from rucio.core.account_counter import add_counter
 from rucio.core.replica import add_replica
-from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
+from rucio.core.rse import get_rse_id, get_rse_vo, get_rses_with_attribute_value
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import add_rule
 from rucio.core.vo import map_vo
 from rucio.daemons.automatix.automatix import automatix
-from rucio.db.sqla import models, session as db_session
-from rucio.tests.common import execute, headers, hdrdict, vohdr, auth, loginhdr
+from rucio.db.sqla import models
+from rucio.db.sqla import session as db_session
+from rucio.tests.common import auth, execute, hdrdict, headers, loginhdr, vohdr
+
 from .test_authentication import PRIVATE_KEY, PUBLIC_KEY
-from .test_oidc import get_mock_oidc_client, NEW_TOKEN_DICT
+from .test_oidc import NEW_TOKEN_DICT, get_mock_oidc_client
 
 LOG = getLogger(__name__)
 

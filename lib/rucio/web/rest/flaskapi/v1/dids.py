@@ -18,20 +18,60 @@ from json import dumps
 
 from flask import Flask, Response, request
 
-from rucio.api.did import add_did, add_dids, list_content, list_content_history, list_dids, \
-    list_files, scope_list, get_did, set_metadata, get_metadata, get_metadata_bulk, set_status, attach_dids, \
-    detach_dids, attach_dids_to_dids, get_dataset_by_guid, list_parent_dids, create_did_sample, list_new_dids, \
-    resurrect, get_users_following_did, remove_did_from_followed, add_did_to_followed, delete_metadata, \
-    set_metadata_bulk, set_dids_metadata_bulk, bulk_list_files
-from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
-from rucio.common.exception import ScopeNotFound, DatabaseException, DataIdentifierNotFound, DataIdentifierAlreadyExists, \
-    DuplicateContent, AccessDenied, KeyNotFound, Duplicate, InvalidValueForKey, UnsupportedStatus, \
-    UnsupportedOperation, RSENotFound, RuleNotFound, InvalidMetadata, InvalidPath, FileAlreadyExists, InvalidObject, FileConsistencyMismatch
-from rucio.common.utils import render_json, APIEncoder, parse_response
+from rucio.api.did import (
+    add_did,
+    add_did_to_followed,
+    add_dids,
+    attach_dids,
+    attach_dids_to_dids,
+    bulk_list_files,
+    create_did_sample,
+    delete_metadata,
+    detach_dids,
+    get_dataset_by_guid,
+    get_did,
+    get_metadata,
+    get_metadata_bulk,
+    get_users_following_did,
+    list_content,
+    list_content_history,
+    list_dids,
+    list_files,
+    list_new_dids,
+    list_parent_dids,
+    remove_did_from_followed,
+    resurrect,
+    scope_list,
+    set_dids_metadata_bulk,
+    set_metadata,
+    set_metadata_bulk,
+    set_status,
+)
+from rucio.api.rule import list_associated_replication_rules_for_file, list_replication_rules
+from rucio.common.exception import (
+    AccessDenied,
+    DatabaseException,
+    DataIdentifierAlreadyExists,
+    DataIdentifierNotFound,
+    Duplicate,
+    DuplicateContent,
+    FileAlreadyExists,
+    FileConsistencyMismatch,
+    InvalidMetadata,
+    InvalidObject,
+    InvalidPath,
+    InvalidValueForKey,
+    KeyNotFound,
+    RSENotFound,
+    RuleNotFound,
+    ScopeNotFound,
+    UnsupportedOperation,
+    UnsupportedStatus,
+)
+from rucio.common.utils import APIEncoder, parse_response, render_json
 from rucio.db.sqla.constants import DIDType
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
-    parse_scope_name, try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, json_list, param_get, json_parse
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_list, json_parameters, json_parse, param_get, parse_scope_name, response_headers, try_stream
 
 
 class Scope(ErrorHandlingMethodView):

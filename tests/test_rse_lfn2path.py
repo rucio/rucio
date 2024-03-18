@@ -15,13 +15,11 @@
 
 import copy
 import os
+from configparser import NoOptionError, NoSectionError
 
 import pytest
-
 from rucio.common import config
 from rucio.rse.protocols.protocol import RSEDeterministicTranslation
-
-from configparser import NoOptionError, NoSectionError
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE, changes global configuration value')

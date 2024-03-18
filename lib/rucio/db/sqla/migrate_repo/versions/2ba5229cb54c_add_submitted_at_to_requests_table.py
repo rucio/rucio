@@ -16,10 +16,8 @@
 ''' add_submitted_at_to_requests_table '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '2ba5229cb54c'

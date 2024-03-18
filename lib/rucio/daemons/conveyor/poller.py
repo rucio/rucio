@@ -39,13 +39,14 @@ from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount
 from rucio.common.utils import dict_chunks
-from rucio.core import transfer as transfer_core, request as request_core
+from rucio.core import request as request_core
+from rucio.core import transfer as transfer_core
 from rucio.core.monitor import MetricManager
-from rucio.core.topology import Topology, ExpiringObjectCache
-from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
+from rucio.core.topology import ExpiringObjectCache, Topology
+from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
 from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, RequestState, RequestType
-from rucio.transfertool.transfertool import Transfertool
 from rucio.transfertool.fts3 import FTS3Transfertool
+from rucio.transfertool.transfertool import Transfertool
 
 if TYPE_CHECKING:
     from rucio.daemons.common import HeartbeatHandler

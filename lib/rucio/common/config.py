@@ -19,7 +19,7 @@ import configparser
 import json
 import os
 from collections.abc import Callable
-from typing import TYPE_CHECKING, overload, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Optional, TypeVar, Union, overload
 
 from rucio.common import exception
 from rucio.common.exception import ConfigNotFound, DatabaseException

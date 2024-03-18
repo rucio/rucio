@@ -16,8 +16,7 @@
 ''' add index to quarantined replicas '''
 
 from alembic import context
-from alembic.op import (create_index, drop_index)
-
+from alembic.op import create_index, drop_index
 
 # revision identifiers, used by Alembic.
 revision = 'b818052fa670'

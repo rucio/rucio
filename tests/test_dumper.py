@@ -23,11 +23,9 @@ from unittest import mock
 
 import pytest
 import requests
+from rucio.common import config, dumper
+from rucio.tests.common import make_temp_file, mock_open
 
-from rucio.common import config
-from rucio.common import dumper
-from rucio.tests.common import make_temp_file
-from rucio.tests.common import mock_open
 from .mocks import gfal2
 
 DATE_SECONDS = "2015-03-10 14:00:35"

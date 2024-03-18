@@ -15,7 +15,6 @@
 
 
 import pytest
-
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.common.schema import get_schema_value
 from rucio.core.did import add_did, get_did

@@ -16,8 +16,7 @@
 ''' Removal of ReplicaState.SOURCE '''
 
 from alembic import context, op
-from alembic.op import (create_check_constraint)
-
+from alembic.op import create_check_constraint
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers

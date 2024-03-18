@@ -17,8 +17,7 @@
 
 import sqlalchemy as sa
 from alembic import context
-from alembic.op import create_primary_key, create_table, create_foreign_key, drop_table
-
+from alembic.op import create_foreign_key, create_primary_key, create_table, drop_table
 from rucio.db.sqla.types import JSON
 
 # Alembic revision identifiers

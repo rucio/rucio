@@ -14,32 +14,40 @@
 # limitations under the License.
 
 import pytest
-
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common import exception
-from rucio.common.exception import (Duplicate, RSENotFound, RSEProtocolNotSupported,
-                                    InvalidObject, ResourceTemporaryUnavailable,
-                                    RSEAttributeNotFound, RSEOperationNotSupported,
-                                    InputValidationError)
+from rucio.common.exception import Duplicate, InputValidationError, InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSENotFound, RSEOperationNotSupported, RSEProtocolNotSupported
 from rucio.common.schema import get_schema_value
-from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, CHECKSUM_KEY
-from rucio.core.account_limit import set_local_account_limit, get_rse_account_usage
+from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
+from rucio.core.account_limit import get_rse_account_usage, set_local_account_limit
 from rucio.core.did import add_did, attach_dids
+from rucio.core.request import delete_transfer_limit, set_transfer_limit
+from rucio.core.rse import (
+    add_rse,
+    add_rse_attribute,
+    del_rse,
+    del_rse_attribute,
+    get_rse,
+    get_rse_attribute,
+    get_rse_id,
+    get_rse_protocols,
+    get_rse_supported_checksums_from_attributes,
+    get_rse_transfer_limits,
+    list_rse_attributes,
+    list_rses,
+    parse_checksum_support_attribute,
+    restore_rse,
+    rse_exists,
+    rse_is_empty,
+    update_rse,
+)
 from rucio.core.rule import add_rule
-from rucio.core.request import set_transfer_limit, delete_transfer_limit
-from rucio.core.rse import (add_rse, get_rse_id, del_rse, restore_rse, list_rses,
-                            rse_exists, add_rse_attribute, list_rse_attributes,
-                            get_rse_transfer_limits,
-                            get_rse_protocols,
-                            del_rse_attribute, get_rse_attribute, get_rse, rse_is_empty,
-                            parse_checksum_support_attribute,
-                            get_rse_supported_checksums_from_attributes,
-                            update_rse)
 from rucio.daemons.abacus.account import account_update
-from rucio.db.sqla import session, models
-from rucio.db.sqla.constants import RSEType, DIDType
+from rucio.db.sqla import models, session
+from rucio.db.sqla.constants import DIDType, RSEType
 from rucio.rse import rsemanager as mgr
-from rucio.tests.common import rse_name_generator, hdrdict, auth, headers, did_name_generator
+from rucio.tests.common import auth, did_name_generator, hdrdict, headers, rse_name_generator
+
 from .test_rule import create_files
 
 

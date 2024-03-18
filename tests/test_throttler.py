@@ -16,21 +16,27 @@
 from datetime import datetime, timedelta
 
 import pytest
-from sqlalchemy import delete
-
 from rucio.common.utils import generate_uuid
-from rucio.core.did import attach_dids, add_did
+from rucio.core.did import add_did, attach_dids
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replica
-from rucio.core.request import (queue_requests, get_request_by_did, release_waiting_requests_per_deadline,
-                                release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo,
-                                release_waiting_requests_per_free_volume, delete_transfer_limit)
-from rucio.daemons.conveyor.throttler import throttler
+from rucio.core.request import (
+    delete_transfer_limit,
+    get_request_by_did,
+    queue_requests,
+    release_all_waiting_requests,
+    release_waiting_requests_fifo,
+    release_waiting_requests_grouped_fifo,
+    release_waiting_requests_per_deadline,
+    release_waiting_requests_per_free_volume,
+)
 from rucio.daemons.conveyor.preparer import preparer
+from rucio.daemons.conveyor.throttler import throttler
 from rucio.db.sqla import models
-from rucio.db.sqla.session import transactional_session, get_session
-from rucio.db.sqla.constants import DIDType, RequestType, RequestState, TransferLimitDirection
+from rucio.db.sqla.constants import DIDType, RequestState, RequestType, TransferLimitDirection
+from rucio.db.sqla.session import get_session, transactional_session
 from rucio.tests.common import skiplimitedsql
+from sqlalchemy import delete
 
 
 @pytest.fixture

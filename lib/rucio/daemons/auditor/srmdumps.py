@@ -27,8 +27,7 @@ import gfal2
 import requests
 
 from rucio.common.config import get_config_dirs
-from rucio.common.dumper import DUMPS_CACHE_DIR
-from rucio.common.dumper import http_download_to_file, gfal_download_to_file, ddmendpoint_url, temp_file
+from rucio.common.dumper import DUMPS_CACHE_DIR, ddmendpoint_url, gfal_download_to_file, http_download_to_file, temp_file
 
 CHUNK_SIZE = 10485760
 

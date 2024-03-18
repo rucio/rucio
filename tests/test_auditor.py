@@ -18,12 +18,10 @@ import collections
 import multiprocessing
 import os
 import tempfile
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest import mock
 
 import pytest
-
 from rucio.daemons import auditor
 
 

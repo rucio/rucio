@@ -18,15 +18,13 @@ import time
 from datetime import datetime, timedelta
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
-from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
-from sqlalchemy import update
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import pytest
-
 import rucio.daemons.reaper.reaper
-from rucio.common.types import InternalAccount
-from rucio.common.utils import generate_uuid, adler32
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
+from rucio.common.types import InternalAccount
+from rucio.common.utils import adler32, generate_uuid
 from rucio.core import config as core_config
 from rucio.core import did as did_core
 from rucio.core import distance as distance_core
@@ -40,18 +38,21 @@ from rucio.core.account_limit import set_local_account_limit
 from rucio.daemons.conveyor.finisher import finisher
 from rucio.daemons.conveyor.poller import poller
 from rucio.daemons.conveyor.preparer import preparer
-from rucio.daemons.conveyor.submitter import submitter
+from rucio.daemons.conveyor.receiver import GRACEFUL_STOP as receiver_graceful_stop
+from rucio.daemons.conveyor.receiver import Receiver, receiver
 from rucio.daemons.conveyor.stager import stager
+from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.conveyor.throttler import throttler
-from rucio.daemons.conveyor.receiver import receiver, GRACEFUL_STOP as receiver_graceful_stop, Receiver
 from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import LockState, RequestState, RequestType, ReplicaState, RSEType, RuleState
+from rucio.db.sqla.constants import LockState, ReplicaState, RequestState, RequestType, RSEType, RuleState
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.tests.common import skip_rse_tests_with_accounts
 from rucio.transfertool.fts3 import FTS3Transfertool
-from tests.ruciopytest import NoParallelGroups
+from sqlalchemy import update
+
 from tests.mocks.mock_http_server import MockServer
+from tests.ruciopytest import NoParallelGroups
 
 MAX_POLL_WAIT_SECONDS = 100
 TEST_FTS_HOST = 'https://fts:8446'
@@ -129,8 +130,9 @@ def __get_source(request_id, src_rse_id, scope, name, *, session=None):
 @pytest.fixture
 def scitags_mock(core_config_mock):
     """Run a mock http server which always returns the content of scitags.json from test/inputs"""
-    from tests.inputs import SCITAGS_JSON
     from pathlib import Path
+
+    from tests.inputs import SCITAGS_JSON
 
     class _SendScitagsJson(MockServer.Handler):
         def do_GET(self):

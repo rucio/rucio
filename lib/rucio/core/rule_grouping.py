@@ -27,11 +27,12 @@ import rucio.core.replica
 from rucio.common.config import config_get_int
 from rucio.common.exception import InsufficientTargetRSEs
 from rucio.common.types import InternalScope
-from rucio.core import account_counter, rse_counter, request as request_core
-from rucio.core.rse_selector import RSESelector
+from rucio.core import account_counter, rse_counter
+from rucio.core import request as request_core
 from rucio.core.rse import get_rse, get_rse_attribute, get_rse_name
+from rucio.core.rse_selector import RSESelector
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import LockState, RuleGrouping, ReplicaState, RequestType, DIDType, OBSOLETE
+from rucio.db.sqla.constants import OBSOLETE, DIDType, LockState, ReplicaState, RequestType, RuleGrouping
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:

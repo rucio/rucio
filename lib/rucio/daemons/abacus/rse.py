@@ -26,7 +26,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.common.utils import get_thread_with_periodic_running_function
-from rucio.core.rse_counter import get_updated_rse_counters, update_rse_counter, fill_rse_counter_history_table
+from rucio.core.rse_counter import fill_rse_counter_history_table, get_updated_rse_counters, update_rse_counter
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:

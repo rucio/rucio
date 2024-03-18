@@ -32,19 +32,20 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.cache import make_region_memcached
-from rucio.common.config import config_get_list, config_get_bool
-from rucio.common.exception import DatabaseException, UnsupportedOperation, ReplicaNotFound, RequestNotFound, RSEProtocolNotSupported
+from rucio.common.config import config_get_bool, config_get_list
+from rucio.common.exception import DatabaseException, ReplicaNotFound, RequestNotFound, RSEProtocolNotSupported, UnsupportedOperation
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
-from rucio.core import request as request_core, replica as replica_core
+from rucio.core import replica as replica_core
+from rucio.core import request as request_core
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import list_rses
+from rucio.core.topology import ExpiringObjectCache, Topology
 from rucio.core.transfer import ProtocolFactory
-from rucio.core.topology import Topology, ExpiringObjectCache
-from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
-from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, RequestState, RequestType, ReplicaState, BadFilesStatus
+from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
+from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, BadFilesStatus, ReplicaState, RequestState, RequestType
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:

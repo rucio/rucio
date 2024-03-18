@@ -30,15 +30,11 @@ import rucio.core.rse as rse_core
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get_bool
-from rucio.common.exception import (SourceNotFound, ServiceUnavailable,
-                                    RSEAccessDenied, ResourceTemporaryUnavailable,
-                                    RSENotFound, VONotFound)
+from rucio.common.exception import ResourceTemporaryUnavailable, RSEAccessDenied, RSENotFound, ServiceUnavailable, SourceNotFound, VONotFound
 from rucio.common.logging import setup_logging
 from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
-from rucio.core.quarantined_replica import (list_quarantined_replicas,
-                                            delete_quarantined_replicas,
-                                            list_rses_with_quarantined_replicas)
+from rucio.core.quarantined_replica import delete_quarantined_replicas, list_quarantined_replicas, list_rses_with_quarantined_replicas
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.vo import list_vos
 from rucio.daemons.common import run_daemon

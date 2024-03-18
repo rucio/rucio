@@ -23,28 +23,28 @@ import threading
 import traceback
 import uuid
 from abc import ABCMeta, abstractmethod
-from collections import namedtuple, defaultdict
-from collections.abc import Sequence, Mapping, Iterator
+from collections import defaultdict, namedtuple
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from sqlalchemy import and_, or_, update, select, delete, exists, insert
+from sqlalchemy import and_, delete, exists, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
-from sqlalchemy.sql.expression import asc, true, false, null, func
+from sqlalchemy.sql.expression import asc, false, func, null, true
 
 from rucio.common.config import config_get_bool, config_get_int
-from rucio.common.exception import RequestNotFound, RucioException, UnsupportedOperation, InvalidRSEExpression
+from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid, chunks
+from rucio.common.utils import chunks, generate_uuid
 from rucio.core.distance import get_distances
 from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import MetricManager
-from rucio.core.rse import get_rse_attribute, get_rse_name, get_rse_vo, RseData, RseCollection
+from rucio.core.rse import RseCollection, RseData, get_rse_attribute, get_rse_name, get_rse_vo
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import RequestState, RequestType, LockState, RequestErrMsg, ReplicaState, TransferLimitDirection
-from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla import filter_thread_work, models
+from rucio.db.sqla.constants import LockState, ReplicaState, RequestErrMsg, RequestState, RequestType, TransferLimitDirection
+from rucio.db.sqla.session import read_session, stream_session, transactional_session
 from rucio.db.sqla.util import temp_table_mngr
 
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
@@ -52,6 +52,7 @@ RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
+
     from rucio.rse.protocols.protocol import RSEProtocol
 
 """

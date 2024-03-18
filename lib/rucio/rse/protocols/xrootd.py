@@ -17,7 +17,7 @@ import logging
 import os
 
 from rucio.common import exception
-from rucio.common.utils import execute, PREFERRED_CHECKSUM
+from rucio.common.utils import PREFERRED_CHECKSUM, execute
 from rucio.rse.protocols import protocol
 
 

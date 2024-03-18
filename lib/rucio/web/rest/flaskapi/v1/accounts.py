@@ -16,21 +16,17 @@
 from datetime import datetime
 from json import dumps
 
-from flask import Flask, Response, request, redirect, jsonify
+from flask import Flask, Response, jsonify, redirect, request
 
-from rucio.api.account import add_account, del_account, get_account_info, list_accounts, list_identities, \
-    list_account_attributes, add_account_attribute, del_account_attribute, update_account, get_usage_history
-from rucio.api.account_limit import get_local_account_limits, get_local_account_limit, get_local_account_usage, \
-    get_global_account_limit, get_global_account_limits, get_global_account_usage
+from rucio.api.account import add_account, add_account_attribute, del_account, del_account_attribute, get_account_info, get_usage_history, list_account_attributes, list_accounts, list_identities, update_account
+from rucio.api.account_limit import get_global_account_limit, get_global_account_limits, get_global_account_usage, get_local_account_limit, get_local_account_limits, get_local_account_usage
 from rucio.api.identity import add_account_identity, del_account_identity
 from rucio.api.rule import list_replication_rules
 from rucio.api.scope import add_scope, get_scopes
-from rucio.common.exception import AccountNotFound, Duplicate, AccessDenied, RuleNotFound, RSENotFound, \
-    IdentityError, CounterNotFound, ScopeNotFound, InvalidObject
+from rucio.common.exception import AccessDenied, AccountNotFound, CounterNotFound, Duplicate, IdentityError, InvalidObject, RSENotFound, RuleNotFound, ScopeNotFound
 from rucio.common.utils import APIEncoder, render_json
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
-    try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
 
 
 class Attributes(ErrorHandlingMethodView):

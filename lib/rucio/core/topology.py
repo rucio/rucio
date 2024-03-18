@@ -20,12 +20,12 @@ import threading
 import weakref
 from collections.abc import Callable, Iterable, Iterator
 from decimal import Decimal
-from typing import TYPE_CHECKING, cast, Any, Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union, cast
 
 from sqlalchemy import and_, select
 
-from rucio.common.config import config_get_int, config_get
-from rucio.common.exception import NoDistance, RSEProtocolNotSupported, InvalidRSEExpression
+from rucio.common.config import config_get, config_get_int
+from rucio.common.exception import InvalidRSEExpression, NoDistance, RSEProtocolNotSupported
 from rucio.common.utils import PriorityQueue
 from rucio.core.rse import RseCollection, RseData
 from rucio.core.rse_expression_parser import parse_expression
@@ -39,9 +39,9 @@ TN = TypeVar("TN", bound="Node")
 TE = TypeVar("TE", bound="Edge")
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
-
     from typing import Protocol
+
+    from sqlalchemy.orm import Session
 
     class _StateProvider(Protocol):
         @property

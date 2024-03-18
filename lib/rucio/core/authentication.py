@@ -30,17 +30,17 @@ from sqlalchemy import delete, null, or_, select
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get_bool
 from rucio.common.exception import CannotAuthenticate, RucioException
-from rucio.common.utils import chunks, generate_uuid, date_to_str
+from rucio.common.utils import chunks, date_to_str, generate_uuid
 from rucio.core.account import account_exists
 from rucio.core.oidc import validate_jwt
-from rucio.db.sqla import filter_thread_work
-from rucio.db.sqla import models
+from rucio.db.sqla import filter_thread_work, models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
     from typing import Any, Union
+
+    from sqlalchemy.orm import Session
 
 
 def strip_x509_proxy_attributes(dn: str) -> str:

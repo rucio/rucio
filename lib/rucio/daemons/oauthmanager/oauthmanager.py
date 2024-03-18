@@ -32,7 +32,6 @@ import threading
 import traceback
 from re import match
 from typing import TYPE_CHECKING
-from rucio.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX
 
 from sqlalchemy.exc import DatabaseError
 
@@ -43,8 +42,8 @@ from rucio.common.stopwatch import Stopwatch
 from rucio.core.authentication import delete_expired_tokens
 from rucio.core.monitor import MetricManager
 from rucio.core.oidc import delete_expired_oauthrequests, refresh_jwt_tokens
-from rucio.daemons.common import HeartbeatHandler
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import HeartbeatHandler, run_daemon
+from rucio.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX
 
 if TYPE_CHECKING:
     from types import FrameType

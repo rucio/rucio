@@ -16,10 +16,8 @@
 ''' add lumiblocknr to dids '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = 'c129ccdb2d5'

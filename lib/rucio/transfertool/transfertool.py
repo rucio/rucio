@@ -23,8 +23,8 @@ from rucio.core.request import get_request
 if TYPE_CHECKING:
     from typing import Optional
 
-    from rucio.core.rse import RseData
     from rucio.core.request import DirectTransfer
+    from rucio.core.rse import RseData
 
 
 class TransferToolBuilder(object):

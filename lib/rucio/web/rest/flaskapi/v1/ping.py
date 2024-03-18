@@ -15,15 +15,15 @@
 
 from typing import TYPE_CHECKING
 
-from flask import Flask, Blueprint, jsonify, request
+from flask import Blueprint, Flask, jsonify, request
 from werkzeug.datastructures import Headers
 
 from rucio import version
-from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
-    ErrorHandlingMethodView
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, response_headers
 
 if TYPE_CHECKING:
     from typing import Optional
+
     from rucio.web.rest.flaskapi.v1.common import HeadersType
 
 

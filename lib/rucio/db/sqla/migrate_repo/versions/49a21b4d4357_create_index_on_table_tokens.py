@@ -16,9 +16,7 @@
 ''' add tokens index '''
 
 from alembic import context
-from alembic.op import (create_foreign_key, create_index,
-                        drop_constraint, drop_index)
-
+from alembic.op import create_foreign_key, create_index, drop_constraint, drop_index
 
 # Alembic revision identifiers
 revision = '49a21b4d4357'

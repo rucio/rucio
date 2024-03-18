@@ -16,10 +16,8 @@
 ''' added column identity to table tokens '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = 'b4293a99f344'

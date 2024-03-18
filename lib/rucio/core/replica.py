@@ -15,6 +15,7 @@
 import copy
 import heapq
 import logging
+import math
 import random
 from collections import defaultdict, namedtuple
 from curses.ascii import isprint
@@ -27,15 +28,14 @@ from struct import unpack
 from traceback import format_exc
 from typing import TYPE_CHECKING
 
-import math
 import requests
 from dogpile.cache.api import NO_VALUE
-from sqlalchemy import func, and_, or_, exists, not_, update, delete, insert, union
+from sqlalchemy import and_, delete, exists, func, insert, not_, or_, union, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
 from sqlalchemy.sql import label
-from sqlalchemy.sql.expression import case, select, text, false, true, null, literal, literal_column
+from sqlalchemy.sql.expression import case, false, literal, literal_column, null, select, text, true
 
 import rucio.core.did
 import rucio.core.lock
@@ -44,26 +44,26 @@ from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import SuspiciousAvailability
 from rucio.common.types import InternalScope
-from rucio.common.utils import chunks, clean_surls, str_to_date, add_url_query
+from rucio.common.utils import add_url_query, chunks, clean_surls, str_to_date
 from rucio.core.credential import get_signed_url
 from rucio.core.message import add_messages
 from rucio.core.monitor import MetricManager
-from rucio.core.rse import get_rse, get_rse_name, get_rse_attribute, get_rse_vo, list_rses
+from rucio.core.rse import get_rse, get_rse_attribute, get_rse_name, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import (DIDType, ReplicaState, OBSOLETE, DIDAvailability,
-                                     BadFilesStatus, RuleState, BadPFNStatus)
-from rucio.db.sqla.session import (read_session, stream_session, transactional_session,
-                                   DEFAULT_SCHEMA_NAME, BASE)
+from rucio.db.sqla import filter_thread_work, models
+from rucio.db.sqla.constants import OBSOLETE, BadFilesStatus, BadPFNStatus, DIDAvailability, DIDType, ReplicaState, RuleState
+from rucio.db.sqla.session import BASE, DEFAULT_SCHEMA_NAME, read_session, stream_session, transactional_session
 from rucio.db.sqla.util import temp_table_mngr
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
-    from rucio.rse.protocols.protocol import RSEProtocol
     from typing import Any, Optional
+
     from sqlalchemy.orm import Session
+
+    from rucio.rse.protocols.protocol import RSEProtocol
 
 REGION = make_region_memcached(expiration_time=60)
 METRICS = MetricManager(module=__name__)

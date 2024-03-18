@@ -20,7 +20,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common import exception
-from rucio.common.config import config_get_bool, config_get
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, IdentityType

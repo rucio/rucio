@@ -14,19 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from datetime import datetime, timedelta
 from os import remove
 from time import sleep
 
 import pytest
-import json
-
-from rucio.core.replica import (update_replica_state, list_replicas, list_bad_replicas_status)
-from rucio.core.rse import add_rse_attribute
-from rucio.core.did import set_metadata
 from rucio.core import rse_expression_parser
+from rucio.core.did import set_metadata
+from rucio.core.replica import list_bad_replicas_status, list_replicas, update_replica_state
+from rucio.core.rse import add_rse_attribute
 from rucio.daemons.replicarecoverer.suspicious_replica_recoverer import run, stop
-from rucio.db.sqla.constants import DIDType, BadFilesStatus, ReplicaState
+from rucio.db.sqla.constants import BadFilesStatus, DIDType, ReplicaState
 from rucio.tests.common import execute
 
 

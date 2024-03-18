@@ -16,10 +16,8 @@
 ''' add eol_at in rules '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '0437a40dbfd1'

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from jsonschema import validate, ValidationError
+from jsonschema import ValidationError, validate
 
 from rucio.common.exception import InvalidObject
 

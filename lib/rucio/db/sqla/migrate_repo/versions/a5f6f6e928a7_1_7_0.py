@@ -16,10 +16,8 @@
 ''' add columns for 1.7.0 release '''
 
 import sqlalchemy as sa
-
 from alembic import context
-from alembic.op import create_check_constraint, create_foreign_key, add_column, drop_column, drop_constraint
-
+from alembic.op import add_column, create_check_constraint, create_foreign_key, drop_column, drop_constraint
 
 # Alembic revision identifiers
 revision = 'a5f6f6e928a7'

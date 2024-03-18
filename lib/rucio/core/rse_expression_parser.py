@@ -22,7 +22,7 @@ from dogpile.cache.api import NoValue
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
-from rucio.core.rse import list_rses, get_rses_with_attribute, get_rse_attribute
+from rucio.core.rse import get_rse_attribute, get_rses_with_attribute, list_rses
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:

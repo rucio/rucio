@@ -17,10 +17,7 @@
 
 import sqlalchemy as sa
 from alembic.context import get_context
-from alembic.op import (add_column, drop_column,
-                        create_index, drop_index,
-                        execute)
-
+from alembic.op import add_column, create_index, drop_column, drop_index, execute
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.util import try_drop_constraint
 

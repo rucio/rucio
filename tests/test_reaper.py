@@ -16,14 +16,9 @@
 from datetime import datetime, timedelta
 
 import pytest
-from sqlalchemy import and_, or_
-
 from rucio.api import replica as replica_api
 from rucio.api import rse as rse_api
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import OBSOLETE
-from rucio.db.sqla.session import get_session
-from rucio.common.exception import ReplicaNotFound, DataIdentifierNotFound
+from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core import did as did_core
@@ -31,12 +26,16 @@ from rucio.core import message as message_core
 from rucio.core import replica as replica_core
 from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
-from rucio.daemons.reaper.reaper import reaper
 from rucio.daemons.reaper.dark_reaper import reaper as dark_reaper
+from rucio.daemons.reaper.reaper import reaper
 from rucio.daemons.reaper.reaper import run as run_reaper
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import OBSOLETE
 from rucio.db.sqla.models import ConstituentAssociationHistory
-from rucio.db.sqla.session import read_session
+from rucio.db.sqla.session import get_session, read_session
 from rucio.tests.common import rse_name_generator, skip_rse_tests_with_accounts
+from sqlalchemy import and_, or_
+
 from tests.ruciopytest import NoParallelGroups
 
 __mock_protocol = {'scheme': 'MOCK',

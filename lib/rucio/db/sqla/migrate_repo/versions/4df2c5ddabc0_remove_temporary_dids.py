@@ -18,9 +18,8 @@
 import sqlalchemy as sa
 from alembic import context
 from alembic.op import create_index, create_primary_key, create_table, drop_table
-
 from rucio.common.schema import get_schema_value
-from rucio.db.sqla.types import InternalScopeString, GUID
+from rucio.db.sqla.types import GUID, InternalScopeString
 
 # Alembic revision identifiers
 revision = '4df2c5ddabc0'

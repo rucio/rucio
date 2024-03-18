@@ -19,12 +19,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from oic import rndstr
-from sqlalchemy import and_, or_
-from sqlalchemy.sql.expression import true
-
 from rucio.daemons.oauthmanager.oauthmanager import run, stop
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
+from sqlalchemy import and_, or_
+from sqlalchemy.sql.expression import true
 
 new_token_dict = {'access_token': '',
                   'expires_in': 3599,

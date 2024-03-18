@@ -14,12 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os.path
 import os
+import os.path
 import sys
-import requests
 import time
 from json import dumps
+
+import requests
 
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
@@ -29,11 +30,11 @@ os.chdir(base_path)
 from rucio.api.vo import add_vo  # noqa: E402
 from rucio.client import Client  # noqa: E402
 from rucio.common.config import config_get, config_get_bool  # noqa: E402
-from rucio.common.exception import Duplicate, RucioException, DuplicateContent  # noqa: E402
+from rucio.common.exception import Duplicate, DuplicateContent, RucioException  # noqa: E402
+from rucio.common.types import InternalAccount  # noqa: E402
 from rucio.common.utils import extract_scope  # noqa: E402
 from rucio.core.account import add_account_attribute  # noqa: E402
 from rucio.core.vo import map_vo  # noqa: E402
-from rucio.common.types import InternalAccount  # noqa: E402
 from rucio.tests.common_server import reset_config_table  # noqa: E402
 
 

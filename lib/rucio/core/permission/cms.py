@@ -26,7 +26,9 @@ from rucio.db.sqla.constants import IdentityType
 
 if TYPE_CHECKING:
     from typing import Optional
+
     from sqlalchemy.orm import Session
+
     from rucio.common.types import InternalAccount
 
 

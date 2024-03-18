@@ -15,21 +15,57 @@
 
 from json import dumps
 
-from flask import Flask, Response, request, jsonify
+from flask import Flask, Response, jsonify, request
 
 from rucio.api.account_limit import get_rse_account_usage
-from rucio.api.rse import add_rse, update_rse, list_rses, del_rse, add_rse_attribute, list_rse_attributes, \
-    del_rse_attribute, add_protocol, get_rse_protocols, del_protocols, update_protocols, get_rse, set_rse_usage, \
-    get_rse_usage, list_rse_usage_history, set_rse_limits, get_rse_limits, delete_rse_limits, parse_rse_expression, \
-    add_distance, get_distance, update_distance, delete_distance, list_qos_policies, add_qos_policy, delete_qos_policy
-from rucio.common.exception import Duplicate, AccessDenied, RSENotFound, RSEOperationNotSupported, \
-    RSEProtocolNotSupported, InvalidObject, RSEProtocolDomainNotSupported, RSEProtocolPriorityError, \
-    InvalidRSEExpression, RSEAttributeNotFound, CounterNotFound, InvalidPath, ReplicaNotFound, InputValidationError
-from rucio.common.utils import Availability, render_json, APIEncoder
+from rucio.api.rse import (
+    add_distance,
+    add_protocol,
+    add_qos_policy,
+    add_rse,
+    add_rse_attribute,
+    del_protocols,
+    del_rse,
+    del_rse_attribute,
+    delete_distance,
+    delete_qos_policy,
+    delete_rse_limits,
+    get_distance,
+    get_rse,
+    get_rse_limits,
+    get_rse_protocols,
+    get_rse_usage,
+    list_qos_policies,
+    list_rse_attributes,
+    list_rse_usage_history,
+    list_rses,
+    parse_rse_expression,
+    set_rse_limits,
+    set_rse_usage,
+    update_distance,
+    update_protocols,
+    update_rse,
+)
+from rucio.common.exception import (
+    AccessDenied,
+    CounterNotFound,
+    Duplicate,
+    InputValidationError,
+    InvalidObject,
+    InvalidPath,
+    InvalidRSEExpression,
+    ReplicaNotFound,
+    RSEAttributeNotFound,
+    RSENotFound,
+    RSEOperationNotSupported,
+    RSEProtocolDomainNotSupported,
+    RSEProtocolNotSupported,
+    RSEProtocolPriorityError,
+)
+from rucio.common.utils import APIEncoder, Availability, render_json
 from rucio.rse import rsemanager
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
-    try_stream, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
 
 
 class RSEs(ErrorHandlingMethodView):

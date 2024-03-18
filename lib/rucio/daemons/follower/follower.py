@@ -25,7 +25,7 @@ from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.did import create_reports
-from rucio.core.heartbeat import live, die, sanity_check
+from rucio.core.heartbeat import die, live, sanity_check
 
 if TYPE_CHECKING:
     from types import FrameType

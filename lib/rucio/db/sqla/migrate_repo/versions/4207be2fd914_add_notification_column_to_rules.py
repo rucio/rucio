@@ -18,7 +18,6 @@
 import sqlalchemy as sa
 from alembic import context, op
 from alembic.op import add_column, drop_column
-
 from rucio.db.sqla.constants import RuleNotification
 from rucio.db.sqla.util import try_drop_constraint
 

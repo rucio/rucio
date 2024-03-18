@@ -18,17 +18,17 @@ import os
 import shutil
 import sys
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 if sys.version_info < (3, 9):
     print('ERROR: Rucio Server requires at least Python 3.9 to run.')
     sys.exit(1)
 
 try:
-    from setuputil import server_requirements_table, match_define_requirements, get_rucio_version
+    from setuputil import get_rucio_version, match_define_requirements, server_requirements_table
 except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-    from setuputil import server_requirements_table, match_define_requirements, get_rucio_version
+    from setuputil import get_rucio_version, match_define_requirements, server_requirements_table
 
 install_requires, extras_require = match_define_requirements(server_requirements_table)
 

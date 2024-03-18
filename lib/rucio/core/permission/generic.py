@@ -16,7 +16,7 @@
 from typing import TYPE_CHECKING
 
 import rucio.core.scope
-from rucio.core.account import list_account_attributes, has_account_attribute
+from rucio.core.account import has_account_attribute, list_account_attributes
 from rucio.core.identity import exist_identity_account
 from rucio.core.lifetime_exception import list_exceptions
 from rucio.core.rse import list_rse_attributes
@@ -25,7 +25,9 @@ from rucio.db.sqla.constants import IdentityType
 
 if TYPE_CHECKING:
     from typing import Optional
+
     from sqlalchemy.orm import Session
+
     from rucio.common.types import InternalAccount
 
 

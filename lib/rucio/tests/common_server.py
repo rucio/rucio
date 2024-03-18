@@ -20,7 +20,8 @@ from sqlalchemy.orm import aliased
 from rucio.core import config as core_config
 from rucio.core.vo import map_vo
 from rucio.db.sqla import models
-from rucio.db.sqla.session import transactional_session, get_session
+from rucio.db.sqla.session import get_session, transactional_session
+
 from .common import get_long_vo
 
 # Functions containing server-only includes that can't be included in client tests
