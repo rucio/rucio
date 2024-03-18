@@ -13,15 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterable
 import datetime
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import and_, or_
 from sqlalchemy.sql.expression import false, insert
 
 from rucio.common.utils import chunks
-from rucio.db.sqla import models, filter_thread_work
+from rucio.db.sqla import filter_thread_work, models
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:

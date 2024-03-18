@@ -14,8 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 import os.path
+import sys
+
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
@@ -24,13 +25,6 @@ import argparse  # noqa: E402
 from datetime import datetime  # noqa: E402
 from traceback import format_exc  # noqa: E402
 
-from sqlalchemy import func  # noqa: E402
-from sqlalchemy.engine import reflection  # noqa: E402
-from sqlalchemy.schema import AddConstraint, DropConstraint, ForeignKeyConstraint, MetaData, Table  # noqa: E402
-from sqlalchemy.sql import bindparam  # noqa: E402
-from sqlalchemy.sql.expression import cast  # noqa: E402
-from sqlalchemy.types import CHAR  # noqa: E402
-
 from rucio.common.config import config_get_bool  # noqa: E402
 from rucio.common.types import InternalAccount  # noqa: E402
 from rucio.common.utils import StoreTrueAndDeprecateWarningAction  # noqa: E402
@@ -38,6 +32,12 @@ from rucio.core.account import del_account  # noqa: E402
 from rucio.core.vo import list_vos  # noqa: E402
 from rucio.db.sqla import session  # noqa: E402
 from rucio.db.sqla.util import create_root_account  # noqa: E402
+from sqlalchemy import func  # noqa: E402
+from sqlalchemy.engine import reflection  # noqa: E402
+from sqlalchemy.schema import AddConstraint, DropConstraint, ForeignKeyConstraint, MetaData, Table  # noqa: E402
+from sqlalchemy.sql import bindparam  # noqa: E402
+from sqlalchemy.sql.expression import cast  # noqa: E402
+from sqlalchemy.types import CHAR  # noqa: E402
 
 
 def split_vo(dialect, column, return_vo=False):

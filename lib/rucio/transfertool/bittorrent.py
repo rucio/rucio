@@ -24,7 +24,8 @@ from rucio.common.config import config_get
 from rucio.common.extra import import_extras
 from rucio.common.utils import construct_torrent
 from rucio.core.did_meta_plugins import get_metadata
-from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
+from rucio.transfertool.transfertool import TransferStatusReport, Transfertool, TransferToolBuilder
+
 from .bittorrent_driver import BittorrentDriver
 
 if TYPE_CHECKING:

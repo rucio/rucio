@@ -13,15 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from argparse import ArgumentParser, Namespace
-from pathlib import Path
 import json
 import subprocess
 import sys
+from argparse import ArgumentParser, Namespace
+from pathlib import Path
 
-from .models import ReportDict, Report
+from .models import Report, ReportDict
 from .utils import save_json
-
 
 PATHS = (
     'lib/',

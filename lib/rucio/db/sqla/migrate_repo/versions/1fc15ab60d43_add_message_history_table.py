@@ -20,7 +20,6 @@ import datetime
 import sqlalchemy as sa
 from alembic import context
 from alembic.op import create_table, drop_table
-
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers

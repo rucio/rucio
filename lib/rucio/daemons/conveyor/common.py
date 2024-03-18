@@ -25,31 +25,33 @@ import re
 from typing import TYPE_CHECKING
 
 from rucio.common.config import config_get_bool
-from rucio.common.exception import (InvalidRSEExpression, TransferToolTimeout, TransferToolWrongAnswer, RequestNotFound,
-                                    DuplicateFileTransferSubmission, VONotFound, DatabaseException)
+from rucio.common.exception import DatabaseException, DuplicateFileTransferSubmission, InvalidRSEExpression, RequestNotFound, TransferToolTimeout, TransferToolWrongAnswer, VONotFound
 from rucio.common.stopwatch import Stopwatch
-from rucio.core import request as request_core, transfer as transfer_core
+from rucio.core import request as request_core
+from rucio.core import transfer as transfer_core
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import add_replicas, tombstone_from_delay, update_replica_state
-from rucio.core.request import transition_request_state, queue_requests
+from rucio.core.request import queue_requests, transition_request_state
 from rucio.core.rse import list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.transfer import build_transfer_paths
 from rucio.core.vo import list_vos
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RequestState, ReplicaState
+from rucio.db.sqla.constants import ReplicaState, RequestState
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
-    from typing import Optional, Mapping
+    from typing import Mapping, Optional
+
+    from sqlalchemy.orm import Session
+
     from rucio.common.types import InternalAccount
     from rucio.core.request import DirectTransfer, RequestWithSources
     from rucio.core.topology import Topology
     from rucio.core.transfer import ProtocolFactory
     from rucio.transfertool.transfertool import TransferToolBuilder
-    from sqlalchemy.orm import Session
 
 METRICS = MetricManager(module=__name__)
 

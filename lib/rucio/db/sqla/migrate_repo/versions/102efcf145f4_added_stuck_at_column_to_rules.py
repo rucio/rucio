@@ -16,10 +16,8 @@
 ''' added stuck_at column to rules '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '102efcf145f4'

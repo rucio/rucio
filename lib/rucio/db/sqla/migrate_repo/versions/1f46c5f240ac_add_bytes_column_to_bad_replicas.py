@@ -16,10 +16,8 @@
 ''' add bytes column to bad_replicas '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '1f46c5f240ac'

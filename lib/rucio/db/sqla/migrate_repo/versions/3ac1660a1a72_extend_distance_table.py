@@ -16,10 +16,8 @@
 ''' extend distance table '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '3ac1660a1a72'

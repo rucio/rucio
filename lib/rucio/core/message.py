@@ -16,11 +16,11 @@
 import json
 from typing import TYPE_CHECKING
 
-from sqlalchemy import or_, delete, update, insert
+from sqlalchemy import delete, insert, or_, update
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.config import config_get_list
-from rucio.common.constants import HermesService, MAX_MESSAGE_LENGTH
+from rucio.common.constants import MAX_MESSAGE_LENGTH, HermesService
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import APIEncoder, chunks
 from rucio.db.sqla import filter_thread_work
@@ -29,6 +29,7 @@ from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from typing import Any, Optional
+
     from sqlalchemy.orm import Session
 
     MessageType = dict[str, Any]

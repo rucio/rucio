@@ -25,6 +25,8 @@ import ipaddress
 import itertools
 import json
 import logging
+import math
+import mmap
 import os
 import os.path
 import re
@@ -34,6 +36,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import zlib
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from enum import Enum
@@ -41,18 +44,14 @@ from functools import partial, wraps
 from io import StringIO
 from itertools import zip_longest
 from typing import TYPE_CHECKING, Optional, Type, TypeVar
-from urllib.parse import urlparse, urlencode, quote, parse_qsl, urlunparse
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
 
-import math
-import mmap
 import requests
-import zlib
 
 from rucio.common.config import config_get, config_has_section
-from rucio.common.exception import MissingModuleException, InvalidType, InputValidationError, MetalinkJsonParsingError, RucioException, \
-    DuplicateCriteriaInDIDFilter, DIDFilterSyntaxError, PolicyPackageVersionError
+from rucio.common.exception import DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, PolicyPackageVersionError, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.types import InternalAccount, InternalScope
@@ -2063,6 +2062,7 @@ class PriorityQueue:
 
 def check_policy_package_version(package):
     import importlib
+
     from rucio.version import version_string
     '''
     Checks that the Rucio version supported by the policy package is compatible

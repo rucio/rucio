@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.common.types import InternalScope, InternalAccount, InternalType
+from rucio.common.types import InternalAccount, InternalScope, InternalType
 
 
 class TestInternalType:

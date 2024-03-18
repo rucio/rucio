@@ -18,7 +18,7 @@ import datetime
 import hmac
 import time
 from hashlib import sha1
-from urllib.parse import urlparse, urlencode
+from urllib.parse import urlencode, urlparse
 
 import boto3
 from botocore.client import Config

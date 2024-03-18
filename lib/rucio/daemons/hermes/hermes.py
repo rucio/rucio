@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING
 
 import requests
 import stomp
+from requests.auth import HTTPBasicAuth
 
 import rucio.db.sqla.util
 from rucio.common.config import (
@@ -48,7 +49,6 @@ from rucio.common.logging import setup_logging
 from rucio.core.message import delete_messages, retrieve_messages
 from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon
-from requests.auth import HTTPBasicAuth
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -14,11 +14,10 @@
 # limitations under the License.
 
 import pytest
-
-from rucio.common.exception import InvalidValueForKey, RucioException, UnsupportedValueType, UnsupportedKeyType
+from rucio.common.exception import InvalidValueForKey, RucioException, UnsupportedKeyType, UnsupportedValueType
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.meta_conventions import add_key
-from rucio.db.sqla import session, models
+from rucio.db.sqla import models, session
 from rucio.db.sqla.constants import DIDType, KeyType
 
 

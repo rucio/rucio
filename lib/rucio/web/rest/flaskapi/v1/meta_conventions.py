@@ -13,13 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 
 from rucio.api.meta_conventions import add_key, add_value, list_keys, list_values
-from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedValueType, UnsupportedKeyType
+from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedKeyType, UnsupportedValueType
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, response_headers, \
-    generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers
 
 
 class MetaConventions(ErrorHandlingMethodView):

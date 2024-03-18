@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
+from typing import TYPE_CHECKING
 
+import pytest
 from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
@@ -32,9 +33,9 @@ from rucio.db.sqla.models import UpdatedDID
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import RSE_namedtuple
 from rucio.tests.common_server import get_vo
+
 from .test_rule import create_files, tag_generator
 
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .temp_factories import TemporaryDidFactory, TemporaryRSEFactory
 

@@ -24,19 +24,21 @@ from sqlalchemy.orm.exc import NoResultFound
 
 import rucio.common.policy
 from rucio.common.config import config_get, config_get_int, config_get_list
-from rucio.common.exception import RucioException, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, UnsupportedOperation, ConfigNotFound
+from rucio.common.exception import ConfigNotFound, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, RucioException, UnsupportedOperation
 from rucio.common.utils import generate_uuid, str_to_date
 from rucio.core.message import add_message
 from rucio.core.rse import list_rse_attributes
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, LifetimeExceptionsState
-from rucio.db.sqla.session import transactional_session, stream_session, read_session
+from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from typing import Any, Optional, Union
-    from rucio.common.types import InternalAccount, InternalScope
+
     from sqlalchemy.orm import Session
+
+    from rucio.common.types import InternalAccount, InternalScope
 
 
 @stream_session

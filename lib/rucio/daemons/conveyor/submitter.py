@@ -24,18 +24,17 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list, config_get_float
+from rucio.common.config import config_get, config_get_bool, config_get_float, config_get_int, config_get_list
 from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
 from rucio.common.stopwatch import Stopwatch
 from rucio.core.monitor import MetricManager
 from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas
-from rucio.core.topology import Topology, ExpiringObjectCache
-from rucio.core.transfer import DEFAULT_MULTIHOP_TOMBSTONE_DELAY, list_transfer_admin_accounts, transfer_path_str, \
-    TRANSFERTOOL_CLASSES_BY_NAME, ProtocolFactory
-from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
-from rucio.daemons.conveyor.common import submit_transfer, get_conveyor_rses, pick_and_prepare_submission_path
-from rucio.db.sqla.constants import RequestType, RequestState
+from rucio.core.topology import ExpiringObjectCache, Topology
+from rucio.core.transfer import DEFAULT_MULTIHOP_TOMBSTONE_DELAY, TRANSFERTOOL_CLASSES_BY_NAME, ProtocolFactory, list_transfer_admin_accounts, transfer_path_str
+from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
+from rucio.daemons.conveyor.common import get_conveyor_rses, pick_and_prepare_submission_path, submit_transfer
+from rucio.db.sqla.constants import RequestState, RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 

@@ -20,14 +20,15 @@ import os
 import tempfile
 from collections import namedtuple
 from random import choice, choices
-from string import ascii_uppercase, ascii_letters, digits
+from string import ascii_letters, ascii_uppercase, digits
 from typing import Optional
 
 import pytest
 import requests
 
 from rucio.common.config import config_get, config_get_bool, get_config_dirs
-from rucio.common.utils import generate_uuid as uuid, execute
+from rucio.common.utils import execute
+from rucio.common.utils import generate_uuid as uuid
 
 skip_rse_tests_with_accounts = pytest.mark.skipif(not any(os.path.exists(os.path.join(d, 'rse-accounts.cfg')) for d in get_config_dirs()),
                                                   reason='fails if no rse-accounts.cfg found')

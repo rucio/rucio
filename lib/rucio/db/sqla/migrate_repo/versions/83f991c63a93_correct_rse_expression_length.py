@@ -16,7 +16,6 @@
 ''' correct rse_expression length '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import alter_column
 

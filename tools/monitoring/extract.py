@@ -22,10 +22,12 @@ consumer_port = 9200
 es_username = ""
 es_password = ""
 
-from time import sleep
-import elasticsearch as es
 from json import loads as jloads
+from time import sleep
+
+import elasticsearch as es
 import stomp
+
 
 class ElasticConn():
   def __init__(self, host_port, auth):

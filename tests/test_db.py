@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
 from unittest.mock import patch
 
-from sqlalchemy import text
-from rucio.db.sqla.session import get_session, _get_engine_poolclass, NullPool, QueuePool, SingletonThreadPool
+import pytest
 from rucio.common.exception import InputValidationError
+from rucio.db.sqla.session import NullPool, QueuePool, SingletonThreadPool, _get_engine_poolclass, get_session
+from sqlalchemy import text
 
 
 def test_db_connection():
@@ -43,8 +43,8 @@ def test_config_poolclass():
 @pytest.mark.noparallel(reason='Changes an internal method of MethodView.')
 def test_pooloverload():
     """ DB (WEB): Test response to a DatabaseException due to Pool Overflow """
-    from rucio.web.rest.flaskapi.v1.ping import Ping
     from rucio.common.exception import DatabaseException
+    from rucio.web.rest.flaskapi.v1.ping import Ping
 
     # Create a new ErrorHandlingMethodView as_view
     ping_view = Ping.as_view('ping')

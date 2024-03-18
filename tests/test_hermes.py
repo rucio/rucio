@@ -17,14 +17,13 @@
 Hermes Test
 """
 
+import time
 from datetime import datetime
 from json import loads
-import requests
+
 import pytest
-
+import requests
 import stomp
-import time
-
 from rucio.common.config import config_get, config_get_int
 from rucio.core.message import add_message, retrieve_messages, truncate_messages
 from rucio.daemons.hermes import hermes

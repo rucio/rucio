@@ -24,14 +24,14 @@ from rucio.client.uploadclient import UploadClient
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalScope
 from rucio.common.utils import execute, generate_uuid
-from rucio.core import rse as rse_core
 from rucio.core import did as did_core
+from rucio.core import rse as rse_core
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import did_name_generator
 from rucio.tests.common_server import cleanup_db_deps
-from sqlalchemy import and_, or_, delete
+from sqlalchemy import and_, delete, or_
 
 
 def _to_external(did):

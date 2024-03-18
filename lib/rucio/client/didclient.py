@@ -15,15 +15,14 @@
 
 from datetime import datetime
 from json import dumps
-from typing import Optional, Any
+from typing import Any, Optional
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
 
-from rucio.client.baseclient import BaseClient
-from rucio.client.baseclient import choice
+from rucio.client.baseclient import BaseClient, choice
 from rucio.common.exception import DeprecationError
-from rucio.common.utils import build_url, render_json, render_json_list, date_to_str
+from rucio.common.utils import build_url, date_to_str, render_json, render_json_list
 
 
 class DIDClient(BaseClient):

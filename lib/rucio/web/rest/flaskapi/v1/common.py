@@ -29,16 +29,16 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers import Request, Response
 
 from rucio.api.authentication import validate_auth_token
-from rucio.api.identity import list_accounts_for_identity, get_default_account, verify_identity
+from rucio.api.identity import get_default_account, list_accounts_for_identity, verify_identity
 from rucio.common import config
-from rucio.common.exception import DatabaseException, IdentityError, RucioException, CannotAuthenticate, UnsupportedRequestedContentType
+from rucio.common.exception import CannotAuthenticate, DatabaseException, IdentityError, RucioException, UnsupportedRequestedContentType
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
 from rucio.core.vo import map_vo
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
-    from typing import Optional, Union, Literal, Any
+    from typing import Any, Literal, Optional, Union
 
     HeadersType = Union[Headers, dict[str, str], Sequence[tuple[str, str]]]
 

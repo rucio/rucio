@@ -18,13 +18,12 @@ import random
 import string
 
 import pytest
-
-from rucio.db.sqla.models import Message
-from rucio.db.sqla.session import get_session
 from rucio.common.constants import MAX_MESSAGE_LENGTH
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import generate_uuid
-from rucio.core.message import add_message, add_messages, retrieve_messages, delete_messages, truncate_messages
+from rucio.core.message import add_message, add_messages, delete_messages, retrieve_messages, truncate_messages
+from rucio.db.sqla.models import Message
+from rucio.db.sqla.session import get_session
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel')

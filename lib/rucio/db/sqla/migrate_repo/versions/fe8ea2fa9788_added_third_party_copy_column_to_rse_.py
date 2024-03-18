@@ -16,10 +16,8 @@
 ''' add third_party_copy column to rse_protocols '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = 'fe8ea2fa9788'

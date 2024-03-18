@@ -15,6 +15,7 @@
 
 import enum
 
+
 class NoParallelGroups(enum.Enum):
     # Special group. Tests with this marker will never run in parallel with any other test
     EXCLUSIVE = 'exclusive'
@@ -29,4 +30,3 @@ class NoParallelGroups(enum.Enum):
     # Accessing predefined RSEs
     XRD = 'xrd'
     WEB = 'web'
-

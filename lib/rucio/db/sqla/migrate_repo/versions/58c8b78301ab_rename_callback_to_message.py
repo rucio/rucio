@@ -16,9 +16,7 @@
 ''' rename callback to message '''
 
 from alembic import context, op
-from alembic.op import (create_primary_key, create_check_constraint,
-                        drop_constraint, rename_table)
-
+from alembic.op import create_check_constraint, create_primary_key, drop_constraint, rename_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers

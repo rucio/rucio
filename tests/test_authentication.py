@@ -14,21 +14,19 @@
 # limitations under the License.
 
 import base64
-
 import datetime
-import pytest
-from requests import session
 import time
 
-from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_ssh, get_ssh_challenge_token, \
-    get_auth_token_saml
-from rucio.common.exception import Duplicate, AccessDenied, CannotAuthenticate
+import pytest
+from requests import session
+from rucio.api.authentication import get_auth_token_saml, get_auth_token_ssh, get_auth_token_user_pass, get_ssh_challenge_token
+from rucio.common.exception import AccessDenied, CannotAuthenticate, Duplicate
 from rucio.common.utils import ssh_sign
-from rucio.core.identity import add_account_identity, del_account_identity
 from rucio.core.authentication import strip_x509_proxy_attributes
+from rucio.core.identity import add_account_identity, del_account_identity
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
-from rucio.tests.common import headers, hdrdict, loginhdr, vohdr
+from rucio.tests.common import hdrdict, headers, loginhdr, vohdr
 
 PUBLIC_KEY = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL"\
              "614sulXQ7wnIr1aGhGtl8b+HCB/0FhMSMTHwSjX78UbfqEorZ"\

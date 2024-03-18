@@ -26,9 +26,9 @@ from rucio.common.exception import DataIdentifierNotFound
 from rucio.common.types import InternalScope
 from rucio.core.lifetime_exception import define_eol
 from rucio.core.rse import get_rse_attribute, get_rse_name
-from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import LockState, RuleState, RuleGrouping, DIDType, RuleNotification
-from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla import filter_thread_work, models
+from rucio.db.sqla.constants import DIDType, LockState, RuleGrouping, RuleNotification, RuleState
+from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

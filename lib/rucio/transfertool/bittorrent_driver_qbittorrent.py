@@ -15,7 +15,7 @@
 
 import logging
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, cast, Optional
+from typing import TYPE_CHECKING, Optional, cast
 from urllib.parse import urlparse
 
 import qbittorrentapi
@@ -26,11 +26,14 @@ from rucio.common.utils import resolve_ip
 from rucio.core.oidc import request_token
 from rucio.db.sqla.constants import RequestState
 from rucio.transfertool.transfertool import TransferStatusReport
+
 from .bittorrent_driver import BittorrentDriver
 
 if TYPE_CHECKING:
     from typing import Type
+
     from sqlalchemy.orm import Session
+
     from rucio.core.rse import RseData
 
 

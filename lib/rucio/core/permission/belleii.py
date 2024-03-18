@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 import rucio.core.scope
 from rucio.common.config import config_get
-from rucio.common.types import InternalScope, InternalAccount
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.account import has_account_attribute, list_account_attributes
 from rucio.core.did import get_metadata
 from rucio.core.identity import exist_identity_account
@@ -29,6 +29,7 @@ from rucio.db.sqla.constants import IdentityType
 
 if TYPE_CHECKING:
     from typing import Optional
+
     from sqlalchemy.orm import Session
 
 

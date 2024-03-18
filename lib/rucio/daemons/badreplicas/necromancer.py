@@ -31,9 +31,8 @@ from rucio.common.config import config_get_int
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
-from rucio.core.replica import list_bad_replicas, get_replicas_state, get_bad_replicas_backlog
-from rucio.core.rule import (update_rules_for_lost_replica, update_rules_for_bad_replica,
-                             get_evaluation_backlog)
+from rucio.core.replica import get_bad_replicas_backlog, get_replicas_state, list_bad_replicas
+from rucio.core.rule import get_evaluation_backlog, update_rules_for_bad_replica, update_rules_for_lost_replica
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, ReplicaState
 

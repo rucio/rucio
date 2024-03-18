@@ -16,11 +16,11 @@
 import os
 import sys
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import urlparse
 
 import requests
-from dataclasses import dataclass
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
 

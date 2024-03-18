@@ -16,10 +16,8 @@
 ''' add repair_cnt to locks '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '269fee20dee9'

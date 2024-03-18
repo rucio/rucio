@@ -16,11 +16,9 @@ import itertools
 import math
 
 import pytest
-
 from xdist.scheduler import LoadScheduling
 
-from . import NoParallelGroups
-from . import xdist_noparallel_remote
+from . import NoParallelGroups, xdist_noparallel_remote
 
 
 @pytest.hookimpl

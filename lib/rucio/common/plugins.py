@@ -16,11 +16,10 @@
 import importlib
 import os
 from configparser import NoOptionError, NoSectionError
-from typing import Any, Callable, Dict, TypeVar, Type
+from typing import Any, Callable, Dict, Type, TypeVar
 
 from rucio.common import config
 from rucio.common.exception import InvalidAlgorithmName
-
 
 PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPackageAlgorithms')
 

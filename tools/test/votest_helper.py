@@ -14,16 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
-import traceback
-import json
 import argparse
-import logging
-import functools
 import configparser
-from pathlib import Path
+import functools
 import glob
 import itertools
+import json
+import logging
+import sys
+import traceback
+from pathlib import Path
+
 import yaml
 
 logger = logging.getLogger(__name__)

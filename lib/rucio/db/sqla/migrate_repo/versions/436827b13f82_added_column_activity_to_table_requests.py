@@ -16,10 +16,8 @@
 ''' added column activity to table requests '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '436827b13f82'

@@ -14,10 +14,8 @@
 # limitations under the License.
 
 import pytest
-
 from rucio.common.exception import InvalidObject
 from rucio.common.schema.cms import validate_schema
-
 
 # Some tests adapted from https://github.com/dmwm/WMCore/blob/master/test/python/WMCore_t/Lexicon_t.py
 

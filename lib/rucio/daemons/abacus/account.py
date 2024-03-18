@@ -26,7 +26,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.common.utils import get_thread_with_periodic_running_function
-from rucio.core.account_counter import get_updated_account_counters, update_account_counter, fill_account_counter_history_table
+from rucio.core.account_counter import fill_account_counter_history_table, get_updated_account_counters, update_account_counter
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:

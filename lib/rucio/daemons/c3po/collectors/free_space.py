@@ -17,7 +17,7 @@
 Collector to get the SRM free and used information for DATADISK RSEs.
 """
 
-from rucio.db.sqla.models import RSEUsage, RSEAttrAssociation
+from rucio.db.sqla.models import RSEAttrAssociation, RSEUsage
 from rucio.db.sqla.session import read_session
 
 

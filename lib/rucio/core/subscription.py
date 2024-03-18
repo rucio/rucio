@@ -26,15 +26,17 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common.config import config_get
-from rucio.common.exception import SubscriptionNotFound, SubscriptionDuplicate, RucioException
+from rucio.common.exception import RucioException, SubscriptionDuplicate, SubscriptionNotFound
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import SubscriptionState
-from rucio.db.sqla.session import transactional_session, stream_session, read_session
+from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from typing import Any, Optional
+
     from sqlalchemy.orm import Session
+
     from rucio.common.types import InternalAccount
     LoggerFunction = Callable[..., Any]
     SubscriptionType = dict

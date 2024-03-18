@@ -17,7 +17,6 @@
 
 from alembic import context, op
 
-
 # Alembic revision identifiers
 revision = '9eb936a81eb1'
 down_revision = 'b96a1c7e1cc4'

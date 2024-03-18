@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.core.rse import update_rse, get_rse
+from rucio.core.rse import get_rse, update_rse
 
 
 class TestQoS:

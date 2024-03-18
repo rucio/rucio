@@ -16,7 +16,6 @@
 ''' Add columns for third_party_copy_read and third_party_copy_write '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
 

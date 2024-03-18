@@ -16,7 +16,7 @@
 from typing import TYPE_CHECKING
 
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.sql import func, select, literal
+from sqlalchemy.sql import func, literal, select
 from sqlalchemy.sql.expression import and_, or_
 
 from rucio.core.account import get_all_rse_usages_per_account

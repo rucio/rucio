@@ -16,7 +16,6 @@
 ''' remove third_party_copy column from rse '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
 

@@ -14,15 +14,13 @@
 # limitations under the License.
 
 from json import dumps, loads
+from typing import TYPE_CHECKING, Optional, Union
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
 
-from rucio.client.baseclient import BaseClient
-from rucio.client.baseclient import choice
+from rucio.client.baseclient import BaseClient, choice
 from rucio.common.utils import build_url
-from typing import Union, Optional, TYPE_CHECKING
-
 
 if TYPE_CHECKING:
     from rucio.db.sqla.constants import KeyType

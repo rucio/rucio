@@ -15,22 +15,21 @@
 
 import functools
 import logging
+import math
 import re
 import threading
 import traceback
 from typing import TYPE_CHECKING
 
-import math
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound, DatabaseException
+from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.logging import setup_logging
 from rucio.common.utils import chunks
 from rucio.core.did import get_metadata
-from rucio.core.replica import (update_replicas_states, get_replicas_state,
-                                bulk_delete_bad_replicas, list_expired_temporary_unavailable_replicas)
+from rucio.core.replica import bulk_delete_bad_replicas, get_replicas_state, list_expired_temporary_unavailable_replicas, update_replicas_states
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, BadFilesStatus, ReplicaState
 from rucio.db.sqla.session import get_session

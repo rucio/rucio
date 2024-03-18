@@ -16,10 +16,8 @@
 ''' add started_at to requests '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '58bff7008037'

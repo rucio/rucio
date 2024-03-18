@@ -19,8 +19,7 @@ import datetime
 
 import sqlalchemy as sa
 from alembic import context
-from alembic.op import (create_primary_key, create_check_constraint,
-                        create_table, drop_table, create_foreign_key)
+from alembic.op import create_check_constraint, create_foreign_key, create_primary_key, create_table, drop_table
 
 # Alembic revision identifiers
 revision = 'a74275a1ad30'

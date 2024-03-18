@@ -17,28 +17,43 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, Optional, Union
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Float, Integer, SmallInteger, String, Text, event, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Float, Integer, SmallInteger, String, Text, UniqueConstraint, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import mapped_column, object_mapper, relationship, Mapped
-from sqlalchemy.schema import Index, ForeignKeyConstraint, PrimaryKeyConstraint, CheckConstraint, Table
+from sqlalchemy.orm import Mapped, mapped_column, object_mapper, relationship
+from sqlalchemy.schema import CheckConstraint, ForeignKeyConstraint, Index, PrimaryKeyConstraint, Table
 from sqlalchemy.sql import Delete
 from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.db.sqla.constants import (AccountStatus, AccountType, DIDAvailability, DIDType, DIDReEvaluation,
-                                     KeyType, IdentityType, LockState, RuleGrouping, BadFilesStatus,
-                                     RuleState, ReplicaState, RequestState, RequestType, RSEType,
-                                     ScopeStatus, SubscriptionState, RuleNotification, LifetimeExceptionsState,
-                                     BadPFNStatus, TransferLimitDirection)
+from rucio.db.sqla.constants import (
+    AccountStatus,
+    AccountType,
+    BadFilesStatus,
+    BadPFNStatus,
+    DIDAvailability,
+    DIDReEvaluation,
+    DIDType,
+    IdentityType,
+    KeyType,
+    LifetimeExceptionsState,
+    LockState,
+    ReplicaState,
+    RequestState,
+    RequestType,
+    RSEType,
+    RuleGrouping,
+    RuleNotification,
+    RuleState,
+    ScopeStatus,
+    SubscriptionState,
+    TransferLimitDirection,
+)
 from rucio.db.sqla.session import BASE
-from rucio.db.sqla.types import GUID, BooleanString, JSON
-from rucio.db.sqla.types import InternalAccountString
-from rucio.db.sqla.types import InternalScopeString
-
+from rucio.db.sqla.types import GUID, JSON, BooleanString, InternalAccountString, InternalScopeString
 
 # SQLAlchemy defines the corresponding code behind TYPE_CHECKING
 # https://github.com/sqlalchemy/sqlalchemy/blob/d9acd6223299c118464d30abfa483e26a536239d/lib/sqlalchemy/orm/base.py#L814

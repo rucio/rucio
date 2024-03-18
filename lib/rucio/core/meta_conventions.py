@@ -16,13 +16,11 @@
 from re import match
 from typing import TYPE_CHECKING, Optional, Union
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
-from rucio.common.exception import (Duplicate, RucioException,
-                                    KeyNotFound, InvalidValueForKey, UnsupportedValueType,
-                                    InvalidObject, UnsupportedKeyType)
+from rucio.common.exception import Duplicate, InvalidObject, InvalidValueForKey, KeyNotFound, RucioException, UnsupportedKeyType, UnsupportedValueType
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, KeyType
 from rucio.db.sqla.session import read_session, transactional_session

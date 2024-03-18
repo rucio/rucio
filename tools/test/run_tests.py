@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import io
 import itertools
+import json
 import multiprocessing
 import os
 import pathlib
@@ -28,7 +28,7 @@ import traceback
 import uuid
 from datetime import datetime
 from tempfile import NamedTemporaryFile
-from typing import Optional, Union, NoReturn
+from typing import NoReturn, Optional, Union
 
 import yaml
 

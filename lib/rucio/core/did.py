@@ -21,31 +21,33 @@ from hashlib import md5
 from re import match
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, or_, exists, update, delete, insert
+from sqlalchemy import and_, delete, exists, insert, or_, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.sql import not_, func
-from sqlalchemy.sql.expression import bindparam, case, select, true, false, null
+from sqlalchemy.sql import func, not_
+from sqlalchemy.sql.expression import bindparam, case, false, null, select, true
 
 import rucio.core.replica  # import add_replicas
 import rucio.core.rule
 from rucio.common import exception
 from rucio.common.config import config_get_bool, config_get_int
-from rucio.common.utils import is_archive, chunks
+from rucio.common.utils import chunks, is_archive
 from rucio.core import did_meta_plugins
 from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
 from rucio.core.naming_convention import validate_name
-from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState, BadFilesStatus
-from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla import filter_thread_work, models
+from rucio.db.sqla.constants import BadFilesStatus, DIDAvailability, DIDReEvaluation, DIDType, RuleState
+from rucio.db.sqla.session import read_session, stream_session, transactional_session
 from rucio.db.sqla.util import temp_table_mngr
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
     from typing import Any, Optional, Union
+
     from sqlalchemy.orm import Session
     from sqlalchemy.schema import Table
+
     from rucio.common.types import InternalAccount, InternalScope, LoggerFunction
 
 

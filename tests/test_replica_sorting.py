@@ -16,19 +16,19 @@
 import copy
 import json
 import os
+from tempfile import mkstemp
 from unittest import mock
 from urllib.parse import urlparse
-from tempfile import mkstemp
 
 import geoip2.database
 import pytest
-
-from rucio.common.utils import parse_replicas_from_string
 from rucio.common.config import config_get
-from rucio.core import rse_expression_parser, replica_sorter
+from rucio.common.utils import parse_replicas_from_string
+from rucio.core import replica_sorter, rse_expression_parser
 from rucio.core.replica import add_replicas, delete_replicas
-from rucio.core.rse import add_rse, del_rse, add_rse_attribute, add_protocol, del_rse_attribute
-from rucio.tests.common import rse_name_generator, headers, auth, vohdr, Mime, accept
+from rucio.core.rse import add_protocol, add_rse, add_rse_attribute, del_rse, del_rse_attribute
+from rucio.tests.common import Mime, accept, auth, headers, rse_name_generator, vohdr
+
 from .inputs import GEOIP_LITE2_CITY_TEST_DB
 
 LOCATION_TO_IP = {

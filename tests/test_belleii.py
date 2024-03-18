@@ -16,10 +16,9 @@
 from datetime import datetime
 
 import pytest
-
 from rucio.common.exception import InvalidObject
 from rucio.common.schema.belleii import validate_schema
-from rucio.common.utils import generate_uuid, extract_scope
+from rucio.common.utils import extract_scope, generate_uuid
 from rucio.core.config import set as config_set
 from rucio.tests.common import did_name_generator, skip_non_belleii
 
@@ -106,7 +105,7 @@ def test_dirac_addfile_with_parents_meta(rse_factory, did_factory, root_account,
     replicas = [rep for rep in replica_client.list_replicas(dids=files)]
     for replica in replicas:
         assert {'scope': replica['scope'], 'name': replica['name'], 'rse': list(replica['rses'].keys())[0]} in reps
-    
+
     # check if metadata if properly created for file and parents
     for lfn in lfns:
         scope, name = extract_scope(lfn['lfn'], [])

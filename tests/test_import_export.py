@@ -16,24 +16,21 @@
 from copy import deepcopy
 
 import pytest
-
 from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
-from rucio.common.config import config_set, config_add_section, config_has_section
+from rucio.common.config import config_add_section, config_has_section, config_set
 from rucio.common.exception import RSENotFound
 from rucio.common.types import InternalAccount
-from rucio.common.utils import render_json, parse_response
+from rucio.common.utils import parse_response, render_json
 from rucio.core.account import add_account, get_account
 from rucio.core.distance import add_distance, get_distances
 from rucio.core.exporter import export_data, export_rses
-from rucio.core.identity import add_identity, list_identities, add_account_identity, list_accounts_for_identity
+from rucio.core.identity import add_account_identity, add_identity, list_accounts_for_identity, list_identities
 from rucio.core.importer import import_data, import_rses
-from rucio.core.rse import get_rse_id, get_rse_name, add_rse, get_rse, add_protocol, get_rse_protocols, \
-    list_rse_attributes, get_rse_limits, set_rse_limits, add_rse_attribute, list_rses, export_rse, del_rse, \
-    get_rse_attribute
-from rucio.db.sqla import session, models
-from rucio.db.sqla.constants import RSEType, AccountType, IdentityType, AccountStatus
-from rucio.tests.common import rse_name_generator, headers, auth, hdrdict
+from rucio.core.rse import add_protocol, add_rse, add_rse_attribute, del_rse, export_rse, get_rse, get_rse_attribute, get_rse_id, get_rse_limits, get_rse_name, get_rse_protocols, list_rse_attributes, list_rses, set_rse_limits
+from rucio.db.sqla import models, session
+from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType, RSEType
+from rucio.tests.common import auth, hdrdict, headers, rse_name_generator
 
 
 def check_rse(rse_name, test_data, vo='def'):

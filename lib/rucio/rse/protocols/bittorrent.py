@@ -17,14 +17,13 @@ import base64
 import logging
 import os.path
 import time
-from urllib.parse import urlparse, urlencode, parse_qs
+from urllib.parse import parse_qs, urlencode, urlparse
 
 from rucio.common import exception
-from rucio.common.utils import construct_torrent, resolve_ip
-from rucio.rse.protocols.protocol import RSEProtocol
-from rucio.rse import rsemanager
-
 from rucio.common.extra import import_extras
+from rucio.common.utils import construct_torrent, resolve_ip
+from rucio.rse import rsemanager
+from rucio.rse.protocols.protocol import RSEProtocol
 
 EXTRA_MODULES = import_extras(['libtorrent'])
 

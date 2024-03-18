@@ -16,10 +16,8 @@
 ''' add request external_host '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '14ec5aeb64cf'

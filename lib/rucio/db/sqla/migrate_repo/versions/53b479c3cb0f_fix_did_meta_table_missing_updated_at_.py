@@ -16,10 +16,8 @@
 ''' fix did_meta table missing updated_at, created_at columns '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '53b479c3cb0f'
