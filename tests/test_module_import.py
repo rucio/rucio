@@ -15,7 +15,7 @@
 from rucio.common.utils import execute
 
 
-class TestModuleImport():
+class TestModuleImport:
     def test_import(self):
         """ """
         cmd = 'rucio --version'

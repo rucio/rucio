@@ -17,7 +17,7 @@ import logging
 from rucio.db.sqla.session import read_session
 
 
-class JediDIDCollector():
+class JediDIDCollector:
     def __init__(self, queue):
         self.queue = queue
         self.max_tid = 0

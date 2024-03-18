@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-class RSESelector():
+class RSESelector:
     """
     Representation of the RSE selector
     """
