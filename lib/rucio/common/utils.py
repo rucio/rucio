@@ -1658,7 +1658,7 @@ def get_thread_with_periodic_running_function(interval, action, graceful_stop):
         while not graceful_stop.is_set():
             starttime = time.time()
             action()
-            time.sleep(interval - ((time.time() - starttime)))
+            time.sleep(interval - (time.time() - starttime))
     t = threading.Thread(target=start)
     return t
 
