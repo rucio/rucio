@@ -19,7 +19,7 @@ Mock DID collector
 from random import choice
 
 
-class MockDIDCollector(object):
+class MockDIDCollector:
     """
     Simple collector that reads dids from a file. Used to
     test the interface.

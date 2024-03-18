@@ -29,7 +29,7 @@ from rucio.daemons.hermes import hermes
 from rucio.tests.common import rse_name_generator, skip_missing_elasticsearch_influxdb_in_env
 
 
-class MyListener(object):
+class MyListener:
     def __init__(self, conn):
         self.conn = conn
         self.count = 0

@@ -927,7 +927,7 @@ class SourceRankingStrategy:
         """
         pass
 
-    class _ClassNameDescriptor(object):
+    class _ClassNameDescriptor:
         """
         Automatically set the external_name of the strategy to the class name.
         """

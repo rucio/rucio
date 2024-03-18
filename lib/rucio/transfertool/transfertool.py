@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from rucio.core.rse import RseData
 
 
-class TransferToolBuilder(object):
+class TransferToolBuilder:
     """
     Builder for Transfertool objects.
     Stores the parameters needed to create the Transfertool object of the given type/class.
@@ -53,7 +53,7 @@ class TransferToolBuilder(object):
         return self.transfertool_class(**all_kwargs)
 
 
-class TransferStatusReport(object, metaclass=ABCMeta):
+class TransferStatusReport(metaclass=ABCMeta):
     """
     Allows to compute the changes which have to be applied to the database
     to reflect the current status reported by the external transfertool into
@@ -113,7 +113,7 @@ class TransferStatusReport(object, metaclass=ABCMeta):
         return updates
 
 
-class Transfertool(object, metaclass=ABCMeta):
+class Transfertool(metaclass=ABCMeta):
     """
     Interface definition of the Rucio transfertool
     """

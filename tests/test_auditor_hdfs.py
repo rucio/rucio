@@ -21,7 +21,7 @@ import pytest
 from rucio.daemons.auditor import hdfs
 
 
-class FakeHDFSGet(object):
+class FakeHDFSGet:
     def __init__(self, files=[]):
         self.files = files
 
