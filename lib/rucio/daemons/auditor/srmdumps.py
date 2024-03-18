@@ -34,7 +34,7 @@ __DUMPERCONFIGDIRS = (os.path.join(confdir, 'auditor') for confdir in get_config
 __DUMPERCONFIGDIRS = list(filter(os.path.exists, __DUMPERCONFIGDIRS))
 
 
-class Parser(ConfigParser.RawConfigParser, object):
+class Parser(ConfigParser.RawConfigParser):
     '''
     RawConfigParser subclass that doesn't modify the the name of the options
     and removes any quotes arround the string values.
@@ -110,7 +110,7 @@ def gfal_links(base_url):
     return ['/'.join((base_url, f)) for f in ctxt.listdir(str(base_url))]
 
 
-class _LinkCollector(HTMLParser.HTMLParser, object):
+class _LinkCollector(HTMLParser.HTMLParser):
     def __init__(self):
         super(_LinkCollector, self).__init__()
         self.links = []

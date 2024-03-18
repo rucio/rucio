@@ -17,7 +17,7 @@ from uuid import uuid4
 from rucio.daemons.c3po.utils.timeseries import RedisTimeSeries
 
 
-class DatasetCache(object):
+class DatasetCache:
     """
     Utility to count the accesses of the datasets during the last day.
     """

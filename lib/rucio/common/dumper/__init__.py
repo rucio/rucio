@@ -38,7 +38,7 @@ class HTTPDownloadFailed(Exception):
         super(HTTPDownloadFailed, self).__init__(msg)
 
 
-class LogPipeHandler(logging.Handler, object):
+class LogPipeHandler(logging.Handler):
     def __init__(self, pipe):
         super(LogPipeHandler, self).__init__()
         self.pipe = pipe

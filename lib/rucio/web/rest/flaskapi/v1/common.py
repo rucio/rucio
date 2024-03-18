@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     HeadersType = Union[Headers, dict[str, str], Sequence[tuple[str, str]]]
 
 
-class CORSMiddleware(object):
+class CORSMiddleware:
     """
     WebUI 2.0 makes preflight requests to the API, which are not handled by the API.
     This middleware intercepts the preflight OPTIONS requests and returns a 200 OK response.

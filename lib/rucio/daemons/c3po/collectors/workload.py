@@ -26,13 +26,13 @@ from rucio.common.config import config_get, config_get_int
 from rucio.daemons.c3po.utils.timeseries import RedisTimeSeries
 
 
-class WorkloadCollector(object):
+class WorkloadCollector:
     """
     Collector to retrieve the workload from PanDA. It stores it as a time series in Redis and provides
     the average and maximum number of running jobs for a sliding window.
     """
 
-    class __WorkloadCollector(object):
+    class __WorkloadCollector:
         """
         Private class needed implement singleton.
         """

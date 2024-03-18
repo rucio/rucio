@@ -67,7 +67,7 @@ def choice(hosts):
     return random.choice(hosts)
 
 
-class BaseClient(object):
+class BaseClient:
 
     """Main client class for accessing Rucio resources. Handles the authentication."""
 

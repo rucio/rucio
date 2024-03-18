@@ -20,7 +20,7 @@ from collections import deque
 from threading import Lock, Timer
 
 
-class ExpiringList(object):
+class ExpiringList:
     """
     Simple list with time based element expiration
     """

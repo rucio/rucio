@@ -19,7 +19,7 @@ from redis import StrictRedis
 from rucio.common.config import config_get, config_get_int
 
 
-class NetworkMetricsCollector(object):
+class NetworkMetricsCollector:
     """
     Collector to get the bandwidth metrics between two sites.
     """

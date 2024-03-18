@@ -21,7 +21,7 @@ from time import time
 from redis import StrictRedis
 
 
-class RedisTimeSeries(object):
+class RedisTimeSeries:
     """
     Redis time series abstraction
     """

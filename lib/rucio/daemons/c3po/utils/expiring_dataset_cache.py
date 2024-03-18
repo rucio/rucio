@@ -20,7 +20,7 @@ from uuid import uuid4
 from redis import StrictRedis
 
 
-class ExpiringDatasetCache(object):
+class ExpiringDatasetCache:
     """
     Cache with expiring values to keep track of recently created replicas.
     """
