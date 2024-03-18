@@ -26,7 +26,7 @@ from rucio.db.sqla.session import get_session
 
 
 @pytest.mark.noparallel(reason='uses daemon, failing in parallel to other tests, updates account')
-class TestAbacusAccount2():
+class TestAbacusAccount2:
 
     def test_abacus_account(self, vo, root_account, mock_scope, rse_factory, did_factory, rucio_client):
         """ ABACUS (ACCOUNT): Test update of account usage """

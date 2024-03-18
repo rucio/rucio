@@ -28,7 +28,7 @@ from rucio.tests.common import did_name_generator
 
 
 @pytest.mark.noparallel(reason='uses daemons, fails when run in parallel')
-class TestAbacusCollectionReplica():
+class TestAbacusCollectionReplica:
 
     def test_abacus_collection_replica_cleanup(self, vo, mock_scope, rse_factory, did_client, jdoe_account):
         """ ABACUS (COLLECTION REPLICA): Test if the cleanup procedure works correctly. """
