@@ -578,7 +578,7 @@ def val_to_space_sep_str(vallist):
         else:
             return str(vallist)
     except:
-        return str('')
+        return ''
 
 
 def date_to_str(date):
