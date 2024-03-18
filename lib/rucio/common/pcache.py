@@ -258,7 +258,7 @@ class Pcache:
             elif opt in ("-r", "--retry"):
                 self.max_retries = int(arg)
             elif opt in ("-V", "--version"):
-                print((str(self.version)))
+                print(str(self.version))
                 sys.exit(0)
             elif opt in ("-l", "--log"):
                 self.log_file = arg

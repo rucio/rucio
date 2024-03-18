@@ -83,7 +83,7 @@ def upgrade():
             )
 
             conn.execute(
-                sa.insert((get_rse_attr_association())).from_select(
+                sa.insert(get_rse_attr_association()).from_select(
                     ["rse_id", "key", "value", "created_at", "updated_at"], select_stmt
                 )
             )

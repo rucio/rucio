@@ -21,7 +21,7 @@ def set_output(name: str, value: str) -> None:
 
 
 def main():
-    set_output("branch", str((env.get("GITHUB_BASE_REF", None) if env.get("GITHUB_BASE_REF", None) else env.get("GITHUB_REF", "master"))))
+    set_output("branch", str(env.get("GITHUB_BASE_REF", None) if env.get("GITHUB_BASE_REF", None) else env.get("GITHUB_REF", "master")))
 
 
 if __name__ == "__main__":
