@@ -13,24 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import json
-
+import os
+from configparser import NoSectionError
 from datetime import datetime, timedelta
 
 import pytest
-from configparser import NoSectionError
-
-from rucio.common.exception import UnsupportedOperation, ConfigNotFound
+from rucio.common.exception import ConfigNotFound, UnsupportedOperation
 from rucio.common.policy import REGION
 from rucio.common.utils import generate_uuid as uuid
-from rucio.tests.common import skip_multivo
 from rucio.core import config as core_config
-from rucio.core.rule import add_rule, get_rule
-from rucio.core.did import set_metadata, get_metadata
+from rucio.core.did import get_metadata, set_metadata
 from rucio.core.lifetime_exception import add_exception
+from rucio.core.rule import add_rule, get_rule
 from rucio.daemons.atropos.atropos import atropos
 from rucio.db.sqla.constants import DIDType
+from rucio.tests.common import skip_multivo
 
 
 @skip_multivo(reason='only valid for ATLAS')

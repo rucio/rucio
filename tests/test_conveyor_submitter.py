@@ -13,26 +13,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
-
 import itertools
 from datetime import datetime, timedelta
 from random import randint
 from unittest.mock import patch
-from sqlalchemy import delete
 
+import pytest
 from rucio.common.exception import RequestNotFound
+from rucio.core import config as core_config
 from rucio.core import distance as distance_core
+from rucio.core import replica as replica_core
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
-from rucio.core import replica as replica_core
 from rucio.core import rule as rule_core
-from rucio.core import config as core_config
 from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.reaper.reaper import reaper
-from rucio.db.sqla.models import Request, Source
 from rucio.db.sqla.constants import RequestState
+from rucio.db.sqla.models import Request, Source
 from rucio.db.sqla.session import read_session, transactional_session
+from sqlalchemy import delete
+
 from tests.ruciopytest import NoParallelGroups
 
 

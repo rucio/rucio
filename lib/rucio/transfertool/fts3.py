@@ -32,23 +32,23 @@ from requests.packages.urllib3 import disable_warnings  # pylint: disable=import
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
-from rucio.common.constants import FTS_JOB_TYPE, FTS_STATE, FTS_COMPLETE_STATE
-from rucio.common.exception import TransferToolTimeout, TransferToolWrongAnswer, DuplicateFileTransferSubmission
+from rucio.common.constants import FTS_COMPLETE_STATE, FTS_JOB_TYPE, FTS_STATE
+from rucio.common.exception import DuplicateFileTransferSubmission, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.utils import APIEncoder, chunks, PREFERRED_CHECKSUM, deep_merge_dict
+from rucio.common.utils import PREFERRED_CHECKSUM, APIEncoder, chunks, deep_merge_dict
 from rucio.core.monitor import MetricManager
 from rucio.core.oidc import request_token
 from rucio.core.request import get_source_rse, get_transfer_error
-from rucio.core.rse import (determine_audience_for_rse, determine_scope_for_rse,
-                            get_rse_supported_checksums_from_attributes)
+from rucio.core.rse import determine_audience_for_rse, determine_scope_for_rse, get_rse_supported_checksums_from_attributes
 from rucio.db.sqla.constants import RequestState
-from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
 from rucio.transfertool.fts3_plugins import FTS3TapeMetadataPlugin
+from rucio.transfertool.transfertool import TransferStatusReport, Transfertool, TransferToolBuilder
 
 if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
     from rucio.core.request import DirectTransfer
     from rucio.core.rse import RseData
-    from sqlalchemy.orm import Session
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()

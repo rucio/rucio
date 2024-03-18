@@ -16,8 +16,7 @@
 import hashlib
 import os
 from re import match
-from typing import Optional
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import select, true
 from sqlalchemy.exc import IntegrityError

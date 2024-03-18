@@ -18,9 +18,12 @@ from typing import TYPE_CHECKING
 from rucio.common.config import config_get
 from rucio.common.exception import RSEOperationNotSupported
 from rucio.common.types import InternalAccount
-from rucio.core import rse as rse_module, distance as distance_module, account as account_module, identity as identity_module
+from rucio.core import account as account_module
+from rucio.core import distance as distance_module
+from rucio.core import identity as identity_module
+from rucio.core import rse as rse_module
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RSEType, AccountType, IdentityType
+from rucio.db.sqla.constants import AccountType, IdentityType, RSEType
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:

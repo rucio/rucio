@@ -20,14 +20,14 @@ from typing import TYPE_CHECKING
 import psycopg2
 import psycopg2.extras
 
-from rucio.common import config
-from rucio.common import exception
+from rucio.common import config, exception
 from rucio.common.types import InternalScope
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 
 if TYPE_CHECKING:
     from typing import Optional
+
     from sqlalchemy.orm import Session
 
 

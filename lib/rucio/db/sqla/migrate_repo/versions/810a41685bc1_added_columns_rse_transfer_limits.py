@@ -16,10 +16,8 @@
 ''' added_columns_rse_transfer_limits '''
 
 import sqlalchemy as sa
-
 from alembic import context
-from alembic.op import (add_column, drop_column)
-
+from alembic.op import add_column, drop_column
 
 # Alembic revision identifiers
 revision = '810a41685bc1'

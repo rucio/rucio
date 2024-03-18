@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 import os
-import pytest
+import sys
 
-from xdist.remote import WorkerInteractor as OriginalWorkerInteractor, remote_initconfig, setup_config, _prepareconfig, Config  # noqa
+import pytest
+from xdist.remote import Config, _prepareconfig, remote_initconfig, setup_config
+from xdist.remote import WorkerInteractor as OriginalWorkerInteractor  # noqa
 
 from tests.ruciopytest import NoParallelGroups
 

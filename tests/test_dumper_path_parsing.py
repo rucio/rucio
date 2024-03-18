@@ -13,8 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.common.dumper.path_parsing import components
-from rucio.common.dumper.path_parsing import remove_prefix
+from rucio.common.dumper.path_parsing import components, remove_prefix
 
 
 class TestPathParsing(object):

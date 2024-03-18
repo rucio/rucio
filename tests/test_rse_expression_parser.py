@@ -14,13 +14,11 @@
 # limitations under the License.
 
 from random import choice
-from string import ascii_uppercase, ascii_lowercase
+from string import ascii_lowercase, ascii_uppercase
 
 import pytest
-
 from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
-from rucio.core import rse
-from rucio.core import rse_expression_parser
+from rucio.core import rse, rse_expression_parser
 
 
 def attribute_name_generator(size=10):

@@ -19,7 +19,6 @@
 from alembic import context
 from alembic.op import create_foreign_key, create_index, drop_constraint, drop_index
 
-
 # Alembic revision identifiers
 revision = '52153819589c'
 down_revision = '30fa38b6434e'

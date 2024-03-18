@@ -14,19 +14,17 @@
 # limitations under the License.
 
 import argparse
-import logging
-from pathlib import Path
-
-import os
 import json
+import logging
+import os
 import sys
+from pathlib import Path
 
 try:
     import yaml
 except ImportError:
     yaml = None
 import configparser
-
 
 # Multi-word sections used in kubernetes are slightly different from what rucio expects.
 # Usually, it's just a .replace('-', '_'), but not for hermes2, which doesn't follow any convention.

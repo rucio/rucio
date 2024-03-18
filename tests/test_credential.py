@@ -16,7 +16,6 @@
 import os
 
 import pytest
-
 from rucio.common.exception import UnsupportedOperation
 from rucio.core.credential import get_signed_url
 from rucio.core.replica import add_replicas

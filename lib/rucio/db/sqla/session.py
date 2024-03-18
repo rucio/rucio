@@ -19,19 +19,19 @@ import os
 import sys
 from datetime import datetime, timedelta
 from functools import update_wrapper
-from inspect import isgeneratorfunction, getfullargspec
+from inspect import getfullargspec, isgeneratorfunction
 from os.path import basename
-from time import sleep
 from threading import Lock
+from time import sleep
 from typing import TYPE_CHECKING
 
-from sqlalchemy import create_engine, event, MetaData, text
-from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, TimeoutError, SQLAlchemyError
-from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session, Session
-from sqlalchemy.pool import QueuePool, SingletonThreadPool, NullPool
+from sqlalchemy import MetaData, create_engine, event, text
+from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, SQLAlchemyError, TimeoutError
+from sqlalchemy.orm import DeclarativeBase, Session, scoped_session, sessionmaker
+from sqlalchemy.pool import NullPool, QueuePool, SingletonThreadPool
 
 from rucio.common.config import config_get
-from rucio.common.exception import RucioException, DatabaseException, InputValidationError
+from rucio.common.exception import DatabaseException, InputValidationError, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.utils import retrying
 

@@ -28,7 +28,7 @@ import rucio.db.sqla.util
 from rucio.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_int, config_get_bool
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalScope

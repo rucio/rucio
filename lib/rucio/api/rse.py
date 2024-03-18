@@ -26,6 +26,7 @@ from rucio.db.sqla.session import read_session, stream_session, transactional_se
 
 if TYPE_CHECKING:
     from typing import Optional
+
     from sqlalchemy.orm import Session
 
 

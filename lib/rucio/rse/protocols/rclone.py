@@ -19,7 +19,7 @@ import os
 
 from rucio.common import exception
 from rucio.common.config import get_config_dirs
-from rucio.common.utils import execute, PREFERRED_CHECKSUM
+from rucio.common.utils import PREFERRED_CHECKSUM, execute
 from rucio.rse.protocols import protocol
 
 

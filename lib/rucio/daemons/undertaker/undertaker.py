@@ -28,16 +28,16 @@ from re import match
 from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import DatabaseError
-from rucio.db.sqla.constants import MYSQL_LOCK_NOWAIT_REGEX, ORACLE_RESOURCE_BUSY_REGEX, PSQL_LOCK_NOT_AVAILABLE_REGEX
 
 import rucio.db.sqla.util
-from rucio.common.exception import DatabaseException, UnsupportedOperation, RuleNotFound
+from rucio.common.exception import DatabaseException, RuleNotFound, UnsupportedOperation
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
 from rucio.common.utils import chunks
-from rucio.core.did import list_expired_dids, delete_dids
+from rucio.core.did import delete_dids, list_expired_dids
 from rucio.core.monitor import MetricManager
-from rucio.daemons.common import run_daemon, HeartbeatHandler
+from rucio.daemons.common import HeartbeatHandler, run_daemon
+from rucio.db.sqla.constants import MYSQL_LOCK_NOWAIT_REGEX, ORACLE_RESOURCE_BUSY_REGEX, PSQL_LOCK_NOT_AVAILABLE_REGEX
 
 if TYPE_CHECKING:
     from types import FrameType

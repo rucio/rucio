@@ -21,8 +21,7 @@ import shutil
 import subprocess
 import tempfile
 
-from rucio.common.dumper import DUMPS_CACHE_DIR
-from rucio.common.dumper import temp_file
+from rucio.common.dumper import DUMPS_CACHE_DIR, temp_file
 from rucio.common.dumper.data_models import Replica
 
 

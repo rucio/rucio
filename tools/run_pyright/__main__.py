@@ -17,8 +17,7 @@
 import sys
 from argparse import ArgumentParser
 
-from . import generate
-from . import compare
+from . import compare, generate
 
 
 def parse_arguments():

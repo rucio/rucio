@@ -18,22 +18,21 @@ import random
 import re
 import tempfile
 from datetime import datetime, timedelta
-from os import remove, unlink, listdir, rmdir, stat, path, environ
+from os import environ, listdir, path, remove, rmdir, stat, unlink
 
 import pytest
-
 from rucio.client.accountlimitclient import AccountLimitClient
+from rucio.client.configclient import ConfigClient
 from rucio.client.didclient import DIDClient
+from rucio.client.lifetimeclient import LifetimeClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
-from rucio.client.configclient import ConfigClient
-from rucio.client.lifetimeclient import LifetimeClient
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.types import InternalScope, InternalAccount
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, get_tmp_dir, md5, render_json
 from rucio.rse import rsemanager as rsemgr
-from rucio.tests.common import execute, account_name_generator, rse_name_generator, file_generator, scope_name_generator, get_long_vo
+from rucio.tests.common import account_name_generator, execute, file_generator, get_long_vo, rse_name_generator, scope_name_generator
 
 
 class TestBinRucio:
@@ -362,7 +361,7 @@ class TestBinRucio:
         # removing replica -> file on RSE should be overwritten
         # (simulating an upload error, where a part of the file is uploaded but the replica is not registered)
         if 'SUITE' not in environ or environ['SUITE'] != 'client':
-            from rucio.db.sqla import session, models
+            from rucio.db.sqla import models, session
             db_session = session.get_session()
             internal_scope = InternalScope(self.user, **self.vo)
             db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
@@ -1836,9 +1835,9 @@ class TestBinRucio:
     @pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'client', reason='uses abacus daemon and core functions')
     def test_list_account_usage(self):
         """ CLIENT (USER): list account usage. """
-        from rucio.db.sqla import session, models
         from rucio.core.account_counter import increase
         from rucio.daemons.abacus import account as abacus_account
+        from rucio.db.sqla import models, session
 
         db_session = session.get_session()
         db_session.query(models.AccountUsage).delete()

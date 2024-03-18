@@ -23,11 +23,11 @@ import sqlalchemy
 from alembic import command, op
 from alembic.config import Config
 from dogpile.cache.api import NoValue
-from sqlalchemy import func, inspect, Column, PrimaryKeyConstraint
+from sqlalchemy import Column, PrimaryKeyConstraint, func, inspect
 from sqlalchemy.dialects.postgresql.base import PGInspector
-from sqlalchemy.exc import IntegrityError, DatabaseError
+from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.schema import CreateSchema, MetaData, Table, CreateTable, DropTable, ForeignKeyConstraint, DropConstraint
+from sqlalchemy.schema import CreateSchema, CreateTable, DropConstraint, DropTable, ForeignKeyConstraint, MetaData, Table
 from sqlalchemy.sql.ddl import DropSchema
 from sqlalchemy.sql.expression import select, text
 
@@ -39,13 +39,14 @@ from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType
-from rucio.db.sqla.session import get_engine, get_session, get_dump_engine
+from rucio.db.sqla.session import get_dump_engine, get_engine, get_session
 from rucio.db.sqla.types import InternalScopeString, String
 
 if TYPE_CHECKING:
     from typing import Optional, Union  # noqa: F401
-    from sqlalchemy.orm import Session  # noqa: F401
+
     from sqlalchemy.engine import Inspector  # noqa: F401
+    from sqlalchemy.orm import Session  # noqa: F401
 
 REGION = make_region_memcached(expiration_time=600, memcached_expire_time=3660)
 

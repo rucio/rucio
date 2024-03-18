@@ -15,24 +15,22 @@
 
 import functools
 import logging
+import math
 import re
 import threading
 from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-import math
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get_int
-from rucio.common.exception import UnsupportedOperation, DataIdentifierNotFound, ReplicaNotFound, DatabaseException
+from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicaNotFound, UnsupportedOperation
 from rucio.common.logging import setup_logging
 from rucio.common.utils import chunks
 from rucio.core.did import get_metadata
-from rucio.core.replica import (get_bad_pfns, get_pfn_to_rse, declare_bad_file_replicas,
-                                get_did_from_pfns, update_replicas_states, bulk_add_bad_replicas,
-                                bulk_delete_bad_pfns, get_replicas_state)
+from rucio.core.replica import bulk_add_bad_replicas, bulk_delete_bad_pfns, declare_bad_file_replicas, get_bad_pfns, get_did_from_pfns, get_pfn_to_rse, get_replicas_state, update_replicas_states
 from rucio.core.rse import get_rse_name
 from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, BadFilesStatus, BadPFNStatus, ReplicaState
@@ -42,8 +40,8 @@ if TYPE_CHECKING:
     from types import FrameType
     from typing import Optional
 
-    from rucio.daemons.common import HeartbeatHandler
     from rucio.common.types import InternalAccount
+    from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
 DAEMON_NAME = 'minos'

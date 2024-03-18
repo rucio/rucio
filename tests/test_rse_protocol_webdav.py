@@ -17,10 +17,10 @@ import os
 
 import pytest
 import requests
-
 from rucio.common.exception import FileReplicaAlreadyExists
 from rucio.rse import rsemanager
-from rucio.tests.common import skip_rse_tests_with_accounts, load_test_conf_file
+from rucio.tests.common import load_test_conf_file, skip_rse_tests_with_accounts
+
 from .rsemgr_api_test import MgrTestCases
 
 

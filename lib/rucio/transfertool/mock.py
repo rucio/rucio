@@ -20,7 +20,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.db.sqla.constants import RequestState
-from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder, TransferStatusReport
+from rucio.transfertool.transfertool import TransferStatusReport, Transfertool, TransferToolBuilder
 
 if TYPE_CHECKING:
     from rucio.db.sqla.session import Session

@@ -25,14 +25,15 @@ from rucio.common.config import config_get_list
 from rucio.common.exception import RucioException
 from rucio.common.logging import setup_logging
 from rucio.core import transfer as transfer_core
-from rucio.core.request import transition_requests_state_if_possible, list_and_mark_transfer_requests_and_source_replicas
-from rucio.core.topology import Topology, ExpiringObjectCache
-from rucio.core.transfer import prepare_transfers, list_transfer_admin_accounts, build_transfer_paths, ProtocolFactory
-from rucio.daemons.common import db_workqueue, ProducerConsumerDaemon
+from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas, transition_requests_state_if_possible
+from rucio.core.topology import ExpiringObjectCache, Topology
+from rucio.core.transfer import ProtocolFactory, build_transfer_paths, list_transfer_admin_accounts, prepare_transfers
+from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
 from rucio.db.sqla.constants import RequestState, RequestType
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
     from rucio.daemons.common import HeartbeatHandler
 
 GRACEFUL_STOP = threading.Event()

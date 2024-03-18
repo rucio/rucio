@@ -20,7 +20,6 @@ from typing import Any, TypeVar
 
 from .models import ReportDict
 
-
 _T = TypeVar('_T')
 _K = TypeVar('_K')
 

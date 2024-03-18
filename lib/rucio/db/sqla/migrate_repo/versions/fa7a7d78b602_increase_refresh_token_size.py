@@ -16,7 +16,6 @@
 ''' increase refresh token size '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import alter_column
 

@@ -16,7 +16,7 @@
 ''' Adding missing function based indices '''
 
 from alembic import context
-from alembic.op import create_index, drop_index, drop_constraint, create_foreign_key
+from alembic.op import create_foreign_key, create_index, drop_constraint, drop_index
 
 # Alembic revision identifiers
 revision = '8ea9122275b1'

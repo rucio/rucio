@@ -16,9 +16,8 @@
 ''' adding transfertool column and index to requests table'''
 
 import sqlalchemy as sa
-
 from alembic import context
-from alembic.op import add_column, drop_column, create_index, drop_index
+from alembic.op import add_column, create_index, drop_column, drop_index
 
 # Alembic revision identifiers
 revision = 'f85a2962b021'

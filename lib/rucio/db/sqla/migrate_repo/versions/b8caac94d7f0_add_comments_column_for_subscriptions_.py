@@ -16,10 +16,8 @@
 ''' add comments column for subscriptions_history '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = 'b8caac94d7f0'

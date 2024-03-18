@@ -20,19 +20,18 @@ import random
 import subprocess
 import traceback
 from datetime import datetime, timedelta
-from typing import Any, Final, TYPE_CHECKING, Optional
-from urllib.parse import urljoin, urlparse, parse_qs
+from math import floor
+from typing import TYPE_CHECKING, Any, Final, Optional
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import requests
 from dogpile.cache.api import NoValue
 from jwkest.jws import JWS
 from jwkest.jwt import JWT
-from math import floor
 from oic import rndstr
 from oic.oauth2.message import CCAccessTokenRequest
-from oic.oic import Client, Grant, Token, REQUEST2ENDPOINT
-from oic.oic.message import (AccessTokenResponse, AuthorizationResponse,
-                             Message, RegistrationResponse)
+from oic.oic import REQUEST2ENDPOINT, Client, Grant, Token
+from oic.oic.message import AccessTokenResponse, AuthorizationResponse, Message, RegistrationResponse
 from oic.utils import time_util
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from sqlalchemy import delete, select, update
@@ -41,15 +40,13 @@ from sqlalchemy.sql.expression import true
 from rucio.common import types
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_int
-from rucio.common.exception import (CannotAuthenticate, CannotAuthorize,
-                                    RucioException)
+from rucio.common.exception import CannotAuthenticate, CannotAuthorize, RucioException
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import all_oidc_req_claims_present, build_url, val_to_space_sep_str
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
 from rucio.core.monitor import MetricManager
-from rucio.db.sqla import filter_thread_work
-from rucio.db.sqla import models
+from rucio.db.sqla import filter_thread_work, models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
 

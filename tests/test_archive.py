@@ -14,9 +14,9 @@
 # limitations under the License.
 
 from rucio.common.utils import generate_uuid
+from rucio.core.did import attach_dids, get_metadata
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_protocol, update_rse
-from rucio.core.did import attach_dids, get_metadata
 
 
 def test_add_and_list_archive(rse_factory, replica_client, did_client, mock_scope):

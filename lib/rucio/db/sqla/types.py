@@ -17,10 +17,10 @@ import uuid
 
 import sqlalchemy.types as types
 from sqlalchemy.dialects.mysql import BINARY
-from sqlalchemy.dialects.oracle import RAW, CLOB
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.oracle import CLOB, RAW
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.sql import operators
-from sqlalchemy.types import TypeDecorator, CHAR, String
+from sqlalchemy.types import CHAR, String, TypeDecorator
 
 from rucio.common.exception import InvalidType
 from rucio.common.types import InternalAccount, InternalScope

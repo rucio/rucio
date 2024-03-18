@@ -14,8 +14,7 @@
 # limitations under the License.
 
 
-from http.server import SimpleHTTPRequestHandler
-from http.server import HTTPServer
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 from threading import Thread
 
 

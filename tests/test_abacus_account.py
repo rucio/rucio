@@ -15,7 +15,6 @@
 
 
 import pytest
-
 from rucio.common.schema import get_schema_value
 from rucio.core.account import get_usage_history
 from rucio.core.account_counter import update_account_counter_history

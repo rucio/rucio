@@ -17,16 +17,15 @@ import random
 import string
 
 import pytest
-
 from rucio.common.config import config_get_bool
+from rucio.common.exception import IdentityError, IdentityNotFound
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account, del_account
-from rucio.core.identity import add_identity, del_identity, add_account_identity, del_account_identity, list_identities, verify_identity
+from rucio.core.identity import add_account_identity, add_identity, del_account_identity, del_identity, list_identities, verify_identity
 from rucio.db.sqla.constants import AccountType, IdentityType
-from rucio.tests.common import account_name_generator, headers, hdrdict, auth, rfc2253_dn_generator
+from rucio.tests.common import account_name_generator, auth, hdrdict, headers, rfc2253_dn_generator
 from rucio.tests.common_server import get_vo
-from rucio.common.exception import IdentityNotFound, IdentityError
 
 
 @pytest.mark.noparallel(reason='adds/removes entities with non-unique names')

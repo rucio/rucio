@@ -19,14 +19,15 @@ import datetime
 import uuid
 from typing import TYPE_CHECKING
 
-from flask import Flask, Blueprint, request
+from flask import Blueprint, Flask, request
 from werkzeug.datastructures import Headers
 
 from rucio.core.trace import trace
-from rucio.web.rest.flaskapi.v1.common import response_headers, ErrorHandlingMethodView, json_parameters
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, json_parameters, response_headers
 
 if TYPE_CHECKING:
     from typing import Optional
+
     from rucio.web.rest.flaskapi.v1.common import HeadersType
 
 

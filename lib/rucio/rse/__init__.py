@@ -47,8 +47,8 @@ def get_signed_url_server(rse, service, op, url, vo='def'):
     '''
     get_signed_url_server
     '''
-    from rucio.core.rse import get_rse_id
     from rucio.core.credential import get_signed_url
+    from rucio.core.rse import get_rse_id
 
     rse_id = get_rse_id(rse=rse, vo=vo)
     return get_signed_url(rse_id, service, op, url)
@@ -78,9 +78,9 @@ if rsemanager.CLIENT_MODE:   # pylint:disable=no-member
 
 
 if rsemanager.SERVER_MODE:   # pylint:disable=no-member
-    from rucio.core.rse import get_rse_protocols, get_rse_id
-    from rucio.core.vo import map_vo
     from rucio.common.cache import make_region_memcached
+    from rucio.core.rse import get_rse_id, get_rse_protocols
+    from rucio.core.vo import map_vo
 
     def tmp_rse_info(rse=None, vo='def', rse_id=None, session=None):
         if rse_id is None:

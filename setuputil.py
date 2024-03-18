@@ -16,8 +16,7 @@
 import subprocess
 import sys
 
-from pkg_resources import safe_name, parse_requirements
-
+from pkg_resources import parse_requirements, safe_name
 
 clients_requirements_table = {
     'install_requires': [

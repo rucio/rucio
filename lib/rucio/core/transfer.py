@@ -31,30 +31,32 @@ from sqlalchemy.exc import IntegrityError
 from rucio.common import constants
 from rucio.common.config import config_get, config_get_list
 from rucio.common.constants import SUPPORTED_PROTOCOLS
-from rucio.common.exception import (InvalidRSEExpression,
-                                    RequestNotFound, RSEProtocolNotSupported,
-                                    RucioException, UnsupportedOperation)
+from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RSEProtocolNotSupported, RucioException, UnsupportedOperation
 from rucio.common.utils import construct_surl
-from rucio.core import did, message as message_core, request as request_core
+from rucio.core import did
+from rucio.core import message as message_core
+from rucio.core import request as request_core
 from rucio.core.account import list_accounts
 from rucio.core.monitor import MetricManager
-from rucio.core.request import transition_request_state, RequestWithSources, RequestSource, TransferDestination, DirectTransfer
+from rucio.core.request import DirectTransfer, RequestSource, RequestWithSources, TransferDestination, transition_request_state
 from rucio.core.rse import RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, RequestType, TransferLimitDirection
-from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla.session import read_session, stream_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
-from rucio.transfertool.transfertool import TransferStatusReport, Transfertool
 from rucio.transfertool.bittorrent import BittorrentTransfertool
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 from rucio.transfertool.mock import MockTransfertool
+from rucio.transfertool.transfertool import TransferStatusReport, Transfertool
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Iterable, Mapping, Sequence
+    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
     from typing import Any, Optional, Type
+
     from sqlalchemy.orm import Session
+
     from rucio.common.types import InternalAccount
     from rucio.core.topology import Topology
     from rucio.rse.protocols.protocol import RSEProtocol

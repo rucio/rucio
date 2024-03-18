@@ -16,10 +16,8 @@
 ''' add access_cnt column in the DID table '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '2962ece31cf4'

@@ -18,14 +18,11 @@ from json import dumps
 from flask import Flask, Response, request
 
 from rucio.api.rule import list_replication_rules
-from rucio.api.subscription import list_subscriptions, add_subscription, update_subscription, \
-    list_subscription_rule_states, get_subscription_by_id
-from rucio.common.exception import InvalidObject, SubscriptionDuplicate, SubscriptionNotFound, RuleNotFound, \
-    AccessDenied
-from rucio.common.utils import render_json, APIEncoder
+from rucio.api.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription
+from rucio.common.exception import AccessDenied, InvalidObject, RuleNotFound, SubscriptionDuplicate, SubscriptionNotFound
+from rucio.common.utils import APIEncoder, render_json
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, try_stream, \
-    response_headers, generate_http_error_flask, ErrorHandlingMethodView, json_parameters, param_get
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
 
 
 class Subscription(ErrorHandlingMethodView):

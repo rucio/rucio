@@ -13,24 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
-from concurrent.futures import ThreadPoolExecutor
 import datetime
+from concurrent.futures import ThreadPoolExecutor
 
+import pytest
 from rucio.common.exception import NoDistance
+from rucio.common.utils import generate_uuid
+from rucio.core import request as request_core
+from rucio.core import rse as rse_core
+from rucio.core import rule as rule_core
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replicas
 from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas
-from rucio.core.transfer import build_transfer_paths, ProtocolFactory
-from rucio.core.topology import get_hops, Topology
-from rucio.core import rule as rule_core
-from rucio.core import request as request_core
-from rucio.core import rse as rse_core
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import RSEType, RequestState
-from rucio.db.sqla.session import get_session
-from rucio.common.utils import generate_uuid
+from rucio.core.topology import Topology, get_hops
+from rucio.core.transfer import ProtocolFactory, build_transfer_paths
 from rucio.daemons.conveyor.common import assign_paths_to_transfertool_and_create_hops, pick_and_prepare_submission_path
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import RequestState, RSEType
+from rucio.db.sqla.session import get_session
 
 
 def _prepare_submission(rses):

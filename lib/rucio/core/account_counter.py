@@ -15,10 +15,10 @@
 import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import literal, insert, select
+from sqlalchemy import insert, literal, select
 from sqlalchemy.orm.exc import NoResultFound
 
-from rucio.db.sqla import models, filter_thread_work
+from rucio.db.sqla import filter_thread_work, models
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:

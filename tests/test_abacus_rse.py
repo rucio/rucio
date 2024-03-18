@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import pytest
-
 from rucio.common.schema import get_schema_value
 from rucio.core.rse import get_rse_usage
 from rucio.daemons.abacus.rse import rse_update

@@ -20,7 +20,7 @@ from rucio.common import exception
 from rucio.common.extra import import_extras
 from rucio.core.rse import get_rse_attribute
 from rucio.rse.protocols.protocol import RSEProtocol
-from rucio.transfertool.globus_library import get_transfer_client, send_delete_task, send_bulk_delete_task
+from rucio.transfertool.globus_library import get_transfer_client, send_bulk_delete_task, send_delete_task
 
 EXTRA_MODULES = import_extras(['globus_sdk'])
 

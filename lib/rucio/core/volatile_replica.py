@@ -17,7 +17,7 @@ from collections.abc import Iterable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import and_, or_, exists, update, insert
+from sqlalchemy import and_, exists, insert, or_, update
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import select
 

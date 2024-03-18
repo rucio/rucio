@@ -15,13 +15,13 @@
 # limitations under the License.
 
 import importlib
+import logging
 
 from flask import Flask
 
 from rucio.common.config import config_get
 from rucio.common.exception import ConfigurationError
 from rucio.common.logging import setup_logging
-import logging
 from rucio.web.rest.flaskapi.v1.common import CORSMiddleware
 
 DEFAULT_ENDPOINTS = [

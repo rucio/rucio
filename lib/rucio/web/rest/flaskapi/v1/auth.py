@@ -20,28 +20,39 @@ import time
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-from flask import Flask, Blueprint, request, Response, redirect, render_template
+from flask import Blueprint, Flask, Response, redirect, render_template, request
 from werkzeug.datastructures import Headers
 
-from rucio.api.authentication import get_auth_token_user_pass, get_auth_token_gss, get_auth_token_x509, \
-    get_auth_token_ssh, get_ssh_challenge_token, validate_auth_token, get_auth_oidc, redirect_auth_oidc, \
-    get_token_oidc, refresh_cli_auth_token, get_auth_token_saml
+from rucio.api.authentication import (
+    get_auth_oidc,
+    get_auth_token_gss,
+    get_auth_token_saml,
+    get_auth_token_ssh,
+    get_auth_token_user_pass,
+    get_auth_token_x509,
+    get_ssh_challenge_token,
+    get_token_oidc,
+    redirect_auth_oidc,
+    refresh_cli_auth_token,
+    validate_auth_token,
+)
 from rucio.common.config import config_get
-from rucio.common.exception import AccessDenied, IdentityError, IdentityNotFound, CannotAuthenticate, CannotAuthorize
+from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, IdentityError, IdentityNotFound
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
 from rucio.core.authentication import strip_x509_proxy_attributes
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, error_headers, \
-    extract_vo, generate_http_error_flask, ErrorHandlingMethodView, get_account_from_verified_identity
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, error_headers, extract_vo, generate_http_error_flask, get_account_from_verified_identity
 
 if TYPE_CHECKING:
     from typing import Optional, Union
+
     from rucio.web.rest.flaskapi.v1.common import HeadersType
 
 EXTRA_MODULES = import_extras(['onelogin'])
 
 if EXTRA_MODULES['onelogin']:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth  # pylint: disable=import-error
+
     from rucio.web.ui.flask.common.utils import prepare_saml_request
 
 

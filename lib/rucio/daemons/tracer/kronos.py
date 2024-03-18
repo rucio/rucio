@@ -22,7 +22,8 @@ import logging
 import re
 from configparser import NoOptionError, NoSectionError
 from datetime import datetime
-from json import loads as jloads, dumps as jdumps
+from json import dumps as jdumps
+from json import loads as jloads
 from queue import Queue
 from threading import Event, Thread
 from time import time
@@ -30,18 +31,18 @@ from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
-from rucio.common.exception import RSENotFound, DatabaseException
+from rucio.common.exception import DatabaseException, RSENotFound
 from rucio.common.logging import setup_logging
 from rucio.common.stomp_utils import StompConnectionManager
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.core.did import touch_dids, list_parent_dids
+from rucio.core.did import list_parent_dids, touch_dids
 from rucio.core.lock import touch_dataset_locks
 from rucio.core.monitor import MetricManager
-from rucio.core.replica import touch_replica, touch_collection_replicas, declare_bad_file_replicas
+from rucio.core.replica import declare_bad_file_replicas, touch_collection_replicas, touch_replica
 from rucio.core.rse import get_rse_id
 from rucio.daemons.common import HeartbeatHandler, run_daemon
-from rucio.db.sqla.constants import DIDType, BadFilesStatus
+from rucio.db.sqla.constants import BadFilesStatus, DIDType
 
 if TYPE_CHECKING:
     from types import FrameType

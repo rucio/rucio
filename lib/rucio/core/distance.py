@@ -19,8 +19,8 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 
 from rucio.common import exception
-from rucio.db.sqla.models import Distance, RSE
-from rucio.db.sqla.session import transactional_session, read_session
+from rucio.db.sqla.models import RSE, Distance
+from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

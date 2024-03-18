@@ -16,12 +16,12 @@
 import ast
 import fnmatch
 import operator
-from datetime import datetime, timedelta, date
+from datetime import date, datetime, timedelta
 from importlib import import_module
 from typing import TYPE_CHECKING
 
 import sqlalchemy
-from sqlalchemy import cast, or_, and_
+from sqlalchemy import and_, cast, or_
 from sqlalchemy.sql.expression import text
 
 from rucio.common import exception

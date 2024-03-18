@@ -23,6 +23,7 @@ from rucio.common.utils import check_policy_package_version
 
 if TYPE_CHECKING:
     from typing import Optional
+
     from sqlalchemy.orm import Session
 
 # dictionary of permission modules for each VO

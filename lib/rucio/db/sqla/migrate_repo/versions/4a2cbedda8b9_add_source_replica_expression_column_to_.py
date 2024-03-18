@@ -16,10 +16,8 @@
 ''' add_source_replica_expression_column_to_rules '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '4a2cbedda8b9'

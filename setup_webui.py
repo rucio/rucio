@@ -18,7 +18,6 @@ import sys
 
 from setuptools import setup
 
-
 if sys.version_info < (3, 9):
     print('ERROR: Rucio WebUI requires at least Python 3.9 to run.')
     sys.exit(1)

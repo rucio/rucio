@@ -14,15 +14,15 @@
 # limitations under the License.
 
 import datetime
+import json
+import logging
 import time
 import uuid
-import logging
+
 import pytest
-import json
+from rucio.common.exception import InvalidObject
 from rucio.common.schema.generic import IPv4orIPv6
 from rucio.core.trace import SCHEMAS, validate_schema
-from rucio.common.exception import InvalidObject
-
 
 LOGGER = logging.getLogger(__name__)
 

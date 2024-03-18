@@ -23,13 +23,14 @@ from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict
 from rucio.core import did, naming_convention
-from rucio.core.rse import get_rse_id
 from rucio.core import meta_conventions as meta_convention_core
+from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
-    from typing import Any, Optional, Iterator
+    from typing import Any, Iterator, Optional
+
     from sqlalchemy.orm import Session
 
 

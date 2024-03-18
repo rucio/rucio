@@ -14,28 +14,27 @@
 # limitations under the License.
 
 import json
-from collections.abc import Iterator, Iterable
+from collections.abc import Iterable, Iterator
 from datetime import datetime
 from io import StringIO
 from re import match
-from typing import Any, Generic, Optional, TypeVar, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
 
 import sqlalchemy
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
-from sqlalchemy.sql.expression import or_, and_, desc, true, false, func, select, delete
+from sqlalchemy.sql.expression import and_, delete, desc, false, func, or_, select, true
 
-from rucio.common import exception, utils
+from rucio.common import exception, types, utils
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common import types
 from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RSEType, ReplicaState
-from rucio.db.sqla.session import read_session, transactional_session, stream_session
+from rucio.db.sqla.constants import ReplicaState, RSEType
+from rucio.db.sqla.session import read_session, stream_session, transactional_session
 from rucio.db.sqla.util import temp_table_mngr
 
 if TYPE_CHECKING:

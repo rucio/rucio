@@ -17,7 +17,8 @@ import unittest
 from os import remove
 from os.path import basename
 
-from rucio.common.utils import generate_uuid as uuid, execute
+from rucio.common.utils import execute
+from rucio.common.utils import generate_uuid as uuid
 
 
 def file_generator(size=2048, namelen=10):

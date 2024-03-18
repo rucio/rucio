@@ -17,7 +17,6 @@
 Graphite and prometheus metrics
 """
 
-import __main__ as main
 import atexit
 import logging
 import os
@@ -30,10 +29,10 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Optional, TypeVar, Union
 
-from prometheus_client import (Counter, Gauge, Histogram, REGISTRY, CollectorRegistry, generate_latest, multiprocess,
-                               push_to_gateway, start_http_server, values)
+from prometheus_client import REGISTRY, CollectorRegistry, Counter, Gauge, Histogram, generate_latest, multiprocess, push_to_gateway, start_http_server, values
 from statsd import StatsClient
 
+import __main__ as main
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import retrying

@@ -16,10 +16,8 @@
 ''' add availability column to table RSEs '''
 
 import sqlalchemy as sa
-
 from alembic import context
 from alembic.op import add_column, drop_column
-
 
 # Alembic revision identifiers
 revision = '22cf51430c78'

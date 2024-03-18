@@ -26,7 +26,6 @@ from datetime import datetime, timedelta
 from random import randint
 from re import match
 from typing import TYPE_CHECKING
-from rucio.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX
 
 from sqlalchemy.exc import DatabaseError
 
@@ -35,8 +34,9 @@ from rucio.common import exception
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
-from rucio.core.rule import repair_rule, get_stuck_rules
+from rucio.core.rule import get_stuck_rules, repair_rule
 from rucio.daemons.common import run_daemon
+from rucio.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX
 
 if TYPE_CHECKING:
     from types import FrameType

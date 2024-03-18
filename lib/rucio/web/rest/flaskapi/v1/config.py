@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, request as request, jsonify
+from flask import Flask, jsonify
+from flask import request as request
 
 from rucio.api import config
-from rucio.common.exception import ConfigurationError, AccessDenied, ConfigNotFound
+from rucio.common.exception import AccessDenied, ConfigNotFound, ConfigurationError
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
-    generate_http_error_flask, ErrorHandlingMethodView, json_parameters
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, response_headers
 
 
 class Config(ErrorHandlingMethodView):

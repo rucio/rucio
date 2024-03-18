@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from random import uniform, shuffle
+from random import shuffle, uniform
 from typing import TYPE_CHECKING
 
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, InvalidRuleWeight, RSEOverQuota
-from rucio.core.account import has_account_attribute, get_usage, get_all_rse_usages_per_account
-from rucio.core.account_limit import get_local_account_limit, get_global_account_limits
-from rucio.core.rse import list_rse_attributes, has_rse_attribute, get_rse_limits
+from rucio.core.account import get_all_rse_usages_per_account, get_usage, has_account_attribute
+from rucio.core.account_limit import get_global_account_limits, get_local_account_limit
+from rucio.core.rse import get_rse_limits, has_rse_attribute, list_rse_attributes
 from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.session import read_session

@@ -13,13 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 
-from rucio.api.scope import add_scope, list_scopes, get_scopes
+from rucio.api.scope import add_scope, get_scopes, list_scopes
 from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import check_accept_header_wrapper_flask, response_headers, \
-    generate_http_error_flask, ErrorHandlingMethodView
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, response_headers
 
 
 class Scope(ErrorHandlingMethodView):

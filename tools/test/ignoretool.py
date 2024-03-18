@@ -17,7 +17,6 @@
 import argparse
 import os
 
-
 # from setup_rucio_clients
 PACKAGES = [
     'rucio',

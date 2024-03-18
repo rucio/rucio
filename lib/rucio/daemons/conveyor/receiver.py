@@ -33,8 +33,8 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.logging import setup_logging
 from rucio.common.policy import get_policy
-from rucio.core import transfer as transfer_core
 from rucio.core import request as request_core
+from rucio.core import transfer as transfer_core
 from rucio.core.monitor import MetricManager
 from rucio.daemons.common import HeartbeatHandler
 from rucio.db.sqla.session import transactional_session

@@ -18,25 +18,24 @@ from hashlib import sha256
 
 import pytest
 from dogpile.cache import make_region
-
-from rucio.common.config import config_get
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids
-from rucio.core.lock import successful_transfer, failed_transfer, get_replica_locks
+from rucio.core.lock import failed_transfer, get_replica_locks, successful_transfer
 from rucio.core.replica import get_replica
 from rucio.core.request import cancel_request_did
+from rucio.core.rse import add_rse, add_rse_attribute, update_rse
+from rucio.core.rule import add_rule, get_rule
 from rucio.core.transfer import cancel_transfers
-from rucio.core.rse import add_rse_attribute, add_rse, update_rse
-from rucio.core.rule import get_rule, add_rule
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.judge.repairer import rule_repairer
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, RuleState, ReplicaState
+from rucio.db.sqla.constants import DIDType, ReplicaState, RuleState
 from rucio.db.sqla.session import get_session
-from rucio.tests.common import rse_name_generator, did_name_generator
+from rucio.tests.common import did_name_generator, rse_name_generator
 from rucio.tests.common_server import get_vo
+
 from .test_rule import create_files, tag_generator
 
 

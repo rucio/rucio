@@ -14,12 +14,12 @@
 # limitations under the License.
 
 import json
-import re
 import os
+import re
 import sys
 import time
-import urllib.request
 import urllib.parse
+import urllib.request
 
 
 def wait_for_server(host, port, max_wait):

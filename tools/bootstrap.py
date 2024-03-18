@@ -20,13 +20,14 @@
 # Verify for default SQLite:
 #   for i in `sqlite3 /tmp/rucio.db ".tables"`; do echo $i:; sqlite3 /tmp/rucio.db "select * from $i"; echo; done
 
-import sys
 import os.path
+import sys
+
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
 
-from rucio.db.sqla.util import (build_database, create_base_vo, create_root_account)  # noqa: E402
+from rucio.db.sqla.util import build_database, create_base_vo, create_root_account  # noqa: E402
 
 if __name__ == '__main__':
     build_database()

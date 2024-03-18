@@ -13,21 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
 import logging
 
-from rucio.transfertool.fts3 import FTS3Transfertool, build_job_params
-from rucio.core.topology import Topology
-from rucio.core.transfer import ProtocolFactory, build_transfer_paths
-from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas
-
-from rucio.db.sqla.session import get_session
-from rucio.transfertool.fts3_plugins import FTS3TapeMetadataPlugin
-
+import pytest
 from rucio.core import distance as distance_core
 from rucio.core import replica as replica_core
 from rucio.core import rule as rule_core
-
+from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas
+from rucio.core.topology import Topology
+from rucio.core.transfer import ProtocolFactory, build_transfer_paths
+from rucio.db.sqla.session import get_session
+from rucio.transfertool.fts3 import FTS3Transfertool, build_job_params
+from rucio.transfertool.fts3_plugins import FTS3TapeMetadataPlugin
 
 mock_session = get_session()
 

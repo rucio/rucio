@@ -27,13 +27,7 @@ import re
 
 from tabulate import tabulate
 
-from rucio.common.dumper import DUMPS_CACHE_DIR
-from rucio.common.dumper import HTTPDownloadFailed
-from rucio.common.dumper import get_requests_session
-from rucio.common.dumper import http_download_to_file
-from rucio.common.dumper import smart_open
-from rucio.common.dumper import temp_file
-from rucio.common.dumper import to_datetime
+from rucio.common.dumper import DUMPS_CACHE_DIR, HTTPDownloadFailed, get_requests_session, http_download_to_file, smart_open, temp_file, to_datetime
 
 
 class DataModel(object):
