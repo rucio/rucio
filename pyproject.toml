@@ -5,6 +5,10 @@ build-backend = "setuptools.build_meta"
 [tool.ruff]
 line-length = 256
 
+extend-include = [
+    "bin/*",
+]
+
 # Exclude a variety of commonly ignored directories.
 exclude = [
     ".bzr",
@@ -50,7 +54,5 @@ ignore = [
     "UP030", # Use implicit references for positional format fields
     "UP031", # Use format specifiers instead of percent format
     "UP032", # Use f-string instead of `format` call
-    "SIM210", 
+    "SIM210",
 ]
-
-extend-safe-fixes = ["I001"]

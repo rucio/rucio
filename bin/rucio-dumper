@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,11 +17,10 @@ import argparse
 import datetime
 import logging
 import sys
-import tabulate
 
 import rucio.common.dumper.consistency as consistency
 import rucio.common.dumper.data_models as data_models
-
+import tabulate
 from rucio.common.dumper import error
 
 logger = logging.getLogger('rucio-dumper')
@@ -130,7 +128,7 @@ if __name__ == "__main__":
             fields.append(args.sum)
             data = []
             for key, value in data_dict.items():
-                total = sum((getattr(x, args.sum) for x in value))
+                total = sum(getattr(x, args.sum) for x in value)
                 # FIXME: Ugly hack to have some result
                 setattr(value[0], args.sum, total)
                 data.append(value[0])
@@ -139,12 +137,12 @@ if __name__ == "__main__":
 
     if args.fields:
         _show_fields = args.fields.split(',')
-        if not all((f in fields for f in _show_fields)):
+        if not all(f in fields for f in _show_fields):
             error('Invalid field in --fields argument')
         fields = _show_fields
     elif args.hide:
         _hide_fields = args.hide.split(',')
-        if not all((f in fields for f in _hide_fields)):
+        if not all(f in fields for f in _hide_fields):
             error('Invalid field in --hide argument')
         fields = [f for f in fields if f not in _hide_fields]
 
