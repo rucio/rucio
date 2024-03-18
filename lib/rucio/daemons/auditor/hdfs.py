@@ -32,7 +32,7 @@ def _hdfs_get(src_url, dst_path):
     )
     _, stderr = get.communicate()
     if get.returncode != 0:
-        raise IOError('_hdfs_get(): "{0}": {1}. Return code {2}'.format(
+        raise OSError('_hdfs_get(): "{0}": {1}. Return code {2}'.format(
             ' '.join(cmd),
             stderr,
             get.returncode,

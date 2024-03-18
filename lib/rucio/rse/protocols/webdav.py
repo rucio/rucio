@@ -331,13 +331,13 @@ class Default(protocol.RSEProtocol):
                         raise exception.RucioException(result.status_code, result.text)
                 except requests.exceptions.ConnectionError as error:
                     raise exception.ServiceUnavailable(error)
-                except IOError as error:
+                except OSError as error:
                     raise exception.SourceNotFound(error)
         except requests.exceptions.ConnectionError as error:
             raise exception.ServiceUnavailable(error)
         except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
-        except IOError as error:
+        except OSError as error:
             raise exception.SourceNotFound(error)
 
     def rename(self, pfn, new_pfn):
