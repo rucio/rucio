@@ -653,7 +653,7 @@ class FTS3CompletionMessageTransferStatusReport(Fts3TransferStatusReport):
         self._transfer_id = fts_message.get('tr_id').split("__")[-1]
 
         self._file_metadata = fts_message['file_metadata']
-        self._multi_sources = str(fts_message.get('job_metadata', {}).get('multi_sources', '')).lower() == str('true')
+        self._multi_sources = str(fts_message.get('job_metadata', {}).get('multi_sources', '')).lower() == 'true'
         self._src_url = fts_message.get('src_url', None)
         self._dst_url = fts_message.get('dst_url', None)
 
@@ -724,7 +724,7 @@ class FTS3ApiTransferStatusReport(Fts3TransferStatusReport):
         self._transfer_id = job_response.get('job_id')
 
         self._file_metadata = file_response['file_metadata']
-        self._multi_sources = str(job_response['job_metadata'].get('multi_sources', '')).lower() == str('true')
+        self._multi_sources = str(job_response['job_metadata'].get('multi_sources', '')).lower() == 'true'
         self._src_url = file_response.get('source_surl', None)
         self._dst_url = file_response.get('dest_surl', None)
         self.logger = logging.log

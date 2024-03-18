@@ -94,7 +94,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
             rse_clause.append(models.BadReplicas.rse_id == rse['id'])
 
     if session.bind.dialect.name == 'oracle':
-        to_days = func.trunc(models.BadReplicas.created_at, str('DD'))
+        to_days = func.trunc(models.BadReplicas.created_at, 'DD')
     elif session.bind.dialect.name == 'mysql':
         to_days = func.date(models.BadReplicas.created_at)
     elif session.bind.dialect.name == 'postgresql':
