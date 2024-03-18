@@ -174,3 +174,8 @@ class RuleDict(TypedDict):
     activity: str
     notify: Optional[Literal['Y', 'N', 'C', 'P']]
     purge_replicas: bool
+
+
+class DIDDict(TypedDict):
+    name: str
+    scope: InternalScope
