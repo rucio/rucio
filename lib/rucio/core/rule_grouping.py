@@ -42,8 +42,8 @@ if TYPE_CHECKING:
 def apply_rule_grouping(
     datasetfiles: Sequence[dict[str, Any]],
     locks: dict[tuple[InternalScope, str], models.ReplicaLock],
-    replicas: dict[tuple[InternalScope, str], Any],
-    source_replicas: dict[tuple[InternalScope, str], Any],
+    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
     rseselector: RSESelector, rule: models.ReplicationRule,
     preferred_rse_ids: Sequence[str] = [],
     source_rses: Sequence[str] = [],
