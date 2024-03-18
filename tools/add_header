@@ -306,8 +306,7 @@ class PythonHeaderTemplate(HeaderTemplate):
         shebag_string = PythonHeaderTemplate._get_file_shebag(self.file_path) or ""
 
         return shebag_string \
-            + """# -*- coding: utf-8 -*-
-# Copyright European Organization for Nuclear Research (CERN) since 2012
+            + """# Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
