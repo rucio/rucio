@@ -106,7 +106,7 @@ def test_auditor_check_survives_failures_and_queues_failed_rses(mock_auditor):
         lambda: None,
     )
 
-    class MockMultiProcessing():
+    class MockMultiProcessing:
         def is_set(self):
             return queue.empty()
     terminate = MockMultiProcessing()

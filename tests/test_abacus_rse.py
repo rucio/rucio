@@ -23,7 +23,7 @@ from rucio.db.sqla.session import get_session
 
 
 @pytest.mark.noparallel(reason='uses daemon, failing in parallel to other tests')
-class TestAbacusRSE():
+class TestAbacusRSE:
 
     def test_abacus_rse(self, vo, mock_scope, rse_factory, did_factory, rucio_client):
         """ ABACUS (RSE): Test update of RSE usage. """

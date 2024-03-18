@@ -23,7 +23,7 @@ from rucio.common.exception import InvalidAlgorithmName
 PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPackageAlgorithms')
 
 
-class PolicyPackageAlgorithms():
+class PolicyPackageAlgorithms:
     """
     Base class for Rucio Policy Package Algorithms
 
