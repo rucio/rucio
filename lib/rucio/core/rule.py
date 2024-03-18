@@ -2791,7 +2791,7 @@ def generate_email_for_rule_ok_notification(
         try:
             with open(template_path, 'r') as templatefile:
                 template = Template(templatefile.read())
-        except IOError as ex:
+        except OSError as ex:
             logger(logging.ERROR, "Couldn't open file '%s'", template_path, exc_info=ex)
             return
 

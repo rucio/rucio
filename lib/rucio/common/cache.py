@@ -35,7 +35,7 @@ try:
         import pymemcache
         _mc_client = pymemcache.Client(CACHE_URL, connect_timeout=1, timeout=1)
         _mc_client.version()
-except IOError:
+except OSError:
     ENABLE_CACHING = False
 except ImportError:
     ENABLE_CACHING = False
