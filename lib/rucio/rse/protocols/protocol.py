@@ -261,7 +261,7 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
 RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
 
 
-class RSEProtocol(object):
+class RSEProtocol:
     """ This class is virtual and acts as a base to inherit new protocols from. It further provides some common functionality which applies for the amjority of the protocols."""
 
     def __init__(self, protocol_attr, rse_settings, logger=logging.log):

@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-class DidMetaPlugin(object, metaclass=ABCMeta):
+class DidMetaPlugin(metaclass=ABCMeta):
     """
     Interface for plugins managing metadata of DIDs
     """

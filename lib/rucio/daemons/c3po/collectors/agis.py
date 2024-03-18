@@ -19,11 +19,11 @@ from requests import get
 from rucio.common.config import config_get
 
 
-class MappingCollector(object):
+class MappingCollector:
     """
     Provides mappings from PanDA / DDM resources to ATLAS sites and back.
     """
-    class _MappingCollector(object):
+    class _MappingCollector:
         '''
         _MappingCollector
         '''

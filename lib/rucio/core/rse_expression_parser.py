@@ -208,7 +208,7 @@ def __extract_term(expression):
     raise SystemError('This point in the code should not be reachable')
 
 
-class BaseExpressionElement(object, metaclass=abc.ABCMeta):
+class BaseExpressionElement(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def resolve_elements(self, session):
         """

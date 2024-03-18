@@ -15,7 +15,7 @@
 from typing import Any, Callable, Literal, Optional, TypedDict, Union
 
 
-class InternalType(object):
+class InternalType:
     '''
     Base for Internal representations of string types
     '''

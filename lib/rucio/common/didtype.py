@@ -19,7 +19,7 @@ DID type to represent a did and to simplify operations on it
 from rucio.common.exception import DIDError
 
 
-class DID(object):
+class DID:
 
     """
     Class used to store a DID

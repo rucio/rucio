@@ -46,7 +46,7 @@ GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'conveyor-receiver'
 
 
-class Receiver(object):
+class Receiver:
 
     def __init__(self, broker, id_, total_threads, transfer_stats_manager: request_core.TransferStatsManager, all_vos=False):
         self.__all_vos = all_vos

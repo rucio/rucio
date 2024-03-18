@@ -15,13 +15,13 @@
 import contextlib
 
 
-class MockGfal2(object):
+class MockGfal2:
     """
     This is a mock gfal2 to test the Storage dumper
     """
     files = {}
 
-    class MockContext(object):
+    class MockContext:
         '''
         MockContext
         '''
