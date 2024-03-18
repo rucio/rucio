@@ -15,7 +15,7 @@
 
 import json
 import logging
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterator, Sequence
 from configparser import NoOptionError, NoSectionError
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -46,7 +46,7 @@ from rucio.common.exception import (InvalidRSEExpression, InvalidReplicationRule
 from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.policy import policy_filter, get_scratchdisk_lifetime
 from rucio.common.schema import validate_schema
-from rucio.common.types import InternalScope, InternalAccount, LoggerFunction, RuleDict
+from rucio.common.types import InternalScope, InternalAccount, LoggerFunction, DIDDict, RuleDict
 from rucio.common.utils import str_to_date, sizefmt, chunks
 from rucio.core import account_counter, rse_counter, request as request_core, transfer as transfer_core
 from rucio.core.account import get_account
@@ -144,7 +144,7 @@ class AutoApprove(PolicyPackageAlgorithms):
 
 @transactional_session
 def add_rule(
-    dids: Sequence[dict[str, Any]],
+    dids: Sequence[DIDDict],
     account: InternalAccount,
     copies: int,
     rse_expression: str,
@@ -458,7 +458,7 @@ def add_rule(
 
 @transactional_session
 def add_rules(
-    dids: Sequence[dict[str, Any]],
+    dids: Sequence[DIDDict],
     rules: Sequence[RuleDict],
     *,
     session: "Session",
@@ -2091,7 +2091,7 @@ def get_updated_dids(
     total_workers: int,
     worker_number: int,
     limit: int = 100,
-    blocked_dids: Iterable[tuple[str, str]] = [],
+    blocked_dids: Sequence[tuple[str, str]] = [],
     *,
     session: "Session"
 ) -> list[tuple[str, InternalScope, str, DIDReEvaluation]]:
@@ -2841,7 +2841,7 @@ def insert_rule_history(
 @transactional_session
 def approve_rule(
     rule_id: str,
-    approver: Optional[str] = None,
+    approver: str = '',
     notify_approvers: bool = True,
     *,
     session: "Session"
@@ -2912,7 +2912,7 @@ def approve_rule(
 @transactional_session
 def deny_rule(
     rule_id: str,
-    approver: Optional[str] = None,
+    approver: str = '',
     reason: Optional[str] = None,
     *,
     session: "Session"
@@ -3194,8 +3194,8 @@ def list_rules_for_rse_decommissioning(
 def __find_missing_locks_and_create_them(
     datasetfiles: Sequence[dict[str, Any]],
     locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
-    replicas: dict[tuple[InternalScope, str], Any],
-    source_replicas: dict[tuple[InternalScope, str], Any],
+    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
     rseselector: RSESelector,
     rule: models.ReplicationRule,
     source_rses: Sequence[str],
@@ -3303,8 +3303,8 @@ def __find_surplus_locks_and_remove_them(
 def __find_stuck_locks_and_repair_them(
     datasetfiles: Sequence[dict[str, Any]],
     locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
-    replicas: dict[tuple[InternalScope, str], Any],
-    source_replicas: dict[tuple[InternalScope, str], Any],
+    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
     rseselector: RSESelector,
     rule: models.ReplicationRule,
     source_rses: Sequence[str],
@@ -4056,8 +4056,8 @@ def __resolve_dids_to_locks_and_replicas(
 def __create_locks_replicas_transfers(
     datasetfiles: Sequence[dict[str, Any]],
     locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
-    replicas: dict[tuple[InternalScope, str], Any],
-    source_replicas: dict[tuple[InternalScope, str], Any],
+    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
     rseselector: RSESelector,
     rule: models.ReplicationRule,
     preferred_rse_ids: Sequence[str] = [],
