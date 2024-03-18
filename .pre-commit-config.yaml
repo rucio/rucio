@@ -15,3 +15,8 @@ repos:
     description: Run the `add_header` script to verify the file headers
     entry: tools/add_header
     language: system
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.3.3
+  hooks:
+    - id: ruff
+      args: [ --fix ]
