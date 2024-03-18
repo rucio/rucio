@@ -21,8 +21,11 @@ from requests.status_codes import codes
 from rucio.client.baseclient import BaseClient
 from rucio.client.baseclient import choice
 from rucio.common.utils import build_url
-from rucio.db.sqla.constants import KeyType
-from typing import Union, Optional
+from typing import Union, Optional, TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from rucio.db.sqla.constants import KeyType
 
 
 class MetaConventionClient(BaseClient):
@@ -31,7 +34,7 @@ class MetaConventionClient(BaseClient):
 
     META_BASEURL = 'meta_conventions'
 
-    def add_key(self, key: str, key_type: Union[KeyType, str], value_type: Optional[str] = None, value_regexp: Optional[str] = None) -> Optional[bool]:
+    def add_key(self, key: str, key_type: Union['KeyType', str], value_type: Optional[str] = None, value_regexp: Optional[str] = None) -> Optional[bool]:
         """
         Sends the request to add an allowed key for DID metadata (update the DID Metadata Conventions table with a new key).
 
