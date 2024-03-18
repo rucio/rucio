@@ -412,7 +412,7 @@ class BaseClient:
                 if retry > self.request_retries:
                     raise
                 continue
-            except IOError as error:
+            except OSError as error:
                 # Handle Broken Pipe
                 # While in python3 we can directly catch 'BrokenPipeError', in python2 it doesn't exist.
                 if getattr(error, 'errno') != errno.EPIPE:
@@ -859,7 +859,7 @@ class BaseClient:
             token_file_handler = open(self.token_file, 'r')
             self.auth_token = token_file_handler.readline()
             self.headers['X-Rucio-Auth-Token'] = self.auth_token
-        except IOError as error:
+        except OSError as error:
             print("I/O error({0}): {1}".format(error.errno, error.strerror))
         except Exception:
             raise
@@ -890,7 +890,7 @@ class BaseClient:
                 with fdopen(file_d, "w") as f_exp_epoch:
                     f_exp_epoch.write(str(self.token_exp_epoch))
                 move(file_n, self.token_exp_epoch_file)
-        except IOError as error:
+        except OSError as error:
             print("I/O error({0}): {1}".format(error.errno, error.strerror))
         except Exception:
             raise

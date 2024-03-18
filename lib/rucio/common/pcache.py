@@ -1127,7 +1127,7 @@ class Pcache:
             return
         try:
             f = open(name, 'w')
-        except IOError as e:
+        except OSError as e:
             self.log(ERROR, "open: %s", e)
             return e.errno
 
@@ -1139,7 +1139,7 @@ class Pcache:
             try:
                 status = fcntl.lockf(f, flag)
                 break
-            except IOError as e:
+            except OSError as e:
                 if e.errno in (errno.EAGAIN, errno.EACCES) and not blocking:
                     f.close()
                     del self.locks[name]
