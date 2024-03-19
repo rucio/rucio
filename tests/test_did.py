@@ -29,7 +29,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.did import (list_dids, add_did, delete_dids, get_did_atime, touch_dids, attach_dids, detach_dids,
                             get_metadata, set_metadata, get_did, get_did_access_cnt, add_did_to_followed,
                             get_users_following_did, remove_did_from_followed, set_status, list_new_dids,
-                            set_new_dids)
+                            set_new_dids, bulk_list_files)
 from rucio.core.replica import add_replica, get_replica
 from rucio.db.sqla.constants import DIDType
 from rucio.tests.common import rse_name_generator, scope_name_generator, did_name_generator
@@ -252,6 +252,35 @@ class TestDIDCore:
         set_status(mock_scope, dsn, open=False)
         new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
         assert {'scope': mock_scope, 'name': dsn, 'did_type': DIDType.DATASET} in new_dids
+
+    def test_bulk_list_files(self, mock_scope, root_account, rse_factory, did_factory):
+        """ Test the bulk_list_files method"""
+        _, rse_id = rse_factory.make_mock_rse()
+        nb_datasets = 5
+        nb_files = 10
+        # Try listing existing datasets
+        datasets = [did_factory.make_dataset() for _ in range(nb_datasets)]
+        files = []
+        for dataset in datasets:
+            new_files = []
+            for _ in range(nb_files):
+                new_files.append({'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'events': None, 'guid': None})
+            attach_dids(scope=dataset['scope'], name=dataset['name'], rse_id=rse_id, dids=new_files, account=root_account)
+            for file_ in new_files:
+                file_['parent_scope'] = dataset['scope']
+                file_['parent_name'] = dataset['name']
+            files.extend(new_files)
+        result = [file_ for file_ in bulk_list_files(datasets)]
+        assert len(result) == len(files)
+        for file_ in files:
+            assert file_ in result
+        # Try listing non-existing datasets
+        non_existing_datasets = [{'scope': mock_scope, 'name': did_name_generator('dataset')} for _ in range(nb_datasets)]
+        datasets.extend(non_existing_datasets)
+        parent_datasets = [(dataset['parent_scope'], dataset['parent_name']) for dataset in result]
+        assert len(result) == len(files)
+        for dataset in non_existing_datasets:
+            assert (dataset['scope'], dataset['name']) not in parent_datasets
 
 
 class TestDIDApi:
@@ -1102,6 +1131,36 @@ class TestDIDClients:
             list_dids.append({'scope': scope, 'name': cnt[idx]})
         list_meta = [_ for _ in did_client.get_metadata_bulk(list_dids)]
         assert len(list_meta) == 0
+
+    def test_bulk_list_files(self, did_client, mock_scope, root_account, rse_factory, did_factory):
+        """ Test the bulk_list_files method"""
+        _, rse_id = rse_factory.make_mock_rse()
+        nb_datasets = 5
+        # Try listing existing datasets
+        datasets = [did_factory.make_dataset() for _ in range(nb_datasets)]
+        external_datasets = [{'scope': dataset['scope'].external, 'name': dataset['name']} for dataset in datasets]
+        files = []
+        for dataset in datasets:
+            new_files = []
+            for _ in range(10):
+                new_files.append({'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'events': None, 'guid': None})
+            attach_dids(scope=dataset['scope'], name=dataset['name'], rse_id=rse_id, dids=new_files, account=root_account)
+            for file_ in new_files:
+                file_['scope'] = dataset['scope'].external
+                file_['parent_scope'] = dataset['scope'].external
+                file_['parent_name'] = dataset['name']
+            files.extend(new_files)
+        result = [files for files in did_client.bulk_list_files(external_datasets)]
+        assert len(result) == len(files)
+        for file_ in files:
+            assert file_ in result
+        # Try listing non-existing datasets
+        non_existing_datasets = [{'scope': mock_scope.external, 'name': did_name_generator('dataset')} for _ in range(nb_datasets)]
+        datasets.extend(non_existing_datasets)
+        parent_datasets = [(dataset['parent_scope'], dataset['parent_name']) for dataset in result]
+        assert len(result) == len(files)
+        for dataset in non_existing_datasets:
+            assert (dataset['scope'], dataset['name']) not in parent_datasets
 
 
 @pytest.mark.noparallel(reason='uses mock scope')

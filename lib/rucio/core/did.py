@@ -42,13 +42,12 @@ from rucio.db.sqla.session import read_session, transactional_session, stream_se
 from rucio.db.sqla.util import temp_table_mngr
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Iterator, Sequence
     from typing import Any, Optional, Union
     from sqlalchemy.orm import Session
     from sqlalchemy.schema import Table
-    from rucio.common.types import InternalAccount, InternalScope
+    from rucio.common.types import InternalAccount, InternalScope, LoggerFunction
 
-    LoggerFunction = Callable[..., Any]
 
 METRICS = MetricManager(module=__name__)
 
@@ -1888,7 +1887,26 @@ def list_child_datasets(
 
 
 @stream_session
-def list_files(scope, name, long=False, *, session: "Session"):
+def bulk_list_files(dids: "list[dict[str, Any]]", long: bool = False, *, session: "Session") -> "Optional[Iterator[dict[str, Any]]]":
+    """
+    List file contents of a list of data identifier.
+
+    :param dids:       A list of DIDs.
+    :param long:       A boolean to choose if more metadata are returned or not.
+    :param session:    The database session in use.
+    """
+    for did in dids:
+        try:
+            for file_dict in list_files(scope=did['scope'], name=did['name'], long=long, session=session):
+                file_dict['parent_scope'] = did['scope']
+                file_dict['parent_name'] = did['name']
+                yield file_dict
+        except exception.DataIdentifierNotFound:
+            pass
+
+
+@stream_session
+def list_files(scope: "InternalScope", name: str, long: bool = False, *, session: "Session") -> "Iterator[dict[str, Any]]":
     """
     List data identifier file contents.
 

@@ -15,6 +15,7 @@
 
 from datetime import datetime
 from json import dumps
+from typing import Optional, Any
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
@@ -342,7 +343,7 @@ class DIDClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_files(self, scope, name, long=None):
+    def list_files(self, scope: str, name: str, long: Optional[bool] = None):
         """
         List data identifier file contents.
 
@@ -358,6 +359,24 @@ class DIDClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path, params=payload)
 
         r = self._send_request(url, type_='GET')
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def bulk_list_files(self, dids: list[dict[str, Any]]):
+        """
+        List data identifier file contents.
+
+        :param dids: The list of DIDs.
+        """
+
+        data = {'dids': dids}
+        path = '/'.join([self.DIDS_BASEURL, 'bulkfiles'])
+        url = build_url(choice(self.list_hosts), path=path)
+
+        r = self._send_request(url, type_='POST', data=dumps(data), stream=True)
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
