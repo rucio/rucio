@@ -296,6 +296,7 @@ class StompConnectionManager:
                     continue
                 except Exception as error:
                     self._logger(logging.ERROR, "[broker] Could not connect: %s", str(error))
+                    logging.exception("[broker] Could not connect: %s", str(error))
                     continue
             try:
                 yield conn
