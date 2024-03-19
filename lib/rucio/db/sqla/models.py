@@ -76,6 +76,8 @@ def _oracle_json_constraint(target, connection, **kw):
         if oracle_version >= 12:
             if target.name == 'did_meta':
                 target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_META_JSON_CHK'))
+            if target.name == 'deleted_did_meta':
+                target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_DELETE_META_JSON_CHK'))
             if target.name == 'virtual_placements':
                 target.append_constraint(CheckConstraint('PLACEMENTS IS JSON', 'ORACLE_PLACEMENTS_JSON_CHK'))
 
@@ -460,6 +462,19 @@ class DidMeta(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DID_META_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DID_META_FK'),
                    Index('DID_META_DID_TYPE_IDX', 'did_type'))
+
+
+class DeletedDidMeta(BASE, ModelBase):
+    __tablename__ = 'deleted_did_meta'
+    scope = Column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
+    name = Column(String(get_schema_value('NAME_LENGTH')))
+    did_type = Column(Enum(DIDType, name='DEL_DID_META_DID_TYPE_CHK',
+                           create_constraint=True,
+                           values_callable=lambda obj: [e.value for e in obj]))
+    meta = Column(JSON())
+    deleted_at = Column(DateTime)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='DEL_DID_META_PK'),
+                   Index('DEL_DID_META_DID_TYPE_IDX', 'did_type'))
 
 
 class DeletedDataIdentifier(BASE, ModelBase):

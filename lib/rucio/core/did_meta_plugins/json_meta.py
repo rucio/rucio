@@ -13,12 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from datetime import datetime
 import json as json_lib
 import operator
 from typing import TYPE_CHECKING, cast, Any
 
 from sqlalchemy.exc import DataError
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy import delete
 
 from rucio.common import exception
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
@@ -30,6 +32,12 @@ from rucio.db.sqla.util import json_implemented
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+    from typing import Optional
+    from rucio.common.types import InternalScope
 
 
 class JSONDidMeta(DidMetaPlugin):
@@ -66,6 +74,15 @@ class JSONDidMeta(DidMetaPlugin):
 
     @transactional_session
     def set_metadata_bulk(self, scope, name, metadata, recursive=False, *, session: "Session"):
+        """
+        Add metadata to data identifier in bulk.
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param metadata: all key-values to set.
+        :param recursive: Option to propagate the metadata change to content.
+        :param session: The database session in use.
+        """
         if not json_implemented(session=session):
             raise NotImplementedError
 
@@ -135,6 +152,40 @@ class JSONDidMeta(DidMetaPlugin):
             row.meta = existing_meta
         except NoResultFound:
             raise exception.DataIdentifierNotFound(f"Key not found for data identifier '{scope}:{name}'")
+
+    @transactional_session
+    def on_delete(self, scope: "InternalScope", name: str, archive: bool = False, session: "Optional[Session]" = None) -> None:
+        """
+        Method to be called when DID is deleted
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param archive: Boolean to choose if the metadata must be archive when DID is deleted.
+        :param session: The database session in use.
+        """
+        if not json_implemented(session=session):
+            return
+
+        if archive:
+            for row in session.query(models.DidMeta).filter_by(scope=scope, name=name).all():
+                models.DeletedDidMeta(
+                    scope=row.scope,
+                    name=row.name,
+                    did_type=row.did_type,
+                    meta=row.meta,
+                    created_at=row.created_at,
+                    updated_at=row.updated_at,
+                    deleted_at=datetime.utcnow()
+                ).save(session=session, flush=False)
+        stmt = delete(
+            models.DidMeta
+        ).where(
+            models.DidMeta.scope == scope,
+            models.DidMeta.name == name,
+        ).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt)
 
     @stream_session
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
@@ -213,3 +264,22 @@ class JSONDidMeta(DidMetaPlugin):
         :returns: The name of the plugin.
         """
         return self.plugin_name
+
+    @read_session
+    def get_metadata_archived(self, scope, name, session=None):
+        """
+        Get data identifier metadata (JSON)
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param session: The database session in use.
+        """
+        if not json_implemented(session=session):
+            raise NotImplementedError
+
+        try:
+            row = session.query(models.DeletedDidMeta).filter_by(scope=scope, name=name).one()
+            meta = getattr(row, 'meta')
+            return json_lib.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
+        except NoResultFound:
+            raise exception.DataIdentifierNotFound("No generic metadata found for '%(scope)s:%(name)s'" % locals())

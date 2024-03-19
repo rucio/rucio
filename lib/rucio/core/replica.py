@@ -2079,6 +2079,8 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         session.execute(stmt)
 
         # Remove DID Metadata
+        # TODO : Implement call to on_delete method
+        # archive_metadata = config_get_bool('deletion', 'archive_metadata', default=False, session=session)
         must_delete_did_meta = True
         if session.bind.dialect.name == 'oracle':
             oracle_version = int(session.connection().connection.version.split('.')[0])
@@ -2163,7 +2165,6 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
             is_archive=False,
         )
         session.execute(stmt)
-
 
 @transactional_session
 def get_replica(rse_id, scope, name, *, session: "Session"):

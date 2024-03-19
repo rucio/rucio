@@ -36,6 +36,11 @@ IMMUTABLE_KEYS = [
 ]
 
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+    from typing import Optional
+
+
 class MongoDidMeta(DidMetaPlugin):
     def __init__(self, host=None, port=None, db=None, collection=None):
         super(MongoDidMeta, self).__init__()
@@ -137,6 +142,17 @@ class MongoDidMeta(DidMetaPlugin):
             self.col.update_one({"_id": "{}:{}".format(scope.internal, name)}, {'$unset': meta})
         except Exception as e:
             raise exception.DataIdentifierNotFound(e)
+
+    def on_delete(self, scope: "InternalScope", name: str, archive: bool = False, session: "Optional[Session]" = None) -> None:
+        """
+        Method to be called when DID is deleted
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param archive: Boolean to choose if the metadata must be archive when DID is deleted.
+        :param session: The database session in use.
+        """
+        pass
 
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
                   offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Optional[Session]" = None):

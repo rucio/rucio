@@ -24,13 +24,9 @@ from rucio.core.did import add_did, delete_dids, set_metadata_bulk, set_dids_met
 from rucio.core.did_meta_plugins import list_dids, get_metadata, set_metadata
 from rucio.core.did_meta_plugins.mongo_meta import MongoDidMeta
 from rucio.core.did_meta_plugins.postgres_meta import ExternalPostgresJSONDidMeta
+from rucio.core.did_meta_plugins.json_meta import JSONDidMeta
 from rucio.db.sqla.util import json_implemented
-from rucio.tests.common import skip_rse_tests_with_accounts, did_name_generator
-
-
-def skip_without_json():
-    if not json_implemented():
-        pytest.skip("JSON support is not implemented in this database")
+from rucio.tests.common import skip_rse_tests_with_accounts, did_name_generator, skip_without_json
 
 
 class TestDidMetaDidColumn:
@@ -706,3 +702,49 @@ def test_set_dids_metadata_bulk_multi_client(did_factory, rucio_client):
         print('Metadata:', meta)
         for testkey in testmeta:
             assert testkey in meta and meta[testkey] == testmeta[testkey]
+
+
+@pytest.mark.parametrize(
+    "core_config_mock",
+    [
+        {
+            "table_content": [
+                ("deletion", "archive_metadata", "True"),
+            ]
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "caches_mock",
+    [
+        {
+            "caches_to_mock": [
+                "rucio.core.config.REGION",
+            ]
+        }
+    ],
+    indirect=True,
+)
+def test_archive_metadata(vo, root_account, mock_scope, did_factory, core_config_mock, caches_mock):
+    """ DID (CORE): Test archive of metadata when DID is deleted """
+    skip_without_json()
+    nb_dids = 5
+    dids = [did_factory.make_dataset() for _ in range(nb_dids)]
+    to_delete = []
+    for did in dids:
+        testkeys = list(map(lambda i: 'testkey' + generate_uuid(), range(3)))
+        testmeta = {key: key + 'value' for key in testkeys}
+        did['meta'] = testmeta
+        to_delete.append({'scope': did['scope'], 'name': did['name'], 'did_type': 'DATASET', 'purge_replicas': True})
+    set_dids_metadata_bulk(dids=dids, recursive=False)
+    for did in dids:
+        testmeta = did['meta']
+        meta = get_metadata(plugin="ALL", scope=did['scope'], name=did['name'])
+        for testkey in testmeta:
+            assert testkey in meta and meta[testkey] == testmeta[testkey]
+    delete_dids(dids=to_delete, account=root_account)
+    j = JSONDidMeta()
+    for did in dids:
+        testmeta = did['meta']
+        assert testmeta == j.get_metadata_archived(did['scope'], did['name'])
