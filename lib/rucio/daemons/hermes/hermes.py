@@ -22,10 +22,8 @@ import datetime
 import functools
 import json
 import logging
-import random
 import re
 import smtplib
-import socket
 import sys
 import threading
 import time
@@ -34,14 +32,12 @@ from email.mime.text import MIMEText
 from typing import TYPE_CHECKING
 
 import requests
-import stomp
 from requests.auth import HTTPBasicAuth
 
 import rucio.db.sqla.util
 from rucio.common.config import (
     config_get,
     config_get_bool,
-    config_get_int,
     config_get_list,
 )
 from rucio.common.stomp_utils import ListenerBase, StompConnectionManager
