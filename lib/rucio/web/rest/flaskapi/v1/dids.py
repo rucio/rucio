@@ -22,12 +22,12 @@ from rucio.api.did import add_did, add_dids, list_content, list_content_history,
     list_files, scope_list, get_did, set_metadata, get_metadata, get_metadata_bulk, set_status, attach_dids, \
     detach_dids, attach_dids_to_dids, get_dataset_by_guid, list_parent_dids, create_did_sample, list_new_dids, \
     resurrect, get_users_following_did, remove_did_from_followed, add_did_to_followed, delete_metadata, \
-    set_metadata_bulk, set_dids_metadata_bulk
+    set_metadata_bulk, set_dids_metadata_bulk, bulk_list_files
 from rucio.api.rule import list_replication_rules, list_associated_replication_rules_for_file
 from rucio.common.exception import ScopeNotFound, DatabaseException, DataIdentifierNotFound, DataIdentifierAlreadyExists, \
     DuplicateContent, AccessDenied, KeyNotFound, Duplicate, InvalidValueForKey, UnsupportedStatus, \
     UnsupportedOperation, RSENotFound, RuleNotFound, InvalidMetadata, InvalidPath, FileAlreadyExists, InvalidObject, FileConsistencyMismatch
-from rucio.common.utils import render_json, APIEncoder
+from rucio.common.utils import render_json, APIEncoder, parse_response
 from rucio.db.sqla.constants import DIDType
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import response_headers, check_accept_header_wrapper_flask, \
@@ -1109,6 +1109,86 @@ class Files(ErrorHandlingMethodView):
             return generate_http_error_flask(400, error)
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
+
+
+class BulkFiles(ErrorHandlingMethodView):
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def post(self):
+        """
+        ---
+        summary: List files bulk
+        description: List files in multiple dids
+        tags:
+          - Data Identifiers
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  description: One did to list files.
+                  type: object
+                  required:
+                    - scope
+                    - name
+                  properties:
+                    scope:
+                      description: The did scope.
+                      type: string
+                    name:
+                      description: The did name.
+                      type: string
+        responses:
+          201:
+            description: OK
+            content:
+              application/x-json-stream:
+                schema:
+                  description: All collections file content.
+                  type: array
+                  items:
+                    description: Collections file content.
+                    type: object
+                    properties:
+                      parent_scope:
+                        description: The scope of the parent did.
+                        type: string
+                      parent_name:
+                        description: The name of the parent did.
+                        type: string
+                      scope:
+                        description: The scope of the did.
+                        type: string
+                      name:
+                        description: The name of the did.
+                        type: string
+                      bytes:
+                        description: The size of the did in bytes.
+                        type: integer
+                      guid:
+                        description: The guid of the did.
+                        type: string
+                      events:
+                        description: The number of events of the did.
+                        type: integer
+                      adler32:
+                        description: The adler32 checksum.
+                        type: string
+          401:
+            description: Invalid Auth Token
+        """
+        parameters = json_parameters(parse_response)
+        dids = param_get(parameters, 'dids', default=[])
+        try:
+            def generate(vo):
+                for did in bulk_list_files(dids=dids, vo=vo):
+                    yield render_json(**did) + '\n'
+
+            return try_stream(generate(vo=request.environ.get('vo')))
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
+        return 'Created', 201
 
 
 class Parents(ErrorHandlingMethodView):
@@ -2195,6 +2275,8 @@ def blueprint():
     bp.add_url_rule('/resurrect', view_func=resurrect_view, methods=['post', ])
     bulkmeta_view = BulkMeta.as_view('bulkmeta')
     bp.add_url_rule('/bulkmeta', view_func=bulkmeta_view, methods=['post', ])
+    files_view = BulkFiles.as_view('bulkfiles')
+    bp.add_url_rule('/bulkfiles', view_func=files_view, methods=['post', ])
 
     bp.after_request(response_headers)
     return bp
