@@ -26,12 +26,9 @@ import traceback
 from types import FrameType
 from typing import Optional
 
-import stomp
-
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_int
-from rucio.common.logging import setup_logging
+from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.policy import get_policy
 from rucio.common.stomp_utils import StompConnectionManager, ListenerBase
 from rucio.core import request as request_core
@@ -48,13 +45,10 @@ GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'conveyor-receiver'
 
 
-
-
-
 class Receiver(ListenerBase):
 
-    def __init__(self, conn, id_, total_threads, transfer_stats_manager: request_core.TransferStatsManager, all_vos=False,
-                 logger=logging.getLogger(__name__).getChild(__qualname__)):
+    def __init__(self, conn, id_, total_threads, transfer_stats_manager: request_core.TransferStatsManager,
+                 all_vos=False, logger=logging.log):
         super().__init__(conn, logger)
         self.__all_vos = all_vos
         self.__id = id_
@@ -102,18 +96,17 @@ class Receiver(ListenerBase):
             logging.critical(traceback.format_exc())
 
 
-def receiver(id_, total_threads=1, all_vos=False):
+def receiver(id_, total_threads=1, all_vos=False, logger=logging.log):
     """
     Main loop to consume messages from the FTS3 producer.
     """
+    logger(logging.INFO, 'receiver starting')
 
-    logging.info('receiver starting')
+    conn_mgr = StompConnectionManager(config_section='messaging-fts3', logger=logger)
 
-    conn_mgr = StompConnectionManager(config_section='messaging-fts3')
+    logger(logging.INFO, 'receiver started')
 
-    logging.info('receiver started')
-
-    with (HeartbeatHandler(executable=DAEMON_NAME, renewal_interval=30) as heartbeat_handler,
+    with (HeartbeatHandler(executable=DAEMON_NAME, renewal_interval=30),
           request_core.TransferStatsManager() as transfer_stats_manager):
 
         conn_mgr.set_listener_factory('rucio-messaging-fts3', Receiver,
@@ -123,8 +116,6 @@ def receiver(id_, total_threads=1, all_vos=False):
                                       all_vos=all_vos)
 
         while not GRACEFUL_STOP.is_set():
-
-            _, _, logger = heartbeat_handler.live()
 
             conn_mgr.subscribe(id_='rucio-messaging-fts3', ack='auto')
 
@@ -146,17 +137,18 @@ def run(once=False, total_threads=1):
     Starts up the receiver thread
     """
     setup_logging(process_name=DAEMON_NAME)
+    logger = formatted_logger(logging.log, DAEMON_NAME + ' %s')
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
-    logging.info('starting receiver thread')
-    threads = [threading.Thread(target=receiver, kwargs={'id_': i,
-                                                         'total_threads': total_threads}) for i in range(0, total_threads)]
+    logger(logging.INFO, 'starting receiver thread')
+    threads = [threading.Thread(target=receiver, kwargs={'id_': i, 'logger': logger, 'total_threads': total_threads})
+               for i in range(0, total_threads)]
 
     [thread.start() for thread in threads]
 
-    logging.info('waiting for interrupts')
+    logger(logging.INFO, 'waiting for interrupts')
 
     # Interruptible joins require a timeout.
     while threads:

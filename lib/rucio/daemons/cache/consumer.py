@@ -26,7 +26,6 @@ from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_int, config_get_bool, config_get_list
 from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.stomp_utils import StompConnectionManager, ListenerBase
 from rucio.common.types import InternalScope
@@ -82,43 +81,13 @@ class AMQConsumer(ListenerBase):
             self._logger(logging.ERROR, str(format_exc()))
 
 
-def consumer(id_, num_thread=1):
+def consumer(id_, num_thread=1, logger=logging.log):
     """
     Main loop to consume messages from the Rucio Cache producer.
     """
-
-    logger = formatted_logger(logging.log, DAEMON_NAME + ' %s')
-
     logger(logging.INFO, 'Rucio Cache consumer starting')
 
-    # brokers = config_get_list('messaging-cache', 'brokers')
-
-    # use_ssl = config_get_bool('messaging-cache', 'use_ssl', default=True, raise_exception=False)
-    # if not use_ssl:
-    #     username = config_get('messaging-cache', 'username')
-    #     password = config_get('messaging-cache', 'password')
-    # destination = config_get('messaging-cache', 'destination')
-    # subscription_id = 'rucio-cache-messaging'
-
-    # vhost = config_get('messaging-cache', 'broker_virtual_host', raise_exception=False)
-    # port = config_get_int('messaging-cache', 'port')
-    # reconnect_attempts = config_get_int('messaging-cache', 'reconnect_attempts', default=100)
-    # ssl_key_file = config_get('messaging-cache', 'ssl_key_file', raise_exception=False)
-    # ssl_cert_file = config_get('messaging-cache', 'ssl_cert_file', raise_exception=False)
-
-    conn_mgr = StompConnectionManager(config_section='messaging-cache',
-                                      logger=logger)
-    # conns, _ = stomp_conn_mngr.re_configure(
-    #     brokers=brokers,
-    #     port=port,
-    #     use_ssl=use_ssl,
-    #     vhost=vhost,
-    #     reconnect_attempts=reconnect_attempts,
-    #     ssl_key_file=ssl_key_file,
-    #     ssl_cert_file=ssl_cert_file,
-    #     timeout=None,
-    #     logger=logger
-    # )
+    conn_mgr = StompConnectionManager(config_section='messaging-cache', logger=logger)
 
     logger(logging.INFO, 'consumer started')
 
@@ -127,8 +96,6 @@ def consumer(id_, num_thread=1):
     while not GRACEFUL_STOP.is_set():
 
         conn_mgr.subscribe(id_='rucio-cache-messaging', ack='auto')
-
-
         time.sleep(1)
 
     logger(logging.INFO, 'graceful stop requested')
@@ -149,17 +116,18 @@ def run(num_thread=1):
     Starts up the rucio cache consumer thread
     """
     setup_logging(process_name=DAEMON_NAME)
+    logger = formatted_logger(logging.log, DAEMON_NAME + ' %s')
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
-    logging.info('starting consumer thread')
-    threads = [threading.Thread(target=consumer, kwargs={'id_': i, 'num_thread': num_thread})
+    logger(logging.INFO, 'starting consumer thread')
+    threads = [threading.Thread(target=consumer, kwargs={'id_': i, 'num_thread': num_thread, 'logger': logger})
                for i in range(0, num_thread)]
 
     [t.start() for t in threads]
 
-    logging.info('waiting for interrupts')
+    logger(logging.INFO, 'waiting for interrupts')
 
     # Interruptible joins require a timeout.
     while threads[0].is_alive():

@@ -30,11 +30,12 @@ from stomp import Connection12, ConnectionListener
 from stomp.exception import ConnectFailedException, NotConnectedException
 
 from rucio.core.monitor import MetricManager
+from rucio.common.logging import formatted_logger
 from rucio.common.config import (config_get, config_get_bool, config_get_int,
                                  config_get_float, config_get_list)
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Callable
     from stomp.connect import Frame
 
 
@@ -75,11 +76,11 @@ class Connection(Connection12):
 class ListenerBase(ConnectionListener):
     """Listener Base."""
 
-    _logger = logging.getLogger(__name__).getChild(__qualname__)
+    _logger = formatted_logger(logging.log, 'ListenerBase %s')
 
     def __init__(self,
                  conn: Connection,
-                 logger: None | logging.Logger = None):
+                 logger: None | Callable = None):
         """
         Initialise.
 
@@ -100,7 +101,7 @@ class ListenerBase(ConnectionListener):
         """
         on_error
         """
-        self._logger.error('Message receive error: [%s] %s', self._conn.brokers[0][0], frame.body)
+        self._logger(logging.ERROR, 'Message receive error: [%s] %s', self._conn.brokers[0][0], frame.body)
 
 
 StompConfig = namedtuple("StompConfig", ('brokers', 'use_ssl', 'port', 'vhost',
@@ -112,11 +113,11 @@ StompConfig = namedtuple("StompConfig", ('brokers', 'use_ssl', 'port', 'vhost',
 class StompConnectionManager:
     """Stomp Connection Manager."""
 
-    _logger = logging.getLogger(__name__).getChild(__qualname__)
+    _logger = formatted_logger(logging.log, 'StompConnectionManager %s')
 
     def __init__(self,
                  config_section: str,
-                 logger: None | logging.Logger = None):
+                 logger: None | Callable = None):
         """
         Initialise.
 
@@ -172,13 +173,13 @@ class StompConnectionManager:
         try:
             brokers = config_get(config_section, 'brokers')
         except Exception as exc:
-            self._logger.exception("Could not load brokers from configuration")
+            self._logger(logging.ERROR, "Could not load brokers from configuration")
             raise RuntimeError('Could not load brokers from configuration') from exc
 
         try:
             use_ssl = config_get_bool(config_section, 'use_ssl')
         except Exception as exc:
-            self._logger.exception("could not find use_ssl in configuration -- please update your rucio.cfg")
+            self._logger(logging.ERROR, "could not find use_ssl in configuration -- please update your rucio.cfg")
             raise RuntimeError('could not find use_ssl in configuration -- please update your rucio.cfg') from exc
 
         port = config_get_int(config_section, 'port')
@@ -193,11 +194,12 @@ class StompConnectionManager:
         heartbeats = config_get_list(config_section, 'heartbeats', default=[0., 0.], raise_exception=False)
         reconnect_attempts = config_get_int(config_section, 'reconnect_attempts', default=100)
         if use_ssl and (key_file is None or cert_file is None):
-            self._logger.error("If use_ssl is True in config you must provide both 'ssl_cert_file' and 'ssl_key_file'")
+            self._logger(logging.ERROR, "If use_ssl is True in config you must provide both 'ssl_cert_file' "
+                                        "and 'ssl_key_file'")
             raise RuntimeError("If use_ssl is True in config you must provide both 'ssl_cert_file' and 'ssl_key_file'")
         if not use_ssl and (username is None or password is None or nonssl_port == 0):
-            self._logger.error("If use_ssl is False in config you must provide "
-                               "'username', 'password' and 'nonssl_port'")
+            self._logger(logging.ERROR, "If use_ssl is False in config you must provide "
+                                        "'username', 'password' and 'nonssl_port'")
             raise RuntimeError("If use_ssl is False in config you must provide "
                                "'username', 'password' and 'nonssl_port'")
         return StompConfig(brokers=self._resolve_host_and_port(brokers, port if use_ssl else nonssl_port),
@@ -226,12 +228,12 @@ class StompConnectionManager:
             try:
                 addrinfos = socket.getaddrinfo(fqdn.strip(), port, socket.AF_INET, 0, socket.IPPROTO_TCP)
             except socket.gaierror as exc:
-                self._logger.error("[broker] Cannot resolve domain name %s (%s)", fqdn.strip(), str(exc))
+                self._logger(logging.ERROR, "[broker] Cannot resolve domain name %s (%s)", fqdn.strip(), str(exc))
                 continue
 
             hosts_and_ports.extend(addrinfo[4] for addrinfo in addrinfos)
         if not hosts_and_ports:
-            logging.log(logging.WARNING, "[broker] No resolved brokers")
+            self._logger(logging.WARNING, "[broker] No resolved brokers")
         return hosts_and_ports
 
     def _is_stalled(self, conn: Connection) -> bool:
@@ -275,9 +277,9 @@ class StompConnectionManager:
                 try:
                     conn.disconnect()
                 except Exception:
-                    self._logger.exception("[broker] Stalled connection could not be disconnected")
+                    self._logger(logging.ERROR, "[broker] Stalled connection could not be disconnected")
             if not conn.is_connected():
-                self._logger.info('connecting to %s:%s', *conn.brokers[0])
+                self._logger(logging.INFO, 'connecting to %s:%s', *conn.brokers[0])
                 # self._logger.info('connecting to %s', conn.transport._Transport__host_and_ports[0][0])
                 # if self._metrics is not None:
                 #     self._metrics.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0].split('.')[0]).inc()
@@ -289,16 +291,16 @@ class StompConnectionManager:
                 try:
                     conn.connect(**params)
                 except ConnectFailedException as error:
-                    self._logger.warning("[broker] Could not deliver message due to ConnectFailedException: %s",
-                                         str(error))
+                    self._logger(logging.WARNING, "[broker] Could not deliver message due to "
+                                                  "ConnectFailedException: %s", str(error))
                     continue
                 except Exception as error:
-                    self._logger.error("[broker] Could not connect: %s", str(error))
+                    self._logger(logging.ERROR, "[broker] Could not connect: %s", str(error))
                     continue
             try:
                 yield conn
             except Exception:
-                self._logger.error("[broker] Error in yielded code, skipping to next connection.")
+                self._logger(logging.ERROR, "[broker] Error in yielded code, skipping to next connection.")
 
     def deliver_messages(self, messages: dict) -> list[int]:
         """
@@ -321,7 +323,7 @@ class StompConnectionManager:
                             "created_at": str(message["created_at"])
                         })
             except ValueError:
-                self._logger.error("[broker] Cannot serialize payload to JSON: %s", str(message["payload"]))
+                self._logger(logging.ERROR, "[broker] Cannot serialize payload to JSON: %s", str(message["payload"]))
                 to_delete.append(message["id"])
                 continue
 
@@ -336,51 +338,50 @@ class StompConnectionManager:
                 )
                 to_delete.append(message["id"])
             except NotConnectedException as error:
-                self._logger.warning("[broker] Could not deliver message due to NotConnectedException: %s", str(error))
+                self._logger(logging.WARNING, "[broker] Could not deliver message due to NotConnectedException: %s",
+                             str(error))
                 continue
             except Exception as error:
-                self._logger.error("[broker] Could not deliver message: %s", str(error))
+                self._logger(logging.ERROR, "[broker] Could not deliver message: %s", str(error))
                 continue
 
             msg_event_type = str(message["event_type"]).lower()
             msg_payload = message.get("payload", {})
             if msg_event_type.startswith("transfer") or msg_event_type.startswith("stagein"):
-                self._logger.debug(
-                    "[broker] - event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, transfer-id: %s, created_at: %s",
-                    msg_event_type,
-                    msg_payload.get("scope", None),
-                    msg_payload.get("name", None),
-                    msg_payload.get("dst-rse", None),
-                    msg_payload.get("request-id", None),
-                    msg_payload.get("transfer-id", None),
-                    str(message["created_at"]),
-                )
+                self._logger(logging.DEBUG,
+                             "[broker] - event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, "
+                             "transfer-id: %s, created_at: %s",
+                             msg_event_type,
+                             msg_payload.get("scope", None),
+                             msg_payload.get("name", None),
+                             msg_payload.get("dst-rse", None),
+                             msg_payload.get("request-id", None),
+                             msg_payload.get("transfer-id", None),
+                             str(message["created_at"]))
 
             elif msg_event_type.startswith("dataset"):
-                self._logger.debug(
-                    "[broker] - event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)",
-                    msg_event_type,
-                    msg_payload.get("scope", None),
-                    msg_payload.get("name", None),
-                    msg_payload.get("rse", None),
-                    msg_payload.get("rule_id", None),
-                    str(message["created_at"]),
-                )
+                self._logger(logging.DEBUG,
+                             "[broker] - event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)",
+                             msg_event_type,
+                             msg_payload.get("scope", None),
+                             msg_payload.get("name", None),
+                             msg_payload.get("rse", None),
+                             msg_payload.get("rule_id", None),
+                             str(message["created_at"]))
 
             elif msg_event_type.startswith("deletion"):
                 if "url" not in msg_payload:
                     msg_payload["url"] = "unknown"
-                self._logger.debug(
-                    "[broker] - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)",
-                    msg_event_type,
-                    msg_payload.get("scope", None),
-                    msg_payload.get("name", None),
-                    msg_payload.get("rse", None),
-                    msg_payload.get("url", None),
-                    str(message["created_at"]),
-                )
+                self._logger(logging.DEBUG,
+                             "[broker] - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)",
+                             msg_event_type,
+                             msg_payload.get("scope", None),
+                             msg_payload.get("name", None),
+                             msg_payload.get("rse", None),
+                             msg_payload.get("url", None),
+                             str(message["created_at"]))
             else:
-                self._logger.debug("[broker] Other message: %s", message)
+                self._logger(logging.DEBUG, "[broker] Other message: %s", message)
 
         return to_delete
 
@@ -409,4 +410,4 @@ class StompConnectionManager:
             try:
                 conn.disconnect()
             except Exception:
-                self._logger.exception("[broker] Could not disconnect")
+                self._logger(logging.ERROR, "[broker] Could not disconnect")

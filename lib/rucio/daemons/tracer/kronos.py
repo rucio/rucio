@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.exception import DatabaseException, RSENotFound
-from rucio.common.logging import setup_logging
+from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.stomp_utils import StompConnectionManager, ListenerBase
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount, InternalScope
@@ -290,21 +290,36 @@ class AMQConsumer(ListenerBase):
         METRICS.counter('updated_replicas').inc()
 
 
-def kronos_file(once: bool = False, dataset_queue: Queue = None, sleep_time: int = 60):
+def kronos_file(once: bool = False, dataset_queue: Queue = None, sleep_time: int = 60, logger=logging.log):
     """
     Main loop to consume tracer reports.
     """
-    # stomp_conn_mngr = STOMPConnectionManager(config_section='tracer-kronos',
-    #                                          logger=logging.getLogger("stomp"))
-    # stomp_conn_mngr.set_listener_factory('rucio-tracer-kronos',
-    #                                      AMQConsumer,
-    #                                      queue=config_get('tracer-kronos', 'queue'),
-    #                                      chunksize=chunksize,
-    #                                      subscription_id=subscription_id,
-    #                                      excluded_usrdns=excluded_usrdns,
-    #                                      dataset_queue=dataset_queue,
-    #                                      bad_files_patterns=bad_files_patterns)
-    
+    bad_files_patterns = []
+    try:
+        patterns = str(config_get(section='kronos', option='bad_files_patterns', session=None)).split(",")
+        for pat in patterns:
+            bad_files_patterns.append(re.compile(pat.strip()))
+    except (NoOptionError, NoSectionError, RuntimeError):
+        logger(logging.ERROR, "Failed to get bad_file_patterns")
+        bad_files_patterns.clear()
+    except Exception as error:
+        logger(logging.ERROR, f'Failed to get bad_file_patterns {str(error)}')
+        bad_files_patterns.clear()
+
+    excluded_usrdns = set(config_get('tracer-kronos', 'excluded_usrdns').split(','))
+
+    subscription_id = config_get('tracer-kronos', 'subscription_id')
+    stomp_conn_mngr = StompConnectionManager(config_section='tracer-kronos',
+                                             logger=logger)
+    stomp_conn_mngr.set_listener_factory('rucio-tracer-kronos',
+                                         AMQConsumer,
+                                         queue=config_get('tracer-kronos', 'queue'),
+                                         chunksize=config_get_int('tracer-kronos', 'chunksize'),
+                                         subscription_id=subscription_id,
+                                         excluded_usrdns=excluded_usrdns,
+                                         dataset_queue=dataset_queue,
+                                         bad_files_patterns=bad_files_patterns)
+
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
@@ -327,87 +342,10 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
     """
     _, _, logger = heartbeat_handler.live()
 
-    # chunksize = config_get_int('tracer-kronos', 'chunksize')
-    prefetch_size = config_get_int('tracer-kronos', 'prefetch_size')
-    # subscription_id = config_get('tracer-kronos', 'subscription_id')
-    # Load bad file patterns from config
-    bad_files_patterns = []
-    try:
-        # bad_files_patterns = []
-        patterns = str(config_get(section='kronos', option='bad_files_patterns', session=None)).split(",")
-        # pattern = str(pattern)
-        # patterns = pattern.split(",")
-        for pat in patterns:
-            bad_files_patterns.append(re.compile(pat.strip()))
-    except (NoOptionError, NoSectionError, RuntimeError):
-        logger.exception("Failed to get bad_file_patterns")
-        bad_files_patterns.clear()
-    except Exception as error:
-        logger.error(f'Failed to get bad_file_patterns {str(error)}')
-        bad_files_patterns.clear()
-
-    #use_ssl = config_get_bool('tracer-kronos', 'use_ssl', default=True, raise_exception=False)
-    #if not use_ssl:
-    #    username = config_get('tracer-kronos', 'username')
-    #    password = config_get('tracer-kronos', 'password')
-
-    excluded_usrdns = set(config_get('tracer-kronos', 'excluded_usrdns').split(','))
-    #vhost = config_get('tracer-kronos', 'broker_virtual_host', raise_exception=False)
-
-    #brokers_alias = config_get_list('tracer-kronos', 'brokers')
-    #port = config_get_int('tracer-kronos', 'port')
-    #reconnect_attempts = config_get_int('tracer-kronos', 'reconnect_attempts')
-    #ssl_key_file = config_get('tracer-kronos', 'ssl_key_file', raise_exception=False)
-    #ssl_cert_file = config_get('tracer-kronos', 'ssl_cert_file', raise_exception=False)
-
-    # created_conns, _ = stomp_conn_mngr.re_configure(
-    #     brokers=brokers_alias,
-    #     port=port,
-    #     use_ssl=use_ssl,
-    #     vhost=vhost,
-    #     reconnect_attempts=reconnect_attempts,
-    #     ssl_key_file=ssl_key_file,
-    #     ssl_cert_file=ssl_cert_file,
-    #     timeout=sleep_time,  # TODO: this and heartbeats below
-    #     heartbeats=(0, 5000),
-    #     logger=logger,
-    # )
-
-    subscription_id = config_get('tracer-kronos', 'subscription_id')
-    stomp_conn_mngr = StompConnectionManager(config_section='tracer-kronos',
-                                             logger=logger)
-    stomp_conn_mngr.set_listener_factory('rucio-tracer-kronos',
-                                         AMQConsumer,
-                                         queue=config_get('tracer-kronos', 'queue'),
-                                         chunksize=config_get_int('tracer-kronos', 'chunksize'),
-                                         subscription_id=subscription_id,
-                                         excluded_usrdns=excluded_usrdns,
-                                         dataset_queue=dataset_queue,
-                                         bad_files_patterns=bad_files_patterns)
-
-    stomp_conn_mngr.subscribe(id_=subscription_id,
+    stomp_conn_mngr.subscribe(id_=config_get('tracer-kronos', 'subscription_id'),
                               ack='client-individual',
                               destination=config_get('tracer-kronos', 'queue'),
-                              headers={'activemq.prefetchSize': prefetch_size})
-
-    # for conn in created_conns:
-    #     if not conn.is_connected():
-    #         logger(logging.INFO, 'connecting to %s' % str(conn.transport._Transport__host_and_ports[0]))
-    #         METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0]).inc()
-    #         conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0],
-    #                                                              conn=conn,
-    #                                                              queue=config_get('tracer-kronos', 'queue'),
-    #                                                              chunksize=chunksize,
-    #                                                              subscription_id=subscription_id,
-    #                                                              excluded_usrdns=excluded_usrdns,
-    #                                                              dataset_queue=dataset_queue,
-    #                                                              bad_files_patterns=bad_files_patterns,
-    #                                                              logger=logger))
-    #         if not use_ssl:
-    #             conn.connect(username, password)
-    #         else:
-    #             conn.connect()
-    #         conn.subscribe(destination=config_get('tracer-kronos', 'queue'), ack='client-individual', id=subscription_id, headers={'activemq.prefetchSize': prefetch_size})
+                              headers={'activemq.prefetchSize': config_get_int('tracer-kronos', 'prefetch_size')})
 
 
 def kronos_dataset(dataset_queue: Queue, once: bool = False, sleep_time: int = 60):
@@ -511,16 +449,18 @@ def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
     Starts up the consumer threads
     """
     setup_logging(process_name='tracer-kronos')
+    logger = formatted_logger(logging.log, 'Kronos %s')
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
     dataset_queue = Queue()
-    logging.info('starting tracer consumer threads')
+    logger(logging.INFO, 'starting tracer consumer threads')
 
     thread_list = []
     for _ in range(0, threads):
         thread_list.append(Thread(target=kronos_file, kwargs={'once': once,
+                                                              'logger': logger,
                                                               'sleep_time': sleep_time_files,
                                                               'dataset_queue': dataset_queue}))
         thread_list.append(Thread(target=kronos_dataset, kwargs={'once': once,
@@ -529,7 +469,7 @@ def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
 
     [thread.start() for thread in thread_list]
 
-    logging.info('waiting for interrupts')
+    logger(logging.INFO, 'waiting for interrupts')
 
     while len(thread_list) > 0:
         thread_list = [thread.join(timeout=3) for thread in thread_list if thread and thread.is_alive()]
