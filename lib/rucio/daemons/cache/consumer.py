@@ -76,7 +76,7 @@ class AMQConsumer(ListenerBase):
                     delete_volatile_replicas(rse_id=rse_id, replicas=msg['files'])
             else:
                 self._logger(logging.DEBUG, 'Check failed: %s %s '
-                              % (isinstance(msg, dict), 'operation' in msg.keys()))
+                             % (isinstance(msg, dict), 'operation' in msg.keys()))
         except:
             self._logger(logging.ERROR, str(format_exc()))
 

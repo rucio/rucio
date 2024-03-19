@@ -30,7 +30,7 @@ from time import time
 from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
+from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DatabaseException, RSENotFound
 from rucio.common.logging import setup_logging, formatted_logger
 from rucio.common.stomp_utils import StompConnectionManager, ListenerBase

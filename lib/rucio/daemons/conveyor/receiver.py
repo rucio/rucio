@@ -19,7 +19,6 @@ Conveyor is a daemon to manage file transfers.
 
 import json
 import logging
-import socket
 import threading
 import time
 import traceback

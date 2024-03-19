@@ -317,11 +317,9 @@ class StompConnectionManager:
         to_delete = []
         for message in messages:
             try:
-                body = json.dumps({
-                            "event_type": str(message["event_type"]).lower(),
-                            "payload": message["payload"],
-                            "created_at": str(message["created_at"])
-                        })
+                body = json.dumps({"event_type": str(message["event_type"]).lower(),
+                                   "payload": message["payload"],
+                                   "created_at": str(message["created_at"])})
             except ValueError:
                 self._logger(logging.ERROR, "[broker] Cannot serialize payload to JSON: %s", str(message["payload"]))
                 to_delete.append(message["id"])
@@ -331,10 +329,8 @@ class StompConnectionManager:
                 conn.send(
                     body=body,
                     destination=config.destination,
-                    headers={
-                        "persistent": "true",
-                        "event_type": str(message["event_type"]).lower()
-                    }
+                    headers={"persistent": "true",
+                             "event_type": str(message["event_type"]).lower()}
                 )
                 to_delete.append(message["id"])
             except NotConnectedException as error:
