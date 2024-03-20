@@ -18,6 +18,7 @@ import re
 import time
 
 import pytest
+
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.utils import generate_uuid, run_cmd_process

@@ -20,6 +20,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING
 
 import pytest
+
 import rucio.api.rule
 from rucio.api.account import add_account
 from rucio.client.ruleclient import RuleClient

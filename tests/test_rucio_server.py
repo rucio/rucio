@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+
 import rucio.common.test_rucio_server as server_test
 
 

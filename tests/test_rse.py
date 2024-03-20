@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common import exception
 from rucio.common.exception import Duplicate, InputValidationError, InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSENotFound, RSEOperationNotSupported, RSEProtocolNotSupported

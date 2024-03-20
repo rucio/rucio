@@ -28,6 +28,8 @@ from configparser import NoOptionError, NoSectionError
 from functools import wraps
 from textwrap import dedent
 
+from tabulate import tabulate
+
 from rucio import version
 from rucio.client import Client
 from rucio.common.config import config_get
@@ -53,7 +55,6 @@ from rucio.common.exception import (
 from rucio.common.extra import import_extras
 from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_surls, construct_surl, extract_scope, get_bytes_value_from_string, parse_response, render_json, sizefmt
 from rucio.rse import rsemanager as rsemgr
-from tabulate import tabulate
 
 EXTRA_MODULES = import_extras(['argcomplete'])
 

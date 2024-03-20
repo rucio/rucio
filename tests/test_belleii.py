@@ -15,6 +15,7 @@
 from datetime import datetime
 
 import pytest
+
 from rucio.common.exception import InvalidObject
 from rucio.common.schema.belleii import validate_schema
 from rucio.common.utils import extract_scope, generate_uuid

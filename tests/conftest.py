@@ -171,6 +171,7 @@ def download_client():
 @pytest.fixture
 def rest_client():
     from flask.testing import FlaskClient
+
     from rucio.tests.common import print_response
     from rucio.web.rest.flaskapi.v1.main import application
 
@@ -393,12 +394,13 @@ def __create_in_memory_db_table(name, *columns, **kwargs):
     """
     import datetime
 
-    from rucio.db.sqla.models import ModelBase
-    from rucio.db.sqla.session import create_engine, get_maker
     from sqlalchemy import CheckConstraint, Column, DateTime
     from sqlalchemy.orm import registry
     from sqlalchemy.pool import StaticPool
     from sqlalchemy.schema import Table
+
+    from rucio.db.sqla.models import ModelBase
+    from rucio.db.sqla.session import create_engine, get_maker
 
     engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
 
@@ -438,9 +440,10 @@ def message_mock():
     """
     from unittest import mock
 
+    from sqlalchemy import Column
+
     from rucio.common.utils import generate_uuid
     from rucio.db.sqla.models import GUID, CheckConstraint, Index, PrimaryKeyConstraint, String, Text
-    from sqlalchemy import Column
 
     InMemoryMessage = __create_in_memory_db_table(
         'message_' + generate_uuid(),
@@ -473,10 +476,11 @@ def core_config_mock(request):
     """
     from unittest import mock
 
+    from sqlalchemy import Column
+
     from rucio.common.utils import generate_uuid
     from rucio.db.sqla.models import PrimaryKeyConstraint, String
     from rucio.db.sqla.session import get_session
-    from sqlalchemy import Column
 
     # Get the fixture parameters
     table_content = []

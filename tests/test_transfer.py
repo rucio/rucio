@@ -16,6 +16,7 @@ import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+
 from rucio.common.exception import NoDistance
 from rucio.common.utils import generate_uuid
 from rucio.core import request as request_core

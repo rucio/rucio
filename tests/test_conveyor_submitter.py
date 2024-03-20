@@ -18,6 +18,8 @@ from random import randint
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy import delete
+
 from rucio.common.exception import RequestNotFound
 from rucio.core import config as core_config
 from rucio.core import distance as distance_core
@@ -30,8 +32,6 @@ from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla.constants import RequestState
 from rucio.db.sqla.models import Request, Source
 from rucio.db.sqla.session import read_session, transactional_session
-from sqlalchemy import delete
-
 from tests.ruciopytest import NoParallelGroups
 
 

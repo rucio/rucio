@@ -21,6 +21,7 @@ from unittest.mock import ANY, MagicMock, patch
 from zipfile import ZipFile
 
 import pytest
+
 from rucio.client.downloadclient import DownloadClient, FileDownloadState
 from rucio.common.config import config_add_section, config_set
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, RucioException

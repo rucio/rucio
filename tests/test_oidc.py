@@ -22,6 +22,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from jwkest.jwt import JWT
 from oic import rndstr
+
 from rucio.common.config import config_get_bool
 from rucio.common.exception import CannotAuthenticate, DatabaseException, Duplicate
 from rucio.common.types import InternalAccount

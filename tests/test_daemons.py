@@ -15,6 +15,7 @@
 from unittest import mock
 
 import pytest
+
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.daemons.abacus import account, collection_replica, rse

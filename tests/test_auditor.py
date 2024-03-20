@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 from unittest import mock
 
 import pytest
+
 from rucio.daemons import auditor
 
 

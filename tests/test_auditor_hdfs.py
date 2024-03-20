@@ -18,6 +18,7 @@ from datetime import datetime
 from unittest import mock
 
 import pytest
+
 from rucio.daemons.auditor import hdfs
 
 

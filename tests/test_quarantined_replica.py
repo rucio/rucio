@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+
 from rucio.common.config import config_get_bool
 from rucio.common.utils import generate_uuid
 from rucio.core.quarantined_replica import add_quarantined_replicas, delete_quarantined_replicas, list_quarantined_replicas

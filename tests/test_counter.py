@@ -15,6 +15,7 @@ import random
 from time import sleep
 
 import pytest
+
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_usage
 from rucio.daemons.abacus.account import account_update

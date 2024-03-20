@@ -16,6 +16,7 @@
 
 from alembic import context
 from alembic.op import create_check_constraint, drop_constraint, execute
+
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers

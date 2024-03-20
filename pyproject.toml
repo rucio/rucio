@@ -56,3 +56,6 @@ ignore = [
     "UP032", # Use f-string instead of `format` call
     "SIM210",
 ]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rucio"]

@@ -19,6 +19,7 @@ import time
 import uuid
 
 import pytest
+
 from rucio.common.exception import InvalidObject
 from rucio.common.schema.generic import IPv4orIPv6
 from rucio.core.trace import SCHEMAS, validate_schema
