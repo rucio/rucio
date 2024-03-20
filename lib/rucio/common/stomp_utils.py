@@ -80,14 +80,19 @@ class ListenerBase(ConnectionListener):
 
     def __init__(self,
                  conn: Connection,
-                 logger: None | Callable = None):
+                 logger: None | Callable = None,
+                 **kwargs):
         """
         Initialise.
 
         Args:
             conn (Connection12): The connection object that is using this listener
             logger (logging.Logger): Logger to use. Defaults to logging.getLogger(__name__).getChild(__qualname__).
+
+        Kwargs:
+            Arguments to pass to the stomp.ConnectionListener base class.
         """
+        super().__init__(**kwargs)
         self._conn = conn
         if logger is not None:
             self._logger = logger
