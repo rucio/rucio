@@ -302,7 +302,7 @@ class StompConnectionManager:
                     continue
                 except Exception as error:
                     self._logger(logging.ERROR, "[broker] Could not connect: %s", str(error))
-                    self._logger(logging.ERROR, "CHECK: %s", getattr(b, "heartbeats", None))
+                    self._logger(logging.ERROR, "CHECK: %s %s", getattr(b, "heartbeats", None), type(b))
                     self._logger(logging.ERROR, "CHECK: %s", getattr(self, "heartbeats", None))
                     logging.exception("[broker] Could not connect: %s", str(error))
                     continue
