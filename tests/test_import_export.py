@@ -15,6 +15,7 @@
 from copy import deepcopy
 
 import pytest
+
 from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
 from rucio.common.config import config_add_section, config_has_section, config_set

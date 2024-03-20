@@ -19,6 +19,7 @@ import datetime
 import sqlalchemy as sa
 from alembic import context
 from alembic.op import add_column, alter_column, create_check_constraint, create_index, create_primary_key, create_table, drop_column, drop_table, execute
+
 from rucio.db.sqla.types import InternalAccountString
 from rucio.db.sqla.util import try_drop_constraint
 

@@ -15,6 +15,7 @@
 import os
 
 import pytest
+
 from rucio.common.utils import PREFERRED_CHECKSUM, execute, set_preferred_checksum
 from rucio.rse import rsemanager
 from rucio.tests.common import load_test_conf_file, skip_rse_tests_with_accounts

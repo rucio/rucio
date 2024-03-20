@@ -16,6 +16,7 @@ import random
 import string
 
 import pytest
+
 from rucio.common.config import config_get_bool
 from rucio.common.exception import IdentityError, IdentityNotFound
 from rucio.common.types import InternalAccount

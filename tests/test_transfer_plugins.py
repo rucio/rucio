@@ -15,6 +15,7 @@
 import logging
 
 import pytest
+
 from rucio.core import distance as distance_core
 from rucio.core import replica as replica_core
 from rucio.core import rule as rule_core

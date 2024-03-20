@@ -15,9 +15,10 @@
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy import text
+
 from rucio.common.exception import InputValidationError
 from rucio.db.sqla.session import NullPool, QueuePool, SingletonThreadPool, _get_engine_poolclass, get_session
-from sqlalchemy import text
 
 
 def test_db_connection():

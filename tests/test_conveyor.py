@@ -20,6 +20,8 @@ from unittest.mock import patch
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import pytest
+from sqlalchemy import update
+
 import rucio.daemons.reaper.reaper
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
 from rucio.common.types import InternalAccount
@@ -48,8 +50,6 @@ from rucio.db.sqla.constants import LockState, ReplicaState, RequestState, Reque
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.tests.common import skip_rse_tests_with_accounts
 from rucio.transfertool.fts3 import FTS3Transfertool
-from sqlalchemy import update
-
 from tests.mocks.mock_http_server import MockServer
 from tests.ruciopytest import NoParallelGroups
 

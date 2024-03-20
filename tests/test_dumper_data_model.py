@@ -19,6 +19,7 @@ from unittest import mock
 
 import pytest
 import requests
+
 from rucio.common import dumper
 from rucio.common.dumper import data_models
 

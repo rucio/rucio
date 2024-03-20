@@ -17,6 +17,7 @@
 import sqlalchemy as sa
 from alembic import context
 from alembic.op import get_bind
+
 from rucio.db.sqla.types import GUID, BooleanString
 
 # Alembic revision identifiers

@@ -17,6 +17,7 @@ Add PREPARING state to Request model.
 """
 
 from alembic import context, op
+
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers

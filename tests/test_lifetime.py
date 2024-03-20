@@ -18,6 +18,7 @@ from configparser import NoSectionError
 from datetime import datetime, timedelta
 
 import pytest
+
 from rucio.common.exception import ConfigNotFound, UnsupportedOperation
 from rucio.common.policy import REGION
 from rucio.common.utils import generate_uuid as uuid

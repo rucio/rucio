@@ -15,6 +15,7 @@
 from json import loads
 
 import pytest
+
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject, ScopeNotFound
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid as uuid

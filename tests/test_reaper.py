@@ -15,6 +15,8 @@
 from datetime import datetime, timedelta
 
 import pytest
+from sqlalchemy import and_, or_
+
 from rucio.api import replica as replica_api
 from rucio.api import rse as rse_api
 from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound
@@ -33,8 +35,6 @@ from rucio.db.sqla.constants import OBSOLETE
 from rucio.db.sqla.models import ConstituentAssociationHistory
 from rucio.db.sqla.session import get_session, read_session
 from rucio.tests.common import rse_name_generator, skip_rse_tests_with_accounts
-from sqlalchemy import and_, or_
-
 from tests.ruciopytest import NoParallelGroups
 
 __mock_protocol = {'scheme': 'MOCK',

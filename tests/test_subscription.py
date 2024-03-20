@@ -17,6 +17,7 @@ from json import loads
 from json.decoder import JSONDecodeError
 
 import pytest
+
 from rucio.api.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription
 from rucio.common.exception import InvalidObject, SubscriptionDuplicate, SubscriptionNotFound
 from rucio.common.schema import get_schema_value

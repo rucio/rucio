@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+
 from rucio.common.exception import InvalidObject
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid

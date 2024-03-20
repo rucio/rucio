@@ -17,8 +17,9 @@
 import sqlalchemy as sa
 from alembic import context
 from alembic.op import add_column, drop_column, get_bind
-from rucio.db.sqla.types import GUID
 from sqlalchemy.sql.expression import true
+
+from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
 revision = "1677d4d803c8"

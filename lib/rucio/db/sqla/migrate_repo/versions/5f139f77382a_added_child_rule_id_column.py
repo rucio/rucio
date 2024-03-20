@@ -17,6 +17,7 @@
 import sqlalchemy as sa
 from alembic import context
 from alembic.op import add_column, create_foreign_key, create_index, drop_column, drop_constraint, drop_index
+
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
