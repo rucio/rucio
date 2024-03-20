@@ -15,6 +15,7 @@
 from copy import deepcopy
 
 import pytest
+
 from rucio.client.didclient import DIDClient
 from rucio.common.exception import KeyNotFound
 from rucio.common.utils import generate_uuid

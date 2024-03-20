@@ -20,6 +20,7 @@ import tempfile
 from uuid import uuid4 as uuid
 
 import pytest
+
 from rucio.common import exception
 from rucio.common.utils import adler32, md5
 from rucio.rse import rsemanager as mgr

@@ -17,6 +17,7 @@ import unittest
 from datetime import datetime, timedelta
 
 import pytest
+
 from rucio.common.exception import DuplicateCriteriaInDIDFilter
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did

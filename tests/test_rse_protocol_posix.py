@@ -16,6 +16,7 @@ import os
 import shutil
 
 import pytest
+
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import load_test_conf_file, skip_rse_tests_with_accounts
 

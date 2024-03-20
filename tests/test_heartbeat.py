@@ -17,6 +17,7 @@ import threading
 from datetime import datetime, timedelta
 
 import pytest
+
 from rucio.core.heartbeat import cardiac_arrest, die, list_heartbeats, list_payload_counts, live, sanity_check
 from rucio.db.sqla.models import Heartbeats
 from rucio.db.sqla.session import transactional_session

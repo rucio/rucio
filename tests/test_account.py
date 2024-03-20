@@ -15,6 +15,7 @@
 from json import loads
 
 import pytest
+
 from rucio.api.account import account_exists, add_account, del_account, get_account_info, update_account
 from rucio.common.config import config_get
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject

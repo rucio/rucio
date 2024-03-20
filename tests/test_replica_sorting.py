@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 
 import geoip2.database
 import pytest
+
 from rucio.common.config import config_get
 from rucio.common.utils import parse_replicas_from_string
 from rucio.core import replica_sorter, rse_expression_parser

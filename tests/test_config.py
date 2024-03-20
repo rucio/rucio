@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+
 import rucio.core.config as core_config
 from rucio.client.configclient import ConfigClient
 from rucio.common import exception

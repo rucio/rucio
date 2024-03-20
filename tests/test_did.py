@@ -15,6 +15,7 @@
 from datetime import datetime, timedelta
 
 import pytest
+
 from rucio.api import did, scope
 from rucio.common import exception
 from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus

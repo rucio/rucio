@@ -17,6 +17,7 @@ from datetime import datetime
 from typing import Union
 
 import pytest
+
 from rucio.common.config import config_get_bool
 from rucio.common.utils import generate_uuid, parse_response
 from rucio.core.distance import add_distance

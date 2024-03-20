@@ -26,6 +26,7 @@ import sys
 
 import stomp
 from jsonschema import validate
+
 from rucio.client.didclient import DIDClient
 from rucio.client.rseclient import RSEClient
 from rucio.common.config import config_get, config_get_int
