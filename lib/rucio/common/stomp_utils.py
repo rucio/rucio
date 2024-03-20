@@ -291,7 +291,8 @@ class StompConnectionManager:
                 METRICS.counter('reconnect.{host}').labels(host=conn.brokers[0][0]).inc()
                 # METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0].split('.')[0]).inc()
                 if self._listener_factory is not None:
-                    conn.set_listener(*self._listener_factory(conn=conn))
+                    a, b = self._listener_factory(conn=conn)
+                    conn.set_listener(a, b)
 
                 try:
                     conn.connect(**params)
@@ -301,6 +302,8 @@ class StompConnectionManager:
                     continue
                 except Exception as error:
                     self._logger(logging.ERROR, "[broker] Could not connect: %s", str(error))
+                    self._logger(logging.ERROR, "CHECK: %s", getattr(b, "heartbeats", None))
+                    self._logger(logging.ERROR, "CHECK: %s", getattr(self, "heartbeats", None))
                     logging.exception("[broker] Could not connect: %s", str(error))
                     continue
             try:
