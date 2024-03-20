@@ -38,6 +38,7 @@ for arg in sys.argv:
     else:
         milestone_title = arg
 
+
 def format_issue(issue, doc=False):
     if not doc:
         if issue['component']:
@@ -57,6 +58,7 @@ def load_milestones(github_token, page=1):
                      params={'state': 'all', 'page': page, 'per_page': '100'})
     return json.loads(r.text)
 
+
 def get_issue_component_type(issue):
     component = None
     type_ = 'enhancement'
@@ -71,6 +73,7 @@ def get_issue_component_type(issue):
         elif label['name'].lower() == 'feature':
             type_ = 'feature'
     return component, type_
+
 
 def print_issues(issues, section_title):
     if not issues:
@@ -118,6 +121,7 @@ def print_issues(issues, section_title):
             for issue in bugs:
                 print(format_issue(issue, doc=True))
 
+
 root_git_dir = subprocess.check_output('git rev-parse --show-toplevel', shell=True).decode("utf-8").rstrip()
 # Load OAUTH token
 try:
@@ -152,21 +156,21 @@ for issue in json.loads(r.text):
 # If --backport is specified, we additionally need to scan older issues
 if option_backport:
     r = requests.get(url='https://api.github.com/repos/rucio/rucio/issues',
-                 headers={'Authorization': 'token %s' % github_token},
-                 params={'labels': 'backport', 'state': 'closed', 'per_page': 100})
+                     headers={'Authorization': 'token %s' % github_token},
+                     params={'labels': 'backport', 'state': 'closed', 'per_page': 100})
     for issue in json.loads(r.text):
         # Load the comments
         r = requests.get(url=issue['comments_url'],
-                 headers={'Authorization': 'token %s' % github_token},
-                 params={'per_page': 100})
+                         headers={'Authorization': 'token %s' % github_token},
+                         params={'per_page': 100})
         # Iterate comments
         for comment in json.loads(r.text):
             if 'backport %s' % milestone_title in comment['body'].lower():
                 component, type_ = get_issue_component_type(issue)
                 issues.append({'component': component,
-                   'type': type_,
-                   'number': issue['number'],
-                   'title': issue['title']})
+                               'type': type_,
+                               'number': issue['number'],
+                               'title': issue['title']})
 
 print_issues([issue for issue in issues if issue['component'] not in ['Clients', 'WebUI']], 'General')
 print_issues([issue for issue in issues if issue['component'] in ['Clients']], 'Clients')
