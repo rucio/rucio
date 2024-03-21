@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Literal, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, TypedDict, Union
+
+if TYPE_CHECKING:
+    from rucio.common.constants import SUPPORTED_PROTOCOLS_LITERAL
 
 
 class InternalType:
@@ -178,3 +181,12 @@ class RuleDict(TypedDict):
 class DIDDict(TypedDict):
     name: str
     scope: InternalScope
+
+
+class HopDict(TypedDict):
+    source_rse_id: str
+    source_scheme: "SUPPORTED_PROTOCOLS_LITERAL"
+    source_scheme_priority: int
+    dest_rse_id: str
+    dest_scheme: "SUPPORTED_PROTOCOLS_LITERAL"
+    dest_scheme_priority: int
