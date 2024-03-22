@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +19,7 @@ from unittest import mock
 
 import pytest
 import requests
+
 from rucio.common import dumper
 from rucio.common.dumper import data_models
 
@@ -215,7 +215,7 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
             )
 
 
-class TestCompleteDataset(object):
+class TestCompleteDataset:
 
     @staticmethod
     def test_creation_with_7_parameters():
@@ -262,7 +262,7 @@ class TestCompleteDataset(object):
         assert complete_dataset.size is None  # pylint: disable=no-member
 
 
-class TestReplica(object):
+class TestReplica:
 
     @staticmethod
     def test_replica_with_8_parameters():

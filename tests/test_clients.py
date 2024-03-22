@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,12 +16,12 @@ from datetime import datetime, timedelta
 from os import rename
 
 import pytest
+
 from rucio.client.baseclient import BaseClient
 from rucio.client.client import Client
 from rucio.common.config import Config, config_get, config_set
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, RucioException
 from rucio.common.utils import execute
-
 from tests.mocks.mock_http_server import MockServer
 
 

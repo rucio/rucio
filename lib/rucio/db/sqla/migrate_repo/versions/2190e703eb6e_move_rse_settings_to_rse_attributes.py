@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +17,7 @@
 import sqlalchemy as sa
 from alembic import context
 from alembic.op import get_bind
+
 from rucio.db.sqla.types import GUID, BooleanString
 
 # Alembic revision identifiers
@@ -84,7 +84,7 @@ def upgrade():
             )
 
             conn.execute(
-                sa.insert((get_rse_attr_association())).from_select(
+                sa.insert(get_rse_attr_association()).from_select(
                     ["rse_id", "key", "value", "created_at", "updated_at"], select_stmt
                 )
             )

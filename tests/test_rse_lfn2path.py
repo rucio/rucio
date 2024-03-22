@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +17,7 @@ import os
 from configparser import NoOptionError, NoSectionError
 
 import pytest
+
 from rucio.common import config
 from rucio.rse.protocols.protocol import RSEDeterministicTranslation
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,7 +46,7 @@ GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'conveyor-receiver'
 
 
-class Receiver(object):
+class Receiver:
 
     def __init__(self, broker, id_, total_threads, transfer_stats_manager: request_core.TransferStatsManager, all_vos=False):
         self.__all_vos = all_vos
@@ -71,9 +70,9 @@ class Receiver(object):
         if 'job_metadata' in msg.keys() \
            and isinstance(msg['job_metadata'], dict) \
            and 'issuer' in msg['job_metadata'].keys() \
-           and str(msg['job_metadata']['issuer']) == str('rucio'):
+           and str(msg['job_metadata']['issuer']) == 'rucio':
 
-            if 'job_state' in msg.keys() and (str(msg['job_state']) != str('ACTIVE') or msg.get('job_multihop', False) is True):
+            if 'job_state' in msg.keys() and (str(msg['job_state']) != 'ACTIVE' or msg.get('job_multihop', False) is True):
                 METRICS.counter('message_rucio').inc()
 
                 self._perform_request_update(msg)

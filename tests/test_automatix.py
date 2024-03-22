@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +19,7 @@ from random import choice
 from string import ascii_uppercase
 
 import pytest
+
 from rucio.common.config import config_add_section, config_has_section, config_remove_option, config_set
 from rucio.common.types import InternalScope
 from rucio.core.did import get_metadata, list_dids, list_files

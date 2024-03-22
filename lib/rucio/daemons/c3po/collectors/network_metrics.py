@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +19,7 @@ from redis import StrictRedis
 from rucio.common.config import config_get, config_get_int
 
 
-class NetworkMetricsCollector(object):
+class NetworkMetricsCollector:
     """
     Collector to get the bandwidth metrics between two sites.
     """

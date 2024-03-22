@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +15,7 @@
 from rucio.common.dumper.path_parsing import components, remove_prefix
 
 
-class TestPathParsing(object):
+class TestPathParsing:
     def test_remove_prefix(self):
         prefix = ['a', 'b', 'c', 'd']
 

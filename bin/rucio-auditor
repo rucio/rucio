@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +23,7 @@ import textwrap
 import time
 from datetime import datetime
 from functools import partial
-from multiprocessing import Queue, Process, Event, Pipe
+from multiprocessing import Event, Pipe, Process, Queue
 
 import rucio.common.config as config
 import rucio.common.dumper as dumper

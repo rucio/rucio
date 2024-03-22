@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -579,7 +578,7 @@ def val_to_space_sep_str(vallist):
         else:
             return str(vallist)
     except:
-        return str('')
+        return ''
 
 
 def date_to_str(date):
@@ -1659,7 +1658,7 @@ def get_thread_with_periodic_running_function(interval, action, graceful_stop):
         while not graceful_stop.is_set():
             starttime = time.time()
             action()
-            time.sleep(interval - ((time.time() - starttime)))
+            time.sleep(interval - (time.time() - starttime))
     t = threading.Thread(target=start)
     return t
 

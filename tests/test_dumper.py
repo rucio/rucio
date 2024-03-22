@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +22,7 @@ from unittest import mock
 
 import pytest
 import requests
+
 from rucio.common import config, dumper
 from rucio.tests.common import make_temp_file, mock_open
 
@@ -84,7 +84,7 @@ def test_smart_open_for_bz2_file():
     fd, path = tempfile.mkstemp()
     comp = bz2.BZ2Compressor()
     with os.fdopen(fd, 'wb') as f:
-        f.write(comp.compress('abcdef'.encode()))
+        f.write(comp.compress(b'abcdef'))
         f.write(comp.flush())
     assert not isinstance(dumper.smart_open(path), bz2.BZ2File)
     os.unlink(path)

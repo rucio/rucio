@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +14,7 @@
 
 
 import pytest
+
 from rucio.core.distance import add_distance, get_distances
 from rucio.core.replica import add_replicas
 from rucio.core.request import get_request, list_and_mark_transfer_requests_and_source_replicas, list_transfer_limits, set_transfer_limit

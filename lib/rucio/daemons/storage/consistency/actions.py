@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -123,7 +122,7 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer,
 # TODO: This is Igor's Stats class.It will be factored out as a separate class in a future version of the code.
 # - Igor Mandrichenko <ivm@fnal.gov>, 2018
 
-class Stats(object):
+class Stats:
 
     def __init__(self, path):
         self.path = path

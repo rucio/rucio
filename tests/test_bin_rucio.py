@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +20,7 @@ from datetime import datetime, timedelta
 from os import environ, listdir, path, remove, rmdir, stat, unlink
 
 import pytest
+
 from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.configclient import ConfigClient
 from rucio.client.didclient import DIDClient

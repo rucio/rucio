@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +16,7 @@ from datetime import datetime, timedelta
 from json import dumps, loads
 
 import pytest
+
 from rucio.client.rseclient import RSEClient
 from rucio.common.exception import InvalidType, RucioException, UnsupportedOperation
 from rucio.common.utils import clean_surls, generate_uuid

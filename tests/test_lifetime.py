@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,6 +18,7 @@ from configparser import NoSectionError
 from datetime import datetime, timedelta
 
 import pytest
+
 from rucio.common.exception import ConfigNotFound, UnsupportedOperation
 from rucio.common.policy import REGION
 from rucio.common.utils import generate_uuid as uuid

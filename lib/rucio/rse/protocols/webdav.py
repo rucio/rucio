@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,7 +39,7 @@ class TLSHTTPAdapter(HTTPAdapter):
                                        ca_cert_dir="/etc/grid-security/certificates")
 
 
-class UploadInChunks(object):
+class UploadInChunks:
     '''
     Class to upload by chunks.
     '''
@@ -73,7 +72,7 @@ class UploadInChunks(object):
         return self.__totalsize
 
 
-class IterableToFileAdapter(object):
+class IterableToFileAdapter:
     '''
     Class IterableToFileAdapter
     '''
@@ -332,13 +331,13 @@ class Default(protocol.RSEProtocol):
                         raise exception.RucioException(result.status_code, result.text)
                 except requests.exceptions.ConnectionError as error:
                     raise exception.ServiceUnavailable(error)
-                except IOError as error:
+                except OSError as error:
                     raise exception.SourceNotFound(error)
         except requests.exceptions.ConnectionError as error:
             raise exception.ServiceUnavailable(error)
         except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
-        except IOError as error:
+        except OSError as error:
             raise exception.SourceNotFound(error)
 
     def rename(self, pfn, new_pfn):

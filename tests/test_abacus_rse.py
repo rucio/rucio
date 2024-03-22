@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+
 from rucio.common.schema import get_schema_value
 from rucio.core.rse import get_rse_usage
 from rucio.daemons.abacus.rse import rse_update
@@ -24,7 +24,7 @@ from rucio.db.sqla.session import get_session
 
 
 @pytest.mark.noparallel(reason='uses daemon, failing in parallel to other tests')
-class TestAbacusRSE():
+class TestAbacusRSE:
 
     def test_abacus_rse(self, vo, mock_scope, rse_factory, did_factory, rucio_client):
         """ ABACUS (RSE): Test update of RSE usage. """

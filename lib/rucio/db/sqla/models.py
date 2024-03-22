@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -183,7 +182,7 @@ def _ck_constraint_name(const, table):
         const.name = "REQUESTS_HISTORY_STATE_CHK"
 
 
-class ModelBase(object):
+class ModelBase:
     """Base class for Rucio Models"""
     __table_initialized__ = False
 

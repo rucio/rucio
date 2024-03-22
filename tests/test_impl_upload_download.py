@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +16,7 @@ import re
 from os import path
 
 import pytest
+
 from rucio.common.utils import execute
 from rucio.common.utils import generate_uuid as uuid
 from rucio.tests.common import skip_rse_tests_with_accounts

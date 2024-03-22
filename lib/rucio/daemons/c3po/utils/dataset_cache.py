@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +17,7 @@ from uuid import uuid4
 from rucio.daemons.c3po.utils.timeseries import RedisTimeSeries
 
 
-class DatasetCache(object):
+class DatasetCache:
     """
     Utility to count the accesses of the datasets during the last day.
     """

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,7 +29,7 @@ from tabulate import tabulate
 from rucio.common.dumper import DUMPS_CACHE_DIR, HTTPDownloadFailed, get_requests_session, http_download_to_file, smart_open, temp_file, to_datetime
 
 
-class DataModel(object):
+class DataModel:
     """
     Data model for the dumps
     """
@@ -268,7 +267,7 @@ class Replica(DataModel):
         assert len(args) <= 9
 
 
-class Filter(object):
+class Filter:
     _Condition = collections.namedtuple('_Condition', ('comparator', 'attribute', 'expected'))
 
     def __init__(self, filter_str, record_class):

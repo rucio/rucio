@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +16,7 @@ import os
 
 import pytest
 import requests
+
 from rucio.common.exception import FileReplicaAlreadyExists
 from rucio.rse import rsemanager
 from rucio.tests.common import load_test_conf_file, skip_rse_tests_with_accounts

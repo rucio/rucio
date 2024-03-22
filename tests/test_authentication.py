@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,6 +18,7 @@ import time
 
 import pytest
 from requests import session
+
 from rucio.api.authentication import get_auth_token_saml, get_auth_token_ssh, get_auth_token_user_pass, get_ssh_challenge_token
 from rucio.common.exception import AccessDenied, CannotAuthenticate, Duplicate
 from rucio.common.utils import ssh_sign

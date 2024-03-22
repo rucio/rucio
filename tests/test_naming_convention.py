@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+
 from rucio.common.exception import InvalidObject
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid

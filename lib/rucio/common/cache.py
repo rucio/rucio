@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import absolute_import
 
 from typing import TYPE_CHECKING
 
@@ -36,7 +34,7 @@ try:
         import pymemcache
         _mc_client = pymemcache.Client(CACHE_URL, connect_timeout=1, timeout=1)
         _mc_client.version()
-except IOError:
+except OSError:
     ENABLE_CACHING = False
 except ImportError:
     ENABLE_CACHING = False

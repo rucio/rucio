@@ -5,6 +5,10 @@ build-backend = "setuptools.build_meta"
 [tool.ruff]
 line-length = 256
 
+extend-include = [
+    "bin/*",
+]
+
 # Exclude a variety of commonly ignored directories.
 exclude = [
     ".bzr",
@@ -38,12 +42,20 @@ exclude = [
 [tool.ruff.lint]
 select = [
     "I", # isort
+    "UP", # pyupgrade
 ]
 
 ignore = [
     "ALL",
+    "UP008", # Use `super()` instead of `super(__class__, self)`
+    "UP015", # Unnecessary open mode parameters
+    "UP027", # Replace unpacked list comprehension with a generator expression
+    "UP028", # Replace `yield` over `for` loop with `yield from`
+    "UP030", # Use implicit references for positional format fields
     "UP031", # Use format specifiers instead of percent format
-    "SIM210", 
+    "UP032", # Use f-string instead of `format` call
+    "SIM210",
 ]
 
-extend-safe-fixes = ["I001"]
+[tool.ruff.lint.isort]
+known-first-party = ["rucio"]

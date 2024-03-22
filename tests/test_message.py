@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +17,7 @@ import random
 import string
 
 import pytest
+
 from rucio.common.constants import MAX_MESSAGE_LENGTH
 from rucio.common.exception import InvalidObject, RucioException
 from rucio.common.utils import generate_uuid

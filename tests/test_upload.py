@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +20,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 import pytest
+
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_add_section, config_set
 from rucio.common.exception import InputValidationError, NoFilesUploaded, NotAllFilesUploaded

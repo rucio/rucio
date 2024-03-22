@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +23,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-class DidMetaPlugin(object, metaclass=ABCMeta):
+class DidMetaPlugin(metaclass=ABCMeta):
     """
     Interface for plugins managing metadata of DIDs
     """

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +19,7 @@ from os import remove
 from time import sleep
 
 import pytest
+
 from rucio.core import rse_expression_parser
 from rucio.core.did import set_metadata
 from rucio.core.replica import list_bad_replicas_status, list_replicas, update_replica_state

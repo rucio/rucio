@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +14,7 @@
 
 
 import pytest
+
 from rucio.common.schema import get_schema_value
 from rucio.core.account import get_usage_history
 from rucio.core.account_counter import update_account_counter_history
@@ -27,7 +27,7 @@ from rucio.db.sqla.session import get_session
 
 
 @pytest.mark.noparallel(reason='uses daemon, failing in parallel to other tests, updates account')
-class TestAbacusAccount2():
+class TestAbacusAccount2:
 
     def test_abacus_account(self, vo, root_account, mock_scope, rse_factory, did_factory, rucio_client):
         """ ABACUS (ACCOUNT): Test update of account usage """

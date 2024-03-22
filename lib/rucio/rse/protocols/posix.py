@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -71,12 +70,12 @@ class Default(protocol.RSEProtocol):
          """
         try:
             shutil.copy(self.pfn2path(pfn), dest)
-        except IOError as e:
+        except OSError as e:
             try:  # To check if the error happend local or remote
                 with open(dest, 'wb'):
                     pass
                 call(['rm', '-rf', dest])
-            except IOError as e:
+            except OSError as e:
                 if e.errno == 2:
                     raise exception.DestinationNotAccessible(e)
                 else:
@@ -110,7 +109,7 @@ class Default(protocol.RSEProtocol):
             if not os.path.exists(dirs):
                 os.makedirs(dirs)
             shutil.copy(sf, target)
-        except IOError as e:
+        except OSError as e:
             if e.errno == 2:
                 raise exception.SourceNotFound(e)
             elif not self.exists(self.rse['prefix']):
@@ -152,7 +151,7 @@ class Default(protocol.RSEProtocol):
             if not os.path.exists(os.path.dirname(new_path)):
                 os.makedirs(os.path.dirname(new_path))
             os.rename(path, new_path)
-        except IOError as e:
+        except OSError as e:
             if e.errno == 2:
                 if self.exists(self.pfn2path(path)):
                     raise exception.SourceNotFound(e)

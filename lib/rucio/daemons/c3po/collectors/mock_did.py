@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +19,7 @@ Mock DID collector
 from random import choice
 
 
-class MockDIDCollector(object):
+class MockDIDCollector:
     """
     Simple collector that reads dids from a file. Used to
     test the interface.

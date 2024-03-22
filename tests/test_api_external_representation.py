@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,6 +18,7 @@ from datetime import datetime
 from json import loads
 
 import pytest
+
 import rucio.api.account_limit as api_acc_lim
 import rucio.api.rse as api_rse
 import rucio.core.account_counter as account_counter

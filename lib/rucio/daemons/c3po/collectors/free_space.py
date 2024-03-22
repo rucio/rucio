@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,11 +20,11 @@ from rucio.db.sqla.models import RSEAttrAssociation, RSEUsage
 from rucio.db.sqla.session import read_session
 
 
-class FreeSpaceCollector(object):
+class FreeSpaceCollector:
     """
     Collector to get the SRM free and used information for DATADISK RSEs.
     """
-    class _FreeSpaceCollector(object):
+    class _FreeSpaceCollector:
         """
         Hidden implementation
         """

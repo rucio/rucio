@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,13 +23,14 @@ from json import loads
 import pytest
 import requests
 import stomp
+
 from rucio.common.config import config_get, config_get_int
 from rucio.core.message import add_message, retrieve_messages, truncate_messages
 from rucio.daemons.hermes import hermes
 from rucio.tests.common import rse_name_generator, skip_missing_elasticsearch_influxdb_in_env
 
 
-class MyListener(object):
+class MyListener:
     def __init__(self, conn):
         self.conn = conn
         self.count = 0

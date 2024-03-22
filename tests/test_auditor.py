@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,6 +21,7 @@ from datetime import datetime, timedelta
 from unittest import mock
 
 import pytest
+
 from rucio.daemons import auditor
 
 
@@ -107,7 +107,7 @@ def test_auditor_check_survives_failures_and_queues_failed_rses(mock_auditor):
         lambda: None,
     )
 
-    class MockMultiProcessing():
+    class MockMultiProcessing:
         def is_set(self):
             return queue.empty()
     terminate = MockMultiProcessing()

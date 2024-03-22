@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,7 +38,7 @@ class HTTPDownloadFailed(Exception):
         super(HTTPDownloadFailed, self).__init__(msg)
 
 
-class LogPipeHandler(logging.Handler, object):
+class LogPipeHandler(logging.Handler):
     def __init__(self, pipe):
         super(LogPipeHandler, self).__init__()
         self.pipe = pipe

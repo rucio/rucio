@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +20,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING
 
 import pytest
+
 import rucio.api.rule
 from rucio.api.account import add_account
 from rucio.client.ruleclient import RuleClient

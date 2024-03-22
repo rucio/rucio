@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +16,7 @@ from random import choice
 from string import ascii_lowercase, ascii_uppercase
 
 import pytest
+
 from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
 from rucio.core import rse, rse_expression_parser
 

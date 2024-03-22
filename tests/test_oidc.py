@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +22,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from jwkest.jwt import JWT
 from oic import rndstr
+
 from rucio.common.config import config_get_bool
 from rucio.common.exception import CannotAuthenticate, DatabaseException, Duplicate
 from rucio.common.types import InternalAccount
@@ -186,7 +186,7 @@ class MockADMINClientISSOIDC(MagicMock):
         return None
 
 
-class MockResponse(object):
+class MockResponse:
     def __init__(self, json_data):
         self.json_data = json_data
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,6 +23,8 @@ from xml.etree import ElementTree
 
 import pytest
 import xmltodict
+from werkzeug.datastructures import Headers, MultiDict
+
 from rucio.client.ruleclient import RuleClient
 from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierNotFound, InputValidationError, ReplicaIsLocked, ReplicaNotFound, RucioException, ScopeNotFound
 from rucio.common.schema import get_schema_value
@@ -39,7 +40,6 @@ from rucio.db.sqla.constants import OBSOLETE, BadPFNStatus, DIDType, ReplicaStat
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import Mime, accept, auth, did_name_generator, execute, headers
-from werkzeug.datastructures import Headers, MultiDict
 
 if TYPE_CHECKING:
     from .temp_factories import TemporaryRSEFactory

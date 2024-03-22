@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,6 +18,8 @@ from pathlib import Path
 from random import choice
 from string import ascii_uppercase
 
+from sqlalchemy import and_, delete, or_
+
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.common.schema import get_schema_value
@@ -31,7 +32,6 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import transactional_session
 from rucio.tests.common import did_name_generator
 from rucio.tests.common_server import cleanup_db_deps
-from sqlalchemy import and_, delete, or_
 
 
 def _to_external(did):

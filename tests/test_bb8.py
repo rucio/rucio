@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +15,7 @@
 from datetime import datetime, timedelta
 
 import pytest
+
 from rucio.common.exception import RuleNotFound, UnsupportedOperation
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import attach_dids, set_metadata, set_status

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +19,7 @@ DID type to represent a did and to simplify operations on it
 from rucio.common.exception import DIDError
 
 
-class DID(object):
+class DID:
 
     """
     Class used to store a DID

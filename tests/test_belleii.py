@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +15,7 @@
 from datetime import datetime
 
 import pytest
+
 from rucio.common.exception import InvalidObject
 from rucio.common.schema.belleii import validate_schema
 from rucio.common.utils import extract_scope, generate_uuid

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +15,7 @@
 from typing import Any, Callable, Literal, Optional, TypedDict, Union
 
 
-class InternalType(object):
+class InternalType:
     '''
     Base for Internal representations of string types
     '''

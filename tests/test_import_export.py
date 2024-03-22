@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +15,7 @@
 from copy import deepcopy
 
 import pytest
+
 from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
 from rucio.common.config import config_add_section, config_has_section, config_set

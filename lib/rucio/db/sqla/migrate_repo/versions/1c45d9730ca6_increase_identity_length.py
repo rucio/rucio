@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +17,7 @@
 import sqlalchemy as sa
 from alembic import context, op
 from alembic.op import alter_column, create_check_constraint, create_foreign_key, drop_constraint, execute
+
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers

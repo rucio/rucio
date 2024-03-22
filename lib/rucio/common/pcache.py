@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -259,7 +258,7 @@ class Pcache:
             elif opt in ("-r", "--retry"):
                 self.max_retries = int(arg)
             elif opt in ("-V", "--version"):
-                print((str(self.version)))
+                print(str(self.version))
                 sys.exit(0)
             elif opt in ("-l", "--log"):
                 self.log_file = arg
@@ -1128,7 +1127,7 @@ class Pcache:
             return
         try:
             f = open(name, 'w')
-        except IOError as e:
+        except OSError as e:
             self.log(ERROR, "open: %s", e)
             return e.errno
 
@@ -1140,7 +1139,7 @@ class Pcache:
             try:
                 status = fcntl.lockf(f, flag)
                 break
-            except IOError as e:
+            except OSError as e:
                 if e.errno in (errno.EAGAIN, errno.EACCES) and not blocking:
                     f.close()
                     del self.locks[name]

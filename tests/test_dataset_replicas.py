@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +13,8 @@
 # limitations under the License.
 
 import pytest
+from sqlalchemy.orm.exc import NoResultFound
+
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
@@ -25,7 +26,6 @@ from rucio.core.rse import add_protocol, add_rse, del_rse, get_rse_id
 from rucio.db.sqla import constants, models
 from rucio.db.sqla.constants import ReplicaState
 from rucio.tests.common import did_name_generator, rse_name_generator
-from sqlalchemy.orm.exc import NoResultFound
 
 
 class TestDatasetReplicaClient:

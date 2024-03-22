@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,9 +15,10 @@
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy import text
+
 from rucio.common.exception import InputValidationError
 from rucio.db.sqla.session import NullPool, QueuePool, SingletonThreadPool, _get_engine_poolclass, get_session
-from sqlalchemy import text
 
 
 def test_db_connection():

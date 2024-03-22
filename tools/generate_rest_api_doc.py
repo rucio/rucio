@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +15,7 @@
 
 from apispec import APISpec
 from apispec_webframeworks.flask import FlaskPlugin
+
 from rucio.vcsversion import VERSION_INFO
 from rucio.web.rest.flaskapi.v1.main import application
 

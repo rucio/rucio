@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +20,7 @@ import tempfile
 from uuid import uuid4 as uuid
 
 import pytest
+
 from rucio.common import exception
 from rucio.common.utils import adler32, md5
 from rucio.rse import rsemanager as mgr

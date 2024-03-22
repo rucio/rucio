@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +15,7 @@
 from urllib.parse import urlencode
 
 import pytest
+
 from rucio.core.config import set as config_set
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_protocol, add_rse, add_rse_attribute, del_rse

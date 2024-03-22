@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,6 +18,7 @@ import re
 import time
 
 import pytest
+
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.utils import generate_uuid, run_cmd_process

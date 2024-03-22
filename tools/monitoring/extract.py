@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,7 +28,7 @@ import elasticsearch as es
 import stomp
 
 
-class ElasticConn():
+class ElasticConn:
   def __init__(self, host_port, auth):
     self.__es = es.Elasticsearch([host_port[0]],http_auth=auth,consumer_port=host_port[1])
 

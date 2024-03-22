@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +17,7 @@ import logging
 from rucio.db.sqla.session import read_session
 
 
-class JediDIDCollector():
+class JediDIDCollector:
     def __init__(self, queue):
         self.queue = queue
         self.max_tid = 0

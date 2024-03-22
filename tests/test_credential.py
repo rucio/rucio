@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +15,7 @@
 import os
 
 import pytest
+
 from rucio.common.exception import UnsupportedOperation
 from rucio.core.credential import get_signed_url
 from rucio.core.replica import add_replicas
