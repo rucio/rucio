@@ -19,12 +19,7 @@ along with some of the default methods for LFN2PFN translations.
 import hashlib
 import logging
 from configparser import NoOptionError, NoSectionError
-<<<<<<< HEAD
-=======
-from typing import Callable, Tuple
-from urllib.parse import urlparse
->>>>>>> 26d679c66 (Replicas: replace hard coded atlas scope parsing to policy package algorithm based modificiation #6363)
-from typing import TypeVar
+from typing import Callable, Tuple, TypeVar
 from urllib.parse import urlparse
 
 from rucio.common import config, exception
