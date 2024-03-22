@@ -520,3 +520,76 @@ class TestReplicaRecoverer:
         assert (self.tmp_file11.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file12.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file13.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
+
+
+@pytest.mark.parametrize(
+    "file_config_mock", [{"overrides": [
+        ("replicarecoverer", "rule_rse_expression", "type=SCRATCHDISK"),
+        ('replicarecoverer', 'use_file_metadata', 'False'),
+        ('replicarecoverer', 'did_name_expression', '^.*')]}],
+    indirect=True)
+def test_vo_agnostic_rules(file_config_mock, replica_client, rse_factory, scope_factory, file_factory, vo):
+    """
+    Runs only a single time, make sure it makes a new rule with this config.
+
+    Examining files without a datatype, but because the "use_file_metadata" is turned off,
+    files without a datatype can be acted on.
+    """
+    rse4suspicious, rse4suspicious_id = rse_factory.make_posix_rse(deterministic=True, vo=vo)
+    rse4recovery, rse4recovery_id = rse_factory.make_posix_rse(deterministic=True, vo=vo)
+
+    add_rse_attribute(rse4suspicious_id, "enable_suspicious_file_recovery", True)
+    add_rse_attribute(rse4recovery_id, "enable_suspicious_file_recovery", True)
+
+    # Create new scopes
+    _, [scope_declarebad] = scope_factory(vos=[vo])
+
+    tmp_file_delare_bad = file_factory.file_generator()
+
+    replicas_without_types = [{'scope': scope_declarebad, 'name': tmp_file_delare_bad.name, 'type': DIDType.FILE}]
+    for rse in [rse4suspicious, rse4recovery]:
+        cmd = f'rucio -v upload --rse {rse} --scope {scope_declarebad} {tmp_file_delare_bad}'
+        exitcode, _, _ = execute(cmd)
+        assert exitcode == 0
+
+    remove(tmp_file_delare_bad)
+    rse_expression_parser.REGION.invalidate()
+
+    update_replica_state(rse4recovery_id, scope_declarebad, tmp_file_delare_bad.name, ReplicaState.UNAVAILABLE)
+    replical_declare_bad = list(list_replicas(dids=replicas_without_types))
+
+    for replica in replical_declare_bad:
+        suspicious_pfns = replica['rses'][rse4suspicious_id]
+        for _ in range(3):
+            # The reason must contain the word "checksum", so that the replica can be declared bad.
+            replica_client.declare_suspicious_file_replicas([suspicious_pfns[0], ], 'checksum')
+            sleep(1)
+
+    recovery_policy = [{"action": "declare bad", "datatype": [str(tmp_file_delare_bad.name)], "scope": [str(scope_declarebad)]}]
+    recovery_policy_json = "/opt/rucio/etc/test_replica_recoverer_vo_agonistism.json"
+    json.dump(recovery_policy, open(recovery_policy_json, mode="w"))
+
+    try:
+        run(
+            once=True,
+            younger_than=1,
+            nattempts=2,
+            limit_suspicious_files_on_rse=2,
+            json_file_name=recovery_policy_json,
+            sleep_time=0,
+            active_mode=True
+        )
+    except KeyboardInterrupt:
+        stop()
+
+    # dids without types now have a different behavior
+
+    for replica in replicas_without_types:
+        # Files that are now acted on now the datatype can be found.
+        if replica['name'] == tmp_file_delare_bad.name:
+            # tmp_file11 should no longer be ignored.
+            assert not replica.get('states')
+
+    bad_replicas_list = list_bad_replicas_status(rse_id=rse4suspicious_id, vo=vo)
+    bad_checklist = [(badf['name'], badf['rse_id'], badf['state']) for badf in bad_replicas_list]
+    assert (tmp_file_delare_bad.name, rse4suspicious_id, BadFilesStatus.BAD) in bad_checklist
