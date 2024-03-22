@@ -188,12 +188,12 @@ def config_get(
     """
     try:
         return convert_type_fnc(get_config().get(section, option))
-    except (configparser.NoOptionError, configparser.NoSectionError, RuntimeError) as err:
+    except (configparser.NoOptionError, configparser.NoSectionError, ConfigNotFound) as err:
         try:
             legacy_config = get_legacy_config(section, option)
             if legacy_config is not None:
                 return convert_type_fnc(legacy_config)
-        except RuntimeError:
+        except ConfigNotFound:
             pass
 
         from rucio.common.utils import is_client
@@ -729,7 +729,7 @@ def get_lfn2pfn_algorithm_default():
     default_lfn2pfn = "hash"
     try:
         default_lfn2pfn = config_get('policy', 'lfn2pfn_algorithm_default')
-    except (configparser.NoOptionError, configparser.NoSectionError, RuntimeError):
+    except (configparser.NoOptionError, configparser.NoSectionError, ConfigNotFound, RuntimeError):
         pass
     return default_lfn2pfn
 
@@ -785,11 +785,13 @@ class Config:
             configs = [os.path.join(confdir, 'rucio.cfg') for confdir in get_config_dirs()]
             self.configfile = next(iter(filter(os.path.exists, configs)), None)
             if self.configfile is None:
-                raise RuntimeError('Could not load Rucio configuration file. '
-                                   'Rucio looked in the following paths for a configuration file, in order:'
-                                   '\n\t' + '\n\t'.join(configs))
+                raise ConfigNotFound(
+                    'Could not load Rucio configuration file. '
+                    'Rucio looked in the following paths for a configuration file, in order:'
+                    '\n\t' + '\n\t'.join(configs))
 
         if not self.parser.read(self.configfile) == [self.configfile]:
-            raise RuntimeError('Could not load Rucio configuration file. '
-                               'Rucio tried loading the following configuration file:'
-                               '\n\t' + self.configfile)
+            raise ConfigNotFound(
+                'Could not load Rucio configuration file. '
+                'Rucio tried loading the following configuration file:'
+                '\n\t' + self.configfile)
