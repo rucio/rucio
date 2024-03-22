@@ -25,15 +25,16 @@ import logging
 import re
 import threading
 import time
+from configparser import NoOptionError, NoSectionError
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import SuspiciousAvailability
 from rucio.common.exception import DatabaseException, DuplicateRule, VONotFound
 from rucio.common.logging import setup_logging
-from rucio.common.types import InternalAccount
+from rucio.common.types import InternalAccount, LoggerFunction
 from rucio.core.did import get_metadata
 from rucio.core.replica import (
     add_bad_pfns,
@@ -49,6 +50,7 @@ from rucio.daemons.common import run_daemon
 from rucio.db.sqla.util import get_db_time
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from types import FrameType
 
 GRACEFUL_STOP = threading.Event()
@@ -80,7 +82,54 @@ def check_suspicious_policy(policy: dict[str, str], file_metadata_datatype: str,
     return action
 
 
-def declare_suspicious_replicas_bad(once: bool = False, younger_than: int = 5, nattempts: int = 5, vos: Optional[list[str]] = None, limit_suspicious_files_on_rse: int = 5, json_file_name: str = "/opt/rucio/etc/suspicious_replica_recoverer.json", sleep_time: int = 3600, active_mode: bool = False) -> None:
+def parse_replica_datatype(
+        did_name_expression: Optional[str],
+        file_name: str,
+        rse_key: str,
+        logger: LoggerFunction) -> Optional[str]:
+
+    file_metadata_datatype = None
+    if did_name_expression is not None:
+        logger(logging.WARNING, f'Using {did_name_expression} as regex to determine file datatype for file: {file_name} on rse: {rse_key}')
+        try:
+            file_metadata_datatype_reg = re.compile(did_name_expression).search(file_name)
+            if file_metadata_datatype_reg is not None:
+                file_metadata_datatype = file_metadata_datatype_reg[0]
+        except (re.error, TypeError) as e:
+            logger(logging.WARNING, f'Could not determine datatype using regex {did_name_expression} on file: {file_name}, ignoring: {e}')
+
+    return file_metadata_datatype
+
+
+def _read_from_config(logger: LoggerFunction) -> tuple[str, bool, Optional[str]]:
+    rule_suspicious_rse_expression = config_get("replicarecoverer", "rule_rse_expression", raise_exception=False, default='type=SCRATCHDISK')
+    logger(logging.INFO, f"Recovering with the rse expression: {rule_suspicious_rse_expression}")
+
+    use_file_metadata = config_get_bool("replicarecoverer", "use_file_metadata", raise_exception=False, default=True)
+    did_name_expression = None
+
+    if not use_file_metadata:
+        try:
+            did_name_expression = config_get('replicarecoverer', 'did_name_expression', raise_exception=True)
+            logger(logging.INFO, f"Setting replica datatype from did name with regex expression: {did_name_expression}")
+
+        except (NoOptionError, NoSectionError) as e:
+            logger(logging.WARNING, f"Cannot use option 'use_file_metadata' without setting a replacement expression with 'did_name_expression'- {e}")
+            use_file_metadata = True
+
+    logger(logging.INFO, f"Recovering with the rse expression: {rule_suspicious_rse_expression}")
+    return rule_suspicious_rse_expression, use_file_metadata, did_name_expression
+
+
+def declare_suspicious_replicas_bad(
+        once: bool = False,
+        younger_than: int = 5,
+        nattempts: int = 5,
+        vos: "Optional[Sequence[str]]" = None,
+        limit_suspicious_files_on_rse: int = 5,
+        json_file_name: str = "/opt/rucio/etc/suspicious_replica_recoverer.json",
+        sleep_time: int = 3600,
+        active_mode: bool = False) -> None:
     """
     Main loop to check for available replicas which are labeled as suspicious.
 
@@ -123,10 +172,10 @@ def declare_suspicious_replicas_bad(once: bool = False, younger_than: int = 5, n
     )
 
 
-def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Optional[list[str]], limit_suspicious_files_on_rse: int, json_file_name: str, active_mode: int, **_kwargs) -> bool:
+def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Optional[Sequence[str]]", limit_suspicious_files_on_rse: int, json_file_name: str, active_mode: int, **_kwargs) -> bool:
 
-    worker_number, total_workers, logger = heartbeat_handler.live()
-
+    _, _, logger = heartbeat_handler.live()
+    rule_suspicious_rse_expression, use_file_metadata, did_name_expression = _read_from_config(logger=logger)
     vos = vos or []
 
     multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
@@ -302,7 +351,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
         logger(logging.INFO, 'All RSEs have been checked for suspicious replicas. Total time: %s seconds.', time.time() - start)
 
         # Checking that everything is still working properly
-        worker_number, total_workers, logger = heartbeat_handler.live()
+        _, _, logger = heartbeat_handler.live()
 
         logger(logging.INFO, 'Create rules for replicas with nattempts=1.')
 
@@ -340,11 +389,13 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
                         action = ""
                     else:
                         # Deal with replicas based on their metadata.
-                        if file_metadata["datatype"] is None:  # "None" type has no function "split()"
+                        if (file_metadata["datatype"] is None) and (use_file_metadata):  # "None" type has no function "split()"
                             logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Replica does not have a data type associated with it. No action will be taken.",
                                    rse_key, replica_key, replicas_nattempts_1[vo][rse_key][replica_key]['surl'])
                             continue
                         file_metadata_datatype = str(file_metadata["datatype"])
+                        if not use_file_metadata:
+                            file_metadata_datatype = parse_replica_datatype(did_name_expression, file_name, rse_key, logger)
                         file_metadata_scope = str(file_metadata["scope"])
                         action = ""
                         if file_metadata_datatype:
@@ -361,7 +412,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
             if active_mode:
                 if len(dids_nattempts_1) > 0:
                     try:
-                        add_rule(dids=dids_nattempts_1, account=InternalAccount('root', vo=vo), copies=nattempts, rse_expression='type=SCRATCHDISK', grouping=None, weight=None, lifetime=5 * 24 * 3600, locked=False, subscription_id=None)
+                        add_rule(dids=dids_nattempts_1, account=InternalAccount('root', vo=vo), copies=nattempts, rse_expression=rule_suspicious_rse_expression, grouping=None, weight=None, lifetime=5 * 24 * 3600, locked=False, subscription_id=None)
                         logger(logging.INFO, 'Rules have been created for %i replicas on %s.', len(dids_nattempts_1), rse_key)
                     except DuplicateRule:
                         logger(logging.INFO, 'Tried to create rules on %s, but it already exists.', rse_key)
@@ -403,7 +454,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
             logger(logging.INFO, "%s", rse)
 
         # Checking that everything is still working properly
-        worker_number, total_workers, logger = heartbeat_handler.live()
+        _, _, logger = heartbeat_handler.live()
 
         auditor = 0
         checksum = 0
@@ -451,13 +502,15 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
                             del recoverable_replicas[vo][rse_key][replica_key]
                         else:
                             # Deal with replicas based on their metadata.
-                            if file_metadata["datatype"] is None:  # "None" type has no function "split()"
+                            if (file_metadata["datatype"] is None) and use_file_metadata:  # "None" type has no function "split()"
                                 files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key])
                                 logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Replica does not have a data type associated with it. No action will be taken.",
                                        rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'])
                                 continue
 
                             file_metadata_datatype = str(file_metadata["datatype"])
+                            if not use_file_metadata:
+                                file_metadata_datatype = parse_replica_datatype(did_name_expression, file_name, rse_key, logger)
                             file_metadata_scope = str(file_metadata["scope"])
                             action = ""
                             if file_metadata_datatype:
@@ -524,7 +577,15 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
     return must_sleep
 
 
-def run(once: bool = False, younger_than: int = 5, nattempts: int = 5, vos: list[str] = None, limit_suspicious_files_on_rse: int = 5, json_file_name: str = "/opt/rucio/etc/suspicious_replica_recoverer.json", sleep_time: int = 3600, active_mode: bool = False) -> None:
+def run(
+        once: bool = False,
+        younger_than: int = 5,
+        nattempts: int = 5,
+        vos: "Optional[Sequence[str]]" = None,
+        limit_suspicious_files_on_rse: int = 5,
+        json_file_name: str = "/opt/rucio/etc/suspicious_replica_recoverer.json",
+        sleep_time: int = 3600,
+        active_mode: bool = False) -> None:
     """
     Starts up the Suspicious-Replica-Recoverer threads.
     """
