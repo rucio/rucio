@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
 from threading import Lock
-from typing import Any, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 from prometheus_client import REGISTRY, CollectorRegistry, Counter, Gauge, Histogram, generate_latest, multiprocess, push_to_gateway, start_http_server, values
 from statsd import StatsClient
@@ -36,13 +36,16 @@ from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import retrying
 
+if TYPE_CHECKING:
+    from rucio.common.types import LoggerFunction
+
 _T = TypeVar('_T')
 _M = TypeVar('_M', bound="_MultiMetric")
 
 PROMETHEUS_MULTIPROC_DIR = os.environ.get('PROMETHEUS_MULTIPROC_DIR', os.environ.get('prometheus_multiproc_dir', None))
 
 
-def cleanup_prometheus_files_at_exit():
+def cleanup_prometheus_files_at_exit() -> None:
     if PROMETHEUS_MULTIPROC_DIR:
         multiprocess.mark_process_dead(os.getpid())
 
@@ -99,7 +102,12 @@ METRICS_LOCK = Lock()
 _HISTOGRAM_DEFAULT_BUCKETS = Histogram.DEFAULT_BUCKETS
 
 
-def _cleanup_old_prometheus_files(path, file_pattern, cleanup_delay, logger):
+def _cleanup_old_prometheus_files(
+        path: str,
+        file_pattern: str,
+        cleanup_delay: float,
+        logger: "LoggerFunction"
+) -> None:
     """cleanup behind processes which didn't finish gracefully."""
 
     oldest_accepted_mtime = datetime.now() - timedelta(seconds=cleanup_delay)
@@ -118,7 +126,7 @@ def _cleanup_old_prometheus_files(path, file_pattern, cleanup_delay, logger):
                 pass
 
 
-def cleanup_old_prometheus_files(logger=logging.log):
+def cleanup_old_prometheus_files(logger: "LoggerFunction" = logging.log) -> None:
     path = PROMETHEUS_MULTIPROC_DIR
     if path:
         _cleanup_old_prometheus_files(path, file_pattern='gauge_live*.db', cleanup_delay=timedelta(hours=1).total_seconds(), logger=logger)
@@ -128,7 +136,7 @@ def cleanup_old_prometheus_files(logger=logging.log):
 @retrying(retry_on_exception=lambda _: True,
           wait_fixed=500,
           stop_max_attempt_number=2)
-def generate_prometheus_metrics():
+def generate_prometheus_metrics() -> bytes:
     cleanup_old_prometheus_files()
 
     registry = CollectorRegistry()
@@ -207,7 +215,7 @@ class _MultiCounter(_MultiMetric):
         if STATSD_CLIENT:
             STATSD_CLIENT.incr(self._statsd, delta)
 
-    def init_prometheus_metric(self, name: str, documentation: Optional[str], labelnames: Sequence[str] = ()):
+    def init_prometheus_metric(self, name: str, documentation: str, labelnames: Sequence[str] = ()) -> Counter:
         return Counter(name, documentation, labelnames=labelnames, registry=self._registry)
 
 
@@ -218,7 +226,7 @@ class _MultiGauge(_MultiMetric):
         if STATSD_CLIENT:
             STATSD_CLIENT.gauge(self._statsd, value)
 
-    def init_prometheus_metric(self, name: str, documentation: Optional[str], labelnames: Sequence[str] = ()):
+    def init_prometheus_metric(self, name: str, documentation: str, labelnames: Sequence[str] = ()) -> Gauge:
         return Gauge(name, documentation, labelnames=labelnames, registry=self._registry)
 
 
@@ -242,7 +250,7 @@ class _MultiTiming(_MultiMetric):
         if STATSD_CLIENT:
             STATSD_CLIENT.timing(self._statsd, value * 1000)
 
-    def init_prometheus_metric(self, name: str, documentation: Optional[str], labelnames: Sequence[str] = ()):
+    def init_prometheus_metric(self, name: str, documentation: str, labelnames: Sequence[str] = ()) -> Histogram:
         return Histogram(name, documentation, labelnames=labelnames, registry=self._registry, buckets=self._histogram_buckets)
 
     def __enter__(self):
@@ -334,7 +342,7 @@ class MetricManager:
         self.registry = registry or REGISTRY
         self.push_gateways = push_gateways or []
 
-    def full_name(self, name: str):
+    def full_name(self, name: str) -> str:
         if self.prefix:
             return f'{self.prefix}.{name}'
         return name
