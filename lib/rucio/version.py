@@ -25,21 +25,21 @@ RUCIO_VERSION = [VERSION_INFO['version'], ]
 FINAL = VERSION_INFO['final']   # This becomes true at Release Candidate time
 
 
-def canonical_version_string():
+def canonical_version_string() -> str:
     """ Get the canonical string """
     return '.'.join(filter(None, RUCIO_VERSION))
 
 
-def version_string():
+def version_string() -> str:
     """ Get the version string """
     return canonical_version_string()
 
 
-def vcs_version_string():
+def vcs_version_string() -> str:
     """ Get the VCS version string """
     return "%s:%s" % (VERSION_INFO['branch_nick'], VERSION_INFO['revision_id'])
 
 
-def version_string_with_vcs():
+def version_string_with_vcs() -> str:
     """ Get the version string with VCS """
     return "%s-%s" % (canonical_version_string(), vcs_version_string())
