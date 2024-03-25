@@ -287,7 +287,7 @@ class FilterEngine:
         # Add additional filters, applied as AND clauses to each OR group.
         for or_group in self._filters:
             for filter in additional_filters:
-                or_group.append(list(filter))
+                or_group.append(list(filter))  # type: ignore
 
         or_expressions = []
         for or_group in self._filters:
@@ -349,7 +349,7 @@ class FilterEngine:
         # Add additional filters, applied as AND clauses to each OR group.
         for or_group in self._filters:
             for _filter in additional_filters:
-                or_group.append(list(_filter))
+                or_group.append(list(_filter))  # type: ignore
 
         or_expressions = []
         for or_group in self._filters:
@@ -439,7 +439,7 @@ class FilterEngine:
         # Add additional filters, applied as AND clauses to each OR group.
         for or_group in self._filters:
             for _filter in additional_filters:
-                or_group.append(list(_filter))
+                or_group.append(list(_filter))  # type: ignore
 
         or_expressions = []
         for or_group in self._filters:

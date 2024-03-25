@@ -207,3 +207,11 @@ class TokenValidationDict(TypedDict):
     lifetime: datetime
     audience: Optional[str]
     authz_scope: Optional[str]
+
+
+class IPDict(TypedDict):
+    ip: str
+    fqdn: str
+    site: str
+    latitude: Optional[float]
+    longitude: Optional[float]
