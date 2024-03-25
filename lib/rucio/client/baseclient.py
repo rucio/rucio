@@ -107,8 +107,6 @@ class BaseClient:
         :param logger: Logger object to use. If None, use the default LOG created by the module
         """
 
-        self.host = rucio_host
-        self.auth_host = auth_host
         self.logger = logger
         self.session = Session()
         self.user_agent = "%s/%s" % (user_agent, version.version_string())  # e.g. "rucio-clients/0.2.13"
@@ -117,9 +115,17 @@ class BaseClient:
         if self.script_id == '':  # Python interpreter used
             self.script_id = 'python'
         try:
-            if self.host is None:
+            if rucio_host is not None:
+                self.host = rucio_host
+            else:
                 self.host = config_get('client', 'rucio_host')
-            if self.auth_host is None:
+        except (NoOptionError, NoSectionError) as error:
+            raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % error.args[0])
+
+        try:
+            if auth_host is not None:
+                self.auth_host = auth_host
+            else:
                 self.auth_host = config_get('client', 'auth_host')
         except (NoOptionError, NoSectionError) as error:
             raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % error.args[0])
@@ -318,9 +324,12 @@ class BaseClient:
 
         :return: A rucio exception class and an error string.
         """
-        try:
-            data = parse_response(data)
-        except ValueError:
+        if data is not None:
+            try:
+                data = parse_response(data)
+            except ValueError:
+                data = {}
+        else:
             data = {}
 
         exc_cls = 'RucioException'
