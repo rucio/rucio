@@ -1274,7 +1274,7 @@ def __get_keyvalues_from_claims(token: str, keys=None):
         for key in keys:
             value = ''
             if key in claims:
-                value = val_to_space_sep_str(claims[key])
+                value = val_to_space_sep_str(claims[key])  # type: ignore
             resdict[key] = value
         return resdict
     except Exception as error:

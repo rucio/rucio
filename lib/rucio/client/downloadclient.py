@@ -1231,7 +1231,7 @@ class DownloadClient:
                                                      resolve_parents=True,
                                                      nrandom=nrandom,
                                                      metalink=True)
-            file_items = parse_replicas_from_string(metalink_str)
+            file_items = parse_replicas_from_string(metalink_str)  # type: ignore
             for file in file_items:
                 if impl:
                     file['impl'] = impl
