@@ -42,7 +42,7 @@ from enum import Enum
 from functools import partial, wraps
 from io import StringIO
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Any, Optional, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
@@ -161,7 +161,7 @@ def all_oidc_req_claims_present(
         audience: Optional[Union[str, list[str]]],
         required_scope: Optional[Union[str, list[str]]],
         required_audience: Optional[Union[str, list[str]]],
-        sepatator: str = " "
+        separator: str = " "
 ) -> bool:
     """
     Checks if both of the following statements are true:
@@ -781,7 +781,7 @@ class SurlAlgorithms(PolicyPackageAlgorithms):
         return super()._get_one_algorithm(cls._algorithm_type, naming_convention)
 
     @classmethod
-    def register(cls: Type[SurlAlgorithmsT], name: str, fn_construct_surl: Callable[[str, str, str], Optional[str]]) -> None:
+    def register(cls: type[SurlAlgorithmsT], name: str, fn_construct_surl: Callable[[str, str, str], Optional[str]]) -> None:
         """
         Register a new SURL algorithm
         """
