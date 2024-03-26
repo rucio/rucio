@@ -266,6 +266,9 @@ services:
     image: docker.io/mongo:5.0
     profiles:
       - externalmetadata
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: rucio
+      MONGO_INITDB_ROOT_PASSWORD: mongo-meta
   postgres:
     image: docker.io/postgres:14
     profiles:

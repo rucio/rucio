@@ -36,7 +36,7 @@ IMMUTABLE_KEYS = [
 
 
 class MongoDidMeta(DidMetaPlugin):
-    def __init__(self, host=None, port=None, db=None, collection=None):
+    def __init__(self, host=None, port=None, db=None, collection=None, user=None, password=None):
         super(MongoDidMeta, self).__init__()
         if host is None:
             host = config.config_get('metadata', 'mongo_service_host')
@@ -47,7 +47,16 @@ class MongoDidMeta(DidMetaPlugin):
         if collection is None:
             collection = config.config_get('metadata', 'mongo_collection')
 
-        self.client = pymongo.MongoClient("mongodb://{}:{}/".format(host, port))
+        if user is None:
+            user = config.config_get("metadata", "mongo_user", default=None)
+        if user is not None and password is None:
+            password = config.config_get("metadata", "mongo_password")
+        if user is not None:
+            auth = "{user}:{password}@".format(user=user, password=password)
+        else:
+            auth = ""
+
+        self.client = pymongo.MongoClient("mongodb://{auth}{host}:{port}/".format(auth=auth, host=host, port=port))
         self.db = self.client[db]
         self.col = self.db[collection]
 

@@ -198,7 +198,9 @@ def mongo_meta():
         host='mongo',
         port=27017,
         db='test_db',
-        collection='test_collection'
+        collection='test_collection',
+        user="rucio",
+        password="mongo-meta",
     )
 
 
