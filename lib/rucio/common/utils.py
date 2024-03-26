@@ -147,7 +147,7 @@ def build_url(url, path=None, params=None, doseq=False):
     return complete_url
 
 
-def all_oidc_req_claims_present(scope, audience, required_scope, required_audience, sepatator=" "):
+def all_oidc_req_claims_present(scope, audience, required_scope, required_audience, separator=" "):
     """
     Checks if both of the following statements are true:
     - all items in required_scope are present in scope string
@@ -159,7 +159,7 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
     :params audience: list of strings or one string where items are separated by a separator input variable
     :params required_scope: list of strings or one string where items are separated by a separator input variable
     :params required_audience: list of strings or one string where items are separated by a separator input variable
-    :params sepatator: separator string, space by default
+    :params separator: separator string, space by default
     :returns : True or False
     """
     if not scope:
@@ -183,24 +183,24 @@ def all_oidc_req_claims_present(scope, audience, required_scope, required_audien
         audience = str(audience)
         required_scope = str(required_scope)
         required_audience = str(required_audience)
-        req_scope_present = all(elem in scope.split(sepatator) for elem in required_scope.split(sepatator))
-        req_audience_present = all(elem in audience.split(sepatator) for elem in required_audience.split(sepatator))
+        req_scope_present = all(elem in scope.split(separator) for elem in required_scope.split(separator))
+        req_audience_present = all(elem in audience.split(separator) for elem in required_audience.split(separator))
         return req_scope_present and req_audience_present
     elif (isinstance(scope, list) and isinstance(audience, list) and isinstance(required_scope, str) and isinstance(required_audience, str)):
         scope = [str(it) for it in scope]
         audience = [str(it) for it in audience]
         required_scope = str(required_scope)
         required_audience = str(required_audience)
-        req_scope_present = all(elem in scope for elem in required_scope.split(sepatator))
-        req_audience_present = all(elem in audience for elem in required_audience.split(sepatator))
+        req_scope_present = all(elem in scope for elem in required_scope.split(separator))
+        req_audience_present = all(elem in audience for elem in required_audience.split(separator))
         return req_scope_present and req_audience_present
     elif (isinstance(scope, str) and isinstance(audience, str) and isinstance(required_scope, list) and isinstance(required_audience, list)):
         scope = str(scope)
         audience = str(audience)
         required_scope = [str(it) for it in required_scope]
         required_audience = [str(it) for it in required_audience]
-        req_scope_present = all(elem in scope.split(sepatator) for elem in required_scope)
-        req_audience_present = all(elem in audience.split(sepatator) for elem in required_audience)
+        req_scope_present = all(elem in scope.split(separator) for elem in required_scope)
+        req_audience_present = all(elem in audience.split(separator) for elem in required_audience)
         return req_scope_present and req_audience_present
     else:
         return False
