@@ -50,7 +50,7 @@ from xml.etree import ElementTree
 import requests
 
 from rucio.common.config import config_get, config_has_section
-from rucio.common.exception import DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, PolicyPackageVersionError, RucioException
+from rucio.common.exception import ConfigNotFound, DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, PolicyPackageVersionError, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.types import InternalAccount, InternalScope
@@ -1844,7 +1844,7 @@ def is_client():
                 client_mode = True
             else:
                 client_mode = False
-        except RuntimeError:
+        except (RuntimeError, ConfigNotFound):
             # If no configuration file is found the default value should be True
             client_mode = True
     else:

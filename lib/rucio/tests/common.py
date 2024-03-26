@@ -18,9 +18,11 @@ import json
 import os
 import tempfile
 from collections import namedtuple
+from functools import wraps
+from os import rename
 from random import choice, choices
 from string import ascii_letters, ascii_uppercase, digits
-from typing import Optional
+from typing import Any, Callable, Iterable, Optional
 
 import pytest
 import requests
@@ -129,7 +131,7 @@ def rse_name_generator(size: int = 10) -> str:
     return 'MOCK-' + ''.join(choice(ascii_uppercase) for x in range(size))
 
 
-def rfc2253_dn_generator():
+def rfc2253_dn_generator() -> str:
     """ Generate a random DN in RFC 2253 format.
 
     :returns: A random DN
@@ -141,7 +143,7 @@ def rfc2253_dn_generator():
     return random_dn
 
 
-def file_generator(size: int = 2, namelen: int = 10):
+def file_generator(size: int = 2, namelen: int = 10) -> str:
     """ Create a bogus file and returns it's name.
     :param size: size in bytes
     :returns: The name of the generated file.
@@ -199,11 +201,11 @@ def print_response(rest_response):
     print(text if text else '<no content>')
 
 
-def headers(*iterables):
+def headers(*iterables: Iterable):
     return list(itertools.chain(*iterables))
 
 
-def loginhdr(account, username, password):
+def loginhdr(account: str, username: str, password: str):
     yield 'X-Rucio-Account', str(account)
     yield 'X-Rucio-Username', str(username)
     yield 'X-Rucio-Password', str(password)
@@ -213,12 +215,12 @@ def auth(token):
     yield 'X-Rucio-Auth-Token', str(token)
 
 
-def vohdr(vo):
+def vohdr(vo: str):
     if vo:
         yield 'X-Rucio-VO', str(vo)
 
 
-def hdrdict(dictionary):
+def hdrdict(dictionary: dict):
     for key in dictionary:
         yield str(key), str(dictionary[key])
 
@@ -235,10 +237,33 @@ class Mime:
     BINARY = 'application/octet-stream'
 
 
-def load_test_conf_file(file_name):
+def load_test_conf_file(file_name: str) -> dict[str, Any]:
     config_dir = next(filter(lambda d: os.path.exists(os.path.join(d, file_name)), get_config_dirs()))
     with open(os.path.join(config_dir, file_name)) as f:
         return json.load(f)
+
+
+def remove_config(func: Callable) -> Callable:
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        for configfile in get_config_dirs():
+            # Rename the config to <config>.tmp
+            try:
+                rename(f"{configfile}rucio.cfg", f"{configfile}rucio.cfg.tmp")
+            except FileNotFoundError:
+                pass  # When a test uses a os.env assigned conf, there's nothing stating the default location has something
+        try:
+            # Execute the test
+            func(*args, **kwargs)
+        finally:
+            # And put the config back
+            for configfile in get_config_dirs():
+                try:
+                    rename(f"{configfile}rucio.cfg.tmp", f"{configfile}rucio.cfg")
+                except FileNotFoundError:
+                    pass
+
+    return wrapper
 
 
 RSE_namedtuple = namedtuple('RSE_namedtuple', ['name', 'id'])
