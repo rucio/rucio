@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any, Optional
 import rucio.db.sqla.util
 from rucio.common.config import config_get_bool
 from rucio.common.constants import SuspiciousAvailability
-from rucio.common.exception import DatabaseException, VONotFound
+from rucio.common.exception import DatabaseException, DuplicateRule, VONotFound
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
 from rucio.core.did import get_metadata
@@ -360,10 +360,13 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
                         dids_nattempts_1.append(dids)
             if active_mode:
                 if len(dids_nattempts_1) > 0:
-                    add_rule(dids=dids_nattempts_1, account=InternalAccount('root', vo=vo), copies=nattempts, rse_expression='type=SCRATCHDISK', grouping=None, weight=None, lifetime=5 * 24 * 3600, locked=False, subscription_id=None)
-                    logger(logging.INFO, 'Rules have been created for %i replicas on %s.', len(dids_nattempts_1), rse_key)
+                    try:
+                        add_rule(dids=dids_nattempts_1, account=InternalAccount('root', vo=vo), copies=nattempts, rse_expression='type=SCRATCHDISK', grouping=None, weight=None, lifetime=5 * 24 * 3600, locked=False, subscription_id=None)
+                        logger(logging.INFO, 'Rules have been created for %i replicas on %s.', len(dids_nattempts_1), rse_key)
+                    except DuplicateRule:
+                        logger(logging.INFO, 'Tried to create rules on %s, but it already exists.', rse_key)
                 else:
-                    logger(logging.INFO, 'No rules have been created for replicas on %s.', rse_key)
+                    logger(logging.INFO, 'No replicas on %s have nattmepts=1, so no rules have been created.', rse_key)
                 if len(files_to_be_declared_bad_nattempts_1) > 0:
                     logger(logging.INFO, 'Ready to declare %s bad replica(s) with nattempts=1 on %s (RSE id: %s).', len(files_to_be_declared_bad_nattempts_1), rse_key, str(rse_id))
                     declare_bad_file_replicas(replicas=files_to_be_declared_bad_nattempts_1, reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), session=None)
