@@ -186,7 +186,7 @@ class DataModel:
                     url,
                     response.status_code,
                 )
-                raise HTTPDownloadFailed('Downloading {0} dump'.format(cls.__name__), code=response.status_code)
+                raise HTTPDownloadFailed('Downloading {0} dump'.format(cls.__name__), code=str(response.status_code))
 
             with temp_file(cache_dir, final_name=filename) as (tfile, _):
                 http_download_to_file(url, tfile, session=requests_session)
