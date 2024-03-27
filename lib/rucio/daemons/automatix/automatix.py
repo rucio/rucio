@@ -165,7 +165,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", inputfile: str, **_kwargs) -
     account = config_get("automatix", "account", raise_exception=False, default="root")
     scope = config_get("automatix", "scope", raise_exception=False, default="test")
     client = Client(account=account)
-    vo = map_vo(client.vo)
+    vo = map_vo(client.vo)  # type: ignore
     filters = {"scope": InternalScope("*", vo=vo)}
     scopes = list_scopes(filter_=filters)
     if InternalScope(scope, vo=vo) not in scopes:
