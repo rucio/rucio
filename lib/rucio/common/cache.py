@@ -23,6 +23,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import Optional
 
+    from dogpile.cache.region import CacheRegion
+
 CACHE_URL = config_get('cache', 'url', False, '127.0.0.1:11211', check_config_table=False)
 
 ENABLE_CACHING = True
@@ -47,7 +49,7 @@ def make_region_memcached(
         expiration_time: int,
         function_key_generator: "Optional[Callable]" = None,
         memcached_expire_time: "Optional[int]" = None
-):
+) -> "CacheRegion":
     """
     Make and configure a dogpile.cache.pymemcache region
     """
