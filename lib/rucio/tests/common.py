@@ -37,6 +37,8 @@ skip_multivo = pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] 
                                   reason="does not work for multiVO")
 skip_non_belleii = pytest.mark.skipif(not ('POLICY' in os.environ and os.environ['POLICY'] == 'belleii'),
                                       reason="specific belleii tests")
+skip_non_dune = pytest.mark.skipif('DUNE_TEST' not in os.environ,
+                                   reason="specific DUNE tests")
 
 
 def is_influxdb_available() -> bool:
