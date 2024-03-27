@@ -618,17 +618,25 @@ def blueprint():
     bp = AuthenticatedBlueprint('subscriptions', __name__, url_prefix='/subscriptions')
 
     subscription_id_view = SubscriptionId.as_view('subscription_id')
-    bp.add_url_rule('/Id/<subscription_id>', view_func=subscription_id_view, methods=['get', ])
+    bp.add_url_rule('/id/<subscription_id>', view_func=subscription_id_view, methods=['get', ])
     states_view = States.as_view('states')
-    bp.add_url_rule('/<account>/<name>/Rules/States', view_func=states_view, methods=['get', ])
-    bp.add_url_rule('/<account>/Rules/States', view_func=states_view, methods=['get', ])
+    bp.add_url_rule('/<account>/<name>/rules/states', view_func=states_view, methods=['get', ])
+    bp.add_url_rule('/<account>/rules/states', view_func=states_view, methods=['get', ])
     rules_view = Rules.as_view('rules')
-    bp.add_url_rule('/<account>/<name>/Rules', view_func=rules_view, methods=['get', ])
+    bp.add_url_rule('/<account>/<name>/rules', view_func=rules_view, methods=['get', ])
     subscription_view = Subscription.as_view('subscription')
     bp.add_url_rule('/<account>/<name>', view_func=subscription_view, methods=['get', 'post', 'put'])
     bp.add_url_rule('/<account>', view_func=subscription_view, methods=['get', ])
     bp.add_url_rule('/', view_func=subscription_view, methods=['get', ])
     subscription_name_view = SubscriptionName.as_view('subscription_name')
+    bp.add_url_rule('/name/<name>', view_func=subscription_name_view, methods=['get', ])
+
+    # Legacy url support
+    # TODO: Take out with Rucio 38
+    bp.add_url_rule('/Id/<subscription_id>', view_func=subscription_id_view, methods=['get', ])
+    bp.add_url_rule('/<account>/<name>/Rules/States', view_func=states_view, methods=['get', ])
+    bp.add_url_rule('/<account>/Rules/States', view_func=states_view, methods=['get', ])
+    bp.add_url_rule('/<account>/<name>/Rules', view_func=rules_view, methods=['get', ])
     bp.add_url_rule('/Name/<name>', view_func=subscription_name_view, methods=['get', ])
 
     bp.after_request(response_headers)
