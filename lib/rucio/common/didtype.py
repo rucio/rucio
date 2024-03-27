@@ -16,6 +16,8 @@
 DID type to represent a did and to simplify operations on it
 """
 
+from typing import Union
+
 from rucio.common.exception import DIDError
 
 
@@ -53,29 +55,30 @@ class DID:
             DID('arg.scope', name='kwarg.name')
             DID('arg.name', scope='kwarg.scope')
         """
-        self.scope = self.name = ''
+        self.scope: str = ''
+        self.name: str = ''
 
         num_args = len(args)
         num_kwargs = len(kwargs)
         if (num_args + num_kwargs) > 2:
             raise DIDError('Constructor takes at most 2 arguments. Given number: {}'.format(num_args + num_kwargs))
 
-        did = ''
+        did: Union["DID", str, tuple[str, str], list[str], dict[str, str]] = ''
         if num_args == 1:
             did = args[0]
 
             if num_kwargs == 1:
-                if not isinstance(did, str):
+                if isinstance(did, str):
+                    k, v = next(iter(kwargs.items()))
+                    if k == 'scope':
+                        did = (v, did)
+                    elif k == 'name':
+                        did = (did, v)
+                    else:
+                        raise DIDError('Constructor got unexpected keyword argument: {}'.format(k))
+                else:
                     raise DIDError('First argument of constructor is expected to be string type'
                                    'when keyword argument is given. Given type: {}'.format(type(did)))
-
-                k, v = next(iter(kwargs.items()))
-                if k == 'scope':
-                    did = (v, did)
-                elif k == 'name':
-                    did = (did, v)
-                else:
-                    raise DIDError('Constructor got unexpected keyword argument: {}'.format(k))
         elif num_args == 0:
             did = kwargs.get('did', kwargs)
         else:
@@ -113,16 +116,16 @@ class DID:
         if not self.is_valid_format():
             raise DIDError('Object has invalid format after construction: {}'.format(str(self)))
 
-    def update_implicit_scope(self):
+    def update_implicit_scope(self) -> None:
         """
-        This method sets the scope  if it is implicitly given in self.name
+        This method sets the scope if it is implicitly given in self.name
         """
         did_parts = self.name.split(DID.IMPLICIT_SCOPE_SEPARATOR)
         num_scope_parts = DID.IMPLICIT_SCOPE_TO_LEN.get(did_parts[0], 0)
         if num_scope_parts > 0:
             self.scope = '.'.join(did_parts[0:num_scope_parts])
 
-    def is_valid_format(self):
+    def is_valid_format(self) -> bool:
         """
         Method to check if the stored DID has a valid format
         :return: bool
@@ -131,21 +134,21 @@ class DID:
             return False
         return True
 
-    def has_scope(self):
+    def has_scope(self) -> bool:
         """
         Method to check if the scope part was set
         :return: bool
         """
         return len(self.scope) > 0
 
-    def has_name(self):
+    def has_name(self) -> bool:
         """
         Method to check if the name part was set
         :return: bool
         """
         return len(self.name) > 0
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Creates the string representation of self
         :return: string
@@ -156,7 +159,7 @@ class DID:
             return self.scope
         return self.name
 
-    def __eq__(self, other):
+    def __eq__(self, other: Union[str, "DID"]) -> bool:
         """
         Equality comparison with another object
         :return: bool
@@ -171,14 +174,14 @@ class DID:
 
         return self.scope == other.scope and self.name == other.name
 
-    def __ne__(self, other):
+    def __ne__(self, other: Union[str, "DID"]) -> bool:
         """
         Inequality comparison with another object
         :return: bool
         """
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """
         Uses the string representation of self to create a hash
         :return: int
