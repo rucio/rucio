@@ -16,6 +16,7 @@ import json
 import os
 from configparser import NoOptionError, NoSectionError
 from functools import wraps
+from typing import Any
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
@@ -27,7 +28,7 @@ REGION = make_region().configure('dogpile.cache.memory',
                                  expiration_time=900)
 
 
-def get_policy():
+def get_policy() -> str:
     policy = REGION.get('policy')
     if isinstance(policy, NoValue):
         try:
@@ -38,7 +39,7 @@ def get_policy():
     return policy
 
 
-def get_scratchdisk_lifetime():
+def get_scratchdisk_lifetime() -> int:
     scratchdisk_lifetime = REGION.get('scratchdisk_lifetime')
     if isinstance(scratchdisk_lifetime, NoValue):
         try:
@@ -50,7 +51,7 @@ def get_scratchdisk_lifetime():
     return scratchdisk_lifetime
 
 
-def get_lifetime_policy():
+def get_lifetime_policy() -> dict[str, list[dict[str, Any]]]:
     lifetime_dict = REGION.get('lifetime_dict')
     if isinstance(lifetime_dict, NoValue):
         lifetime_dict = {'data': [], 'mc': [], 'valid': [], 'other': []}
