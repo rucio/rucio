@@ -178,3 +178,11 @@ class RuleDict(TypedDict):
 class DIDDict(TypedDict):
     name: str
     scope: InternalScope
+
+
+class IPDict(TypedDict):
+    ip: str
+    fqdn: str
+    site: str
+    latitude: Optional[float]
+    longitude: Optional[float]
