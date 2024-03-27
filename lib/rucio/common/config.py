@@ -18,7 +18,7 @@ import configparser
 import json
 import os
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Optional, TypeVar, Union, overload
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, overload
 
 from rucio.common import exception
 from rucio.common.exception import ConfigNotFound, DatabaseException
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-def convert_to_any_type(value) -> Union[bool, int, float, str]:
+def convert_to_any_type(value: str) -> Union[bool, int, float, str]:
     if value.lower() in ['true', 'yes', 'on']:
         return True
     elif value.lower() in ['false', 'no', 'off']:
@@ -45,7 +45,7 @@ def convert_to_any_type(value) -> Union[bool, int, float, str]:
     return value
 
 
-def _convert_to_boolean(value):
+def _convert_to_boolean(value: Union[str, bool]) -> bool:
     if isinstance(value, bool):
         return value
     if value.lower() in ['true', 'yes', 'on', '1']:
@@ -297,7 +297,7 @@ def config_get_int(
 def config_get_int(
         section: str,
         option: str,
-        raise_exception,
+        raise_exception: bool,
         default: _T = ...,
         *,
         check_config_table: bool = ...,
@@ -309,14 +309,14 @@ def config_get_int(
 
 
 def config_get_int(
-        section,
-        option,
-        raise_exception=True,
+        section: str,
+        option: str,
+        raise_exception: bool = True,
         default=None,
-        check_config_table=True,
-        session=None,
-        use_cache=True,
-        expiration_time=900,
+        check_config_table: bool = True,
+        session: "Optional[Session]" = None,
+        use_cache: bool = True,
+        expiration_time: int = 900,
 ):
     """
     Return the integer value for a given option in a section
@@ -395,14 +395,14 @@ def config_get_float(
 
 
 def config_get_float(
-        section,
-        option,
-        raise_exception=True,
+        section: str,
+        option: str,
+        raise_exception: bool = True,
         default=None,
-        check_config_table=True,
-        session=None,
-        use_cache=True,
-        expiration_time=900,
+        check_config_table: bool = True,
+        session: "Optional[Session]" = None,
+        use_cache: bool = True,
+        expiration_time: int = 900,
 ):
     """
     Return the floating point value for a given option in a section
@@ -482,14 +482,14 @@ def config_get_bool(
 
 
 def config_get_bool(
-        section,
-        option,
-        raise_exception=True,
+        section: str,
+        option: str,
+        raise_exception: bool = True,
         default=None,
-        check_config_table=True,
-        session=None,
-        use_cache=True,
-        expiration_time=900,
+        check_config_table: bool = True,
+        session: "Optional[Session]" = None,
+        use_cache: bool = True,
+        expiration_time: int = 900,
 ):
     """
     Return the boolean value for a given option in a section
@@ -569,14 +569,14 @@ def config_get_list(
 
 
 def config_get_list(
-        section,
-        option,
-        raise_exception=True,
+        section: str,
+        option: str,
+        raise_exception: bool = True,
         default=None,
-        check_config_table=True,
-        session=None,
-        use_cache=True,
-        expiration_time=900,
+        check_config_table: bool = True,
+        session: "Optional[Session]" = None,
+        use_cache: bool = True,
+        expiration_time: int = 900,
 ):
     """
     Return a list for a given option in a section
@@ -691,7 +691,7 @@ def config_remove_option(section: str, option: str) -> bool:
     return get_config().remove_option(section, option)
 
 
-def config_set(section: str, option: str, value: str):
+def config_set(section: str, option: str, value: str) -> None:
     """
     Set a configuration option in a given section.
 
@@ -704,7 +704,7 @@ def config_set(section: str, option: str, value: str):
     return get_config().set(section, option, value)
 
 
-def get_config_dirs():
+def get_config_dirs() -> list[str]:
     """
     Returns all available configuration directories in order:
     - $RUCIO_HOME/etc/
@@ -724,7 +724,7 @@ def get_config_dirs():
     return configdirs
 
 
-def get_lfn2pfn_algorithm_default():
+def get_lfn2pfn_algorithm_default() -> str:
     """Returns the default algorithm name for LFN2PFN translation for this server."""
     default_lfn2pfn = "hash"
     try:
@@ -734,7 +734,7 @@ def get_lfn2pfn_algorithm_default():
     return default_lfn2pfn
 
 
-def get_rse_credentials(path_to_credentials_file: Optional[Union[str, os.PathLike]] = None):
+def get_rse_credentials(path_to_credentials_file: Optional[Union[str, os.PathLike]] = None) -> dict[str, Any]:
     """ Returns credentials for RSEs. """
 
     path = ''
@@ -765,7 +765,7 @@ def get_config() -> configparser.ConfigParser:
     return __CONFIG.parser
 
 
-def clean_cached_config():
+def clean_cached_config() -> None:
     """Deletes the cached config singleton instance."""
     global __CONFIG
     __CONFIG = None
