@@ -847,6 +847,11 @@ class RequestMetricsGet(ErrorHandlingMethodView):
           description: The activity
           schema:
             type: string
+        - name: group_by_rse_attribute
+          in: query
+          description: The parameter to group the RSEs by.
+          schema:
+            type: string
         responses:
           200:
             description: OK
@@ -947,12 +952,14 @@ class RequestMetricsGet(ErrorHandlingMethodView):
         dst_rse = flask.request.args.get('dst_rse', default=None)
         src_rse = flask.request.args.get('src_rse', default=None)
         activity = flask.request.args.get('activity', default=None)
+        group_by_rse_attribute = flask.request.args.get('group_by_rse_attribute', default=None)
         format = flask.request.args.get('format', default=None)
 
         metrics = request.get_request_metrics(
             dst_rse=dst_rse,
             src_rse=src_rse,
             activity=activity,
+            group_by_rse_attribute=group_by_rse_attribute,
             issuer=flask.request.environ.get('issuer'),
             vo=flask.request.environ.get('vo')
         )

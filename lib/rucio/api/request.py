@@ -219,13 +219,14 @@ def list_requests_history(src_rses, dst_rses, states, issuer, vo='def', offset=N
 
 
 @read_session
-def get_request_metrics(src_rse: Optional[str], dst_rse: Optional[str], activity: Optional[str], issuer, vo='def', *, session: "Session"):
+def get_request_metrics(src_rse: Optional[str], dst_rse: Optional[str], activity: Optional[str], group_by_rse_attribute: Optional[str], issuer, vo='def', *, session: "Session"):
     """
     Get statistics of requests in a specific state grouped by source RSE, destination RSE, and activity.
 
     :param src_rse: source RSE.
     :param dst_rse: destination RSE.
     :param activity: activity
+    :param group_by_rse_attribute: The parameter to group the RSEs by.
     :param issuer: Issuing account as a string.
     :param session: The database session in use.
     """
@@ -239,4 +240,4 @@ def get_request_metrics(src_rse: Optional[str], dst_rse: Optional[str], activity
     if not permission.has_permission(issuer=issuer, vo=vo, action='get_request_metrics', kwargs=kwargs, session=session):
         raise exception.AccessDenied(f'{issuer} cannot get request statistics')
 
-    return request.get_request_metrics(dest_rse_id=dst_rse_id, src_rse_id=src_rse_id, activity=activity, session=session)
+    return request.get_request_metrics(dest_rse_id=dst_rse_id, src_rse_id=src_rse_id, activity=activity, group_by_rse_attribute=group_by_rse_attribute, session=session)
