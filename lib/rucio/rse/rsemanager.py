@@ -16,6 +16,7 @@ import copy
 import logging
 import random
 from time import sleep
+from typing import Callable
 from urllib.parse import urlparse
 
 from rucio.common import constants, exception, types, utils
@@ -23,6 +24,18 @@ from rucio.common.config import config_get_int
 from rucio.common.constraints import STRING_TYPES
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, make_valid_did
+
+
+def get_scope_protocol(vo='def') -> Callable:
+    """
+        Returns the callable protocol to translate the pfn to a name/scope pair
+
+    :returns:
+        Callable: Scope Parser function
+    """
+    from rucio.rse.protocols.protocol import RSEDeterministicScopeTranslation
+    translation = RSEDeterministicScopeTranslation(vo=vo)
+    return translation.parser
 
 
 def get_rse_info(rse=None, vo='def', rse_id=None, session=None) -> types.RSESettingsDict:
