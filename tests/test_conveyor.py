@@ -176,7 +176,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
     did = did_factory.upload_test_file(src_rse1_name)
 
     # Copy replica to a second source. To avoid the special case of having a unique last replica, which could be handled in a special (more careful) way
-    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=src_rse2_name, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None)
+    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=src_rse2_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], partition_wait_time=0, transfertype='single', filter_transfertool=None)
     replica = __wait_for_replica_transfer(dst_rse_id=src_rse2_id, **did)
     assert replica['state'] == ReplicaState.AVAILABLE
@@ -184,7 +184,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
     rse_core.set_rse_limits(rse_id=jump_rse_id, name='MinFreeSpace', value=1)
     rse_core.set_rse_usage(rse_id=jump_rse_id, source='storage', used=1, free=0)
     try:
-        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None)
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse_name, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         # Submit transfers to FTS
         # Ensure a replica was created on the intermediary host with epoch tombstone
@@ -575,7 +575,7 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
 
         did = did_factory.upload_test_file(src_rse)
         rule_priority = 5
-        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None, priority=rule_priority)
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, priority=rule_priority)
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
         request = __wait_for_state_transition(dst_rse_id=jump_rse_id, run_poller=False, **did)
@@ -687,8 +687,8 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
 
     did1 = did_factory.upload_test_file(src_rse)
     did2 = did_factory.upload_test_file(src_rse)
-    rule_core.add_rule(dids=[did1], account=root_account, copies=1, rse_expression=dst_rse1, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None)
-    rule_core.add_rule(dids=[did2], account=root_account, copies=1, rse_expression=dst_rse1, grouping='ALL', weight=None, lifetime=3600, locked=False, subscription_id=None)
+    rule_core.add_rule(dids=[did1], account=root_account, copies=1, rse_expression=dst_rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    rule_core.add_rule(dids=[did2], account=root_account, copies=1, rse_expression=dst_rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
     rule_core.add_rule(dids=[did1], account=root_account, copies=1, rse_expression=dst_rse2, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     request = request_core.get_request_by_did(rse_id=dst_rse_id1, **did1)
@@ -757,9 +757,9 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
     did3 = did_factory.upload_test_file(src_rse)
     did4 = did_factory.upload_test_file(src_rse)
     rule_core.add_rule(dids=[did3], account=root_account, copies=1, rse_expression=dst_rse2, grouping='ALL',
-                       weight=None, lifetime=3600, locked=False, subscription_id=None)
+                       weight=None, lifetime=None, locked=False, subscription_id=None)
     rule_core.add_rule(dids=[did4], account=root_account, copies=1, rse_expression=dst_rse2, grouping='ALL',
-                       weight=None, lifetime=3600, locked=False, subscription_id=None)
+                       weight=None, lifetime=None, locked=False, subscription_id=None)
     request3 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did3)
     request4 = request_core.get_request_by_did(rse_id=dst_rse_id2, **did4)
     assert request3['state'] == RequestState.PREPARING
@@ -891,7 +891,7 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
 
     did = did_factory.upload_test_file(rse_name=src_rse)
 
-    rule1_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None)[0]
+    rule1_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
     assert request['request_type'] == RequestType.TRANSFER
@@ -912,7 +912,7 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
 
     # now test a second rule, different account
     set_local_account_limit(jdoe_account, dst_rse_id, bytes_=-1)
-    rule2_id = rule_core.add_rule(dids=[did], account=jdoe_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
+    rule2_id = rule_core.add_rule(dids=[did], account=jdoe_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
     assert request['request_type'] == RequestType.STAGEIN
@@ -952,7 +952,7 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
 
     did = did_factory.upload_test_file(rse_name=src_rse)
 
-    rule1_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None)[0]
+    rule1_id = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
     assert request['request_type'] == RequestType.TRANSFER
@@ -973,7 +973,7 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
 
     # now test a second rule, different account
     set_local_account_limit(jdoe_account, dst_rse_id, bytes_=-1)
-    rule2_id = rule_core.add_rule(dids=[did], account=jdoe_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=-1, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
+    rule2_id = rule_core.add_rule(dids=[did], account=jdoe_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
     # since the first rule is STUCK assert a transfer not stagein

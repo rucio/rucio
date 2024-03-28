@@ -1466,11 +1466,11 @@ class TestClient:
         add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset)
         attach_dids(dids=files, account=jdoe_account, **dataset)
 
-        rule_id_1 = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=150, locked=True, subscription_id=None)[0]
+        rule_id_1 = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=None, locked=True, subscription_id=None)[0]
 
         get = self.rule_client.get_replication_rule(rule_id_1)
 
-        self.rule_client.update_replication_rule(rule_id_1, options={'lifetime': 10000})
+        self.rule_client.update_replication_rule(rule_id_1, options={'lifetime': -1})
 
         get2 = self.rule_client.get_replication_rule(rule_id_1)
 
@@ -1483,7 +1483,7 @@ class TestClient:
         add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset)
         attach_dids(dids=files, account=jdoe_account, **dataset)
 
-        rule_id = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=150, locked=True, subscription_id=None, ask_approval=True)[0]
+        rule_id = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse1, grouping='DATASET', weight='fakeweight', lifetime=None, locked=True, subscription_id=None, ask_approval=True)[0]
         rule = self.rule_client.get_replication_rule(rule_id)
         assert rule['state'] == RuleState.WAITING_APPROVAL.name
         self.rule_client.approve_replication_rule(rule_id)

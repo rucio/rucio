@@ -190,7 +190,7 @@ class TestJudgeEvaluator:
             add_did(scope, dataset, DIDType.DATASET, self.jdoe)
             attach_dids(scope, dataset, files, self.jdoe)
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
-        rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=900, locked=False, subscription_id=None, ask_approval=True)[0]
+        rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
         approve_rule(rule_id, approver=self.jdoe)
         assert (get_rule(rule_id)['state'] == RuleState.INJECT)
         rule_injector(once=True)
@@ -213,8 +213,8 @@ class TestJudgeEvaluator:
             add_did(scope, dataset, DIDType.DATASET, self.jdoe)
             attach_dids(scope, dataset, files, self.jdoe)
             attach_dids(scope, container, [{'scope': scope, 'name': dataset}], self.jdoe)
-        add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=900, locked=False, subscription_id=None, ask_approval=False)
-        rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=900, locked=False, subscription_id=None, ask_approval=True)[0]
+        add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=False)
+        rule_id = add_rule(dids=[{'scope': scope, 'name': container}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
         approve_rule(rule_id, approver=self.jdoe)
         assert (get_rule(rule_id)['state'] == RuleState.INJECT)
         rule_injector(once=True)
