@@ -440,7 +440,7 @@ class TestApiExternalRepresentation:
                                     'source_replica_expression': self.rse4_name}],
                                   '', False, 0, 0, 3, 'root', vo=test_vo)
         add_replication_rule(dids=[{'scope': new_scope_name, 'name': did}], copies=1, rse_expression=self.rse3_name, weight=None,
-                             lifetime=180, grouping='DATASET', account=new_acc_name, locked=False, subscription_id=sub_id,
+                             lifetime=None, grouping='DATASET', account=new_acc_name, locked=False, subscription_id=sub_id,
                              source_replica_expression=self.rse4_name, activity='Functional Test', notify=None,
                              purge_replicas=False, ignore_availability=False, comment='', ask_approval=False, asynchronous=False,
                              delay_injection=None, priority=0, split_container=False, meta='', issuer='root', vo=test_vo)

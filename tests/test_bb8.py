@@ -159,10 +159,10 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
 
     # Add one secondary file
     files = create_files(1, mock_scope, rse1_id, bytes_=1)
-    add_rule(dids=[{'scope': mock_scope, 'name': files[0]['name']}], account=jdoe_account, copies=1, rse_expression=rse1, grouping='DATASET', weight=None, lifetime=-86400, locked=False, subscription_id=None)[0]
+    add_rule(dids=[{'scope': mock_scope, 'name': files[0]['name']}], account=jdoe_account, copies=1, rse_expression=rse1, grouping='DATASET', weight=None, lifetime=-1, locked=False, subscription_id=None)[0]
     for cnt in range(3, tot_rses):
         add_replicas(rses[cnt][1], files, jdoe_account)
-        add_rule(dids=[{'scope': mock_scope, 'name': files[0]['name']}], account=jdoe_account, copies=1, rse_expression=rses[cnt][0], grouping='DATASET', weight=None, lifetime=-86400, locked=False, subscription_id=None)[0]
+        add_rule(dids=[{'scope': mock_scope, 'name': files[0]['name']}], account=jdoe_account, copies=1, rse_expression=rses[cnt][0], grouping='DATASET', weight=None, lifetime=-1, locked=False, subscription_id=None)[0]
     rule_cleaner(once=True)
 
     # Create dataset 1 of 800 GB and create a rule on RSE 1 and RSE 3
@@ -196,7 +196,7 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
     rules.append(rule_id)
 
     add_replicas(rse3_id, files, jdoe_account)
-    rule_id = add_rule(dids=[{'scope': mock_scope, 'name': dsn[2]}], account=jdoe_account, copies=1, rse_expression=rse3, grouping='DATASET', weight=None, lifetime=-86400, locked=False, subscription_id=None)[0]
+    rule_id = add_rule(dids=[{'scope': mock_scope, 'name': dsn[2]}], account=jdoe_account, copies=1, rse_expression=rse3, grouping='DATASET', weight=None, lifetime=-1, locked=False, subscription_id=None)[0]
     rule_cleaner(once=True)
     try:
         rule = get_rule(rule_id)
@@ -211,7 +211,7 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
     rules.append(rule_id)
 
     add_replicas(rse2_id, files, jdoe_account)
-    rule_id = add_rule(dids=[{'scope': mock_scope, 'name': dsn[3]}], account=jdoe_account, copies=1, rse_expression=rse2, grouping='DATASET', weight=None, lifetime=-86400, locked=False, subscription_id=None)[0]
+    rule_id = add_rule(dids=[{'scope': mock_scope, 'name': dsn[3]}], account=jdoe_account, copies=1, rse_expression=rse2, grouping='DATASET', weight=None, lifetime=-1, locked=False, subscription_id=None)[0]
     rule_cleaner(once=True)
     try:
         rule = get_rule(rule_id)
@@ -262,7 +262,7 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
             child_rule = get_rule(child_rule_id)
             assert (child_rule['rse_expression'] == rse2)
             # For teardown, delete child rule
-            update_rule(child_rule_id, {'lifetime': -86400})
+            update_rule(child_rule_id, {'lifetime': -1})
     rule_cleaner(once=True)
 
     for dataset in dsn:
