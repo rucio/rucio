@@ -24,4 +24,4 @@ To learn how to deploy and configure Rucio, consult the [documentation](https://
 
 ## Getting Support
 
-If you are looking for support, join us on our Slack [support](https://rucio.slack.com/messages/#support) channel, or send an email to our public mailing list [rucio-users@googlegroups.com](mailto:rucio-users@googlegroups.com).
+If you are looking for support, please contact us via one of our [official channels](https://rucio.cern.ch/documentation/contact_us/).
