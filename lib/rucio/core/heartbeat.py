@@ -16,7 +16,7 @@ import datetime
 import hashlib
 from typing import TYPE_CHECKING
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.sql import distinct
 
 from rucio.common.exception import DatabaseException
@@ -211,17 +211,21 @@ def list_heartbeats(*, session: "Session"):
     :returns: List of tuples
     """
 
-    query = session.query(Heartbeats.readable,
-                          Heartbeats.hostname,
-                          Heartbeats.pid,
-                          Heartbeats.thread_name,
-                          Heartbeats.updated_at,
-                          Heartbeats.created_at,
-                          Heartbeats.payload).order_by(Heartbeats.readable,
-                                                       Heartbeats.hostname,
-                                                       Heartbeats.thread_name)
+    stmt = select(
+        Heartbeats.readable,
+        Heartbeats.hostname,
+        Heartbeats.pid,
+        Heartbeats.thread_name,
+        Heartbeats.updated_at,
+        Heartbeats.created_at,
+        Heartbeats.payload
+    ).order_by(
+        Heartbeats.readable,
+        Heartbeats.hostname,
+        Heartbeats.thread_name
+    )
 
-    result = query.all()
+    result = session.execute(stmt).all()
     json_result = []
     for element in result:
         json_result.append(element._asdict())
