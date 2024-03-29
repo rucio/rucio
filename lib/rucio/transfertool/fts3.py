@@ -832,9 +832,7 @@ class FTS3Transfertool(Transfertool):
         self.token = None
         if oidc_support:
             fts_hostname = urlparse(external_host).hostname
-            # FIXME: At the time of writing, it is not yet finalised what
-            # audience and/or scope is required by FTS.
-            token = request_token(audience='https://wlcg.cern.ch/jwt/v1/any', scope='fts')
+            token = request_token(audience=fts_hostname, scope='fts')
             if token is not None:
                 self.logger(logging.INFO, 'Using a token to authenticate with FTS instance %s', fts_hostname)
                 self.token = token

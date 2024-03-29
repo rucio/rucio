@@ -11,6 +11,7 @@ DbConnectString=ftsdb/fts
 ValidateAccessTokenOffline=True
 JWKCacheSeconds=86400
 TokenRefreshDaemonIntervalInSeconds=600
+AuthorizedAudiences=https://wlcg.cern.ch/jwt/v1/any;fts
 
 #The alias used for the FTS endpoint, will be published as such in the dashboard transfers UI http://dashb-wlcg-transfers.cern.ch/ui/
 Alias=rucio/fts
