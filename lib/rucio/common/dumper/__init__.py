@@ -247,21 +247,35 @@ def http_download_to_file(url, file_, session=None):
     If given `session` must be a requests.Session instance, and will be
     used to download the file, otherwise requests.get() will be used.
     '''
-    if session is None:
-        response = requests.get(url, stream=True)
-    else:
-        response = session.get(url)
+    def _do_download(url, file_, session, try_decode=False):
+        if session is None:
+            response = requests.get(url, stream=True)
+        else:
+            response = session.get(url)
 
-    if response.status_code != 200:
-        logging.error(
-            'Retrieving %s returned %d status code',
-            url,
-            response.status_code,
-        )
-        raise HTTPDownloadFailed('Error downloading ' + url, response.status_code)
+        if response.status_code != 200:
+            logging.error(
+                'Retrieving %s returned %d status code',
+                url,
+                response.status_code,
+            )
+            raise HTTPDownloadFailed('Error downloading ' + url, response.status_code)
 
-    for chunk in response.iter_content(CHUNK_SIZE):
-        file_.write(chunk)
+        if try_decode:
+            if response.encoding is None:
+                response.encoding = 'utf-8'
+            for chunk in response.iter_content(CHUNK_SIZE, decode_unicode=True):
+                file_.write(chunk)
+        else:
+            for chunk in response.iter_content(CHUNK_SIZE):
+                file_.write(chunk)
+
+    try:
+        # try without decoding first
+        _do_download(url, file_, session, False)
+    except TypeError:
+        # if that fails due to writing binary data to text file, try to force decode
+        _do_download(url, file_, session, True)
 
 
 def http_download(url, filename):

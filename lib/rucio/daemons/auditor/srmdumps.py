@@ -26,12 +26,16 @@ import gfal2
 import requests
 
 from rucio.common.config import get_config_dirs
-from rucio.common.dumper import DUMPS_CACHE_DIR, ddmendpoint_url, gfal_download_to_file, http_download_to_file, temp_file
+from rucio.common.dumper import DUMPS_CACHE_DIR, HTTPDownloadFailed, ddmendpoint_url, gfal_download_to_file, http_download_to_file, temp_file
+from rucio.core.credential import get_signed_url
+from rucio.core.rse import get_rse_id, list_rse_attributes
 
 CHUNK_SIZE = 10485760
 
 __DUMPERCONFIGDIRS = (os.path.join(confdir, 'auditor') for confdir in get_config_dirs())
 __DUMPERCONFIGDIRS = list(filter(os.path.exists, __DUMPERCONFIGDIRS))
+
+OBJECTSTORE_NUM_TRIES = 30
 
 
 class Parser(ConfigParser.RawConfigParser):
@@ -211,7 +215,7 @@ def parse_configuration(conf_dirs=__DUMPERCONFIGDIRS):
     return configuration
 
 
-def download_rse_dump(rse, configuration, date='latest', destdir=DUMPS_CACHE_DIR):
+def download_rse_dump(rse, configuration, date=None, destdir=DUMPS_CACHE_DIR):
     '''
     Downloads the dump for the given ddmendpoint. If this endpoint does not
     follow the standarized method to publish the dumps it should have an
@@ -221,7 +225,7 @@ def download_rse_dump(rse, configuration, date='latest', destdir=DUMPS_CACHE_DIR
 
     `configuration` is a RawConfigParser subclass.
 
-    `date` is a datetime instance with the date of the desired dump or 'latest'
+    `date` is a datetime instance with the date of the desired dump or None
     to download the lastest available dump.
 
     `destdir` is the directory where the dump will be saved (the final component
@@ -232,29 +236,63 @@ def download_rse_dump(rse, configuration, date='latest', destdir=DUMPS_CACHE_DIR
     '''
     logger = logging.getLogger('auditor.srmdumps')
     base_url, url_pattern = generate_url(rse, configuration)
-    if date == 'latest':
-        logger.debug('Looking for site dumps in: "%s"', base_url)
-        links = get_links(base_url)
-        url, date = get_newest(base_url, url_pattern, links)
-    else:
-        url = '{0}/{1}'.format(base_url, date.strftime(url_pattern))
 
     if not os.path.isdir(destdir):
         os.mkdir(destdir)
 
-    filename = '{0}_{1}_{2}_{3}'.format(
-        'ddmendpoint',
-        rse,
-        date.strftime('%d-%m-%Y'),
-        hashlib.sha1(url.encode()).hexdigest()
-    )
-    filename = re.sub(r'\W', '-', filename)
-    path = os.path.join(destdir, filename)
+    # check for objectstores, which need to be handled differently
+    rse_id = get_rse_id(rse)
+    rse_attr = list_rse_attributes(rse_id)
+    if 'is_object_store' in rse_attr and rse_attr['is_object_store'] is not False:
+        tries = 1
+        if date is None:
+            # on objectstores, can't list dump files, so try the last N dates
+            date = datetime.datetime.now()
+            tries = OBJECTSTORE_NUM_TRIES
+        path = ''
+        while tries > 0:
+            url = '{0}/{1}'.format(base_url, date.strftime(url_pattern))
 
-    if not os.path.exists(path):
-        logger.debug('Trying to download: "%s"', url)
-        with temp_file(destdir, final_name=filename) as (f, _):
-            download(url, f)
+            filename = '{0}_{1}_{2}_{3}'.format(
+                'ddmendpoint',
+                rse,
+                date.strftime('%d-%m-%Y'),
+                hashlib.sha1(url.encode()).hexdigest()
+            )
+            filename = re.sub(r'\W', '-', filename)
+            path = os.path.join(destdir, filename)
+            if not os.path.exists(path):
+                logger.debug('Trying to download: "%s"', url)
+                if 'sign_url' in rse_attr:
+                    url = get_signed_url(rse_id, rse_attr['sign_url'], 'read', url)
+                try:
+                    with temp_file(destdir, final_name=filename) as (f, _):
+                        download(url, f)
+                    tries = 0
+                except (HTTPDownloadFailed, gfal2.GError):
+                    tries -= 1
+                    date = date - datetime.timedelta(1)
+    else:
+        if date is None:
+            logger.debug('Looking for site dumps in: "%s"', base_url)
+            links = get_links(base_url)
+            url, date = get_newest(base_url, url_pattern, links)
+        else:
+            url = '{0}/{1}'.format(base_url, date.strftime(url_pattern))
+
+        filename = '{0}_{1}_{2}_{3}'.format(
+            'ddmendpoint',
+            rse,
+            date.strftime('%d-%m-%Y'),
+            hashlib.sha1(url.encode()).hexdigest()
+        )
+        filename = re.sub(r'\W', '-', filename)
+        path = os.path.join(destdir, filename)
+
+        if not os.path.exists(path):
+            logger.debug('Trying to download: "%s"', url)
+            with temp_file(destdir, final_name=filename) as (f, _):
+                download(url, f)
 
     return (path, date)
 
