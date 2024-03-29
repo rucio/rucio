@@ -14,7 +14,7 @@
 
 import datetime
 import hashlib
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.sql import distinct
@@ -25,15 +25,35 @@ from rucio.db.sqla.models import Heartbeats
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
+    from threading import Thread
+    from typing import TypedDict
+
     from sqlalchemy.orm import Session
 
+    class HeartbeatDict(TypedDict):
+        readable: Optional[str]
+        hostname: str
+        pid: int
+        thread_name: Optional[str]
+        updated_at: datetime.datetime
+        created_at: datetime.datetime
+        payload: Optional[str]
+        test: int
 
 DEFAULT_EXPIRATION_DELAY = datetime.timedelta(days=1).total_seconds()
 
 
 @transactional_session
-def sanity_check(executable, hostname, hash_executable=None, pid=None, thread=None,
-                 expiration_delay=DEFAULT_EXPIRATION_DELAY, *, session: "Session"):
+def sanity_check(
+    executable: str,
+    hostname: str,
+    hash_executable: Optional[str] = None,
+    pid: Optional[int] = None,
+    thread: Optional["Thread"] = None,
+    expiration_delay: float = DEFAULT_EXPIRATION_DELAY,
+    *,
+    session: "Session"
+) -> None:
     """
     sanity_check wrapper to ignore DatabaseException errors.
 
@@ -56,7 +76,14 @@ def sanity_check(executable, hostname, hash_executable=None, pid=None, thread=No
 
 
 @transactional_session
-def _sanity_check(executable, hostname, hash_executable=None, expiration_delay=DEFAULT_EXPIRATION_DELAY, *, session: "Session"):
+def _sanity_check(
+    executable: str,
+    hostname: str,
+    hash_executable: Optional[str] = None,
+    expiration_delay: float = DEFAULT_EXPIRATION_DELAY,
+    *,
+    session: "Session"
+) -> None:
     """
     Check if processes on the host are still running.
 
@@ -83,7 +110,17 @@ def _sanity_check(executable, hostname, hash_executable=None, expiration_delay=D
 
 
 @transactional_session
-def live(executable, hostname, pid, thread=None, older_than=600, hash_executable=None, payload=None, *, session: "Session"):
+def live(
+    executable: str,
+    hostname: str,
+    pid: int,
+    thread: Optional["Thread"] = None,
+    older_than: int = 600,
+    hash_executable: Optional[str] = None,
+    payload: Optional[str] = None,
+    *,
+    session: "Session"
+) -> dict[str, int]:
     """
     Register a heartbeat for a process/thread on a given node.
     The executable name is used for the calculation of thread assignments.
@@ -156,7 +193,16 @@ def live(executable, hostname, pid, thread=None, older_than=600, hash_executable
 
 
 @transactional_session
-def die(executable, hostname, pid, thread, older_than=None, hash_executable=None, *, session: "Session"):
+def die(
+    executable: str,
+    hostname: str,
+    pid: int,
+    thread: "Thread",
+    older_than: Optional[int] = None,
+    hash_executable: Optional[str] = None,
+    *,
+    session: "Session"
+) -> None:
     """
     Remove a single heartbeat older than specified.
 
@@ -167,8 +213,6 @@ def die(executable, hostname, pid, thread, older_than=None, hash_executable=None
     :param older_than: Removes specified heartbeats older than specified nr of seconds
     :param hash_executable: Hash of the executable.
     :param session: The database session in use.
-
-    :returns heartbeats: Dictionary {assign_thread, nr_threads}
     """
     if not hash_executable:
         hash_executable = calc_hash(executable)
@@ -185,7 +229,7 @@ def die(executable, hostname, pid, thread, older_than=None, hash_executable=None
 
 
 @transactional_session
-def cardiac_arrest(older_than=None, *, session: "Session"):
+def cardiac_arrest(older_than: Optional[int] = None, *, session: "Session") -> None:
     """
     Removes all heartbeats older than specified.
 
@@ -202,13 +246,13 @@ def cardiac_arrest(older_than=None, *, session: "Session"):
 
 
 @read_session
-def list_heartbeats(*, session: "Session"):
+def list_heartbeats(*, session: "Session") -> list["HeartbeatDict"]:
     """
     List all heartbeats.
 
     :param session: The database session in use.
 
-    :returns: List of tuples
+    :returns: List of dicts
     """
 
     stmt = select(
@@ -233,7 +277,13 @@ def list_heartbeats(*, session: "Session"):
 
 
 @read_session
-def list_payload_counts(executable, older_than=600, hash_executable=None, *, session: "Session"):
+def list_payload_counts(
+    executable: str,
+    older_than: int = 600,
+    hash_executable: Optional[str] = None,
+    *,
+    session: "Session"
+) -> dict[str, int]:
     """
     Give the counts of number of threads per payload for a certain executable.
 
@@ -242,7 +292,7 @@ def list_payload_counts(executable, older_than=600, hash_executable=None, *, ses
     :param hash_executable: Hash of the executable.
     :param session: The database session in use.
 
-    :returns: List of tuples
+    :returns: Dict
     """
 
     if not hash_executable:
@@ -257,7 +307,7 @@ def list_payload_counts(executable, older_than=600, hash_executable=None, *, ses
     return dict((payload, count) for payload, count in query.all() if payload)
 
 
-def calc_hash(executable):
+def calc_hash(executable: str) -> str:
     """
     Calculates a SHA256 hash.
 
