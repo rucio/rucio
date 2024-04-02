@@ -315,17 +315,15 @@ def gnu_sort(file_path, prefix=None, delimiter=None, fieldspec=None, cache_dir=D
     if os.path.exists(sorted_path):
         return sorted_path
 
-    # FIXME: mktemp() is an insecure function and this may be a security
-    # threat in some scenarios. Find another way to do it.
-    tfile = tempfile.mktemp(dir=cache_dir)
+    tfile = tempfile.NamedTemporaryFile(dir=cache_dir, delete=False)
 
     subprocess.check_call(
-        cmd_line.format(file_path, tfile),
+        cmd_line.format(file_path, tfile.name),
         shell=True,
     )
 
-    os.link(tfile, sorted_path)
-    os.unlink(tfile)
+    os.link(tfile.name, sorted_path)
+    os.unlink(tfile.name)
 
     return sorted_path
 
