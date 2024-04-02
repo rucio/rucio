@@ -279,7 +279,6 @@ def run_with_httpd(
     logs_dir: pathlib.Path,
     tests: list[str],
 ) -> bool:
-    compose_version = int(run('docker-compose', 'version', '--short', return_stdout=True).decode().split('.')[0])
 
     with (NamedTemporaryFile() as compose_override_file):
         compose_override_content = yaml.dump({
@@ -293,7 +292,7 @@ def run_with_httpd(
                 }
             }
         })
-        print("Overriding docker-compose configuration with: \n", compose_override_content, flush=True)
+        print("Overriding docker compose configuration with: \n", compose_override_content, flush=True)
         with open(compose_override_file.name, 'w') as f:
             f.write(compose_override_content)
 
@@ -304,19 +303,12 @@ def run_with_httpd(
             '--file', compose_override_file.name,
             '--profile', rdbms,
         )
-        rucio_container = None
+
         try:
             # Start docker compose
-            run('docker-compose', '-p', project, *up_down_args, 'up', '-d')
+            run('docker', 'compose', '-p', project, *up_down_args, 'up', '-d')
 
-            # Retrieve container names from docker compose
-            # or use pre-defined names for old, v1, docker-compose
-            rucio_container = f'{project}_rucio_1'
-            if compose_version > 1:
-                rucio_container = next(filter(
-                    lambda c: c['Service'] == 'rucio',
-                    json.loads(run('docker-compose', '-p', project, 'ps', '--format', 'json', return_stdout=True))
-                ), {}).get('Name', rucio_container)
+            rucio_container = 'dev_rucio_1'
 
             # Running test.sh
             if tests:
@@ -355,7 +347,7 @@ def run_with_httpd(
                             file=sys.stderr,
                             flush=True,
                         )
-            run('docker-compose', '-p', project, *up_down_args, 'down', '-t', '30', check=False)
+            run('docker', 'compose', '-p', project, *up_down_args, 'down', '-t', '30', check=False)
         return False
 
 

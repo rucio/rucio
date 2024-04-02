@@ -28,6 +28,7 @@ services:
       - RUCIO_SOURCE_DIR=/rucio_source
       - RDBMS
   rucio:
+    container_name: dev_rucio_1
     image: docker.io/rucio/rucio-dev:latest-alma9
     platform: linux/amd64
     entrypoint: ["/rucio_source/etc/docker/dev/rucio/entrypoint.sh"]
@@ -123,6 +124,7 @@ services:
     volumes:
       - ./oracle_setup.sh:/container-entrypoint-initdb.d/oracle_setup.sh:Z
   fts:
+    container_name: dev_fts_1
     image: docker.io/rucio/fts
     profiles:
       - storage
