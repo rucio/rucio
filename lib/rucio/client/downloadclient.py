@@ -18,6 +18,7 @@ import itertools
 import logging
 import os
 import random
+import secrets
 import shutil
 import signal
 import subprocess
@@ -762,7 +763,7 @@ class DownloadClient:
         logger = self.logger
         trace_custom_fields['uuid'] = generate_uuid()
 
-        rpc_secret = '%x' % (random.getrandbits(64))
+        rpc_secret = '%x' % (secrets.randbits(64))
         rpc_auth = 'token:%s' % rpc_secret
         rpcproc, aria_rpc = self._start_aria2c_rpc(rpc_secret)
 
@@ -823,7 +824,7 @@ class DownloadClient:
 
         # trying up to 3 random ports
         for attempt in range(3):
-            port = random.randint(1024, 65534)
+            port = random.randint(1024, 65534)  # noqa: S311
             logger(logging.DEBUG, 'Trying to start rpc server on port: %d' % port)
             try:
                 to_exec = cmd % (os.getpid(), rpc_secret, port)

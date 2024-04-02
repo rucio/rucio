@@ -122,7 +122,7 @@ def run_once(paused_dids, did_limit, heartbeat_handler, **_kwargs):
             delete_updated_did(id_=did.id)
         except (DatabaseException, DatabaseError) as e:
             if match(ORACLE_UNIQUE_CONSTRAINT_VIOLATED_REGEX, str(e.args[0])) or match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])):
-                paused_dids[(did.scope.internal, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))
+                paused_dids[(did.scope.internal, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))  # noqa: S311
                 logger(logging.WARNING, 'Locks detected for %s:%s', did.scope, did.name)
                 METRICS.counter('exceptions.{exception}').labels(exception='LocksDetected').inc()
             elif match('.*QueuePool.*', str(e.args[0])):
