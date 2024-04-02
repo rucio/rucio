@@ -98,7 +98,7 @@ def run_once(paused_rules, heartbeat_handler, **_kwargs):
             logger(logging.DEBUG, 'deletion of %s took %f' % (rule_id, time.time() - start))
         except (DatabaseException, DatabaseError, UnsupportedOperation) as e:
             if match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])):
-                paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
+                paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))  # noqa: S311
                 METRICS.counter('exceptions.{exception}').labels(exception='LocksDetected').inc()
                 logger(logging.WARNING, 'Locks detected for %s' % rule_id)
             elif match('.*QueuePool.*', str(e.args[0])):

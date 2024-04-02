@@ -15,11 +15,11 @@
 import hashlib
 import json
 import logging
-import random
 import subprocess
 import traceback
 from datetime import datetime, timedelta
 from math import floor
+from secrets import choice
 from typing import TYPE_CHECKING, Any, Final, Optional
 from urllib.parse import parse_qs, urljoin, urlparse
 
@@ -324,7 +324,7 @@ def __get_init_oidc_client(token_object: models.Token = None, token_type: str = 
             if not redirect_url:
                 redirect_to = kwargs.get("redirect_to", "auth/oidc_token")
                 redirect_urls = [u for u in client_secret["redirect_uris"] if redirect_to in u]
-                redirect_url = random.choice(redirect_urls)
+                redirect_url = choice(redirect_urls)
             if not redirect_url:
                 raise CannotAuthenticate("Could not pick any redirect URL(s) from the ones defined "
                                          + "in Rucio OIDC Client configuration file.")  # NOQA: W503
@@ -870,7 +870,7 @@ def get_token_for_account_operation(account: str, req_audience: str = None, req_
                     subject_token = token
             # if not proceed with token exchange
             if not subject_token:
-                subject_token = random.choice(account_tokens)
+                subject_token = choice(account_tokens)
             exchanged_token = __exchange_token_oidc(subject_token,
                                                     scope=req_scope,
                                                     audience=req_audience,
