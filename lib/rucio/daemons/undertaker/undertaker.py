@@ -98,7 +98,7 @@ def run_once(paused_dids: dict[tuple, datetime], chunk_size: int, heartbeat_hand
             except (DatabaseException, DatabaseError, UnsupportedOperation) as e:
                 if match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])) or match(PSQL_LOCK_NOT_AVAILABLE_REGEX, str(e.args[0])) or match(MYSQL_LOCK_NOWAIT_REGEX, str(e.args[0])):
                     for did in chunk:
-                        paused_dids[(did['scope'], did['name'])] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))
+                        paused_dids[(did['scope'], did['name'])] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))  # noqa: S311
                     METRICS.counter('delete_dids.exceptions.{exception}').labels(exception='LocksDetected').inc()
                     logger(logging.WARNING, 'Locks detected for chunk')
                 else:

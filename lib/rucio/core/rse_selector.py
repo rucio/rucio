@@ -236,7 +236,7 @@ class RSESelector:
         """
 
         shuffle(rses)
-        pick = uniform(0, sum([rse['weight'] for rse in rses]))
+        pick = uniform(0, sum([rse['weight'] for rse in rses]))  # noqa: S311
         weight = 0
         for rse in rses:
             weight += rse['weight']

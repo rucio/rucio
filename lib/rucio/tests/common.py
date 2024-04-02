@@ -126,7 +126,7 @@ def rse_name_generator(size: int = 10) -> str:
 
     :returns: A random RSE name
     """
-    return 'MOCK-' + ''.join(choice(ascii_uppercase) for x in range(size))
+    return 'MOCK-' + ''.join(choice(ascii_uppercase) for x in range(size))  # noqa: S311
 
 
 def rfc2253_dn_generator():
@@ -134,9 +134,9 @@ def rfc2253_dn_generator():
 
     :returns: A random DN
     """
-    random_cn = ''.join(choices(ascii_letters + digits, k=8))
-    random_o = ''.join(choices(ascii_letters + digits, k=8))
-    random_c = ''.join(choices(ascii_letters, k=2))
+    random_cn = ''.join(choices(ascii_letters + digits, k=8))  # noqa: S311
+    random_o = ''.join(choices(ascii_letters + digits, k=8))  # noqa: S311
+    random_c = ''.join(choices(ascii_letters, k=2))  # noqa: S311
     random_dn = "CN={}, O={}, C={}".format(random_cn, random_o, random_c)
     return random_dn
 
@@ -146,7 +146,7 @@ def file_generator(size: int = 2, namelen: int = 10):
     :param size: size in bytes
     :returns: The name of the generated file.
     """
-    fn = '/tmp/file_' + ''.join(choice(ascii_uppercase) for x in range(namelen))
+    fn = '/tmp/file_' + ''.join(choice(ascii_uppercase) for x in range(namelen))  # noqa: S311
     execute('dd if=/dev/urandom of={0} count={1} bs=1'.format(fn, size))
     return fn
 

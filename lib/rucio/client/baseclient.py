@@ -19,7 +19,7 @@
 import errno
 import getpass
 import os
-import random
+import secrets
 import sys
 import time
 from configparser import NoOptionError, NoSectionError
@@ -64,7 +64,7 @@ def choice(hosts):
     :param hosts: Lost of hosts
     :return: A randomly selected host.
     """
-    return random.choice(hosts)
+    return secrets.choice(hosts)
 
 
 class BaseClient:
