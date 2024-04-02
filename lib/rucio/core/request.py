@@ -1409,7 +1409,7 @@ class TransferStatsManager:
         downsample_period = config_get_int('transfers', 'stats_downsample_period', default=self.downsample_period)
         # Introduce some voluntary jitter to reduce the likely-hood of performing this database
         # operation multiple times in parallel.
-        self.downsample_period = random.randint(downsample_period * 3 // 4, math.ceil(downsample_period * 5 / 4))
+        self.downsample_period = random.randint(downsample_period * 3 // 4, math.ceil(downsample_period * 5 / 4))  # noqa: S311
         if self.record_stats:
             self.save_timer = threading.Timer(self.raw_resolution.total_seconds(), self.periodic_save)
             self.save_timer.start()

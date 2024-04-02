@@ -16,7 +16,7 @@
 Mock DID collector
 """
 
-from random import choice
+from secrets import choice
 
 
 class MockDIDCollector:

@@ -15,6 +15,7 @@
 import functools
 import logging
 import random
+import secrets
 import tempfile
 import threading
 from configparser import NoOptionError, NoSectionError
@@ -62,7 +63,7 @@ def get_data_distribution(inputfile: str):
 
 
 def choose_element(probabilities: dict, data: str) -> float:
-    rnd = random.uniform(0, 1)
+    rnd = random.uniform(0, 1)  # noqa: S311
     prob = 0
     for key in probabilities:
         prob = probabilities[key]
@@ -101,11 +102,11 @@ def generate_didname(metadata: dict, dsn: str, did_type: str) -> str:
         elif field == "uuid":
             field_str = generate_uuid()
         elif field == "randint":
-            field_str = str(random.randint(0, 100000))
+            field_str = str(secrets.choice(range(0, 100001)))
         else:
             field_str = metadata.get(field, None)
             if not field_str:
-                field_str = str(random.randint(0, 100000))
+                field_str = str(secrets.choice(range(0, 100001)))
         file_name = "%s%s%s" % (file_name, separator, field_str)
     len_separator = len(separator)
     return file_name[len_separator:]

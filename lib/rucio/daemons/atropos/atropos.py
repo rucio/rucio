@@ -109,7 +109,7 @@ def run_once(
             lifetime_exceptions[key] = excep['expires_at']
     logger(logging.DEBUG, '%d active exceptions', len(lifetime_exceptions))
 
-    rand = random.Random(worker_number)
+    rand = random.Random(worker_number)   # noqa: S311
 
     try:
         rules = get_rules_beyond_eol(date_check, worker_number, total_workers, session=None)

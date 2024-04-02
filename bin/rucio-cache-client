@@ -20,7 +20,7 @@
 import argparse
 import json
 import os
-import random
+import secrets
 import ssl
 import sys
 
@@ -79,7 +79,7 @@ def cache_operation(args):
     conn.set_ssl(key_file=args.ssl_key_file, cert_file=args.ssl_cert_file, ssl_version=ssl.PROTOCOL_TLSv1)
 
     conn.connect()
-    message = {'id': int(random.random() * 1000), 'payload': payload}
+    message = {'id': secrets.randbelow(1001), 'payload': payload}
     conn.send(destination=args.destination, body=json.dumps(message), id='rucio-cache-messaging', ack='auto', headers={'vo': 'atlas'})
     conn.disconnect()
 

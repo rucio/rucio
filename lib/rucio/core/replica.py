@@ -650,7 +650,7 @@ def _pick_n_random(nrandom, generator):
             element = next(iterator)
             i += 1
 
-            index_to_substitute = random.randint(0, i)
+            index_to_substitute = random.randint(0, i)  # noqa: S311
             if index_to_substitute < nrandom:
                 selected[index_to_substitute] = element
     except StopIteration:
