@@ -35,7 +35,7 @@ Using the standard environment
 
 Run the containers using docker-compose (again might need `sudo`)::
 
-    docker-compose --file etc/docker/dev/docker-compose.yml up -d
+    docker compose --file etc/docker/dev/docker-compose.yml up -d
 
 And verify that it is running properly::
 
@@ -63,7 +63,7 @@ Using the environment including storage
 
 Again run the containers using docker-compose::
 
-    docker-compose --file etc/docker/dev/docker-compose.yml --profile storage up -d
+    docker compose --file etc/docker/dev/docker-compose.yml --profile storage up -d
 
 This should show you a few more running containers: the Rucio server, the PostgreSQL database, FTS and its associated MySQL database, the Graphite monitoring, and three XrootD storage servers.
 
@@ -89,7 +89,7 @@ Using the environment including monitoring
 
 Again run the containers using docker-compose::
 
-    docker-compose --file etc/docker/dev/docker-compose.yml --profile storage --profile monitoring up -d
+    docker compose --file etc/docker/dev/docker-compose.yml --profile storage --profile monitoring up -d
 
 
 Now you will have the same containers as before plus a full monitoring stack with Logstash, Elasticsearch, Kibana and Grafana.
@@ -201,7 +201,7 @@ Change anything you need, e.g. in the Dockerfile the code branch cloned to your 
 Compose as usual using docker-compose::
 
     cd /path/to/your/rucio/clone
-    docker-compose --file etc/docker/dev/docker-compose.yml up -d
+    docker compose --file etc/docker/dev/docker-compose.yml up -d
 
 
 
