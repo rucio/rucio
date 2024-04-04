@@ -2,6 +2,7 @@ version: "3"
 services:
   rucioclient:
     image: docker.io/rucio/rucio-dev:latest-alma9
+    platform: linux/amd64
     entrypoint: ["/rucio_source/etc/docker/dev/rucio/entrypoint.sh"]
     command: ["sleep", "infinity"]
     profiles:
@@ -56,6 +57,7 @@ services:
       - RDBMS
   ruciodb:
     image: docker.io/postgres:14
+    platform: linux/amd64
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
@@ -63,8 +65,10 @@ services:
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   graphite:
     image: docker.io/graphiteapp/graphite-statsd
+    platform: linux/amd64
   influxdb:
     image: docker.io/influxdb:latest
+    platform: linux/amd64
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=myusername
@@ -74,10 +78,12 @@ services:
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
   elasticsearch:
     image: docker.io/elasticsearch:7.8.0
+    platform: linux/amd64
     environment:
       - discovery.type=single-node
   activemq:
     image: docker.io/webcenter/activemq:latest
+    platform: linux/amd64
     environment:
       - ACTIVEMQ_CONFIG_NAME=activemq
       - ACTIVEMQ_CONFIG_DEFAULTACCOUNT=false
@@ -90,6 +96,7 @@ services:
       - ACTIVEMQ_CONFIG_QUEUES_events=/queue/events'
   postgres14:
     image: docker.io/postgres:14
+    platform: linux/amd64
     profiles:
       - postgres14
     environment:
@@ -99,6 +106,7 @@ services:
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   mysql8:
     image: docker.io/mysql:8
+    platform: linux/amd64
     profiles:
       - mysql8
     environment:
@@ -112,6 +120,7 @@ services:
       - "--character-set-server=latin1"
   oracle:
     image: docker.io/gvenzl/oracle-xe:18.4.0
+    platform: linux/amd64
     profiles:
       - oracle
     environment:
@@ -126,6 +135,7 @@ services:
   fts:
     container_name: dev_fts_1
     image: docker.io/rucio/fts
+    platform: linux/amd64
     profiles:
       - storage
     volumes:
@@ -143,6 +153,7 @@ services:
         hard: 10240
   ftsdb:
     image: docker.io/mysql:8
+    platform: linux/amd64
     profiles:
       - storage
     command: --default-authentication-plugin=mysql_native_password
@@ -153,6 +164,7 @@ services:
       - MYSQL_DATABASE=fts
   xrd1:
     image: docker.io/rucio/xrootd
+    platform: linux/amd64
     profiles:
       - storage
     environment:
@@ -168,6 +180,7 @@ services:
         hard: 10240
   xrd2:
     image: docker.io/rucio/xrootd
+    platform: linux/amd64
     profiles:
       - storage
     environment:
@@ -183,6 +196,7 @@ services:
         hard: 10240
   xrd3:
     image: docker.io/rucio/xrootd
+    platform: linux/amd64
     profiles:
       - storage
     environment:
@@ -198,6 +212,7 @@ services:
         hard: 10240
   xrd4:
     image: docker.io/rucio/xrootd
+    platform: linux/amd64
     profiles:
       - storage
     environment:
@@ -213,6 +228,7 @@ services:
         hard: 10240
   xrd5:
     image: docker.io/rucio/xrootd
+    platform: linux/amd64
     profiles:
       - storage
     environment:
@@ -235,6 +251,7 @@ services:
         hard: 10240
   web1:
     image: rucio/webdav
+    platform: linux/amd64
     environment:
       - QBITTORRENT_UI_USERNAME=rucio
       - QBITTORRENT_UI_PASSWORD=rucio90df
@@ -249,6 +266,7 @@ services:
       - ./web1/default-ssl.conf:/etc/apache2/sites-available/default-ssl.conf
   minio:
     image: docker.io/minio/minio
+    platform: linux/amd64
     profiles:
       - storage
     environment:
@@ -260,16 +278,19 @@ services:
     command: ["server", "/data"]
   ssh1:
     image: docker.io/rucio/ssh
+    platform: linux/amd64
     profiles:
       - storage
     volumes:
       - ../../certs/ssh/ruciouser_sshkey.pub:/tmp/sshkey.pub:Z
   mongo:
     image: docker.io/mongo:5.0
+    platform: linux/amd64
     profiles:
       - externalmetadata
   postgres:
     image: docker.io/postgres:14
+    platform: linux/amd64
     profiles:
       - externalmetadata
     environment:
@@ -279,6 +300,7 @@ services:
     command: ["-p", "5433"]
   logstash:
     image: docker.elastic.co/logstash/logstash-oss:7.3.2
+    platform: linux/amd64
     profiles:
       - monitoring
     command: bash -c "logstash-plugin install logstash-input-stomp ; /usr/local/bin/docker-entrypoint"
@@ -286,14 +308,17 @@ services:
       - ./pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf:Z
   kibana:
     image: docker.io/kibana:7.4.0
+    platform: linux/amd64
     profiles:
       - monitoring
   grafana:
     image: docker.io/grafana/grafana:latest
+    platform: linux/amd64
     profiles:
       - monitoring
   iam-db:
     image: mariadb:10.11
+    platform: linux/amd64
     profiles:
       - iam
     healthcheck:
@@ -309,6 +334,7 @@ services:
       - ./iam/indigoiam_db.sql:/docker-entrypoint-initdb.d/03_indigoiam.sql:ro
   indigoiam:
     image: nginx
+    platform: linux/amd64
     profiles:
       - iam
     dns_search: cern.ch
@@ -326,6 +352,7 @@ services:
       - indigoiam-login-service
   indigoiam-login-service:
     image: indigoiam/iam-login-service:v1.8.2p2
+    platform: linux/amd64
     profiles:
       - iam
     environment:
@@ -360,6 +387,7 @@ services:
         condition: service_healthy
   keycloak:
     image: quay.io/keycloak/keycloak:23.0.1
+    platform: linux/amd64
     command: start-dev --features=token-exchange,admin-fine-grained-authz,dynamic-scopes --db mariadb --db-url-host iam-db --db-username keycloak --db-password secret --https-certificate-file=/cert.pem --https-certificate-key-file=/key.pem
     profiles:
       - iam
