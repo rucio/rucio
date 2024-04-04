@@ -329,14 +329,14 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
                 for reason in suspicious_reason:
                     if "auditor" in reason["reason"].lower():
                         from_auditor = True
-                        files_to_be_declared_bad_nattempts_1.append(recoverable_replicas[vo][rse_key][replica_key])
+                        files_to_be_declared_bad_nattempts_1.append(replicas_nattempts_1[vo][rse_key][replica_key])
                         break
 
                 # Bad
                 if not from_auditor:
                     if (file_name.startswith("log.")) or (file_name.startswith("user")):
                         # Don't keep log files or user files
-                        files_to_be_declared_bad_nattempts_1.append(recoverable_replicas[vo][rse_key][replica_key])
+                        files_to_be_declared_bad_nattempts_1.append(replicas_nattempts_1[vo][rse_key][replica_key])
                         action = ""
                     else:
                         # Deal with replicas based on their metadata.
