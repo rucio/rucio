@@ -53,7 +53,7 @@ do
     a) alembic="";;
     u) pip_only="true";;
     x) stop_on_failure="--exitfirst";;
-    *) usae; exit 1;
+    *) usage; exit 1;
   esac
 done
 
