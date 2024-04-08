@@ -220,15 +220,20 @@ def get_auth_token_ssh(account, signature, appid, ip=None, *, session: "Session"
     The token lifetime is 1 hour.
 
     :param account: Account identifier as a string.
-    :param signature: Response to server challenge signed with SSH private key as string.
+    :param signature: Response to server challenge signed with SSH private key as a base64 encoded string.
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
     :param session: The database session in use.
 
     :returns: A dict with token and expires_at entries.
     """
-    if not isinstance(signature, bytes):
-        signature = signature.encode()
+
+    # decode the signature which must come in base64 encoded
+    try:
+        signature += '=' * ((4 - len(signature) % 4) % 4)  # adding required padding
+        signature = b64decode(signature)
+    except TypeError:
+        raise CannotAuthenticate(f'Cannot authenticate to account {account} with malformed signature')
 
     # Make sure the account exists
     if not account_exists(account, session=session):

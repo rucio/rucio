@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import base64
 import json
 import logging
 import time
@@ -1214,18 +1213,6 @@ class SSH(ErrorHandlingMethodView):
         signature = request.headers.get('X-Rucio-SSH-Signature', default=None)
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
-
-        # decode the signature which must come in base64 encoded
-        try:
-            signature += '=' * ((4 - len(signature) % 4) % 4)  # adding required padding
-            signature = base64.b64decode(signature)
-        except TypeError:
-            return generate_http_error_flask(
-                status_code=401,
-                exc=CannotAuthenticate.__name__,
-                exc_msg=f'Cannot authenticate to account {account} with malformed signature',
-                headers=headers
-            )
 
         try:
             result = get_auth_token_ssh(account, signature, appid, ip, vo=vo)
