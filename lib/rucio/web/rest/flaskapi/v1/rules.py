@@ -276,7 +276,14 @@ class AllRule(ErrorHandlingMethodView):
                     description: The list of data identifiers.
                     type: array
                     items:
-                      type: string
+                      type: object
+                      properties:
+                        scope:
+                          description: The scope of the data identifier
+                          type: string
+                        name:
+                          description: The name of the data identifier
+                          type: string
                   account:
                     description: The account of the issuer.
                     type: string
