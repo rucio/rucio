@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import base64
 import datetime
 import time
 
@@ -125,7 +124,7 @@ class TestAuthCoreApi:
 
         challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', vo=vo).get('token')
 
-        signature = base64.b64decode(ssh_sign(PRIVATE_KEY, challenge_token))
+        signature = ssh_sign(PRIVATE_KEY, challenge_token)
 
         result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', vo=vo)
 
@@ -159,8 +158,7 @@ class TestAuthCoreApi:
 
         challenge_token = get_ssh_challenge_token(account='root', appid='test', ip='127.0.0.1', vo=vo).get('token')
 
-        ssh_sign_string = ssh_sign(PRIVATE_KEY, challenge_token)
-        signature = base64.b64decode(ssh_sign_string)
+        signature = ssh_sign(PRIVATE_KEY, challenge_token)
         result = get_auth_token_ssh(account='root', signature=signature, appid='test', ip='127.0.0.1', vo=vo)
         assert result is not None
 
