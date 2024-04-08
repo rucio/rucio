@@ -1271,7 +1271,7 @@ def detect_client_location():
             'longitude': longitude}
 
 
-def ssh_sign(private_key, message):
+def ssh_sign(private_key: str, message: str) -> str:
     """
     Sign a string message using the private key.
 
@@ -1279,14 +1279,13 @@ def ssh_sign(private_key, message):
     :param message: The message to sign as a string.
     :return: Base64 encoded signature as a string.
     """
-    if isinstance(message, str):
-        message = message.encode()
+    encoded_message = message.encode()
     if not EXTRA_MODULES['paramiko']:
         raise MissingModuleException('The paramiko module is not installed or faulty.')
     sio_private_key = StringIO(private_key)
     priv_k = RSAKey.from_private_key(sio_private_key)
     sio_private_key.close()
-    signature_stream = priv_k.sign_ssh_data(message)
+    signature_stream = priv_k.sign_ssh_data(encoded_message)
     signature_stream.rewind()
     base64_encoded = base64.b64encode(signature_stream.get_remainder())
     base64_encoded = base64_encoded.decode()
