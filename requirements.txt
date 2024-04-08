@@ -36,7 +36,7 @@ PyMySQL==1.1.0                                              # mysql_extras
 PyYAML==6.0.1                                               # globus_extras and used for reading test configuration files
 globus-sdk==3.32.0                                          # globus_extras
 python3-saml==1.16.0                                        # saml_extras
-pymongo==4.6.0                                              # pymongo (metadata plugin)
+pymongo==4.6.3                                              # pymongo (metadata plugin)
 libtorrent==2.0.9                                           # Support for the bittorrent transfertool
 qbittorrent-api==2023.11.57                                 # qBittorrent plugin for the bittorrent tranfsertool
 
