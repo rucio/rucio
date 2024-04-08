@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Sequence
 from json import dumps, loads
 from typing import Any, Optional, Union
 from urllib.parse import quote_plus
@@ -30,7 +31,7 @@ class RuleClient(BaseClient):
 
     def add_replication_rule(
         self,
-        dids: list[str],
+        dids: Sequence[dict[str, str]],
         copies: int,
         rse_expression: str,
         priority: int = 3,
