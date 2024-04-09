@@ -145,33 +145,21 @@ def create_root_account():
 
     multi_vo = bool(config_get('common', 'multi_vo', False, False))
 
-    up_id = 'ddmlab'
-    up_pwd = 'secret'
-    up_email = 'ph-adp-ddm-lab@cern.ch'
-    x509_id = 'emailAddress=ph-adp-ddm-lab@cern.ch,CN=DDMLAB Client Certificate,OU=PH-ADP-CO,O=CERN,ST=Geneva,C=CH'
-    x509_email = 'ph-adp-ddm-lab@cern.ch'
-    gss_id = 'ddmlab@CERN.CH'
-    gss_email = 'ph-adp-ddm-lab@cern.ch'
-    ssh_id = 'ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL614sulXQ7wnIr1aGhGtl8b+HCB/'\
-             '0FhMSMTHwSjX78UbfqEorZV16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXUh6ydn'\
-             'Vy89zGzX1FJFFDZ+AgiZ3ytp55tg1bjqqhK1OSC0pJxdNe878TRVVo5MLI0S/rZY2UovCSGFaQG2'\
-             'iLj14wz/YqI7NFMUuJFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKExlnvFLTlDI5'\
-             'Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== ddmlab'
-    ssh_email = 'ph-adp-ddm-lab@cern.ch'
-
-    try:
-        up_id = config_get('bootstrap', 'userpass_identity')
-        up_pwd = config_get('bootstrap', 'userpass_pwd')
-        up_email = config_get('bootstrap', 'userpass_email')
-        x509_id = config_get('bootstrap', 'x509_identity')
-        x509_email = config_get('bootstrap', 'x509_email')
-        gss_id = config_get('bootstrap', 'gss_identity')
-        gss_email = config_get('bootstrap', 'gss_email')
-        ssh_id = config_get('bootstrap', 'ssh_identity')
-        ssh_email = config_get('bootstrap', 'ssh_email')
-    except:
-        pass
-        # print 'Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.'
+    up_id = config_get('bootstrap', 'userpass_identity', default='ddmlab')
+    up_pwd = config_get('bootstrap', 'userpass_pwd', default='secret')
+    up_email = config_get('bootstrap', 'userpass_email', default='ph-adp-ddm-lab@cern.ch')
+    x509_id = config_get('bootstrap', 'x509_identity', default='emailAddress=ph-adp-ddm-lab@cern.ch,CN=DDMLAB Client Certificate,OU=PH-ADP-CO,O=CERN,ST=Geneva,C=CH')
+    x509_email = config_get('bootstrap', 'x509_email', default='ph-adp-ddm-lab@cern.ch')
+    gss_id = config_get('bootstrap', 'gss_identity', default='ddmlab@CERN.CH')
+    gss_email = config_get('bootstrap', 'gss_email', default='ph-adp-ddm-lab@cern.ch')
+    ssh_id = config_get('bootstrap', 'ssh_identity',
+                        default='ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL614sulXQ7wnIr1aGhGtl8b+HCB/'
+                        '0FhMSMTHwSjX78UbfqEorZV16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXUh6ydn'
+                        'Vy89zGzX1FJFFDZ+AgiZ3ytp55tg1bjqqhK1OSC0pJxdNe878TRVVo5MLI0S/rZY2UovCSGFaQG2'
+                        'iLj14wz/YqI7NFMUuJFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKExlnvFLTlDI5'
+                        'Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== ddmlab'
+                        )
+    ssh_email = config_get('bootstrap', 'ssh_email', default='ph-adp-ddm-lab@cern.ch')
 
     session_scoped = get_session()
 
