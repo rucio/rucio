@@ -1245,7 +1245,7 @@ def detect_client_location():
             pass
 
     if not ip:
-        ip = '0.0.0.0'
+        ip = '0.0.0.0'  # noqa: S104
 
     site = os.environ.get('SITE_NAME',
                           os.environ.get('ATLAS_SITE_NAME',
