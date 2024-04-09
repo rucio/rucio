@@ -77,8 +77,8 @@ class BaseClient:
 
     AUTH_RETRIES, REQUEST_RETRIES = 2, 3
     TOKEN_PATH_PREFIX = get_tmp_dir() + '/.rucio_'
-    TOKEN_PREFIX = 'auth_token_'
-    TOKEN_EXP_PREFIX = 'auth_token_exp_'
+    TOKEN_PREFIX = 'auth_token_'  # noqa: S105
+    TOKEN_EXP_PREFIX = 'auth_token_exp_'  # noqa: S105
 
     def __init__(self,
                  rucio_host: Optional[str] = None,
