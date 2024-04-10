@@ -529,7 +529,7 @@ class Pcache:
 
         # Execute original command, no further action
         if (not (self.dst.startswith(self.scratch_dir) and self.accept(self.src) and (not self.reject(self.src)))):
-            os.execvp(self.copy_util, self.args)
+            os.execvp(self.copy_util, self.args)  # noqa: S606
             os._exit(1)
 
         # XXXX todo:  fast-path - try to acquire lock
