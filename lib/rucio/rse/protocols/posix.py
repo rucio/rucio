@@ -74,7 +74,7 @@ class Default(protocol.RSEProtocol):
             try:  # To check if the error happened local or remote
                 with open(dest, 'wb'):
                     pass
-                call(['rm', '-rf', dest])
+                call(['rm', '-rf', dest])  # noqa: S607
             except OSError as e:
                 if e.errno == 2:
                     raise exception.DestinationNotAccessible(e)

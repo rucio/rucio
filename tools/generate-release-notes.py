@@ -122,7 +122,7 @@ def print_issues(issues, section_title):
                 print(format_issue(issue, doc=True))
 
 
-root_git_dir = subprocess.check_output('git rev-parse --show-toplevel', shell=True).decode("utf-8").rstrip()
+root_git_dir = subprocess.check_output('git rev-parse --show-toplevel', shell=True).decode("utf-8").rstrip()  # noqa: S607
 # Load OAUTH token
 try:
     with open(root_git_dir + '/.githubtoken', 'r') as f:

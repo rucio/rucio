@@ -1398,7 +1398,7 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
         # try to get it from IdP introspection endpoint
         # TO-BE-REMOVED - once all IdPs support scope and audience in token claims !!!
         if not token_dict['authz_scope'] or not token_dict['audience']:
-            clprocess = subprocess.Popen(['curl', '-s', '-L', '-u', '%s:%s'
+            clprocess = subprocess.Popen(['curl', '-s', '-L', '-u', '%s:%s'  # noqa: S607
                                           % (oidc_client.client_id, oidc_client.client_secret),
                                           '-d', 'token=%s' % (json_web_token),
                                           oidc_client.introspection_endpoint],
