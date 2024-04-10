@@ -173,7 +173,7 @@ class Default(protocol.RSEProtocol):
         :raises RSEAccessDenied: Cannot connect.
         """
 
-        status, lcglscommand = getstatusoutput('which lcg-ls')  # noqa: S605
+        status, lcglscommand = getstatusoutput('which lcg-ls')  # noqa: S605, S607
         if status:
             raise exception.RSEAccessDenied('Cannot find lcg tools')
         endpoint_basepath = self.path2pfn(self.attributes['prefix'])
