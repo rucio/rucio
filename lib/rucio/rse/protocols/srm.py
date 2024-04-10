@@ -173,11 +173,11 @@ class Default(protocol.RSEProtocol):
         :raises RSEAccessDenied: Cannot connect.
         """
 
-        status, lcglscommand = getstatusoutput('which lcg-ls')
+        status, lcglscommand = getstatusoutput('which lcg-ls')  # noqa: S605
         if status:
             raise exception.RSEAccessDenied('Cannot find lcg tools')
         endpoint_basepath = self.path2pfn(self.attributes['prefix'])
-        status, result = getstatusoutput('%s -vv $LCGVO -b --srm-timeout 60 -D srmv2 -l %s' % (lcglscommand, endpoint_basepath))
+        status, result = getstatusoutput('%s -vv $LCGVO -b --srm-timeout 60 -D srmv2 -l %s' % (lcglscommand, endpoint_basepath))  # noqa: S605
         if status:
             if result == '':
                 raise exception.RSEAccessDenied('Endpoint not reachable. lcg-ls failed with status code %s but no further details.' % (str(status)))

@@ -682,7 +682,7 @@ class Pcache:
             self.fail(103)
 
     def get_disk_usage(self):
-        p = os.popen("df -P %s | tail -1" % self.pcache_dir, 'r')
+        p = os.popen("df -P %s | tail -1" % self.pcache_dir, 'r')  # noqa: S605
         data = p.read()
         status = p.close()
         if status:
@@ -772,7 +772,7 @@ class Pcache:
             d = self.pcache_dir + d
             try:
                 os.rename(d, d + ts)
-                os.system("rm -rf %s &" % (d + ts))
+                os.system("rm -rf %s &" % (d + ts))  # noqa: S605
             except OSError as e:
                 if e.errno != errno.ENOENT:
                     self.log(ERROR, "%s: %s", d, e)
