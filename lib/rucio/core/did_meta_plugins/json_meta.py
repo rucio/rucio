@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from datetime import datetime
 import json as json_lib
 import operator
 from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy.exc import DataError
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy import delete
 
 from rucio.common import exception
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
@@ -29,6 +31,8 @@ from rucio.db.sqla.util import json_implemented
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+    from typing import Optional
+    from rucio.common.types import InternalScope
 
 
 class JSONDidMeta(DidMetaPlugin):
@@ -59,12 +63,50 @@ class JSONDidMeta(DidMetaPlugin):
         except NoResultFound:
             return {}
 
+    @read_session
+    def get_metadata_archived(self, scope, name, session=None):
+        """
+        Get archived did metadata.
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param session: The database session in use.
+        """
+        if not json_implemented(session=session):
+            raise NotImplementedError
+
+        try:
+            row = session.query(models.DeletedDidMeta).filter_by(scope=scope, name=name).one()
+            meta = getattr(row, 'meta')
+            return json_lib.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
+        except NoResultFound:
+            raise exception.DataIdentifierNotFound("No generic metadata found for '%(scope)s:%(name)s'" % locals())
+
     @transactional_session
     def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Session"):
+        """
+        Set single metadata key.
+
+        :param scope: the scope of did
+        :param name: the name of the did
+        :param key: the key to be added
+        :param value: the value of the key to be added
+        :param recursive: recurse into DIDs (not supported)
+        :param session: The database session in use
+        """
         self.set_metadata_bulk(scope=scope, name=name, metadata={key: value}, recursive=recursive, session=session)
 
     @transactional_session
     def set_metadata_bulk(self, scope, name, metadata, recursive=False, *, session: "Session"):
+        """
+        Bulk set metadata keys.
+
+        :param scope: the scope of did
+        :param name: the name of the did
+        :param metadata: dictionary of metadata keypairs to be added
+        :param recursive: recurse into DIDs (not supported)
+        :param session: The database session in use
+        """
         if not json_implemented(session=session):
             raise NotImplementedError
 
@@ -102,7 +144,7 @@ class JSONDidMeta(DidMetaPlugin):
     @transactional_session
     def delete_metadata(self, scope, name, key, *, session: "Session"):
         """
-        Delete a key from the metadata column
+        Deletes the metadata stored for the given key.
 
         :param scope: the scope of did
         :param name: the name of the did
@@ -134,6 +176,41 @@ class JSONDidMeta(DidMetaPlugin):
             row.meta = existing_meta
         except NoResultFound:
             raise exception.DataIdentifierNotFound(f"Key not found for data identifier '{scope}:{name}'")
+
+    @transactional_session
+    def on_delete(self, scope: "InternalScope", name: str, archive: bool = False,
+                  session: "Optional[Session]" = None) -> None:
+        """
+        Method called when a did is deleted.
+
+        :param scope: The scope of the did.
+        :param name: The name of the did.
+        :param archive: Flag to indicate if the metadata should be archived when the did is deleted.
+        :param session: The database session in use.
+        """
+        if not json_implemented(session=session):
+            return
+
+        if archive:
+            for row in session.query(models.DidMeta).filter_by(scope=scope, name=name).all():
+                models.DeletedDidMeta(
+                    scope=row.scope,
+                    name=row.name,
+                    did_type=row.did_type,
+                    meta=row.meta,
+                    created_at=row.created_at,
+                    updated_at=row.updated_at,
+                    deleted_at=datetime.utcnow()
+                ).save(session=session, flush=False)
+        stmt = delete(
+            models.DidMeta
+        ).where(
+            models.DidMeta.scope == scope,
+            models.DidMeta.name == name,
+        ).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt)
 
     @stream_session
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,

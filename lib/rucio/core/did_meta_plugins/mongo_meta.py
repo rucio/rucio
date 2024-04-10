@@ -137,6 +137,17 @@ class MongoDidMeta(DidMetaPlugin):
         except Exception as e:
             raise exception.DataIdentifierNotFound(e)
 
+    def on_delete(self, scope: "InternalScope", name: str, archive: bool = False, session: "Optional[Session]" = None) -> None:
+        """
+        Method called when a did is deleted.
+
+        :param scope: The scope of the did.
+        :param name: The name of the did.
+        :param archive: Flag to indicate if the metadata should be archived when the did is deleted.
+        :param session: The database session in use.
+        """
+        pass
+
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
                   offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Optional[Session]" = None):
         if not ignore_dids:

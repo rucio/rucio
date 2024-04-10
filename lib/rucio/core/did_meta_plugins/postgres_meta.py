@@ -231,7 +231,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
 
     def delete_metadata(self, scope, name, key, *, session: "Optional[Session]" = None):
         """
-        Delete a key from metadata.
+        Deletes the metadata stored for the given key.
 
         :param scope: the scope of did
         :param name: the name of the did
@@ -244,6 +244,17 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         cur.execute(statement)
         cur.close()
         self.client.commit()
+
+    def on_delete(self, scope: "InternalScope", name: str, archive: bool = False, session: "Optional[Session]" = None) -> None:
+        """
+        Method called when a did is deleted.
+
+        :param scope: The scope of the did.
+        :param name: The name of the did.
+        :param archive: Flag to indicate if the metadata should be archived when the did is deleted.
+        :param session: The database session in use.
+        """
+        pass
 
     def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
                   offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Optional[Session]" = None):

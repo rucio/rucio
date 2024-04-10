@@ -70,6 +70,11 @@ RESTRICTED_CHARACTERS = {
     '.': "Used as a delimiter for key and operator (<key>.<operator>) in filtering engine."
 }
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+    from typing import Optional
+    from rucio.common.types import InternalScope
+
 
 @read_session
 def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
@@ -247,3 +252,17 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
                                             ignore_case=ignore_case, limit=limit,
                                             offset=offset, long=long, recursive=recursive,
                                             ignore_dids=ignore_dids, session=session)
+
+
+@transactional_session
+def on_delete(scope: "InternalScope", name: str, archive: bool = False, session: "Optional[Session]" = None) -> None:
+    """
+    Method called when a did is deleted.
+
+    :param scope: The scope of the did.
+    :param name: The name of the did.
+    :param archive: Flag to indicate if the metadata should be archived when the did is deleted.
+    :param session: The database session in use.
+    """
+    for metadata_plugin in METADATA_PLUGIN_MODULES:
+        metadata_plugin.on_delete(scope, name, archive, session=session)
