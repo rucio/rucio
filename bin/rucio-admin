@@ -1432,7 +1432,7 @@ def get_parser():
                                                               '"""""""""""""\n'
                                                               '::\n'
                                                               '\n'
-                                                              '    $ rucio-admin account list --type USER'\n'
+                                                              '    $ rucio-admin account list --type USER\n'
                                                               '\n')
     list_account_parser.add_argument('--type', dest='account_type', action='store', help='Account Type (USER, GROUP, SERVICE)')
     list_account_parser.add_argument('--id', dest='identity', action='store', help='Identity (e.g. DN)')
