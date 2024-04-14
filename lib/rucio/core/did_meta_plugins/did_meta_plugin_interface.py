@@ -13,14 +13,17 @@
 # limitations under the License.
 
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from collections.abc import Iterator
+    from typing import Any, Optional, Union
 
     from sqlalchemy.orm import Session
+
+    from rucio.common.types import InternalScope
 
 
 class DidMetaPlugin(metaclass=ABCMeta):
@@ -35,7 +38,13 @@ class DidMetaPlugin(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_metadata(self, scope, name, *, session: "Optional[Session]" = None):
+    def get_metadata(
+        self,
+        scope: "InternalScope",
+        name: str,
+        *,
+        session: "Optional[Session]" = None
+    ) -> "Any":
         """
         Get data identifier metadata
 
@@ -46,7 +55,16 @@ class DidMetaPlugin(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Optional[Session]" = None):
+    def set_metadata(
+        self,
+        scope: "InternalScope",
+        name: str,
+        key: str,
+        value: str,
+        recursive: bool = False,
+        *,
+        session: "Optional[Session]" = None
+    ) -> None:
         """
         Add metadata to data identifier.
 
@@ -61,7 +79,15 @@ class DidMetaPlugin(metaclass=ABCMeta):
         pass
 
     @transactional_session
-    def set_metadata_bulk(self, scope, name, meta, recursive=False, *, session: "Optional[Session]" = None):
+    def set_metadata_bulk(
+        self,
+        scope: "InternalScope",
+        name: str,
+        meta: dict[str, "Any"],
+        recursive: bool = False,
+        *,
+        session: "Optional[Session]" = None
+    ) -> None:
         """
         Add metadata to data identifier in bulk.
 
@@ -76,7 +102,14 @@ class DidMetaPlugin(metaclass=ABCMeta):
             self.set_metadata(scope, name, key, value, recursive=recursive, session=session)
 
     @abstractmethod
-    def delete_metadata(self, scope, name, key, *, session: "Session" = None):
+    def delete_metadata(
+        self,
+        scope: "InternalScope",
+        name: str,
+        key: str,
+        *,
+        session: "Optional[Session]" = None
+    ) -> None:
         """
         Deletes the metadata stored for the given key.
 
@@ -88,8 +121,19 @@ class DidMetaPlugin(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def list_dids(self, scope, filters, did_type='collection', ignore_case=False, limit=None,
-                  offset=None, long=False, recursive=False, *, session: "Optional[Session]" = None):
+    def list_dids(
+        self,
+        scope: "InternalScope",
+        filters: dict[str, "Any"],
+        did_type: Literal['all', 'collection', 'dataset', 'container', 'file'] = 'collection',
+        ignore_case: bool = False,
+        limit: "Optional[int]" = None,
+        offset: "Optional[int]" = None,
+        long: bool = False,
+        recursive: bool = False,
+        *,
+        session: "Optional[Session]" = None
+    ) -> "Iterator[Union[str, dict[str, Any]]]":
         """
         Search data identifiers
 
@@ -106,7 +150,12 @@ class DidMetaPlugin(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def manages_key(self, key, *, session: "Optional[Session]" = None):
+    def manages_key(
+        self,
+        key: str,
+        *,
+        session: "Optional[Session]" = None
+    ) -> bool:
         """
         Returns whether key is managed by this plugin or not.
         :param key: Key of the metadata.
