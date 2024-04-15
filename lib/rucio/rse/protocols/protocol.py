@@ -24,6 +24,7 @@ from typing import TypeVar
 from urllib.parse import urlparse
 
 from rucio.common import config, exception
+from rucio.common.constants import RseAttr
 from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.rse import rsemanager
 
@@ -251,7 +252,7 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
 
             :returns: RSE specific URI of the physical file
         """
-        algorithm = self.rse_attributes.get('lfn2pfn_algorithm', 'default')
+        algorithm = self.rse_attributes.get(RseAttr.LFN2PFN_ALGORITHM, 'default')
         if algorithm == 'default':
             algorithm = RSEDeterministicTranslation._DEFAULT_LFN2PFN
         algorithm_callable = super()._get_one_algorithm(RSEDeterministicTranslation._algorithm_type, algorithm)

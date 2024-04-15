@@ -16,6 +16,7 @@ import os
 
 import pytest
 
+from rucio.common.constants import RseAttr
 from rucio.common.exception import UnsupportedOperation
 from rucio.core.credential import get_signed_url
 from rucio.core.replica import add_replicas
@@ -107,7 +108,7 @@ class TestCredential:
                      account=root_account,
                      ignore_availability=True)
 
-        add_rse_attribute(rse_id=self.rse1_id, key='sign_url', value='gcs')
+        add_rse_attribute(rse_id=self.rse1_id, key=RseAttr.SIGN_URL, value='gcs')
         replicas = [r for r in replica_client.list_replicas(dids=[{'scope': 'mock',
                                                                    'name': f['name'],
                                                                    'type': 'FILE'} for f in files],

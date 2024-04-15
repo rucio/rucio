@@ -16,6 +16,7 @@ from urllib.parse import urlencode
 
 import pytest
 
+from rucio.common.constants import RseAttr
 from rucio.core.config import set as config_set
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_protocol, add_rse, add_rse_attribute, del_rse
@@ -35,13 +36,13 @@ def root_proxy_example_data(vo, root_account, mock_scope):
     rse_without_proxy = rse_name_generator()
     rse_without_proxy_id = add_rse(rse_without_proxy, vo=vo)
     add_rse_attribute(rse_id=rse_without_proxy_id,
-                      key='site',
+                      key=RseAttr.SITE,
                       value='BLACKMESA1')
 
     rse_with_proxy = rse_name_generator()
     rse_with_proxy_id = add_rse(rse_with_proxy, vo=vo)
     add_rse_attribute(rse_id=rse_with_proxy_id,
-                      key='site',
+                      key=RseAttr.SITE,
                       value='APERTURE1')
 
     # APERTURE1 site has an internal proxy

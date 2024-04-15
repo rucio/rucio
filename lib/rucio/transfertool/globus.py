@@ -14,6 +14,7 @@
 
 import logging
 
+from rucio.common.constants import RseAttr
 from rucio.common.utils import chunks
 from rucio.db.sqla.constants import RequestState
 from rucio.transfertool.transfertool import TransferStatusReport, Transfertool, TransferToolBuilder
@@ -82,7 +83,7 @@ class GlobusTransferTool(Transfertool):
     """
 
     external_name = 'globus'
-    required_rse_attrs = ('globus_endpoint_id', )
+    required_rse_attrs = (RseAttr.GLOBUS_ENDPOINT_ID, )
 
     def __init__(self, external_host, logger=logging.log, group_bulk=200, group_policy='single'):
         """
@@ -161,8 +162,8 @@ class GlobusTransferTool(Transfertool):
                     'dst_rse': transfer.dst.rse.name,
                     'scope': str(transfer.rws.scope),
                     'name': transfer.rws.name,
-                    'source_globus_endpoint_id': transfer.src.rse.attributes['globus_endpoint_id'],
-                    'dest_globus_endpoint_id': transfer.dst.rse.attributes['globus_endpoint_id'],
+                    'source_globus_endpoint_id': transfer.src.rse.attributes[RseAttr.GLOBUS_ENDPOINT_ID],
+                    'dest_globus_endpoint_id': transfer.dst.rse.attributes[RseAttr.GLOBUS_ENDPOINT_ID],
                     'filesize': transfer.rws.byte_count,
                 },
             }

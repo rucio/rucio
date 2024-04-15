@@ -29,7 +29,7 @@ from sqlalchemy.exc import IntegrityError
 
 from rucio.common import constants
 from rucio.common.config import config_get, config_get_list
-from rucio.common.constants import SUPPORTED_PROTOCOLS
+from rucio.common.constants import SUPPORTED_PROTOCOLS, RseAttr
 from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RSEProtocolNotSupported, RucioException, UnsupportedOperation
 from rucio.common.utils import construct_surl
 from rucio.core import did
@@ -208,8 +208,8 @@ class DirectTransferImplementation(DirectTransfer):
         protocol = protocol_factory.protocol(src.rse, src.scheme, operation)
 
         # Compute the source URL
-        source_sign_url = src.rse.attributes.get('sign_url', None)
-        dest_sign_url = dst.rse.attributes.get('sign_url', None)
+        source_sign_url = src.rse.attributes.get(RseAttr.SIGN_URL, None)
+        dest_sign_url = dst.rse.attributes.get(RseAttr.SIGN_URL, None)
         source_url = list(protocol.lfns2pfns(lfns={'scope': rws.scope.external, 'name': rws.name, 'path': src.file_path}).values())[0]
         source_url = cls.__rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=src.scheme)
         return source_url
@@ -229,7 +229,7 @@ class DirectTransferImplementation(DirectTransfer):
             # naming convention, etc.
             dsn = get_dsn(rws.scope, rws.name, rws.attributes.get('dsn', None))
             # DQ2 path always starts with /, but prefix might not end with /
-            naming_convention = dst.rse.attributes.get('naming_convention', None)
+            naming_convention = dst.rse.attributes.get(RseAttr.NAMING_CONVENTION, None)
             dest_path = construct_surl(dsn, rws.scope.external, rws.name, naming_convention)
             if dst.rse.is_tape():
                 if rws.retry_count or rws.activity == 'Recovery':
@@ -237,7 +237,7 @@ class DirectTransferImplementation(DirectTransfer):
 
             dest_url = list(protocol.lfns2pfns(lfns={'scope': rws.scope.external, 'name': rws.name, 'path': dest_path}).values())[0]
 
-        dest_sign_url = dst.rse.attributes.get('sign_url', None)
+        dest_sign_url = dst.rse.attributes.get(RseAttr.SIGN_URL, None)
         dest_url = cls.__rewrite_dest_url(dest_url, dest_sign_url=dest_sign_url)
         return dest_url
 
@@ -260,7 +260,7 @@ class StageinTransferImplementation(DirectTransferImplementation):
     ):
         if not source.rse.is_tape() or destination.rse.is_tape():
             # allow staging_required QoS RSE to be TAPE to TAPE for pin
-            if not destination.rse.attributes.get('staging_required', None):
+            if not destination.rse.attributes.get(RseAttr.STAGING_REQUIRED, None):
                 raise RucioException("Stageing request {} must be from TAPE to DISK rse. Got {} and {}.".format(rws, source, destination))
         super().__init__(source, destination, rws, protocol_factory, operation_src, operation_dest)
 
@@ -984,7 +984,7 @@ class SkipRestrictedRSEs(SourceFilterStrategy):
         self.admin_accounts = admin_accounts if admin_accounts is not None else []
 
     def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
-        if source.rse.attributes.get('restricted_read') and ctx.rws.account not in self.admin_accounts:
+        if source.rse.attributes.get(RseAttr.RESTRICTED_READ) and ctx.rws.account not in self.admin_accounts:
             return SKIP_SOURCE
 
 
@@ -1003,7 +1003,7 @@ class SkipBlocklistedRSEs(SourceFilterStrategy):
 class EnforceStagingBuffer(SourceFilterStrategy):
     def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
         # For staging requests, the staging_buffer attribute must be correctly set
-        if ctx.rws.request_type == RequestType.STAGEIN and source.rse.attributes.get('staging_buffer') != ctx.rws.dest_rse.name:
+        if ctx.rws.request_type == RequestType.STAGEIN and source.rse.attributes.get(RseAttr.STAGING_BUFFER) != ctx.rws.dest_rse.name:
             return SKIP_SOURCE
 
 
@@ -1231,7 +1231,7 @@ def build_transfer_paths(
         if not (topology.ignore_availability or rws.dest_rse.columns['availability_write']):
             logger(logging.WARNING, '%s: dst RSE is blocked for write. Will skip the submission of new jobs', rws.request_id)
             continue
-        if rws.account not in admin_accounts and rws.dest_rse.attributes.get('restricted_write'):
+        if rws.account not in admin_accounts and rws.dest_rse.attributes.get(RseAttr.RESTRICTED_WRITE):
             logger(logging.WARNING, '%s: dst RSE is restricted for write. Will skip the submission', rws.request_id)
             continue
 

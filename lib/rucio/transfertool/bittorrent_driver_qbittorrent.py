@@ -21,6 +21,7 @@ import qbittorrentapi
 
 from rucio.common import types
 from rucio.common.config import get_rse_credentials
+from rucio.common.constants import RseAttr
 from rucio.common.utils import resolve_ip
 from rucio.core.oidc import request_token
 from rucio.db.sqla.constants import RequestState
@@ -64,12 +65,12 @@ class QBittorrentTransferStatusReport(TransferStatusReport):
 class QBittorrentDriver(BittorrentDriver):
 
     external_name = 'qbittorrent'
-    required_rse_attrs = ('qbittorrent_management_address', )
+    required_rse_attrs = (RseAttr.QBITTORRENT_MANAGEMENT_ADDRESS, )
 
     @classmethod
     def make_driver(cls: "type[QBittorrentDriver]", rse: "RseData", logger: types.LoggerFunction = logging.log) -> "Optional[BittorrentDriver]":
 
-        address = rse.attributes.get('qbittorrent_management_address')
+        address = rse.attributes.get(RseAttr.QBITTORRENT_MANAGEMENT_ADDRESS)
         if not address:
             return None
 

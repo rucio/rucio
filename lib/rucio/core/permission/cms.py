@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING
 
 import rucio.core.scope
+from rucio.common.constants import RseAttr
 from rucio.core.account import has_account_attribute
 from rucio.core.identity import exist_identity_account
 from rucio.core.permission.generic import perm_get_global_account_usage
@@ -189,7 +190,7 @@ def perm_add_rule(issuer, kwargs, *, session: "Optional[Session]" = None):
     all_temp = True
     for rse in rses:
         rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
-        rse_type = rse_attr.get('cms_type', None)
+        rse_type = rse_attr.get(RseAttr.CMS_TYPE, None)
         if rse_type not in ['temp']:
             all_temp = False
 
@@ -548,7 +549,7 @@ def perm_approve_rule(issuer, kwargs, *, session: "Optional[Session]" = None):
     # Those in rule_approvers can approve the rule
     for rse in rses:
         rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
-        rule_approvers = rse_attr.get('rule_approvers', None)
+        rule_approvers = rse_attr.get(RseAttr.RULE_APPROVERS, None)
         if rule_approvers and issuer.external in rule_approvers.split(','):
             return True
 
@@ -869,12 +870,12 @@ def perm_set_local_account_limit(issuer, kwargs, *, session: "Optional[Session]"
     # for kv in list_account_attributes(account=issuer, session=session):
     #     if kv['key'].startswith('country-') and kv['value'] == 'admin':
     #         admin_in_country.append(kv['key'].partition('-')[2])
-    # if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get('country') in admin_in_country:
+    # if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get(RseAttr.COUNTRY) in admin_in_country:
     #     return True
 
     # Those listed as quota approvers can add to quotas
     rse_attr = list_rse_attributes(rse_id=kwargs['rse_id'], session=session)
-    quota_approvers = rse_attr.get('quota_approvers', None)
+    quota_approvers = rse_attr.get(RseAttr.QUOTA_APPROVERS, None)
     if quota_approvers and issuer.external in quota_approvers.split(','):
         return True
 
@@ -897,7 +898,7 @@ def perm_set_global_account_limit(issuer, kwargs, *, session: "Optional[Session]
     # for kv in list_account_attributes(account=issuer, session=session):
     #     if kv['key'].startswith('country-') and kv['value'] == 'admin':
     #         admin_in_country.add(kv['key'].partition('-')[2])
-    # resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get('country')
+    # resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get(RseAttr.COUNTRY)
     #                           for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo}, session=session)}
     # if resolved_rse_countries.issubset(admin_in_country):
     #     return True
@@ -921,7 +922,7 @@ def perm_delete_global_account_limit(issuer, kwargs, *, session: "Optional[Sessi
     #     if kv['key'].startswith('country-') and kv['value'] == 'admin':
     #         admin_in_country.add(kv['key'].partition('-')[2])
     # if admin_in_country:
-    #     resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get('country')
+    #     resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get(RseAttr.COUNTRY)
     #                               for rse in parse_expression(kwargs['rse_expression'], filter={'vo': issuer.vo}, session=session)}
     #     if resolved_rse_countries.issubset(admin_in_country):
     #         return True
@@ -944,11 +945,11 @@ def perm_delete_local_account_limit(issuer, kwargs, *, session: "Optional[Sessio
     # for kv in list_account_attributes(account=issuer, session=session):
     #     if kv['key'].startswith('country-') and kv['value'] == 'admin':
     #         admin_in_country.append(kv['key'].partition('-')[2])
-    # if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get('country') in admin_in_country:
+    # if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get(RseAttr.COUNTRY) in admin_in_country:
     #     return True
 
     rse_attr = list_rse_attributes(rse_id=kwargs['rse_id'], session=session)
-    quota_approvers = rse_attr.get('quota_approvers', None)
+    quota_approvers = rse_attr.get(RseAttr.QUOTA_APPROVERS, None)
     if quota_approvers and issuer.external in quota_approvers.split(','):
         return True
 

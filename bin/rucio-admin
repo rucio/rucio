@@ -33,6 +33,7 @@ from tabulate import tabulate
 from rucio import version
 from rucio.client import Client
 from rucio.common.config import config_get
+from rucio.common.constants import RseAttr
 from rucio.common.exception import (
     AccessDenied,
     AccountNotFound,
@@ -1244,7 +1245,7 @@ def list_pfns(args):
                 if not rse_info['deterministic']:
                     logger.warning('This is a non-deterministic site, so the real PFN might be different from the on suggested')
                     rse_attr = client.list_rse_attributes(rse)
-                    naming_convention = rse_attr.get('naming_convention', None)
+                    naming_convention = rse_attr.get(RseAttr.NAMING_CONVENTION, None)
                     parents = [did for did in client.list_parent_dids(scope, name)]
                     if len(parents) > 1:
                         logger.warning('The file has multiple parents')

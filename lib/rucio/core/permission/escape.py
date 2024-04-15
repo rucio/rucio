@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING
 
 import rucio.core.scope
+from rucio.common.constants import RseAttr
 from rucio.core.account import has_account_attribute, list_account_attributes
 from rucio.core.identity import exist_identity_account
 from rucio.core.lifetime_exception import list_exceptions
@@ -815,7 +816,7 @@ def perm_set_local_account_limit(issuer, kwargs, *, session: "Optional[Session]"
     for kv in list_account_attributes(account=issuer, session=session):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.append(kv['key'].partition('-')[2])
-    if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get('country') in admin_in_country:
+    if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get(RseAttr.COUNTRY) in admin_in_country:
         return True
     return False
 
@@ -836,7 +837,7 @@ def perm_set_global_account_limit(issuer, kwargs, *, session: "Optional[Session]
     for kv in list_account_attributes(account=issuer, session=session):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get('country')
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get(RseAttr.COUNTRY)
                               for rse in parse_expression(kwargs['rse_expression'], filter_={'vo': issuer.vo}, session=session)}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
@@ -859,7 +860,7 @@ def perm_delete_local_account_limit(issuer, kwargs, *, session: "Optional[Sessio
     for kv in list_account_attributes(account=issuer, session=session):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.append(kv['key'].partition('-')[2])
-    if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get('country') in admin_in_country:
+    if admin_in_country and list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get(RseAttr.COUNTRY) in admin_in_country:
         return True
     return False
 
@@ -881,7 +882,7 @@ def perm_delete_global_account_limit(issuer, kwargs, *, session: "Optional[Sessi
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
     if admin_in_country:
-        resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get('country')
+        resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get(RseAttr.COUNTRY)
                                   for rse in parse_expression(kwargs['rse_expression'], filter_={'vo': issuer.vo}, session=session)}
         if resolved_rse_countries.issubset(admin_in_country):
             return True

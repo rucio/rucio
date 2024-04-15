@@ -34,6 +34,7 @@ from sqlalchemy.sql.expression import asc, false, func, null, true
 from sqlalchemy.sql.functions import coalesce
 
 from rucio.common.config import config_get_bool, config_get_int
+from rucio.common.constants import RseAttr
 from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import chunks, generate_uuid
@@ -621,7 +622,7 @@ def list_and_mark_transfer_requests_and_source_replicas(
                                          requested_at=requested_at)
             requests_by_id[request_id] = request
             # if STAGEIN and destination RSE is QoS make sure the source is included
-            if request.request_type == RequestType.STAGEIN and get_rse_attribute(rse_id=dest_rse_id, key='staging_required', session=session):
+            if request.request_type == RequestType.STAGEIN and get_rse_attribute(rse_id=dest_rse_id, key=RseAttr.STAGING_REQUIRED, session=session):
                 source = RequestSource(rse=rse_collection[dest_rse_id])
                 request.sources.append(source)
 

@@ -24,6 +24,7 @@ import re
 from typing import TYPE_CHECKING
 
 from rucio.common.config import config_get_bool
+from rucio.common.constants import RseAttr
 from rucio.common.exception import DatabaseException, DuplicateFileTransferSubmission, InvalidRSEExpression, RequestNotFound, TransferToolTimeout, TransferToolWrongAnswer, VONotFound
 from rucio.common.stopwatch import Stopwatch
 from rucio.core import request as request_core
@@ -324,7 +325,7 @@ def __create_missing_replicas_and_requests(
         if rws.request_id:
             continue
 
-        tombstone_delay = rws.dest_rse.attributes.get('multihop_tombstone_delay', default_tombstone_delay)
+        tombstone_delay = rws.dest_rse.attributes.get(RseAttr.MULTIHOP_TOMBSTONE_DELAY, default_tombstone_delay)
         try:
             tombstone = tombstone_from_delay(tombstone_delay)
         except ValueError:
