@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 import rucio.core.scope
 from rucio.common.config import config_get
+from rucio.common.constants import RseAttr
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.account import has_account_attribute, list_account_attributes
 from rucio.core.did import get_metadata
@@ -132,7 +133,7 @@ def _perm_country(issuer: "InternalAccount", rses: list, roles: list, *, session
             admin_in_country.append(kv['key'].partition('-')[2])
     if admin_in_country:
         for rse in rses:
-            if list_rse_attributes(rse_id=rse['id'], session=session).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=rse['id'], session=session).get(RseAttr.COUNTRY) in admin_in_country:
                 return True
     return False
 
@@ -510,8 +511,8 @@ def perm_del_rule(issuer: "InternalAccount", kwargs: dict, *, session: "Optional
     # DELETERS can delete the rule
     for rse in rses:
         rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
-        if rse_attr.get('rule_deleters'):
-            if issuer.external in rse_attr.get('rule_deleters').split(','):
+        if rse_attr.get(RseAttr.RULE_DELETERS):
+            if issuer.external in rse_attr.get(RseAttr.RULE_DELETERS).split(','):
                 return True
     return perm_default(issuer, kwargs, session=session)\
         or has_account_attribute(account=issuer, key='rule_admin', session=session)\

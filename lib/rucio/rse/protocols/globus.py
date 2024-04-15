@@ -16,6 +16,7 @@ import logging
 from urllib.parse import urlparse
 
 from rucio.common import exception
+from rucio.common.constants import RseAttr
 from rucio.common.extra import import_extras
 from rucio.core.rse import get_rse_attribute
 from rucio.rse.protocols.protocol import RSEProtocol
@@ -36,7 +37,7 @@ class GlobusRSEProtocol(RSEProtocol):
             :param props: Properties of the requested protocol
         """
         super(GlobusRSEProtocol, self).__init__(protocol_attr, rse_settings, logger=logger)
-        self.globus_endpoint_id = get_rse_attribute(self.rse.get('id'), 'globus_endpoint_id')
+        self.globus_endpoint_id = get_rse_attribute(self.rse.get('id'), RseAttr.GLOBUS_ENDPOINT_ID)
         self.logger = logger
 
     def lfns2pfns(self, lfns):

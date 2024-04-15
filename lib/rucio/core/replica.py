@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import copy
 import heapq
 import logging
@@ -41,7 +42,7 @@ import rucio.core.lock
 from rucio.common import exception
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.constants import SuspiciousAvailability
+from rucio.common.constants import RseAttr, SuspiciousAvailability
 from rucio.common.types import InternalScope
 from rucio.common.utils import add_url_query, chunks, clean_surls, str_to_date
 from rucio.core.credential import get_signed_url
@@ -802,7 +803,7 @@ def _build_list_replicas_pfn(
 
     # do we need to sign the URLs?
     if sign_urls and protocol.attributes['scheme'] == 'https':
-        service = get_rse_attribute(rse_id, 'sign_url', session=session)
+        service = get_rse_attribute(rse_id, RseAttr.SIGN_URL, session=session)
         if service:
             pfn = get_signed_url(rse_id=rse_id, service=service, operation='read', url=pfn, lifetime=signature_lifetime)
 
@@ -813,7 +814,7 @@ def _build_list_replicas_pfn(
     if domain == 'wan' and protocol.attributes['scheme'] in ['root', 'http', 'https'] and client_location:
 
         if 'site' in client_location and client_location['site']:
-            replica_site = get_rse_attribute(rse_id, 'site', session=session)
+            replica_site = get_rse_attribute(rse_id, RseAttr.SITE, session=session)
 
             # does it match with the client? if not, it's an outgoing connection
             # therefore the internal proxy must be prepended
@@ -842,7 +843,7 @@ def _build_list_replicas_pfn(
                             # don't forget to mangle gfal-style davs URL into generic https URL
                             pfn = f"root://{root_proxy_internal}//{pfn.replace('davs://', 'https://')}"
 
-    simulate_multirange = get_rse_attribute(rse_id, 'simulate_multirange')
+    simulate_multirange = get_rse_attribute(rse_id, RseAttr.SIMULATE_MULTIRANGE)
 
     if simulate_multirange is not None:
         try:
@@ -850,9 +851,9 @@ def _build_list_replicas_pfn(
             simulate_multirange = int(simulate_multirange)
         except ValueError:
             simulate_multirange = 1
-            logger(logging.WARNING, 'Value encountered when retrieving RSE attribute "simulate_multirange" not compatible with "int", used default value "1".')
+            logger(logging.WARNING, 'Value encountered when retrieving RSE attribute "%s" not compatible with "int", used default value "1".', RseAttr.SIMULATE_MULTIRANGE)
         if simulate_multirange <= 0:
-            logger(logging.WARNING, f'Value {simulate_multirange} encountered when retrieving RSE attribute "simulate_multirange" is <= 0, used default value "1".')
+            logger(logging.WARNING, f'Value {simulate_multirange} encountered when retrieving RSE attribute "{RseAttr.SIMULATE_MULTIRANGE}" is <= 0, used default value "1".')
             simulate_multirange = 1
         pfn += f'&#multirange=false&nconnections={simulate_multirange}'
 
@@ -1490,7 +1491,7 @@ def __bulk_add_replicas(rse_id, files, account, *, session: "Session"):
         filter(or_(*condition))
     available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in query]
 
-    default_tombstone_delay = get_rse_attribute(rse_id, 'tombstone_delay', session=session)
+    default_tombstone_delay = get_rse_attribute(rse_id, RseAttr.TOMBSTONE_DELAY, session=session)
     default_tombstone = tombstone_from_delay(default_tombstone_delay)
 
     new_replicas = []

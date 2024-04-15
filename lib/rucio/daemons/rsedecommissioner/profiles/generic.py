@@ -20,6 +20,7 @@ from typing import Any
 
 from sqlalchemy.exc import NoResultFound
 
+from rucio.common.constants import RseAttr
 from rucio.common.exception import Duplicate, ReplicaNotFound, RequestNotFound, RucioException, RuleNotFound, RuleReplaceFailed, UnsupportedOperation
 from rucio.core.lock import get_replica_locks, get_replica_locks_for_rule_id
 from rucio.core.replica import list_replicas_per_rse, set_tombstone, update_replica_state
@@ -124,7 +125,7 @@ def _generic_initialize(
     update_rse(rse['id'], parameters)
 
     try:
-        add_rse_attribute(rse['id'], 'greedyDeletion', True)
+        add_rse_attribute(rse['id'], RseAttr.GREEDYDELETION, True)
     except Duplicate:
         pass
 

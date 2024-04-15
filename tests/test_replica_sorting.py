@@ -23,6 +23,7 @@ import geoip2.database
 import pytest
 
 from rucio.common.config import config_get
+from rucio.common.constants import RseAttr
 from rucio.common.utils import parse_replicas_from_string
 from rucio.core import replica_sorter, rse_expression_parser
 from rucio.core.replica import add_replicas, delete_replicas
@@ -108,7 +109,7 @@ def protocols_setup(vo, root_account, mock_scope):
     for idx in range(len(rse_info)):
         rse_info[idx]['name'] = '%s_%s' % (rse_info[idx]['site'], rse_name_generator())
         rse_info[idx]['id'] = add_rse(rse_info[idx]['name'], vo=vo)
-        add_rse_attribute(rse_id=rse_info[idx]['id'], key='site', value=base_rse_info[idx]['site'])
+        add_rse_attribute(rse_id=rse_info[idx]['id'], key=RseAttr.SITE, value=base_rse_info[idx]['site'])
         add_replicas(rse_id=rse_info[idx]['id'], files=files, account=root_account)
 
     # invalidate cache for parse_expression('site=…')
@@ -174,7 +175,7 @@ def protocols_setup(vo, root_account, mock_scope):
 
     for info in rse_info:
         delete_replicas(rse_id=info['id'], files=files)
-        del_rse_attribute(rse_id=info['id'], key='site')
+        del_rse_attribute(rse_id=info['id'], key=RseAttr.SITE)
         del_rse(info['id'])
 
 

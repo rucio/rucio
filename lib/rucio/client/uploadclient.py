@@ -25,6 +25,7 @@ import time
 from rucio import version
 from rucio.client.client import Client
 from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.constants import RseAttr
 from rucio.common.exception import (
     DataIdentifierAlreadyExists,
     DataIdentifierNotFound,
@@ -195,8 +196,8 @@ class UploadClient:
                 rse_attributes = self.client.list_rse_attributes(rse)
             except:
                 logger(logging.WARNING, 'Attributes of the RSE: %s not available.' % rse)
-            if (self.client_location and 'lan' in rse_settings['domain'] and 'site' in rse_attributes):
-                if self.client_location['site'] == rse_attributes['site']:
+            if (self.client_location and 'lan' in rse_settings['domain'] and RseAttr.SITE in rse_attributes):
+                if self.client_location['site'] == rse_attributes[RseAttr.SITE]:
                     domain = 'lan'
             logger(logging.DEBUG, '{} domain is used for the upload'.format(domain))
 
@@ -674,7 +675,7 @@ class UploadClient:
             raise RSEOperationNotSupported(str(error))
 
         # Is stat after that upload allowed?
-        skip_upload_stat = rse_attributes.get('skip_upload_stat', False)
+        skip_upload_stat = rse_attributes.get(RseAttr.SKIP_UPLOAD_STAT, False)
         self.logger(logging.DEBUG, 'skip_upload_stat=%s', skip_upload_stat)
 
         # Checksum verification, obsolete, see Gabriele changes.

@@ -38,6 +38,7 @@ import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get
+from rucio.common.constants import RseAttr
 from rucio.common.exception import (
     DataIdentifierNotFound,
     DuplicateRule,
@@ -149,12 +150,12 @@ class AutoApprove(PolicyPackageAlgorithms):
             # This rule can be considered for auto-approval:
             rse_attr = list_rse_attributes(rse_id=rses[0]['id'], session=session)
             auto_approve = False
-            if 'auto_approve_bytes' in rse_attr and 'auto_approve_files' in rse_attr:
-                if did.bytes < int(rse_attr.get('auto_approve_bytes')) and did.length < int(rse_attr.get('auto_approve_files')):
+            if RseAttr.AUTO_APPROVE_BYTES in rse_attr and RseAttr.AUTO_APPROVE_FILES in rse_attr:
+                if did.bytes < int(rse_attr.get(RseAttr.AUTO_APPROVE_BYTES)) and did.length < int(rse_attr.get(RseAttr.AUTO_APPROVE_FILES)):
                     auto_approve = True
-            elif did.bytes < int(rse_attr.get('auto_approve_bytes', -1)):
+            elif did.bytes < int(rse_attr.get(RseAttr.AUTO_APPROVE_BYTES, -1)):
                 auto_approve = True
-            elif did.length < int(rse_attr.get('auto_approve_files', -1)):
+            elif did.length < int(rse_attr.get(RseAttr.AUTO_APPROVE_FILES, -1)):
                 auto_approve = True
 
         return auto_approve
@@ -255,7 +256,7 @@ def add_rule(
             # Block manual approval if RSE does not allow it
             if ask_approval:
                 for rse in rses:
-                    if list_rse_attributes(rse_id=rse['id'], session=session).get('block_manual_approval', False):
+                    if list_rse_attributes(rse_id=rse['id'], session=session).get(RseAttr.BLOCK_MANUAL_APPROVAL, False):
                         raise ManualRuleApprovalBlocked()
 
             if source_replica_expression:
@@ -623,7 +624,7 @@ def add_rules(
                     # Block manual approval if RSE does not allow it
                     if rule.get('ask_approval', False):
                         for rse in rses:
-                            if list_rse_attributes(rse_id=rse['id'], session=session).get('block_manual_approval', False):
+                            if list_rse_attributes(rse_id=rse['id'], session=session).get(RseAttr.BLOCK_MANUAL_APPROVAL, False):
                                 raise ManualRuleApprovalBlocked()
 
                     if rule.get('source_replica_expression'):
@@ -693,12 +694,12 @@ def add_rules(
                             # This rule can be considered for auto-approval:
                             rse_attr = list_rse_attributes(rse_id=rses[0]['id'], session=session)
                             auto_approve = False
-                            if 'auto_approve_bytes' in rse_attr and 'auto_approve_files' in rse_attr:
-                                if did.bytes < int(rse_attr.get('auto_approve_bytes')) and did.length < int(rse_attr.get('auto_approve_bytes')):
+                            if RseAttr.AUTO_APPROVE_BYTES in rse_attr and RseAttr.AUTO_APPROVE_FILES in rse_attr:
+                                if did.bytes < int(rse_attr.get(RseAttr.AUTO_APPROVE_BYTES)) and did.length < int(rse_attr.get(RseAttr.AUTO_APPROVE_BYTES)):
                                     auto_approve = True
-                            elif did.bytes < int(rse_attr.get('auto_approve_bytes', -1)):
+                            elif did.bytes < int(rse_attr.get(RseAttr.AUTO_APPROVE_BYTES, -1)):
                                 auto_approve = True
-                            elif did.length < int(rse_attr.get('auto_approve_files', -1)):
+                            elif did.length < int(rse_attr.get(RseAttr.AUTO_APPROVE_FILES, -1)):
                                 auto_approve = True
                             if auto_approve:
                                 logger(logging.DEBUG, "Auto approving rule %s", str(new_rule.id))
@@ -4297,8 +4298,8 @@ def _create_recipients_list(
     # If there are accounts in the approvers-list of any of the RSEs only these should be used
     for rse in parse_expression(rse_expression, filter_=filter_, session=session):
         rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
-        if rse_attr.get('rule_approvers'):
-            for account in rse_attr.get('rule_approvers').split(','):
+        if rse_attr.get(RseAttr.RULE_APPROVERS):
+            for account in rse_attr.get(RseAttr.RULE_APPROVERS).split(','):
                 account = InternalAccount(account)
                 try:
                     email = get_account(account=account, session=session).email
@@ -4311,12 +4312,12 @@ def _create_recipients_list(
     if not recipients:
         for rse in parse_expression(rse_expression, filter_=filter_, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
-            if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
+            if rse_attr.get(RseAttr.TYPE, '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
 
                 query = select(
                     models.AccountAttrAssociation.account
                 ).where(
-                    models.AccountAttrAssociation.key == f'country-{rse_attr.get("country", "")}',
+                    models.AccountAttrAssociation.key == f'country-{rse_attr.get(RseAttr.COUNTRY, "")}',
                     models.AccountAttrAssociation.value == 'admin'
                 )
 
@@ -4332,12 +4333,12 @@ def _create_recipients_list(
     if not recipients:
         for rse in parse_expression(rse_expression, filter_=filter_, session=session):
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
-            if rse_attr.get('type', '') == 'GROUPDISK':
+            if rse_attr.get(RseAttr.TYPE, '') == 'GROUPDISK':
 
                 query = select(
                     models.AccountAttrAssociation.account
                 ).where(
-                    models.AccountAttrAssociation.key == f'group-{rse_attr.get("physgroup", "")}',
+                    models.AccountAttrAssociation.key == f'group-{rse_attr.get(RseAttr.PHYSGROUP, "")}',
                     models.AccountAttrAssociation.value == 'admin'
                 )
 
@@ -4470,6 +4471,6 @@ def get_scratch_policy(
     # Check SCRATCHDISK Policy
     if not has_account_attribute(account=account, key='admin', session=session) and (lifetime is None or lifetime > 60 * 60 * 24 * scratchdisk_lifetime):
         # Check if one of the rses is a SCRATCHDISK:
-        if [rse for rse in rses if list_rse_attributes(rse_id=rse['id'], session=session).get('type') == 'SCRATCHDISK']:
+        if [rse for rse in rses if list_rse_attributes(rse_id=rse['id'], session=session).get(RseAttr.TYPE) == 'SCRATCHDISK']:
             lifetime = 60 * 60 * 24 * scratchdisk_lifetime - 1
     return lifetime

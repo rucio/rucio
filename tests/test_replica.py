@@ -26,6 +26,7 @@ import xmltodict
 from werkzeug.datastructures import Headers, MultiDict
 
 from rucio.client.ruleclient import RuleClient
+from rucio.common.constants import RseAttr
 from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierNotFound, InputValidationError, ReplicaIsLocked, ReplicaNotFound, RucioException, ScopeNotFound
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import clean_surls, generate_uuid, parse_response
@@ -217,7 +218,7 @@ class TestReplicaCore:
 
         if simulate_multirange:
             add_rse_attribute(
-                rse_id=rse_id, key='simulate_multirange', value=str(nconns)
+                rse_id=rse_id, key=RseAttr.SIMULATE_MULTIRANGE, value=str(nconns)
             )
 
         # add files
@@ -456,7 +457,7 @@ class TestReplicaCore:
                                   'lan': {'read': 1, 'write': 1, 'delete': 1},
                                   'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
-        add_rse_attribute(rse_id=rse_id, key='site', value='APERTURE')
+        add_rse_attribute(rse_id=rse_id, key=RseAttr.SITE, value='APERTURE')
 
         files = [{'scope': mock_scope, 'name': 'element_%s' % generate_uuid(),
                   'bytes': 1234, 'adler32': 'deadbeef'}]
@@ -467,7 +468,7 @@ class TestReplicaCore:
         replicas = [r for r in replica_client.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files],
                                                             client_location={'site': 'SOMEWHERE'})]
         assert 'root://' in list(replicas[0]['pfns'].keys())[0]
-        del_rse_attribute(rse_id=rse_id, key='site')
+        del_rse_attribute(rse_id=rse_id, key=RseAttr.SITE)
 
         replicas = [r for r in replica_client.list_replicas(dids=[{'scope': 'mock', 'name': f['name']} for f in files])]
         assert 'root://' in list(replicas[0]['pfns'].keys())[0]
@@ -543,7 +544,7 @@ class TestReplicaCore:
         rse2, rse2_id = rse_factory.make_mock_rse()
         activity = get_schema_value('ACTIVITY')['enum'][0]
         tombstone_delay = 3600
-        add_rse_attribute(rse_id=rse2_id, key='tombstone_delay', value=tombstone_delay)
+        add_rse_attribute(rse_id=rse2_id, key=RseAttr.TOMBSTONE_DELAY, value=tombstone_delay)
 
         # Will use the default tombstone delay
         did1 = did_factory.random_file_did()

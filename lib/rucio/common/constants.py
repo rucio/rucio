@@ -91,3 +91,61 @@ class HermesService(str, enum.Enum):
     ELASTIC = "ELASTIC"
     EMAIL = "EMAIL"
     ACTIVEMQ = "ACTIVEMQ"
+
+
+class RseAttr:
+
+    """
+    List of functional RSE attributes.
+
+    This class acts as a namespace containing all RSE attributes referenced in
+    the Rucio source code. Setting them affects Rucio's behaviour in some way.
+    """
+
+    ARCHIVE_TIMEOUT = 'archive_timeout'
+    ASSOCIATED_SITES = 'associated_sites'
+    AUTO_APPROVE_BYTES = 'auto_approve_bytes'
+    AUTO_APPROVE_FILES = 'auto_approve_files'
+    BITTORRENT_TRACKER_ADDR = 'bittorrent_tracker_addr'
+    BLOCK_MANUAL_APPROVAL = 'block_manual_approval'
+    COUNTRY = 'country'
+    DECOMMISSION = 'decommission'
+    DEFAULT_ACCOUNT_LIMIT_BYTES = 'default_account_limit_bytes'
+    FTS = 'fts'
+    GLOBUS_ENDPOINT_ID = 'globus_endpoint_id'
+    GREEDYDELETION = 'greedyDeletion'
+    IS_OBJECT_STORE = 'is_object_store'
+    LFN2PFN_ALGORITHM = 'lfn2pfn_algorithm'
+    MAXIMUM_PIN_LIFETIME = 'maximum_pin_lifetime'
+    MULTIHOP_TOMBSTONE_DELAY = 'multihop_tombstone_delay'
+    NAMING_CONVENTION = 'naming_convention'
+    OIDC_BASE_PATH = 'oidc_base_path'
+    OIDC_SUPPORT = 'oidc_support'
+    PHYSGROUP = 'physgroup'
+    QBITTORRENT_MANAGEMENT_ADDRESS = 'qbittorrent_management_address'
+    RESTRICTED_READ = 'restricted_read'
+    RESTRICTED_WRITE = 'restricted_write'
+    RULE_APPROVERS = 'rule_approvers'
+    S3_URL_STYLE = 's3_url_style'
+    SIGN_URL = 'sign_url'
+    SIMULATE_MULTIRANGE = 'simulate_multirange'
+    SITE = 'site'
+    SKIP_UPLOAD_STAT = 'skip_upload_stat'
+    SOURCE_FOR_TOTAL_SPACE = 'source_for_total_space'
+    SOURCE_FOR_USED_SPACE = 'source_for_used_space'
+    STAGING_BUFFER = 'staging_buffer'
+    STAGING_REQUIRED = 'staging_required'
+    STRICT_COPY = 'strict_copy'
+    TOMBSTONE_DELAY = 'tombstone_delay'
+    TYPE = 'type'
+    USE_IPV4 = 'use_ipv4'
+    VERIFY_CHECKSUM = 'verify_checksum'
+
+    # The following RSE attributes are exclusively used in the permission layer
+    # and are likely VO-specific.
+
+    BLOCK_MANUAL_APPROVE = 'block_manual_approve'
+    CMS_TYPE = 'cms_type'
+    DEFAULT_LIMIT_FILES = 'default_limit_files'
+    QUOTA_APPROVERS = 'quota_approvers'
+    RULE_DELETERS = 'rule_deleters'

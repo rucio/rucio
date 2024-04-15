@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 import rucio.core.did
 import rucio.core.scope
+from rucio.common.constants import RseAttr
 from rucio.core.account import has_account_attribute, list_account_attributes
 from rucio.core.identity import exist_identity_account
 from rucio.core.rse import list_rse_attributes
@@ -213,14 +214,14 @@ def perm_add_rse_attribute(issuer, kwargs, *, session: "Optional[Session]" = Non
     """
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
-    if kwargs['key'] in ['rule_deleters', 'auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_account_limit_bytes', 'default_limit_files', 'block_manual_approve']:
+    if kwargs['key'] in [RseAttr.RULE_DELETERS, RseAttr.AUTO_APPROVE_BYTES, RseAttr.AUTO_APPROVE_FILES, RseAttr.RULE_APPROVERS, RseAttr.DEFAULT_ACCOUNT_LIMIT_BYTES, RseAttr.DEFAULT_LIMIT_FILES, RseAttr.BLOCK_MANUAL_APPROVE]:
         # Check if user is a country admin
         admin_in_country = []
         for kv in list_account_attributes(account=issuer, session=session):
             if kv['key'].startswith('country-') and kv['value'] == 'admin':
                 admin_in_country.append(kv['key'].partition('-')[2])
         if admin_in_country:
-            if list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get(RseAttr.COUNTRY) in admin_in_country:
                 return True
     return False
 
@@ -236,14 +237,14 @@ def perm_del_rse_attribute(issuer, kwargs, *, session: "Optional[Session]" = Non
     """
     if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
         return True
-    if kwargs['key'] in ['rule_deleters', 'auto_approve_bytes', 'auto_approve_files', 'rule_approvers', 'default_account_limit_bytes', 'default_limit_files', 'block_manual_approve']:
+    if kwargs['key'] in [RseAttr.RULE_DELETERS, RseAttr.AUTO_APPROVE_BYTES, RseAttr.AUTO_APPROVE_FILES, RseAttr.RULE_APPROVERS, RseAttr.DEFAULT_ACCOUNT_LIMIT_BYTES, RseAttr.DEFAULT_LIMIT_FILES, RseAttr.BLOCK_MANUAL_APPROVE]:
         # Check if user is a country admin
         admin_in_country = []
         for kv in list_account_attributes(account=issuer, session=session):
             if kv['key'].startswith('country-') and kv['value'] == 'admin':
                 admin_in_country.append(kv['key'].partition('-')[2])
         if admin_in_country:
-            if list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=kwargs['rse_id'], session=session).get(RseAttr.COUNTRY) in admin_in_country:
                 return True
     return False
 
@@ -517,14 +518,14 @@ def perm_del_rule(issuer, kwargs, *, session: "Optional[Session]" = None):
     rses = parse_expression(rule['rse_expression'], filter_={'vo': issuer.vo}, session=session)
     if admin_in_country:
         for rse in rses:
-            if list_rse_attributes(rse_id=rse['id'], session=session).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=rse['id'], session=session).get(RseAttr.COUNTRY) in admin_in_country:
                 return True
 
     # DELETERS can approve the rule
     for rse in rses:
         rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
-        if rse_attr.get('rule_deleters'):
-            if issuer.external in rse_attr.get('rule_deleters').split(','):
+        if rse_attr.get(RseAttr.RULE_DELETERS):
+            if issuer.external in rse_attr.get(RseAttr.RULE_DELETERS).split(','):
                 return True
 
     return False
@@ -557,7 +558,7 @@ def perm_update_rule(issuer, kwargs, *, session: "Optional[Session]" = None):
     rses = parse_expression(rule['rse_expression'], filter_={'vo': issuer.vo}, session=session)
     if admin_in_country:
         for rse in rses:
-            if list_rse_attributes(rse_id=rse['id'], session=session).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=rse['id'], session=session).get(RseAttr.COUNTRY) in admin_in_country:
                 return True
 
     # Only admin and country-admin are allowed to change locked state of rule
@@ -597,13 +598,13 @@ def perm_move_rule(issuer, kwargs, *, session: "Optional[Session]" = None):
         rule = get_rule(rule_id=kwargs['rule_id'], session=session)
         rses = parse_expression(rule['rse_expression'], filter_={'vo': issuer.vo}, session=session)
         for rse in rses:
-            if list_rse_attributes(rse_id=rse['id'], session=session).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=rse['id'], session=session).get(RseAttr.COUNTRY) in admin_in_country:
                 admin_source = True
                 break
 
         rses = parse_expression(kwargs['rse_expression'], filter_={'vo': issuer.vo}, session=session)
         for rse in rses:
-            if list_rse_attributes(rse_id=rse['id'], session=session).get('country') in admin_in_country:
+            if list_rse_attributes(rse_id=rse['id'], session=session).get(RseAttr.COUNTRY) in admin_in_country:
                 admin_destination = True
                 break
 
@@ -632,8 +633,8 @@ def perm_approve_rule(issuer, kwargs, *, session: "Optional[Session]" = None):
     # APPROVERS can approve the rule
     for rse in rses:
         rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
-        if rse_attr.get('rule_approvers'):
-            if issuer.external in rse_attr.get('rule_approvers').split(','):
+        if rse_attr.get(RseAttr.RULE_APPROVERS):
+            if issuer.external in rse_attr.get(RseAttr.RULE_APPROVERS).split(','):
                 return True
 
     # LOCALGROUPDISK/LOCALGROUPTAPE admins can approve the rule
@@ -644,8 +645,8 @@ def perm_approve_rule(issuer, kwargs, *, session: "Optional[Session]" = None):
     if admin_in_country:
         for rse in rses:
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
-            if rse_attr.get('type', '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
-                if rse_attr.get('country', '') in admin_in_country:
+            if rse_attr.get(RseAttr.TYPE, '') in ('LOCALGROUPDISK', 'LOCALGROUPTAPE'):
+                if rse_attr.get(RseAttr.COUNTRY, '') in admin_in_country:
                     return True
 
     # GROUPDISK admins can approve the rule
@@ -656,8 +657,8 @@ def perm_approve_rule(issuer, kwargs, *, session: "Optional[Session]" = None):
     if admin_for_phys_group:
         for rse in rses:
             rse_attr = list_rse_attributes(rse_id=rse['id'], session=session)
-            if rse_attr.get('type', '') == 'GROUPDISK':
-                if rse_attr.get('physgroup', '') in admin_for_phys_group:
+            if rse_attr.get(RseAttr.TYPE, '') == 'GROUPDISK':
+                if rse_attr.get(RseAttr.PHYSGROUP, '') in admin_for_phys_group:
                     return True
 
     return False
@@ -853,14 +854,14 @@ def perm_add_replicas(issuer, kwargs, *, session: "Optional[Session]" = None):
             group.append(kv['key'].partition('-')[2])
     rse_attr = list_rse_attributes(rse_id=rse_id, session=session)
     if group:
-        if rse_attr.get('type', '') == 'GROUPDISK':
-            if rse_attr.get('physgroup', '') in group:
+        if rse_attr.get(RseAttr.TYPE, '') == 'GROUPDISK':
+            if rse_attr.get(RseAttr.PHYSGROUP, '') in group:
                 return True
-        if rse_attr.get('type', '') == 'LOCALGROUPDISK':
-            if rse_attr.get('country', '') in group:
+        if rse_attr.get(RseAttr.TYPE, '') == 'LOCALGROUPDISK':
+            if rse_attr.get(RseAttr.COUNTRY, '') in group:
                 return True
 
-    return rse_attr.get('type', '') in ['SCRATCHDISK', 'MOCK', 'TEST']\
+    return rse_attr.get(RseAttr.TYPE, '') in ['SCRATCHDISK', 'MOCK', 'TEST']\
         or _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin', session=session)
 
@@ -906,14 +907,14 @@ def perm_update_replicas_states(issuer, kwargs, *, session: "Optional[Session]" 
             group.append(kv['key'].partition('-')[2])
     rse_attr = list_rse_attributes(rse_id=rse_id, session=session)
     if group:
-        if rse_attr.get('type', '') == 'GROUPDISK':
-            if rse_attr.get('physgroup', '') in group:
+        if rse_attr.get(RseAttr.TYPE, '') == 'GROUPDISK':
+            if rse_attr.get(RseAttr.PHYSGROUP, '') in group:
                 return True
-        if rse_attr.get('type', '') == 'LOCALGROUPDISK':
-            if rse_attr.get('country', '') in group:
+        if rse_attr.get(RseAttr.TYPE, '') == 'LOCALGROUPDISK':
+            if rse_attr.get(RseAttr.COUNTRY, '') in group:
                 return True
 
-    return rse_attr.get('type', '') in ['SCRATCHDISK', 'MOCK', 'TEST']\
+    return rse_attr.get(RseAttr.TYPE, '') in ['SCRATCHDISK', 'MOCK', 'TEST']\
         or _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin', session=session)
 
@@ -1019,9 +1020,9 @@ def perm_set_local_account_limit(issuer, kwargs, *, session: "Optional[Session]"
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.append(kv['key'].partition('-')[2])
     rse_attr = list_rse_attributes(rse_id=kwargs['rse_id'], session=session)
-    if admin_in_country and rse_attr.get('country') in admin_in_country:
+    if admin_in_country and rse_attr.get(RseAttr.COUNTRY) in admin_in_country:
         return True
-    quota_approvers = rse_attr.get('quota_approvers', None)
+    quota_approvers = rse_attr.get(RseAttr.QUOTA_APPROVERS, None)
     if quota_approvers and issuer.external in quota_approvers.split(','):
         return True
     return False
@@ -1043,7 +1044,7 @@ def perm_set_global_account_limit(issuer, kwargs, *, session: "Optional[Session]
     for kv in list_account_attributes(account=issuer, session=session):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get('country')
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get(RseAttr.COUNTRY)
                               for rse in parse_expression(kwargs['rse_expression'], filter_={'vo': issuer.vo}, session=session)}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
@@ -1066,7 +1067,7 @@ def perm_delete_global_account_limit(issuer, kwargs, *, session: "Optional[Sessi
     for kv in list_account_attributes(account=issuer, session=session):
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.add(kv['key'].partition('-')[2])
-    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get('country')
+    resolved_rse_countries = {list_rse_attributes(rse_id=rse['rse_id'], session=session).get(RseAttr.COUNTRY)
                               for rse in parse_expression(kwargs['rse_expression'], filter_={'vo': issuer.vo}, session=session)}
     if resolved_rse_countries.issubset(admin_in_country):
         return True
@@ -1090,9 +1091,9 @@ def perm_delete_local_account_limit(issuer, kwargs, *, session: "Optional[Sessio
         if kv['key'].startswith('country-') and kv['value'] == 'admin':
             admin_in_country.append(kv['key'].partition('-')[2])
     rse_attr = list_rse_attributes(rse_id=kwargs['rse_id'], session=session)
-    if admin_in_country and rse_attr.get('country') in admin_in_country:
+    if admin_in_country and rse_attr.get(RseAttr.COUNTRY) in admin_in_country:
         return True
-    quota_approvers = rse_attr.get('quota_approvers', None)
+    quota_approvers = rse_attr.get(RseAttr.QUOTA_APPROVERS, None)
     if quota_approvers and issuer.external in quota_approvers.split(','):
         return True
     return False
