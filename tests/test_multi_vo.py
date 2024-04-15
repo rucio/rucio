@@ -42,6 +42,7 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_add_section, config_has_section, config_remove_option, config_set
+from rucio.common.constants import RseAttr
 from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, RucioException, UnsupportedAccountName, UnsupportedOperation
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid, get_tmp_dir, parse_response, ssh_sign
@@ -1007,12 +1008,12 @@ class TestMultiVODaemons:
                                      'write': 1,
                                      'delete': 1}}}
         rse_client.add_rse(shr_rse)
-        rse_client.add_rse_attribute(rse=shr_rse, key='verify_checksum', value=False)
-        rse_client.add_rse_attribute(rse=shr_rse, key='skip_upload_stat', value=True)
+        rse_client.add_rse_attribute(rse=shr_rse, key=RseAttr.VERIFY_CHECKSUM, value=False)
+        rse_client.add_rse_attribute(rse=shr_rse, key=RseAttr.SKIP_UPLOAD_STAT, value=True)
         rse_client.add_protocol(shr_rse, mock_protocol)
         add_rse(shr_rse, 'root', vo=second_vo)
-        add_rse_attribute(rse=shr_rse, key='verify_checksum', value=False, issuer='root', vo=second_vo)
-        add_rse_attribute(rse=shr_rse, key='skip_upload_stat', value=True, issuer='root', vo=second_vo)
+        add_rse_attribute(rse=shr_rse, key=RseAttr.VERIFY_CHECKSUM, value=False, issuer='root', vo=second_vo)
+        add_rse_attribute(rse=shr_rse, key=RseAttr.SKIP_UPLOAD_STAT, value=True, issuer='root', vo=second_vo)
         add_protocol(rse=shr_rse, data=mock_protocol, issuer='root', vo=second_vo)
 
         if not config_has_section("automatix"):

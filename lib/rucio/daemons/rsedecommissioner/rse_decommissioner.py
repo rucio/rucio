@@ -28,6 +28,7 @@ from types import FrameType
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from rucio.common.config import config_get_int
+from rucio.common.constants import RseAttr
 from rucio.common.exception import RucioException
 from rucio.common.logging import setup_logging
 from rucio.core.heartbeat import sanity_check
@@ -89,12 +90,12 @@ def run_once(
         return True
 
     # Collect all RSEs with the 'decommission' attribute
-    rses = get_rses_with_attribute('decommission')
+    rses = get_rses_with_attribute(RseAttr.DECOMMISSION)
     random.shuffle(rses)
 
     for rse in rses:
         # Get the decommission attribute (encodes the decommissioning config)
-        attr = get_rse_attribute(rse['id'], 'decommission')
+        attr = get_rse_attribute(rse['id'], RseAttr.DECOMMISSION)
         try:
             config = attr_to_config(attr)
         except InvalidStatusName:

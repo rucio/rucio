@@ -22,6 +22,7 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 
 import rucio.common.policy
 from rucio.common.config import config_get, config_get_int, config_get_list
+from rucio.common.constants import RseAttr
 from rucio.common.exception import ConfigNotFound, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, RucioException, UnsupportedOperation
 from rucio.common.utils import generate_uuid, str_to_date
 from rucio.core.message import add_message
@@ -283,7 +284,7 @@ def define_eol(
         return None
 
     # Check if on ATLAS managed space
-    if [rse for rse in rses if list_rse_attributes(rse_id=rse['id'], session=session).get('type') in ['LOCALGROUPDISK', 'LOCALGROUPTAPE', 'GROUPDISK', 'GROUPTAPE']]:
+    if [rse for rse in rses if list_rse_attributes(rse_id=rse['id'], session=session).get(RseAttr.TYPE) in ['LOCALGROUPDISK', 'LOCALGROUPTAPE', 'GROUPDISK', 'GROUPTAPE']]:
         return None
     # Now check the lifetime policy
     try:

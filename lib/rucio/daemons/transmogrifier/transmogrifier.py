@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get
+from rucio.common.constants import RseAttr
 from rucio.common.exception import (
     DatabaseException,
     DuplicateRule,
@@ -399,7 +400,7 @@ def select_algorithm(algorithm: str, rule_ids: list, params: dict, logger: "Call
             rse_id = get_rse_id(rse, vo=vo)
             rse_attributes = list_rse_attributes(rse_id)
             if algorithm == "associated_site":
-                associated_sites = rse_attributes.get("associated_sites", None)
+                associated_sites = rse_attributes.get(RseAttr.ASSOCIATED_SITES, None)
                 associated_site_idx = params.get("associated_site_idx", None)
                 if not associated_site_idx:
                     raise SubscriptionWrongParameter(
@@ -417,7 +418,7 @@ def select_algorithm(algorithm: str, rule_ids: list, params: dict, logger: "Call
                         "weight": None,
                     }
             if algorithm == "exclude_site":
-                site = rse_attributes.get("site", None)
+                site = rse_attributes.get(RseAttr.SITE, None)
                 rse_expression = params['rse_expression'] + '\\site=%s' % site
                 (
                     selected_rses,

@@ -26,6 +26,7 @@ import gfal2
 import requests
 
 from rucio.common.config import get_config_dirs
+from rucio.common.constants import RseAttr
 from rucio.common.dumper import DUMPS_CACHE_DIR, HTTPDownloadFailed, ddmendpoint_url, gfal_download_to_file, http_download_to_file, temp_file
 from rucio.core.credential import get_signed_url
 from rucio.core.rse import get_rse_id, list_rse_attributes
@@ -243,7 +244,7 @@ def download_rse_dump(rse, configuration, date=None, destdir=DUMPS_CACHE_DIR):
     # check for objectstores, which need to be handled differently
     rse_id = get_rse_id(rse)
     rse_attr = list_rse_attributes(rse_id)
-    if 'is_object_store' in rse_attr and rse_attr['is_object_store'] is not False:
+    if RseAttr.IS_OBJECT_STORE in rse_attr and rse_attr[RseAttr.IS_OBJECT_STORE] is not False:
         tries = 1
         if date is None:
             # on objectstores, can't list dump files, so try the last N dates
@@ -263,8 +264,8 @@ def download_rse_dump(rse, configuration, date=None, destdir=DUMPS_CACHE_DIR):
             path = os.path.join(destdir, filename)
             if not os.path.exists(path):
                 logger.debug('Trying to download: "%s"', url)
-                if 'sign_url' in rse_attr:
-                    url = get_signed_url(rse_id, rse_attr['sign_url'], 'read', url)
+                if RseAttr.SIGN_URL in rse_attr:
+                    url = get_signed_url(rse_id, rse_attr[RseAttr.SIGN_URL], 'read', url)
                 try:
                     with temp_file(destdir, final_name=filename) as (f, _):
                         download(url, f)

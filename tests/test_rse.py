@@ -16,6 +16,7 @@ import pytest
 
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common import exception
+from rucio.common.constants import RseAttr
 from rucio.common.exception import Duplicate, InputValidationError, InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSENotFound, RSEOperationNotSupported, RSEProtocolNotSupported
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
@@ -111,7 +112,7 @@ class TestRSECoreApi:
         add_rse_attribute(rse_id=rse_id, key='tier', value='1')
         rses = list_rses(filters={'tier': '1'})
         assert (rse_id, rse) in [(r['id'], r['rse']) for r in rses]
-        add_rse_attribute(rse_id=rse_id, key='country', value='us')
+        add_rse_attribute(rse_id=rse_id, key=RseAttr.COUNTRY, value='us')
 
         rses = list_rses(filters={'tier': '1', 'country': 'us'})
         assert (rse_id, rse) in [(r['id'], r['rse']) for r in rses]
@@ -1481,7 +1482,7 @@ class TestRSEClient:
         """ RSE (CORE): Test validate_checksum in RSEs info"""
         rse = rse_name_generator()
         rse_id = add_rse(rse, vo=vo)
-        add_rse_attribute(rse_id=rse_id, key='verify_checksum', value=False)
+        add_rse_attribute(rse_id=rse_id, key=RseAttr.VERIFY_CHECKSUM, value=False)
         info = get_rse_protocols(rse_id)
 
         assert 'verify_checksum' in info
@@ -1491,7 +1492,7 @@ class TestRSEClient:
 
         rse = rse_name_generator()
         rse_id = add_rse(rse, vo=vo)
-        add_rse_attribute(rse_id=rse_id, key='verify_checksum', value=True)
+        add_rse_attribute(rse_id=rse_id, key=RseAttr.VERIFY_CHECKSUM, value=True)
         info = get_rse_protocols(rse_id)
 
         assert 'verify_checksum' in info

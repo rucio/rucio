@@ -21,6 +21,7 @@ from sqlalchemy.sql.expression import and_, or_
 
 import rucio.core.did
 import rucio.core.rule
+from rucio.common.constants import RseAttr
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.common.types import InternalScope
 from rucio.core.lifetime_exception import define_eol
@@ -399,7 +400,7 @@ def failed_transfer(scope, name, rse_id, error_message=None, broken_rule_id=None
     :param session:         The database session in use.
     """
 
-    staging_required = get_rse_attribute(rse_id, 'staging_required', session=session)
+    staging_required = get_rse_attribute(rse_id, RseAttr.STAGING_REQUIRED, session=session)
     if staging_required:
         rse_name = get_rse_name(rse_id=rse_id, session=session)
         logger(logging.DEBUG, f'Destination RSE {rse_name} is type staging_required so do not update other OK replica locks.')

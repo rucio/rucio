@@ -18,6 +18,7 @@ This script is to be used to background rebalance ATLAS t2 datadisks
 
 from sqlalchemy import or_
 
+from rucio.common.constants import RseAttr
 from rucio.core.rse import get_rse_attribute, get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.bb8.common import rebalance_rse
@@ -59,7 +60,7 @@ total_secondary = 0
 total_total = 0
 global_ratio = float(0)
 for rse in rses:
-    site_name = get_rse_attribute(rse['id'], 'site')
+    site_name = get_rse_attribute(rse['id'], RseAttr.SITE)
     rse['groupdisk'] = group_space(site_name)
     rse['primary'] = get_rse_usage(rse_id=rse['id'], source='rucio')[0]['used'] - get_rse_usage(rse_id=rse['id'], source='expired')[0]['used']
     rse['primary'] += rse['groupdisk']

@@ -31,7 +31,7 @@ from requests.packages.urllib3 import disable_warnings  # pylint: disable=import
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
-from rucio.common.constants import FTS_COMPLETE_STATE, FTS_JOB_TYPE, FTS_STATE
+from rucio.common.constants import FTS_COMPLETE_STATE, FTS_JOB_TYPE, FTS_STATE, RseAttr
 from rucio.common.exception import DuplicateFileTransferSubmission, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import PREFERRED_CHECKSUM, APIEncoder, chunks, deep_merge_dict
@@ -204,13 +204,13 @@ def _available_checksums(
     Get checksums which can be used for file validation on the source and the destination RSE
     """
     src_attributes = transfer.src.rse.attributes
-    if src_attributes.get('verify_checksum', True):
+    if src_attributes.get(RseAttr.VERIFY_CHECKSUM, True):
         src_checksums = set(get_rse_supported_checksums_from_attributes(src_attributes))
     else:
         src_checksums = set()
 
     dst_attributes = transfer.dst.rse.attributes
-    if dst_attributes.get('verify_checksum', True):
+    if dst_attributes.get(RseAttr.VERIFY_CHECKSUM, True):
         dst_checksums = set(get_rse_supported_checksums_from_attributes(dst_attributes))
     else:
         dst_checksums = set()
@@ -303,7 +303,7 @@ def _use_tokens(transfer_hop: "DirectTransfer"):
     and the protocol being used must be WebDAV.
     """
     for endpoint in [*transfer_hop.sources, transfer_hop.dst]:
-        if (endpoint.rse.attributes.get('oidc_support') is not True
+        if (endpoint.rse.attributes.get(RseAttr.OIDC_SUPPORT) is not True
                 or endpoint.scheme != 'davs'):
             return False
     return True
@@ -339,8 +339,8 @@ def build_job_params(
             dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
         dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
 
-    strict_copy = last_hop.dst.rse.attributes.get('strict_copy', False)
-    archive_timeout = last_hop.dst.rse.attributes.get('archive_timeout', None)
+    strict_copy = last_hop.dst.rse.attributes.get(RseAttr.STRICT_COPY, False)
+    archive_timeout = last_hop.dst.rse.attributes.get(RseAttr.ARCHIVE_TIMEOUT, None)
 
     job_params = {'account': last_hop.rws.account,
                   'verify_checksum': _path_checksum_validation_strategy(transfer_path, logger=logger),
@@ -362,17 +362,17 @@ def build_job_params(
         job_params['strict_copy'] = strict_copy
     if dest_spacetoken:
         job_params['spacetoken'] = dest_spacetoken
-    if (last_hop.dst.rse.attributes.get('use_ipv4', False)
-            or any(src.rse.attributes.get('use_ipv4', False) for src in last_hop.sources)):
+    if (last_hop.dst.rse.attributes.get(RseAttr.USE_IPV4, False)
+            or any(src.rse.attributes.get(RseAttr.USE_IPV4, False) for src in last_hop.sources)):
         job_params['ipv4'] = True
         job_params['ipv6'] = False
 
     # assume s3alternate True (path-style URL S3 RSEs)
     job_params['s3alternate'] = True
-    src_rse_s3_url_style = first_hop.src.rse.attributes.get('s3_url_style', None)
+    src_rse_s3_url_style = first_hop.src.rse.attributes.get(RseAttr.S3_URL_STYLE, None)
     if src_rse_s3_url_style == "host":
         job_params['s3alternate'] = False
-    dst_rse_s3_url_style = last_hop.dst.rse.attributes.get('s3_url_style', None)
+    dst_rse_s3_url_style = last_hop.dst.rse.attributes.get(RseAttr.S3_URL_STYLE, None)
     if dst_rse_s3_url_style == "host":
         job_params['s3alternate'] = False
 
@@ -805,7 +805,7 @@ class FTS3Transfertool(Transfertool):
     """
 
     external_name = 'fts3'
-    required_rse_attrs = ('fts', )
+    required_rse_attrs = (RseAttr.FTS, )
     supported_schemes = Transfertool.supported_schemes.union(('mock', ))
 
     def __init__(self, external_host, oidc_account=None, oidc_support: bool = False, vo=None, group_bulk=1, group_policy='rule', source_strategy=None,
@@ -861,13 +861,13 @@ class FTS3Transfertool(Transfertool):
         """
         Pick fts servers to use for submission between the two given rse
         """
-        source_servers = source_rse.attributes.get('fts', None)
-        dest_servers = dest_rse.attributes.get('fts', None)
+        source_servers = source_rse.attributes.get(RseAttr.FTS, None)
+        dest_servers = dest_rse.attributes.get(RseAttr.FTS, None)
         if source_servers is None or dest_servers is None:
             return None
 
         servers_to_use = dest_servers
-        if source_rse.attributes.get('sign_url', None) == 'gcs':
+        if source_rse.attributes.get(RseAttr.SIGN_URL, None) == 'gcs':
             servers_to_use = source_servers
 
         return servers_to_use.split(',')

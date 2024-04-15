@@ -24,6 +24,7 @@ import rucio.core.did
 import rucio.core.lock
 import rucio.core.replica
 from rucio.common.config import config_get_int
+from rucio.common.constants import RseAttr
 from rucio.common.exception import InsufficientTargetRSEs
 from rucio.common.types import InternalScope
 from rucio.core import account_counter, rse_counter
@@ -878,8 +879,8 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                         session=session))
 
     # If staging_required type RSE then set pin to RSE attribute maximum_pin_lifetime
-    staging_required = get_rse_attribute(rse_id, 'staging_required', session=session)
-    maximum_pin_lifetime = get_rse_attribute(rse_id, 'maximum_pin_lifetime', session=session)
+    staging_required = get_rse_attribute(rse_id, RseAttr.STAGING_REQUIRED, session=session)
+    maximum_pin_lifetime = get_rse_attribute(rse_id, RseAttr.MAXIMUM_PIN_LIFETIME, session=session)
 
     if staging_required:
         if (not copy_pin_lifetime and maximum_pin_lifetime) or (copy_pin_lifetime and maximum_pin_lifetime and copy_pin_lifetime < int(maximum_pin_lifetime)):
