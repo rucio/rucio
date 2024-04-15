@@ -26,6 +26,7 @@ from google.oauth2.service_account import Credentials
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, get_rse_credentials
+from rucio.common.constants import RseAttr
 from rucio.common.exception import UnsupportedOperation
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_attribute
@@ -111,7 +112,7 @@ def get_signed_url(rse_id: str, service: str, operation: str, url: str, lifetime
         # get RSE S3 URL style (path or host)
         # path-style: https://s3.region-code.amazonaws.com/bucket-name/key-name
         # host-style: https://bucket-name.s3.region-code.amazonaws.com/key-name
-        s3_url_style = get_rse_attribute(rse_id, 's3_url_style')
+        s3_url_style = get_rse_attribute(rse_id, RseAttr.S3_URL_STYLE)
 
         # no S3 URL style specified, assume path-style
         if s3_url_style is None:

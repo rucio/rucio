@@ -20,6 +20,7 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import delete
 
+from rucio.common.constants import RseAttr
 from rucio.common.exception import RequestNotFound
 from rucio.core import config as core_config
 from rucio.core import distance as distance_core
@@ -145,15 +146,15 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     default_multihop_tombstone_delay = 24 * 3600
 
     # if both attributes are set, the multihop one will take precedence
-    rse_core.add_rse_attribute(jump_rse1_id, 'tombstone_delay', rse_tombstone_delay)
-    rse_core.add_rse_attribute(jump_rse1_id, 'multihop_tombstone_delay', rse_multihop_tombstone_delay)
+    rse_core.add_rse_attribute(jump_rse1_id, RseAttr.TOMBSTONE_DELAY, rse_tombstone_delay)
+    rse_core.add_rse_attribute(jump_rse1_id, RseAttr.MULTIHOP_TOMBSTONE_DELAY, rse_multihop_tombstone_delay)
 
     # if multihop delay not set, it's the default multihop takes precedence. Not normal tombstone delay.
-    rse_core.add_rse_attribute(jump_rse2_id, 'tombstone_delay', rse_tombstone_delay)
+    rse_core.add_rse_attribute(jump_rse2_id, RseAttr.TOMBSTONE_DELAY, rse_tombstone_delay)
     core_config.set(section='transfers', option='multihop_tombstone_delay', value=default_multihop_tombstone_delay)
 
     # if multihop delay is set to 0, the replica will have no tombstone
-    rse_core.add_rse_attribute(jump_rse3_id, 'multihop_tombstone_delay', 0)
+    rse_core.add_rse_attribute(jump_rse3_id, RseAttr.MULTIHOP_TOMBSTONE_DELAY, 0)
 
     distance_core.add_distance(src_rse_id, jump_rse1_id, distance=10)
     distance_core.add_distance(jump_rse1_id, jump_rse2_id, distance=10)
@@ -354,7 +355,7 @@ def test_globus(rse_factory, did_factory, root_account):
     distance_core.add_distance(rse1_id, rse2_id, distance=10)
     distance_core.add_distance(rse3_id, rse4_id, distance=10)
     for rse_id in all_rses:
-        rse_core.add_rse_attribute(rse_id, 'globus_endpoint_id', rse_id)
+        rse_core.add_rse_attribute(rse_id, RseAttr.GLOBUS_ENDPOINT_ID, rse_id)
 
     # Single submission
     did1 = did_factory.upload_test_file(rse1)

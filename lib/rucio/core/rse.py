@@ -29,6 +29,7 @@ from sqlalchemy.sql.expression import and_, delete, desc, false, func, or_, sele
 from rucio.common import exception, types, utils
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import get_lfn2pfn_algorithm_default
+from rucio.common.constants import RseAttr
 from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
@@ -119,12 +120,12 @@ class RseData:
         return self.id == other.id
 
     def is_tape(self):
-        if self.info['rse_type'] == RSEType.TAPE or self.info['rse_type'] == 'TAPE' or self.attributes.get('staging_required', False):
+        if self.info['rse_type'] == RSEType.TAPE or self.info['rse_type'] == 'TAPE' or self.attributes.get(RseAttr.STAGING_REQUIRED, False):
             return True
         return False
 
     def is_tape_or_staging_required(self):
-        if self.is_tape() or self.attributes.get('staging_required', False):
+        if self.is_tape() or self.attributes.get(RseAttr.STAGING_REQUIRED, False):
             return True
         return False
 
@@ -1388,9 +1389,9 @@ def _format_get_rse_protocols(
 ) -> types.RSESettingsDict:
     _rse = rse
     if rse_attributes:
-        lfn2pfn_algorithm = rse_attributes.get('lfn2pfn_algorithm')
+        lfn2pfn_algorithm = rse_attributes.get(RseAttr.LFN2PFN_ALGORITHM)
     else:
-        lfn2pfn_algorithm = get_rse_attribute(_rse['id'], 'lfn2pfn_algorithm', session=session)
+        lfn2pfn_algorithm = get_rse_attribute(_rse['id'], RseAttr.LFN2PFN_ALGORITHM, session=session)
     # Resolve LFN2PFN default algorithm as soon as possible.  This way, we can send back the actual
     # algorithm name in response to REST queries.
     if not lfn2pfn_algorithm:
@@ -1398,15 +1399,15 @@ def _format_get_rse_protocols(
 
     # Copy verify_checksum from the attributes, later: assume True if not specified
     if rse_attributes:
-        verify_checksum = rse_attributes.get('verify_checksum')
+        verify_checksum = rse_attributes.get(RseAttr.VERIFY_CHECKSUM)
     else:
-        verify_checksum = get_rse_attribute(_rse['id'], 'verify_checksum', session=session)
+        verify_checksum = get_rse_attribute(_rse['id'], RseAttr.VERIFY_CHECKSUM, session=session)
 
     # Copy sign_url from the attributes
     if rse_attributes:
-        sign_url = rse_attributes.get('sign_url')
+        sign_url = rse_attributes.get(RseAttr.SIGN_URL)
     else:
-        sign_url = get_rse_attribute(_rse['id'], 'sign_url', session=session)
+        sign_url = get_rse_attribute(_rse['id'], RseAttr.SIGN_URL, session=session)
 
     info = {'availability_delete': _rse['availability_delete'],
             'availability_read': _rse['availability_read'],
@@ -1878,7 +1879,7 @@ def determine_scope_for_rse(
         # a base which should be removed from the prefix (in order for '/' to
         # mean the entire resource associated with that issuer).
         prefix = protocol['prefix']
-        if base_path := get_rse_attribute(rse_id, 'oidc_base_path'):
+        if base_path := get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH):
             prefix = prefix.removeprefix(base_path)
         filtered_prefixes.add(prefix)
     all_scopes = [f'{s}:{p}' for s in scopes for p in filtered_prefixes] + list(extra_scopes)

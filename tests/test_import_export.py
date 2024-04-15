@@ -19,6 +19,7 @@ import pytest
 from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
 from rucio.common.config import config_add_section, config_has_section, config_set
+from rucio.common.constants import RseAttr
 from rucio.common.exception import RSENotFound
 from rucio.common.types import InternalAccount
 from rucio.common.utils import parse_response, render_json
@@ -56,8 +57,8 @@ def check_rse(rse_name, test_data, vo='def'):
 def check_protocols(rse, test_data, vo='def'):
     rse_id = get_rse_id(rse=rse, vo=vo)
     protocols = get_rse_protocols(rse_id)
-    assert test_data[rse]['lfn2pfn_algorithm'] == get_rse_attribute(rse_id, 'lfn2pfn_algorithm', use_cache=False)
-    assert test_data[rse]['verify_checksum'] == get_rse_attribute(rse_id, 'verify_checksum', use_cache=False)
+    assert test_data[rse]['lfn2pfn_algorithm'] == get_rse_attribute(rse_id, RseAttr.LFN2PFN_ALGORITHM, use_cache=False)
+    assert test_data[rse]['verify_checksum'] == get_rse_attribute(rse_id, RseAttr.VERIFY_CHECKSUM, use_cache=False)
     assert test_data[rse]['availability_write'] == protocols['availability_write']
     assert test_data[rse]['availability_read'] == protocols['availability_read']
     assert test_data[rse]['availability_delete'] == protocols['availability_delete']
@@ -149,8 +150,8 @@ def importer_example_data(vo, jdoe_account):
 
     set_rse_limits(rse_id=example_data.old_rse_id_1, name='MinFreeSpace', value='10')
     add_rse_attribute(rse_id=example_data.old_rse_id_1, key='attr1', value='test10')
-    add_rse_attribute(rse_id=example_data.old_rse_id_1, key='lfn2pfn_algorithm', value='test10')
-    add_rse_attribute(rse_id=example_data.old_rse_id_1, key='verify_checksum', value=True)
+    add_rse_attribute(rse_id=example_data.old_rse_id_1, key=RseAttr.LFN2PFN_ALGORITHM, value='test10')
+    add_rse_attribute(rse_id=example_data.old_rse_id_1, key=RseAttr.VERIFY_CHECKSUM, value=True)
 
     # RSE 2 that already exists
     example_data.old_rse_2 = rse_name_generator()

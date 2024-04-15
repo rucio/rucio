@@ -33,6 +33,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 import rucio.db.sqla.util
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get_bool, config_get_int
+from rucio.common.constants import RseAttr
 from rucio.common.exception import DatabaseException, ReplicaNotFound, ReplicaUnAvailable, ResourceTemporaryUnavailable, RSEAccessDenied, RSENotFound, RSEProtocolNotSupported, ServiceUnavailable, SourceNotFound, VONotFound
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
@@ -342,12 +343,12 @@ def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "Callable[...,
 
     # Check from which sources to get used and total spaces (default storage)
     # If specified sources do not exist, only delete obsolete
-    source_for_total_space = rse.attributes.get('source_for_total_space', 'storage')
+    source_for_total_space = rse.attributes.get(RseAttr.SOURCE_FOR_TOTAL_SPACE, 'storage')
     if source_for_total_space not in available_sources['total']:
         logger(logging.WARNING, 'RSE: %s, \'%s\' requested for source_for_total_space but cannot be found. Will only delete obsolete',
                rse.name, source_for_total_space)
         return 0, True
-    source_for_used_space = rse.attributes.get('source_for_used_space', 'storage')
+    source_for_used_space = rse.attributes.get(RseAttr.SOURCE_FOR_USED_SPACE, 'storage')
     if source_for_used_space not in available_sources['used']:
         logger(logging.WARNING, 'RSE: %s, \'%s\' requested for source_for_used_space but cannot be found. Will only delete obsolete',
                rse.name, source_for_used_space)
@@ -489,7 +490,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
             logger(logging.DEBUG, 'RSE %s is blocklisted for delete', rse.name)
             continue
         rse.ensure_loaded(load_attributes=True)
-        enable_greedy = rse.attributes.get('greedyDeletion', False) or greedy
+        enable_greedy = rse.attributes.get(RseAttr.GREEDYDELETION, False) or greedy
         needed_free_space, only_delete_obsolete = __check_rse_usage_cached(rse, greedy=enable_greedy, logger=logger)
         if needed_free_space:
             dict_rses[rse] = [needed_free_space, only_delete_obsolete, enable_greedy]
@@ -575,7 +576,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
         try:
             rse.ensure_loaded(load_info=True, load_attributes=True)
             prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, logger=logger)
-            if rse.attributes.get('oidc_support') is True and prot.attributes['scheme'] == 'davs':
+            if rse.attributes.get(RseAttr.OIDC_SUPPORT) is True and prot.attributes['scheme'] == 'davs':
                 audience = determine_audience_for_rse(rse.id)
                 # FIXME: At the time of writing, StoRM requires `storage.read`
                 # in order to perform a stat operation.

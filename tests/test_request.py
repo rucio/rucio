@@ -19,6 +19,7 @@ from typing import Union
 import pytest
 
 from rucio.common.config import config_get_bool
+from rucio.common.constants import RseAttr
 from rucio.common.utils import generate_uuid, parse_response
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replica
@@ -178,11 +179,11 @@ def test_api_list(
     source_site2 = tag_factory.new_tag()
     dst_site = tag_factory.new_tag()
     dst_site2 = tag_factory.new_tag()
-    add_rse_attribute(source_rse_id, 'site', source_site, session=db_session)
-    add_rse_attribute(source_rse_id2, 'site', source_site2, session=db_session)
-    add_rse_attribute(source_rse_id3, 'site', source_site, session=db_session)
-    add_rse_attribute(dest_rse_id, 'site', dst_site, session=db_session)
-    add_rse_attribute(dest_rse_id2, 'site', dst_site2, session=db_session)
+    add_rse_attribute(source_rse_id, RseAttr.SITE, source_site, session=db_session)
+    add_rse_attribute(source_rse_id2, RseAttr.SITE, source_site2, session=db_session)
+    add_rse_attribute(source_rse_id3, RseAttr.SITE, source_site, session=db_session)
+    add_rse_attribute(dest_rse_id, RseAttr.SITE, dst_site, session=db_session)
+    add_rse_attribute(dest_rse_id2, RseAttr.SITE, dst_site2, session=db_session)
 
     name1 = generate_uuid()
     name2 = generate_uuid()

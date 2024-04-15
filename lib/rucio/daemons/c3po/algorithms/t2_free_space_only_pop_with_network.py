@@ -16,6 +16,7 @@ import logging
 from operator import itemgetter
 
 from rucio.common.config import config_get, config_get_int
+from rucio.common.constants import RseAttr
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.core.did import get_did
 from rucio.core.replica import list_dataset_replicas
@@ -60,7 +61,7 @@ class PlacementAlgorithm:
             rse_attrs = list_rse_attributes(rse_id=rse['id'])
             rse_attrs['rse_id'] = rse['id']
             self._rses[rse['id']] = rse_attrs
-            self._sites[rse_attrs['site']] = rse_attrs
+            self._sites[rse_attrs[RseAttr.SITE]] = rse_attrs
 
         self._dst_penalties = {}
         self._src_penalties = {}
@@ -165,10 +166,10 @@ class PlacementAlgorithm:
         for rep in reps:
             rse_attr = list_rse_attributes(rep['rse_id'])
             src_rse_id = rep['rse_id']
-            if 'site' not in rse_attr:
+            if RseAttr.SITE not in rse_attr:
                 continue
 
-            src_site = rse_attr['site']
+            src_site = rse_attr[RseAttr.SITE]
             src_rse_info = get_rse(rse_id=src_rse_id)
 
             if 'type' not in rse_attr:

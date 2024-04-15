@@ -25,6 +25,7 @@ import rucio.api.rule
 from rucio.api.account import add_account
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get_bool
+from rucio.common.constants import RseAttr
 from rucio.common.exception import (
     AccessDenied,
     DuplicateRule,
@@ -240,7 +241,7 @@ class TestCore:
         rse = rse_name_generator()
         rse_id = add_rse(rse, vo=vo)
 
-        add_rse_attribute(rse_id, "rule_approvers", jdoe_account)
+        add_rse_attribute(rse_id, RseAttr.RULE_APPROVERS, jdoe_account)
 
         files = create_files(1, mock_scope, rse_id)
         output = add_rule(
@@ -928,7 +929,7 @@ class TestCore:
 
         rse = rse_name_generator()
         rse_id = add_rse(rse, vo=vo)
-        add_rse_attribute(rse_id, 'country', 'test')
+        add_rse_attribute(rse_id, RseAttr.COUNTRY, 'test')
         set_local_account_limit(jdoe_account, rse_id, -1)
 
         files = create_files(3, mock_scope, self.rse1_id)
@@ -1024,7 +1025,7 @@ class TestCore:
 
         rse = rse_name_generator()
         rse_id = add_rse(rse, vo=vo)
-        add_rse_attribute(rse_id, 'type', 'SCRATCHDISK')
+        add_rse_attribute(rse_id, RseAttr.TYPE, 'SCRATCHDISK')
         set_local_account_limit(jdoe_account, rse_id, -1)
 
         files = create_files(3, mock_scope, self.rse1_id)
@@ -1056,13 +1057,13 @@ class TestCore:
         assert (get_rule(rule_id)['state'] == RuleState.WAITING_APPROVAL)
         delete_rule(rule_id=rule_id)
 
-        add_rse_attribute(rse_id, 'auto_approve_bytes', 500)
+        add_rse_attribute(rse_id, RseAttr.AUTO_APPROVE_BYTES, 500)
         rule_id = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression='%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
         assert (get_rule(rule_id)['state'] == RuleState.WAITING_APPROVAL)
         delete_rule(rule_id=rule_id)
 
-        del_rse_attribute(rse_id, 'auto_approve_bytes')
-        add_rse_attribute(rse_id, 'auto_approve_bytes', 1000)
+        del_rse_attribute(rse_id, RseAttr.AUTO_APPROVE_BYTES)
+        add_rse_attribute(rse_id, RseAttr.AUTO_APPROVE_BYTES, 1000)
         rule_id = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression='%s' % rse, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, ask_approval=True)[0]
         assert (get_rule(rule_id)['state'] == RuleState.INJECT)
 
@@ -1070,7 +1071,7 @@ class TestCore:
         """ REPLICATION RULE (CORE): Add a replication rule for a RSE with manual approval block"""
         rse = rse_name_generator()
         rse_id = add_rse(rse, vo=vo)
-        add_rse_attribute(rse_id, 'block_manual_approval', '1')
+        add_rse_attribute(rse_id, RseAttr.BLOCK_MANUAL_APPROVAL, '1')
         set_local_account_limit(jdoe_account, rse_id, -1)
 
         files = create_files(3, mock_scope, self.rse1_id)

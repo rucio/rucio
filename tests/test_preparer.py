@@ -15,6 +15,7 @@
 
 import pytest
 
+from rucio.common.constants import RseAttr
 from rucio.core.distance import add_distance, get_distances
 from rucio.core.replica import add_replicas
 from rucio.core.request import get_request, list_and_mark_transfer_requests_and_source_replicas, list_transfer_limits, set_transfer_limit
@@ -150,8 +151,8 @@ def test_preparer_for_request_without_source(mock_request_no_source):
     'rucio.core.rse.REGION'
 ]}], indirect=True)
 def test_preparer_without_and_with_mat(source_rse, dest_rse, mock_request, caches_mock):
-    add_rse_attribute(source_rse['id'], 'fts', 'a')
-    add_rse_attribute(dest_rse['id'], 'globus_endpoint_id', 'b')
+    add_rse_attribute(source_rse['id'], RseAttr.FTS, 'a')
+    add_rse_attribute(dest_rse['id'], RseAttr.GLOBUS_ENDPOINT_ID, 'b')
 
     [cache_region] = caches_mock
     cache_region.invalidate()
@@ -200,10 +201,10 @@ def test_get_supported_transfertools_fts_globus(vo, rse_factory):
     source_rse, source_rse_id = rse_factory.make_mock_rse()
     dest_rse, dest_rse_id = rse_factory.make_mock_rse()
 
-    add_rse_attribute(source_rse_id, 'fts', 'a')
-    add_rse_attribute(dest_rse_id, 'fts', 'b')
-    add_rse_attribute(source_rse_id, 'globus_endpoint_id', 'a')
-    add_rse_attribute(dest_rse_id, 'globus_endpoint_id', 'b')
+    add_rse_attribute(source_rse_id, RseAttr.FTS, 'a')
+    add_rse_attribute(dest_rse_id, RseAttr.FTS, 'b')
+    add_rse_attribute(source_rse_id, RseAttr.GLOBUS_ENDPOINT_ID, 'a')
+    add_rse_attribute(dest_rse_id, RseAttr.GLOBUS_ENDPOINT_ID, 'b')
 
     transfertools = get_supported_transfertools(source_rse=RseData(source_rse_id), dest_rse=RseData(dest_rse_id), transfertools=['fts3', 'globus'])
 

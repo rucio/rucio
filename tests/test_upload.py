@@ -23,6 +23,7 @@ import pytest
 
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_add_section, config_set
+from rucio.common.constants import RseAttr
 from rucio.common.exception import InputValidationError, NoFilesUploaded, NotAllFilesUploaded
 from rucio.common.utils import adler32, generate_uuid
 from rucio.core.rse import add_protocol, add_rse_attribute
@@ -181,7 +182,7 @@ def test_multiple_protocols_same_scheme(rse_factory, upload_client, mock_scope, 
     rse, rse_id = rse_factory.make_rse()
 
     # Ensure client site and rse site are identical. So that "lan" is preferred.
-    add_rse_attribute(rse_id, 'site', 'ROAMING')
+    add_rse_attribute(rse_id, RseAttr.SITE, 'ROAMING')
 
     add_protocol(rse_id, {'scheme': 'file',
                           'hostname': 'file-wan.aperture.com',

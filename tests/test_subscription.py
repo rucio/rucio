@@ -19,6 +19,7 @@ from json.decoder import JSONDecodeError
 import pytest
 
 from rucio.api.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription
+from rucio.common.constants import RseAttr
 from rucio.common.exception import InvalidObject, SubscriptionDuplicate, SubscriptionNotFound
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
@@ -441,8 +442,8 @@ class TestDaemon:
         rse4, _ = rse_factory.make_mock_rse()
         rse5, _ = rse_factory.make_mock_rse()
         rse6, _ = rse_factory.make_mock_rse()
-        add_rse_attribute(rse_id=rse1_id, key='associated_sites', value='%s,%s' % (rse3, rse4))
-        add_rse_attribute(rse_id=rse2_id, key='associated_sites', value='%s,%s' % (rse5, rse6))
+        add_rse_attribute(rse_id=rse1_id, key=RseAttr.ASSOCIATED_SITES, value='%s,%s' % (rse3, rse4))
+        add_rse_attribute(rse_id=rse2_id, key=RseAttr.ASSOCIATED_SITES, value='%s,%s' % (rse5, rse6))
         rses = []
         for cnt in range(5):
             rse, _ = rse_factory.make_mock_rse()
@@ -744,7 +745,7 @@ class TestDaemon:
                 rse_type = 'tape'
             add_rse_attribute(rse_id=rse_id, key='tag', value=tag_test)
             add_rse_attribute(rse_id=rse_id, key=rse_type, value='True')
-            add_rse_attribute(rse_id=rse_id, key='site', value=site)
+            add_rse_attribute(rse_id=rse_id, key=RseAttr.SITE, value=site)
             dict_rse[rse] = {'rse_id': rse_id, 'rse_type': rse_type, 'site': site}
 
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)

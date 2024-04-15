@@ -16,6 +16,7 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 from rucio.common.config import config_get
+from rucio.common.constants import RseAttr
 from rucio.common.exception import RSEOperationNotSupported
 from rucio.common.types import InternalAccount
 from rucio.core import account as account_module
@@ -107,8 +108,8 @@ def import_rses(rses: dict[str, dict[str, Any]], rse_sync_method: str = 'edit', 
 
         # Attributes
         attributes = rse.get('attributes', {})
-        attributes['lfn2pfn_algorithm'] = rse.get('lfn2pfn_algorithm')
-        attributes['verify_checksum'] = rse.get('verify_checksum')
+        attributes[RseAttr.LFN2PFN_ALGORITHM] = rse.get('lfn2pfn_algorithm')
+        attributes[RseAttr.VERIFY_CHECKSUM] = rse.get('verify_checksum')
 
         old_attributes = rse_module.list_rse_attributes(rse_id=rse_id, session=session)
         missing_attributes = [attribute for attribute in old_attributes if attribute not in attributes]

@@ -23,6 +23,7 @@ import pytest
 from sqlalchemy import update
 
 import rucio.daemons.reaper.reaper
+from rucio.common.constants import RseAttr
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
 from rucio.common.types import InternalAccount
 from rucio.common.utils import adler32, generate_uuid
@@ -631,7 +632,7 @@ def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_
         # Fake that destination RSE is a tape
         rse_core.update_rse(rse_id=dst_rse_id, parameters={'rse_type': RSEType.TAPE})
         try:
-            rse_core.add_rse_attribute(dst_rse_id, 'archive_timeout', 60)
+            rse_core.add_rse_attribute(dst_rse_id, RseAttr.ARCHIVE_TIMEOUT, 60)
 
             did = did_factory.upload_test_file(src_rse)
             rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, activity='test')
@@ -657,7 +658,7 @@ def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_
             assert request['state'] == RequestState.SUBMITTED
         finally:
             rse_core.update_rse(rse_id=dst_rse_id, parameters={'rse_type': RSEType.DISK})
-            rse_core.del_rse_attribute(dst_rse_id, 'archive_timeout')
+            rse_core.del_rse_attribute(dst_rse_id, RseAttr.ARCHIVE_TIMEOUT)
 
             receiver_graceful_stop.set()
             receiver_thread.join(timeout=5)
@@ -679,7 +680,7 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
     all_rses = [src_rse_id, dst_rse_id1, dst_rse_id2]
 
     for rse_id in all_rses:
-        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+        rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
     distance_core.add_distance(src_rse_id, dst_rse_id1, distance=10)
     distance_core.add_distance(src_rse_id, dst_rse_id2, distance=10)
     # Set limits only for one of the RSEs
@@ -842,9 +843,9 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
     all_rses = [src_rse_id, dst_rse_id]
 
     distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
-    rse_core.add_rse_attribute(src_rse_id, 'staging_buffer', dst_rse)
+    rse_core.add_rse_attribute(src_rse_id, RseAttr.STAGING_BUFFER, dst_rse)
     for rse_id in all_rses:
-        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+        rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
 
     did = did_factory.upload_test_file(src_rse)
     replica = replica_core.get_replica(rse_id=src_rse_id, **did)
@@ -886,8 +887,8 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
     maximum_pin_lifetime = 86400
 
     distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
-    rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
-    rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
+    rse_core.add_rse_attribute(dst_rse_id, RseAttr.STAGING_REQUIRED, True)
+    rse_core.add_rse_attribute(dst_rse_id, RseAttr.MAXIMUM_PIN_LIFETIME, maximum_pin_lifetime)
 
     did = did_factory.upload_test_file(rse_name=src_rse)
 
@@ -947,8 +948,8 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
     maximum_pin_lifetime = 86400
 
     distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
-    rse_core.add_rse_attribute(dst_rse_id, 'staging_required', True)
-    rse_core.add_rse_attribute(dst_rse_id, 'maximum_pin_lifetime', maximum_pin_lifetime)
+    rse_core.add_rse_attribute(dst_rse_id, RseAttr.STAGING_REQUIRED, True)
+    rse_core.add_rse_attribute(dst_rse_id, RseAttr.MAXIMUM_PIN_LIFETIME, maximum_pin_lifetime)
 
     did = did_factory.upload_test_file(rse_name=src_rse)
 
@@ -1009,7 +1010,7 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
 
     distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
     for rse_id in all_rses:
-        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+        rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
 
     did = did_factory.upload_test_file(src_rse)
 
@@ -1048,7 +1049,7 @@ def test_cancel_rule(rse_factory, did_factory, root_account):
 
     distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
     for rse_id in all_rses:
-        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+        rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
 
     did = did_factory.upload_test_file(src_rse)
 
@@ -1155,11 +1156,11 @@ def overwrite_on_tape_topology(rse_factory, did_factory, root_account, vo, file_
     # Fake that destination RSE is a tape
     rse_core.update_rse(rse_id=rse3_id, parameters={'rse_type': RSEType.TAPE})
     try:
-        rse_core.add_rse_attribute(rse3_id, 'archive_timeout', 60)
+        rse_core.add_rse_attribute(rse3_id, RseAttr.ARCHIVE_TIMEOUT, 60)
         yield __create_dids
     finally:
         rse_core.update_rse(rse_id=rse3_id, parameters={'rse_type': RSEType.DISK})
-        rse_core.del_rse_attribute(rse3_id, 'archive_timeout')
+        rse_core.del_rse_attribute(rse3_id, RseAttr.ARCHIVE_TIMEOUT)
 
 
 @skip_rse_tests_with_accounts
@@ -1363,7 +1364,7 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
         all_rses = [src_rse_id, dst_rse_id]
 
         for rse_id in all_rses:
-            rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+            rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
         distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
         account = InternalAccount('root', vo=vo)
         did = did_factory.random_file_did(scope=scope)
@@ -1441,7 +1442,7 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
     rse7, rse7_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
     all_rses = [rse1_id, rse2_id, rse3_id, rse4_id, rse5_id, rse6_id, rse7_id]
     for rse_id in all_rses:
-        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+        rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
         rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=1)
         rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=1, free=0)
     distance_core.add_distance(rse1_id, rse2_id, distance=10)
@@ -1545,10 +1546,10 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
     for rse_id in [dst_rse1_id, dst_rse2_id, dst_rse3_id]:
         distance_core.add_distance(src_rse_id, rse_id, distance=10)
     for rse_id in all_rses:
-        rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+        rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
 
     rse_core.add_rse_attribute(src_rse_id, 'supported_checksums', 'adler32')
-    rse_core.add_rse_attribute(dst_rse1_id, 'verify_checksum', False)
+    rse_core.add_rse_attribute(dst_rse1_id, RseAttr.VERIFY_CHECKSUM, False)
     rse_core.add_rse_attribute(dst_rse2_id, 'supported_checksums', 'md5')
     rse_core.add_rse_attribute(dst_rse3_id, 'supported_checksums', 'md5,adler32')
 
@@ -1644,7 +1645,7 @@ def test_preparer_ignore_availability(rse_factory, did_factory, root_account, fi
 
         distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
         for rse_id in [src_rse_id, dst_rse_id]:
-            rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+            rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
         did = did_factory.upload_test_file(src_rse)
         rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
@@ -1683,10 +1684,10 @@ def test_transfer_plugins(rse_factory, did_factory, root_account, file_config_mo
         dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default', rse_type=RSEType.TAPE)
 
         distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
-        rse_core.add_rse_attribute(dst_rse_id, 'verify_checksum', False)
+        rse_core.add_rse_attribute(dst_rse_id, RseAttr.VERIFY_CHECKSUM, False)
 
         for rse_id in [src_rse_id, dst_rse_id]:
-            rse_core.add_rse_attribute(rse_id, 'fts', TEST_FTS_HOST)
+            rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
 
         did_fast = did_factory.upload_test_file(src_rse)
         did_slow = did_factory.upload_test_file(src_rse)
