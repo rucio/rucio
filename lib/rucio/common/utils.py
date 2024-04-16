@@ -1559,7 +1559,7 @@ def parse_replicas_from_file(path):
     """
     with open(path) as fp:
         try:
-            root = ElementTree.parse(fp).getroot()
+            root = ElementTree.parse(fp).getroot()  # noqa: S314
             return parse_replicas_metalink(root)
         except ElementTree.ParseError as xml_err:
             try:
@@ -1579,7 +1579,7 @@ def parse_replicas_from_string(string):
     :returns: a list with a dictionary for each file
     """
     try:
-        root = ElementTree.fromstring(string)
+        root = ElementTree.fromstring(string)  # noqa: S314
         return parse_replicas_metalink(root)
     except ElementTree.ParseError as xml_err:
         try:
