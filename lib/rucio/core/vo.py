@@ -79,7 +79,7 @@ def add_vo(vo: str, description: str, email: str, *, session: "Session") -> None
                          account=new_root,
                          email=email,
                          default=False,
-                         password='password',
+                         password='password',  # noqa: S106
                          session=session)
 
     for ident in list_identities(account=InternalAccount('super_root', vo='def'), session=session):

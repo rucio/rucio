@@ -918,7 +918,7 @@ def __exchange_token_oidc(subject_token_object: models.Token, *, session: "Sessi
     if not grant_type:
         grant_type = EXCHANGE_GRANT_TYPE
     try:
-        oidc_dict = __get_init_oidc_client(token_object=subject_token_object, token_type="subject_token")
+        oidc_dict = __get_init_oidc_client(token_object=subject_token_object, token_type="subject_token")  # noqa: S106
         oidc_client = oidc_dict['client']
         args = {"subject_token": subject_token_object.token,
                 "scope": jwt_row_dict['authz_scope'],
@@ -1162,7 +1162,7 @@ def __refresh_token_oidc(token_object: models.Token, *, session: "Session"):
         if datetime.utcnow() - extra_dict['refresh_start'] > timedelta(hours=extra_dict['refresh_lifetime']):
             __change_refresh_state(token_object.token, refresh=False, session=session)
             return None
-        oidc_dict = __get_init_oidc_client(token_object=token_object, token_type="refresh_token")
+        oidc_dict = __get_init_oidc_client(token_object=token_object, token_type="refresh_token")  # noqa: S106
         oidc_client = oidc_dict['client']
         # getting a new refreshed set of tokens
         state = oidc_dict['state']
