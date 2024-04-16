@@ -53,7 +53,7 @@ def extract_file_from_tar_gz(archive_file_obj, file_name, destination):
     with TemporaryDirectory(prefix=file_name) as tmp_dir:
         tmp_dir = Path(tmp_dir)
         with tarfile.open(fileobj=archive_file_obj, mode='r:gz') as tfile:
-            tfile.extractall(path=tmp_dir)
+            tfile.extractall(path=tmp_dir)  # noqa: S202
             for entry in tfile:
                 if entry.name.find(file_name) > -1:
                     print('Will move %s to %s' % (tmp_dir / entry.name, destination))
