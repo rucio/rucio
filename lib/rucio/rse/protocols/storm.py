@@ -155,7 +155,7 @@ class Default(protocol.RSEProtocol):
             if rcode != 207:
                 rcode, etag_meta = davix_etag(pfn, 300)
 
-            p_output = minidom.parseString(etag_meta)
+            p_output = minidom.parseString(etag_meta)  # noqa: S318
             # we need to strip off the quotation marks and the <timestamp> from the etag
             # but since we can have multiple underscores, we have to rely on the uniqueness
             # of the full LFN to make the split

@@ -133,7 +133,7 @@ class _PropfindResponse:
         """
 
         try:
-            xml = ET.fromstring(document)
+            xml = ET.fromstring(document)  # noqa: S314
         except ET.ParseError as ex:
             raise ValueError("Couldn't parse XML document") from ex
 
@@ -533,7 +533,7 @@ class Default(protocol.RSEProtocol):
         headers = {'Depth': '0'}
 
         try:
-            root = ET.fromstring(self.session.request('PROPFIND', endpoint_basepath, verify=False, headers=headers, cert=self.session.cert).text)
+            root = ET.fromstring(self.session.request('PROPFIND', endpoint_basepath, verify=False, headers=headers, cert=self.session.cert).text)  # noqa: S314
             usedsize = root[0][1][0].find('{DAV:}quota-used-bytes').text
             try:
                 unusedsize = root[0][1][0].find('{DAV:}quota-available-bytes').text
