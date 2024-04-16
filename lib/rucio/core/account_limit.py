@@ -14,7 +14,7 @@
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.sql import func, literal, select
 from sqlalchemy.sql.expression import and_, or_
 
