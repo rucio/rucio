@@ -1209,7 +1209,7 @@ def test_client_list_replicas_streaming_error(content_type, vo, did_client, repl
         assert metalink
         print(metalink)
         with pytest.raises(ElementTree.ParseError):
-            ElementTree.fromstring(metalink)
+            ElementTree.fromstring(metalink)  # noqa: S314
 
     elif content_type == Mime.JSON_STREAM:
         # for the json stream mimetype the API method just returns all mocked replicas on error
