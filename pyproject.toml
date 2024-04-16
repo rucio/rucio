@@ -42,6 +42,7 @@ exclude = [
 [tool.ruff.lint]
 select = [
     "I", # isort
+    "S", # bandit
     "UP", # pyupgrade
     "TID", # flake8-tidy-imports
 ]
@@ -55,6 +56,18 @@ ignore = [
     "UP030", # Use implicit references for positional format fields
     "UP031", # Use format specifiers instead of percent format
     "UP032", # Use f-string instead of `format` call
+    "S101",  # Pending https://github.com/rucio/rucio/issues/6680
+    "S105",  # Pending https://github.com/rucio/rucio/issues/6696
+    "S108",  # Pending https://github.com/rucio/rucio/issues/6655
+    "S110",  # Pending https://github.com/rucio/rucio/issues/6657
+    "S112",  # Pending https://github.com/rucio/rucio/issues/6657
+    "S113",  # Pending https://github.com/rucio/rucio/issues/6654
+    "S310",  # Pending https://github.com/astral-sh/ruff/issues/7918
+    "S324",  # Pending https://github.com/rucio/rucio/issues/6665
+    "S501",  # Pending https://github.com/rucio/rucio/issues/6656
+    "S602",  # Pending https://github.com/astral-sh/ruff/issues/4045
+    "S603",  # Pending https://github.com/astral-sh/ruff/issues/4045
+    "S608",  # Pending https://github.com/rucio/rucio/issues/6669
     "SIM210",
 ]
 
@@ -99,3 +112,21 @@ known-first-party = ["rucio"]
 "typing.Tuple".msg = "Use built-in type `tuple` instead."
 "typing.Type".msg = "Use built-in `type` instead."
 "typing.ValuesView".msg = "Use `collections.abc.ValuesView` instead."
+
+[tool.ruff.lint.per-file-ignores]
+'tests/*.py' = [
+    'S101', # Usage of assert
+    'S105', # Hardcoded password string
+    'S106', # Hardcoded password function argument
+    'S108', # Hardcoded temporary file
+    'S110', # try-except-pass
+    'S113', # Probable use of requests call without timeout
+    'S306', # Use of insecure and deprecated function
+    'S311', # Non-cryptographic random usage
+    'S324', # Probable use of insecure hash function
+    'S605', # Starting a process with a shell
+]
+
+'lib/rucio/db/sqla/migrate_repo/versions/*.py' = [
+    'S608'  # Hardcoded SQL expression
+]
