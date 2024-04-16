@@ -20,9 +20,8 @@ from json import dumps
 from typing import TYPE_CHECKING
 
 from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError, StatementError
+from sqlalchemy.exc import IntegrityError, NoResultFound, StatementError
 from sqlalchemy.orm import aliased
-from sqlalchemy.orm.exc import NoResultFound
 
 from rucio.common.config import config_get
 from rucio.common.exception import RucioException, SubscriptionDuplicate, SubscriptionNotFound
