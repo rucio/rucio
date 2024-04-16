@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import and_, exists, insert, or_, update
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.sql.expression import select
 
 from rucio.common import exception

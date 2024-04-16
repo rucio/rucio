@@ -17,7 +17,7 @@ from json import loads
 from json.decoder import JSONDecodeError
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import NoResultFound
 
 from rucio.common.config import config_get
 from rucio.common.exception import ConfigNotFound, InvalidType, RucioException, UnsupportedOperation

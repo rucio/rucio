@@ -18,8 +18,7 @@ from re import match
 from typing import TYPE_CHECKING
 
 from sqlalchemy import or_, select, update
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import IntegrityError, NoResultFound
 
 import rucio.common.policy
 from rucio.common.config import config_get, config_get_int, config_get_list

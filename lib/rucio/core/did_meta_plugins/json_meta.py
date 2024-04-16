@@ -16,8 +16,7 @@ import json as json_lib
 import operator
 from typing import TYPE_CHECKING, Any, cast
 
-from sqlalchemy.exc import DataError
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import DataError, NoResultFound
 
 from rucio.common import exception
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin

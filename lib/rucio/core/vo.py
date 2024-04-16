@@ -15,8 +15,7 @@
 import re
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import DatabaseError, IntegrityError, NoResultFound
 
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool

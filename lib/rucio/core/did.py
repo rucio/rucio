@@ -21,8 +21,7 @@ from re import match
 from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, delete, exists, insert, or_, update
-from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import DatabaseError, IntegrityError, NoResultFound
 from sqlalchemy.sql import func, not_
 from sqlalchemy.sql.expression import bindparam, case, false, null, select, true
 
