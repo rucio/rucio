@@ -317,6 +317,8 @@ def build_job_params(
         max_time_in_queue: Optional[dict] = None, logger: Callable = logging.log) -> dict[str, Any]:
     """
     Prepare the job parameters which will be passed to FTS transfertool
+    Please refer to https://fts3-docs.web.cern.ch/fts3-docs/fts-rest/docs/bulk.html#parameters
+    for the list of parameters.
     """
 
     # The last hop is the main request (the one which triggered the whole transfer),
@@ -324,13 +326,25 @@ def build_job_params(
     last_hop = transfer_path[-1]
     first_hop = transfer_path[0]
 
-    overwrite, bring_online_local = True, None
+    # Overwriting by default is set to True for non TAPE RSEs.
+    # Tape RSEs can force overwrite by setting the "overwrite" attribute to True.
+    overwrite, overwrite_when_only_on_disk, bring_online_local = True, False, None
     if first_hop.src.rse.is_tape_or_staging_required():
         # Activate bring_online if it was requested by first hop
         # We don't allow multihop via a tape, so bring_online should not be set on any other hop
         bring_online_local = bring_online
     if last_hop.dst.rse.is_tape():
-        overwrite = False
+        # FTS v3.12.12 introduced a new boolean parameter "overwrite_when_only_on_disk" that controls if the file can be overwritten
+        # in TAPE enabled RSEs ONLY IF the file is on the disk buffer and not yet commited to tape media.
+        # This functionality should reduce the number of stuck files in the disk buffer that are not migrated to tape media (for whatever reason).
+        # Please be aware that FTS does not guarantee an atomic operation from the time it checks for existence of the file on disk and tape and 
+        # the moment the file is overwritten, so there is a race condition that could overwrite the file on the tape media
+        overwrite = last_hop.rws.attributes.get('overwrite', False) # honour RSE configuration to force overwrite
+        overwrite_when_only_on_disk = last_hop.rws.attributes.get('overwrite_when_only_on_disk', False)
+        # setting both flags is incompatible, so we opt in for the safest approach: "overwrite_when_only_on_disk"
+        # this is aligned with FTS implementation: see 
+        if overwrite and overwrite_when_only_on_disk:
+            overwrite = False
 
     # Get dest space token
     dest_protocol = last_hop.protocol_factory.protocol(last_hop.dst.rse, last_hop.dst.scheme, last_hop.operation_dest)
@@ -350,7 +364,8 @@ def build_job_params(
                       'issuer': 'rucio',
                       'multi_sources': False,
                   },
-                  'overwrite': last_hop.rws.attributes.get('overwrite', overwrite),
+                  'overwrite': overwrite,
+                  'overwrite_when_only_on_disk': overwrite_when_only_on_disk,
                   'priority': last_hop.rws.priority}
 
     if len(transfer_path) > 1:
@@ -395,6 +410,13 @@ def build_job_params(
         elif 'default' in max_time_in_queue:
             job_params['max_time_in_queue'] = max_time_in_queue['default']
 
+    # Refer to https://its.cern.ch/jira/browse/FTS-1749 for full details (login needed), extract below:
+    # Why the overwrite_hop parameter is needed?
+    # Rucio decides that a multihop transfer is needed DISK1 --> DISK2 --> TAPE1 in order to put the file on tape. For some reason, the file already exist at DISK2.
+    # Rucio doesn't know about this file on DISK2. It could be either a correct or corrupted file. This can be due to a previous issue on Rucio side, FTS side, network side, etc (many possible reasons).
+    # Normally, Rucio allows overwrite towards any disk destination, but denies overwrite towards a tape destination. However, in this case, because the destination of the multihop is a tape, DISK2 cannot be overwritten.
+    # Proposed solution
+    # Provide an --overwrite-hop submission option, which instructs FTS to overwrite all transfers except for the destination within a multihop submission.
     overwrite_hop = True
     for transfer_hop in transfer_path[:-1]:
         # Only allow overwrite if all hops in multihop allow it
