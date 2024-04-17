@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 @read_session
-def list_keys(*, session: "Session"):
+def list_keys(*, session: "Session") -> list[str]:
     """
     Lists all keys for DID Metadata Conventions.
 
@@ -39,7 +39,7 @@ def list_keys(*, session: "Session"):
 
 
 @read_session
-def list_values(key: str, *, session: "Session"):
+def list_values(key: str, *, session: "Session") -> list[str]:
     """
     Lists all allowed values for a DID key (all values for a key in DID Metadata Conventions).
 
@@ -53,7 +53,7 @@ def list_values(key: str, *, session: "Session"):
 
 
 @transactional_session
-def add_key(key: str, key_type: Union[KeyType, str], issuer: "InternalAccount", value_type: Optional[str] = None, value_regexp: Optional[str] = None, vo: str = 'def', *, session: "Session"):
+def add_key(key: str, key_type: Union[KeyType, str], issuer: "InternalAccount", value_type: Optional[str] = None, value_regexp: Optional[str] = None, vo: str = 'def', *, session: "Session") -> None:
     """
     Add an allowed key for DID metadata (update the DID Metadata Conventions table with a new key).
 
@@ -72,7 +72,7 @@ def add_key(key: str, key_type: Union[KeyType, str], issuer: "InternalAccount", 
 
 
 @transactional_session
-def add_value(key: str, value: str, issuer: "InternalAccount", vo: str = 'def', *, session: "Session"):
+def add_value(key: str, value: str, issuer: "InternalAccount", vo: str = 'def', *, session: "Session") -> None:
     """
     Add an allowed value for DID metadata (update a key in DID Metadata Conventions table).
 
