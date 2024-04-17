@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from rucio.common import exception
 from rucio.core import exporter
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 @read_session
-def export_data(issuer, distance=True, vo='def', *, session: "Session"):
+def export_data(issuer: str, distance: bool = True, vo: str = 'def', *, session: "Session") -> dict[str, Any]:
     """
     Export data from Rucio.
 
