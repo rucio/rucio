@@ -560,28 +560,29 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     worker_number, total_workers, logger = heartbeat_handler.live()
     message_dict = {}
     message_ids = []
-    start_time = time.time()
-    messages = retrieve_messages(
-        bulk=bulk,
-        old_mode=False,
-        thread=worker_number,
-        total_threads=total_workers,
-    )
-
-    to_delete = []
-    if messages:
-        for message in messages:
-            service = message["services"]
-            if service not in message_dict:
-                message_dict[service] = []
-            message_dict[service].append(message)
-            message_ids.append(message["id"])
-        logger(
-            logging.DEBUG,
-            "Retrieved %i messages retrieved in %s seconds",
-            len(messages),
-            time.time() - start_time,
+    for service in services_list:
+        message_dict[service] = []
+        start_time = time.time()
+        messages = retrieve_messages(
+            bulk=bulk,
+            old_mode=False,
+            thread=worker_number,
+            total_threads=total_workers,
+            service_filter=service
         )
+
+        to_delete = []
+        if messages:
+            for message in messages:
+                message_dict[service].append(message)
+                message_ids.append(message["id"])
+            logger(
+                logging.DEBUG,
+                "Retrieved %i messages retrieved in %s seconds for %s services",
+                len(messages),
+                time.time() - start_time,
+                services_list,
+            )
 
         if "influx" in message_dict and influx_endpoint:
             # For influxDB, bulk submission, either everything succeeds or fails
