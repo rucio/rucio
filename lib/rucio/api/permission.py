@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from copy import deepcopy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from rucio.common.exception import RSENotFound
 from rucio.common.types import InternalAccount, InternalScope
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 @read_session
-def has_permission(issuer, action, kwargs, vo='def', *, session: "Session"):
+def has_permission(issuer: str, action: str, kwargs: dict[str, Any], vo: str = 'def', *, session: "Session") -> bool:
     """
     Checks if an account has the specified permission to
     execute an action with parameters.
@@ -66,6 +66,6 @@ def has_permission(issuer, action, kwargs, vo='def', *, session: "Session"):
                 for r in d['rules']:
                     r['account'] = InternalAccount(r['account'], vo=vo)
 
-    issuer = InternalAccount(issuer, vo=vo)
+    issuer_account = InternalAccount(issuer, vo=vo)
 
-    return permission.has_permission(issuer=issuer, action=action, kwargs=kwargs, session=session)
+    return permission.has_permission(issuer=issuer_account, action=action, kwargs=kwargs, session=session)
