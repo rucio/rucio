@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.api.permission import has_permission
 from rucio.common import exception
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def add_vo(new_vo, issuer, description=None, email=None, vo='def', *, session: "Session"):
+def add_vo(new_vo: str, issuer: str, description: Optional[str] = None, email: Optional[str] = None, vo: str = 'def', *, session: "Session") -> None:
     '''
     Add a new VO.
 
@@ -51,7 +51,7 @@ def add_vo(new_vo, issuer, description=None, email=None, vo='def', *, session: "
 
 
 @read_session
-def list_vos(issuer, vo='def', *, session: "Session"):
+def list_vos(issuer: str, vo: str = 'def', *, session: "Session") -> list[dict[str, Any]]:
     '''
     List the VOs.
 
@@ -67,7 +67,18 @@ def list_vos(issuer, vo='def', *, session: "Session"):
 
 
 @transactional_session
-def recover_vo_root_identity(root_vo, identity_key, id_type, email, issuer, default=False, password=None, vo='def', *, session: "Session"):
+def recover_vo_root_identity(
+    root_vo: str,
+    identity_key: str,
+    id_type: str,
+    email: str,
+    issuer: str,
+    default: bool = False,
+    password: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Adds a membership association between identity and the root account for given VO.
 
@@ -93,7 +104,7 @@ def recover_vo_root_identity(root_vo, identity_key, id_type, email, issuer, defa
 
 
 @transactional_session
-def update_vo(updated_vo, parameters, issuer, vo='def', *, session: "Session"):
+def update_vo(updated_vo: str, parameters: dict[str, Any], issuer: str, vo: str = 'def', *, session: "Session") -> None:
     """
     Update VO properties (email, description).
 
