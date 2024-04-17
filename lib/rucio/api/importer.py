@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from rucio.api import permission
 from rucio.common import exception
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def import_data(data, issuer, vo='def', *, session: "Session"):
+def import_data(data: dict[str, Any], issuer: str, vo: str = 'def', *, session: "Session") -> None:
     """
     Import data to add/update/delete records in Rucio.
 
