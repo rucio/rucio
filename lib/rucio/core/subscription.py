@@ -229,7 +229,7 @@ def list_subscriptions(name: "Optional[str]" = None,
         if name:
             query = query.filter_by(name=name)
         if account:
-            if '*' in account.internal:
+            if account.internal is not None and '*' in account.internal:
                 account_str = account.internal.replace('*', '%')
                 query = query.filter(models.Subscription.account.like(account_str))
             else:
