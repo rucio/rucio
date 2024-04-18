@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from rucio.common import exception
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import api_update_return_dict
+from rucio.common.utils import gateway_update_return_dict
 from rucio.core import lifetime_exception
 from rucio.db.sqla.session import stream_session, transactional_session
 from rucio.gateway import permission
@@ -39,7 +39,7 @@ def list_exceptions(exception_id=None, states=None, vo='def', *, session: "Sessi
     exceptions = lifetime_exception.list_exceptions(exception_id=exception_id, states=states, session=session)
     for e in exceptions:
         if vo == e['scope'].vo:
-            yield api_update_return_dict(e, session=session)
+            yield gateway_update_return_dict(e, session=session)
 
 
 @transactional_session

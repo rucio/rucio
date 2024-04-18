@@ -1704,7 +1704,7 @@ def run_cmd_process(cmd, timeout=3600):
     return returncode, stdout
 
 
-def api_update_return_dict(dictionary, session=None):
+def gateway_update_return_dict(dictionary, session=None):
     """
     Ensure that rse is in a dictionary returned from core
 

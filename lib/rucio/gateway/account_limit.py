@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 import rucio.common.exception
 import rucio.gateway.permission
 from rucio.common.types import InternalAccount
-from rucio.common.utils import api_update_return_dict
+from rucio.common.utils import gateway_update_return_dict
 from rucio.core import account_limit as account_limit_core
 from rucio.core.account import account_exists
 from rucio.core.rse import get_rse_id, get_rse_name
@@ -39,7 +39,7 @@ def get_rse_account_usage(rse, vo='def', *, session: "Session"):
     """
     rse_id = get_rse_id(rse=rse, vo=vo, session=session)
 
-    return [api_update_return_dict(d, session=session) for d in account_limit_core.get_rse_account_usage(rse_id=rse_id, session=session)]
+    return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_rse_account_usage(rse_id=rse_id, session=session)]
 
 
 @read_session
@@ -257,7 +257,7 @@ def get_local_account_usage(account, rse, issuer, vo='def', *, session: "Session
     if not account_exists(account=account, session=session):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
 
-    return [api_update_return_dict(d, session=session) for d in account_limit_core.get_local_account_usage(account=account, rse_id=rse_id, session=session)]
+    return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_local_account_usage(account=account, rse_id=rse_id, session=session)]
 
 
 @read_session
@@ -283,4 +283,4 @@ def get_global_account_usage(account, rse_expression, issuer, vo='def', *, sessi
     if not account_exists(account=account, session=session):
         raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
 
-    return [api_update_return_dict(d, session=session) for d in account_limit_core.get_global_account_usage(account=account, rse_expression=rse_expression, session=session)]
+    return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_global_account_usage(account=account, rse_expression=rse_expression, session=session)]

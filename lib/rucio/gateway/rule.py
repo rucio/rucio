@@ -18,7 +18,7 @@ from rucio.common.config import config_get_bool
 from rucio.common.exception import AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import api_update_return_dict
+from rucio.common.utils import gateway_update_return_dict
 from rucio.core import rule
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 from rucio.gateway.permission import has_permission
@@ -130,7 +130,7 @@ def get_replication_rule(rule_id, issuer, vo='def', *, session: "Session"):
     if is_multi_vo(session=session) and not has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not access rules at other VOs.' % (issuer))
     result = rule.get_rule(rule_id, session=session)
-    return api_update_return_dict(result, session=session)
+    return gateway_update_return_dict(result, session=session)
 
 
 @stream_session
@@ -160,7 +160,7 @@ def list_replication_rules(filters={}, vo='def', *, session: "Session"):
 
     rules = rule.list_rules(filters, session=session)
     for r in rules:
-        yield api_update_return_dict(r, session=session)
+        yield gateway_update_return_dict(r, session=session)
 
 
 @read_session
@@ -192,7 +192,7 @@ def list_replication_rule_full_history(scope, name, vo='def', *, session: "Sessi
     scope = InternalScope(scope, vo=vo)
     rules = rule.list_rule_full_history(scope, name, session=session)
     for r in rules:
-        yield api_update_return_dict(r, session=session)
+        yield gateway_update_return_dict(r, session=session)
 
 
 @stream_session
@@ -208,7 +208,7 @@ def list_associated_replication_rules_for_file(scope, name, vo='def', *, session
     scope = InternalScope(scope, vo=vo)
     rules = rule.list_associated_rules_for_file(scope=scope, name=name, session=session)
     for r in rules:
-        yield api_update_return_dict(r, session=session)
+        yield gateway_update_return_dict(r, session=session)
 
 
 @transactional_session
@@ -299,9 +299,9 @@ def examine_replication_rule(rule_id, issuer, vo='def', *, session: "Session"):
     if is_multi_vo(session=session) and not has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not access rules at other VOs.' % (issuer))
     result = rule.examine_rule(rule_id, session=session)
-    result = api_update_return_dict(result, session=session)
+    result = gateway_update_return_dict(result, session=session)
     if 'transfers' in result:
-        result['transfers'] = [api_update_return_dict(t, session=session) for t in result['transfers']]
+        result['transfers'] = [gateway_update_return_dict(t, session=session) for t in result['transfers']]
     return result
 
 

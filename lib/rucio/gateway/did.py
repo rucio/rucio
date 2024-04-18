@@ -20,7 +20,7 @@ from rucio.common.constants import RESERVED_KEYS
 from rucio.common.exception import RucioException
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import api_update_return_dict
+from rucio.common.utils import gateway_update_return_dict
 from rucio.core import did, naming_convention
 from rucio.core import meta_conventions as meta_convention_core
 from rucio.core.rse import get_rse_id
@@ -62,7 +62,7 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
                            limit=limit, offset=offset, long=long, recursive=recursive, session=session)
 
     for d in result:
-        yield api_update_return_dict(d, session=session)
+        yield gateway_update_return_dict(d, session=session)
 
 
 @transactional_session
@@ -271,7 +271,7 @@ def list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100
     dids = did.list_new_dids(did_type=did_type and DIDType[did_type.upper()], thread=thread, total_threads=total_threads, chunk_size=chunk_size, session=session)
     for d in dids:
         if d['scope'].vo == vo:
-            yield api_update_return_dict(d, session=session)
+            yield gateway_update_return_dict(d, session=session)
 
 
 @transactional_session
@@ -306,7 +306,7 @@ def list_content(scope, name, vo='def', *, session: "Session"):
 
     dids = did.list_content(scope=scope, name=name, session=session)
     for d in dids:
-        yield api_update_return_dict(d, session=session)
+        yield gateway_update_return_dict(d, session=session)
 
 
 @stream_session
@@ -325,7 +325,7 @@ def list_content_history(scope, name, vo='def', *, session: "Session"):
     dids = did.list_content_history(scope=scope, name=name, session=session)
 
     for d in dids:
-        yield api_update_return_dict(d, session=session)
+        yield gateway_update_return_dict(d, session=session)
 
 
 @stream_session
@@ -343,7 +343,7 @@ def bulk_list_files(dids: "list[dict[str, Any]]", long: bool = False, vo: str = 
         did_['scope'] = InternalScope(did_['scope'], vo=vo)
 
     for file_ in did.bulk_list_files(dids=dids, long=long, session=session):
-        yield api_update_return_dict(file_, session=session)
+        yield gateway_update_return_dict(file_, session=session)
 
 
 @stream_session
@@ -363,7 +363,7 @@ def list_files(scope, name, long, vo='def', *, session: "Session"):
     dids = did.list_files(scope=scope, name=name, long=long, session=session)
 
     for d in dids:
-        yield api_update_return_dict(d, session=session)
+        yield gateway_update_return_dict(d, session=session)
 
 
 @stream_session
@@ -408,7 +408,7 @@ def get_did(scope: str, name: str, dynamic_depth: "Optional[DIDType]" = None, vo
     scope = InternalScope(scope, vo=vo)
 
     d = did.get_did(scope=scope, name=name, dynamic_depth=dynamic_depth, session=session)
-    return api_update_return_dict(d, session=session)
+    return gateway_update_return_dict(d, session=session)
 
 
 @transactional_session
@@ -502,7 +502,7 @@ def get_metadata(scope, name, plugin='DID_COLUMN', vo='def', *, session: "Sessio
     scope = InternalScope(scope, vo=vo)
 
     d = did.get_metadata(scope=scope, name=name, plugin=plugin, session=session)
-    return api_update_return_dict(d, session=session)
+    return gateway_update_return_dict(d, session=session)
 
 
 @stream_session
@@ -520,7 +520,7 @@ def get_metadata_bulk(dids, inherit=False, vo='def', *, session: "Session"):
         entry['scope'] = InternalScope(entry['scope'], vo=vo)
     meta = did.get_metadata_bulk(dids, inherit=inherit, session=session)
     for met in meta:
-        yield api_update_return_dict(met, session=session)
+        yield gateway_update_return_dict(met, session=session)
 
 
 @transactional_session
@@ -575,7 +575,7 @@ def get_dataset_by_guid(guid, vo='def', *, session: "Session"):
     for d in dids:
         if d['scope'].vo != vo:
             raise RucioException('GUID unavailable on VO {}'.format(vo))
-        yield api_update_return_dict(d, session=session)
+        yield gateway_update_return_dict(d, session=session)
 
 
 @stream_session
@@ -594,7 +594,7 @@ def list_parent_dids(scope, name, vo='def', *, session: "Session"):
     dids = did.list_parent_dids(scope=scope, name=name, session=session)
 
     for d in dids:
-        yield api_update_return_dict(d, session=session)
+        yield gateway_update_return_dict(d, session=session)
 
 
 @transactional_session
@@ -661,7 +661,7 @@ def list_archive_content(scope, name, vo='def', *, session: "Session"):
 
     dids = did.list_archive_content(scope=scope, name=name, session=session)
     for d in dids:
-        yield api_update_return_dict(d, session=session)
+        yield gateway_update_return_dict(d, session=session)
 
 
 @transactional_session

@@ -16,7 +16,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from rucio.common.types import InternalScope
-from rucio.common.utils import api_update_return_dict
+from rucio.common.utils import gateway_update_return_dict
 from rucio.core import lock
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DIDType
@@ -47,7 +47,7 @@ def get_dataset_locks(scope, name, vo='def', *, session: "Session"):
     locks = lock.get_dataset_locks(scope=scope, name=name, session=session)
 
     for lock_object in locks:
-        yield api_update_return_dict(lock_object, session=session)
+        yield gateway_update_return_dict(lock_object, session=session)
 
 
 @stream_session
@@ -107,7 +107,7 @@ def get_dataset_locks_by_rse(rse, vo='def', *, session: "Session"):
     locks = lock.get_dataset_locks_by_rse_id(rse_id=rse_id, session=session)
 
     for lock_object in locks:
-        yield api_update_return_dict(lock_object, session=session)
+        yield gateway_update_return_dict(lock_object, session=session)
 
 
 @stream_session
@@ -127,4 +127,4 @@ def get_replica_locks_for_rule_id(rule_id, vo='def', *, session: "Session"):
         if lock_object['scope'].vo != vo:  # rule is on a different VO, so don't return any locks
             LOGGER.debug('rule id %s is not present on VO %s' % (rule_id, vo))
             break
-        yield api_update_return_dict(lock_object, session=session)
+        yield gateway_update_return_dict(lock_object, session=session)
