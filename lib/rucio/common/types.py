@@ -23,7 +23,7 @@ class InternalType:
     '''
     Base for Internal representations of string types
     '''
-    def __init__(self, value, vo='def', fromExternal=True):
+    def __init__(self, value: Optional[str], vo: str = 'def', fromExternal: bool = True):
         if value is None:
             self.external = None
             self.internal = None
@@ -72,7 +72,7 @@ class InternalType:
     def __hash__(self):
         return hash(self.internal)
 
-    def _calc_external(self):
+    def _calc_external(self) -> tuple[str, str]:
         ''' Utility to convert between internal and external representations'''
         if isinstance(self.internal, str):
             split = self.internal.split('@', 1)
@@ -85,7 +85,7 @@ class InternalType:
             return vo, external
         return '', ''
 
-    def _calc_internal(self):
+    def _calc_internal(self) -> str:
         ''' Utility to convert between internal and external representations'''
         if self.vo == 'def' and self.external is not None:
             return self.external
@@ -97,7 +97,7 @@ class InternalAccount(InternalType):
     '''
     Internal representation of an account
     '''
-    def __init__(self, account, vo='def', fromExternal=True):
+    def __init__(self, account: Optional[str], vo: str = 'def', fromExternal: bool = True):
         super(InternalAccount, self).__init__(value=account, vo=vo, fromExternal=fromExternal)
 
 
@@ -105,7 +105,7 @@ class InternalScope(InternalType):
     '''
     Internal representation of a scope
     '''
-    def __init__(self, scope, vo='def', fromExternal=True):
+    def __init__(self, scope: Optional[str], vo: str = 'def', fromExternal: bool = True):
         super(InternalScope, self).__init__(value=scope, vo=vo, fromExternal=fromExternal)
 
 
