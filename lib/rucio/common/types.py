@@ -75,18 +75,20 @@ class InternalType:
 
     def _calc_external(self):
         ''' Utility to convert between internal and external representations'''
-        split = self.internal.split('@', 1)
-        if len(split) == 1:  # if cannot convert, vo is '' and this is single vo
-            vo = 'def'
-            external = split[0]
-        else:
-            vo = split[1]
-            external = split[0]
-        return vo, external
+        if isinstance(self.internal, str):
+            split = self.internal.split('@', 1)
+            if len(split) == 1:  # if cannot convert, vo is '' and this is single vo
+                vo = 'def'
+                external = split[0]
+            else:
+                vo = split[1]
+                external = split[0]
+            return vo, external
+        return '', ''
 
     def _calc_internal(self):
         ''' Utility to convert between internal and external representations'''
-        if self.vo == 'def':
+        if self.vo == 'def' and self.external is not None:
             return self.external
         internal = '{}@{}'.format(self.external, self.vo)
         return internal
