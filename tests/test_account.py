@@ -27,7 +27,7 @@ from rucio.gateway.account import account_exists, add_account, del_account, get_
 from rucio.tests.common import account_name_generator, auth, headers, loginhdr, skip_non_belleii, vohdr
 
 
-class TestAccountCoreApi:
+class TestAccountCoreGateway:
 
     def test_create_and_check_for_user(self, vo):
         """ ACCOUNT (CORE): Test the creation, query, and deletion of an account """

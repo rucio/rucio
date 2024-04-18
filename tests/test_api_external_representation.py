@@ -20,11 +20,11 @@ from json import loads
 import pytest
 
 import rucio.core.account_counter as account_counter
-import rucio.gateway.account_limit as api_acc_lim
-import rucio.gateway.rse as api_rse
+import rucio.gateway.account_limit as gateway_acc_lim
+import rucio.gateway.rse as gateway_rse
 from rucio.common.config import config_get_bool
 from rucio.common.types import InternalScope
-from rucio.common.utils import api_update_return_dict, generate_uuid
+from rucio.common.utils import gateway_update_return_dict, generate_uuid
 from rucio.core.vo import add_vo, vo_exists
 from rucio.daemons.abacus import rse as abacus_rse
 from rucio.daemons.judge import cleaner
@@ -85,19 +85,19 @@ def setup_class(request, rse_factory_unittest, vo, vo2):
 
 @pytest.mark.usefixtures("setup_class")
 @pytest.mark.noparallel(reason='uses pre-defined RSE, fails when run in parallel')
-class TestApiExternalRepresentation:
+class TestGatewayExternalRepresentation:
 
     @classmethod
     def setUpClass(cls):
         # Get test RSEs
         cls.rse3_name = rse_name_generator()
-        cls.rse3_id = api_rse.add_rse(cls.rse3_name, 'root', vo=cls.vo2 if cls.vo2 else cls.vo)
+        cls.rse3_id = gateway_rse.add_rse(cls.rse3_name, 'root', vo=cls.vo2 if cls.vo2 else cls.vo)
         cls.rse4_name = rse_name_generator()
-        cls.rse4_id = api_rse.add_rse(cls.rse4_name, 'root', vo=cls.vo2 if cls.vo2 else cls.vo)
-        api_rse.add_distance(cls.rse3_name, cls.rse4_name, issuer='root', distance=3, vo=cls.vo2 or cls.vo)
+        cls.rse4_id = gateway_rse.add_rse(cls.rse4_name, 'root', vo=cls.vo2 if cls.vo2 else cls.vo)
+        gateway_rse.add_distance(cls.rse3_name, cls.rse4_name, issuer='root', distance=3, vo=cls.vo2 or cls.vo)
 
-    def test_api_update_return_dict(self, rse_factory, account, account_name, scope_name, scope):
-        """ API: Test the conversion of dictionaries to external representation """
+    def test_gateway_update_return_dict(self, rse_factory, account, account_name, scope_name, scope):
+        """ Gateway: Test the conversion of dictionaries to external representation """
         rse1, rse1_id = rse_factory.make_rse()
         rse2, rse2_id = rse_factory.make_rse()
         test_dict = {'account': account,
@@ -108,7 +108,7 @@ class TestApiExternalRepresentation:
                      'source_rse_id': rse1_id,
                      'dest_rse_id': rse1_id,
                      'destination_rse_id': rse1_id}
-        value = api_update_return_dict(test_dict)
+        value = gateway_update_return_dict(test_dict)
         expected = {'account': account_name, 'scope': scope_name, 'rse_expression': f'{rse1}|{rse2}',
                     'rse_id': rse1_id, 'rse': rse1,
                     'src_rse_id': rse1_id, 'src_rse': rse1,
@@ -117,8 +117,8 @@ class TestApiExternalRepresentation:
                     'destination_rse_id': rse1_id, 'destination_rse': rse1}
         assert value == expected
 
-    def test_api_account(self, vo, vo2, account, account_name):
-        """ ACCOUNT (API): Test external representation of account information """
+    def test_gateway_account(self, vo, vo2, account, account_name):
+        """ ACCOUNT (Gateway): Test external representation of account information """
         out = get_account_info(account_name, vo=vo)
         assert account_name == out['account']
 
@@ -128,34 +128,34 @@ class TestApiExternalRepresentation:
             assert account.internal not in out
         assert '@' not in ' '.join(out)
 
-    def test_api_account_limit(self, rse_factory, vo, vo2, account_name):
-        """ ACCOUNT_LIMIT (API): Test external representation of account limits """
+    def test_gateway_account_limit(self, rse_factory, vo, vo2, account_name):
+        """ ACCOUNT_LIMIT (Gateway): Test external representation of account limits """
         # Add mock account limits
         rse1, rse1_id = rse_factory.make_rse()
         rse2, rse2_id = rse_factory.make_rse()
         rse_expr = f'{rse1}|{rse2}'
-        api_acc_lim.set_local_account_limit(account_name, rse1, 10000, issuer='root', vo=vo)
-        api_acc_lim.set_global_account_limit(account_name, rse_expr, 20000, issuer='root', vo=vo)
+        gateway_acc_lim.set_local_account_limit(account_name, rse1, 10000, issuer='root', vo=vo)
+        gateway_acc_lim.set_global_account_limit(account_name, rse_expr, 20000, issuer='root', vo=vo)
 
-        out = api_acc_lim.get_local_account_limits(account_name, vo=vo)
+        out = gateway_acc_lim.get_local_account_limits(account_name, vo=vo)
         assert rse1 in out
         assert rse1_id not in out
 
-        out = api_acc_lim.get_local_account_limit(account_name, rse1, vo=vo)
+        out = gateway_acc_lim.get_local_account_limit(account_name, rse1, vo=vo)
         assert rse1 in out
         assert rse1_id not in out
 
-        out = api_acc_lim.get_global_account_limits(account_name, vo=vo)
+        out = gateway_acc_lim.get_global_account_limits(account_name, vo=vo)
         assert rse_expr in out
         if vo2:
             assert 'vo={}&({})'.format(vo, rse_expr) not in out
 
-        out = api_acc_lim.get_global_account_limit(account_name, rse_expr, vo=vo)
+        out = gateway_acc_lim.get_global_account_limit(account_name, rse_expr, vo=vo)
         assert rse_expr in out
         if vo2:
             assert 'vo={}&({})'.format(vo, rse_expr) not in out
 
-        out = api_acc_lim.get_local_account_usage(account_name, rse1, issuer='root', vo=vo)
+        out = gateway_acc_lim.get_local_account_usage(account_name, rse1, issuer='root', vo=vo)
         out = list(out)
         assert 0 != len(out)
         assert rse1_id in [usage['rse_id'] for usage in out if 'rse_id' in usage]
@@ -165,13 +165,13 @@ class TestApiExternalRepresentation:
                 if usage['rse_id'] == rse1_id:
                     assert rse1 == usage["rse"]
 
-        out = api_acc_lim.get_global_account_usage(account_name, rse_expr, issuer='root', vo=vo)
+        out = gateway_acc_lim.get_global_account_usage(account_name, rse_expr, issuer='root', vo=vo)
         out = list(out)
         assert 0 != len(out)
         assert rse_expr in [usage['rse_expression'] for usage in out if 'rse_expression' in usage]
 
-    def test_api_did(self, vo, account_name, scope_name):
-        """ DID (API): Test external representation of DIDs """
+    def test_gateway_did(self, vo, account_name, scope_name):
+        """ DID (Gateway): Test external representation of DIDs """
         # add some dids
         ext_parent = did_name_generator('container')
         ext_child = did_name_generator('dataset')
@@ -201,8 +201,8 @@ class TestApiExternalRepresentation:
         for user in out:
             assert user['user'] == account_name
 
-    def test_api_exporter(self, vo, rse_factory, vo2):
-        """ EXPORTER (API): Test external representation of exported data """
+    def test_gateway_exporter(self, vo, rse_factory, vo2):
+        """ EXPORTER (Gateway): Test external representation of exported data """
 
         rse1, rse1_id = rse_factory.make_rse()
         rse2, rse2_id = rse_factory.make_rse()
@@ -229,8 +229,8 @@ class TestApiExternalRepresentation:
             assert rse2 not in distances
             assert rse2_id not in distances
 
-    def test_api_identity(self, vo, vo2, account, account_name):
-        """ IDENTITY (API): Test external representation of identity accounts """
+    def test_gateway_identity(self, vo, vo2, account, account_name):
+        """ IDENTITY (Gateway): Test external representation of identity accounts """
 
         id_key = ''.join(random.choice(string.ascii_lowercase) for x in range(10))
 
@@ -241,13 +241,13 @@ class TestApiExternalRepresentation:
         if vo2:
             assert account.internal not in out
 
-    def test_api_replica(self, vo, rse_factory, vo2, account_name, scope_name, scope):
-        """ REPLICA (API): Test external representation of replicas """
+    def test_gateway_replica(self, vo, rse_factory, vo2, account_name, scope_name, scope):
+        """ REPLICA (Gateway): Test external representation of replicas """
 
         did = did_name_generator('file')
         did_parent = did_name_generator('dataset')
         rse2, rse2_id = rse_factory.make_rse(scheme='srm', protocol_impl='rucio.rse.protocols.gfal.Default', deterministic=False)
-        protocols = api_rse.get_rse_protocols(rse2, issuer='root', vo=vo)
+        protocols = gateway_rse.get_rse_protocols(rse2, issuer='root', vo=vo)
         pfn = 'srm://%s:%s/srm/managerv2?SFN=%s%s/%s' % (protocols['protocols'][0]['hostname'],
                                                          protocols['protocols'][0]['port'],
                                                          protocols['protocols'][0]['prefix'],
@@ -285,8 +285,8 @@ class TestApiExternalRepresentation:
                         assert scope.internal not in parent
         assert parents_found
 
-    def test_api_request(self, vo, rse_factory, account_name, scope_name):
-        """ REQUEST (API): Test external representation of requests """
+    def test_gateway_request(self, vo, rse_factory, account_name, scope_name):
+        """ REQUEST (Gateway): Test external representation of requests """
 
         rse1, rse1_id = rse_factory.make_rse()
         rse2, rse2_id = rse_factory.make_rse()
@@ -339,16 +339,16 @@ class TestApiExternalRepresentation:
                 assert req['source_rse'] == rse1
 
     @pytest.mark.noparallel(reason='runs the reaper on a pre-defined rse, might interfere with other tests')
-    def test_api_rse(self, vo, rse_factory, vo2, account, account_name, scope_name):
-        """ RSE (API): Test external representation of RSEs """
+    def test_gateway_rse(self, vo, rse_factory, vo2, account, account_name, scope_name):
+        """ RSE (Gateway): Test external representation of RSEs """
 
         rse1, rse1_id = rse_factory.make_rse()
         rse2, rse2_id = rse_factory.make_rse()
-        out = api_rse.get_rse(rse1, vo=vo)
+        out = gateway_rse.get_rse(rse1, vo=vo)
         assert out['rse'] == rse1
         assert out['id'] == rse1_id
 
-        out = api_rse.list_rses(vo=vo2 if vo2 else vo)
+        out = gateway_rse.list_rses(vo=vo2 if vo2 else vo)
         out = list(out)
         assert 0 != len(out)
         rse_ids = [rse['id'] for rse in out]
@@ -362,14 +362,14 @@ class TestApiExternalRepresentation:
                 assert rse['rse'] == self.rse4_name
 
         key = "KEY_" + generate_uuid()
-        api_rse.add_rse_attribute(rse1, key, 1, issuer='root', vo=vo)
-        out = api_rse.get_rses_with_attribute(key)
+        gateway_rse.add_rse_attribute(rse1, key, 1, issuer='root', vo=vo)
+        out = gateway_rse.get_rses_with_attribute(key)
         out = list(out)
         assert 0 != len(out)
         for rse in out:
             assert rse['rse'] == rse1
 
-        out = api_rse.get_rse_protocols(rse1, issuer='root', vo=vo)
+        out = gateway_rse.get_rse_protocols(rse1, issuer='root', vo=vo)
         assert out['rse'] == rse1
 
         # add some account and RSE counters
@@ -382,7 +382,7 @@ class TestApiExternalRepresentation:
         add_did(scope_name, did, 'DATASET', 'root', account=account_name, rse=rse_mock, vo=vo)
         abacus_rse.run(once=True)
 
-        out = api_rse.get_rse_usage(rse_mock, per_account=True, issuer='root', vo=vo)
+        out = gateway_rse.get_rse_usage(rse_mock, per_account=True, issuer='root', vo=vo)
         print(out)
         assert rse_mock_id in [o['rse_id'] for o in out]
         for usage in out:
@@ -401,14 +401,14 @@ class TestApiExternalRepresentation:
             reaper.run(once=True, include_rses=rse_mock, greedy=True)
         abacus_rse.run(once=True)
 
-        out = api_rse.parse_rse_expression(f'{rse1}|{rse2}', vo=vo)
+        out = gateway_rse.parse_rse_expression(f'{rse1}|{rse2}', vo=vo)
         assert rse1 in out
         assert rse2 in out
         assert rse1_id not in out
         assert rse2_id not in out
 
-    def test_api_scope(self, vo, vo2, account_name, scope_name, scope):
-        """ SCOPE (API): Test external representation of scopes """
+    def test_gateway_scope(self, vo, vo2, account_name, scope_name, scope):
+        """ SCOPE (Gateway): Test external representation of scopes """
 
         out = list_scopes()
         assert scope_name in out
@@ -420,8 +420,8 @@ class TestApiExternalRepresentation:
         if vo2:
             assert scope.internal not in out
 
-    def test_api_subscription(self, vo, vo2):
-        """ SUBSCRIPTION (API): Test external representation of subscriptions """
+    def test_gateway_subscription(self, vo, vo2):
+        """ SUBSCRIPTION (Gateway): Test external representation of subscriptions """
 
         test_vo = vo2 if vo2 else vo
 
@@ -431,8 +431,8 @@ class TestApiExternalRepresentation:
         new_scope_name = ''.join(random.choice(string.ascii_lowercase) for x in range(10))
         add_account(new_acc_name, 'USER', 'test@test.com', 'root', vo=test_vo)
         add_scope(new_scope_name, new_acc_name, 'root', vo=test_vo)
-        api_acc_lim.set_local_account_limit(new_acc_name, self.rse3_name, 10, 'root', vo=test_vo)
-        api_acc_lim.set_local_account_limit(new_acc_name, self.rse4_name, 10, 'root', vo=test_vo)
+        gateway_acc_lim.set_local_account_limit(new_acc_name, self.rse3_name, 10, 'root', vo=test_vo)
+        gateway_acc_lim.set_local_account_limit(new_acc_name, self.rse4_name, 10, 'root', vo=test_vo)
         add_did(new_scope_name, did, 'DATASET', 'root', account=new_acc_name, rse=self.rse3_name, vo=test_vo)
 
         sub_id = add_subscription(sub, new_acc_name, {'account': [new_acc_name], 'scope': [new_scope_name]},

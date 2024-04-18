@@ -32,8 +32,8 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import OBSOLETE
 from rucio.db.sqla.models import ConstituentAssociationHistory
 from rucio.db.sqla.session import get_session, read_session
-from rucio.gateway import replica as replica_api
-from rucio.gateway import rse as rse_api
+from rucio.gateway import replica as replica_gateway
+from rucio.gateway import rse as rse_gateway
 from rucio.tests.common import rse_name_generator, skip_rse_tests_with_accounts
 from tests.ruciopytest import NoParallelGroups
 
@@ -153,21 +153,21 @@ def test_reaper_multi_vo_via_run(vo, second_vo, scope_factory, caches_mock):
     _, rse_id_tst, _ = __add_test_rse_and_replicas(vo=vo, scope=scope_tst, rse_name=rse_name, names=names, file_size=file_size)
     _, rse_id_new, _ = __add_test_rse_and_replicas(vo=new_vo, scope=scope_new, rse_name=rse_name, names=names, file_size=file_size)
 
-    rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=vo)
-    rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=vo)
+    rse_gateway.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=vo)
+    rse_gateway.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=vo)
 
-    rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=new_vo)
-    rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=new_vo)
+    rse_gateway.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=new_vo)
+    rse_gateway.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=new_vo)
 
     # Check we start of with the expected number of replicas
-    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
-    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == nb_files
+    assert len(list(replica_gateway.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
+    assert len(list(replica_gateway.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == nb_files
 
     # Check we reap all VOs by default
     cache_region.invalidate()
     run_reaper(once=True, rses=[rse_name])
-    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == 25
-    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
+    assert len(list(replica_gateway.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == 25
+    assert len(list(replica_gateway.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
 
 
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
@@ -186,21 +186,21 @@ def test_reaper_affect_other_vo_via_run(vo, second_vo, scope_factory, caches_moc
     _, rse_id_tst, _ = __add_test_rse_and_replicas(vo=vo, scope=scope_tst, rse_name=rse_name, names=names, file_size=file_size)
     _, rse_id_new, _ = __add_test_rse_and_replicas(vo=new_vo, scope=scope_new, rse_name=rse_name, names=names, file_size=file_size)
 
-    rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=vo)
-    rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=vo)
+    rse_gateway.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=vo)
+    rse_gateway.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=vo)
 
-    rse_api.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=new_vo)
-    rse_api.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=new_vo)
+    rse_gateway.set_rse_usage(rse=rse_name, source='storage', used=nb_files * file_size, free=1, issuer='root', vo=new_vo)
+    rse_gateway.set_rse_limits(rse=rse_name, name='MinFreeSpace', value=5 * 200, issuer='root', vo=new_vo)
 
     # Check we start of with the expected number of replicas
-    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
-    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == nb_files
+    assert len(list(replica_gateway.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
+    assert len(list(replica_gateway.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == nb_files
 
     # Check we don't affect a second VO that isn't specified
     cache_region.invalidate()
     run_reaper(once=True, rses=[rse_name], vos=['new'])
-    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
-    assert len(list(replica_api.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
+    assert len(list(replica_gateway.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=vo))) == nb_files
+    assert len(list(replica_gateway.list_replicas([{'scope': scope_name, 'name': n} for n in names], rse_expression=rse_name, vo=new_vo))) == 25
 
 
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [

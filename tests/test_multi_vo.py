@@ -43,7 +43,7 @@ from rucio.core.vo import map_vo
 from rucio.daemons.automatix.automatix import automatix
 from rucio.db.sqla import models
 from rucio.db.sqla import session as db_session
-from rucio.gateway import vo as vo_api
+from rucio.gateway import vo as vo_gateway
 from rucio.gateway.account import add_account, list_accounts
 from rucio.gateway.account_limit import set_local_account_limit
 from rucio.gateway.authentication import get_auth_token_gss, get_auth_token_saml, get_auth_token_x509
@@ -67,7 +67,7 @@ pytestmark = pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] !=
                                 reason='No execution of the multi_vo tests in a suite other than the multi_vo suite')
 
 
-class TestVOCoreAPI:
+class TestVOCoreGateway:
 
     @pytest.mark.noparallel(reason='changes global configuration value')
     def test_multi_vo_flag(self, vo, second_vo):
@@ -75,10 +75,10 @@ class TestVOCoreAPI:
         try:
             config_set('common', 'multi_vo', 'False')
             with pytest.raises(UnsupportedOperation):
-                vo_api.list_vos(issuer='super_root', vo='def')
+                vo_gateway.list_vos(issuer='super_root', vo='def')
             config_remove_option('common', 'multi_vo')
             with pytest.raises(UnsupportedOperation):
-                vo_api.list_vos(issuer='super_root', vo='def')
+                vo_gateway.list_vos(issuer='super_root', vo='def')
         finally:
             config_set('common', 'multi_vo', 'True')
 
@@ -110,16 +110,16 @@ class TestVOCoreAPI:
     def test_add_vo(self, vo, second_vo):
         """ MULTI VO (CORE): Test creation of VOs """
         with pytest.raises(AccessDenied):
-            vo_api.add_vo(second_vo, 'root', 'Add new VO with root', 'rucio@email.com', vo=vo)
+            vo_gateway.add_vo(second_vo, 'root', 'Add new VO with root', 'rucio@email.com', vo=vo)
         with pytest.raises(Duplicate):
-            vo_api.add_vo(second_vo, 'super_root', 'Add existing VO', 'rucio@email.com', 'def')
+            vo_gateway.add_vo(second_vo, 'super_root', 'Add existing VO', 'rucio@email.com', 'def')
 
     def test_recover_root_identity(self, vo, second_vo):
         """ MULTI VO (CORE): Test adding a new identity for root using super_root """
         identity_key = ''.join(choice(ascii_lowercase) for x in range(10))
         with pytest.raises(AccessDenied):
-            vo_api.recover_vo_root_identity(root_vo=second_vo, identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='root', password='password', vo=vo)
-        vo_api.recover_vo_root_identity(root_vo=second_vo, identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='super_root', password='password', vo='def')
+            vo_gateway.recover_vo_root_identity(root_vo=second_vo, identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='root', password='password', vo=vo)
+        vo_gateway.recover_vo_root_identity(root_vo=second_vo, identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='super_root', password='password', vo='def')
         assert 'root' in list_accounts_for_identity(identity_key=identity_key, id_type='userpass')
 
     def test_update_vo(self, vo, second_vo):
@@ -128,10 +128,10 @@ class TestVOCoreAPI:
         email = generate_uuid()
         parameters = {'vo': second_vo, 'description': description, 'email': email}
         with pytest.raises(AccessDenied):
-            vo_api.update_vo(second_vo, parameters, 'root', vo=vo)
-        vo_api.update_vo(second_vo, parameters, 'super_root', 'def')
+            vo_gateway.update_vo(second_vo, parameters, 'root', vo=vo)
+        vo_gateway.update_vo(second_vo, parameters, 'super_root', 'def')
         vo_update_success = False
-        for v in vo_api.list_vos('super_root', 'def'):
+        for v in vo_gateway.list_vos('super_root', 'def'):
             if v['vo'] == parameters['vo']:
                 assert email == v['email']
                 assert description == v['description']
@@ -298,7 +298,7 @@ class TestVORestAPI:
 
     def test_auth_gss(self, vo, second_vo, account_tst, account_new, rest_client):
         """ MULTI VO (REST): Test gss authentication to multiple VOs """
-        # Can't rely on `requests_kerberos` module being present, so get tokens from API instead
+        # Can't rely on `requests_kerberos` module being present, so get tokens from gateway instead
         token_tst = get_auth_token_gss('root', 'rucio-dev@CERN.CH', 'unknown', None, vo=vo).get('token')
         token_new = get_auth_token_gss('root', 'rucio-dev@CERN.CH', 'unknown', None, vo=second_vo).get('token')
 
@@ -328,7 +328,7 @@ class TestVORestAPI:
         except Duplicate:
             pass  # Might already exist, can skip
 
-        # Can't rely on `onelogin` module being present, so get tokens from API instead
+        # Can't rely on `onelogin` module being present, so get tokens from gateway instead
         token_tst = get_auth_token_saml('root', 'ddmlab', 'unknown', None, vo=vo).get('token')
         token_new = get_auth_token_saml('root', 'ddmlab', 'unknown', None, vo=second_vo).get('token')
 
@@ -416,7 +416,7 @@ class TestVORestAPI:
 
     def test_auth_x509(self, vo, second_vo, account_tst, account_new, rest_client):
         """ MULTI VO (REST): Test X509 authentication to multiple VOs """
-        # Flasks test client doesn't support client certificates, so get tokens from API instead
+        # Flasks test client doesn't support client certificates, so get tokens from gateway instead
         token_tst = get_auth_token_x509('root', 'CN=Rucio User', 'unknown', None, vo=vo).get('token')
         token_new = get_auth_token_x509('root', 'CN=Rucio User', 'unknown', None, vo=second_vo).get('token')
 
@@ -539,7 +539,7 @@ class TestVORestAPI:
         assert response.status_code == 200
 
         vo_update_success = False
-        for v in vo_api.list_vos('super_root', 'def'):
+        for v in vo_gateway.list_vos('super_root', 'def'):
             if v['vo'] == vo:
                 assert params['email'] == v['email']
                 assert params['description'] == v['description']

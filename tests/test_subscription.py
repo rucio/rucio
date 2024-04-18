@@ -34,14 +34,14 @@ from rucio.gateway.subscription import add_subscription, get_subscription_by_id,
 from rucio.tests.common import auth, did_name_generator, headers, rse_name_generator
 
 
-class TestSubscriptionCoreApi:
+class TestSubscriptionCoreGateway:
     projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
     pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                 \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
     activity = get_schema_value('ACTIVITY')['enum'][0]
 
     def test_create_and_update_and_list_subscription(self, vo, rse_factory):
-        """ SUBSCRIPTION (API): Test the creation of a new subscription, update it, list it """
+        """ SUBSCRIPTION (Gateway): Test the creation of a new subscription, update it, list it """
         rse1, _ = rse_factory.make_mock_rse()
         rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
@@ -87,7 +87,7 @@ class TestSubscriptionCoreApi:
 
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_list_subscription_by_id(self, vo, rse_factory):
-        """ SUBSCRIPTION (API): Test the creation of a new subscription and list it by id """
+        """ SUBSCRIPTION (Gateway): Test the creation of a new subscription and list it by id """
         rse1, _ = rse_factory.make_mock_rse()
         rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
@@ -107,7 +107,7 @@ class TestSubscriptionCoreApi:
         assert loads(subscription_info['filter'])['project'] == self.projects
 
     def test_create_existing_subscription(self, vo, rse_factory):
-        """ SUBSCRIPTION (API): Test the creation of a existing subscription """
+        """ SUBSCRIPTION (Gateway): Test the creation of a existing subscription """
         subscription_name = uuid()
         rse1, _ = rse_factory.make_mock_rse()
         rse2, _ = rse_factory.make_mock_rse()
@@ -134,13 +134,13 @@ class TestSubscriptionCoreApi:
             add_subscription(**genkwargs(rse_expression))
 
     def test_update_nonexisting_subscription(self, vo):
-        """ SUBSCRIPTION (API): Test the update of a non-existing subscription """
+        """ SUBSCRIPTION (Gateway): Test the update of a non-existing subscription """
         subscription_name = uuid()
         with pytest.raises(SubscriptionNotFound):
             update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root', vo=vo)
 
     def test_list_rules_states(self, vo, rse_factory, root_account):
-        """ SUBSCRIPTION (API): Test listing of rule states for subscription """
+        """ SUBSCRIPTION (Gateway): Test listing of rule states for subscription """
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
         add_scope(tmp_scope, root_account)
         rse1, _ = rse_factory.make_mock_rse()
