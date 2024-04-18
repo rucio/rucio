@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from rucio.api import permission
 from rucio.common import exception
@@ -20,11 +20,13 @@ from rucio.core import heartbeat
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
+    from threading import Thread
+
     from sqlalchemy.orm import Session
 
 
 @read_session
-def list_heartbeats(issuer=None, vo='def', *, session: "Session"):
+def list_heartbeats(issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> list["heartbeat.HeartbeatDict"]:
     """
     Return a list of tuples of all heartbeats.
 
@@ -41,7 +43,18 @@ def list_heartbeats(issuer=None, vo='def', *, session: "Session"):
 
 
 @transactional_session
-def create_heartbeat(executable, hostname, pid, older_than, payload, thread=None, issuer=None, vo='def', *, session: "Session"):
+def create_heartbeat(
+    executable: str,
+    hostname: str,
+    pid: int,
+    older_than: int,
+    payload: Optional[str],
+    thread: Optional["Thread"] = None,
+    issuer: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Creates a heartbeat.
     :param issuer: The issuer account.
