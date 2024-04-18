@@ -99,9 +99,9 @@ def test_strip_x509_proxy_attributes(vo, dn, stripped_dn):
 
 
 @pytest.mark.noparallel(reason='changes identities of the same account')
-class TestAuthCoreApi:
+class TestAuthCoreGateway:
     """
-    TestAuthCoreApi
+    TestAuthCoreGateway
     """
 
     def test_get_auth_token_user_pass_success(self, vo):

@@ -295,11 +295,11 @@ class TestDIDCore:
             assert (dataset['scope'], dataset['name']) not in parent_datasets
 
 
-class TestDIDApi:
+class TestDIDGateway:
 
     @pytest.mark.dirty
     def test_list_new_dids(self, vo):
-        """ DATA IDENTIFIERS (API): List new identifiers """
+        """ DATA IDENTIFIERS (Gateway): List new identifiers """
         tmp_scope = scope_name_generator()
         tmp_dsn = did_name_generator('dataset')
         scope.add_scope(tmp_scope, 'jdoe', 'root', vo=vo)
@@ -315,7 +315,7 @@ class TestDIDApi:
 
     @pytest.mark.dirty
     def test_update_new_dids(self, vo):
-        """ DATA IDENTIFIERS (API): List new identifiers and update the flag new """
+        """ DATA IDENTIFIERS (Gateway): List new identifiers and update the flag new """
         tmp_scope = scope_name_generator()
         tmp_dsn = did_name_generator('dataset')
         scope.add_scope(tmp_scope, 'jdoe', 'root', vo=vo)

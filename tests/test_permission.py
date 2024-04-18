@@ -20,9 +20,9 @@ from rucio.gateway.permission import has_permission
 from rucio.tests.common import scope_name_generator, skip_non_belleii
 
 
-class TestPermissionCoreApi:
+class TestPermissionCoreGateway:
     """
-    Test the Permission Core and API
+    Test the Permission Core and Gateway
     """
 
     usr = 'jdoe'
