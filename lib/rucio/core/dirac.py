@@ -77,8 +77,8 @@ def add_files(lfns: list[dict], account: str, ignore_availability: bool, parents
     scopes = [scope.external for scope in scopes]
     exist_lfn = []
     try:
-        lifetime_dict: str = config_get(section='dirac', option='lifetime', default='{}', session=session)
-        lifetime_dict = loads(lifetime_dict)
+        config_lifetime: str = config_get(section='dirac', option='lifetime', default='{}', session=session)
+        lifetime_dict: dict = loads(config_lifetime)
     except ConfigNotFound:
         lifetime_dict = {}
     except JSONDecodeError as err:
