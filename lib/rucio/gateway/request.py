@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Optional
 
 from rucio.common import exception
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import api_update_return_dict
+from rucio.common.utils import gateway_update_return_dict
 from rucio.core import request
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
@@ -52,7 +52,7 @@ def queue_requests(requests, issuer, vo='def', *, session: "Session"):
             req['account'] = InternalAccount(req['account'], vo=vo)
 
     new_requests = request.queue_requests(requests, session=session)
-    return [api_update_return_dict(r, session=session) for r in new_requests]
+    return [gateway_update_return_dict(r, session=session) for r in new_requests]
 
 
 @transactional_session
@@ -118,7 +118,7 @@ def get_next(request_type, state, issuer, account, vo='def', *, session: "Sessio
         raise exception.AccessDenied(f'{account} cannot get the next request of type {request_type} in state {state}')
 
     reqs = request.get_and_mark_next(request_type, state, session=session)
-    return [api_update_return_dict(r, session=session) for r in reqs]
+    return [gateway_update_return_dict(r, session=session) for r in reqs]
 
 
 @read_session
@@ -143,7 +143,7 @@ def get_request_by_did(scope, name, rse, issuer, vo='def', *, session: "Session"
     scope = InternalScope(scope, vo=vo)
     req = request.get_request_by_did(scope, name, rse_id, session=session)
 
-    return api_update_return_dict(req, session=session)
+    return gateway_update_return_dict(req, session=session)
 
 
 @read_session
@@ -168,7 +168,7 @@ def get_request_history_by_did(scope, name, rse, issuer, vo='def', *, session: "
     scope = InternalScope(scope, vo=vo)
     req = request.get_request_history_by_did(scope, name, rse_id, session=session)
 
-    return api_update_return_dict(req, session=session)
+    return gateway_update_return_dict(req, session=session)
 
 
 @stream_session
@@ -191,7 +191,7 @@ def list_requests(src_rses, dst_rses, states, issuer, vo='def', *, session: "Ses
 
     for req in request.list_requests(src_rse_ids, dst_rse_ids, states, session=session):
         req = req.to_dict()
-        yield api_update_return_dict(req, session=session)
+        yield gateway_update_return_dict(req, session=session)
 
 
 @stream_session
@@ -215,7 +215,7 @@ def list_requests_history(src_rses, dst_rses, states, issuer, vo='def', offset=N
 
     for req in request.list_requests_history(src_rse_ids, dst_rse_ids, states, offset, limit, session=session):
         req = req.to_dict()
-        yield api_update_return_dict(req, session=session)
+        yield gateway_update_return_dict(req, session=session)
 
 
 @read_session

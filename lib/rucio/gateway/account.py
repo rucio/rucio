@@ -19,7 +19,7 @@ import rucio.core.identity
 import rucio.gateway.permission
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount
-from rucio.common.utils import api_update_return_dict
+from rucio.common.utils import gateway_update_return_dict
 from rucio.core import account as account_core
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import AccountType
@@ -136,7 +136,7 @@ def list_accounts(filter_={}, vo='def', *, session: "Session"):
     else:
         filter_['account'] = InternalAccount(account='*', vo=vo)
     for result in account_core.list_accounts(filter_=filter_, session=session):
-        yield api_update_return_dict(result, session=session)
+        yield gateway_update_return_dict(result, session=session)
 
 
 @read_session

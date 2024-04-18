@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from rucio.common import exception
 from rucio.common.types import InternalAccount
-from rucio.common.utils import api_update_return_dict
+from rucio.common.utils import gateway_update_return_dict
 from rucio.core import authentication, identity, oidc
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import transactional_session
@@ -296,6 +296,6 @@ def validate_auth_token(token, *, session: "Session"):
 
     auth = authentication.validate_auth_token(token, session=session)
     vo = auth['account'].vo
-    auth = api_update_return_dict(auth, session=session)
+    auth = gateway_update_return_dict(auth, session=session)
     auth['vo'] = vo
     return auth

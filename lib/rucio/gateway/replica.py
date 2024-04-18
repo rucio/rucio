@@ -19,7 +19,7 @@ from rucio.common import exception
 from rucio.common.constants import SuspiciousAvailability
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import api_update_return_dict, invert_dict
+from rucio.common.utils import gateway_update_return_dict, invert_dict
 from rucio.core import replica
 from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.db.sqla.constants import BadFilesStatus
@@ -41,7 +41,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
     :param session: The database session in use.
     """
     replicas = replica.get_bad_replicas_summary(rse_expression=rse_expression, from_date=from_date, to_date=to_date, filter_={'vo': vo}, session=session)
-    return [api_update_return_dict(r, session=session) for r in replicas]
+    return [gateway_update_return_dict(r, session=session) for r in replicas]
 
 
 @read_session
@@ -62,7 +62,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
 
     replicas = replica.list_bad_replicas_status(state=state, rse_id=rse_id, younger_than=younger_than,
                                                 older_than=older_than, limit=limit, list_pfns=list_pfns, vo=vo, session=session)
-    return [api_update_return_dict(r, session=session) for r in replicas]
+    return [gateway_update_return_dict(r, session=session) for r in replicas]
 
 
 @transactional_session
@@ -395,7 +395,7 @@ def list_dataset_replicas_bulk(dids, vo='def', *, session: "Session"):
     replicas = replica.list_dataset_replicas_bulk(names_by_intscope, session=session)
 
     for r in replicas:
-        yield api_update_return_dict(r, session=session)
+        yield gateway_update_return_dict(r, session=session)
 
 
 @stream_session
@@ -414,7 +414,7 @@ def list_dataset_replicas_vp(scope, name, deep=False, vo='def', *, session: "Ses
 
     scope = InternalScope(scope, vo=vo)
     for r in replica.list_dataset_replicas_vp(scope=scope, name=name, deep=deep, session=session):
-        yield api_update_return_dict(r, session=session)
+        yield gateway_update_return_dict(r, session=session)
 
 
 @stream_session
@@ -434,7 +434,7 @@ def list_datasets_per_rse(rse, filters={}, limit=None, vo='def', *, session: "Se
     if 'scope' in filters:
         filters['scope'] = InternalScope(filters['scope'], vo=vo)
     for r in replica.list_datasets_per_rse(rse_id, filters=filters, limit=limit, session=session):
-        yield api_update_return_dict(r, session=session)
+        yield gateway_update_return_dict(r, session=session)
 
 
 @transactional_session
@@ -502,7 +502,7 @@ def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, vo='
     """
     replicas = replica.get_suspicious_files(rse_expression=rse_expression, available_elsewhere=SuspiciousAvailability["ALL"].value,
                                             younger_than=younger_than, nattempts=nattempts, filter_={'vo': vo}, session=session)
-    return [api_update_return_dict(r, session=session) for r in replicas]
+    return [gateway_update_return_dict(r, session=session) for r in replicas]
 
 
 @transactional_session

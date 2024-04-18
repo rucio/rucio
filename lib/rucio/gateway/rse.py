@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from rucio.common import exception
 from rucio.common.schema import validate_schema
-from rucio.common.utils import api_update_return_dict
+from rucio.common.utils import gateway_update_return_dict
 from rucio.core import distance as distance_module
 from rucio.core import rse as rse_module
 from rucio.core.rse_expression_parser import parse_expression
@@ -338,7 +338,7 @@ def get_rse_usage(rse, issuer, source=None, per_account=False, vo='def', *, sess
         if 'account_usages' in u:
             for account_usage in u['account_usages']:
                 account_usage['account'] = account_usage['account'].external
-    return [api_update_return_dict(u, session=session) for u in usages]
+    return [gateway_update_return_dict(u, session=session) for u in usages]
 
 
 @stream_session
@@ -356,7 +356,7 @@ def list_rse_usage_history(rse, issuer, source=None, vo='def', *, session: "Sess
     """
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
     for u in rse_module.list_rse_usage_history(rse_id=rse_id, source=source, session=session):
-        yield api_update_return_dict(u, session=session)
+        yield gateway_update_return_dict(u, session=session)
 
 
 @transactional_session
@@ -516,7 +516,7 @@ def get_distance(source, destination, issuer, vo='def', *, session: "Session"):
                                               dest_rse_id=rse_module.get_rse_id(destination, vo=vo, session=session),
                                               session=session)
 
-    return [api_update_return_dict(d, session=session) for d in distances]
+    return [gateway_update_return_dict(d, session=session) for d in distances]
 
 
 @transactional_session
