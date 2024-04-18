@@ -15,7 +15,6 @@
 import datetime
 from typing import TYPE_CHECKING
 
-from rucio.api import permission
 from rucio.common import exception
 from rucio.common.constants import SuspiciousAvailability
 from rucio.common.schema import validate_schema
@@ -25,6 +24,7 @@ from rucio.core import replica
 from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
+from rucio.gateway import permission
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

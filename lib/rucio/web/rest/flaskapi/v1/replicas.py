@@ -20,8 +20,14 @@ from xml.sax.saxutils import escape
 
 from flask import Flask, Response, request
 
-from rucio.api.quarantined_replica import quarantine_file_replicas
-from rucio.api.replica import (
+from rucio.common.config import config_get, config_get_int
+from rucio.common.constants import SUPPORTED_PROTOCOLS
+from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, InvalidObject, InvalidPath, InvalidType, ReplicaIsLocked, ReplicaNotFound, ResourceTemporaryUnavailable, RSENotFound, ScopeNotFound
+from rucio.common.utils import APIEncoder, parse_response, render_json_list
+from rucio.core.replica_sorter import sort_replicas
+from rucio.db.sqla.constants import BadFilesStatus
+from rucio.gateway.quarantined_replica import quarantine_file_replicas
+from rucio.gateway.replica import (
     add_bad_dids,
     add_bad_pfns,
     add_replicas,
@@ -40,12 +46,6 @@ from rucio.api.replica import (
     set_tombstone,
     update_replicas_states,
 )
-from rucio.common.config import config_get, config_get_int
-from rucio.common.constants import SUPPORTED_PROTOCOLS
-from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, InvalidObject, InvalidPath, InvalidType, ReplicaIsLocked, ReplicaNotFound, ResourceTemporaryUnavailable, RSENotFound, ScopeNotFound
-from rucio.common.utils import APIEncoder, parse_response, render_json_list
-from rucio.core.replica_sorter import sort_replicas
-from rucio.db.sqla.constants import BadFilesStatus
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
 

@@ -16,7 +16,6 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from rucio.api import did, scope
 from rucio.common import exception
 from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
 from rucio.common.types import InternalScope
@@ -44,6 +43,7 @@ from rucio.core.did import (
 from rucio.core.replica import add_replica, get_replica
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.util import json_implemented
+from rucio.gateway import did, scope
 from rucio.tests.common import did_name_generator, rse_name_generator, scope_name_generator
 
 

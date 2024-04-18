@@ -18,13 +18,13 @@ Interface for the requests abstraction layer
 
 from typing import TYPE_CHECKING, Optional
 
-from rucio.api import permission
 from rucio.common import exception
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import api_update_return_dict
 from rucio.core import request
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
+from rucio.gateway import permission
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

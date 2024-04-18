@@ -14,9 +14,9 @@
 
 from typing import TYPE_CHECKING
 
-import rucio.api.permission
 import rucio.common.exception
 import rucio.core.identity
+import rucio.gateway.permission
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount
 from rucio.common.utils import api_update_return_dict
@@ -47,7 +47,7 @@ def add_account(account, type_, email, issuer, vo='def', *, session: "Session"):
     validate_schema(name='account', obj=account, vo=vo)
 
     kwargs = {'account': account, 'type': type_}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_account', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_account', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add account' % (issuer))
 
     account = InternalAccount(account, vo=vo)
@@ -67,7 +67,7 @@ def del_account(account, issuer, vo='def', *, session: "Session"):
 
     """
     kwargs = {'account': account}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='del_account', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='del_account', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not delete account' % (issuer))
 
     account = InternalAccount(account, vo=vo)
@@ -106,7 +106,7 @@ def update_account(account, key, value, issuer='root', vo='def', *, session: "Se
     """
     validate_schema(name='account', obj=account, vo=vo)
     kwargs = {}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='update_account', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='update_account', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not change %s  of the account' % (issuer, key))
 
     account = InternalAccount(account, vo=vo)
@@ -201,7 +201,7 @@ def add_account_attribute(key, value, account, issuer, vo='def', *, session: "Se
     validate_schema(name='account_attribute', obj=value, vo=vo)
 
     kwargs = {'account': account, 'key': key, 'value': value}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_attribute', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_attribute', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add attributes' % (issuer))
 
     account = InternalAccount(account, vo=vo)
@@ -221,7 +221,7 @@ def del_account_attribute(key, account, issuer, vo='def', *, session: "Session")
     :param session: The database session in use.
     """
     kwargs = {'account': account, 'key': key}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='del_attribute', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='del_attribute', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not delete attribute' % (issuer))
 
     account = InternalAccount(account, vo=vo)

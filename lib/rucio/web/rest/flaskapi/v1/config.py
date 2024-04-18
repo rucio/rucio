@@ -15,8 +15,8 @@
 from flask import Flask, jsonify
 from flask import request as request
 
-from rucio.api import config
 from rucio.common.exception import AccessDenied, ConfigNotFound, ConfigurationError
+from rucio.gateway import config
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, response_headers
 

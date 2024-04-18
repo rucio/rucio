@@ -15,7 +15,7 @@
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
-import rucio.api.permission
+import rucio.gateway.permission
 from rucio.common.constants import RESERVED_KEYS
 from rucio.common.exception import RucioException
 from rucio.common.schema import validate_schema
@@ -89,7 +89,7 @@ def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, r
     validate_schema(name='dids', obj=dids, vo=vo)
     validate_schema(name='rse', obj=rse, vo=vo)
     kwargs = {'scope': scope, 'name': name, 'type': did_type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_did', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_did', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
 
     if account is not None:
@@ -143,7 +143,7 @@ def add_dids(dids, issuer, vo='def', *, session: "Session"):
             d['rse_id'] = rse_id
 
     kwargs = {'issuer': issuer, 'dids': dids}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_dids', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_dids', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier' % (issuer))
 
     issuer = InternalAccount(issuer, vo=vo)
@@ -176,7 +176,7 @@ def attach_dids(scope, name, attachment, issuer, vo='def', *, session: "Session"
         attachment['rse_id'] = rse_id
 
     kwargs = {'scope': scope, 'name': name, 'attachment': attachment}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='attach_dids', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='attach_dids', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers to %s:%s' % (issuer, scope, name))
 
     scope = InternalScope(scope, vo=vo)
@@ -218,7 +218,7 @@ def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def', *
                 rse_id = get_rse_id(rse=a['rse'], vo=vo, session=session)
             a['rse_id'] = rse_id
 
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='attach_dids_to_dids', kwargs={'attachments': attachments}, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='attach_dids_to_dids', kwargs={'attachments': attachments}, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add data identifiers' % (issuer))
 
     issuer = InternalAccount(issuer, vo=vo)
@@ -246,7 +246,7 @@ def detach_dids(scope, name, dids, issuer, vo='def', *, session: "Session"):
     :param session: The database session in use.
     """
     kwargs = {'scope': scope, 'name': name, 'dids': dids, 'issuer': issuer}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='detach_dids', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='detach_dids', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not detach data identifiers from %s:%s' % (issuer, scope, name))
 
     scope = InternalScope(scope, vo=vo)
@@ -430,7 +430,7 @@ def set_metadata(scope, name, key, value, issuer, recursive=False, vo='def', *, 
     if key in RESERVED_KEYS:
         raise rucio.common.exception.AccessDenied('Account %s can not change this metadata value to data identifier %s:%s' % (issuer, scope, name))
 
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, scope, name))
 
     scope = InternalScope(scope, vo=vo)
@@ -456,7 +456,7 @@ def set_metadata_bulk(scope, name, meta, issuer, recursive=False, vo='def', *, s
         if key in RESERVED_KEYS:
             raise rucio.common.exception.AccessDenied('Account %s can not change the value of the metadata key %s to data identifier %s:%s' % (issuer, key, scope, name))
 
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata_bulk', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata_bulk', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, scope, name))
 
     scope = InternalScope(scope, vo=vo)
@@ -477,7 +477,7 @@ def set_dids_metadata_bulk(dids, issuer, recursive=False, vo='def', *, session: 
 
     for entry in dids:
         kwargs = {'scope': entry['scope'], 'name': entry['name'], 'meta': entry['meta'], 'issuer': issuer}
-        if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata_bulk', kwargs=kwargs, session=session):
+        if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata_bulk', kwargs=kwargs, session=session):
             raise rucio.common.exception.AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, entry['scope'], entry['name']))
         entry['scope'] = InternalScope(entry['scope'], vo=vo)
         meta = entry['meta']
@@ -552,7 +552,7 @@ def set_status(scope, name, issuer, vo='def', *, session: "Session", **kwargs):
     :param session: The database session in use.
     """
 
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_status', kwargs={'scope': scope, 'name': name, 'issuer': issuer}, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_status', kwargs={'scope': scope, 'name': name, 'issuer': issuer}, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not set status on data identifier %s:%s' % (issuer, scope, name))
 
     scope = InternalScope(scope, vo=vo)
@@ -613,7 +613,7 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, issuer
     :param session: The database session in use.
     """
     kwargs = {'issuer': issuer, 'scope': output_scope}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='create_did_sample', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='create_did_sample', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk add data identifier' % (issuer))
 
     input_scope = InternalScope(input_scope, vo=vo)
@@ -636,7 +636,7 @@ def resurrect(dids, issuer, vo='def', *, session: "Session"):
     :param session: The database session in use.
     """
     kwargs = {'issuer': issuer}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='resurrect', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='resurrect', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not resurrect data identifiers' % (issuer))
     validate_schema(name='dids', obj=dids, vo=vo)
 
@@ -720,7 +720,7 @@ def remove_did_from_followed(scope, name, account, issuer, *, session: "Session"
     :param issuer: The issuer account
     """
     kwargs = {'scope': scope, 'issuer': issuer}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='remove_did_from_followed', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='remove_did_from_followed', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not remove data identifiers from followed table' % (issuer))
 
     scope = InternalScope(scope, vo=vo)
@@ -738,7 +738,7 @@ def remove_dids_from_followed(dids, account, issuer, *, session: "Session", vo='
     :param session: The database session in use.
     """
     kwargs = {'dids': dids, 'issuer': issuer}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='remove_dids_from_followed', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='remove_dids_from_followed', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not bulk remove data identifiers from followed table' % (issuer))
 
     account = InternalAccount(account, vo=vo)

@@ -17,7 +17,29 @@ from json import dumps
 
 from flask import Flask, Response, request
 
-from rucio.api.did import (
+from rucio.common.exception import (
+    AccessDenied,
+    DatabaseException,
+    DataIdentifierAlreadyExists,
+    DataIdentifierNotFound,
+    Duplicate,
+    DuplicateContent,
+    FileAlreadyExists,
+    FileConsistencyMismatch,
+    InvalidMetadata,
+    InvalidObject,
+    InvalidPath,
+    InvalidValueForKey,
+    KeyNotFound,
+    RSENotFound,
+    RuleNotFound,
+    ScopeNotFound,
+    UnsupportedOperation,
+    UnsupportedStatus,
+)
+from rucio.common.utils import APIEncoder, parse_response, render_json
+from rucio.db.sqla.constants import DIDType
+from rucio.gateway.did import (
     add_did,
     add_did_to_followed,
     add_dids,
@@ -46,29 +68,7 @@ from rucio.api.did import (
     set_metadata_bulk,
     set_status,
 )
-from rucio.api.rule import list_associated_replication_rules_for_file, list_replication_rules
-from rucio.common.exception import (
-    AccessDenied,
-    DatabaseException,
-    DataIdentifierAlreadyExists,
-    DataIdentifierNotFound,
-    Duplicate,
-    DuplicateContent,
-    FileAlreadyExists,
-    FileConsistencyMismatch,
-    InvalidMetadata,
-    InvalidObject,
-    InvalidPath,
-    InvalidValueForKey,
-    KeyNotFound,
-    RSENotFound,
-    RuleNotFound,
-    ScopeNotFound,
-    UnsupportedOperation,
-    UnsupportedStatus,
-)
-from rucio.common.utils import APIEncoder, parse_response, render_json
-from rucio.db.sqla.constants import DIDType
+from rucio.gateway.rule import list_associated_replication_rules_for_file, list_replication_rules
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_list, json_parameters, json_parse, param_get, parse_scope_name, response_headers, try_stream
 

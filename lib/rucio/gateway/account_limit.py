@@ -14,8 +14,8 @@
 
 from typing import TYPE_CHECKING
 
-import rucio.api.permission
 import rucio.common.exception
+import rucio.gateway.permission
 from rucio.common.types import InternalAccount
 from rucio.common.utils import api_update_return_dict
 from rucio.core import account_limit as account_limit_core
@@ -141,7 +141,7 @@ def set_local_account_limit(account, rse, bytes_, issuer, vo='def', *, session: 
     rse_id = get_rse_id(rse=rse, vo=vo, session=session)
 
     kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id, 'bytes': bytes_}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_local_account_limit', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_local_account_limit', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not set account limits.' % (issuer))
 
     account = InternalAccount(account, vo=vo)
@@ -166,7 +166,7 @@ def set_global_account_limit(account, rse_expression, bytes_, issuer, vo='def', 
     """
 
     kwargs = {'account': account, 'rse_expression': rse_expression, 'bytes': bytes_}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='set_global_account_limit', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_global_account_limit', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not set account limits.' % (issuer))
 
     account = InternalAccount(account, vo=vo)
@@ -193,7 +193,7 @@ def delete_local_account_limit(account, rse, issuer, vo='def', *, session: "Sess
 
     rse_id = get_rse_id(rse=rse, vo=vo, session=session)
     kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='delete_local_account_limit', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='delete_local_account_limit', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not delete account limits.' % (issuer))
 
     account = InternalAccount(account, vo=vo)
@@ -219,7 +219,7 @@ def delete_global_account_limit(account, rse_expression, issuer, vo='def', *, se
     """
 
     kwargs = {'account': account, 'rse_expression': rse_expression}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='delete_global_account_limit', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='delete_global_account_limit', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not delete global account limits.' % (issuer))
 
     account = InternalAccount(account, vo=vo)
@@ -249,7 +249,7 @@ def get_local_account_usage(account, rse, issuer, vo='def', *, session: "Session
     if rse:
         rse_id = get_rse_id(rse=rse, vo=vo, session=session)
     kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='get_local_account_usage', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='get_local_account_usage', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not list account usage.' % (issuer))
 
     account = InternalAccount(account, vo=vo)
@@ -275,7 +275,7 @@ def get_global_account_usage(account, rse_expression, issuer, vo='def', *, sessi
     """
 
     kwargs = {'account': account, 'rse_expression': rse_expression}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='get_global_account_usage', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='get_global_account_usage', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not list global account usage.' % (issuer))
 
     account = InternalAccount(account, vo=vo)

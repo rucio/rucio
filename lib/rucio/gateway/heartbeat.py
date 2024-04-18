@@ -14,10 +14,10 @@
 
 from typing import TYPE_CHECKING
 
-from rucio.api import permission
 from rucio.common import exception
 from rucio.core import heartbeat
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.gateway import permission
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

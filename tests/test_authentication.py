@@ -18,13 +18,13 @@ import time
 import pytest
 from requests import session
 
-from rucio.api.authentication import get_auth_token_saml, get_auth_token_ssh, get_auth_token_user_pass, get_ssh_challenge_token
 from rucio.common.exception import AccessDenied, CannotAuthenticate, Duplicate
 from rucio.common.utils import ssh_sign
 from rucio.core.authentication import strip_x509_proxy_attributes
 from rucio.core.identity import add_account_identity, del_account_identity
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
+from rucio.gateway.authentication import get_auth_token_saml, get_auth_token_ssh, get_auth_token_user_pass, get_ssh_challenge_token
 from rucio.tests.common import hdrdict, headers, loginhdr, vohdr
 
 PUBLIC_KEY = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL"\
@@ -290,6 +290,6 @@ def test_many_tokens(vo, root_account, db_session):
 
 def test_non_JWT_validation():
     """ AUTHENTICATION: passing a fake X-Rucio-Auth-Token that looks like a JWT """
-    from rucio.api.authentication import validate_auth_token
+    from rucio.gateway.authentication import validate_auth_token
     with pytest.raises(CannotAuthenticate):
         validate_auth_token('a.b.c')

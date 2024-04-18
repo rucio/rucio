@@ -16,7 +16,7 @@ from json import dumps
 
 from flask import Flask, request
 
-from rucio.api.did import list_archive_content
+from rucio.gateway.did import list_archive_content
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, parse_scope_name, response_headers, try_stream
 

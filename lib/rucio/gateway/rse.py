@@ -14,7 +14,6 @@
 
 from typing import TYPE_CHECKING
 
-from rucio.api import permission
 from rucio.common import exception
 from rucio.common.schema import validate_schema
 from rucio.common.utils import api_update_return_dict
@@ -22,6 +21,7 @@ from rucio.core import distance as distance_module
 from rucio.core import rse as rse_module
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
+from rucio.gateway import permission
 
 if TYPE_CHECKING:
     from typing import Optional

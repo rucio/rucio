@@ -14,12 +14,12 @@
 
 from typing import TYPE_CHECKING
 
-from rucio.api import permission
 from rucio.common import exception
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount
 from rucio.core import importer
 from rucio.db.sqla.session import transactional_session
+from rucio.gateway import permission
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

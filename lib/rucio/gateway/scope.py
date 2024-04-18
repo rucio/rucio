@@ -14,8 +14,8 @@
 
 from typing import TYPE_CHECKING
 
-import rucio.api.permission
 import rucio.common.exception
+import rucio.gateway.permission
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import scope as core_scope
@@ -62,7 +62,7 @@ def add_scope(scope, account, issuer, vo='def', *, session: "Session"):
     validate_schema(name='scope', obj=scope, vo=vo)
 
     kwargs = {'scope': scope, 'account': account}
-    if not rucio.api.permission.has_permission(issuer=issuer, vo=vo, action='add_scope', kwargs=kwargs, session=session):
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_scope', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add scope' % (issuer))
 
     scope = InternalScope(scope, vo=vo)

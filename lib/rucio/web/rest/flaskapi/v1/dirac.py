@@ -14,9 +14,9 @@
 
 from flask import Flask, request
 
-from rucio.api.dirac import add_files
 from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierAlreadyExists, Duplicate, InvalidPath, ResourceTemporaryUnavailable, RSENotFound, UnsupportedOperation
 from rucio.common.utils import parse_response
+from rucio.gateway.dirac import add_files
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, generate_http_error_flask, json_parameters, param_get, response_headers
 

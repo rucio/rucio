@@ -14,8 +14,8 @@
 
 from flask import Flask, Response, request
 
-from rucio.api.exporter import export_data
 from rucio.common.utils import render_json
+from rucio.gateway.exporter import export_data
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, response_headers
 

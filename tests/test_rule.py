@@ -21,8 +21,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-import rucio.api.rule
-from rucio.api.account import add_account
+import rucio.gateway.rule
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get_bool
 from rucio.common.exception import (
@@ -60,6 +59,7 @@ from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import OBSOLETE, DIDType, LockState, RuleState
 from rucio.db.sqla.session import transactional_session
+from rucio.gateway.account import add_account
 from rucio.tests.common import account_name_generator, did_name_generator, rse_name_generator
 from rucio.tests.common_server import get_vo
 
@@ -671,7 +671,7 @@ class TestCore:
         account_counter_before_1 = get_usage(self.rse1_id, jdoe_account)
         account_counter_before_2 = get_usage(self.rse1_id, root_account)
 
-        rucio.api.rule.update_replication_rule(rule_id, {'account': 'root'}, issuer='root', vo=vo)
+        rucio.gateway.rule.update_replication_rule(rule_id, {'account': 'root'}, issuer='root', vo=vo)
         account_update(once=True)
 
         # Check if the counter has been updated correctly
@@ -942,10 +942,10 @@ class TestCore:
         add_account(usr, 'USER', 'rucio@email.com', 'root', vo=vo)
 
         with pytest.raises(AccessDenied):
-            rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, vo=vo)
+            rucio.gateway.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, vo=vo)
 
         add_account_attribute(InternalAccount(usr, vo=vo), 'country-test', 'admin')
-        rucio.api.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, vo=vo)
+        rucio.gateway.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, vo=vo)
 
     def test_reduce_rule(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Reduce a rule"""
