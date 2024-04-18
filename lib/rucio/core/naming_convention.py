@@ -119,10 +119,11 @@ def validate_name(scope, name, did_type, *, session: "Session"):
 
     :returns: a dictionary with metadata.
     """
-    if scope.external.startswith('user'):
-        return {'project': 'user'}
-    elif scope.external.startswith('group'):
-        return {'project': 'group'}
+    if scope.external is not None:
+        if scope.external.startswith('user'):
+            return {'project': 'user'}
+        elif scope.external.startswith('group'):
+            return {'project': 'group'}
 
     # Check if naming convention can be found in cache region
     regexp = REGION.get(scope.internal)
@@ -130,7 +131,8 @@ def validate_name(scope, name, did_type, *, session: "Session"):
         regexp = get_naming_convention(scope=scope,
                                        convention_type=KeyType.DATASET,
                                        session=session)
-        regexp and REGION.set(scope.internal, regexp)
+        if scope.internal is not None:
+            regexp and REGION.set(scope.internal, regexp)
 
     if not regexp:
         return
