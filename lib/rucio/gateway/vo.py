@@ -14,7 +14,6 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from rucio.api.permission import has_permission
 from rucio.common import exception
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount
@@ -22,6 +21,7 @@ from rucio.core import identity
 from rucio.core import vo as vo_core
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.gateway.permission import has_permission
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

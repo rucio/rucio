@@ -21,7 +21,12 @@ from urllib.parse import urlparse
 from flask import Blueprint, Flask, Response, redirect, render_template, request
 from werkzeug.datastructures import Headers
 
-from rucio.api.authentication import (
+from rucio.common.config import config_get
+from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, IdentityError, IdentityNotFound
+from rucio.common.extra import import_extras
+from rucio.common.utils import date_to_str
+from rucio.core.authentication import strip_x509_proxy_attributes
+from rucio.gateway.authentication import (
     get_auth_oidc,
     get_auth_token_gss,
     get_auth_token_saml,
@@ -34,11 +39,6 @@ from rucio.api.authentication import (
     refresh_cli_auth_token,
     validate_auth_token,
 )
-from rucio.common.config import config_get
-from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, IdentityError, IdentityNotFound
-from rucio.common.extra import import_extras
-from rucio.common.utils import date_to_str
-from rucio.core.authentication import strip_x509_proxy_attributes
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, error_headers, extract_vo, generate_http_error_flask, get_account_from_verified_identity
 
 if TYPE_CHECKING:

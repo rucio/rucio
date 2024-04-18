@@ -27,13 +27,13 @@ from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers import Request, Response
 
-from rucio.api.authentication import validate_auth_token
-from rucio.api.identity import get_default_account, list_accounts_for_identity, verify_identity
 from rucio.common import config
 from rucio.common.exception import CannotAuthenticate, DatabaseException, IdentityError, RucioException, UnsupportedRequestedContentType
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
 from rucio.core.vo import map_vo
+from rucio.gateway.authentication import validate_auth_token
+from rucio.gateway.identity import get_default_account, list_accounts_for_identity, verify_identity
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence

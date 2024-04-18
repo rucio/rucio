@@ -24,18 +24,6 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from oic import rndstr
 
-from rucio.api import vo as vo_api
-from rucio.api.account import add_account, list_accounts
-from rucio.api.account_limit import set_local_account_limit
-from rucio.api.authentication import get_auth_token_gss, get_auth_token_saml, get_auth_token_x509
-from rucio.api.did import add_did, list_dids
-from rucio.api.identity import add_account_identity, list_accounts_for_identity
-from rucio.api.lock import get_replica_locks_for_rule_id
-from rucio.api.replica import list_replicas
-from rucio.api.rse import add_protocol, add_rse, add_rse_attribute, list_rses
-from rucio.api.rule import delete_replication_rule, get_replication_rule
-from rucio.api.scope import add_scope, list_scopes
-from rucio.api.subscription import add_subscription, list_subscriptions
 from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.client import Client
 from rucio.client.replicaclient import ReplicaClient
@@ -55,6 +43,18 @@ from rucio.core.vo import map_vo
 from rucio.daemons.automatix.automatix import automatix
 from rucio.db.sqla import models
 from rucio.db.sqla import session as db_session
+from rucio.gateway import vo as vo_api
+from rucio.gateway.account import add_account, list_accounts
+from rucio.gateway.account_limit import set_local_account_limit
+from rucio.gateway.authentication import get_auth_token_gss, get_auth_token_saml, get_auth_token_x509
+from rucio.gateway.did import add_did, list_dids
+from rucio.gateway.identity import add_account_identity, list_accounts_for_identity
+from rucio.gateway.lock import get_replica_locks_for_rule_id
+from rucio.gateway.replica import list_replicas
+from rucio.gateway.rse import add_protocol, add_rse, add_rse_attribute, list_rses
+from rucio.gateway.rule import delete_replication_rule, get_replication_rule
+from rucio.gateway.scope import add_scope, list_scopes
+from rucio.gateway.subscription import add_subscription, list_subscriptions
 from rucio.tests.common import auth, execute, hdrdict, headers, loginhdr, vohdr
 
 from .test_authentication import PRIVATE_KEY, PUBLIC_KEY

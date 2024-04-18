@@ -18,9 +18,9 @@ from typing import TYPE_CHECKING
 from flask import Blueprint, Flask, redirect, request
 from werkzeug.datastructures import Headers
 
-from rucio.api.replica import list_replicas
 from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound
 from rucio.core.replica_sorter import site_selector, sort_replicas
+from rucio.gateway.replica import list_replicas
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, extract_vo, generate_http_error_flask, parse_scope_name, try_stream
 
 if TYPE_CHECKING:

@@ -18,7 +18,6 @@ from json.decoder import JSONDecodeError
 
 import pytest
 
-from rucio.api.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription
 from rucio.common.exception import InvalidObject, SubscriptionDuplicate, SubscriptionNotFound
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
@@ -31,6 +30,7 @@ from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
 from rucio.daemons.transmogrifier.transmogrifier import get_subscriptions, run
 from rucio.db.sqla.constants import AccountType, DIDType, RuleState
+from rucio.gateway.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription
 from rucio.tests.common import auth, did_name_generator, headers, rse_name_generator
 
 

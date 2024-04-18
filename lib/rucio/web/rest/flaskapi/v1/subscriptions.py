@@ -16,10 +16,10 @@ from json import dumps
 
 from flask import Flask, Response, request
 
-from rucio.api.rule import list_replication_rules
-from rucio.api.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription
 from rucio.common.exception import AccessDenied, InvalidObject, RuleNotFound, SubscriptionDuplicate, SubscriptionNotFound
 from rucio.common.utils import APIEncoder, render_json
+from rucio.gateway.rule import list_replication_rules
+from rucio.gateway.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
 

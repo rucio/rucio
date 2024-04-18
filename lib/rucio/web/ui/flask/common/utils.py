@@ -22,15 +22,15 @@ from urllib.parse import quote, unquote
 
 from flask import make_response, redirect, render_template, request
 
-from rucio.api import authentication as auth
-from rucio.api import identity
-from rucio.api.account import account_exists, get_account_info, list_account_attributes
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import CannotAuthenticate
 from rucio.common.extra import import_extras
 from rucio.core import identity as identity_core
 from rucio.core import vo as vo_core
 from rucio.db.sqla.constants import AccountType, IdentityType
+from rucio.gateway import authentication as auth
+from rucio.gateway import identity
+from rucio.gateway.account import account_exists, get_account_info, list_account_attributes
 
 EXTRA_MODULES = import_extras(['onelogin'])
 

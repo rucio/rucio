@@ -14,11 +14,11 @@
 
 from typing import TYPE_CHECKING, Optional, Union
 
-from rucio.api.permission import has_permission
 from rucio.common.exception import AccessDenied
 from rucio.core import meta_conventions
 from rucio.db.sqla.constants import KeyType
 from rucio.db.sqla.session import read_session, transactional_session
+from rucio.gateway.permission import has_permission
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

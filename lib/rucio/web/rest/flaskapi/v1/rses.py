@@ -16,8 +16,25 @@ from json import dumps
 
 from flask import Flask, Response, jsonify, request
 
-from rucio.api.account_limit import get_rse_account_usage
-from rucio.api.rse import (
+from rucio.common.exception import (
+    AccessDenied,
+    CounterNotFound,
+    Duplicate,
+    InputValidationError,
+    InvalidObject,
+    InvalidPath,
+    InvalidRSEExpression,
+    ReplicaNotFound,
+    RSEAttributeNotFound,
+    RSENotFound,
+    RSEOperationNotSupported,
+    RSEProtocolDomainNotSupported,
+    RSEProtocolNotSupported,
+    RSEProtocolPriorityError,
+)
+from rucio.common.utils import APIEncoder, Availability, render_json
+from rucio.gateway.account_limit import get_rse_account_usage
+from rucio.gateway.rse import (
     add_distance,
     add_protocol,
     add_qos_policy,
@@ -45,23 +62,6 @@ from rucio.api.rse import (
     update_protocols,
     update_rse,
 )
-from rucio.common.exception import (
-    AccessDenied,
-    CounterNotFound,
-    Duplicate,
-    InputValidationError,
-    InvalidObject,
-    InvalidPath,
-    InvalidRSEExpression,
-    ReplicaNotFound,
-    RSEAttributeNotFound,
-    RSENotFound,
-    RSEOperationNotSupported,
-    RSEProtocolDomainNotSupported,
-    RSEProtocolNotSupported,
-    RSEProtocolPriorityError,
-)
-from rucio.common.utils import APIEncoder, Availability, render_json
 from rucio.rse import rsemanager
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream

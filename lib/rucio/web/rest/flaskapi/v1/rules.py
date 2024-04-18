@@ -17,19 +17,6 @@ from typing import Any
 
 from flask import Flask, Response, request
 
-from rucio.api.lock import get_replica_locks_for_rule_id
-from rucio.api.rule import (
-    add_replication_rule,
-    delete_replication_rule,
-    examine_replication_rule,
-    get_replication_rule,
-    list_replication_rule_full_history,
-    list_replication_rule_history,
-    list_replication_rules,
-    move_replication_rule,
-    reduce_replication_rule,
-    update_replication_rule,
-)
 from rucio.common.exception import (
     AccessDenied,
     AccountNotFound,
@@ -51,6 +38,19 @@ from rucio.common.exception import (
     UnsupportedOperation,
 )
 from rucio.common.utils import APIEncoder, render_json
+from rucio.gateway.lock import get_replica_locks_for_rule_id
+from rucio.gateway.rule import (
+    add_replication_rule,
+    delete_replication_rule,
+    examine_replication_rule,
+    get_replication_rule,
+    list_replication_rule_full_history,
+    list_replication_rule_history,
+    list_replication_rules,
+    move_replication_rule,
+    reduce_replication_rule,
+    update_replication_rule,
+)
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
 
