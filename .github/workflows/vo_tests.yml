@@ -9,7 +9,7 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@1d96c772d19495a3b5c517cd2bc0cb401ea0529f # v4.1.3
       - name: Update pip
         run: python3 -m pip install -U pip setuptools
       - name: Install python requirements for matrix_parser.py
@@ -31,7 +31,7 @@ jobs:
       matrix:
         cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@1d96c772d19495a3b5c517cd2bc0cb401ea0529f # v4.1.3
       - name: Build Images and Run Tests
         uses: ./.github/actions/build-images-and-run-tests
         with:
