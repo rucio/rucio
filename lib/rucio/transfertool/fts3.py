@@ -650,7 +650,9 @@ class FTS3CompletionMessageTransferStatusReport(Fts3TransferStatusReport):
 
         self.fts_message = fts_message
 
-        self._transfer_id = fts_message.get('tr_id').split("__")[-1]
+        transfer_id = fts_message.get('tr_id')
+        if transfer_id is not None:
+            self._transfer_id = transfer_id.split("__")[-1]
 
         self._file_metadata = fts_message['file_metadata']
         self._multi_sources = str(fts_message.get('job_metadata', {}).get('multi_sources', '')).lower() == 'true'
@@ -669,10 +671,11 @@ class FTS3CompletionMessageTransferStatusReport(Fts3TransferStatusReport):
             new_state = RequestState.DONE
         elif str(fts_message['t_final_transfer_state']) == FTS_COMPLETE_STATE.ERROR:
             request = self.request(session)
-            if self._is_recoverable_fts_overwrite_error(request, reason, self._file_metadata):  # pylint:disable=no-member
-                new_state = RequestState.DONE
-            else:
-                new_state = RequestState.FAILED
+            if request is not None:
+                if self._is_recoverable_fts_overwrite_error(request, reason, self._file_metadata):  # pylint:disable=no-member
+                    new_state = RequestState.DONE
+                else:
+                    new_state = RequestState.FAILED
 
         transfer_id = self._transfer_id
         if new_state:
@@ -749,10 +752,12 @@ class FTS3ApiTransferStatusReport(Fts3TransferStatusReport):
                 new_state = RequestState.DONE
             elif file_state == FTS_STATE.FAILED and job_state_is_final or \
                     file_state == FTS_STATE.FAILED and not self._multi_sources:  # for multi-source transfers we must wait for the job to be in a final state
-                if self._is_recoverable_fts_overwrite_error(self.request(session), reason, self._file_metadata):
-                    new_state = RequestState.DONE
-                else:
-                    new_state = RequestState.FAILED
+                request = self.request(session)
+                if request is not None:
+                    if self._is_recoverable_fts_overwrite_error(request, reason, self._file_metadata):
+                        new_state = RequestState.DONE
+                    else:
+                        new_state = RequestState.FAILED
             elif job_state_is_final and file_state == FTS_STATE.CANCELED:
                 new_state = RequestState.FAILED
             elif job_state_is_final and file_state == FTS_STATE.NOT_USED:
@@ -836,12 +841,13 @@ class FTS3Transfertool(Transfertool):
         self.token = None
         if oidc_support:
             fts_hostname = urlparse(external_host).hostname
-            token = request_token(audience=fts_hostname, scope='fts')
-            if token is not None:
-                self.logger(logging.INFO, 'Using a token to authenticate with FTS instance %s', fts_hostname)
-                self.token = token
-            else:
-                self.logger(logging.WARNING, 'Failed to procure a token to authenticate with FTS instance %s', fts_hostname)
+            if fts_hostname is not None:
+                token = request_token(audience=fts_hostname, scope='fts')
+                if token is not None:
+                    self.logger(logging.INFO, 'Using a token to authenticate with FTS instance %s', fts_hostname)
+                    self.token = token
+                else:
+                    self.logger(logging.WARNING, 'Failed to procure a token to authenticate with FTS instance %s', fts_hostname)
 
         self.deterministic_id = config_get_bool('conveyor', 'use_deterministic_id', False, False)
         self.headers = {'Content-Type': 'application/json'}
@@ -1389,7 +1395,9 @@ class FTS3Transfertool(Transfertool):
     @staticmethod
     def __extract_host(external_host):
         # graphite does not like the dots in the FQDN
-        return urlparse(external_host).hostname.replace('.', '_')
+        parsed_url = urlparse(external_host)
+        if parsed_url.hostname:
+            return parsed_url.hostname.replace('.', '_')
 
     def __get_transfer_baseid_voname(self):
         """
