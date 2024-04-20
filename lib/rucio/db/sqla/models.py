@@ -1690,15 +1690,25 @@ class FollowEvents(BASE, ModelBase):
                    Index('DIDS_FOLLOWED_EVENTS_ACC_IDX', 'account'))
 
 
-def register_models(engine):
+def register_models(engine: Engine) -> None:
     """
-    Creates database tables for all models with the given engine
+    Creates database tables for all models in the `BASE.metadata` schema with the given engine.
+    Functionally this creates all models, as they all inherit from BASE and exist in the same `BASE.metadata` schema.
+
+    :param engine: engine to register the models with
+    :type engine: sqlalchemy.engine.Engine
+    :returns: None
     """
     BASE.metadata.create_all(engine)
 
 
-def unregister_models(engine):
+def unregister_models(engine: Engine) -> None:
     """
-    Drops database tables for all models with the given engine
+    Drops database tables for all models in the `BASE.metadata` schema with the given engine.
+    Functionally this drops all models, as they all inherit from BASE and exist in the same `BASE.metadata` schema.
+
+    :param engine: The engine to unregister the models with
+    :type engine: sqlalchemy.engine.Engine
+    :returns: None
     """
     BASE.metadata.drop_all(engine)
