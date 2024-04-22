@@ -239,9 +239,9 @@ class Pcache:
                 else:
                     self.hysterisis = float(arg)
             elif opt in ("-A", "--accept"):
-                self.accept_patterns.append(arg)
+                self.accept_patterns.append(re.compile(arg))
             elif opt in ("-R", "--reject"):
-                self.reject_patterns.append(arg)
+                self.reject_patterns.append(re.compile(arg))
             elif opt in ("-t", "--timeout"):
                 self.transfer_timeout = arg
             elif opt in ("-f", "--force"):
@@ -300,10 +300,6 @@ class Pcache:
             mult = 1
             t = t[:-1]
         self.transfer_timeout = mult * int(t)
-
-        # Pre-compile regexes
-        self.accept_patterns = list(map(re.compile, self.accept_patterns))
-        self.reject_patterns = list(map(re.compile, self.reject_patterns))
 
         # Set host and name
         if self.hostname is None:
