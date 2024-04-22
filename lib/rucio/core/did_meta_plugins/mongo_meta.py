@@ -166,7 +166,7 @@ class MongoDidMeta(DidMetaPlugin):
             if limit:
                 query_result = query_result.limit(limit)
             for did in query_result:
-                did_full = did_full = "{}:{}".format(did['scope'], did['name'])
+                did_full = "{}:{}".format(did['scope'], did['name'])
                 if did_full not in ignore_dids:         # aggregating recursive queries may contain duplicate DIDs
                     ignore_dids.add(did_full)
                     yield {
@@ -181,7 +181,7 @@ class MongoDidMeta(DidMetaPlugin):
             if limit:
                 query_result = query_result.limit(limit)
             for did in query_result:
-                did_full = did_full = "{}:{}".format(did['scope'], did['name'])
+                did_full = "{}:{}".format(did['scope'], did['name'])
                 if did_full not in ignore_dids:         # aggregating recursive queries may contain duplicate DIDs
                     ignore_dids.add(did_full)
                     yield did['name']
