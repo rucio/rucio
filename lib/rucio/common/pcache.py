@@ -655,7 +655,8 @@ class Pcache:
     def create_pcache_dst_dir(self):
 
         d = self.src
-        index = d.find(self.storage_root)
+        if self.storage_root is not None:
+            index = d.find(self.storage_root)
 
         if (index >= 0):
             d = d[index:]
@@ -696,15 +697,19 @@ class Pcache:
         if self.percent_max:
             return self.get_disk_usage() > factor * self.percent_max
         if self.bytes_max:
-            return self.get_cache_size() > factor * self.bytes_max
+            cache_size = self.get_cache_size()
+            if cache_size is not None:
+                return cache_size > factor * self.bytes_max
         return False
 
     def clean_cache(self):
         t0 = time.time()
+        cache_size = self.get_cache_size()
 
-        self.log(INFO, "starting cleanup, cache size=%s, usage=%s%%",
-                 unitize(self.get_cache_size()),
-                 self.get_disk_usage())
+        if cache_size is not None:
+            self.log(INFO, "starting cleanup, cache size=%s, usage=%s%%",
+                     unitize(cache_size),
+                     self.get_disk_usage())
 
         for link in self.list_by_mru():
             try:
@@ -972,7 +977,7 @@ class Pcache:
             size = self.do_cache_inventory()
 
         # The size should never be negative, so lets cleanup and start over
-        if size < 0:
+        if size is not None and size < 0:
             self.log(WARN, "CACHE corruption found. Negative CACHE size: %d", size)
             self.flush_cache()
             size = 0
