@@ -700,7 +700,7 @@ def get_rse_vo(rse_id: str, include_deleted: bool = True, *, session: "Session")
 
 
 @read_session
-def list_rses(filters={}, *, session: "Session"):
+def list_rses(filters: Optional[dict[str, Any]] = None, *, session: "Session") -> list[dict[str, Any]]:
     """
     Returns a list of all RSEs.
 
@@ -710,6 +710,7 @@ def list_rses(filters={}, *, session: "Session"):
     :returns: a list of dictionaries.
     """
 
+    filters = filters or {}
     rse_list = []
     filters = filters.copy()  # Make a copy, so we can pop() without affecting the object `filters` outside this function
 

@@ -15,12 +15,14 @@
 
 import html
 import re
+from collections.abc import Iterable
 from json import dumps, load
 from os.path import dirname, join
 from time import time
+from typing import Any, Optional
 from urllib.parse import quote, unquote
 
-from flask import make_response, redirect, render_template, request
+from flask import Response, make_response, redirect, render_template, request
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import CannotAuthenticate
@@ -100,7 +102,14 @@ def prepare_saml_request(environ, data):
     return None
 
 
-def add_cookies(response, cookie={}):
+def add_cookies(response: Response, cookie: Optional[Iterable[dict[str, Any]]] = None) -> Response:
+    """
+    Adds cookies to the response object.
+    :param response: Flask response object
+    :param cookie: list of dictionaries containing cookies to add
+    :returns: response object with cookies added
+    """
+    cookie = cookie or []
     for int_cookie in cookie:
         response.set_cookie(**int_cookie)
 

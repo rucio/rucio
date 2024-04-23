@@ -58,11 +58,12 @@ from rucio.db.sqla.util import temp_table_mngr
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterable, Iterator, Sequence
     from typing import Any, Optional
 
     from sqlalchemy.orm import Session
 
+    from rucio.common.types import LoggerFunction
     from rucio.rse.protocols.protocol import RSEProtocol
 
 REGION = make_region_memcached(expiration_time=60)
@@ -1601,7 +1602,22 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
 
 
 @transactional_session
-def add_replica(rse_id, scope, name, bytes_, account, adler32=None, md5=None, dsn=None, pfn=None, meta=None, rules=[], tombstone=None, *, session: "Session"):
+def add_replica(
+    rse_id: str,
+    scope: InternalScope,
+    name: str,
+    bytes_: int,
+    account: models.InternalAccount,
+    adler32: "Optional[str]" = None,
+    md5: "Optional[str]" = None,
+    dsn: "Optional[str]" = None,
+    pfn: "Optional[str]" = None,
+    meta: "Optional[dict[str, Any]]" = None,
+    rules: "Optional[list[dict[str, Any]]]" = None,
+    tombstone: "Optional[datetime]" = None,
+    *,
+    session: "Session"
+) -> "list[dict[str, Any]]":
     """
     Add File replica.
 
@@ -1620,8 +1636,8 @@ def add_replica(rse_id, scope, name, bytes_, account, adler32=None, md5=None, ds
 
     :returns: True is successful.
     """
-    if meta is None:
-        meta = {}
+    meta = meta or {}
+    rules = rules or []
 
     file = {'scope': scope, 'name': name, 'bytes': bytes_, 'adler32': adler32, 'md5': md5, 'meta': meta, 'rules': rules, 'tombstone': tombstone}
     if pfn:
@@ -3427,7 +3443,19 @@ def get_replicas_state(scope=None, name=None, *, session: "Session"):
 
 
 @read_session
-def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logger=logging.log, younger_than=5, nattempts=0, nattempts_exact=False, *, session: "Session", exclude_states=['B', 'R', 'D'], is_suspicious=False):
+def get_suspicious_files(
+    rse_expression: str,
+    available_elsewhere: int,
+    filter_: "Optional[dict[str, Any]]" = None,
+    logger: "LoggerFunction" = logging.log,
+    younger_than: "Optional[datetime]" = None,
+    nattempts: int = 0,
+    nattempts_exact: bool = False,
+    *,
+    session: "Session",
+    exclude_states: "Optional[Iterable[str]]" = None,
+    is_suspicious: bool = False
+) -> "list[dict[str, Any]]":
     """
     Gets a list of replicas from bad_replicas table which are: declared more than <nattempts> times since <younger_than> date,
     present on the RSE specified by the <rse_expression> and do not have a state in <exclude_states> list.
@@ -3453,6 +3481,7 @@ def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logg
     [{'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, cnt': cnt, 'created_at': created_at}, ...]
     """
 
+    exclude_states = exclude_states or ['B', 'R', 'D']
     if available_elsewhere not in [SuspiciousAvailability["ALL"].value, SuspiciousAvailability["EXIST_COPIES"].value, SuspiciousAvailability["LAST_COPY"].value]:
         logger(logging.WARNING, """ERROR, available_elsewhere must be set to one of the following:
         SuspiciousAvailability["ALL"].value: (default) all suspicious replicas are returned

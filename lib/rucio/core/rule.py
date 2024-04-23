@@ -2110,7 +2110,7 @@ def get_updated_dids(
     total_workers: int,
     worker_number: int,
     limit: int = 100,
-    blocked_dids: Sequence[tuple[str, str]] = [],
+    blocked_dids: Optional[Sequence[tuple[str, str]]] = None,
     *,
     session: "Session"
 ) -> list[tuple[str, InternalScope, str, DIDReEvaluation]]:
@@ -2123,6 +2123,7 @@ def get_updated_dids(
     :param blocked_dids:       Blocked dids to filter.
     :param session:            Database session in use.
     """
+    blocked_dids = blocked_dids or []
     stmt = select(
         models.UpdatedDID.id,
         models.UpdatedDID.scope,
@@ -2195,7 +2196,7 @@ def get_expired_rules(
     total_workers: int,
     worker_number: int,
     limit: int = 100,
-    blocked_rules: Sequence[str] = [],
+    blocked_rules: Optional[Sequence[str]] = None,
     *,
     session: "Session"
 ) -> list[tuple[str, str]]:
@@ -2209,6 +2210,7 @@ def get_expired_rules(
     :param session:            Database session in use.
     """
 
+    blocked_rules = blocked_rules or []
     stmt = select(
         models.ReplicationRule.id,
         models.ReplicationRule.rse_expression
@@ -2244,7 +2246,7 @@ def get_injected_rules(
     total_workers: int,
     worker_number: int,
     limit: int = 100,
-    blocked_rules: Sequence[str] = [],
+    blocked_rules: Optional[Sequence[str]] = None,
     *,
     session: "Session"
 ) -> list[str]:
@@ -2258,6 +2260,7 @@ def get_injected_rules(
     :param session:            Database session in use.
     """
 
+    blocked_rules = blocked_rules or []
     stmt = select(
         models.ReplicationRule.id
     ).with_hint(
@@ -2292,7 +2295,7 @@ def get_stuck_rules(
     worker_number: int,
     delta: int = 600,
     limit: int = 10,
-    blocked_rules: Sequence[str] = [],
+    blocked_rules: Optional[Sequence[str]] = None,
     *,
     session: "Session"
 ) -> list[str]:
@@ -2306,6 +2309,7 @@ def get_stuck_rules(
     :param blocked_rules:      Blocked rules to filter out.
     :param session:            Database session in use.
     """
+    blocked_rules = blocked_rules or []
     stmt = select(
         models.ReplicationRule.id
     ).with_hint(
@@ -3906,7 +3910,7 @@ def __resolve_did_to_locks_and_replicas(
 def __resolve_dids_to_locks_and_replicas(
     dids: Sequence[models.DataIdentifierAssociation],
     nowait: bool = False,
-    restrict_rses: Sequence[str] = [],
+    restrict_rses: Optional[Sequence[str]] = None,
     source_rses: Optional[Sequence[str]] = None,
     *,
     session: "Session"
@@ -3930,6 +3934,7 @@ def __resolve_dids_to_locks_and_replicas(
     locks = {}            # {(scope,name): [SQLAlchemy]}
     replicas = {}         # {(scope, name): [SQLAlchemy]}
     source_replicas = {}  # {(scope, name): [rse_id]
+    restrict_rses = restrict_rses or []
 
     if dids[0].child_type == DIDType.FILE:
         # All the dids will be files!
@@ -4079,8 +4084,8 @@ def __create_locks_replicas_transfers(
     source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
     rseselector: RSESelector,
     rule: models.ReplicationRule,
-    preferred_rse_ids: Sequence[str] = [],
-    source_rses: Sequence[str] = [],
+    preferred_rse_ids: Optional[Sequence[str]] = None,
+    source_rses: Optional[Sequence[str]] = None,
     *,
     session: "Session",
     logger: LoggerFunction = logging.log
@@ -4102,6 +4107,8 @@ def __create_locks_replicas_transfers(
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
+    preferred_rse_ids = preferred_rse_ids or []
+    source_rses = source_rses or []
     logger(logging.DEBUG, "Creating locks and replicas for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
     replicas_to_create, locks_to_create, transfers_to_create = apply_rule_grouping(datasetfiles=datasetfiles,

@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.common.exception
 import rucio.core.identity
@@ -115,7 +116,7 @@ def update_account(account, key, value, issuer='root', vo='def', *, session: "Se
 
 
 @stream_session
-def list_accounts(filter_={}, vo='def', *, session: "Session"):
+def list_accounts(filter_: Optional[dict[str, Any]] = None, vo: str = 'def', *, session: "Session") -> Iterator[dict[str, Any]]:
     """
     Lists all the Rucio account names.
 
@@ -128,8 +129,7 @@ def list_accounts(filter_={}, vo='def', *, session: "Session"):
     :returns: List of all accounts.
     """
     # If filter is empty, create a new dict to avoid overwriting the function's default
-    if not filter_:
-        filter_ = {}
+    filter_ = filter_ or {}
 
     if 'account' in filter_:
         filter_['account'] = InternalAccount(filter_['account'], vo=vo)

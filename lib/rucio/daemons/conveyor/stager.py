@@ -79,22 +79,23 @@ def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> Non
 
 
 def run(
-        once=False,
-        total_threads=1,
-        group_bulk=1,
-        group_policy='rule',
-        rses=None,
-        include_rses=None,
-        exclude_rses=None,
-        vos=None,
-        bulk=100,
-        source_strategy=None,
-        activities=[],
-        sleep_time=600
-):
+    once: bool = False,
+    total_threads: int = 1,
+    group_bulk: int = 1,
+    group_policy: str = 'rule',
+    rses: Optional[list[str]] = None,
+    include_rses: Optional[str] = None,
+    exclude_rses: Optional[str] = None,
+    vos: Optional[list[str]] = None,
+    bulk: int = 100,
+    source_strategy: Optional[str] = None,
+    activities: Optional[list[str]] = None,
+    sleep_time: int = 600
+) -> None:
     """
     Starts up the conveyer threads.
     """
+    activities = activities or []
     setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():

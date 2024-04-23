@@ -15,6 +15,7 @@
 import logging
 from datetime import date, datetime, timedelta
 from string import Template
+from typing import Any, Optional
 
 from requests import get
 from sqlalchemy import BigInteger, and_, cast, func, or_
@@ -478,17 +479,17 @@ def list_rebalance_rule_candidates(rse_id, mode=None, *, session=None):
 
 @read_session
 def select_target_rse(
-    parent_rule,
-    current_rse_id,
-    rse_expression,
-    subscription_id,
-    rse_attributes,
-    other_rses=[],
-    exclude_expression=None,
-    force_expression=None,
+    parent_rule: dict[str, Any],
+    current_rse_id: str,
+    rse_expression: str,
+    subscription_id: str,
+    rse_attributes: dict[str, Any],
+    other_rses: Optional[list[str]] = None,
+    exclude_expression: Optional[str] = None,
+    force_expression: Optional[str] = None,
     *,
     session=None,
-):
+) -> str:
     """
     Select a new target RSE for a rebalanced rule.
     :param parent_rule           rule that is rebalanced.
@@ -503,6 +504,7 @@ def select_target_rse(
     :returns:                    New RSE expression.
     """
 
+    other_rses = other_rses or []
     current_rse = get_rse_name(rse_id=current_rse_id)
     current_rse_expr = current_rse
     # if parent rule has a vo, enforce it

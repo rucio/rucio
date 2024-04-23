@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Iterable, Sequence
 from random import shuffle, uniform
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, InvalidRuleWeight, RSEOverQuota
+from rucio.common.types import InternalAccount
 from rucio.core.account import get_all_rse_usages_per_account, get_usage, has_account_attribute
 from rucio.core.account_limit import get_global_account_limits, get_local_account_limit
 from rucio.core.rse import get_rse_limits, has_rse_attribute, list_rse_attributes
@@ -133,7 +135,15 @@ class RSESelector:
         # don't consider removing rses based on the total space here - because files already on the RSE are taken into account
         # it is possible to have no space but still be able to fulfil the rule
 
-    def select_rse(self, size, preferred_rse_ids, copies=0, blocklist=[], prioritize_order_over_weight=False, existing_rse_size=None):
+    def select_rse(
+        self,
+        size: int,
+        preferred_rse_ids: Iterable[str],
+        copies: int = 0,
+        blocklist: Optional[Sequence[str]] = None,
+        prioritize_order_over_weight: bool = False,
+        existing_rse_size: Optional[dict[str, int]] = None
+    ) -> list[tuple[str, bool, bool]]:
         """
         Select n RSEs to replicate data to.
 
@@ -147,6 +157,7 @@ class RSESelector:
         :raises:                             InsufficientAccountLimit, InsufficientTargetRSEs
         """
 
+        blocklist = blocklist or []
         result = []
         rses = self.rses
         count = self.copies if copies == 0 else copies
@@ -245,12 +256,27 @@ class RSESelector:
 
 
 @read_session
-def resolve_rse_expression(rse_expression, account, weight=None, copies=1, ignore_account_limit=False, size=0, preferred_rses=[], blocklist=[], prioritize_order_over_weight=False, existing_rse_size=None, *, session: "Session"):
+def resolve_rse_expression(
+    rse_expression: str,
+    account: InternalAccount,
+    weight: Optional[int] = None,
+    copies: int = 1,
+    ignore_account_limit: bool = False,
+    size: int = 0,
+    preferred_rses: Optional[Iterable[str]] = None,
+    blocklist: Optional[Sequence[str]] = None,
+    prioritize_order_over_weight: bool = False,
+    existing_rse_size: Optional[dict[str, int]] = None,
+    *,
+    session: "Session"
+) -> tuple[list[str], list[str]]:
     """
     Resolve a potentially complex RSE expression into `copies` single-RSE expressions. Uses `parse_expression()`
     to decompose the expression, then `RSESelector.select_rse()` to pick the target RSEs.
     """
 
+    preferred_rses = preferred_rses or []
+    blocklist = blocklist or []
     rses = parse_expression(rse_expression, filter_={'vo': account.vo}, session=session)
 
     rse_to_id = dict((rse_dict['rse'], rse_dict['id']) for rse_dict in rses)

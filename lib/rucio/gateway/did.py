@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from copy import deepcopy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import rucio.gateway.permission
 from rucio.common.constants import RESERVED_KEYS
@@ -29,7 +29,7 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
-    from typing import Any, Optional
+    from typing import Optional
 
     from sqlalchemy.orm import Session
 
@@ -67,7 +67,22 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
 
 
 @transactional_session
-def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, rules=[], lifetime=None, dids=[], rse=None, vo='def', *, session: "Session"):
+def add_did(
+    scope: str,
+    name: str,
+    did_type: str,
+    issuer: str,
+    account: "Optional[str]" = None,
+    statuses: "Optional[dict[str, str]]" = None,
+    meta: "Optional[dict[str, str]]" = None,
+    rules: "Optional[Sequence[dict[str, Any]]]" = None,
+    lifetime: "Optional[str]" = None,
+    dids: "Optional[Sequence[dict[str, Any]]]" = None,
+    rse: "Optional[str]" = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Add data did.
 
@@ -85,6 +100,10 @@ def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, r
     :param vo: The VO to act on.
     :param session: The database session in use.
     """
+    statuses = statuses or {}
+    meta = meta or {}
+    rules = rules or []
+    dids = dids or []
     v_did = {'name': name, 'type': did_type.upper(), 'scope': scope}
     validate_schema(name='did', obj=v_did, vo=vo)
     validate_schema(name='dids', obj=dids, vo=vo)
@@ -93,10 +112,9 @@ def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, r
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_did', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
 
-    if account is not None:
-        account = InternalAccount(account, vo=vo)
-    issuer = InternalAccount(issuer, vo=vo)
-    scope = InternalScope(scope, vo=vo)
+    owner_account = None if account is None else InternalAccount(account, vo=vo)
+    issuer_account = InternalAccount(issuer, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
     for d in dids:
         d['scope'] = InternalScope(d['scope'], vo=vo)
     for r in rules:
@@ -108,7 +126,7 @@ def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, r
 
     if did_type == 'DATASET':
         # naming_convention validation
-        extra_meta = naming_convention.validate_name(scope=scope, name=name, did_type='D', session=session)
+        extra_meta = naming_convention.validate_name(scope=internal_scope, name=name, did_type='D', session=session)
 
         # merge extra_meta with meta
         for k in extra_meta or {}:
@@ -121,7 +139,7 @@ def add_did(scope, name, did_type, issuer, account=None, statuses={}, meta={}, r
         # Validate metadata
         meta_convention_core.validate_meta(meta=meta, did_type=DIDType[did_type.upper()], session=session)
 
-    return did.add_did(scope=scope, name=name, did_type=DIDType[did_type.upper()], account=account or issuer,
+    return did.add_did(scope=internal_scope, name=name, did_type=DIDType[did_type.upper()], account=owner_account or issuer_account,
                        statuses=statuses, meta=meta, rules=rules, lifetime=lifetime,
                        dids=dids, rse_id=rse_id, session=session)
 
@@ -330,7 +348,7 @@ def list_content_history(scope, name, vo='def', *, session: "Session"):
 
 
 @stream_session
-def bulk_list_files(dids: "list[dict[str, Any]]", long: bool = False, vo: str = 'def', *, session: "Session") -> "Iterator[dict[str, Any]]":
+def bulk_list_files(dids: list[dict[str, Any]], long: bool = False, vo: str = 'def', *, session: "Session") -> Iterator[dict[str, Any]]:
     """
     List file contents of a list of data identifiers.
 
