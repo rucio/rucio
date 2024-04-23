@@ -230,7 +230,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", inputfile: str, **_kwargs) -
         upload_client = UploadClient(client)
         ret = upload_client.upload(files)
         if ret == 0:
-            logger(logging.INFO, "%s sucessfully registered" % dsn)
+            logger(logging.INFO, "%s successfully registered" % dsn)
             METRICS.counter(name="addnewdataset.done").inc()
             METRICS.counter(name="addnewfile.done").inc(nbfiles)
             METRICS.timer(name='datasetinjection').observe(stopwatch.elapsed)

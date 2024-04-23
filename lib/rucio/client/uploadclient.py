@@ -459,7 +459,7 @@ class UploadClient:
             try:
                 guid = output.splitlines()[-1].split()[0].replace('-', '').lower()
             except Exception:
-                raise RucioException('Error extracting GUID from ouput of pool_extractFileIdentifier')
+                raise RucioException('Error extracting GUID from output of pool_extractFileIdentifier')
         elif guid:
             guid = guid.replace('-', '')
         else:
@@ -741,7 +741,7 @@ class UploadClient:
 
     def _create_protocol(self, rse_settings, operation, impl=None, force_scheme=None, domain='wan'):
         """
-        Protol construction.
+        Protocol construction.
         :param rse_settings:        rse_settings
         :param operation:           activity, e.g. read, write, delete etc.
         :param force_scheme:        custom scheme

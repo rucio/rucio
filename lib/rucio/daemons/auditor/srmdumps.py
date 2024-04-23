@@ -42,7 +42,7 @@ OBJECTSTORE_NUM_TRIES = 30
 class Parser(ConfigParser.RawConfigParser):
     '''
     RawConfigParser subclass that doesn't modify the the name of the options
-    and removes any quotes arround the string values.
+    and removes any quotes around the string values.
     '''
     remove_quotes_re = re.compile(r"^'(.+)'$")
     remove_double_quotes_re = re.compile(r'^"(.+)"$')
@@ -219,7 +219,7 @@ def parse_configuration(conf_dirs=__DUMPERCONFIGDIRS):
 def download_rse_dump(rse, configuration, date=None, destdir=DUMPS_CACHE_DIR):
     '''
     Downloads the dump for the given ddmendpoint. If this endpoint does not
-    follow the standarized method to publish the dumps it should have an
+    follow the standardized method to publish the dumps it should have an
     entry in the `configuration` object describing how to download the dump.
 
     `rse` is the DDMEndpoint name.
@@ -227,7 +227,7 @@ def download_rse_dump(rse, configuration, date=None, destdir=DUMPS_CACHE_DIR):
     `configuration` is a RawConfigParser subclass.
 
     `date` is a datetime instance with the date of the desired dump or None
-    to download the lastest available dump.
+    to download the latest available dump.
 
     `destdir` is the directory where the dump will be saved (the final component
     in the path is created if it doesn't exist).

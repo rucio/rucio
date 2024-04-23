@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-OAuth Manager is a daemon which is reponsible for:
+OAuth Manager is a daemon which is responsible for:
 - deletion of expired access tokens (in case there is a valid refresh token,
   expired access tokens will be kept until refresh_token expires as well.)
 - deletion of expired OAuth session parameters
@@ -114,7 +114,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, max_rows: int, sleep_time: int
             METRICS.counter('exceptions.{exception}').labels(exception=err.__class__.__name__).inc()
 
     try:
-        # waiting 1 sec as DBs does not store milisecond and tokens
+        # waiting 1 sec as DBs does not store millisecond and tokens
         # eligible for deletion after refresh might not get deleted otherwise
         graceful_stop.wait(1)
 

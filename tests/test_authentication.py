@@ -278,7 +278,7 @@ def test_saml_fail(vo, rest_client):
 
 @pytest.mark.noparallel(reason='adds many tokens')
 def test_many_tokens(vo, root_account, db_session):
-    """AUTHENTIFICATION (REST): Error when deleting too many tokens."""
+    """AUTHENTICATION (REST): Error when deleting too many tokens."""
     for i in range(2000):
         models.Token(account=root_account, token="dummytoken" + str(i), ip='127.0.0.1', expired_at=datetime.datetime.utcnow()).save(session=db_session)
     db_session.commit()

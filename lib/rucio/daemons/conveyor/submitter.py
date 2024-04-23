@@ -341,7 +341,7 @@ def run(
         **_kwargs
 ):
     """
-    Starts up the conveyer threads.
+    Starts up the conveyor threads.
     """
     setup_logging(process_name=DAEMON_NAME)
 

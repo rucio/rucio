@@ -108,7 +108,7 @@ class Scope(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: Line seperated dictionary of dids.
+                  description: Line separated dictionary of dids.
                   type: array
                   items:
                     type: object
@@ -259,7 +259,7 @@ class Search(ErrorHandlingMethodView):
         if filters is not None:
             filters = ast.literal_eval(filters)
         else:
-            # backwards compatability for created*, length* and name filters passed through as request args
+            # backwards compatibility for created*, length* and name filters passed through as request args
             filters = {}
             for arg, value in request.args.copy().items():
                 if arg not in ['type', 'limit', 'long', 'recursive']:
@@ -781,7 +781,7 @@ class Attachment(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: The contents of a did. Items are line seperated.
+                  description: The contents of a did. Items are line separated.
                   type: array
                   items:
                     type: object
@@ -994,7 +994,7 @@ class AttachmentHistory(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: The dids with their information and history. Elements are seperated by new line characters.
+                  description: The dids with their information and history. Elements are separated by new line characters.
                   type: array
                   items:
                     type: object
@@ -1102,7 +1102,7 @@ class Files(ErrorHandlingMethodView):
                             description: The adler32 checksum.
                             type: string
                           lumiblocknr:
-                            description: The lumi block nr. Only availabe if `long` is defined in the query.
+                            description: The lumi block nr. Only available if `long` is defined in the query.
                             type: integer
                     - description: All replica information.
                       type: array
@@ -1318,7 +1318,7 @@ class Meta(ErrorHandlingMethodView):
             content:
               application/json:
                 schema:
-                  description: A data identifer with all attributes.
+                  description: A data identifier with all attributes.
                   type: object
           401:
             description: Invalid Auth Token
@@ -1362,7 +1362,7 @@ class Meta(ErrorHandlingMethodView):
                 - meta
                 properties:
                   meta:
-                    description: The metadata to add. A dictionary containg the metadata name as key and the value as value.
+                    description: The metadata to add. A dictionary containing the metadata name as key and the value as value.
                     type: object
                   recursive:
                     description: Flag if the metadata should be applied recirsively to children.
@@ -1509,7 +1509,7 @@ class SingleMeta(ErrorHandlingMethodView):
           406:
             description: Not acceptable
           409:
-            description: Matadata already exists
+            description: Metadata already exists
           400:
             description: Invalid key or value
         """
@@ -1699,7 +1699,7 @@ class BulkMeta(ErrorHandlingMethodView):
             content:
               application/json:
                 schema:
-                  description: A list of metadata identifiers for the dids. Seperated by new lines.
+                  description: A list of metadata identifiers for the dids. Separated by new lines.
                   type: array
                   items:
                     description: The metadata for one did.
@@ -1735,7 +1735,7 @@ class AssociatedRules(ErrorHandlingMethodView):
     def get(self, scope_name):
         """
         ---
-        summary: Get accociated rules
+        summary: Get associated rules
         description: Gets all associated rules for a file.
         tags:
           - Data Identifiers
@@ -1752,7 +1752,7 @@ class AssociatedRules(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: All associated rules for a file. Items are seperated by new line character.
+                  description: All associated rules for a file. Items are separated by new line character.
                   type: array
                   items:
                     description: A replication rule associated with the file. Has more fields than listed here.
@@ -1823,7 +1823,7 @@ class GUIDLookup(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: A list of all datasets associated with the guid. Items are seperated by new line character.
+                  description: A list of all datasets associated with the guid. Items are separated by new line character.
                   type: array
                   items:
                     description: A dataset associated with a guid.
@@ -2027,7 +2027,7 @@ class NewDIDs(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: A list of the recent dids. Items are seperated by new line characters.
+                  description: A list of the recent dids. Items are separated by new line characters.
                   type: array
                   items:
                     description: A did.

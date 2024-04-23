@@ -99,7 +99,7 @@ def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> Non
 
 def run(once=False, sleep_time=600):
     """
-    Starts up the conveyer threads.
+    Starts up the conveyor threads.
     """
     setup_logging(process_name=DAEMON_NAME)
 

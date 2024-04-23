@@ -72,7 +72,7 @@ def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None,
     :param description:    Full description of the new VO, unused if `insert_new_vo` is False.
     :param email:          Admin email for the new VO, unused if `insert_new_vo` is False.
     :param commit_changes: If True then changes are made against the database directly.
-                           If False, then nothing is commited and the commands needed are dumped to be run later.
+                           If False, then nothing is committed and the commands needed are dumped to be run later.
     :param skip_history:   If True then tables without FKC containing historical data will not be converted to save time.
     """
     success = True
@@ -165,7 +165,7 @@ def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None,
     except:
         success = False
         print(format_exc())
-        print('Exception occured, changes not committed to DB.')
+        print('Exception occurred, changes not committed to DB.')
 
     if commit_changes and success:
         trans.commit()
@@ -179,7 +179,7 @@ def remove_vo(vo, commit_changes=False, skip_history=False):
 
     :param vo:             The 3 character string for the VO being removed from the DB.
     :param commit_changes: If True then changes are made against the database directly.
-                           If False, then nothing is commited and the commands needed are dumped to be run later.
+                           If False, then nothing is committed and the commands needed are dumped to be run later.
     :param skip_history:   If True then tables without FKC containing historical data will not be converted to save time.
     """
     success = True
@@ -265,7 +265,7 @@ def remove_vo(vo, commit_changes=False, skip_history=False):
     except:
         success = False
         print(format_exc())
-        print('Exception occured, changes not committed to DB.')
+        print('Exception occurred, changes not committed to DB.')
 
     if commit_changes and success:
         trans.commit()
@@ -282,7 +282,7 @@ def convert_to_mvo(new_vo, description, email, create_super_root=False, commit_c
     :param email:             Admin email for the new VO.
     :param create_super_root: If True and the renaming was successful, then create a super_root account at VO def.
     :param commit_changes:    If True then changes are made against the database directly.
-                              If False, then nothing is commited and the commands needed are dumped to be run later.
+                              If False, then nothing is committed and the commands needed are dumped to be run later.
     :param skip_history:      If True then tables without FKC containing historical data will not be converted to save time.
     """
     if not config_get_bool('common', 'multi_vo', False, False):
@@ -311,7 +311,7 @@ def convert_to_svo(old_vo, delete_vos=False, commit_changes=False, skip_history=
     :param old_vo:         The 3 character string for the old VO.
     :param delete_vos:     If True then all entries associated with a VO other than `old_vo` will be deleted.
     :param commit_changes: If True then changes are made against the database directly and the old super_root account will be (soft) deleted.
-                           If False, then nothing is commited and the commands needed are dumped to be run later.
+                           If False, then nothing is committed and the commands needed are dumped to be run later.
     :param skip_history:   If True then tables without FKC containing historical data will not be converted to save time.
     """
     if not config_get_bool('common', 'multi_vo', False, False):

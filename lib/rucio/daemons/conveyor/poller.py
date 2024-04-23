@@ -94,7 +94,7 @@ def _fetch_requests(
         # only keep transfers which don't have any transfertool set, or have one equal to TRANSFER_TOOL
         transfs_tmp = [t for t in transfs if not t['transfertool'] or t['transfertool'] == transfertool]
         if len(transfs_tmp) != len(transfs):
-            logger(logging.INFO, 'Skipping %i transfers because of missmatched transfertool', len(transfs) - len(transfs_tmp))
+            logger(logging.INFO, 'Skipping %i transfers because of mismatched transfertool', len(transfs) - len(transfs_tmp))
         transfs = transfs_tmp
 
     if transfs:
@@ -254,7 +254,7 @@ def run(
         total_threads=1
 ):
     """
-    Starts up the conveyer threads.
+    Starts up the conveyor threads.
     """
     setup_logging(process_name=DAEMON_NAME)
 

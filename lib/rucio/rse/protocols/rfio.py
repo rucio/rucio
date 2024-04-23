@@ -32,7 +32,7 @@ class Default(protocol.RSEProtocol):
         """
             Establishes the actual connection to the referred RSE.
 
-            :param credentials: needed to establish a connection with the stroage.
+            :param credentials: needed to establish a connection with the storage.
 
             :raises RSEAccessDenied: if no connection could be established.
         """
@@ -42,7 +42,7 @@ class Default(protocol.RSEProtocol):
 
     def path2pfn(self, path):
         """
-            Retruns a fully qualified PFN for the file referred by path.
+            Returns a fully qualified PFN for the file referred by path.
 
             :param path: The path to the file.
 
@@ -80,7 +80,7 @@ class Default(protocol.RSEProtocol):
             :param transfer_timeout: Transfer timeout (in seconds) - dummy
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         if not self.exists(dirname(target)):
@@ -127,7 +127,7 @@ class Default(protocol.RSEProtocol):
         if not ret['path'].startswith(self.rse['prefix']):
             raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(ret['path'].split('/')[0:len(self.rse['prefix'].split('/')) - 1]),
                                                                                                           self.rse['prefix']))  # len(...)-1 due to the leading '/
-        # Spliting parsed.path into prefix, path, filename
+        # Splitting parsed.path into prefix, path, filename
         ret['prefix'] = self.rse['prefix']
         ret['path'] = ret['path'].partition(self.rse['prefix'])[2]
         ret['name'] = ret['path'].split('/')[-1]

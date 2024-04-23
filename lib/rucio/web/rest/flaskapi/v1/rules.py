@@ -793,16 +793,16 @@ class RuleAnalysis(ErrorHandlingMethodView):
                             description: The name of the lock.
                           rse_id:
                             type: string
-                            description: The rse_id of the transfered lock.
+                            description: The rse_id of the transferred lock.
                           rse:
                             type: object
-                            description: Information about the rse of the transfered lock.
+                            description: Information about the rse of the transferred lock.
                           attempts:
                             type: integer
                             description: The number of attempts.
                           last_error:
                             type: string
-                            description: The last error that occured.
+                            description: The last error that occurred.
                           last_source:
                             type: string
                             description: The last source.

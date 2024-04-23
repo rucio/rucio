@@ -37,7 +37,7 @@ def add_quarantined_replicas(rse_id: str, replicas: list[dict[str, Any]], *, ses
     :param session:  The database session in use.
     """
 
-    # Exlude files that have a registered replica.  This is a
+    # Exclude files that have a registered replica.  This is a
     # safeguard against potential issues in the Auditor.
     file_clause = []
     for replica in replicas:

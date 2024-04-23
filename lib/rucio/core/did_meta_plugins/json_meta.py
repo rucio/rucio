@@ -143,7 +143,7 @@ class JSONDidMeta(DidMetaPlugin):
         if not ignore_dids:
             ignore_dids = set()
 
-        # backwards compatability for filters as single {}.
+        # backwards compatibility for filters as single {}.
         if isinstance(filters, dict):
             filters = [filters]
 

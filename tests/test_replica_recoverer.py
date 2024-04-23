@@ -96,8 +96,8 @@ class TestReplicaRecoverer:
             # checking if Rucio upload went OK
             assert exitcode == 0
 
-        # Explaination of the fictional data types:
-        # testtypedeclarebad: Files are speficied to be declared bad
+        # Explanation of the fictional data types:
+        # testtypedeclarebad: Files are specified to be declared bad
         # testtypeignore: Files are specified to be ignored
         # testtypenopolicy: Files either have no policy or no recognised policy and are ignored by default
 
@@ -391,7 +391,7 @@ class TestReplicaRecoverer:
         # tmp_file13   unavailable                              suspicious (available)                    scope_declarebad            testtypedryrun
         # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-            - Explaination: Suspicious replicas that are the last remaining copy (unavailable on rse4recovery) are handeled differently depending
+            - Explanation: Suspicious replicas that are the last remaining copy (unavailable on rse4recovery) are handled differently depending
                             by their metadata "datatype".
                             - Files that are the last remaining copy, but do not have a data type, are automatically ignored. For this reason, testing
                               just the scope policies (tmp_file7 and tmp_file8) still requires a data type.
@@ -400,7 +400,7 @@ class TestReplicaRecoverer:
                             - testtypenopolicy files are of a fictional type that doesn't have a specified policy, meaning they should be ignored by default.
                             - scope_declarebad files belong to a fictional scope that has the policy of being declared bad.
                             - scope_nopolicy files belong to a fictional scope that doesn't have a specified policy, meaning they should be ignored by default.
-                            If a policiy is set for the file type and the scope, then the policiy for the file type takes priority (meaning tmp_file9 should be
+                            If a policy is set for the file type and the scope, then the policy for the file type takes priority (meaning tmp_file9 should be
                             ignored).
 
             Runs the Test:

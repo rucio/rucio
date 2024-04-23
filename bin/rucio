@@ -166,7 +166,7 @@ def exception_handler(function):
                     used_account = '%s (from rucio.cfg)' % config_get('client', 'account')
                 except:
                     pass
-                try:  # are we overriden by the environment?
+                try:  # are we overridden by the environment?
                     used_account = '%s (from RUCIO_ACCOUNT)' % os.environ['RUCIO_ACCOUNT']
                 except:
                     pass
@@ -1550,7 +1550,7 @@ def list_rse_attributes(args):
     """
     client = get_client(args)
     attributes = client.list_rse_attributes(rse=args.rse)
-    table = [(k + ':', str(v)) for (k, v) in sorted(attributes.items())]  # columns hav mixed datatypes
+    table = [(k + ':', str(v)) for (k, v) in sorted(attributes.items())]  # columns have mixed datatypes
     print(tabulate(table, tablefmt='plain', disable_numparse=True))  # disabling number parsing
     return SUCCESS
 

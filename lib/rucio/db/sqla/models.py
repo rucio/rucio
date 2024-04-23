@@ -873,7 +873,7 @@ class RSEProtocols(BASE, ModelBase):
     __tablename__ = 'rse_protocols'
     rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
     scheme: Mapped[str] = mapped_column(String(255))
-    hostname: Mapped[str] = mapped_column(String(255), server_default='')  # For protocol without host e.g. POSIX on local file systems localhost is assumed as beeing default
+    hostname: Mapped[str] = mapped_column(String(255), server_default='')  # For protocol without host e.g. POSIX on local file systems localhost is assumed as being default
     port: Mapped[int] = mapped_column(Integer, server_default='0')  # like host, for local protocol the port 0 is assumed to be default
     prefix: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     impl: Mapped[str] = mapped_column(String(255), nullable=False)

@@ -12,7 +12,7 @@ ldap_host = ldap-host.domain.name
 baseDN = dc=foo,dc=bar,dc=domain,dc=
 searchFilter = (objectClass=OpenLDAPperson)
 
-# set as DEFAULT to use annonymous bind
+# set as DEFAULT to use anonymous bind
 username = DEFAULT
 # Leave blank for prompt
 password =

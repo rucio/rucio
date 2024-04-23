@@ -210,7 +210,7 @@ def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> Non
 
 def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, db_bulk=1000):
     """
-    Starts up the conveyer threads.
+    Starts up the conveyor threads.
     """
     setup_logging(process_name=DAEMON_NAME)
 
@@ -416,7 +416,7 @@ def __handle_terminated_replicas(replicas, logger=logging.log):
 @transactional_session
 def __update_bulk_replicas(replicas, *, session, logger=logging.log):
     """
-    Used by finisher to handle available and unavailable replicas blongs to same rule in bulk way.
+    Used by finisher to handle available and unavailable replicas belongs to same rule in bulk way.
 
     :param replicas:              List of replicas.
     :param session:               The database session to use.

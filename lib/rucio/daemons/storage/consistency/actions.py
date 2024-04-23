@@ -611,7 +611,7 @@ def deckard(scope, rse, dark_min_age, dark_threshold_percent, miss_threshold_per
                                    max_files_at_site, old_enough_run, force_proceed)
             else:
                 logger(logging.INFO, 'There is no other run for this RSE at least %d days older,\
-                 so cannot safely proceed with dark files deleteion.' % minagedark)
+                 so cannot safely proceed with dark files deletion.' % minagedark)
 
             process_miss_files(path, scope, rse, latest_run, max_miss_fraction,
                                max_files_at_site, old_enough_run, force_proceed)

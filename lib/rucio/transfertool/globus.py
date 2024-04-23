@@ -24,7 +24,7 @@ from .globus_library import bulk_check_xfers, bulk_submit_xfer, submit_xfer
 
 def bulk_group_transfers(transfer_paths, policy='single', group_bulk=200):
     """
-    Group transfers in bulk based on certain criterias
+    Group transfers in bulk based on certain criteria
 
     :param transfer_paths:  List of (potentially multihop) transfer paths to group. Each path is a list of single-hop transfers.
     :param policy:          Policy to use to group.

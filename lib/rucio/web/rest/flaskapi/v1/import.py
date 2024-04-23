@@ -80,7 +80,7 @@ class Import(ErrorHandlingMethodView):
                           description: The email of an account.
                           type: string
                         identities:
-                          description: The identiies accociated with an account. Deletes old identites and adds the newly defined ones.
+                          description: The identities associated with an account. Deletes old identities and adds the newly defined ones.
                           type: array
                           items:
                             description: One identity associated with an account.

@@ -69,7 +69,7 @@ class TransferStatusReport(metaclass=ABCMeta):
         self.__request = request  # Optional: DB request. If provided, saves us a database call to fetch it by request_id
         self.__initialized = False
 
-        # Supported db fields bellow
+        # Supported db fields below
         self.state = None
 
     @abstractmethod
