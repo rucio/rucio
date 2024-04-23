@@ -184,12 +184,15 @@ class Default(protocol.RSEProtocol):
                 # Trying to get the proxy from the default location
                 proxy_path = '/tmp/x509up_u%s' % os.geteuid()
                 if os.path.isfile(proxy_path):
-                    x509 = proxy_path
+                    self.cert = (proxy_path, proxy_path)
                 elif self.auth_token:
+                    # If no proxy is found, we set the cert to None and use the auth_token
+                    self.cert = None
                     pass
                 else:
                     raise exception.RSEAccessDenied('X509_USER_PROXY is not set')
-            self.cert = (x509, x509)
+            else:
+                self.cert = (x509, x509)
 
         try:
             self.timeout = credentials['timeout']
