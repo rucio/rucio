@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.api.permission import has_permission
 from rucio.common.config import config_get_bool
@@ -134,7 +135,7 @@ def get_replication_rule(rule_id, issuer, vo='def', *, session: "Session"):
 
 
 @stream_session
-def list_replication_rules(filters={}, vo='def', *, session: "Session"):
+def list_replication_rules(filters: Optional[dict[str, Any]] = None, vo: str = 'def', *, session: "Session") -> Iterator[dict[str, Any]]:
     """
     Lists replication rules based on a filter.
 
@@ -143,8 +144,7 @@ def list_replication_rules(filters={}, vo='def', *, session: "Session"):
     :param session: The database session in use.
     """
     # If filters is empty, create a new dict to avoid overwriting the function's default
-    if not filters:
-        filters = {}
+    filters = filters or {}
 
     if 'scope' in filters:
         scope = filters['scope']

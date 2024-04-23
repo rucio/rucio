@@ -16,7 +16,7 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -151,7 +151,7 @@ class Default(protocol.RSEProtocol):
 
     """ Implementing access to RSEs using the webDAV protocol."""
 
-    def connect(self, credentials={}):
+    def connect(self, credentials: Optional[dict[str, Any]] = None) -> None:
         """ Establishes the actual connection to the referred RSE.
 
             :param credentials: Provides information to establish a connection
@@ -160,6 +160,7 @@ class Default(protocol.RSEProtocol):
 
             :raises RSEAccessDenied
         """
+        credentials = credentials or {}
         try:
             parse_url = urlparse(self.path2pfn(''))
             self.server = f'{parse_url.scheme}://{parse_url.netloc}'

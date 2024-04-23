@@ -21,6 +21,7 @@ import logging
 import operator
 import os
 import re
+from typing import Optional
 
 import gfal2
 import requests
@@ -197,11 +198,12 @@ def download(url, filename):
     return protocol_funcs[protocol(url)]['download'](url, filename)
 
 
-def parse_configuration(conf_dirs=__DUMPERCONFIGDIRS):
+def parse_configuration(conf_dirs: Optional[list[str]] = None) -> Parser:
     '''
     Parses the configuration for the endpoints contained in `conf_dir`.
     Returns a ConfParser.RawConfParser subclass instance.
     '''
+    conf_dirs = conf_dirs or __DUMPERCONFIGDIRS
     logger = logging.getLogger('auditor.srmdumps')
     if len(conf_dirs) == 0:
         logger.error('No configuration directory given to load SRM dumps paths')

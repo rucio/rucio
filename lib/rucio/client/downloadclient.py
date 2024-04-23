@@ -25,6 +25,7 @@ import subprocess
 import time
 from queue import Empty, Queue, deque
 from threading import Thread
+from typing import Any, Optional
 
 from rucio import version
 from rucio.client.client import Client
@@ -174,7 +175,14 @@ class DownloadClient:
         self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger=self.logger))
         self.extract_scope_convention = config_get('common', 'extract_scope', False, None)
 
-    def download_pfns(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None, deactivate_file_download_exceptions=False):
+    def download_pfns(
+        self,
+        items: list[dict[str, Any]],
+        num_threads: int = 2,
+        trace_custom_fields: Optional[dict[str, Any]] = None,
+        traces_copy_out: Optional[list[dict[str, Any]]] = None,
+        deactivate_file_download_exceptions: bool = False
+    ) -> list[dict[str, Any]]:
         """
         Download items with a given PFN. This function can only download files, no datasets.
 
@@ -202,6 +210,7 @@ class DownloadClient:
         :raises NotAllFilesDownloaded: if not all files could be downloaded
         :raises RucioException: if something unexpected went wrong during the download
         """
+        trace_custom_fields = trace_custom_fields or {}
         logger = self.logger
         trace_custom_fields['uuid'] = generate_uuid()
 
@@ -250,8 +259,15 @@ class DownloadClient:
 
         return self._check_output(output_items, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
-    def download_dids(self, items, num_threads=2, trace_custom_fields={}, traces_copy_out=None,
-                      deactivate_file_download_exceptions=False, sort=None):
+    def download_dids(
+        self,
+        items: list[dict[str, Any]],
+        num_threads: int = 2,
+        trace_custom_fields: Optional[dict[str, Any]] = None,
+        traces_copy_out: Optional[list[dict[str, Any]]] = None,
+        deactivate_file_download_exceptions: bool = False,
+        sort: Optional[str] = None
+    ) -> list[dict[str, Any]]:
         """
         Download items with given DIDs. This function can also download datasets and wildcarded DIDs.
 
@@ -286,6 +302,7 @@ class DownloadClient:
         :raises NotAllFilesDownloaded: if not all files could be downloaded
         :raises RucioException: if something unexpected went wrong during the download
         """
+        trace_custom_fields = trace_custom_fields or {}
         logger = self.logger
         trace_custom_fields['uuid'] = generate_uuid()
 
@@ -304,7 +321,15 @@ class DownloadClient:
 
         return self._check_output(output_items, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
-    def download_from_metalink_file(self, item, metalink_file_path, num_threads=2, trace_custom_fields={}, traces_copy_out=None, deactivate_file_download_exceptions=False):
+    def download_from_metalink_file(
+        self,
+        item: dict[str, Any],
+        metalink_file_path: str,
+        num_threads: int = 2,
+        trace_custom_fields: Optional[dict[str, Any]] = None,
+        traces_copy_out: Optional[list[dict[str, Any]]] = None,
+        deactivate_file_download_exceptions: bool = False
+    ) -> list[dict[str, Any]]:
         """
         Download items using a given metalink file.
 
@@ -327,6 +352,7 @@ class DownloadClient:
         :raises NotAllFilesDownloaded: if not all files could be downloaded
         :raises RucioException: if something unexpected went wrong during the download
         """
+        trace_custom_fields = trace_custom_fields or {}
         logger = self.logger
 
         logger(logging.INFO, 'Getting sources from metalink file')
@@ -351,7 +377,13 @@ class DownloadClient:
 
         return self._check_output(output_items, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
-    def _download_multithreaded(self, input_items, num_threads, trace_custom_fields={}, traces_copy_out=None):
+    def _download_multithreaded(
+        self,
+        input_items: list[dict[str, Any]],
+        num_threads: int,
+        trace_custom_fields: Optional[dict[str, Any]] = None,
+        traces_copy_out: Optional[list[dict[str, Any]]] = None
+    ) -> list[dict[str, Any]]:
         """
         Starts an appropriate number of threads to download items from the input list.
         (This function is meant to be used as class internal only)
@@ -363,6 +395,7 @@ class DownloadClient:
 
         :returns: list with output items as dictionaries
         """
+        trace_custom_fields = trace_custom_fields or {}
         logger = self.logger
 
         num_files = len(input_items)
@@ -730,7 +763,14 @@ class DownloadClient:
 
         return item
 
-    def download_aria2c(self, items, trace_custom_fields={}, filters={}, deactivate_file_download_exceptions=False, sort=None):
+    def download_aria2c(
+        self,
+        items: list[dict[str, Any]],
+        trace_custom_fields: Optional[dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
+        deactivate_file_download_exceptions: bool = False,
+        sort: Optional[str] = None
+    ) -> list[dict[str, Any]]:
         """
         Uses aria2c to download the items with given DIDs. This function can also download datasets and wildcarded DIDs.
         It only can download files that are available via https/davs.
@@ -760,6 +800,8 @@ class DownloadClient:
         :raises NotAllFilesDownloaded: if not all files could be downloaded
         :raises RucioException: if something went wrong during the download (e.g. aria2c could not be started)
         """
+        trace_custom_fields = trace_custom_fields or {}
+        filters = filters or {}
         logger = self.logger
         trace_custom_fields['uuid'] = generate_uuid()
 
@@ -860,7 +902,13 @@ class DownloadClient:
             raise RucioException('Failed to initialise rpc proxy!', error)
         return (rpcproc, aria_rpc)
 
-    def _download_items_aria2c(self, items, aria_rpc, rpc_auth, trace_custom_fields={}):
+    def _download_items_aria2c(
+        self,
+        items: list[dict[str, Any]],
+        aria_rpc: Any,
+        rpc_auth: str,
+        trace_custom_fields: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
         """
         Uses aria2c to download the given items. Aria2c needs to be started
         as RPC background process first and a RPC proxy is needed.
@@ -873,6 +921,7 @@ class DownloadClient:
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
         """
+        trace_custom_fields = trace_custom_fields or {}
         logger = self.logger
 
         gid_to_item = {}  # maps an aria2c download id (gid) to the download item

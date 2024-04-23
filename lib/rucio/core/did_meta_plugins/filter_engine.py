@@ -15,12 +15,14 @@
 import ast
 import fnmatch
 import operator
+from collections.abc import Callable, Iterable
 from datetime import date, datetime, timedelta
 from importlib import import_module
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 import sqlalchemy
 from sqlalchemy import and_, cast, or_
+from sqlalchemy.orm import InstrumentedAttribute, Query
 from sqlalchemy.sql.expression import text
 
 from rucio.common import exception
@@ -271,13 +273,17 @@ class FilterEngine:
             pass
         return value
 
-    def create_mongo_query(self, additional_filters={}):
+    def create_mongo_query(
+        self,
+        additional_filters: Optional[Iterable[tuple[str, Callable, str]]] = None
+    ) -> dict[str, Any]:
         """
         Returns a single mongo query describing the filters expression.
 
         :param additional_filters: additional filters to be applied to all clauses.
         :returns: a mongo query string describing the filters expression.
         """
+        additional_filters = additional_filters or []
         # Add additional filters, applied as AND clauses to each OR group.
         for or_group in self._filters:
             for filter in additional_filters:
@@ -326,8 +332,12 @@ class FilterEngine:
 
         return query_str
 
-    def create_postgres_query(self, additional_filters={}, fixed_table_columns=('scope', 'name', 'vo'),
-                              jsonb_column='data'):
+    def create_postgres_query(
+        self,
+        additional_filters: Optional[Iterable[tuple[str, Callable, str]]] = None,
+        fixed_table_columns: Iterable[str] = ('scope', 'name', 'vo'),
+        jsonb_column: str = 'data'
+    ) -> str:
         """
         Returns a single postgres query describing the filters expression.
 
@@ -335,6 +345,7 @@ class FilterEngine:
         :param fixed_table_columns: the table columns
         :returns: a postgres query string describing the filters expression.
         """
+        additional_filters = additional_filters or []
         # Add additional filters, applied as AND clauses to each OR group.
         for or_group in self._filters:
             for _filter in additional_filters:
@@ -400,7 +411,14 @@ class FilterEngine:
         return ' OR '.join(or_expressions)
 
     @read_session
-    def create_sqla_query(self, *, session: "Session", additional_model_attributes=[], additional_filters={}, json_column=None):
+    def create_sqla_query(
+        self,
+        *,
+        session: "Session",
+        additional_model_attributes: Optional[list[InstrumentedAttribute]] = None,
+        additional_filters: Optional[Iterable[tuple[str, Callable, str]]] = None,
+        json_column: Optional[InstrumentedAttribute] = None
+    ) -> Query:
         """
         Returns a database query that fully describes the filters.
 
@@ -414,6 +432,8 @@ class FilterEngine:
         :returns: A database query.
         :raises: FilterEngineGenericError
         """
+        additional_model_attributes = additional_model_attributes or []
+        additional_filters = additional_filters or []
         all_model_attributes = set(self.mandatory_model_attributes + additional_model_attributes)
 
         # Add additional filters, applied as AND clauses to each OR group.

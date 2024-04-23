@@ -188,8 +188,18 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     GRACEFUL_STOP.set()
 
 
-def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
-        exclude_rses=None, include_rses=None, vos=None, delay_seconds=0, sleep_time=300):
+def run(
+    total_workers: int = 1,
+    chunk_size: int = 100,
+    once: bool = False,
+    rses: "Optional[list[str]]" = None,
+    scheme: "Optional[str]" = None,
+    exclude_rses: "Optional[str]" = None,
+    include_rses: "Optional[str]" = None,
+    vos: "Optional[list[str]]" = None,
+    delay_seconds: int = 0,
+    sleep_time: int = 300
+) -> None:
     """
     Starts up the reaper threads.
 
@@ -203,6 +213,7 @@ def run(total_workers=1, chunk_size=100, once=False, rses=[], scheme=None,
     :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
                 If None, we either use all VOs if run from "def", or the current VO otherwise.
     """
+    rses = rses or []
     setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
