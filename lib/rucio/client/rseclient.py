@@ -83,7 +83,7 @@ class RSEClient(BaseClient):
         Update RSE properties like availability or name.
 
         :param rse: the name of the new rse.
-        :param  parameters: A dictionnary with property (name, read, write, delete as keys).
+        :param  parameters: A dictionary with property (name, read, write, delete as keys).
         """
         path = 'rses/' + rse
         url = build_url(choice(self.list_hosts), path=path)
@@ -341,7 +341,7 @@ class RSEClient(BaseClient):
 
         :param rse: the RSE name.
         :param scheme: identifier of the protocol.
-        :param data: A dict providing the new values of the protocol attibutes.
+        :param data: A dict providing the new values of the protocol attributes.
                      Keys must match column names in database.
         :param hostname: hostname of the protocol.
         :param port: port of the protocol.
@@ -512,7 +512,7 @@ class RSEClient(BaseClient):
         :param rse: The RSE name.
         :param filters: dictionary of attributes by which the results should be filtered.
 
-        :returns:  list of dictionnaries.
+        :returns:  list of dictionaries.
         """
         path = [self.RSE_BASEURL, rse, 'usage', 'history']
         path = '/'.join(path)
@@ -593,7 +593,7 @@ class RSEClient(BaseClient):
 
         :param source: The source.
         :param destination: The destination.
-        :param parameters: A dictionnary with property.
+        :param parameters: A dictionary with property.
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
@@ -612,7 +612,7 @@ class RSEClient(BaseClient):
 
         :param source: The source.
         :param destination: The destination.
-        :param parameters: A dictionnary with property.
+        :param parameters: A dictionary with property.
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)

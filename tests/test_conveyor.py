@@ -224,7 +224,7 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         replica = __wait_for_replica_transfer(dst_rse_id=jump_rse_id, **did)
         assert replica['state'] == ReplicaState.AVAILABLE
 
-        # ensure tha the ranking was correct for all sources and intermediate rses
+        # ensure that the ranking was correct for all sources and intermediate rses
         assert __get_source(request_id=request['id'], src_rse_id=src_rse1_id, **did).ranking == 0
         assert __get_source(request_id=request['id'], src_rse_id=jump_rse_id, **did).ranking == 0
         assert __get_source(request_id=request['id'], src_rse_id=src_rse2_id, **did).ranking == 0
@@ -301,7 +301,7 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
     with pytest.raises(RequestNotFound):
         request_core.get_request_by_did(rse_id=jump_rse_id, **did)
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-    # ensure tha the ranking was correctly decreased for the whole path
+    # ensure that the ranking was correctly decreased for the whole path
     assert __get_source(request_id=request['id'], src_rse_id=jump_rse_id, **did).ranking == -1
     assert __get_source(request_id=request['id'], src_rse_id=src_rse_id, **did).ranking == -1
     assert request['state'] == RequestState.QUEUED
@@ -541,7 +541,7 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         with pytest.raises(RequestNotFound):
             request_core.get_request_by_did(rse_id=jump_rse_id, **did)
         request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-        # ensure tha the ranking was correctly decreased for the whole path
+        # ensure that the ranking was correctly decreased for the whole path
         assert __get_source(request_id=request['id'], src_rse_id=jump_rse_id, **did).ranking == -1
         assert __get_source(request_id=request['id'], src_rse_id=src_rse_id, **did).ranking == -1
         assert request['state'] == RequestState.QUEUED
@@ -1288,7 +1288,7 @@ def test_file_exists_handled(overwrite_on_tape_topology, caches_mock):
 def test_overwrite_corrupted_files(overwrite_on_tape_topology, core_config_mock, caches_mock):
     """
     If a transfer fails because the destination exists, and the size+checksums of the destination file are wrong,
-    the next submission must be performed according to the overwrite_corrupted_files config paramenter.
+    the next submission must be performed according to the overwrite_corrupted_files config parameter.
     """
     rse1_id, rse2_id, rse3_id, did1, did2 = overwrite_on_tape_topology(did1_corrupted=True, did2_corrupted=True)
     all_rses = [rse1_id, rse2_id, rse3_id]
@@ -1717,7 +1717,7 @@ def test_transfer_plugins(rse_factory, did_factory, root_account, file_config_mo
     request_fast = request_core.get_request_by_did(rse_id=dst_rse_id, **did_fast)
     request_slow = request_core.get_request_by_did(rse_id=dst_rse_id, **did_slow)
 
-    # Does not impact the actual prority of the transfer - is read by placement algorithm not fts3.
+    # Does not impact the actual priority of the transfer - is read by placement algorithm not fts3.
     assert request_fast['state'] != RequestState.SUBMISSION_FAILED
     assert request_slow['state'] != RequestState.SUBMISSION_FAILED
     assert request_fast['state'] != RequestState.FAILED

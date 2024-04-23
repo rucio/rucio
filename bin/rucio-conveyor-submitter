@@ -34,7 +34,7 @@ Upload a file and create a replication rule::
   $ rucio add-rule mock:file 1 MOCK2
   $ rucio-admin rse add-distance MOCK2 MOCK --distance 1
 
-The rule should replicate the file from RSE MOCK to RSE MOCK2. Therefor a distance between these RSEs is needed.
+The rule should replicate the file from RSE MOCK to RSE MOCK2. Therefore a distance between these RSEs is needed.
 
 Check transfer requests for the DID::
 
@@ -56,7 +56,7 @@ Check again the transfer requests for the DID::
     session.get_session().query(models.Request).filter_by(scope='mock', name='file').first()
     # {'request_type': TRANSFER, 'state': SUBMITTED', ...}
 
-A tranfer request got created by executing the transfer. Depending on the transfer submission, the request state can be different. In this example the transfer got submitted successfully.
+A transfer request got created by executing the transfer. Depending on the transfer submission, the request state can be different. In this example the transfer got submitted successfully.
 
 When run in multi-VO mode, by default the daemon will run on RSEs from all VOs::
 

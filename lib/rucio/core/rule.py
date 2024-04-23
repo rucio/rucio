@@ -1102,7 +1102,7 @@ def list_associated_rules_for_file(
     :param session: The database session in use.
     :raises:        RucioException
     """
-    rucio.core.did.get_did(scope=scope, name=name, session=session)  # Check if the did acually exists
+    rucio.core.did.get_did(scope=scope, name=name, session=session)  # Check if the did actually exists
     stmt = select(
         models.ReplicationRule,
         models.DataIdentifier.bytes
@@ -1253,8 +1253,8 @@ def repair_rule(
     """
 
     # Rule error cases:
-    # (A) A rule get's an exception on rule-creation. This can only be the MissingSourceReplica exception.
-    # (B) A rule get's an error when re-evaluated: InvalidRSEExpression, InvalidRuleWeight, InsufficientTargetRSEs, RSEWriteBlocked
+    # (A) A rule gets an exception on rule-creation. This can only be the MissingSourceReplica exception.
+    # (B) A rule gets an error when re-evaluated: InvalidRSEExpression, InvalidRuleWeight, InsufficientTargetRSEs, RSEWriteBlocked
     #     InsufficientAccountLimit. The re-evaluation has to be done again and potential missing locks have to be
     #     created.
     # (C) Transfers fail and mark locks (and the rule) as STUCK. All STUCK locks have to be repaired.
@@ -2746,7 +2746,7 @@ def generate_rule_notifications(
                         pass
 
     elif rule.state == RuleState.REPLICATING and rule.notification == RuleNotification.PROGRESS and replicating_locks_before:
-        # For RuleNotification PROGRESS rules, also notifiy when REPLICATING thresholds are passed
+        # For RuleNotification PROGRESS rules, also notify when REPLICATING thresholds are passed
         if __progress_class(replicating_locks_before, total_locks) != __progress_class(rule.locks_replicating_cnt, total_locks):
             try:
                 did = rucio.core.did.get_did(scope=rule.scope, name=rule.name, session=session)
@@ -2816,7 +2816,7 @@ def generate_email_for_rule_ok_notification(
         add_message(event_type='email',
                     payload={'body': email_body,
                              'to': [email],
-                             'subject': '[RUCIO] Replication rule %s has been succesfully transferred' % (str(rule.id))},
+                             'subject': '[RUCIO] Replication rule %s has been successfully transferred' % (str(rule.id))},
                     session=session)
 
 
@@ -3008,7 +3008,7 @@ def examine_rule(
 
     :param rule_id:            Replication rule id
     :param session:            Session of the db.
-    :returns:                  Dictionary of informations
+    :returns:                  Dictionary of information
     """
     result = {'rule_error': None,
               'transfers': []}
@@ -3230,7 +3230,7 @@ def __find_missing_locks_and_create_them(
     :param source_replicas:    Dict holding source replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule.
-    :param source_rses:        RSE ids for eglible source RSEs.
+    :param source_rses:        RSE ids for eligible source RSEs.
     :param session:            Session of the db.
     :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
     :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs
@@ -3339,7 +3339,7 @@ def __find_stuck_locks_and_repair_them(
     :param source_replicas:    Dict holding source replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule.
-    :param source_rses:        RSE ids of eglible source RSEs.
+    :param source_rses:        RSE ids of eligible source RSEs.
     :param session:            Session of the db.
     :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
     :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs
@@ -3555,7 +3555,7 @@ def __evaluate_did_attach(
     logger: LoggerFunction = logging.log
 ) -> None:
     """
-    Evaluate a parent did which has new childs
+    Evaluate a parent did which has new children
 
     :param eval_did:  The did object in use.
     :param session:   The database session in use.
@@ -3807,7 +3807,7 @@ def __resolve_did_to_locks_and_replicas(
            dict[tuple[str, str], models.RSEFileAssociation],
            dict[tuple[str, str], str]]:
     """
-    Resolves a did to its constituent childs and reads the locks and replicas of all the constituent files.
+    Resolves a did to its constituent children and reads the locks and replicas of all the constituent files.
 
     :param did:            The db object of the did the rule is applied on.
     :param nowait:         Nowait parameter for the FOR UPDATE statement.
@@ -3914,7 +3914,7 @@ def __resolve_dids_to_locks_and_replicas(
            dict[tuple[str, str], models.RSEFileAssociation],
            dict[tuple[str, str], str]]:
     """
-    Resolves a list of dids to its constituent childs and reads the locks and replicas of all the constituent files.
+    Resolves a list of dids to its constituent children and reads the locks and replicas of all the constituent files.
 
     :param dids:           The list of DataIdentifierAssociation objects.
     :param nowait:         Nowait parameter for the FOR UPDATE statement.
@@ -4094,7 +4094,7 @@ def __create_locks_replicas_transfers(
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule.
     :param preferred_rse_ids:  Preferred RSE's to select.
-    :param source_rses:        RSE ids of eglible source replicas.
+    :param source_rses:        RSE ids of eligible source replicas.
     :param session:            Session of the db.
     :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
     :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs, RSEOverQuota

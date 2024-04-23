@@ -88,7 +88,7 @@ class Default(protocol.RSEProtocol):
 
         :param path: path to file
 
-        :raises ServiceUnavailable: if some generic error occured in the library.
+        :raises ServiceUnavailable: if some generic error occurred in the library.
 
         :returns: a dict with two keys, filesize and an element of GLOBALLY_SUPPORTED_CHECKSUMS.
         """
@@ -232,7 +232,7 @@ class Default(protocol.RSEProtocol):
             :param transfer_timeout: Transfer timeout (in seconds) - dummy
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         self.logger(logging.DEBUG, 'xrootd.put: filename: {} target: {}'.format(filename, target))
@@ -257,7 +257,7 @@ class Default(protocol.RSEProtocol):
 
             :param pfn: Physical file name
 
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         self.logger(logging.DEBUG, 'xrootd.delete: pfn: {}'.format(pfn))
@@ -279,7 +279,7 @@ class Default(protocol.RSEProtocol):
             :param pfn:      Current physical file name
             :param new_pfn  New physical file name
             :raises DestinationNotAccessible: if the destination storage was not accessible.
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         self.logger(logging.DEBUG, 'xrootd.rename: pfn: {}'.format(pfn))

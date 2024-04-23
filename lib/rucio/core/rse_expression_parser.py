@@ -62,9 +62,9 @@ def parse_expression(expression, filter_=None, *, session: "Session"):
             elif (char == ')'):
                 parantheses_close_count += 1
             if (parantheses_close_count > parantheses_open_count):
-                raise InvalidRSEExpression('Problem with parantheses.')
+                raise InvalidRSEExpression('Problem with parentheses.')
         if (parantheses_open_count != parantheses_close_count):
-            raise InvalidRSEExpression('Problem with parantheses.')
+            raise InvalidRSEExpression('Problem with parentheses.')
 
         # Check the expression pattern
         match = re.match(PATTERN, expression)
@@ -169,7 +169,7 @@ def __resolve_primitive_expression(expression):
     """
     Resolve a primitive expression and return a RSEAttribute object
 
-    :param expression:    String of the expresssion
+    :param expression:    String of the expression
     :returns:             Tuple of RSEAttribute, primitive expression
     """
     primitiveexpression = re.match(PRIMITIVE, expression).group()
@@ -190,7 +190,7 @@ def __resolve_primitive_expression(expression):
 
 def __extract_term(expression):
     """
-    Extract a term from an expression with parantheses
+    Extract a term from an expression with parentheses
 
     :param expression:  The expression starting with a '('
     :return:            The extracted term string

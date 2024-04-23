@@ -100,7 +100,7 @@ class FilterEngine:
 
         :param model_class: The word.
         :param model_class: The SQL model class.
-        :params: strict: Enforce that keywords must be coercable to a model attribute.
+        :params: strict: Enforce that keywords must be coercible to a model attribute.
         :returns: The coerced attribute if successful or (if strict is False) the word if not.
         :raises: KeyNotFound
         """
@@ -199,7 +199,7 @@ class FilterEngine:
         Typecasting of values is also attempted.
 
         :param model_class: The SQL model class.
-        :param strict_coerce: Enforce that keywords must be coercable to a model attribute.
+        :param strict_coerce: Enforce that keywords must be coercible to a model attribute.
         :returns: The set of mandatory model attributes to be used in the filter query.
         :raises: MissingModuleException, DIDFilterSyntaxError
         """

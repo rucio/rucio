@@ -147,7 +147,7 @@ class Subscription(ErrorHandlingMethodView):
                   - options
                 properties:
                   options:
-                    description: The values for the new subcription.
+                    description: The values for the new subscription.
                     type: object
                     properties:
                       filter:
@@ -164,7 +164,7 @@ class Subscription(ErrorHandlingMethodView):
                         type: string
                         format: date-time
                       retroactive:
-                        description: If the retroactive is actiavted for a subscription.
+                        description: If the retroactive is activated for a subscription.
                         type: boolean
                       priority:
                         description: The priority/policyid for the subscription. Stored as policyid.
@@ -234,7 +234,7 @@ class Subscription(ErrorHandlingMethodView):
                   - options
                 properties:
                   options:
-                    description: The values for the new subcription.
+                    description: The values for the new subscription.
                     type: object
                     required:
                       - filter
@@ -257,7 +257,7 @@ class Subscription(ErrorHandlingMethodView):
                         type: string
                         format: date-time
                       retroactive:
-                        description: If the retroactive is actiavted for a subscription.
+                        description: If the retroactive is activated for a subscription.
                         type: boolean
                       priority:
                         description: The priority/policyid for the subscription. Stored as policyid.

@@ -393,7 +393,7 @@ class Replicas(ErrorHandlingMethodView):
                           description: The pfn of the replica.
                           type: string
                         error_message:
-                          description: The error message if an error occured.
+                          description: The error message if an error occurred.
                           type: string
                         broken_rule_id:
                           description: The id of the broken rule if one was found.
@@ -1126,7 +1126,7 @@ class BadReplicasStates(ErrorHandlingMethodView):
                       - type: object
                         properties:
                           scope:
-                            description: The scope fo the replica.
+                            description: The scope of the replica.
                             type: string
                           name:
                             description: The name of the replica.
@@ -1137,7 +1137,7 @@ class BadReplicasStates(ErrorHandlingMethodView):
                       - type: object
                         properties:
                           scope:
-                            description: The scope fo the replica.
+                            description: The scope of the replica.
                             type: string
                           name:
                             description: The name of the replica.

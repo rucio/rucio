@@ -59,7 +59,7 @@ class Default(protocol.RSEProtocol):
 
     def path2pfn(self, path):
         """
-            Retruns a fully qualified PFN for the file referred by path.
+            Returns a fully qualified PFN for the file referred by path.
 
             :param path: The path to the file.
 

@@ -171,7 +171,7 @@ class MockADMINClientISSOIDC(MagicMock):
         oidc_tokens['scope'] = request_args['scope']
         oidc_tokens['audience'] = request_args['audience']
         oidc_tokens['id_token'] = {'sub': request_args['client_id'], 'iss': 'https://test_issuer/'}
-        # we need to passs the full dict in the access_token key again in order to have  a chance to bypas the token validation method
+        # we need to pass the full dict in the access_token key again in order to have  a chance to bypass the token validation method
         access_token = encode_access_token([oidc_tokens['access_token'], oidc_tokens['scope'],
                                            oidc_tokens['audience'], request_args['client_id'], 'https://test_issuer/'])
         oidc_tokens['access_token'] = access_token
@@ -223,7 +223,7 @@ class MockClientOIDC(MagicMock):
         oidc_tokens['scope'] = request_args['scope']
         oidc_tokens['audience'] = request_args['audience']
         oidc_tokens['id_token'] = {'sub': user_sub, 'iss': user_issuer}
-        # we need to passs the full dict in the access_token key again in order to have  a chance to bypas the token validation method
+        # we need to pass the full dict in the access_token key again in order to have  a chance to bypass the token validation method
         access_token = encode_access_token([oidc_tokens['access_token'], oidc_tokens['scope'],
                                            oidc_tokens['audience'], user_sub, user_issuer])
         oidc_tokens['access_token'] = access_token
@@ -240,7 +240,7 @@ class MockADMINClientOtherISSOIDC(MagicMock):
         oidc_tokens['scope'] = request_args['scope']
         oidc_tokens['audience'] = request_args['audience']
         oidc_tokens['id_token'] = {'sub': request_args['client_id'], 'iss': 'https://test_other_issuer/'}
-        # we need to passs the full dict in the access_token key again in order to have  a chance to bypas the token validation method
+        # we need to pass the full dict in the access_token key again in order to have  a chance to bypass the token validation method
         access_token = encode_access_token([oidc_tokens['access_token'], oidc_tokens['scope'],
                                            oidc_tokens['audience'], request_args['client_id'], 'https://test_other_issuer/'])
         oidc_tokens['access_token'] = access_token
@@ -278,7 +278,7 @@ class TestAuthCoreAPIoidc:
         self.accountstring = self.accountstring.lower()
         self.account = InternalAccount(self.accountstring, **self.vo)
         self.adminaccountstring = 'admin_' + rndstr()[:-1]  # Too long to use full string
-        print("ADMIN ACOUNT STRING: ", self.adminaccountstring)
+        print("ADMIN ACCOUNT STRING: ", self.adminaccountstring)
         self.adminaccountstring = self.adminaccountstring.lower()
         self.adminaccount = InternalAccount(self.adminaccountstring, **self.vo)
         self.adminaccSUB = str('adminSUB' + rndstr()).lower()
@@ -331,7 +331,7 @@ class TestAuthCoreAPIoidc:
         auth_url = get_auth_oidc(account, session=session, **kwargs)
         print("[get_auth_init_and_mock_response] got auth_url:", auth_url)
         # get the state from the auth_url and add an arbitrary code value to the query string
-        # to mimick a return of IdP with authz_code
+        # to mimic a return of IdP with authz_code
         urlparsed = urlparse(auth_url)
         if ('_polling' in auth_url) or (not polling and not auto):
             auth_url = redirect_auth_oidc(urlparsed.query, session=session)
@@ -403,7 +403,7 @@ class TestAuthCoreAPIoidc:
 
             Runs the Test:
 
-            - requesting token with parameters without coresponding
+            - requesting token with parameters without corresponding
               DB entry (in oauth_Requests table)
 
             End:
@@ -566,7 +566,7 @@ class TestAuthCoreAPIoidc:
             End:
 
             - checking if the right token is saved in the DB and if it is present
-              in the return dict of the get_token_oidc fucntion
+              in the return dict of the get_token_oidc function
         """
         mock_oidc_client.side_effect = get_mock_oidc_client
         auth_init_response = self.get_auth_init_and_mock_response(code_response=rndstr(), account=InternalAccount('webui', **self.vo), session=self.db_session)
@@ -1703,7 +1703,7 @@ class TestAuthCoreAPIoidc:
         user_sub = 'knownsub'
         req_admin = False
         # ---------------------------
-        # giving a USER a subject token - ned to bypass the usual auth grant flow
+        # giving a USER a subject token - need to bypass the usual auth grant flow
         # as that is not the purpose of this test
         preexisting_user_access_token_strpart = rndstr()
         request_args = {'scope': EXPECTED_OIDC_SCOPE,
@@ -1790,7 +1790,7 @@ class TestAuthCoreAPIoidc:
         user_sub = 'knownsub'
         req_admin = False
         # ---------------------------
-        # giving a USER a subject token - ned to bypass the usual auth grant flow
+        # giving a USER a subject token - need to bypass the usual auth grant flow
         # as that is not the purpose of this test
         preexisting_user_access_token_strpart = rndstr()
         request_args = {'scope': EXPECTED_OIDC_SCOPE,

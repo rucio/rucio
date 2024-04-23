@@ -40,7 +40,7 @@ def get_signed_url(rse_id: str, service: str, operation: str, url: str, lifetime
     """
     Get a signed URL for a particular service and operation.
 
-    The signed URL will be valid for 1 hour but can be overriden.
+    The signed URL will be valid for 1 hour but can be overridden.
 
     :param rse_id: The ID of the RSE that the URL points to.
     :param service: The service to authorise, either 'gcs', 's3' or 'swift'.

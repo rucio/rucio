@@ -37,7 +37,7 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
 
     def __init__(self, policy_algorithm: str) -> None:
         """
-        :param policy_algorithm: policy algorithm indentifier - choose from any of the policy package algorithms registered under the `fts3_tape_metadata_plugins` group.
+        :param policy_algorithm: policy algorithm identifier - choose from any of the policy package algorithms registered under the `fts3_tape_metadata_plugins` group.
         """
         super().__init__()
         self.transfer_limit = config_get_int(

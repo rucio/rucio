@@ -43,7 +43,7 @@ class DataModel:
     def __init__(self, *args):
         if len(args) != len(self.SCHEMA):
             raise TypeError(
-                'Wrong number of parameters (fields) to initalize {0} '
+                'Wrong number of parameters (fields) to initialize {0} '
                 'instance. {1} given, {2} expected:\n{3}'.format(
                     type(self).__name__,
                     len(args),

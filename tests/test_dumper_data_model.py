@@ -99,7 +99,7 @@ CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690
         assert self._DataConcrete.csv_header() == 'a,b,c,d,e,f,g,h'
 
     def test_formated_fields(self):
-        """ test formated fields """
+        """ test formatted fields """
         assert self.data_concrete.formated_fields(print_fields=('a', 'e')) == ['aa', '42']
 
     def test_csv(self):
@@ -219,7 +219,7 @@ class TestCompleteDataset:
 
     @staticmethod
     def test_creation_with_7_parameters():
-        """ test ceation with 7 parameters """
+        """ test creation with 7 parameters """
         complete_dataset = data_models.CompleteDataset(
             'RSE',
             'scope',

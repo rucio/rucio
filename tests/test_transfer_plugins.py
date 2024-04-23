@@ -205,7 +205,7 @@ def test_collocation_hints(file_config_mock, did_factory, rse_factory, root_acco
     }
 ], indirect=True)
 def test_multiple_plugin_concat(file_config_mock, did_factory, rse_factory, root_account):
-    """When multiple plugins are used (like prority and collocation), both logics are applied"""
+    """When multiple plugins are used (like priority and collocation), both logics are applied"""
 
     mock_did = did_factory.random_file_did()
     transfer_path = _make_transfer_path(mock_did, rse_factory, root_account)

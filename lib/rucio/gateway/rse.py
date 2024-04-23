@@ -243,7 +243,7 @@ def get_rse_protocols(rse, issuer, vo='def', *, session: "Session"):
     :param vo: The VO to act on.
     :param session: The database session in use.
 
-    :returns: A dict with all supported protocols and their attibutes.
+    :returns: A dict with all supported protocols and their attributes.
     """
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
     return rse_module.get_rse_protocols(rse_id, session=session)
@@ -440,7 +440,7 @@ def update_rse(rse, parameters, issuer, vo='def', *, session: "Session"):
     Update RSE properties like availability or name.
 
     :param rse: the name of the new rse.
-    :param parameters: A dictionnary with property (name, read, write, delete as keys).
+    :param parameters: A dictionary with property (name, read, write, delete as keys).
     :param issuer: The issuer account.
     :param vo: The VO to act on.
     :param session: The database session in use.

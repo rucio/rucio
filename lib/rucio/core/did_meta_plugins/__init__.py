@@ -215,7 +215,7 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
     :returns: List of dids satisfying metadata criteria.
     :raises: InvalidMetadata
     """
-    # backwards compatability for filters as single {}.
+    # backwards compatibility for filters as single {}.
     if isinstance(filters, dict):
         filters = [filters]
 

@@ -632,7 +632,7 @@ class TestVORestAPI:
         assert accounts_short == accounts_long
 
     def test_rest_vomap_bad(self, rest_client):
-        """ MULTI VO (REST): Test that we get a bad paramter (400) error with an invalid (out of spec) VO name. """
+        """ MULTI VO (REST): Test that we get a bad parameter (400) error with an invalid (out of spec) VO name. """
         # VO names cannot include an exclaimation mark
         response = rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr("BadVO!")))
         assert response.status_code == 400

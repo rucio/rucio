@@ -214,7 +214,7 @@ def get_files_and_replica_locks_of_dataset(scope, name, nowait=False, restrict_r
     Get all the files of a dataset and, if existing, all locks of the file.
 
     :param scope:          Scope of the dataset
-    :param name:           Name of the datset
+    :param name:           Name of the dataset
     :param nowait:         Nowait parameter for the FOR UPDATE statement
     :param restrict_rses:  Possible RSE_ids to filter on.
     :param only_stuck:     If true, only get STUCK locks.

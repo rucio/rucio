@@ -427,7 +427,7 @@ def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
 def test_run_on_non_existing_scheme(vo, caches_mock):
-    """ REAPER (DAEMON): Mock test the reaper daemon with a speficied scheme."""
+    """ REAPER (DAEMON): Mock test the reaper daemon with a specified scheme."""
     [cache_region] = caches_mock
     scope = InternalScope('data13_hip', vo=vo)
 

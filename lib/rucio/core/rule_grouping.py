@@ -62,7 +62,7 @@ def apply_rule_grouping(
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param preferred_rse_ids:  Preferred RSE's to select.
-    :param source_rses:        RSE ids of eglible source replicas.
+    :param source_rses:        RSE ids of eligible source replicas.
     :param session:            Session of the db.
     :returns:                  Dict of replicas to create, Dict of locks to create, List of transfers to create
     :raises:                   InsufficientQuota, InsufficientTargetRSEs, RSEOverQuota
@@ -133,7 +133,7 @@ def repair_stuck_locks_and_apply_rule_grouping(
     :param source_replicas:    Dict holding all source_replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
-    :param source_rses:        RSE ids of eglible source_rses.
+    :param source_rses:        RSE ids of eligible source_rses.
     :param session:            Session of the db.
     :returns:                  List of replicas to create, List of locks to create, List of transfers to create, List of locks to Delete
     :raises:                   InsufficientQuota, InsufficientTargetRSEs
@@ -234,7 +234,7 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param preferred_rse_ids:  Preferred RSE's to select.
-    :param source_rses:        RSE ids of eglible source replicas.
+    :param source_rses:        RSE ids of eligible source replicas.
     :param session:            Session of the db.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create
     :raises:                   InsufficientAccountLimit, InsufficientTargetRSEs
@@ -315,7 +315,7 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param preferred_rse_ids:  Preferred RSE's to select.
-    :param source_rses:        RSE ids of eglible source replicas.
+    :param source_rses:        RSE ids of eligible source replicas.
     :param session:            Session of the db.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create
     :raises:                   InsufficientQuota, InsufficientTargetRSEs
@@ -435,7 +435,7 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
     :param preferred_rse_ids:  Preferred RSE's to select.
-    :param source_rses:        RSE ids of eglible source replicas.
+    :param source_rses:        RSE ids of eligible source replicas.
     :param session:            Session of the db.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create
     :raises:                   InsufficientQuota, InsufficientTargetRSEs
@@ -552,7 +552,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
     :param source_replicas:    Dict holding all source_replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
-    :param source_rses:        RSE ids of eglible source replicas.
+    :param source_rses:        RSE ids of eligible source replicas.
     :param session:            Session of the db.
     :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
@@ -595,7 +595,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                 # Check if this is a STUCK lock due to source_replica filtering
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
-                    # Check if there is an eglible source replica for this lock
+                    # Check if there is an eligible source replica for this lock
                     if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses) and (selector_rse_dict.get(lock.rse_id, {}).get('availability_write', True) or rule.ignore_availability):
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
@@ -659,7 +659,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
     :param source_replicas:    Dict holding all source_replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
-    :param source_rses:        RSE ids of eglible source replicas.
+    :param source_rses:        RSE ids of eligible source replicas.
     :param session:            Session of the db.
     :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
@@ -702,7 +702,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
                 # Check if this is a STUCK lock due to source_replica filtering
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
-                    # Check if there is an eglible source replica for this lock
+                    # Check if there is an eligible source replica for this lock
                     if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses) and (selector_rse_dict.get(lock.rse_id, {}).get('availability_write', True) or rule.ignore_availability):
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
@@ -735,7 +735,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
     :param source_replicas:    Dict holding all source_replicas.
     :param rseselector:        The RSESelector to be used.
     :param rule:               The rule object.
-    :param source_rses:        RSE ids of eglible source replicas.
+    :param source_rses:        RSE ids of eligible source replicas.
     :param session:            Session of the db.
     :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:                  replicas_to_create, locks_to_create, transfers_to_create, locks_to_delete
@@ -778,7 +778,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
                 # Check if this is a STUCK lock due to source_replica filtering
                 if source_rses:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
-                    # Check if there is an eglible source replica for this lock
+                    # Check if there is an eligible source replica for this lock
                     if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses) and (selector_rse_dict.get(lock.rse_id, {}).get('availability_write', True) or rule.ignore_availability):
                         __update_lock_replica_and_create_transfer(lock=lock,
                                                                   replica=associated_replica,
@@ -845,7 +845,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
     :param availability_write:   Boolean variable if the RSE is write enabled.
     :param locks_to_create:      Dictionary of the locks to create.
     :param locks:                Dictionary of all locks.
-    :param source_rses:          RSE ids of eglible source replicas.
+    :param source_rses:          RSE ids of eligible source replicas.
     :param replicas_to_create:   Dictionary of the replicas to create.
     :param replicas:             Dictionary of the replicas.
     :param source_replicas:      Dictionary of the source replicas.
@@ -927,7 +927,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
             available_source_replica = True
             if source_rses:
                 available_source_replica = False
-                # Check if there is an eglible source replica for this lock
+                # Check if there is an eligible source replica for this lock
                 if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses):
                     available_source_replica = True
             new_lock = __create_lock(rule=rule,
@@ -974,7 +974,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
         available_source_replica = True
         if source_rses:
             available_source_replica = False
-            # Check if there is an eglible source replica for this lock
+            # Check if there is an eligible source replica for this lock
             if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses):
                 available_source_replica = True
 
@@ -1308,7 +1308,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
             datasets.append((did.scope, did.name, ))
         elif did.did_type == DIDType.CONTAINER:
             for child_dataset in rucio.core.did.list_child_datasets(scope=did.scope, name=did.name, session=session):
-                # ensure theer are no duplicates
+                # ensure there are no duplicates
                 newds = (child_dataset['scope'], child_dataset['name'], )
                 if newds not in datasets:
                     datasets.append(newds)

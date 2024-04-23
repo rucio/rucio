@@ -389,7 +389,7 @@ def aggregate_to_influx(
     and submit them to a InfluxDB endpoint
 
     :param messages:           The list of messages.
-    :param bin_size:           The size of the bins for the aggreagation (e.g. 10m, 1h, etc.).
+    :param bin_size:           The size of the bins for the aggregation (e.g. 10m, 1h, etc.).
     :param endpoint:           The InfluxDB endpoint were to send the messages.
     :param logger:             The logger object.
 

@@ -208,7 +208,7 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
 
     while not terminate.is_set():
         try:
-            rse, attemps = queue.get(timeout=30)
+            rse, attempts = queue.get(timeout=30)
         except Queue.Empty:
             continue
         start = datetime.now()
@@ -220,7 +220,7 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
                 process_output(output)
         except:
             elapsed = (datetime.now() - start).total_seconds() / 60
-            logger.error('Check of "%s" failed in %d minutes, %d remaining attemps', rse, elapsed, attemps, exc_info=True)
+            logger.error('Check of "%s" failed in %d minutes, %d remaining attempts', rse, elapsed, attempts, exc_info=True)
             success = False
         else:
             elapsed = (datetime.now() - start).total_seconds() / 60
@@ -234,8 +234,8 @@ def check(queue, retry, terminate, logpipe, cache_dir, results_dir, keep_dumps, 
             for fil in remove:
                 os.remove(fil)
 
-        if not success and attemps > 0:
-            retry.put((rse, attemps - 1))
+        if not success and attempts > 0:
+            retry.put((rse, attempts - 1))
 
 
 def activity_logger(logpipes, logfilename, terminate):

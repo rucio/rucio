@@ -112,7 +112,7 @@ class AccountClient(BaseClient):
 
         :param type: The account type
         :param identity: The identity key name. For example x509 DN, or a username.
-        :param filters: A dictionnary key:account attribute to use for the filtering
+        :param filters: A dictionary key:account attribute to use for the filtering
 
         :return: a list containing account info dictionary for all rucio accounts.
         :raises AccountNotFound: if account doesn't exist.

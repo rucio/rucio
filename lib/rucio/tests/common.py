@@ -156,7 +156,7 @@ def file_generator(size: int = 2, namelen: int = 10) -> str:
 def make_temp_file(dir_: str, data: str) -> str:
     """
     Creates a temporal file and write `data` on it.
-    :param data: String to be writen on the created file.
+    :param data: String to be written on the created file.
     :returns: Name of the temporal file.
     """
     fd, path = tempfile.mkstemp(dir=dir_)

@@ -78,7 +78,7 @@ def get_issue_component_type(issue):
 def print_issues(issues, section_title):
     if not issues:
         return
-    # Generate the formated printout
+    # Generate the formatted printout
     bugs = [issue for issue in issues if issue['type'] == 'bug']
     bugs = sorted(bugs, key=lambda k: "%s %d" % (k['component'], k['number']))
     enhancements = [issue for issue in issues if issue['type'] == 'enhancement']

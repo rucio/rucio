@@ -478,7 +478,7 @@ EXECUTE IMMEDIATE 'ALTER SESSION SET hash_area_size=2100000000';
 -- rep_type = 1 if non locked rule with no expiration data. Permanent data
 -- rep_type = 0 if non locked rule with expiration date. Temporary data
 -- 28th May 2018, version 1.6, added check for the number or rows when the CURRTIME is null
--- 10th Oct 2017, version 1.5, The CURRTIME is populated only at the end of the work because of the Monit Flume JDBC sorce
+-- 10th Oct 2017, version 1.5, The CURRTIME is populated only at the end of the work because of the Monit Flume JDBC source
 -- Direct select - insert instead of passing data via collection.
 -- Added 3 more metrics (columns to the RUCIO_ACCOUNTING_TAB and HIST tables) on which is based the computation TIER, SPACETOKEN, GRP_DATATYPE
 

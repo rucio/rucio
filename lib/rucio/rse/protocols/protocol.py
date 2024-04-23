@@ -293,7 +293,7 @@ class RSEProtocol:
 
     def lfns2pfns(self, lfns):
         """
-            Retruns a fully qualified PFN for the file referred by path.
+            Returns a fully qualified PFN for the file referred by path.
 
             :param path: The path to the file.
 
@@ -334,7 +334,7 @@ class RSEProtocol:
         return pfns
 
     def __lfns2pfns_client(self, lfns):
-        """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary.
+        """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if necessary.
 
             :param scope: list of DIDs
 
@@ -359,7 +359,7 @@ class RSEProtocol:
         return self.translator.path(scope, name)
 
     def _get_path_nondeterministic_server(self, scope, name):  # pylint: disable=invalid-name
-        """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if neccessary. """
+        """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if necessary. """
         vo = get_rse_vo(self.rse['id'])  # pylint: disable=E0601
         scope = InternalScope(scope, vo=vo)  # pylint: disable=E0601
         rep = replica.get_replica(scope=scope, name=name, rse_id=self.rse['id'])  # pylint: disable=E0601
@@ -377,7 +377,7 @@ class RSEProtocol:
 
     def parse_pfns(self, pfns):
         """
-            Splits the given PFN into the parts known by the protocol. It is also checked if the provided protocol supportes the given PFNs.
+            Splits the given PFN into the parts known by the protocol. It is also checked if the provided protocol supports the given PFNs.
 
             :param pfns: a list of a fully qualified PFNs
 
@@ -417,7 +417,7 @@ class RSEProtocol:
                 raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(path.split('/')[0:len(prefix.split('/')) - 1]),
                                                                                                               prefix))  # len(...)-1 due to the leading '/
 
-            # Spliting parsed.path into prefix, path, filename
+            # Splitting parsed.path into prefix, path, filename
             path = path.partition(prefix)[2]
             name = path.split('/')[-1]
             path = '/'.join(path.split('/')[:-1])
@@ -462,7 +462,7 @@ class RSEProtocol:
             :param transfer_timeout: Transfer timeout (in seconds)
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
          """
         raise NotImplementedError
@@ -477,7 +477,7 @@ class RSEProtocol:
             :param transfer_timeout: Transfer timeout (in seconds)
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         raise NotImplementedError
@@ -488,7 +488,7 @@ class RSEProtocol:
 
             :param path: path to the to be deleted file
 
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         raise NotImplementedError
@@ -500,7 +500,7 @@ class RSEProtocol:
             :param new_path: path to the new file on the storage
 
             :raises DestinationNotAccessible: if the destination storage was not accessible.
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         raise NotImplementedError
@@ -511,7 +511,7 @@ class RSEProtocol:
 
             :returns: a list with dict containing 'totalsize' and 'unusedsize'
 
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
         """
         raise NotImplementedError
 
@@ -521,7 +521,7 @@ class RSEProtocol:
 
             :param path: path to file
 
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
 
             :returns: a dict with two keys, filesize and adler32 of the file provided in path.

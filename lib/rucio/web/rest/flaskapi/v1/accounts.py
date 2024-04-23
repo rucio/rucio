@@ -570,8 +570,8 @@ class GlobalAccountLimits(ErrorHandlingMethodView):
     def get(self, account, rse_expression=None):
         """
         ---
-        summary: Get gloabl limit
-        description: Get the current gloabl limits for an account on a specific RSE expression.
+        summary: Get global limit
+        description: Get the current global limits for an account on a specific RSE expression.
         tags:
           - Account
         parameters:

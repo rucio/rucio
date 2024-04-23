@@ -478,7 +478,7 @@ class Default(protocol.RSEProtocol):
 
             :param path: path to file
 
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
             :raises RSEAccessDenied: in case of permission issue.
 
@@ -527,7 +527,7 @@ class Default(protocol.RSEProtocol):
 
         :returns: a list with dict containing 'totalsize' and 'unusedsize'
 
-        :raises ServiceUnavailable: if some generic error occured in the library.
+        :raises ServiceUnavailable: if some generic error occurred in the library.
         """
         endpoint_basepath = self.path2pfn('')
         headers = {'Depth': '0'}

@@ -128,7 +128,7 @@ class RSESelector:
 
         self.rses = rses_with_enough_quota
         if len(self.rses) < self.copies:
-            raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
+            raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fulfill the operation.')
 
         # don't consider removing rses based on the total space here - because files already on the RSE are taken into account
         # it is possible to have no space but still be able to fulfil the rule
@@ -162,12 +162,12 @@ class RSESelector:
             existing_rse_size = {}
         rses = [rse for rse in rses if rse['space_left'] >= size - existing_rse_size.get(rse['rse_id'], 0)]
         if len(rses) < count:
-            raise RSEOverQuota('There is insufficient space on any of the target RSE\'s to fullfill the operation.')
+            raise RSEOverQuota('There is insufficient space on any of the target RSE\'s to fulfill the operation.')
 
         # Remove rses which do not have enough local quota
         rses = [rse for rse in rses if rse['quota_left'] > size]
         if len(rses) < count:
-            raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
+            raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fulfill the operation.')
 
         # Remove rses which do not have enough global quota
         rses_with_enough_quota = []
@@ -181,7 +181,7 @@ class RSESelector:
                 rses_with_enough_quota.append(rse)
         rses = rses_with_enough_quota
         if len(rses) < count:
-            raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
+            raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fulfill the operation.')
 
         for copy in range(count):
             # Remove rses already in the result set
@@ -189,7 +189,7 @@ class RSESelector:
             rses_dict = {}
             for rse in rses:
                 rses_dict[rse['rse_id']] = rse
-            # Prioritize the preffered rses
+            # Prioritize the preferred rses
             preferred_rses = [rses_dict[rse_id] for rse_id in preferred_rse_ids if rse_id in rses_dict]
             if prioritize_order_over_weight and preferred_rses:
                 rse = (preferred_rses[0]['rse_id'], preferred_rses[0]['staging_area'], preferred_rses[0]['availability_write'])
@@ -217,7 +217,7 @@ class RSESelector:
         Update the internal quota value.
 
         :param rse:      RSE tuple to update.
-        :param size:     Size to substract.
+        :param size:     Size to subtract.
         """
 
         for element in self.rses:

@@ -24,7 +24,7 @@ class LocalAccountLimit(ErrorHandlingMethodView):
     def post(self, account, rse):
         """
         ---
-        summary: Create or update a local accont limit
+        summary: Create or update a local account limit
         tags:
           - Account Limit
         parameters:

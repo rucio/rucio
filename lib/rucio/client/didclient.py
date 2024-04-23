@@ -47,7 +47,7 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search'])
 
         # stringify dates.
-        if isinstance(filters, dict):   # backwards compatability for filters as single {}
+        if isinstance(filters, dict):   # backwards compatibility for filters as single {}
             filters = [filters]
         for or_group in filters:
             for key, value in or_group.items():

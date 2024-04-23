@@ -180,7 +180,7 @@ def importer_example_data(vo, jdoe_account):
     add_identity(example_data.identity_to_be_removed, IdentityType.X509, email='email')
     add_account_identity(example_data.identity_to_be_removed, IdentityType.X509, example_data.old_account_2, 'email')
 
-    # Identity that already exsits but should be added to the account
+    # Identity that already exists but should be added to the account
     example_data.identity_to_be_added_to_account = rse_name_generator()
     add_identity(example_data.identity_to_be_added_to_account, IdentityType.X509, email='email')
 
