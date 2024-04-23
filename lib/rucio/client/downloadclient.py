@@ -265,7 +265,7 @@ class DownloadClient:
             force_scheme                   - Optional: force a specific scheme to download this item. (Default: None)
             base_dir                       - Optional: base directory where the downloaded files will be stored. (Default: '.')
             no_subdir                      - Optional: If true, files are written directly into base_dir. (Default: False)
-            nrandom                        - Optional: if the DID addresses a dataset, nrandom files will be randomly choosen for download from the dataset
+            nrandom                        - Optional: if the DID addresses a dataset, nrandom files will be randomly chosen for download from the dataset
             ignore_checksum                - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
             transfer_timeout               - Optional: Timeout time for the download protocols. (Default: None)
             transfer_speed_timeout         - Optional: Minimum allowed transfer speed (in KBps). Ignored if transfer_timeout set. Otherwise, used to compute default timeout (Default: 500)
@@ -671,10 +671,10 @@ class DownloadClient:
 
         # if the file was downloaded with success, it can be linked to pcache
         if pcache:
-            logger(logging.INFO, 'File %s is going to be registerred into pcache.' % dest_file_path)
+            logger(logging.INFO, 'File %s is going to be registered into pcache.' % dest_file_path)
             try:
                 pcache_state, hardlink_state = pcache.check_and_link(src=pfn, storage_root=storage_prefix, local_src=first_dest_file_path)
-                logger(logging.INFO, 'File %s is now registerred into pcache.' % first_dest_file_path)
+                logger(logging.INFO, 'File %s is now registered into pcache.' % first_dest_file_path)
             except Exception as e:
                 logger(logging.WARNING, 'Failed to load file to pcache: %s' % str(e))
 
@@ -741,7 +741,7 @@ class DownloadClient:
             rse                            - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
             base_dir                       - Optional: base directory where the downloaded files will be stored. (Default: '.')
             no_subdir                      - Optional: If true, files are written directly into base_dir. (Default: False)
-            nrandom                        - Optional: if the DID addresses a dataset, nrandom files will be randomly choosen for download from the dataset
+            nrandom                        - Optional: if the DID addresses a dataset, nrandom files will be randomly chosen for download from the dataset
             ignore_checksum                - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
             check_local_with_filesize_only - Optional: If true, already downloaded files will not be validated by checksum.
 
@@ -798,7 +798,7 @@ class DownloadClient:
 
         :param rpc_secret: the secret for the RPC proxy
 
-        :returns: a tupel with the process and the rpc proxy objects
+        :returns: a tuple with the process and the rpc proxy objects
 
         :raises RucioException: if the process or the proxy could not be created
         """
@@ -958,7 +958,7 @@ class DownloadClient:
                 # workaround: only consider first dest file path for aria2c download
                 dest_file_path = next(iter(item['dest_file_paths']))
 
-                # ensure we didnt miss the active state (e.g. a very fast download)
+                # ensure we didn't miss the active state (e.g. a very fast download)
                 start_time = item.setdefault('transferStart', time.time())
                 end_time = item.setdefault('transferEnd', time.time())
 
@@ -1093,7 +1093,7 @@ class DownloadClient:
             self.extraction_tools = [tool for tool in self.extraction_tools if tool.is_useable()]
             if len(self.extraction_tools) < 1:
                 logger(logging.WARNING, 'Archive resolution is enabled but no extraction tool is available. '
-                                        'Sources whose protocol doesnt support extraction wont be considered for download.')
+                                        'Sources whose protocol does not support extraction will not be considered for download.')
 
         # if excluding tapes, we need to list them first
         tape_rses = []
@@ -1110,7 +1110,7 @@ class DownloadClient:
         for item in input_items:
             resolved_dids = list(self._resolve_one_item_dids(item))
             if not resolved_dids:
-                logger(logging.WARNING, 'An item didnt have any DIDs after resolving the input: %s.' % item.get('did', item))
+                logger(logging.WARNING, 'An item did not have any DIDs after resolving the input: %s.' % item.get('did', item))
             item['dids'] = resolved_dids
             for did in resolved_dids:
                 did_to_input_items.setdefault(DID(did), []).append(item)
@@ -1342,7 +1342,7 @@ class DownloadClient:
             file_item['dest_file_paths'] = list(dest_file_paths)
             file_item['temp_file_path'] = '%s.part' % file_item['dest_file_paths'][0]
 
-            # the file did str ist not an unique key for this dict because multiple calls of list_replicas
+            # the file did str is not an unique key for this dict because multiple calls of list_replicas
             # could result in the same DID multiple times. So we're using the id of the dictionary objects
             fiid = id(file_item)
             fiid_to_file_item[fiid] = file_item
@@ -1500,7 +1500,7 @@ class DownloadClient:
         Splits a given DID string (e.g. 'scope1:name.file') into its scope and name part
         (This function is meant to be used as class internal only)
 
-        :param did_str: the DID string that will be splitted
+        :param did_str: the DID string that will be split
 
         :returns: the scope- and name part of the given DID
 
@@ -1538,7 +1538,7 @@ class DownloadClient:
         :param dest_dir_name: name of the destination directory
         :param no_subdir: if no subdirectory should be created
 
-        :returns: the absolut path of the destination directory
+        :returns: the absolute path of the destination directory
         """
         # append dest_dir_name, if subdir should be used
         if dest_dir_name.startswith('/'):

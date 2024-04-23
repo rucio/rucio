@@ -38,7 +38,7 @@ class RequestGet(ErrorHandlingMethodView):
         """
         ---
         summary: Get Request
-        description: Get a request for a given DID to a destinaion RSE.
+        description: Get a request for a given DID to a destination RSE.
         tags:
           - Requests
         parameters:
@@ -102,7 +102,7 @@ class RequestGet(ErrorHandlingMethodView):
                       description: The numbers of attempted retires.
                       type: integer
                     err_msg:
-                      description: An error message if one occured.
+                      description: An error message if one occurred.
                       type: string
                     previous_attempt_id:
                       description: The id of the previous attempt.
@@ -132,7 +132,7 @@ class RequestGet(ErrorHandlingMethodView):
                       description: The time the request got started.
                       type: string
                     transferred_at:
-                      description: The time the request got transfered.
+                      description: The time the request got transferred.
                       type: string
                     estimated_at:
                       description: The time the request got estimated.
@@ -144,7 +144,7 @@ class RequestGet(ErrorHandlingMethodView):
                       description: The estimation of the started at value.
                       type: string
                     estimated_transferred_at:
-                      description: The estimation of the transfered at value.
+                      description: The estimation of the transferred at value.
                       type: string
                     staging_started_at:
                       description: The time the staging got started.
@@ -203,7 +203,7 @@ class RequestHistoryGet(ErrorHandlingMethodView):
         """
         ---
         summary: Get Historical Request
-        description: List a hostorical request for a given DID to a destination RSE.
+        description: List a historical request for a given DID to a destination RSE.
         tags:
           - Requests
         parameters:
@@ -267,7 +267,7 @@ class RequestHistoryGet(ErrorHandlingMethodView):
                       description: The numbers of attempted retires.
                       type: integer
                     err_msg:
-                      description: An error message if one occured.
+                      description: An error message if one occurred.
                       type: string
                     previous_attempt_id:
                       description: The id of the previous attempt.
@@ -297,7 +297,7 @@ class RequestHistoryGet(ErrorHandlingMethodView):
                       description: The time the request got started.
                       type: string
                     transferred_at:
-                      description: The time the request got transfered.
+                      description: The time the request got transferred.
                       type: string
                     estimated_at:
                       description: The time the request got estimated.
@@ -309,7 +309,7 @@ class RequestHistoryGet(ErrorHandlingMethodView):
                       description: The estimation of the started at value.
                       type: string
                     estimated_transferred_at:
-                      description: The estimation of the transfered at value.
+                      description: The estimation of the transferred at value.
                       type: string
                     staging_started_at:
                       description: The time the staging got started.
@@ -419,7 +419,7 @@ class RequestList(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: All requests matching the arguments. Seperated by the new line character.
+                  description: All requests matching the arguments. Separated by the new line character.
                   type: array
                   items:
                     description: A request.
@@ -464,7 +464,7 @@ class RequestList(ErrorHandlingMethodView):
                         description: The numbers of attempted retires.
                         type: integer
                       err_msg:
-                        description: An error message if one occured.
+                        description: An error message if one occurred.
                         type: string
                       previous_attempt_id:
                         description: The id of the previous attempt.
@@ -494,7 +494,7 @@ class RequestList(ErrorHandlingMethodView):
                         description: The time the request got started.
                         type: string
                       transferred_at:
-                        description: The time the request got transfered.
+                        description: The time the request got transferred.
                         type: string
                       estimated_at:
                         description: The time the request got estimated.
@@ -506,7 +506,7 @@ class RequestList(ErrorHandlingMethodView):
                         description: The estimation of the started at value.
                         type: string
                       estimated_transferred_at:
-                        description: The estimation of the transfered at value.
+                        description: The estimation of the transferred at value.
                         type: string
                       staging_started_at:
                         description: The time the staging got started.
@@ -654,7 +654,7 @@ class RequestHistoryList(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: All requests matching the arguments. Seperated by a new line character.
+                  description: All requests matching the arguments. Separated by a new line character.
                   type: array
                   items:
                     description: A request.
@@ -699,7 +699,7 @@ class RequestHistoryList(ErrorHandlingMethodView):
                         description: The numbers of attempted retires.
                         type: integer
                       err_msg:
-                        description: An error message if one occured.
+                        description: An error message if one occurred.
                         type: string
                       previous_attempt_id:
                         description: The id of the previous attempt.
@@ -729,7 +729,7 @@ class RequestHistoryList(ErrorHandlingMethodView):
                         description: The time the request got started.
                         type: string
                       transferred_at:
-                        description: The time the request got transfered.
+                        description: The time the request got transferred.
                         type: string
                       estimated_at:
                         description: The time the request got estimated.
@@ -741,7 +741,7 @@ class RequestHistoryList(ErrorHandlingMethodView):
                         description: The estimation of the started at value.
                         type: string
                       estimated_transferred_at:
-                        description: The estimation of the transfered at value.
+                        description: The estimation of the transferred at value.
                         type: string
                       staging_started_at:
                         description: The time the staging got started.

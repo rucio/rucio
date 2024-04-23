@@ -66,7 +66,7 @@ class Consistency(data_models.DataModel):
             Parser to have consistent paths in storage dumps.
 
             :param line: String with one line of a dump.
-            :returns: Path formated as in the Rucio Replica Dumps.
+            :returns: Path formatted as in the Rucio Replica Dumps.
             '''
             relative = path_parsing.remove_prefix(
                 prefix_components,
@@ -291,7 +291,7 @@ def gnu_sort(file_path, prefix=None, delimiter=None, fieldspec=None, cache_dir=D
 
     :param prefix: If given the output file will be named <prefix>_sorted.
     Otherwise the prefix is the name of the input file.
-    :param delimiter: Delimiter character if the data is formated in
+    :param delimiter: Delimiter character if the data is formatted in
     columns (argument of -t in the sort command).
     :param fieldspec: String with the specification of column or columns
     to be used to sort (argument -k in the sort command).
@@ -329,7 +329,7 @@ def gnu_sort(file_path, prefix=None, delimiter=None, fieldspec=None, cache_dir=D
 
 
 def populate_args(argparser):
-    # Option to download the rucio replica dumps automaticaly
+    # Option to download the rucio replica dumps automatically
     parser = argparser.add_parser(
         'consistency',
         help='Consistency check to verify possible lost files and dark data '

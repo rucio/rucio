@@ -223,7 +223,7 @@ CHECKSUM_KEY = 'supported_checksums'
 
 def is_checksum_valid(checksum_name):
     """
-    A simple function to check wether a checksum algorithm is supported.
+    A simple function to check whether a checksum algorithm is supported.
     Relies on GLOBALLY_SUPPORTED_CHECKSUMS to allow for expandability.
 
     :param checksum_name: The name of the checksum to be verified.
@@ -235,7 +235,7 @@ def is_checksum_valid(checksum_name):
 
 def set_preferred_checksum(checksum_name):
     """
-    A simple function to check wether a checksum algorithm is supported.
+    A simple function to check whether a checksum algorithm is supported.
     Relies on GLOBALLY_SUPPORTED_CHECKSUMS to allow for expandability.
 
     :param checksum_name: The name of the checksum to be verified.
@@ -673,7 +673,7 @@ def rse_supported_protocol_operations():
 
 
 def rse_supported_protocol_domains():
-    """ Returns a list with all supoorted RSE protocol domains."""
+    """ Returns a list with all supported RSE protocol domains."""
     return ['lan', 'wan']
 
 
@@ -1649,7 +1649,7 @@ def get_thread_with_periodic_running_function(interval, action, graceful_stop):
     """
     Get a thread where a function runs periodically.
 
-    :param interval: Interval in seconds when the action fucntion should run.
+    :param interval: Interval in seconds when the action function should run.
     :param action: Function, that should run periodically.
     :param graceful_stop: Threading event used to check for graceful stop.
     """
@@ -1861,7 +1861,7 @@ class retry:
     def __init__(self, func, *args, **kwargs):
         '''
         :param func: a method that should be executed with retries
-        :param args: parametres of the func
+        :param args: parameters of the func
         :param kwargs: key word arguments of the func
         '''
         self.func, self.args, self.kwargs = func, args, kwargs
@@ -2085,7 +2085,7 @@ def check_policy_package_version(package):
 class Availability:
     """
     This util class acts as a translator between the availability stored as
-    integer and as boolen values.
+    integer and as boolean values.
 
     `None` represents a missing value. This lets a user update a specific value
     without altering the other ones. If it needs to be evaluated, it will

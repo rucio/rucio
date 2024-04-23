@@ -21,7 +21,7 @@ to let the user know about a possible change. A general file type, defining
 which files should get headers, has to be a class inherited from the
 `HeaderTemplate` abstract class. The class gets registered automatically and is
 accessible through the `header_template_factory` function. The implementation
-for each file get's selected by the `is_file_suitable` method provided by the
+for each file gets selected by the `is_file_suitable` method provided by the
 template. Other methods to get information about the currently used header and
 the new header have to be provided too.
 """
@@ -30,8 +30,8 @@ import argparse
 import logging
 import os
 import sys
-from collections.abc import Iterator, ValuesView
 from abc import ABC, abstractmethod
+from collections.abc import Iterator, ValuesView
 from enum import Enum, auto
 from typing import Optional
 
@@ -89,7 +89,7 @@ def exit_code_from_result_states(states: ValuesView[ResultStates]) -> int:
 
 def print_result_states(states: dict[str, ResultStates]) -> None:
     """
-    Prints the result states in a redable format for the user.
+    Prints the result states in a readable format for the user.
 
     :param states: A dict with a file name as key and the corresponding ResultState.
     """
@@ -417,7 +417,7 @@ def process_file(file_path: str, dry_run: bool) -> ResultStates:
     Processes one file. Modifies the file if necessary.
 
     :param file_path: Path to the file.
-    :param dry_run: If True, the header wont be changed.
+    :param dry_run: If True, the header won't be changed.
     :returns: A ResultState corresponding to the action performed on or the
               state of the file.
     """
@@ -444,7 +444,7 @@ def process_files(files: list[str], dry_run: bool, disable_progress_bar: bool) -
     Processes all files and prints the result.
 
     :param files: The files to process.
-    :param dry_run: If True, the headers wont be changed.
+    :param dry_run: If True, the headers won't be changed.
     :param disable_progress_bar: If True, disables the progress bar.
     :returns: A dictionary mapping the files to the corresponding ResultStates
               they are in.

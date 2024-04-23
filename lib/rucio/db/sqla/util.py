@@ -366,7 +366,7 @@ def _create_temp_table(name, *columns, primary_key=None, oracle_global_name=None
     oracle_table_is_global = False
     if session.bind.dialect.name == 'oracle':
         # Retrieve the list of global temporary tables on oracle.
-        # If the requested table is found to be global, re-use it,
+        # If the requested table is found to be global, reuse it,
         # otherwise create a private temporary table with random name
         global_temp_tables = list_oracle_global_temp_tables(session=session)
         if oracle_global_name is None:

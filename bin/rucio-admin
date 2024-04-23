@@ -386,7 +386,7 @@ def set_limits(args):
             try:
                 byte_limit = int(limit_input)
             except ValueError:
-                logger.error('The limit could not be set. Either you misspelled infinity or your input could not be converted to integer or you used a wrong pattern. Please use a format like 10GB with B,KB,MB,GB,TB,PB as units (not case sensistive)')
+                logger.error('The limit could not be set. Either you misspelled infinity or your input could not be converted to integer or you used a wrong pattern. Please use a format like 10GB with B,KB,MB,GB,TB,PB as units (not case sensitive)')
                 return FAILURE
 
     client.set_account_limit(account=args.account, rse=args.rse, bytes_=byte_limit, locality=locality)
@@ -1384,7 +1384,7 @@ def get_parser():
     oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed by asynchronous Rucio daemon. '
                          + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')  # NOQA: W503
     oparser.add_argument('--oidc-issuer', dest='oidc_issuer', default=None,
-                         help='Defines which Identity Provider is goign to be used. The issuer string must correspond '
+                         help='Defines which Identity Provider is going to be used. The issuer string must correspond '
                          + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')  # NOQA: W503
 
     # Options for the x509  auth_strategy
@@ -1709,7 +1709,7 @@ def get_parser():
                                                                   '    $ rucio-admin identity delete --account jdoe --type X509 --id \'CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch\'\n'
                                                                   '    Deleted identity: CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch\n'
                                                                   '\n'
-                                                                  'Note: if the identity was accidentaly deleted, use add option.\n'
+                                                                  'Note: if the identity was accidentally deleted, use add option.\n'
                                                                   '\n')
     identity_delete_parser.set_defaults(which='identity_delete')
     identity_delete_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
@@ -1957,7 +1957,7 @@ def get_parser():
                                                               '    $ rucio-admin rse add-protocol --hostname jdoes.test.org --scheme gsiftp --prefix \'/atlasdatadisk/rucio/\' --port 8443 JDOE_DATADISK\n'
                                                               '\n'
                                                               'Note: no printed stdout.\n'
-                                                              'Note: examples of optional parametres::\n'
+                                                              'Note: examples of optional parameters::\n'
                                                               '\n'
                                                               '    --space-token DATADISK\n'
                                                               '    --web-service-path \'/srm/managerv2?SFN=\'\n'
@@ -2111,7 +2111,7 @@ def get_parser():
 
     # The config subparser
     config_parser = subparsers.add_parser('config',
-                                          help='Configuration methods. The global configuration of data mangement system can by modified.',
+                                          help='Configuration methods. The global configuration of data management system can by modified.',
                                           formatter_class=argparse.RawDescriptionHelpFormatter,
                                           epilog='''e.g. quotas, daemons, rses''')
     config_subparser = config_parser.add_subparsers(dest='config_subcommand', **required_arg)
@@ -2312,9 +2312,9 @@ def get_parser():
     declare_bad_file_replicas_parser.add_argument('--inputfile', dest='inputfile', nargs='?', action='store', help='File containing list of bad items')
     declare_bad_file_replicas_parser.add_argument('--allow-collection', dest='allow_collection', action='store_true', help='Allow passing a collection DID as bad item')
 
-    declare_bad_file_replicas_parser.add_argument('--lfns', dest='lfns', nargs='?', action='store', help='File cotaining list of LFNs for bad replicas. Requires --rse and --scope')
-    declare_bad_file_replicas_parser.add_argument('--scope', dest='scope', nargs='?', action='store', help='Common scope for bad replicas secified with LFN list, ignored wthout --lfns')
-    declare_bad_file_replicas_parser.add_argument('--rse', dest='rse', nargs='?', action='store', help='Common RSE for bad replicas secified with LFN list, ignored wthout --lfns')
+    declare_bad_file_replicas_parser.add_argument('--lfns', dest='lfns', nargs='?', action='store', help='File containing list of LFNs for bad replicas. Requires --rse and --scope')
+    declare_bad_file_replicas_parser.add_argument('--scope', dest='scope', nargs='?', action='store', help='Common scope for bad replicas specified with LFN list, ignored without --lfns')
+    declare_bad_file_replicas_parser.add_argument('--rse', dest='rse', nargs='?', action='store', help='Common RSE for bad replicas specified with LFN list, ignored without --lfns')
 
     # The declare-temporary-unavailable command
     declare_temporary_unavailable_replicas_parser = rep_subparser.add_parser('declare-temporary-unavailable',

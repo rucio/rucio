@@ -108,7 +108,7 @@ class ErrorHandlingMethodView(MethodView):
                 return generate_http_error_flask(
                     status_code=500,
                     exc=error.__class__.__name__,
-                    exc_msg='An unknown Database Exception has ocurred.',
+                    exc_msg='An unknown Database Exception has occurred.',
                     headers=headers
                 )
 

@@ -39,7 +39,7 @@ class TestAccountCoreGateway:
         del_account(usr, 'root', vo=vo)
 
     def test_update_account(self, vo):
-        """ ACCOUNT (CORE): Test changing and quering account parameters """
+        """ ACCOUNT (CORE): Test changing and querying account parameters """
         usr = account_name_generator()
         add_account(usr, 'USER', 'rucio@email.com', 'root', vo=vo)
         assert get_account_info(usr, vo=vo)['status'] == AccountStatus.ACTIVE  # Should be active by default
@@ -128,8 +128,8 @@ def test_get_user_success(rest_client, auth_token):
 
 def test_get_user_failure(rest_client, auth_token):
     """ ACCOUNT (REST): send a GET with a wrong user test the error """
-    reponse = rest_client.get('/accounts/wronguser', headers=headers(auth(auth_token)))
-    assert reponse.status_code == 404
+    response = rest_client.get('/accounts/wronguser', headers=headers(auth(auth_token)))
+    assert response.status_code == 404
 
 
 def test_del_user_success(rest_client, auth_token):

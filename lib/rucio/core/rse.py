@@ -204,7 +204,7 @@ class RseData:
         # query, but this seems wasteful under normal operation: the caller of the current function probably
         # got the list of RSE IDs from list_rses (or another source which checks for deleted rses).
         #
-        # Instead, directly fetch all RSEs, which allows to reduce the number (and complexity) of other queries bellow
+        # Instead, directly fetch all RSEs, which allows to reduce the number (and complexity) of other queries below
         stmt = select(
             models.RSE
         ).join_from(

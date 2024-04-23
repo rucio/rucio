@@ -37,7 +37,7 @@ class MetaConventions(ErrorHandlingMethodView):
               application/json:
                 schema:
                   type: array
-                  descripton: List of all DID keys.
+                  description: List of all DID keys.
                   items:
                     type: string
                     description: Data Itentifier key
@@ -69,7 +69,7 @@ class MetaConventions(ErrorHandlingMethodView):
                 type: object
                 properties:
                   key_type:
-                    description: The key tpye.
+                    description: The key type.
                     type: string
                   value_type:
                     description: The value type.

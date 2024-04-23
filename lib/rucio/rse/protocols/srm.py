@@ -119,7 +119,7 @@ class Default(protocol.RSEProtocol):
                 raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(path.split('/')[0:len(self.attributes['prefix'].split('/')) - 1]),
                                                                                                               self.attributes['prefix']))  # len(...)-1 due to the leading '/
 
-            # Spliting path into prefix, path, filename
+            # Splitting path into prefix, path, filename
             prefix = self.attributes['prefix']
             path = path.partition(self.attributes['prefix'])[2]
             name = path.split('/')[-1]
@@ -167,7 +167,7 @@ class Default(protocol.RSEProtocol):
     def connect(self):
         """
         Establishes the actual connection to the referred RSE.
-        As a quick and dirty impelementation we just use this method to check if the lcg tools are available.
+        As a quick and dirty implementation we just use this method to check if the lcg tools are available.
         If we decide to use gfal, init should be done here.
 
         :raises RSEAccessDenied: Cannot connect.
@@ -193,7 +193,7 @@ class Default(protocol.RSEProtocol):
         :param transfer_timeout: Transfer timeout (in seconds)
 
         :raises DestinationNotAccessible: if the destination storage was not accessible.
-        :raises ServiceUnavailable: if some generic error occured in the library.
+        :raises ServiceUnavailable: if some generic error occurred in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
 
@@ -223,7 +223,7 @@ class Default(protocol.RSEProtocol):
         :param transfer_timeout: Transfer timeout (in seconds)
 
         :raises DestinationNotAccessible: if the destination storage was not accessible.
-        :raises ServiceUnavailable: if some generic error occured in the library.
+        :raises ServiceUnavailable: if some generic error occurred in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
 
@@ -253,7 +253,7 @@ class Default(protocol.RSEProtocol):
         Deletes a file from the connected RSE.
 
         :param path: path to the to be deleted file
-        :raises ServiceUnavailable: if some generic error occured in the library.
+        :raises ServiceUnavailable: if some generic error occurred in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
 
@@ -282,7 +282,7 @@ class Default(protocol.RSEProtocol):
         :param path: path to the current file on the storage
         :param new_path: path to the new file on the storage
         :raises DestinationNotAccessible: if the destination storage was not accessible.
-        :raises ServiceUnavailable: if some generic error occured in the library.
+        :raises ServiceUnavailable: if some generic error occurred in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
 

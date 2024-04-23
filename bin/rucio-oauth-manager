@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-OAuth Manager is a daemon which is reponsible for:
+OAuth Manager is a daemon which is responsible for:
 - deletion of expired access tokens (in case there is a valid refresh token, expired access tokens will be kept until refresh_token expires as well.)
 - deletion of expired OAuth session parameters
 - refreshing access tokens via their refresh tokens.
@@ -32,7 +32,7 @@ def get_parser():
     """
     parser = argparse.ArgumentParser(description='''
 
-OAuth Manager is a daemon which is reponsible for:
+OAuth Manager is a daemon which is responsible for:
 - deletion of expired access tokens (in case there is a valid refresh token,
   expired access tokens will be kept until refresh_token expires as well.)
 - deletion of expired OAuth session parameters

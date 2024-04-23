@@ -123,7 +123,7 @@ class TestDeterministicTranslation:
         assert translator.path("foo", "bar") == "static_register_value2"
 
     def test_attr_mapping(self):
-        """LFN2PFN: Verify we can map using rse and attrs (Successs)"""
+        """LFN2PFN: Verify we can map using rse and attrs (Success)"""
         def rse_algorithm(scope, name, rse, rse_attrs, proto_attrs):
             """Test LFN2PATH function for exercising the different RSE/proto attrs."""
             tier = rse_attrs.get("tier", "T1")

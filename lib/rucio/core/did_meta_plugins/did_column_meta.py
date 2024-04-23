@@ -197,7 +197,7 @@ class DidColumnMeta(DidMetaPlugin):
             'file': [DIDType.FILE]
         }
 
-        # backwards compatability for filters as single {}.
+        # backwards compatibility for filters as single {}.
         if isinstance(filters, dict):
             filters = [filters]
 

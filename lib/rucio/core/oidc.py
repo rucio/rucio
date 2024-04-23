@@ -380,7 +380,7 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
               OR a redirection url to be used in user's browser for authentication.
     """
     # TO-DO - implement a check if that account already has a valid
-    # token withthe required scope and audience and return such token !
+    # token with the required scope and audience and return such token !
     auth_scope = kwargs.get('auth_scope', EXPECTED_OIDC_SCOPE)
     if not auth_scope:
         auth_scope = EXPECTED_OIDC_SCOPE
@@ -756,8 +756,8 @@ def get_token_for_account_operation(account: str, req_audience: str = None, req_
         # supported by Rucio server (have OIDC admin client registered as well)
         # that is why we take the issuer of the account identity that has an active/valid token
         # and look for admin account identity which has this issuer assigned
-        # requestor should always have at least one active subject token unless it is root
-        # this is why we first discover if the requestor is root or not
+        # requester should always have at least one active subject token unless it is root
+        # this is why we first discover if the requester is root or not
         get_token_for_adminacc = False
         admin_identity = None
         admin_issuer = None
@@ -767,10 +767,10 @@ def get_token_for_account_operation(account: str, req_audience: str = None, req_
         preferred_issuer = None
         for token in account_tokens:
             preferred_issuer = token.identity.split(", ")[1].split("=")[1]
-        # loop through all OIDC identities registerd for the account of the requestor
+        # loop through all OIDC identities registered for the account of the requester
         for identity in identities:
             issuer = identity.split(", ")[1].split("=")[1]
-            # compare the account of the requestor with the account of the admin
+            # compare the account of the requester with the account of the admin
             if account == admin_iss_acc_idt_dict[issuer][0]:
                 # take first matching case which means root is requesting OIDC authentication
                 admin_identity = admin_iss_acc_idt_dict[issuer][1]

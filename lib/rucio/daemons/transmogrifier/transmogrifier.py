@@ -70,7 +70,7 @@ def __get_rule_dict(rule_dict: dict, subscription: dict) -> dict:
     """
     Internal method to clean and enrich the rule_dict coming from the subscription.
 
-    :param rule_dict: The rule dictionnary coming from a subscription.
+    :param rule_dict: The rule dictionary coming from a subscription.
     :param subscription: The subscription associated to the rule.
     :return: A dictionary that contains all the parameters associated to the rule.
     """
@@ -215,7 +215,7 @@ def __split_rule_select_rses(
 
 def get_subscriptions(logger: Callable = logging.log) -> list[dict]:
     """
-    A method to extract the list of active subscriptions and exclued the one that have bad RSE expression.
+    A method to extract the list of active subscriptions and exclude the one that have bad RSE expression.
     :param logger: The logger.
     :return: The list of active subscriptions.
     """
@@ -298,7 +298,7 @@ def __is_matching_subscription(subscription, did, metadata):
 
     :param subscription: The subscription dictionary.
     :param did: The DID dictionary
-    :param metadata: The metadata dictionnary for the DID
+    :param metadata: The metadata dictionary for the DID
     :return: True/False
     """
     if metadata["hidden"]:

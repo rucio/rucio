@@ -519,7 +519,7 @@ def validate_auth_token(token: str, *, session: "Session") -> "dict[str, Any]":
     if value is NO_VALUE:  # no cached entry found
         value = query_token(token, session=session)
         if not value:
-            # identify JWT access token and validte
+            # identify JWT access token and validate
             # & save it in Rucio if scope and audience are correct
             if len(token.split(".")) == 3:
                 value = validate_jwt(token, session=session)

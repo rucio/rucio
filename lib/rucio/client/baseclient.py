@@ -236,7 +236,7 @@ class BaseClient:
         if self.auth_type == 'oidc':
             if not creds:
                 creds = {}
-            # if there are defautl values, check if rucio.cfg does not specify them, otherwise put default
+            # if there are default values, check if rucio.cfg does not specify them, otherwise put default
             if 'oidc_refresh_lifetime' not in creds or creds['oidc_refresh_lifetime'] is None:
                 creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime', False, None)
             if 'oidc_issuer' not in creds or creds['oidc_issuer'] is None:
@@ -616,7 +616,7 @@ class BaseClient:
 
         else:
             print("\nAccording to the OAuth2/OIDC standard you should NOT be sharing \n"
-                  + "your password with any 3rd party appplication, therefore, \n"  # NOQA: W503
+                  + "your password with any 3rd party application, therefore, \n"  # NOQA: W503
                   + "we strongly discourage you from following this --oidc-auto approach.")  # NOQA: W503
             print("-------------------------------------------------------------------------")
             auth_res = self._send_request(auth_url, get_token=True)
@@ -659,7 +659,7 @@ class BaseClient:
 
         self.auth_token = result.headers['x-rucio-auth-token']
         if self.auth_oidc_refresh_active:
-            self.logger.debug("Reseting the token expiration epoch file content.")
+            self.logger.debug("Resetting the token expiration epoch file content.")
             # reset the token expiration epoch file content
             # at new CLI OIDC authentication
             self.token_exp_epoch = None

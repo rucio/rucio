@@ -195,7 +195,7 @@ class TestSchemaCMS:
     def test_attachment(self):
         """ CMS SCHEMA (COMMON): Test CMS attachment"""
 
-        # no need to re-test did pattrens
+        # no need to re-test did patterns
         dids = [{
             'scope': 'cms',
             'name': '/store/mc/Fall10/DYToMuMu_M-20_TuneZ2_7TeV-pythia6/AODSIM/START38_V12-v1/0003/C0F3344F-6EC8-DF11-8ED6-E41F13181020.root',

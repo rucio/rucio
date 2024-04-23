@@ -23,7 +23,7 @@ from rucio.common.utils import generate_uuid
 class TestConfigCore:
 
     def test_get_config_sections(self):
-        """ CONFIG (CORE): Retreive configuration section only """
+        """ CONFIG (CORE): Retrieve configuration section only """
         expected_sections = [str(generate_uuid()), str(generate_uuid())]
         for section in expected_sections:
             core_config.set(section, str(generate_uuid()), str(generate_uuid()))
@@ -32,7 +32,7 @@ class TestConfigCore:
             assert section in sections
 
     def test_get_and_set_section_option(self):
-        """ CONFIG (CORE): Retreive configuration option only """
+        """ CONFIG (CORE): Retrieve configuration option only """
         # get and set
         section = str(generate_uuid())
         option = str(generate_uuid())

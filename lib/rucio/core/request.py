@@ -1293,7 +1293,7 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
         )
         reqs = session.execute(stmt).all()
         if not reqs:
-            logger(logging.WARNING, 'Tried to cancel non-existant request for DID %s:%s at RSE %s' % (scope, name, get_rse_name(rse_id=dest_rse_id, session=session)))
+            logger(logging.WARNING, 'Tried to cancel non-existent request for DID %s:%s at RSE %s' % (scope, name, get_rse_name(rse_id=dest_rse_id, session=session)))
     except IntegrityError as error:
         raise RucioException(error.args)
 
@@ -2055,7 +2055,7 @@ def release_waiting_requests_per_free_volume(
 
     :param dest_rse_id: The destination RSE id.
     :param source_rse_id: The source RSE id
-    :param volume: The maximum volume in bytes that should be transfered.
+    :param volume: The maximum volume in bytes that should be transferred.
     :param session: The database session.
     """
 
@@ -2137,7 +2137,7 @@ def create_base_query_grouped_fifo(
     else:  # dialect == 'postgresql'
         coalesce_func = func.coalesce
 
-    # query DIDs that are attached to a collection and add a column indicating the order of attachment in case of mulitple attachments
+    # query DIDs that are attached to a collection and add a column indicating the order of attachment in case of multiple attachments
     attachment_order_subquery = select(
         models.DataIdentifierAssociation.child_name,
         models.DataIdentifierAssociation.child_scope,
@@ -2280,13 +2280,13 @@ def release_waiting_requests_grouped_fifo(
 ):
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
-    Also all requests to DIDs that are attached to the same dataset get released, if one children of the dataset is choosed to be released (Grouped FIFO).
+    Also all requests to DIDs that are attached to the same dataset get released, if one children of the dataset is chosen to be released (Grouped FIFO).
 
     :param dest_rse_id: The destination rse id
     :param source_rse_id: The source RSE id.
     :param count: The count to be released. If None, release all waiting requests.
     :param deadline: Maximal waiting time in hours until a dataset gets released.
-    :param volume: The maximum volume in bytes that should be transfered.
+    :param volume: The maximum volume in bytes that should be transferred.
     :param session: The database session.
     """
 

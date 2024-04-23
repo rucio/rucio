@@ -60,10 +60,10 @@ class LifetimeException(ErrorHandlingMethodView):
                         type: string
                         enum: ['F', 'D', 'C', 'A', 'X', 'Y', 'Z']
                       account:
-                        description: The account accociated with the lifetime exception.
+                        description: The account associated with the lifetime exception.
                         type: string
                       pattern:
-                        description: The patter of the lifetime exception.
+                        description: The pattern of the lifetime exception.
                         type: string
                       comments:
                         description: The comments of the lifetime exception.
@@ -208,7 +208,7 @@ class LifetimeExceptionId(ErrorHandlingMethodView):
                         description: The account associated with the lifetime exception.
                         type: string
                       pattern:
-                        description: The patter of the lifetime exception.
+                        description: The pattern of the lifetime exception.
                         type: string
                       comments:
                         description: The comments of the lifetime exception.

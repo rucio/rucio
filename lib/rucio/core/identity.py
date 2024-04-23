@@ -205,7 +205,7 @@ def get_default_account(identity: str, type_: IdentityType, oldest_if_none: bool
 
     :param identity: The identity key name. For example, x509DN, or a username.
     :param type_: The type of the authentication (x509, gss, userpass, saml, oidc).
-    :param oldest_if_none: If True and no default account it found the oldes known
+    :param oldest_if_none: If True and no default account it found the oldest known
                            account of that identity will be chosen, if False and
                            no default account is found, exception will be raised.
     :param session: The database session to use.
