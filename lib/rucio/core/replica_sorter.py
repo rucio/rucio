@@ -177,7 +177,7 @@ def __download_custom_distance_table() -> None:
         download_url = config_get('core', 'custom_distance_download_url', raise_exception=False, default=None)
         if download_url is None:
             raise Exception('Cannot download custom distance table: no URL provided')
-        result = requests.get(download_url, stream=True, verify=False)
+        result = requests.get(download_url, stream=True)
         if result and result.status_code in [200, ]:
             with open(db_path, mode='w') as file_obj:
                 file_obj.write(result.text)

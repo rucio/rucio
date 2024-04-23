@@ -879,6 +879,7 @@ class FTS3Transfertool(Transfertool):
                  bring_online: Optional[int] = 43200,
                  default_lifetime: Optional[int] = 172800,
                  archive_timeout_override: Optional[int] = None,
+                 verify_tls: Optional[bool] = None,
                  logger: "LoggerFunction" = logging.log
                  ):
         """
@@ -919,12 +920,12 @@ class FTS3Transfertool(Transfertool):
         if self.external_host.startswith('https://'):
             if self.token:
                 self.cert = None
-                self.verify = False
                 self.headers['Authorization'] = 'Bearer ' + self.token
             else:
                 cert = _pick_cert_file(vo=vo)
                 self.cert = (cert, cert)
-                self.verify = False
+            self.verify = config_get_bool('core', 'fts_verify_tls', raise_exception=False,
+                                          default=verify_tls if verify_tls is not None else True)
         else:
             self.cert = None
             self.verify = True  # True is the default setting of a requests.* method
