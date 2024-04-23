@@ -150,7 +150,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
         json_file = open(json_file_name, mode="r")
         logger(logging.INFO, "JSON file has been opened.")
     except:
-        logger(logging.WARNING, "An error occured while trying to open the JSON file.")
+        logger(logging.WARNING, "An error occurred while trying to open the JSON file.")
         must_sleep = True
         return must_sleep
 
@@ -408,7 +408,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: Opt
         auditor = 0
         checksum = 0
 
-        # Label suspicious replicas as bad if they have oher copies on other RSEs (that aren't also marked as suspicious).
+        # Label suspicious replicas as bad if they have other copies on other RSEs (that aren't also marked as suspicious).
         # If they are the last remaining copies, deal with them differently.
         for rse_key in list(recoverable_replicas[vo].keys()):
             files_to_be_declared_bad = []

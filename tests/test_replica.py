@@ -941,7 +941,7 @@ def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_
         did['state'] = ReplicaState.TEMPORARY_UNAVAILABLE
         rep.append(did)
 
-    time.sleep(10)  # Test broken if minos_tu_expiration excuted immediately. Threading effect ?
+    time.sleep(10)  # Test broken if minos_tu_expiration executed immediately. Threading effect ?
     # Run the minos expiration
     minos_tu_expiration(once=True)
     # Check the state in the replica table

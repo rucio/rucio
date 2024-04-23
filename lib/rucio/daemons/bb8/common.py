@@ -704,7 +704,7 @@ def rebalance_rse(
         except Exception as error:
             logger(
                 logging.ERROR,
-                "Exception %s occured while rebalancing %s:%s, rule_id: %s!",
+                "Exception %s occurred while rebalancing %s:%s, rule_id: %s!",
                 str(error),
                 scope,
                 name,

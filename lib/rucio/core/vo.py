@@ -51,7 +51,7 @@ def add_vo(vo: str, description: str, email: str, *, session: "Session") -> None
     New root user will have account name 'root' and a userpass identity with username: 'root@<vo>' and password: 'password'
 
     :param vo: 3-letter unique tag for a VO.
-    :param descrition: Descriptive string for the VO (e.g. Full name).
+    :param description: Descriptive string for the VO (e.g. Full name).
     :param email: Contact email for the VO.
     :param session: The db session in use.
     """
@@ -139,7 +139,7 @@ def map_vo(vo: str) -> str:
     Converts a long VO name into the internal short (three letter)
     tag mapping.
     Mappings are loaded from the vo-map section of the config database table.
-    If a mapping is not found, the orignal is returned unchanged.
+    If a mapping is not found, the original is returned unchanged.
     :param vo: The long VO name string.
     :returns: The short VO name string.
     """

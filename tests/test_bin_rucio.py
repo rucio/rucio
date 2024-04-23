@@ -617,7 +617,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out, err)
         # add files to dataset
-        cmd = 'rucio attach {0} {3}:{1} {3}:{2}'.format(tmp_dataset, tmp_file1[5:], tmp_file2[5:], self.user)  # triming '/tmp/' from filename
+        cmd = 'rucio attach {0} {3}:{1} {3}:{2}'.format(tmp_dataset, tmp_file1[5:], tmp_file2[5:], self.user)  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -637,7 +637,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out, err)
         # download files
-        cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -655,7 +655,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out, err)
         # download files
-        cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:-2] + '*')  # triming '/tmp/' from filename
+        cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:-2] + '*')  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -711,7 +711,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out, err)
         # download files
-        cmd = 'rucio -v download --dir /tmp {0}:{1} --impl {2}'.format(self.user, tmp_file1[5:], impl)  # triming '/tmp/' from filename
+        cmd = 'rucio -v download --dir /tmp {0}:{1} --impl {2}'.format(self.user, tmp_file1[5:], impl)  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -729,7 +729,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out, err)
         # download files
-        cmd = 'rucio -v download --dir /tmp {0}:{1} --impl {2}'.format(self.user, tmp_file1[5:-2] + '*', impl)  # triming '/tmp/' from filename
+        cmd = 'rucio -v download --dir /tmp {0}:{1} --impl {2}'.format(self.user, tmp_file1[5:-2] + '*', impl)  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -758,7 +758,7 @@ class TestBinRucio:
         print(out, err)
         assert exitcode == 0
         # download files with --no-subdir
-        cmd = 'rucio -v download --no-subdir --dir /tmp {0}:{1}'.format(self.user, tmp_file[5:])  # triming '/tmp/' from filename
+        cmd = 'rucio -v download --no-subdir --dir /tmp {0}:{1}'.format(self.user, tmp_file[5:])  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -770,7 +770,7 @@ class TestBinRucio:
         print(out, err)
         assert tmp_file[5:] in out
         # download again with --no-subdir
-        cmd = 'rucio -v download --no-subdir --dir /tmp {0}:{1}'.format(self.user, tmp_file[5:])  # triming '/tmp/' from filename
+        cmd = 'rucio -v download --no-subdir --dir /tmp {0}:{1}'.format(self.user, tmp_file[5:])  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -902,7 +902,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out, err)
         # download files
-        cmd = 'rucio download --dir /tmp --transfer-timeout 3 --transfer-speed-timeout 1000 {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        cmd = 'rucio download --dir /tmp --transfer-timeout 3 --transfer-speed-timeout 1000 {0}:{1}'.format(self.user, tmp_file1[5:])  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -1046,7 +1046,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out, err)
         # add files to dataset
-        cmd = 'rucio attach {0} {1}:{2}'.format(tmp_dataset, self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        cmd = 'rucio attach {0} {1}:{2}'.format(tmp_dataset, self.user, tmp_file1[5:])  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -1054,11 +1054,11 @@ class TestBinRucio:
         os.remove(tmp_file1)
 
         # download dataset
-        cmd = 'rucio -v download --dir /tmp {0}'.format(tmp_dataset)  # triming '/tmp/' from filename
+        cmd = 'rucio -v download --dir /tmp {0}'.format(tmp_dataset)  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        search = '{0} successfully downloaded'.format(tmp_file1[5:])  # triming '/tmp/' from filename
+        search = '{0} successfully downloaded'.format(tmp_file1[5:])  # trimming '/tmp/' from filename
         assert re.search(search, err) is not None
 
     def test_download_file_check_by_size(self):
@@ -1070,18 +1070,18 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out, err)
         # download files
-        cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        cmd = 'rucio -v download --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         # Alter downloaded file
-        cmd = 'echo "dummy" >> /tmp/{}/{}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        cmd = 'echo "dummy" >> /tmp/{}/{}'.format(self.user, tmp_file1[5:])  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
         # Download file again and check for mismatch
-        cmd = 'rucio -v download --check-local-with-filesize-only --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # triming '/tmp/' from filename
+        cmd = 'rucio -v download --check-local-with-filesize-only --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # trimming '/tmp/' from filename
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -1104,7 +1104,7 @@ class TestBinRucio:
 
         # add files
         tmp_file1 = file_generator()
-        file_name = tmp_file1[5:]  # triming '/tmp/' from filename
+        file_name = tmp_file1[5:]  # trimming '/tmp/' from filename
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(tmp_rse, self.user, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1159,7 +1159,7 @@ class TestBinRucio:
         print(out)
         # add quota
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1172,7 +1172,7 @@ class TestBinRucio:
         print(out, err)
         # add quota
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1185,7 +1185,7 @@ class TestBinRucio:
         print(out, err)
         # add quota
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1196,7 +1196,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out)
         assert not err
-        rule = out[:-1]  # triming new line character
+        rule = out[:-1]  # trimming new line character
         assert re.match(r'^\w+$', rule)
         # check if rule exist for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
@@ -1221,7 +1221,7 @@ class TestBinRucio:
         print(out, err)
         # add quota
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASRULEDELAYED'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1237,7 +1237,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert not err
-        rule = out[:-1]  # triming new line character
+        rule = out[:-1]  # trimming new line character
         cmd = "rucio rule-info {0}".format(rule)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1268,7 +1268,7 @@ class TestBinRucio:
         print(out)
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
 
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASDELETERULE'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1317,7 +1317,7 @@ class TestBinRucio:
         print(out)
         # add quota
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1330,7 +1330,7 @@ class TestBinRucio:
         print(out, err)
         # add quota
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1343,7 +1343,7 @@ class TestBinRucio:
         print(out, err)
         # add quota
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1354,7 +1354,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out)
         assert not err
-        rule = out[:-1]  # triming new line character
+        rule = out[:-1]  # trimming new line character
         assert re.match(r'^\w+$', rule)
 
         # move rule
@@ -1364,7 +1364,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out)
         assert not err
-        new_rule = out[:-1]  # triming new line character
+        new_rule = out[:-1]  # trimming new line character
 
         # check if rule exist for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
@@ -1389,7 +1389,7 @@ class TestBinRucio:
         print(out)
         # add quota
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1402,7 +1402,7 @@ class TestBinRucio:
         print(out, err)
         # add quota
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1415,7 +1415,7 @@ class TestBinRucio:
         print(out, err)
         # add quota
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1426,7 +1426,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out)
         assert not err
-        rule = out[:-1]  # triming new line character
+        rule = out[:-1]  # trimming new line character
         assert re.match(r'^\w+$', rule)
         # move rule
         new_rule_expr = "spacetoken=ATLASSCRATCHDISK|spacetoken=ATLASSD"
@@ -1437,7 +1437,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert not err
-        new_rule_id = out[:-1]  # triming new line character
+        new_rule_id = out[:-1]  # trimming new line character
 
         # check if rule exist for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
@@ -1484,7 +1484,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        # delete the fisical file
+        # delete the physical file
         cmd = "find /tmp/rucio_rse/ -name {0} |xargs rm".format(tmp_file1[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1524,7 +1524,7 @@ class TestBinRucio:
         remove(tmp_file2)
         remove(tmp_file3)
         # attach the files to the dataset
-        cmd = 'rucio attach {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # triming '/tmp/' from filenames
+        cmd = 'rucio attach {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # trimming '/tmp/' from filenames
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -1557,7 +1557,7 @@ class TestBinRucio:
         remove(tmp_file2)
         remove(tmp_file3)
         # detach the files to the dataset
-        cmd = 'rucio detach {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # triming '/tmp/' from filenames
+        cmd = 'rucio detach {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # trimming '/tmp/' from filenames
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -1586,7 +1586,7 @@ class TestBinRucio:
         print(err)
         remove(tmp_file1)
         # attach the files to the dataset
-        cmd = 'rucio attach {0} {1}:{2}'.format(tmp_dsn, self.user, tmp_file1[5:])  # triming '/tmp/' from filenames
+        cmd = 'rucio attach {0} {1}:{2}'.format(tmp_dsn, self.user, tmp_file1[5:])  # trimming '/tmp/' from filenames
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -1624,7 +1624,7 @@ class TestBinRucio:
         print(err)
         remove(tmp_file1)
         # attach the files to the dataset
-        cmd = 'rucio detach {0} {1}:{2}'.format(tmp_dsn, self.user, 'file_ghost')  # triming '/tmp/' from filenames
+        cmd = 'rucio detach {0} {1}:{2}'.format(tmp_dsn, self.user, 'file_ghost')  # trimming '/tmp/' from filenames
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -1682,7 +1682,7 @@ class TestBinRucio:
         print(out)
         print(err)
 
-        # Checking if the execution was successfull and if the DIDs belong together
+        # Checking if the execution was successful and if the DIDs belong together
         assert re.search('DIDs successfully attached', out) is not None
         cmd = 'rucio list-content {0}'.format(tmp_dsn_did)
         print(self.marker + cmd)
@@ -1711,7 +1711,7 @@ class TestBinRucio:
         print(err)
         remove(did_file_path)
 
-        # Checking if the execution was successfull and if the DIDs belong together
+        # Checking if the execution was successful and if the DIDs belong together
         assert re.search('DIDs successfully attached', out) is not None
         cmd = 'rucio list-content {0}'.format(tmp_dsn_did)
         print(self.marker + cmd)
@@ -2183,7 +2183,7 @@ class TestBinRucio:
         print(out)
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
 
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASDELETERULE'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -2230,7 +2230,7 @@ class TestBinRucio:
         print(out)
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
 
-        # add rse atributes
+        # add rse attributes
         cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value MARIOSPACEODYSSEY'.format(tmp_rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)

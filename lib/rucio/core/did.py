@@ -341,7 +341,7 @@ def attach_dids_to_dids(
             raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (attachment['scope'], attachment['name']))
         first_iteration = False
 
-    # Remove all duplicated dictionnaries from the list
+    # Remove all duplicated dictionaries from the list
     # (convert the list of dictionaries into a list of tuple, then to a set of tuple
     # to remove duplicates, then back to a list of unique dictionaries)
     parent_dids = [dict(tup) for tup in set(tuple(dictionary.items()) for dictionary in parent_dids)]
@@ -477,7 +477,7 @@ def __add_files_to_archive(parent_did, files_temp_table, files, account, ignore_
         raise exception.RucioException(error.args)
 
     if not parent_did.is_archive:
-        # mark tha archive file as is_archive
+        # mark the archive file as is_archive
         parent_did.is_archive = True
 
         # mark parent datasets as is_archive = True
@@ -859,7 +859,7 @@ def __add_files_to_archive_without_temp_tables(scope, name, files, account, igno
     )
     archive_did = session.execute(stmt).scalar()
     if not archive_did.is_archive:
-        # mark tha archive file as is_archive
+        # mark the archive file as is_archive
         archive_did.is_archive = True
 
         # mark parent datasets as is_archive = True
@@ -2884,7 +2884,7 @@ def remove_dids_from_followed(dids, account, *, session: "Session"):
 @transactional_session
 def trigger_event(scope, name, event_type, payload, *, session: "Session"):
     """
-    Records changes occuring in the did to the FollowEvents table
+    Records changes occurring in the did to the FollowEvents table
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -2900,7 +2900,7 @@ def trigger_event(scope, name, event_type, payload, *, session: "Session"):
             name=name
         )
         for did in session.execute(stmt).scalars().all():
-            # Create a new event using teh specified parameters.
+            # Create a new event using the specified parameters.
             new_event = models.FollowEvents(scope=scope, name=name, account=did.account,
                                             did_type=did.did_type, event_type=event_type, payload=payload)
             new_event.save(session=session, flush=False)
@@ -2924,7 +2924,7 @@ def create_reports(total_workers, worker_number, *, session: "Session"):
         models.FollowEvents.created_at
     )
 
-    # Use hearbeat mechanism to select a chunck of events based on the hashed account
+    # Use heartbeat mechanism to select a chunk of events based on the hashed account
     stmt = filter_thread_work(session=session, query=stmt, total_threads=total_workers, thread_id=worker_number, hash_variable='account')
 
     try:

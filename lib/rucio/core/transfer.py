@@ -1106,7 +1106,7 @@ class SkipSchemeMissmatch(PathDistance):
     def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
         path = cast(PathDistance._RankingContext, ctx).paths_for_rws.get(source.rse)
         # path == None means that there is no path;
-        # path == [] means that a path exists (according to distances) but cannot be used (scheme missmatch)
+        # path == [] means that a path exists (according to distances) but cannot be used (scheme mismatch)
         if path is not None and not path:
             return SKIP_SOURCE
 

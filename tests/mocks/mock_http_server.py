@@ -25,7 +25,7 @@ class MockServer:
     class Handler(SimpleHTTPRequestHandler):
         def send_code_and_message(self, code, headers, message):
             """
-            Helper which wraps the quite-low-level BaseHTTPRequestHandler primitives and is used to send reponses.
+            Helper which wraps the quite-low-level BaseHTTPRequestHandler primitives and is used to send responses.
             """
             self.send_response(code)
             self.send_header("Content-type", "text/plain")

@@ -35,7 +35,7 @@ def get_rse_account_usage(rse, vo='def', *, session: "Session"):
     :param rse:      The RSE name.
     :param vo:       The VO to act on.
     :param session:  The database session in use.
-    :return:         List of dictionnaries.
+    :return:         List of dictionaries.
     """
     rse_id = get_rse_id(rse=rse, vo=vo, session=session)
 

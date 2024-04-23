@@ -53,7 +53,7 @@ def apply_endpoints(app, modules):
     for blueprint_module in modules:
         # Legacy patch - TODO Remove in 38.0.0
         if blueprint_module == "meta":
-            logging.log(logging.WARNING, "Endpoint `meta` is depreciated and will be removed in future releaases")
+            logging.log(logging.WARNING, "Endpoint `meta` is depreciated and will be removed in future releases")
             blueprint_module = "meta_conventions"
         try:
             # searches for module names locally

@@ -167,7 +167,7 @@ def temp_file(
 
     - `directory`: working path to create the temporal and the final file.
     - `final_name`: Path of the final file, relative to `directory`.
-       If the `final_name` is omitted or None the renaming step is ommited,
+       If the `final_name` is omitted or None the renaming step is omitted,
        leaving the temporal file with the results.
     - `binary`: whether to open the file in binary mode (default: False).
 
@@ -235,13 +235,13 @@ def to_datetime(str_or_datetime: Union[datetime.datetime, str]) -> Optional[date
             'Trying to parse "%s" date with resolution of milliseconds',
             str_or_datetime,
         )
-        miliseconds = int(MILLISECONDS_RE.search(str_or_datetime).group(1))
+        milliseconds = int(MILLISECONDS_RE.search(str_or_datetime).group(1))
         str_or_datetime = MILLISECONDS_RE.sub('', str_or_datetime)
         date = datetime.datetime.strptime(
             str_or_datetime,
             DATETIME_FORMAT,
         )
-        date = date + datetime.timedelta(microseconds=miliseconds * 1000)
+        date = date + datetime.timedelta(microseconds=milliseconds * 1000)
     return date
 
 
@@ -314,7 +314,7 @@ def gfal_download_to_file(url: str, file_: "IO") -> None:
         chunk = infile.read(CHUNK_SIZE)
     except gfal2.GError as e:
         if e.code == 70:
-            logger.debug('GError(70) raised, using GRIDFTP PLUGIN:STAT_ON_OPEN=False workarround to download %s', url)
+            logger.debug('GError(70) raised, using GRIDFTP PLUGIN:STAT_ON_OPEN=False workaround to download %s', url)
             ctx.set_opt_boolean('GRIDFTP PLUGIN', 'STAT_ON_OPEN', False)
             infile = ctx.open(url, 'r')
             chunk = infile.read(CHUNK_SIZE)

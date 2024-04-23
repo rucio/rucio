@@ -111,7 +111,7 @@ def __clean_unknown_replicas(pfns: list, vo: str, logger: "Callable") -> dict:
 def __update_temporary_unavailable(chunk: list, reason: str, expires_at: datetime, account: "InternalAccount", logger: "Callable") -> None:
     """
     Update temporary unavailable replicas one by one
-    :param chunk: List of unvailable replicas to update
+    :param chunk: List of unavailable replicas to update
     :param reason: Reason of the temporary unavailable replica
     :param expires_at: Expiration date of the temporary unavailability
     :param account: Account who declared the replica

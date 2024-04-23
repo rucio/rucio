@@ -115,7 +115,7 @@ def cleanup_db_deps(model, select_rows_stmt, *, session=None):
 
 
 def reset_config_table():
-    """ Clear the config table and install any default entires needed for the tests.
+    """ Clear the config table and install any default entries needed for the tests.
     """
     db_session = get_session()
     db_session.query(models.Config).delete()

@@ -69,7 +69,7 @@ def run_cmd(args, timeout=0):
         # Collect the output when the command completes
         stdout = p.communicate()[0][:-1]
 
-        # Commmand completed in time, cancel the alarm
+        # Command completed in time, cancel the alarm
         if (timeout > 0):
             signal.alarm(0)
 
@@ -97,7 +97,7 @@ def run_cmd(args, timeout=0):
 
 def get_process_children(pid):
 
-    # Get a list of all pids assocaited with a given pid
+    # Get a list of all pids associated with a given pid
     p = subprocess.Popen(args='ps --no-headers -o pid --ppid %d' % pid,
                          shell=True,
                          stdout=subprocess.PIPE,

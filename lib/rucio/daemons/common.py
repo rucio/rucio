@@ -41,7 +41,7 @@ class HeartbeatHandler:
         """
         :param executable: the executable name which will be set in heartbeats
         :param renewal_interval: the interval at which the heartbeat will be renewed in the database.
-        Calls to live() in-between intervals will re-use the locally cached heartbeat.
+        Calls to live() in-between intervals will reuse the locally cached heartbeat.
         """
         self.executable = executable
         self._hash_executable = None
@@ -179,7 +179,7 @@ def db_workqueue(
 
     :param once: Whether to stop after one iteration
     :param graceful_stop: the threading.Event() object used for graceful stop of the daemon
-    :param executable: the name of the executable used for hearbeats
+    :param executable: the name of the executable used for heartbeats
     :param partition_wait_time: time to wait for database partition rebalancing before starting the actual daemon loop
     :param sleep_time: time to sleep between the iterations of the daemon
     :param activities: optional list of activities on which to work. The run_once_fnc will be called on activities one by one.

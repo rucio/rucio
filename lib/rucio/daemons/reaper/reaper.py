@@ -196,7 +196,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 add_message('deletion-failed', deletion_dict)
                 noaccess_attempts += 1
                 if noaccess_attempts >= auto_exclude_threshold:
-                    logger(logging.INFO, 'Too many (%d) NOACCESS attempts for %s. RSE will be temporarly excluded.', noaccess_attempts, rse_name)
+                    logger(logging.INFO, 'Too many (%d) NOACCESS attempts for %s. RSE will be temporarily excluded.', noaccess_attempts, rse_name)
                     REGION.set('temporary_exclude_%s' % rse_id, True)
                     METRICS.gauge('excluded_rses.{rse}').labels(rse=rse_name).set(1)
 
@@ -228,7 +228,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
             if replica['scope'].vo != 'def':
                 payload['vo'] = replica['scope'].vo
             add_message('deletion-failed', payload)
-        logger(logging.INFO, 'Cannot connect to %s. RSE will be temporarly excluded.', rse_name)
+        logger(logging.INFO, 'Cannot connect to %s. RSE will be temporarily excluded.', rse_name)
         REGION.set('temporary_exclude_%s' % rse_id, True)
         EXCLUDED_RSE_GAUGE.labels(rse=rse_name).set(1)
     finally:
@@ -522,7 +522,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
 
         result = REGION.get('temporary_exclude_%s' % rse.id, expiration_time=auto_exclude_timeout)
         if not isinstance(result, NoValue):
-            logger(logging.WARNING, 'Too many failed attempts for %s in last cycle. RSE is temporarly excluded.', rse.name)
+            logger(logging.WARNING, 'Too many failed attempts for %s in last cycle. RSE is temporarily excluded.', rse.name)
             EXCLUDED_RSE_GAUGE.labels(rse=rse.name).set(1)
             continue
         EXCLUDED_RSE_GAUGE.labels(rse=rse.name).set(0)
@@ -610,7 +610,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
                 # Then finally delete the replicas
                 del_start = time.time()
                 delete_replicas(rse_id=rse.id, files=deleted_files)
-                logger(logging.DEBUG, 'delete_replicas successed on %s : %s replicas in %s seconds', rse.name, len(deleted_files), time.time() - del_start)
+                logger(logging.DEBUG, 'delete_replicas succeeded on %s : %s replicas in %s seconds', rse.name, len(deleted_files), time.time() - del_start)
                 METRICS.counter('deletion.done').inc(len(deleted_files))
         except RSEProtocolNotSupported:
             logger(logging.WARNING, 'Protocol %s not supported on %s', scheme, rse.name)

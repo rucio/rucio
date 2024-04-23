@@ -42,7 +42,7 @@ class GlobusRSEProtocol(RSEProtocol):
 
     def lfns2pfns(self, lfns):
         """
-            Retruns a fully qualified PFN for the file referred by path.
+            Returns a fully qualified PFN for the file referred by path.
 
             :param path: The path to the file.
 
@@ -80,7 +80,7 @@ class GlobusRSEProtocol(RSEProtocol):
 
     def parse_pfns(self, pfns):
         """
-            Splits the given PFN into the parts known by the protocol. It is also checked if the provided protocol supportes the given PFNs.
+            Splits the given PFN into the parts known by the protocol. It is also checked if the provided protocol supports the given PFNs.
 
             :param pfns: a list of a fully qualified PFNs
 
@@ -117,7 +117,7 @@ class GlobusRSEProtocol(RSEProtocol):
                 raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(path.split('/')[0:len(self.attributes['prefix'].split('/')) - 1]),
                                                                                                               self.attributes['prefix']))  # len(...)-1 due to the leading '/
 
-            # Spliting parsed.path into prefix, path, filename
+            # Splitting parsed.path into prefix, path, filename
             prefix = self.attributes['prefix']
             path = path.partition(self.attributes['prefix'])[2]
             name = path.split('/')[-1]
@@ -190,7 +190,7 @@ class GlobusRSEProtocol(RSEProtocol):
 
             :param path: path to the to be deleted file
 
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
             :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         if self.globus_endpoint_id:

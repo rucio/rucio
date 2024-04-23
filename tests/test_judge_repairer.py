@@ -260,7 +260,7 @@ class TestJudgeRepairer:
         assert (RuleState.STUCK == get_rule(rule_id)['state'])
         rule_repairer(once=True)
 
-        # Stil assert STUCK because of delays:
+        # Still assert STUCK because of delays:
         assert (RuleState.STUCK == get_rule(rule_id)['state'])
         assert (get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id == get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id)
         # assert (RuleState.REPLICATING == get_rule(rule_id)['state'])

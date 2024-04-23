@@ -240,8 +240,8 @@ class RSE(ErrorHandlingMethodView):
                     description: The rse type.
                     type: string
                     enum: ["DISK", "TAPE"]
-                  latitute:
-                    description: The latitute of the RSE.
+                  latitude:
+                    description: The latitude of the RSE.
                     type: number
                   longitude:
                     description: The longitude of the RSE.
@@ -381,8 +381,8 @@ class RSE(ErrorHandlingMethodView):
                     description: The rse type.
                     type: string
                     enum: ["DISK", "TAPE"]
-                  latitute:
-                    description: The latitute of the RSE.
+                  latitude:
+                    description: The latitude of the RSE.
                     type: number
                   longitude:
                     description: The longitude of the RSE.
@@ -475,8 +475,8 @@ class RSE(ErrorHandlingMethodView):
                       description: The rse type.
                       type: string
                       enum: ["DISK", "TAPE"]
-                    latitute:
-                      description: The latitute of the RSE.
+                    latitude:
+                      description: The latitude of the RSE.
                       type: number
                     longitude:
                       description: The longitude of the RSE.
@@ -822,7 +822,7 @@ class ProtocolList(ErrorHandlingMethodView):
           401:
             description: Invalid Auth Token
           404:
-            description: RSE not found or RSE Operation, RSE Protocal Doman, RSE Protocol not supported
+            description: RSE not found or RSE Operation, RSE Protocol Domain, RSE Protocol not supported
           406:
             description: Not acceptable
         """
@@ -873,7 +873,7 @@ class LFNS2PFNS(ErrorHandlingMethodView):
             type: string
         - name: operation
           in: query
-          description: Optional query argument to select the protoco for read-vs-writes.
+          description: Optional query argument to select the protocol for read-vs-writes.
           schema:
             type: string
         responses:
@@ -890,7 +890,7 @@ class LFNS2PFNS(ErrorHandlingMethodView):
           401:
             description: Invalid Auth Token
           404:
-            description: RSE not found or RSE Protocol or RSE Protocl Domain not supported
+            description: RSE not found or RSE Protocol or RSE Protocol Domain not supported
           406:
             description: Not acceptable
         """
@@ -1350,7 +1350,7 @@ class Protocol(ErrorHandlingMethodView):
         """
         ---
         summary: Delete Protocol Attributes
-        description: Delete all protocol attibutes.
+        description: Delete all protocol attributes.
         tags:
           - Rucio Storage Elements
         parameters:
@@ -1848,7 +1848,7 @@ class Distance(ErrorHandlingMethodView):
                   type: array
                   items:
                     type: object
-                    description: One distance betweeen source and destination.
+                    description: One distance between source and destination.
                     properties:
                       src_rse_id:
                         description: The source rse id.
@@ -2175,7 +2175,7 @@ class QoSPolicy(ErrorHandlingMethodView):
                   type: array
                   items:
                     type: object
-                    porperties:
+                    properties:
                       rse_id:
                         description: The rse id.
                         type: string

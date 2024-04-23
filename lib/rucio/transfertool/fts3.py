@@ -442,7 +442,7 @@ def bulk_group_transfers(
         bring_online: Optional[int] = None,
         default_lifetime: Optional[int] = None) -> list[dict[str, Any]]:
     """
-    Group transfers in bulk based on certain criterias
+    Group transfers in bulk based on certain criteria
 
     :param transfer_paths:           List of transfer paths to group. Each path is a list of single-hop transfers.
     :param policy:                   Policy to use to group.
@@ -545,7 +545,7 @@ class Fts3TransferStatusReport(TransferStatusReport):
         self._reason = None
         self._src_rse = None
         self._fts_address = self.external_host
-        # Supported db fields bellow:
+        # Supported db fields below:
         self.state = None
         self.external_id = None
         self.started_at = None
@@ -1256,7 +1256,7 @@ class FTS3Transfertool(Transfertool):
         """
         Get the list of banned Storage Elements.
 
-        :returns: Detailed dictionnary of banned Storage Elements.
+        :returns: Detailed dictionary of banned Storage Elements.
         """
 
         try:
@@ -1482,7 +1482,7 @@ class FTS3Transfertool(Transfertool):
                                                                        FTS_STATE.FINISHEDDIRTY,
                                                                        FTS_STATE.CANCELED,
                                                                        FTS_STATE.FINISHED]:
-                    # multipe source replicas jobs is still running. should wait
+                    # multiple source replicas jobs is still running. should wait
                     responses[transfer_id] = {}
                     continue
 

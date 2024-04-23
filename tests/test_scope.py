@@ -38,8 +38,8 @@ class TestScopeCoreApi:
         """ SCOPE (CORE): Is scope owner """
         scope = InternalScope(scope_name_generator(), vo=vo)
         add_scope(scope=scope, account=jdoe_account)
-        anwser = is_scope_owner(scope=scope, account=jdoe_account)
-        assert anwser is True
+        answer = is_scope_owner(scope=scope, account=jdoe_account)
+        assert answer is True
 
 
 def test_scope_success(rest_client, auth_token):

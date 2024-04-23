@@ -113,11 +113,11 @@ Check the replicas for the DID mock:file::
   from rucio.db.sqla import session, models
   session.get_session().query(models.RSEFileAssociation).filter_by(name='file', scope='mock').first()
   // [{'name': 'file','lock_cnt': 1, 'state': COPYING, 'scope': 'mock', 'rse_id': 'f81f366593754c01b0c340fa5ea0ab90'},
-  //  {'scope': 'mock', 'rse_id': '1330d5daee37474c88ba888101d7b859', 'name': 'file', 'state': AVAIABLE, 'lock_cnt': 1}]
+  //  {'scope': 'mock', 'rse_id': '1330d5daee37474c88ba888101d7b859', 'name': 'file', 'state': AVAILABLE, 'lock_cnt': 1}]
 
 The DID mock:file has now two replicas with one lock each.
 As the file replica is attached to the dataset and the rule for the dataset specifies another RSE MOCK instead of the upload RSE, it has to be replicated to this RSE.
-Therefor a second replica in state COPYING got created on RSE MOCK.
+Therefore a second replica in state COPYING got created on RSE MOCK.
     ''', formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument("--threads", action="store", default=1, type=int, help='Concurrency control: total number of threads for this process')

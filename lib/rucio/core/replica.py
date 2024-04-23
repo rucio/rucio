@@ -795,7 +795,7 @@ def _build_list_replicas_pfn(
     """
     Generate the PFN for the given scope/name on the rse.
     If needed, sign the PFN url
-    If relevant, add the server-side root proxy to te pfn url
+    If relevant, add the server-side root proxy to the pfn url
     """
     pfn: str = list(protocol.lfns2pfns(lfns={'scope': scope.external,
                                              'name': name,
@@ -936,7 +936,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
                     t_scope = scope
                     t_name = name
 
-                if 'determinism_type' in protocol.attributes:  # PFN is cachable
+                if 'determinism_type' in protocol.attributes:  # PFN is cacheable
                     try:
                         path = pfns_cache['%s:%s:%s' % (protocol.attributes['determinism_type'], t_scope.internal, t_name)]
                     except KeyError:  # No cache entry scope:name found for this protocol
@@ -1325,7 +1325,7 @@ def list_replicas(
             # leave us with less than nrandom replicas.
             nrandom * 4
         )
-        # Re-use input temp table. We don't need its content anymore
+        # Reuse input temp table. We don't need its content anymore
         random_dids_temp_table = input_dids_temp_table
         session.execute(delete(random_dids_temp_table))
         session.execute(insert(random_dids_temp_table).from_select(['scope', 'name'], stmt))
@@ -2470,7 +2470,7 @@ def get_and_lock_file_replicas(scope, name, nowait=False, restrict_rses=None, *,
 @transactional_session
 def get_source_replicas(scope, name, source_rses=None, *, session: "Session"):
     """
-    Get soruce replicas for a specific scope:name.
+    Get source replicas for a specific scope:name.
 
     :param scope:          The scope of the did.
     :param name:           The name of the did.
@@ -3436,7 +3436,7 @@ def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logg
     Keyword Arguments:
     :param younger_than: Datetime object to select the replicas which were declared since younger_than date. Default value = 10 days ago.
     :param nattempts: The minimum number of replica appearances in the bad_replica DB table from younger_than date. Default value = 0.
-    :param nattempts_exact: If True, then only replicas with exactly 'nattempts' appearences in the bad_replica DB table are retrieved. Replicas with more appearences are ignored.
+    :param nattempts_exact: If True, then only replicas with exactly 'nattempts' appearances in the bad_replica DB table are retrieved. Replicas with more appearances are ignored.
     :param rse_expression: The RSE expression where the replicas are located.
     :param filter_: Dictionary of attributes by which the RSE results should be filtered. e.g.: {'availability_write': True}
     :param exclude_states: List of states which eliminates replicas from search result if any of the states in the list
@@ -3525,7 +3525,7 @@ def get_suspicious_files(rse_expression, available_elsewhere, filter_=None, logg
     # finally, the results are grouped by RSE, scope, name and required to have
     # at least 'nattempts' occurrences in the result of the query per replica.
     # If nattempts_exact, then only replicas are required to have exactly
-    # 'nattempts' occurences.
+    # 'nattempts' occurrences.
     if nattempts_exact:
         query_result = query.group_by(models.RSEFileAssociation.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name).having(func.count() == nattempts).all()
     else:

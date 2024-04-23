@@ -158,7 +158,7 @@ def psql_convert_decimal_to_float(dbapi_conn, connection_rec):
 
 
 def my_on_connect(dbapi_con, connection_record):
-    """ Adds information to track performance and ressource by module.
+    """ Adds information to track performance and resource by module.
         Info are recorded in the V$SESSION and V$SQLAREA views.
     """
     caller = basename(sys.argv[0])
@@ -323,7 +323,7 @@ def _update_session_wrapper(wrapper, wrapped):
     """
     In addition to the work done by functools.update_wrapper, this function also preservers
     the signature of the initial function. With the exception that the 'session' parameter
-    is overriden to have a default value of 'None'.
+    is overridden to have a default value of 'None'.
 
     wrapper is the function to be updated
     wrapped is the original function

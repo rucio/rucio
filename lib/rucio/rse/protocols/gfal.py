@@ -125,7 +125,7 @@ class Default(protocol.RSEProtocol):
             if not path.startswith(self.attributes['prefix']):
                 raise exception.RSEFileNameNotSupported('Invalid prefix: provided \'%s\', expected \'%s\'' % ('/'.join(path.split('/')[0:len(self.attributes['prefix'].split('/')) - 1]),
                                                                                                               self.attributes['prefix']))  # len(...)-1 due to the leading '/
-            # Spliting path into prefix, path, filename
+            # Splitting path into prefix, path, filename
             prefix = self.attributes['prefix']
             path = path.partition(self.attributes['prefix'])[2]
             name = path.split('/')[-1]
@@ -230,7 +230,7 @@ class Default(protocol.RSEProtocol):
         :param transfer_timeout: Transfer timeout (in seconds)
 
         :raises DestinationNotAccessible: if the destination storage was not accessible.
-        :raises ServiceUnavailable: if some generic error occured in the library.
+        :raises ServiceUnavailable: if some generic error occurred in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         self.logger(logging.DEBUG, 'downloading file from {} to {}'.format(path, dest))
@@ -260,7 +260,7 @@ class Default(protocol.RSEProtocol):
         :param transfer_timeout: Transfer timeout (in seconds)
 
         :raises DestinationNotAccessible: if the destination storage was not accessible.
-        :raises ServiceUnavailable: if some generic error occured in the library.
+        :raises ServiceUnavailable: if some generic error occurred in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         self.logger(logging.DEBUG, 'uploading file from {} to {}'.format(source, target))
@@ -293,7 +293,7 @@ class Default(protocol.RSEProtocol):
 
         :param path: path to the to be deleted file
 
-        :raises ServiceUnavailable: if some generic error occured in the library.
+        :raises ServiceUnavailable: if some generic error occurred in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         self.logger(logging.DEBUG, 'deleting file {}'.format(path))
@@ -317,7 +317,7 @@ class Default(protocol.RSEProtocol):
         :param new_path: path to the new file on the storage
 
         :raises DestinationNotAccessible: if the destination storage was not accessible.
-        :raises ServiceUnavailable: if some generic error occured in the library.
+        :raises ServiceUnavailable: if some generic error occurred in the library.
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
         self.logger(logging.DEBUG, 'renaming file from {} to {}'.format(path, new_path))
@@ -369,7 +369,7 @@ class Default(protocol.RSEProtocol):
 
             :param path: path to file
 
-            :raises ServiceUnavailable: if some generic error occured in the library.
+            :raises ServiceUnavailable: if some generic error occurred in the library.
 
             :returns: a dict with two keys, filesize and an element of GLOBALLY_SUPPORTED_CHECKSUMS.
         """
@@ -553,7 +553,7 @@ class Default(protocol.RSEProtocol):
 
         :returns: a list with dict containing 'totalsize' and 'unusedsize'
 
-        :raises ServiceUnavailable: if some generic error occured in the library.
+        :raises ServiceUnavailable: if some generic error occurred in the library.
         """
         endpoint_basepath = self.path2pfn(self.attributes['prefix'])
         self.logger(logging.DEBUG, 'getting space usage from {}'.format(endpoint_basepath))

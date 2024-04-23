@@ -27,7 +27,7 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="Conveyor is a group of daemons to manage file transfers. The conveyor-finisher is the resposible to update Rucio internal state after the transfer has finished.")
+    parser = argparse.ArgumentParser(description="Conveyor is a group of daemons to manage file transfers. The conveyor-finisher is the responsible to update Rucio internal state after the transfer has finished.")
     parser.add_argument("--run-once", action="store_true", default=False,
                         help='One iteration only')
     parser.add_argument("--total-threads", action="store", default=1, type=int,
