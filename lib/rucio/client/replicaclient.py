@@ -14,6 +14,7 @@
 
 from datetime import datetime
 from json import dumps, loads
+from typing import Any, Optional
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
@@ -233,7 +234,17 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def add_replica(self, rse, scope, name, bytes_, adler32, pfn=None, md5=None, meta={}):
+    def add_replica(
+        self,
+        rse: str,
+        scope: str,
+        name: str,
+        bytes_: int,
+        adler32: str,
+        pfn: Optional[str] = None,
+        md5: Optional[str] = None,
+        meta: Optional[dict[str, Any]] = None
+    ) -> bool:
         """
         Add file replicas to a RSE.
 
@@ -249,6 +260,7 @@ class ReplicaClient(BaseClient):
         :return: True if files were created successfully.
 
         """
+        meta = meta or {}
         dict_ = {'scope': scope, 'name': name, 'bytes': bytes_, 'meta': meta, 'adler32': adler32}
         if md5:
             dict_['md5'] = md5

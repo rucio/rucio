@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from rucio.common import exception
 from rucio.common.schema import validate_schema
@@ -109,7 +109,7 @@ def del_rse(rse, issuer, vo='def', *, session: "Session"):
 
 
 @read_session
-def list_rses(filters={}, vo='def', *, session: "Session"):
+def list_rses(filters: "Optional[dict[str, Any]]" = None, vo: str = 'def', *, session: "Session") -> list[dict[str, Any]]:
     """
     Lists all RSEs.
 
@@ -119,8 +119,7 @@ def list_rses(filters={}, vo='def', *, session: "Session"):
 
     :returns: List of all RSEs.
     """
-    if not filters:
-        filters = {}
+    filters = filters or {}
 
     filters['vo'] = vo
 

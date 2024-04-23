@@ -15,7 +15,7 @@
 import logging
 from collections.abc import Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import func
 from sqlalchemy.exc import NoResultFound
@@ -42,12 +42,13 @@ if TYPE_CHECKING:
 @transactional_session
 def apply_rule_grouping(
     datasetfiles: Sequence[dict[str, Any]],
-    locks: dict[tuple[InternalScope, str], models.ReplicaLock],
+    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
     replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
     source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
-    rseselector: RSESelector, rule: models.ReplicationRule,
-    preferred_rse_ids: Sequence[str] = [],
-    source_rses: Sequence[str] = [],
+    rseselector: RSESelector,
+    rule: models.ReplicationRule,
+    preferred_rse_ids: Optional[Sequence[str]] = None,
+    source_rses: Optional[Sequence[str]] = None,
     *,
     session: "Session"
 ) -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
@@ -74,6 +75,8 @@ def apply_rule_grouping(
     # replicas_to_create =  {'rse_id': [replicas]}
     # transfers_to_create = [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
 
+    preferred_rse_ids = preferred_rse_ids or []
+    source_rses = source_rses or []
     if rule.grouping == RuleGrouping.NONE:
         replicas_to_create, locks_to_create, \
             transfers_to_create = __apply_rule_to_files_none_grouping(datasetfiles=datasetfiles,
@@ -224,7 +227,20 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None
 
 
 @transactional_session
-def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], *, session: "Session"):
+def __apply_rule_to_files_none_grouping(
+    datasetfiles: Sequence[dict[str, Any]],
+    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
+    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    rseselector: RSESelector,
+    rule: models.ReplicationRule,
+    preferred_rse_ids: Optional[Sequence[str]] = None,
+    source_rses: Optional[Sequence[str]] = None,
+    *,
+    session: "Session"
+) -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
+           dict[str, list[dict[str, models.ReplicaLock]]],
+           list[dict[str, Any]]]:
     """
     Apply a rule to files with NONE grouping.
 
@@ -244,6 +260,8 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
     locks_to_create = {}            # {'rse_id': [locks]}
     replicas_to_create = {}         # {'rse_id': [replicas]}
     transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
+    preferred_rse_ids = preferred_rse_ids or []
+    source_rses = source_rses or []
 
     for dataset in datasetfiles:
         selected_rse_ids = []
@@ -251,16 +269,16 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
             if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id]) == rule.copies:
                 # Nothing to do as the file already has the requested amount of locks
                 continue
-            rse_coverage = {replica.rse_id: file['bytes'] for replica in replicas[(file['scope'], file['name'])] if replica.state in (ReplicaState.AVAILABLE, ReplicaState.COPYING, ReplicaState.TEMPORARY_UNAVAILABLE)}
+            rse_coverage = {str(replica.rse_id): file['bytes'] for replica in replicas[(file['scope'], file['name'])] if replica.state in (ReplicaState.AVAILABLE, ReplicaState.COPYING, ReplicaState.TEMPORARY_UNAVAILABLE)}
             if len(preferred_rse_ids) == 0:
                 rse_tuples = rseselector.select_rse(size=file['bytes'],
                                                     preferred_rse_ids=rse_coverage.keys(),
-                                                    blocklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED],
+                                                    blocklist=[str(replica.rse_id) for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED],
                                                     existing_rse_size=rse_coverage)
             else:
                 rse_tuples = rseselector.select_rse(size=file['bytes'],
                                                     preferred_rse_ids=preferred_rse_ids,
-                                                    blocklist=[replica.rse_id for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED],
+                                                    blocklist=[str(replica.rse_id) for replica in replicas[(file['scope'], file['name'])] if replica.state == ReplicaState.BEING_DELETED],
                                                     existing_rse_size=rse_coverage)
             for rse_tuple in rse_tuples:
                 if len([lock for lock in locks[(file['scope'], file['name'])] if lock.rule_id == rule.id and lock.rse_id == rse_tuple[0]]) == 1:
@@ -305,7 +323,20 @@ def __apply_rule_to_files_none_grouping(datasetfiles, locks, replicas, source_re
 
 
 @transactional_session
-def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], *, session: "Session"):
+def __apply_rule_to_files_all_grouping(
+    datasetfiles: Sequence[dict[str, Any]],
+    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
+    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    rseselector: RSESelector,
+    rule: models.ReplicationRule,
+    preferred_rse_ids: Optional[Sequence[str]] = None,
+    source_rses: Optional[Sequence[str]] = None,
+    *,
+    session: "Session"
+) -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
+           dict[str, list[dict[str, models.ReplicaLock]]],
+           list[dict[str, Any]]]:
     """
     Apply a rule to files with ALL grouping.
 
@@ -326,6 +357,8 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
     locks_to_create = {}            # {'rse_id': [locks]}
     replicas_to_create = {}         # {'rse_id': [replicas]}
     transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
+    preferred_rse_ids = preferred_rse_ids or []
+    source_rses = source_rses or []
 
     bytes_ = 0
     rse_coverage = {}  # {'rse_id': coverage }
@@ -425,7 +458,20 @@ def __apply_rule_to_files_all_grouping(datasetfiles, locks, replicas, source_rep
 
 
 @transactional_session
-def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source_replicas, rseselector, rule, preferred_rse_ids=[], source_rses=[], *, session: "Session"):
+def __apply_rule_to_files_dataset_grouping(
+    datasetfiles: Sequence[dict[str, Any]],
+    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
+    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    rseselector: RSESelector,
+    rule: models.ReplicationRule,
+    preferred_rse_ids: Optional[Sequence[str]] = None,
+    source_rses: Optional[Sequence[str]] = None,
+    *,
+    session: "Session"
+) -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
+           dict[str, list[dict[str, models.ReplicaLock]]],
+           list[dict[str, Any]]]:
     """
     Apply a rule to files with ALL grouping.
 
@@ -445,6 +491,8 @@ def __apply_rule_to_files_dataset_grouping(datasetfiles, locks, replicas, source
     locks_to_create = {}            # {'rse_id': [locks]}
     replicas_to_create = {}         # {'rse_id': [replicas]}
     transfers_to_create = []        # [{'dest_rse_id':, 'scope':, 'name':, 'request_type':, 'metadata':}]
+    preferred_rse_ids = preferred_rse_ids or []
+    source_rses = source_rses or []
 
     for dataset in datasetfiles:
         bytes_ = sum([file['bytes'] for file in dataset['files']])
