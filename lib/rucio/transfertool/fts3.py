@@ -844,15 +844,13 @@ class FTS3Transfertool(Transfertool):
         if self.external_host.startswith('https://'):
             if self.token:
                 self.cert = None
-                self.verify = False
                 self.headers['Authorization'] = 'Bearer ' + self.token
             else:
                 cert = _pick_cert_file(vo=vo)
                 self.cert = (cert, cert)
-                self.verify = False
         else:
             self.cert = None
-            self.verify = True  # True is the default setting of a requests.* method
+        self.verify = True  # True is the default setting of a requests.* method
 
         self.scitags_exp_id, self.scitags_activity_ids = _scitags_ids(logger=logger)
 
