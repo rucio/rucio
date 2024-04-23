@@ -1427,7 +1427,7 @@ def __bulk_add_file_dids(files, account, dataset_meta=None, *, session: "Session
     :param dids: the list of files.
     :param account: The account owner.
     :param session: The database session in use.
-    :returns: True is successful.
+    :returns: list of replicas.
     """
     condition = []
     for f in files:
@@ -1539,7 +1539,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     :param ignore_availability: Ignore the RSE blocklisting.
     :param session: The database session in use.
 
-    :returns: True is successful.
+    :returns: list of replicas.
     """
 
     def _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan', protocol_attr=None):
@@ -1634,7 +1634,7 @@ def add_replica(
     :param tombstone: If True, create replica with a tombstone.
     :param session: The database session in use.
 
-    :returns: True is successful.
+    :returns: list of replicas.
     """
     meta = meta or {}
     rules = rules or []
