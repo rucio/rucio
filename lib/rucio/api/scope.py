@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.api.permission
 import rucio.common.exception
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 @read_session
-def list_scopes(filter_={}, vo='def', *, session: "Session"):
+def list_scopes(filter_: Optional[dict[str, Any]] = None, vo: str = 'def', *, session: "Session") -> list[str]:
     """
     Lists all scopes.
 
@@ -37,8 +37,7 @@ def list_scopes(filter_={}, vo='def', *, session: "Session"):
     :returns: A list containing all scopes.
     """
     # If filter is empty, create a new dict to avoid overwriting the function's default
-    if not filter_:
-        filter_ = {}
+    filter_ = filter_ or {}
 
     if 'scope' in filter_:
         filter_['scope'] = InternalScope(scope=filter_['scope'], vo=vo)

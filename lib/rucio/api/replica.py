@@ -13,7 +13,8 @@
 # limitations under the License.
 
 import datetime
-from typing import TYPE_CHECKING
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.api import permission
 from rucio.common import exception
@@ -418,7 +419,7 @@ def list_dataset_replicas_vp(scope, name, deep=False, vo='def', *, session: "Ses
 
 
 @stream_session
-def list_datasets_per_rse(rse, filters={}, limit=None, vo='def', *, session: "Session"):
+def list_datasets_per_rse(rse: str, filters: Optional[dict[str, Any]] = None, limit: Optional[int] = None, vo: str = 'def', *, session: "Session") -> Iterator[dict[str, Any]]:
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.
@@ -430,6 +431,7 @@ def list_datasets_per_rse(rse, filters={}, limit=None, vo='def', *, session: "Se
     :returns: A list of dict dataset replicas
     """
 
+    filters = filters or {}
     rse_id = get_rse_id(rse=rse, vo=vo, session=session)
     if 'scope' in filters:
         filters['scope'] = InternalScope(filters['scope'], vo=vo)
