@@ -43,6 +43,7 @@ exclude = [
 select = [
     "I", # isort
     "UP", # pyupgrade
+    "TID", # flake8-tidy-imports
 ]
 
 ignore = [
@@ -59,3 +60,42 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["rucio"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"typing.AbstractSet".msg = "Use `collections.abc.Set` instead."
+"typing.AsyncContextManager".msg = "Use `contextlib.AbstractAsyncContextManager` instead."
+"typing.AsyncGenerator".msg = "Use `collections.abc.AsyncGenerator` instead."
+"typing.AsyncIterable".msg = "Use `collections.abc.AsyncIterable` instead."
+"typing.AsyncIterator".msg = "Use `collections.abc.AsyncIterator` instead."
+"typing.Awaitable".msg = "Use `collections.abc.Awaitable` instead."
+"typing.Callable".msg = "Use `collections.abc.Callable` instead."
+"typing.ChainMap".msg = "Use `collections.ChainMap` instead."
+"typing.Collection".msg = "Use `collections.abc.Collection` instead."
+"typing.Container".msg = "Use `collections.abc.Container` instead."
+"typing.ContextManager".msg = "Use `contextlib.AbstractContextManager` instead."
+"typing.Coroutine".msg = "Use `collections.abc.Coroutine` instead."
+"typing.Counter".msg = "Use `collections.Counter` instead."
+"typing.DefaultDict".msg = "Use `collections.defaultdict` instead."
+"typing.Deque".msg = "Use `collections.deque` instead."
+"typing.Dict".msg = "Use built-in type `dict` instead. (note: to annotate arguments, the abstract collection type `collections.abc.Mapping` is preferred, if possible. See: https://docs.python.org/3/library/typing.html#typing.Dict)"
+"typing.FrozenSet".msg = "Use built-in type `frozenset` instead."
+"typing.Generator".msg = "Use `collections.abc.Generator` instead."
+"typing.ItemsView".msg = "Use `collections.abc.ItemsView` instead."
+"typing.Iterable".msg = "Use `collections.abc.Iterable` instead."
+"typing.Iterator".msg = "Use `collections.abc.Iterator` instead."
+"typing.KeysView".msg = "Use `collections.abc.KeysView` instead."
+"typing.List".msg = "Use built-in type `list` instead. (note: to annotate arguments, abstract collection types such as `collections.abc.Sequence` and `collections.abc.Iterable` are preferred, if possible. See: https://docs.python.org/3/library/typing.html#typing.List)"
+"typing.Mapping".msg = "Use `collections.abc.Mapping` instead."
+"typing.MappingView".msg = "Use `collections.abc.MappingView` instead."
+"typing.Match".msg = "Use `re.Match` instead."
+"typing.MutableMapping".msg = "Use `collections.abc.MutableMapping` instead."
+"typing.MutableSequence".msg = "Use `collections.abc.MutableSequence` instead."
+"typing.MutableSet".msg = "Use `collections.abc.MutableSet` instead."
+"typing.OrderedDict".msg = "Use `collections.OrderedDict` instead."
+"typing.Pattern".msg = "Use `re.Pattern` instead."
+"typing.Reversible".msg = "Use `collections.abc.Reversible` instead."
+"typing.Sequence".msg = "Use `collections.abc.Sequence` instead."
+"typing.Set".msg = "Use built-in type `set` instead. (note: to annotate arguments, the abstract collection type `collections.abc.AbstractSet` is preferred, if possible. See: https://docs.python.org/3/library/typing.html#typing.Set)"
+"typing.Tuple".msg = "Use built-in type `tuple` instead."
+"typing.Type".msg = "Use built-in `type` instead."
+"typing.ValuesView".msg = "Use `collections.abc.ValuesView` instead."
