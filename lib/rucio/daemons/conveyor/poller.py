@@ -23,10 +23,10 @@ import logging
 import re
 import threading
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from itertools import groupby
 from types import FrameType
-from typing import TYPE_CHECKING, Any, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
