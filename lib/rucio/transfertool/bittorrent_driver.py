@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 from rucio.common import types
 
 if TYPE_CHECKING:
-    from typing import Optional, Type
+    from typing import Optional
 
     from rucio.core.rse import RseData
     from rucio.transfertool.transfertool import TransferStatusReport
@@ -32,7 +32,7 @@ class BittorrentDriver(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def make_driver(cls: "Type[BittorrentDriver]", rse: "RseData", logger: types.LoggerFunction = logging.log) -> "Optional[BittorrentDriver]":
+    def make_driver(cls: "type[BittorrentDriver]", rse: "RseData", logger: types.LoggerFunction = logging.log) -> "Optional[BittorrentDriver]":
         pass
 
     @abstractmethod

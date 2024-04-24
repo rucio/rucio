@@ -14,9 +14,9 @@
 
 import base64
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from os import path
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Type
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import types
 from rucio.common.config import config_get
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from rucio.core.rse import RseData
 
 DRIVER_NAME_RSE_ATTRIBUTE = 'bittorrent_driver'
-DRIVER_CLASSES_BY_NAME: dict[str, Type[BittorrentDriver]] = {}
+DRIVER_CLASSES_BY_NAME: dict[str, type[BittorrentDriver]] = {}
 
 EXTRA_MODULES = import_extras(['qbittorrentapi'])
 
@@ -59,7 +59,7 @@ class BittorrentTransfertool(Transfertool):
         self.tracker = config_get('transfers', 'bittorrent_tracker_addr', raise_exception=False, default=None)
 
     @classmethod
-    def _pick_management_api_driver_cls(cls: "Type[BittorrentTransfertool]", rse: "RseData") -> Optional[Type[BittorrentDriver]]:
+    def _pick_management_api_driver_cls(cls: "type[BittorrentTransfertool]", rse: "RseData") -> Optional[type[BittorrentDriver]]:
         driver_cls = DRIVER_CLASSES_BY_NAME.get(rse.attributes.get(DRIVER_NAME_RSE_ATTRIBUTE, ''))
         if driver_cls is None:
             return None
@@ -90,7 +90,7 @@ class BittorrentTransfertool(Transfertool):
 
     @classmethod
     def submission_builder_for_path(
-            cls: "Type[BittorrentTransfertool]",
+            cls: "type[BittorrentTransfertool]",
             transfer_path: "list[DirectTransfer]",
             logger: types.LoggerFunction = logging.log
     ) -> "tuple[list[DirectTransfer], Optional[TransferToolBuilder]]":

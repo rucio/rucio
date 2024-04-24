@@ -14,8 +14,9 @@
 
 import importlib
 import os
+from collections.abc import Callable
 from configparser import NoOptionError, NoSectionError
-from typing import Any, Callable, Dict, Type, TypeVar
+from typing import Any, TypeVar
 
 from rucio.common import config
 from rucio.common.exception import InvalidAlgorithmName
@@ -30,7 +31,7 @@ class PolicyPackageAlgorithms:
     ALGORITHMS is of type Dict[str, Dict[str. Callable[..., Any]]]
     where the key is the algorithm type and the value is a dictionary of algorithm names and their callables
     """
-    _ALGORITHMS: Dict[str, Dict[str, Callable[..., Any]]] = {}
+    _ALGORITHMS: dict[str, dict[str, Callable[..., Any]]] = {}
     _loaded_policy_modules = False
 
     def __init__(self) -> None:
@@ -39,14 +40,14 @@ class PolicyPackageAlgorithms:
             self._loaded_policy_modules = True
 
     @classmethod
-    def _get_one_algorithm(cls: Type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> Callable[..., Any]:
+    def _get_one_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> Callable[..., Any]:
         """
         Get the algorithm from the dictionary of algorithms
         """
         return cls._ALGORITHMS[algorithm_type][name]
 
     @classmethod
-    def _get_algorithms(cls: Type[PolicyPackageAlgorithmsT], algorithm_type: str) -> Dict[str, Callable[..., Any]]:
+    def _get_algorithms(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str) -> dict[str, Callable[..., Any]]:
         """
         Get the dictionary of algorithms for a given type
         """
@@ -54,8 +55,8 @@ class PolicyPackageAlgorithms:
 
     @classmethod
     def _register(
-            cls: Type[PolicyPackageAlgorithmsT],
-            algorithm_type: str, algorithm_dict: Dict[str, Callable[..., Any]]) -> None:
+            cls: type[PolicyPackageAlgorithmsT],
+            algorithm_type: str, algorithm_dict: dict[str, Callable[..., Any]]) -> None:
         """
         Provided a dictionary of callable function,
         and the associated algorithm type,
@@ -67,14 +68,14 @@ class PolicyPackageAlgorithms:
             cls._ALGORITHMS[algorithm_type] = algorithm_dict
 
     @classmethod
-    def _supports(cls: Type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> bool:
+    def _supports(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> bool:
         """
         Check if a algorithm is supported by the plugin
         """
         return name in cls._ALGORITHMS.get(algorithm_type, {})
 
     @classmethod
-    def _register_all_policy_package_algorithms(cls: Type[PolicyPackageAlgorithmsT]) -> None:
+    def _register_all_policy_package_algorithms(cls: type[PolicyPackageAlgorithmsT]) -> None:
         '''
         Loads all the algorithms of a given type from the policy package(s) and registers them
         :param algorithm_type: the type of algorithm to register (e.g. 'surl', 'lfn2pfn')
@@ -117,7 +118,7 @@ class PolicyPackageAlgorithms:
                     cls._try_importing_policy(vo['vo'])
 
     @classmethod
-    def _try_importing_policy(cls: Type[PolicyPackageAlgorithmsT], vo: str = "") -> None:
+    def _try_importing_policy(cls: type[PolicyPackageAlgorithmsT], vo: str = "") -> None:
         try:
             # import from utils here to avoid circular import
             from rucio.common.utils import check_policy_package_version

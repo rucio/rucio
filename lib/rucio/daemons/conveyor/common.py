@@ -41,8 +41,8 @@ from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
-    from typing import Mapping, Optional
+    from collections.abc import Callable, Mapping, Sequence
+    from typing import Optional
 
     from sqlalchemy.orm import Session
 

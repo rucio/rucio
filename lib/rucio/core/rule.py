@@ -14,14 +14,14 @@
 
 import json
 import logging
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from configparser import NoOptionError, NoSectionError
 from copy import deepcopy
 from datetime import datetime, timedelta
 from os import path
 from re import match
 from string import Template
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, Union
 
 from dogpile.cache.api import NoValue
 from sqlalchemy import delete, desc, select, update
@@ -112,7 +112,7 @@ class AutoApprove(PolicyPackageAlgorithms):
         return self.get_configured_algorithm()(self.rule, self.did, self.session)
 
     @classmethod
-    def get_configured_algorithm(cls: Type[AutoApproveT]) -> Callable[[models.ReplicationRule, models.DataIdentifier, 'Session'], bool]:
+    def get_configured_algorithm(cls: type[AutoApproveT]) -> Callable[[models.ReplicationRule, models.DataIdentifier, 'Session'], bool]:
         """
         Get the configured auto-approve algorithm
         """
@@ -124,7 +124,7 @@ class AutoApprove(PolicyPackageAlgorithms):
         return super()._get_one_algorithm(cls._algorithm_type, configured_algorithm)
 
     @classmethod
-    def register(cls: Type[AutoApproveT], name: str, fn_auto_approve: Callable[[models.ReplicationRule, models.DataIdentifier, 'Session'], bool]) -> None:
+    def register(cls: type[AutoApproveT], name: str, fn_auto_approve: Callable[[models.ReplicationRule, models.DataIdentifier, 'Session'], bool]) -> None:
         """
         Register a new auto-approve algorithm
         """

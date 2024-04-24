@@ -42,7 +42,7 @@ from enum import Enum
 from functools import partial, wraps
 from io import StringIO
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Optional, TypeVar
 from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
@@ -744,14 +744,14 @@ class SurlAlgorithms(PolicyPackageAlgorithms):
         return self.get_algorithm(naming_convention)(dsn, scope, filename)
 
     @classmethod
-    def supports(cls: Type[SurlAlgorithmsT], naming_convention: str) -> bool:
+    def supports(cls: type[SurlAlgorithmsT], naming_convention: str) -> bool:
         """
         Checks whether a SURL algorithm is supported
         """
         return super()._supports(cls._algorithm_type, naming_convention)
 
     @classmethod
-    def _module_init_(cls: Type[SurlAlgorithmsT]) -> None:
+    def _module_init_(cls: type[SurlAlgorithmsT]) -> None:
         """
         Registers the included SURL algorithms
         """
@@ -760,14 +760,14 @@ class SurlAlgorithms(PolicyPackageAlgorithms):
         cls.register('BelleII', cls.construct_surl_BelleII)
 
     @classmethod
-    def get_algorithm(cls: Type[SurlAlgorithmsT], naming_convention: str) -> Callable[[str, str, str], str]:
+    def get_algorithm(cls: type[SurlAlgorithmsT], naming_convention: str) -> Callable[[str, str, str], str]:
         """
         Looks up a SURL algorithm by name
         """
         return super()._get_one_algorithm(cls._algorithm_type, naming_convention)
 
     @classmethod
-    def register(cls: Type[SurlAlgorithmsT], name: str, fn_construct_surl: Callable[[str, str, str], str]) -> None:
+    def register(cls: type[SurlAlgorithmsT], name: str, fn_construct_surl: Callable[[str, str, str], str]) -> None:
         """
         Register a new SURL algorithm
         """
@@ -944,14 +944,14 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         return self.get_algorithm(extract_scope_convention)(did, scopes)
 
     @classmethod
-    def supports(cls: Type[ScopeExtractionAlgorithmsT], extract_scope_convention: str) -> bool:
+    def supports(cls: type[ScopeExtractionAlgorithmsT], extract_scope_convention: str) -> bool:
         """
         Checks whether the specified scope extraction algorithm is supported
         """
         return super()._supports(cls._algorithm_type, extract_scope_convention)
 
     @classmethod
-    def _module_init_(cls: Type[ScopeExtractionAlgorithmsT]) -> None:
+    def _module_init_(cls: type[ScopeExtractionAlgorithmsT]) -> None:
         """
         Registers the included scope extraction algorithms
         """
@@ -960,14 +960,14 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         cls.register('dirac', cls.extract_scope_dirac)
 
     @classmethod
-    def get_algorithm(cls: Type[ScopeExtractionAlgorithmsT], extract_scope_convention: str) -> Callable[[str, Optional[Sequence[str]]], Sequence[str]]:
+    def get_algorithm(cls: type[ScopeExtractionAlgorithmsT], extract_scope_convention: str) -> Callable[[str, Optional[Sequence[str]]], Sequence[str]]:
         """
         Looks up a scope extraction algorithm by name
         """
         return super()._get_one_algorithm(cls._algorithm_type, extract_scope_convention)
 
     @classmethod
-    def register(cls: Type[ScopeExtractionAlgorithmsT], name: str, fn_extract_scope: Callable[[str, Optional[Sequence[str]]], Sequence[str]]) -> None:
+    def register(cls: type[ScopeExtractionAlgorithmsT], name: str, fn_extract_scope: Callable[[str, Optional[Sequence[str]]], Sequence[str]]) -> None:
         """
         Registers a new scope extraction algorithm
         """
