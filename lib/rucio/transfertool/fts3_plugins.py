@@ -15,8 +15,9 @@
 import json
 import logging
 import sys
+from collections.abc import Callable
 from configparser import NoSectionError
-from typing import Any, Callable, Optional, Type, TypeVar
+from typing import Any, Optional, TypeVar
 
 from rucio.common.config import config_get_int, config_get_items
 from rucio.common.exception import InvalidRequest
@@ -59,7 +60,7 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         self.set_in_hints = self._get_one_algorithm(self.ALGORITHM_NAME, name=policy_algorithm)
 
     @classmethod
-    def _module_init(cls: Type[FTS3TapeMetadataPluginType]) -> None:
+    def _module_init(cls: type[FTS3TapeMetadataPluginType]) -> None:
         cls.register(
             "activity",
             func=lambda x: cls._activity_hints(cls, x),  # type: ignore
@@ -68,7 +69,7 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         cls.register("test", func=lambda x: cls._collocation(cls, cls._test_collocation, x))  # type: ignore
 
     @classmethod
-    def register(cls: Type[FTS3TapeMetadataPluginType], name: str, func: Callable, init_func: Optional[Callable] = None) -> None:
+    def register(cls: type[FTS3TapeMetadataPluginType], name: str, func: Callable, init_func: Optional[Callable] = None) -> None:
         """
         Register a fts3 transfer plugin
 

@@ -52,7 +52,7 @@ from rucio.transfertool.transfertool import TransferStatusReport, Transfertool
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-    from typing import Any, Optional, Type
+    from typing import Any, Optional
 
     from sqlalchemy.orm import Session
 
@@ -75,7 +75,7 @@ WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, Non
 
 DEFAULT_MULTIHOP_TOMBSTONE_DELAY = int(datetime.timedelta(hours=2).total_seconds())
 
-TRANSFERTOOL_CLASSES_BY_NAME: "dict[str, Type[Transfertool]]" = {
+TRANSFERTOOL_CLASSES_BY_NAME: "dict[str, type[Transfertool]]" = {
     FTS3Transfertool.external_name: FTS3Transfertool,
     GlobusTransferTool.external_name: GlobusTransferTool,
     MockTransfertool.external_name: MockTransfertool,

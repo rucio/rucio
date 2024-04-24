@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Iterator
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
@@ -28,7 +29,7 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
-    from typing import Any, Iterator, Optional
+    from typing import Any, Optional
 
     from sqlalchemy.orm import Session
 
