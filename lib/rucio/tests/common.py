@@ -18,11 +18,12 @@ import json
 import os
 import tempfile
 from collections import namedtuple
+from collections.abc import Callable, Iterable
 from functools import wraps
 from os import rename
 from random import choice, choices
 from string import ascii_letters, ascii_uppercase, digits
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Optional
 
 import pytest
 import requests

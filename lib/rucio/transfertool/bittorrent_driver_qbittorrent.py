@@ -29,8 +29,6 @@ from rucio.transfertool.transfertool import TransferStatusReport
 from .bittorrent_driver import BittorrentDriver
 
 if TYPE_CHECKING:
-    from typing import Type
-
     from sqlalchemy.orm import Session
 
     from rucio.core.rse import RseData
@@ -69,7 +67,7 @@ class QBittorrentDriver(BittorrentDriver):
     required_rse_attrs = ('qbittorrent_management_address', )
 
     @classmethod
-    def make_driver(cls: "Type[QBittorrentDriver]", rse: "RseData", logger: types.LoggerFunction = logging.log) -> "Optional[BittorrentDriver]":
+    def make_driver(cls: "type[QBittorrentDriver]", rse: "RseData", logger: types.LoggerFunction = logging.log) -> "Optional[BittorrentDriver]":
 
         address = rse.attributes.get('qbittorrent_management_address')
         if not address:

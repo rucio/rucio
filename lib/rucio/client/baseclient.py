@@ -22,12 +22,13 @@ import os
 import secrets
 import sys
 import time
+from collections.abc import Generator
 from configparser import NoOptionError, NoSectionError
 from logging import Logger
 from os import environ, fdopen, geteuid, makedirs, path
 from shutil import move
 from tempfile import mkstemp
-from typing import Any, Generator, Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import requests
