@@ -12,10 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING, Optional, TypeVar
+
 from sqlalchemy.sql.expression import bindparam, text
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+    from sqlalchemy.orm.query import RowReturningQuery
+    from sqlalchemy.sql.selectable import Select
 
-def filter_thread_work(session, query, total_threads, thread_id, hash_variable=None):
+    Q = TypeVar('Q', RowReturningQuery, Select)
+
+
+def filter_thread_work(
+        session: "Session",
+        query: "Q",
+        total_threads: Optional[int],
+        thread_id: Optional[int],
+        hash_variable: Optional[str] = None
+) -> "Q":
     """ Filters a query to partition thread workloads based on the thread id and total number of threads """
     if thread_id is not None and total_threads is not None and (total_threads - 1) > 0:
         if session.bind.dialect.name == 'oracle':
