@@ -57,6 +57,7 @@ exclude = [
 select = [
     "I", # isort
     "S", # bandit
+    "TCH", # flake8-type-checking
     "UP", # pyupgrade
     "TID", # flake8-tidy-imports
 ]
@@ -145,3 +146,8 @@ known-first-party = ["rucio"]
 'lib/rucio/db/sqla/migrate_repo/versions/*.py' = [
     'S608'  # Hardcoded SQL expression
 ]
+
+[tool.ruff.lint.flake8-type-checking]
+# Add quotes around type annotations, if doing so would allow
+# an import to be moved into a type-checking block.
+quote-annotations = true
