@@ -43,6 +43,7 @@ exclude = [
 select = [
     "I", # isort
     "S", # bandit
+    "TCH", # flake8-type-checking
     "UP", # pyupgrade
     "TID", # flake8-tidy-imports
 ]
@@ -114,20 +115,7 @@ known-first-party = ["rucio"]
 "typing.Type".msg = "Use built-in `type` instead."
 "typing.ValuesView".msg = "Use `collections.abc.ValuesView` instead."
 
-[tool.ruff.lint.per-file-ignores]
-'tests/*.py' = [
-    'S101', # Usage of assert
-    'S105', # Hardcoded password string
-    'S106', # Hardcoded password function argument
-    'S108', # Hardcoded temporary file
-    'S110', # try-except-pass
-    'S113', # Probable use of requests call without timeout
-    'S306', # Use of insecure and deprecated function
-    'S311', # Non-cryptographic random usage
-    'S324', # Probable use of insecure hash function
-    'S605', # Starting a process with a shell
-]
-
-'lib/rucio/db/sqla/migrate_repo/versions/*.py' = [
-    'S608'  # Hardcoded SQL expression
-]
+[tool.ruff.lint.flake8-type-checking]
+# Add quotes around type annotations, if doing so would allow
+# an import to be moved into a type-checking block.
+quote-annotations = true
