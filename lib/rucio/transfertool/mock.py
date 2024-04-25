@@ -15,14 +15,13 @@
 import itertools
 import logging
 import uuid
-from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.db.sqla.constants import RequestState
 from rucio.transfertool.transfertool import TransferStatusReport, Transfertool, TransferToolBuilder
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Iterable, Mapping, Sequence
 
     from rucio.common.types import LoggerFunction
     from rucio.core.request import DirectTransfer
@@ -83,7 +82,7 @@ class MockTransfertool(Transfertool):
                 response.setdefault(transfer_id, {})[request_id] = MockTransferStatusReport(request_id, transfer_id)
         return response
 
-    def cancel(self, transfer_ids: Sequence[str], timeout: Optional[int] = None) -> bool:
+    def cancel(self, transfer_ids: 'Sequence[str]', timeout: Optional[int] = None) -> bool:
         return True
 
     def update_priority(self, transfer_id: str, priority: int, timeout: Optional[int] = None) -> bool:

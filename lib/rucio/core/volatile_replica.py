@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -26,11 +25,13 @@ from rucio.db.sqla.constants import ReplicaState
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from sqlalchemy.orm import Session
 
 
 @transactional_session
-def add_volatile_replicas(rse_id: str, replicas: Iterable[dict[str, Any]], *, session: "Session") -> None:
+def add_volatile_replicas(rse_id: str, replicas: "Iterable[dict[str, Any]]", *, session: "Session") -> None:
     """
     Bulk add volatile replicas.
 
@@ -112,7 +113,7 @@ def add_volatile_replicas(rse_id: str, replicas: Iterable[dict[str, Any]], *, se
 
 
 @transactional_session
-def delete_volatile_replicas(rse_id: str, replicas: Iterable[dict[str, Any]], *, session: "Session") -> None:
+def delete_volatile_replicas(rse_id: str, replicas: "Iterable[dict[str, Any]]", *, session: "Session") -> None:
     """
     Bulk delete volatile replicas.
 

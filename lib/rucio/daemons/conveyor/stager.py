@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
     from rucio.common.types import RSESettingsDict
 
+
 METRICS = MetricManager(module=__name__)
 GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'conveyor-stager'

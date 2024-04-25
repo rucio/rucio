@@ -17,7 +17,6 @@ import itertools
 import logging
 import threading
 import weakref
-from collections.abc import Callable, Iterable, Iterator
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union, cast
 
@@ -38,6 +37,7 @@ TE = TypeVar("TE", bound="Edge")
 ExpiringObjectCacheNewObject = TypeVar("ExpiringObjectCacheNewObject")
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Iterator
     from typing import Protocol
 
     from sqlalchemy.orm import Session
@@ -123,7 +123,7 @@ class Topology(RseCollection, Generic[TN, TE]):
     """
     def __init__(
             self,
-            rse_ids: Optional[Iterable[str]] = None,
+            rse_ids: Optional["Iterable[str]"] = None,
             ignore_availability: bool = False,
             node_cls: type[TN] = Node,
             edge_cls: type[TE] = Edge,
@@ -284,7 +284,7 @@ class Topology(RseCollection, Generic[TN, TE]):
     @read_session
     def search_shortest_paths(
             self,
-            src_nodes: Iterable[TN],
+            src_nodes: "Iterable[TN]",
             dst_node: TN,
             operation_src: str,
             operation_dest: str,
@@ -433,7 +433,7 @@ class ExpiringObjectCache(Generic[ExpiringObjectCacheNewObject]):
     def __init__(
             self,
             ttl: int,
-            new_obj_fnc: Callable[[], ExpiringObjectCacheNewObject]
+            new_obj_fnc: "Callable[[], ExpiringObjectCacheNewObject]"
     ):
         self._lock = threading.Lock()
         self._object: Optional[ExpiringObjectCacheNewObject] = None

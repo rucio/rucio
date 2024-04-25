@@ -23,7 +23,6 @@ import logging
 import re
 import threading
 import time
-from collections.abc import Mapping, Sequence
 from itertools import groupby
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -44,12 +43,13 @@ from rucio.core.topology import ExpiringObjectCache, Topology
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
 from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, RequestState, RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
-from rucio.transfertool.transfertool import Transfertool
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
     from types import FrameType
 
     from rucio.daemons.common import HeartbeatHandler
+    from rucio.transfertool.transfertool import Transfertool
 
 GRACEFUL_STOP = threading.Event()
 METRICS = MetricManager(module=__name__)
@@ -62,7 +62,7 @@ FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)
 def _fetch_requests(
         db_bulk: int,
         older_than: int,
-        activity_shares: Optional[Mapping[str, float]],
+        activity_shares: Optional['Mapping[str, float]'],
         transfertool: Optional[str],
         filter_transfertool: Optional[str],
         cached_topology: Optional[ExpiringObjectCache],
@@ -161,12 +161,12 @@ def _handle_requests(
 
 def poller(
         once: bool = False,
-        activities: Optional[Sequence[str]] = None,
+        activities: Optional['Sequence[str]'] = None,
         sleep_time: int = 60,
         fts_bulk: int = 100,
         db_bulk: int = 1000,
         older_than: int = 60,
-        activity_shares: Optional[Mapping[str, float]] = None,
+        activity_shares: Optional['Mapping[str, float]'] = None,
         partition_wait_time: int = 10,
         transfertool: Optional[str] = TRANSFER_TOOL,
         filter_transfertool: Optional[str] = FILTER_TRANSFERTOOL,
@@ -251,7 +251,7 @@ def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> N
 def run(
         once: bool = False,
         sleep_time: int = 60,
-        activities: Optional[Sequence[str]] = None,
+        activities: Optional['Sequence[str]'] = None,
         fts_bulk: int = 100,
         db_bulk: int = 1000,
         older_than: int = 60,
@@ -301,8 +301,8 @@ def run(
 
 
 def poll_transfers(
-        transfertool_obj: Transfertool,
-        transfers_by_eid: Mapping[str, Mapping[str, Any]],
+        transfertool_obj: 'Transfertool',
+        transfers_by_eid: 'Mapping[str, Mapping[str, Any]]',
         transfer_stats_manager: request_core.TransferStatsManager,
         timeout: "Optional[int]" = None,
         logger: "LoggerFunction" = logging.log
@@ -328,8 +328,8 @@ def poll_transfers(
 
 
 def _poll_transfers(
-        transfertool_obj: Transfertool,
-        transfers_by_eid: Mapping[str, Mapping[str, Any]],
+        transfertool_obj: 'Transfertool',
+        transfers_by_eid: 'Mapping[str, Mapping[str, Any]]',
         transfer_stats_manager: request_core.TransferStatsManager,
         timeout: "Optional[int]" = None,
         logger: "LoggerFunction" = logging.log

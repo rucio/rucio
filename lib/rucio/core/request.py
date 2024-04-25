@@ -20,10 +20,8 @@ import math
 import random
 import threading
 import traceback
-import uuid
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict, namedtuple
-from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -51,6 +49,8 @@ from rucio.db.sqla.util import temp_table_mngr
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
+    import uuid
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
 
     from sqlalchemy.engine import Row
     from sqlalchemy.orm import Session
@@ -298,7 +298,7 @@ def requeue_and_archive(
 @METRICS.count_it
 @transactional_session
 def queue_requests(
-    requests: Iterable[RequestDict],
+    requests: 'Iterable[RequestDict]',
     *,
     session: "Session",
     logger: LoggerFunction = logging.log
@@ -457,7 +457,7 @@ def list_and_mark_transfer_requests_and_source_replicas(
         limit: Optional[int] = None,
         activity: Optional[str] = None,
         older_than: Optional[datetime.datetime] = None,
-        rses: Optional[Sequence[str]] = None,
+        rses: Optional['Sequence[str]'] = None,
         request_type: Optional[list[RequestType]] = None,
         request_state: Optional[RequestState] = None,
         required_source_rse_attrs: Optional[list[str]] = None,
@@ -1035,7 +1035,7 @@ def transition_request_state(
 @METRICS.count_it
 @transactional_session
 def transition_requests_state_if_possible(
-    request_ids: Iterable[str],
+    request_ids: 'Iterable[str]',
     new_state: str,
     *,
     session: "Session",
@@ -1942,7 +1942,7 @@ class TransferStatsManager:
             resolution: datetime.timedelta,
             start_time: "Optional[datetime.datetime]" = None,
             end_time: "Optional[datetime.datetime]" = None
-    ) -> Iterator[tuple[datetime.datetime, datetime.datetime]]:
+    ) -> 'Iterator[tuple[datetime.datetime, datetime.datetime]]':
         """
         Iterates, back in time, over time intervals of length `resolution` which are fully
         included within the input interval (start_time, end_time).
@@ -2065,17 +2065,18 @@ def get_request_stats(
         activity: Optional[str] = None,
         *,
         session: "Session"
-) -> Sequence[
-    """Row[tuple[
-              Optional[InternalAccount],
-              RequestState,
-              uuid.UUID,
-              Optional[uuid.UUID],
-              Optional[str],
-              int,
-              Optional[int]
-    ]]"""
-]:
+) -> """Sequence[
+            Row[tuple[
+                Optional[InternalAccount],
+                RequestState,
+                uuid.UUID,
+                Optional[uuid.UUID],
+                Optional[str],
+                int,
+                Optional[int]
+                ]
+            ]
+]""":
     """
     Retrieve statistics about requests by destination, activity and state.
     """
@@ -2521,7 +2522,7 @@ def release_all_waiting_requests(
 def list_transfer_limits(
         *,
         session: "Session",
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     stmt = select(
         models.TransferLimit
     )
@@ -2531,7 +2532,7 @@ def list_transfer_limits(
 
 
 def _sync_rse_transfer_limit(
-        limit_id: Union[str, uuid.UUID],
+        limit_id: Union[str, 'uuid.UUID'],
         desired_rse_ids: set[str],
         *,
         session: "Session",
@@ -2609,7 +2610,7 @@ def set_transfer_limit(
         waitings: Optional[int] = None,
         *,
         session: "Session",
-) -> uuid.UUID:
+) -> 'uuid.UUID':
     """
     Create or update a transfer limit
 
@@ -2991,12 +2992,12 @@ def get_source_rse(
 
 @stream_session
 def list_requests(
-    src_rse_ids: Sequence[str],
-    dst_rse_ids: Sequence[str],
-    states: Optional[Sequence[RequestState]] = None,
+    src_rse_ids: 'Sequence[str]',
+    dst_rse_ids: 'Sequence[str]',
+    states: Optional['Sequence[RequestState]'] = None,
     *,
     session: "Session"
-) -> Iterator[models.Request]:
+) -> 'Iterator[models.Request]':
     """
     List all requests in a specific state from a source RSE to a destination RSE.
 
@@ -3021,14 +3022,14 @@ def list_requests(
 
 @stream_session
 def list_requests_history(
-    src_rse_ids: Sequence[str],
-    dst_rse_ids: Sequence[str],
-    states: Optional[Sequence[RequestState]] = None,
+    src_rse_ids: 'Sequence[str]',
+    dst_rse_ids: 'Sequence[str]',
+    states: Optional['Sequence[RequestState]'] = None,
     offset: Optional[int] = None,
     limit: Optional[int] = None,
     *,
     session: "Session"
-) -> Iterator[models.RequestHistory]:
+) -> 'Iterator[models.RequestHistory]':
     """
     List all historical requests in a specific state from a source RSE to a destination RSE.
 

@@ -36,7 +36,6 @@ from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from sqlalchemy import delete, select, update
 from sqlalchemy.sql.expression import true
 
-from rucio.common import types
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import CannotAuthenticate, CannotAuthorize, RucioException
@@ -51,6 +50,8 @@ from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+    from rucio.common.types import InternalAccount
 
 # The WLCG Common JWT Profile dictates that the lifetime of access and ID tokens
 # should range from five minutes to six hours.
@@ -643,7 +644,7 @@ def get_token_oidc(
 
 
 @transactional_session
-def __get_admin_token_oidc(account: types.InternalAccount, req_scope, req_audience, issuer, *, session: "Session"):
+def __get_admin_token_oidc(account: 'InternalAccount', req_scope, req_audience, issuer, *, session: "Session"):
     """
     Get a token for Rucio application to act on behalf of itself.
     client_credential flow is used for this purpose.

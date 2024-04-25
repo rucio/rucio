@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-from collections.abc import Iterable, Iterator
 from datetime import datetime
 from io import StringIO
 from re import match
@@ -38,6 +37,8 @@ from rucio.db.sqla.session import read_session, stream_session, transactional_se
 from rucio.db.sqla.util import temp_table_mngr
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
     from sqlalchemy.orm import Session
 
 T = TypeVar('T', bound="RseData")
@@ -300,7 +301,7 @@ class RseCollection(Generic[T]):
     Container which keeps track of information loaded from the database for a group of RSEs.
     """
 
-    def __init__(self, rse_ids: Optional[Iterable[str]] = None, rse_data_cls: type[T] = RseData):
+    def __init__(self, rse_ids: Optional['Iterable[str]'] = None, rse_data_cls: type[T] = RseData):
         self._rse_data_cls = rse_data_cls
         self.rse_id_to_data_map: dict[str, T] = {}
         if rse_ids is not None:
@@ -359,7 +360,7 @@ class RseCollection(Generic[T]):
 
 
 @stream_session
-def _group_query_result_by_rse_id(stmt, *, session: "Session") -> Iterator[tuple[str, list[Any]]]:
+def _group_query_result_by_rse_id(stmt, *, session: "Session") -> 'Iterator[tuple[str, list[Any]]]':
     """
     Given a sqlalchemy query statement which fetches rows of two elements: (rse_id, object) ordered by rse_id.
     Will execute the query and return objects grouped by rse_id: (rse_id, [object1, object2])
@@ -833,10 +834,10 @@ def list_rse_attributes(rse_id: str, use_cache: bool = False, *, session: "Sessi
 @stream_session
 def _fetch_many_rses_attributes(
         rse_id_temp_table,
-        keys: Optional[Iterable[str]] = None,
+        keys: Optional['Iterable[str]'] = None,
         *,
         session: "Session"
-) -> Iterator[tuple[str, dict[str, Any]]]:
+) -> 'Iterator[tuple[str, dict[str, Any]]]':
     """
     Given a temporary table pre-filled with RSE IDs, fetch the attributes of these RSEs.
     It's possible to only fetch a subset of attributes by setting the `keys` parameter.
@@ -1077,7 +1078,7 @@ def get_rse_usage(rse_id, source=None, per_account=False, *, session: "Session")
 
 def _format_get_rse_usage(
         rse_id: str,
-        db_usages: Iterable[models.RSEUsage],
+        db_usages: 'Iterable[models.RSEUsage]',
         per_account: bool,
         *,
         session: "Session"
@@ -1369,7 +1370,7 @@ def get_rse_protocols(rse_id, schemes=None, *, session: "Session") -> types.RSES
 
 def _format_get_rse_protocols(
         rse: "models.RSE | dict[str, Any]",
-        db_protocols: Iterable[models.RSEProtocol],
+        db_protocols: 'Iterable[models.RSEProtocol]',
         rse_attributes: Optional[dict[str, Any]] = None,
         *,
         session: "Session"
@@ -1851,8 +1852,8 @@ def determine_audience_for_rse(rse_id: str) -> str:
 
 def determine_scope_for_rse(
     rse_id: str,
-    scopes: Iterable[str],
-    extra_scopes: Optional[Iterable[str]] = None,
+    scopes: 'Iterable[str]',
+    extra_scopes: Optional['Iterable[str]'] = None,
 ) -> str:
     """Construct the Scope claim for an RSE."""
     if extra_scopes is None:

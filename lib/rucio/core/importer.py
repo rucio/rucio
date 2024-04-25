@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
@@ -30,6 +29,8 @@ from rucio.db.sqla.constants import AccountType, IdentityType, RSEType
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from sqlalchemy.orm import Session
 
 
@@ -162,7 +163,7 @@ def import_distances(distances, vo: str = 'def', *, session: "Session") -> None:
 
 
 @transactional_session
-def import_identities(identities: Iterable[dict[str, Any]], account_name: str, old_identities: Iterable[tuple], old_identity_account: tuple[str, str, str], account_email: str, *, session: "Session") -> None:
+def import_identities(identities: 'Iterable[dict[str, Any]]', account_name: str, old_identities: 'Iterable[tuple]', old_identity_account: tuple[str, str, str], account_email: str, *, session: "Session") -> None:
     for identity in identities:
         identity['type'] = IdentityType[identity['type'].upper()]
 
@@ -191,7 +192,7 @@ def import_identities(identities: Iterable[dict[str, Any]], account_name: str, o
 
 
 @transactional_session
-def import_accounts(accounts: Iterable[dict[str, Any]], vo: str = 'def', *, session: "Session") -> None:
+def import_accounts(accounts: 'Iterable[dict[str, Any]]', vo: str = 'def', *, session: "Session") -> None:
     vo_filter = {'account': InternalAccount(account='*', vo=vo)}
     old_accounts = {account['account']: account for account in account_module.list_accounts(filter_=vo_filter, session=session)}
     missing_accounts = [account for account in accounts if account['account'] not in old_accounts]

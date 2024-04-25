@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import logging
-from collections.abc import Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -26,29 +25,32 @@ import rucio.core.replica
 from rucio.common.config import config_get_int
 from rucio.common.constants import RseAttr
 from rucio.common.exception import InsufficientTargetRSEs
-from rucio.common.types import InternalScope
 from rucio.core import account_counter, rse_counter
 from rucio.core import request as request_core
 from rucio.core.rse import get_rse, get_rse_attribute, get_rse_name
-from rucio.core.rse_selector import RSESelector
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import OBSOLETE, DIDType, LockState, ReplicaState, RequestType, RuleGrouping
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from sqlalchemy.orm import Session
+
+    from rucio.common.types import InternalScope
+    from rucio.core.rse_selector import RSESelector
 
 
 @transactional_session
 def apply_rule_grouping(
-    datasetfiles: Sequence[dict[str, Any]],
-    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
-    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
-    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
-    rseselector: RSESelector,
+    datasetfiles: "Sequence[dict[str, Any]]",
+    locks: dict[tuple["InternalScope", str], "Sequence[models.ReplicaLock]"],
+    replicas: dict[tuple["InternalScope", str], "Sequence[models.CollectionReplica]"],
+    source_replicas: dict[tuple["InternalScope", str], "Sequence[models.CollectionReplica]"],
+    rseselector: "RSESelector",
     rule: models.ReplicationRule,
-    preferred_rse_ids: Optional[Sequence[str]] = None,
-    source_rses: Optional[Sequence[str]] = None,
+    preferred_rse_ids: Optional["Sequence[str]"] = None,
+    source_rses: Optional["Sequence[str]"] = None,
     *,
     session: "Session"
 ) -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
@@ -116,12 +118,12 @@ def apply_rule_grouping(
 
 @transactional_session
 def repair_stuck_locks_and_apply_rule_grouping(
-    datasetfiles: Sequence[dict[str, Any]],
-    locks: dict[tuple[InternalScope, str], models.ReplicaLock],
-    replicas: dict[tuple[InternalScope, str], Any],
-    source_replicas: dict[tuple[InternalScope, str], Any],
-    rseselector: RSESelector, rule: models.ReplicationRule,
-    source_rses: Sequence[str],
+    datasetfiles: "Sequence[dict[str, Any]]",
+    locks: dict[tuple["InternalScope", str], models.ReplicaLock],
+    replicas: dict[tuple["InternalScope", str], Any],
+    source_replicas: dict[tuple["InternalScope", str], Any],
+    rseselector: "RSESelector", rule: models.ReplicationRule,
+    source_rses: "Sequence[str]",
     *,
     session: "Session"
 ) -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
@@ -228,14 +230,14 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None
 
 @transactional_session
 def __apply_rule_to_files_none_grouping(
-    datasetfiles: Sequence[dict[str, Any]],
-    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
-    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
-    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
-    rseselector: RSESelector,
+    datasetfiles: "Sequence[dict[str, Any]]",
+    locks: dict[tuple["InternalScope", str], "Sequence[models.ReplicaLock]"],
+    replicas: dict[tuple["InternalScope", str], "Sequence[models.CollectionReplica]"],
+    source_replicas: dict[tuple["InternalScope", str], "Sequence[models.CollectionReplica]"],
+    rseselector: "RSESelector",
     rule: models.ReplicationRule,
-    preferred_rse_ids: Optional[Sequence[str]] = None,
-    source_rses: Optional[Sequence[str]] = None,
+    preferred_rse_ids: Optional["Sequence[str]"] = None,
+    source_rses: Optional["Sequence[str]"] = None,
     *,
     session: "Session"
 ) -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
@@ -329,14 +331,14 @@ def __apply_rule_to_files_none_grouping(
 
 @transactional_session
 def __apply_rule_to_files_all_grouping(
-    datasetfiles: Sequence[dict[str, Any]],
-    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
-    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
-    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
-    rseselector: RSESelector,
+    datasetfiles: "Sequence[dict[str, Any]]",
+    locks: dict[tuple["InternalScope", str], "Sequence[models.ReplicaLock]"],
+    replicas: dict[tuple["InternalScope", str], "Sequence[models.CollectionReplica]"],
+    source_replicas: dict[tuple["InternalScope", str], "Sequence[models.CollectionReplica]"],
+    rseselector: "RSESelector",
     rule: models.ReplicationRule,
-    preferred_rse_ids: Optional[Sequence[str]] = None,
-    source_rses: Optional[Sequence[str]] = None,
+    preferred_rse_ids: Optional["Sequence[str]"] = None,
+    source_rses: Optional["Sequence[str]"] = None,
     *,
     session: "Session"
 ) -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],
@@ -480,14 +482,14 @@ def __apply_rule_to_files_all_grouping(
 
 @transactional_session
 def __apply_rule_to_files_dataset_grouping(
-    datasetfiles: Sequence[dict[str, Any]],
-    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
-    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
-    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
-    rseselector: RSESelector,
+    datasetfiles: "Sequence[dict[str, Any]]",
+    locks: dict[tuple["InternalScope", str], "Sequence[models.ReplicaLock]"],
+    replicas: dict[tuple["InternalScope", str], "Sequence[models.CollectionReplica]"],
+    source_replicas: dict[tuple["InternalScope", str], "Sequence[models.CollectionReplica]"],
+    rseselector: "RSESelector",
     rule: models.ReplicationRule,
-    preferred_rse_ids: Optional[Sequence[str]] = None,
-    source_rses: Optional[Sequence[str]] = None,
+    preferred_rse_ids: Optional["Sequence[str]"] = None,
+    source_rses: Optional["Sequence[str]"] = None,
     *,
     session: "Session"
 ) -> tuple[dict[str, list[dict[str, models.RSEFileAssociation]]],

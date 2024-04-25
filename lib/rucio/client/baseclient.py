@@ -22,13 +22,11 @@ import os
 import secrets
 import sys
 import time
-from collections.abc import Generator
 from configparser import NoOptionError, NoSectionError
-from logging import Logger
 from os import environ, fdopen, geteuid, makedirs, path
 from shutil import move
 from tempfile import mkstemp
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -43,6 +41,10 @@ from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, ConfigNotFound, MissingClientParameter, MissingModuleException, NoAuthInformation, ServerConnectionException
 from rucio.common.extra import import_extras
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, setup_logger, ssh_sign
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from logging import Logger
 
 EXTRA_MODULES = import_extras(['requests_kerberos'])
 
@@ -90,7 +92,7 @@ class BaseClient:
                  timeout: Optional[int] = 600,
                  user_agent: Optional[str] = 'rucio-clients',
                  vo: Optional[str] = None,
-                 logger: Logger = LOG) -> None:
+                 logger: 'Logger' = LOG) -> None:
         """
         Constructor of the BaseClient.
         :param rucio_host: The address of the rucio server, if None it is read from the config file.
@@ -364,7 +366,7 @@ class BaseClient:
         else:
             return exception.RucioException, "%s: %s" % (exc_cls, exc_msg)
 
-    def _load_json_data(self, response: requests.Response) -> Generator[Any, Any, Any]:
+    def _load_json_data(self, response: requests.Response) -> 'Generator[Any, Any, Any]':
         """
         Helper method to correctly load json data based on the content type of the http response.
 

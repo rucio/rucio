@@ -12,12 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterable, Sequence
 from random import shuffle, uniform
 from typing import TYPE_CHECKING, Optional
 
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, InvalidRuleWeight, RSEOverQuota
-from rucio.common.types import InternalAccount
 from rucio.core.account import get_all_rse_usages_per_account, get_usage, has_account_attribute
 from rucio.core.account_limit import get_global_account_limits, get_local_account_limit
 from rucio.core.rse import get_rse_limits, has_rse_attribute, list_rse_attributes
@@ -26,7 +24,11 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla.session import read_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
     from sqlalchemy.orm import Session
+
+    from rucio.common.types import InternalAccount
 
 
 class RSESelector:
@@ -138,9 +140,9 @@ class RSESelector:
     def select_rse(
         self,
         size: int,
-        preferred_rse_ids: Iterable[str],
+        preferred_rse_ids: "Iterable[str]",
         copies: int = 0,
-        blocklist: Optional[Sequence[str]] = None,
+        blocklist: Optional["Sequence[str]"] = None,
         prioritize_order_over_weight: bool = False,
         existing_rse_size: Optional[dict[str, int]] = None
     ) -> list[tuple[str, bool, bool]]:
@@ -258,13 +260,13 @@ class RSESelector:
 @read_session
 def resolve_rse_expression(
     rse_expression: str,
-    account: InternalAccount,
+    account: "InternalAccount",
     weight: Optional[int] = None,
     copies: int = 1,
     ignore_account_limit: bool = False,
     size: int = 0,
-    preferred_rses: Optional[Iterable[str]] = None,
-    blocklist: Optional[Sequence[str]] = None,
+    preferred_rses: Optional["Iterable[str]"] = None,
+    blocklist: Optional["Sequence[str]"] = None,
     prioritize_order_over_weight: bool = False,
     existing_rse_size: Optional[dict[str, int]] = None,
     *,

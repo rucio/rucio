@@ -15,8 +15,8 @@
 import copy
 import logging
 import random
-from collections.abc import Callable
 from time import sleep
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from rucio.common import constants, exception, types, utils
@@ -26,8 +26,11 @@ from rucio.common.constraints import STRING_TYPES
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, make_valid_did
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
-def get_scope_protocol(vo: str = 'def') -> Callable:
+
+def get_scope_protocol(vo: str = 'def') -> 'Callable':
     """
         Returns the callable protocol to translate the pfn to a name/scope pair
 

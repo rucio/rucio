@@ -20,7 +20,6 @@ import queue
 import socket
 import threading
 import time
-from collections.abc import Callable, Generator, Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
 
 from rucio.common.logging import formatted_logger
@@ -29,6 +28,8 @@ from rucio.core import heartbeat as heartbeat_core
 from rucio.core.monitor import MetricManager
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Iterator, Sequence
+
     from rucio.common.types import LoggerFunction
 
 T = TypeVar('T')
@@ -85,7 +86,7 @@ class HeartbeatHandler:
             self,
             force_renew: bool = False,
             payload: Optional[str] = None
-    ) -> tuple[int, int, Callable]:
+    ) -> tuple[int, int, 'Callable']:
         """
         :return: a tuple: <the number of the current worker>, <total number of workers>, <decorated logger>
         """
@@ -115,9 +116,9 @@ class HeartbeatHandler:
 def _activity_looper(
         once: bool,
         sleep_time: int,
-        activities: Optional[Sequence[str]],
+        activities: Optional['Sequence[str]'],
         heartbeat_handler: HeartbeatHandler,
-) -> Generator[tuple[str, float], tuple[float, bool], None]:
+) -> 'Generator[tuple[str, float], tuple[float, bool], None]':
     """
     Generator which loops (either once, or indefinitely) over all activities while ensuring that `sleep_time`
     passes between handling twice the same activity.
@@ -176,19 +177,8 @@ def db_workqueue(
         executable: str,
         partition_wait_time: int,
         sleep_time: int,
-        activities: Optional[Sequence[str]] = None,
-) -> Callable[
-    [
-        Callable[
-            ...,
-            Union[bool, tuple[bool, T], None]
-        ]
-    ],
-    Callable[
-        [],
-        Iterator[Union[T, None]]
-    ]
-]:
+        activities: Optional['Sequence[str]'] = None,
+) -> 'Callable[[Callable[..., Union[bool, tuple[bool, T], None]]], Callable[[], Iterator[Union[T, None]]]]':
     """
     Used to wrap a function for interacting with the database as a work queue: i.e. to select
     a set of rows and perform some work on those rows while ensuring that two instances running in parallel don't
@@ -203,10 +193,10 @@ def db_workqueue(
     :param activities: optional list of activities on which to work. The run_once_fnc will be called on activities one by one.
     """
 
-    def _decorate(run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, T]]]]) -> Callable[[], Iterator[Optional[T]]]:
+    def _decorate(run_once_fnc: 'Callable[..., Optional[Union[bool, tuple[bool, T]]]]') -> 'Callable[[], Iterator[Optional[T]]]':
 
         @functools.wraps(run_once_fnc)
-        def _generator() -> Iterator[T]:
+        def _generator() -> 'Iterator[T]':
 
             with HeartbeatHandler(executable=executable, renewal_interval=sleep_time - 1) as heartbeat_handler:
                 logger = heartbeat_handler.logger
@@ -270,7 +260,7 @@ def run_daemon(
         executable: str,
         partition_wait_time: int,
         sleep_time: int,
-        run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, Any]]]],
+        run_once_fnc: 'Callable[..., Optional[Union[bool, tuple[bool, Any]]]]',
         activities: Optional[list[str]] = None
 ) -> None:
     """
@@ -297,8 +287,8 @@ class ProducerConsumerDaemon(Generic[T]):
 
     def __init__(
             self,
-            producers: Sequence[Callable[[], Iterator[T]]],
-            consumers: Sequence[Callable[..., None]],
+            producers: 'Sequence[Callable[[], Iterator[T]]]',
+            consumers: 'Sequence[Callable[..., None]]',
             graceful_stop: threading.Event,
             logger: "LoggerFunction" = logging.log
     ):
@@ -314,7 +304,7 @@ class ProducerConsumerDaemon(Generic[T]):
 
     def _produce(
             self,
-            it: Callable[[], Iterator[T]],
+            it: 'Callable[[], Iterator[T]]',
             wait_for_consumers: bool = False
     ) -> None:
         """
@@ -351,7 +341,7 @@ class ProducerConsumerDaemon(Generic[T]):
 
     def _consume(
             self,
-            fnc: Callable[[T], Any]
+            fnc: 'Callable[[T], Any]'
     ) -> None:
         """
         Wait for elements to arrive via the queue and call the given function on each element.
