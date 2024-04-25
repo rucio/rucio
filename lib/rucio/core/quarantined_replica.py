@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import datetime
-from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import and_, or_
@@ -24,6 +23,8 @@ from rucio.db.sqla import filter_thread_work, models
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from sqlalchemy.orm import Session
 
 
@@ -77,7 +78,7 @@ def add_quarantined_replicas(rse_id: str, replicas: list[dict[str, Any]], *, ses
 
 
 @transactional_session
-def delete_quarantined_replicas(rse_id: str, replicas: Iterable[dict[str, Any]], *, session: "Session") -> None:
+def delete_quarantined_replicas(rse_id: str, replicas: "Iterable[dict[str, Any]]", *, session: "Session") -> None:
     """
     Delete file replicas.
 

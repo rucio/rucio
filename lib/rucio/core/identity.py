@@ -21,7 +21,6 @@ from sqlalchemy import select, true
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common import exception
-from rucio.common.types import InternalAccount
 from rucio.core.account import account_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
@@ -32,6 +31,8 @@ if TYPE_CHECKING:
 
     from sqlalchemy import Row
     from sqlalchemy.orm import Session
+
+    from rucio.common.types import InternalAccount
 
 
 @transactional_session
@@ -129,7 +130,7 @@ def del_identity(identity: str, type_: IdentityType, *, session: "Session") -> N
 def add_account_identity(
     identity: str,
     type_: IdentityType,
-    account: InternalAccount,
+    account: "InternalAccount",
     email: str,
     default: bool = False,
     password: Optional[str] = None,
@@ -177,7 +178,7 @@ def add_account_identity(
 
 
 @read_session
-def exist_identity_account(identity: str, type_: IdentityType, account: InternalAccount, *, session: "Session") -> bool:
+def exist_identity_account(identity: str, type_: IdentityType, account: "InternalAccount", *, session: "Session") -> bool:
     """
     Check if an identity is mapped to an account.
 
@@ -199,7 +200,7 @@ def exist_identity_account(identity: str, type_: IdentityType, account: Internal
 
 
 @read_session
-def get_default_account(identity: str, type_: IdentityType, oldest_if_none: bool = False, *, session: "Session") -> Optional[InternalAccount]:
+def get_default_account(identity: str, type_: IdentityType, oldest_if_none: bool = False, *, session: "Session") -> Optional["InternalAccount"]:
     """
     Retrieves the default account mapped to an identity.
 
@@ -240,7 +241,7 @@ def get_default_account(identity: str, type_: IdentityType, oldest_if_none: bool
 
 
 @transactional_session
-def del_account_identity(identity: str, type_: IdentityType, account: InternalAccount, *, session: "Session") -> None:
+def del_account_identity(identity: str, type_: IdentityType, account: "InternalAccount", *, session: "Session") -> None:
     """
     Removes a membership association between identity and account.
 

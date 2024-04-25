@@ -18,12 +18,11 @@ import json
 import os
 import tempfile
 from collections import namedtuple
-from collections.abc import Callable, Iterable
 from functools import wraps
 from os import rename
 from random import choice, choices
 from string import ascii_letters, ascii_uppercase, digits
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import pytest
 import requests
@@ -31,6 +30,9 @@ import requests
 from rucio.common.config import config_get, config_get_bool, get_config_dirs
 from rucio.common.utils import execute
 from rucio.common.utils import generate_uuid as uuid
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
 
 skip_rse_tests_with_accounts = pytest.mark.skipif(not any(os.path.exists(os.path.join(d, 'rse-accounts.cfg')) for d in get_config_dirs()),
                                                   reason='fails if no rse-accounts.cfg found')
@@ -202,7 +204,7 @@ def print_response(rest_response):
     print(text if text else '<no content>')
 
 
-def headers(*iterables: Iterable):
+def headers(*iterables: 'Iterable'):
     return list(itertools.chain(*iterables))
 
 
@@ -244,7 +246,7 @@ def load_test_conf_file(file_name: str) -> dict[str, Any]:
         return json.load(f)
 
 
-def remove_config(func: Callable) -> Callable:
+def remove_config(func: 'Callable') -> 'Callable':
     @wraps(func)
     def wrapper(*args, **kwargs):
         for configfile in get_config_dirs():

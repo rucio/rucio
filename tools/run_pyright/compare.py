@@ -12,15 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from argparse import ArgumentParser, Namespace
 from collections import Counter
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .models import Report, ReportDiagnostic, ReportDiagnosticWithoutRange, Severity
 from .utils import group_by, load_json
 
+if TYPE_CHECKING:
+    from argparse import ArgumentParser, Namespace
 
-def setup_parser(parser: ArgumentParser) -> None:
+
+def setup_parser(parser: 'ArgumentParser') -> None:
     parser.description = """
     Compares two Pyright reports and outputs newly introduced warnings and errors.
 
@@ -33,7 +36,7 @@ def setup_parser(parser: ArgumentParser) -> None:
     parser.set_defaults(func=compare)
 
 
-def compare(args: Namespace) -> int:
+def compare(args: 'Namespace') -> int:
     """Compares two reports to find new warnings and errors."""
     old_report = Report.from_dict(load_json(args.old))
     new_report = Report.from_dict(load_json(args.new))

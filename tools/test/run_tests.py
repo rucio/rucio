@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import io
 import itertools
 import json
 import multiprocessing
@@ -27,12 +26,15 @@ import traceback
 import uuid
 from datetime import datetime
 from tempfile import NamedTemporaryFile
-from typing import NoReturn, Optional, Union
+from typing import TYPE_CHECKING, NoReturn, Optional, Union
 
 import yaml
 
+if TYPE_CHECKING:
+    import io
 
-def run(*args, check=True, return_stdout=False, env=None) -> Union[NoReturn, io.TextIOBase]:
+
+def run(*args, check=True, return_stdout=False, env=None) -> Union[NoReturn, 'io.TextIOBase']:
     kwargs = {'check': check, 'stdout': sys.stderr, 'stderr': subprocess.STDOUT}
     if env is not None:
         kwargs['env'] = env

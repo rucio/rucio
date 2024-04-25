@@ -18,13 +18,13 @@ import json
 import logging
 import re
 import sys
-from collections.abc import Callable, Iterator, Mapping, Sequence
 from traceback import format_tb
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union, get_args
 
 from rucio.common.config import config_get, config_get_bool
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator, Mapping, Sequence
     from logging import LogRecord, _SysExcInfoType
 
     from _typeshed import OptExcInfo
@@ -76,7 +76,7 @@ def _json_serializable(obj: Any) -> Union[dict[Any, Any], str]:
         return str(obj)
 
 
-def _navigate_path(obj: Any, path: Sequence[str]) -> Optional[Any]:
+def _navigate_path(obj: Any, path: 'Sequence[str]') -> Optional[Any]:
     """
     Traverse the path in the given object either via attributes or via dict-like subscriptions.
     Returns the found value; None if navigation fails
@@ -136,7 +136,7 @@ def _unflatten_dict(dictionary: dict[str, Any]) -> dict[str, Any]:
     return ret
 
 
-def _get_request_data(request_path: Sequence[str]) -> "Callable[[LogDataSource, LogRecord], Iterator[tuple[str, Optional[Any]]]]":
+def _get_request_data(request_path: 'Sequence[str]') -> "Callable[[LogDataSource, LogRecord], Iterator[tuple[str, Optional[Any]]]]":
     """
     Returns a function which, when called, will resolve the value
     in the flask request object at request_path
@@ -146,7 +146,7 @@ def _get_request_data(request_path: Sequence[str]) -> "Callable[[LogDataSource, 
     # TODO: move to top of file once we got rid of/refactored rsemanager
     from flask import has_request_context, request
 
-    def _request_data_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> Iterator[tuple[str, Optional[Any]]]:
+    def _request_data_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> 'Iterator[tuple[str, Optional[Any]]]':
         value = None
         if has_request_context() and request_path:
             value = _navigate_path(request, request_path)
@@ -161,7 +161,7 @@ def _get_record_attribute(attribute: str) -> "Callable[[LogDataSource, LogRecord
     the record passed in argument.
     """
 
-    def _record_attribute_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> Iterator[tuple[str, Optional[Any]]]:
+    def _record_attribute_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> 'Iterator[tuple[str, Optional[Any]]]':
         value = None
         try:
             value = getattr(record, attribute)
@@ -172,7 +172,7 @@ def _get_record_attribute(attribute: str) -> "Callable[[LogDataSource, LogRecord
     return _record_attribute_formatter
 
 
-def _timestamp_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> Iterator[tuple[str, Optional[Any]]]:
+def _timestamp_formatter(record_formatter: "LogDataSource", record: "LogRecord") -> 'Iterator[tuple[str, Optional[Any]]]':
     """
     Format a timestamp
     """
@@ -303,7 +303,7 @@ class RucioFormatter(logging.Formatter):
             fmt: Optional[str] = None,
             validate: Optional[bool] = None,
             output_json: bool = False,
-            additional_fields: Optional[Mapping[ECS_FIELDS, str]] = None
+            additional_fields: Optional['Mapping[ECS_FIELDS, str]'] = None
     ):
         _kwargs = {}
         if validate is not None:

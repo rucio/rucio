@@ -13,13 +13,11 @@
 # limitations under the License.
 
 import logging
-from collections.abc import Sequence
 from typing import TYPE_CHECKING, Optional, cast
 from urllib.parse import urlparse
 
 import qbittorrentapi
 
-from rucio.common import types
 from rucio.common.config import get_rse_credentials
 from rucio.common.constants import RseAttr
 from rucio.common.utils import resolve_ip
@@ -30,8 +28,11 @@ from rucio.transfertool.transfertool import TransferStatusReport
 from .bittorrent_driver import BittorrentDriver
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from sqlalchemy.orm import Session
 
+    from rucio.common import types
     from rucio.core.rse import RseData
 
 
@@ -55,10 +56,10 @@ class QBittorrentTransferStatusReport(TransferStatusReport):
         if new_state in [RequestState.FAILED, RequestState.DONE]:
             self.external_id = external_id
 
-    def initialize(self, session: "Session", logger: types.LoggerFunction = logging.log) -> None:
+    def initialize(self, session: "Session", logger: 'types.LoggerFunction' = logging.log) -> None:
         pass
 
-    def get_monitor_msg_fields(self, session: "Session", logger: types.LoggerFunction = logging.log) -> dict[str, str]:
+    def get_monitor_msg_fields(self, session: "Session", logger: 'types.LoggerFunction' = logging.log) -> dict[str, str]:
         return {'protocol': 'qbittorrent'}
 
 
@@ -68,7 +69,7 @@ class QBittorrentDriver(BittorrentDriver):
     required_rse_attrs = (RseAttr.QBITTORRENT_MANAGEMENT_ADDRESS, )
 
     @classmethod
-    def make_driver(cls: "type[QBittorrentDriver]", rse: "RseData", logger: types.LoggerFunction = logging.log) -> "Optional[BittorrentDriver]":
+    def make_driver(cls: "type[QBittorrentDriver]", rse: "RseData", logger: 'types.LoggerFunction' = logging.log) -> "Optional[BittorrentDriver]":
 
         address = rse.attributes.get(RseAttr.QBITTORRENT_MANAGEMENT_ADDRESS)
         if not address:
@@ -96,7 +97,7 @@ class QBittorrentDriver(BittorrentDriver):
             logger=logger,
         )
 
-    def __init__(self, address: str, username: str, password: str, token: Optional[str] = None, logger: types.LoggerFunction = logging.log) -> None:
+    def __init__(self, address: str, username: str, password: str, token: Optional[str] = None, logger: 'types.LoggerFunction' = logging.log) -> None:
         extra_headers = None
         if token:
             extra_headers = {'Authorization': 'Bearer ' + token}
@@ -125,7 +126,7 @@ class QBittorrentDriver(BittorrentDriver):
             is_sequential_download=True,
         )
 
-    def add_peers(self, torrent_id: str, peers: Sequence[tuple[str, int]]) -> None:
+    def add_peers(self, torrent_id: str, peers: 'Sequence[tuple[str, int]]') -> None:
         self.client.torrents_add_peers(torrent_hashes=[torrent_id], peers=[f'{ip}:{port}' for ip, port in peers])
 
     def get_status(self, request_id: str, torrent_id: str) -> TransferStatusReport:

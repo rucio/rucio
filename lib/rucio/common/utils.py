@@ -37,7 +37,6 @@ import threading
 import time
 import zlib
 from collections import OrderedDict
-from collections.abc import Callable, Iterable, Iterator, Sequence
 from enum import Enum
 from functools import partial, wraps
 from io import StringIO
@@ -64,6 +63,7 @@ if EXTRA_MODULES['paramiko']:
         EXTRA_MODULES['paramiko'] = False
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Iterator, Sequence
     T = TypeVar('T')
     from _typeshed import FileDescriptorOrPath
     from sqlalchemy.orm import Session
@@ -112,7 +112,7 @@ def invert_dict(d: dict[Any, Any]) -> dict[Any, Any]:
     return {value: key for key, value in d.items()}
 
 
-def dids_as_dicts(did_list: Iterable[Union[str, dict[str, str]]]) -> list[dict[str, str]]:
+def dids_as_dicts(did_list: 'Iterable[Union[str, dict[str, str]]]') -> list[dict[str, str]]:
     """
     Converts list of DIDs to list of dictionaries
     :param did_list: list of DIDs as either "scope:name" or {"scope":"scope", "name":"name"}
@@ -691,7 +691,7 @@ def rse_supported_protocol_domains() -> list[str]:
     return ['lan', 'wan']
 
 
-def grouper(iterable: Iterable[Any], n: int, fillvalue: Optional[object] = None) -> zip_longest:
+def grouper(iterable: 'Iterable[Any]', n: int, fillvalue: Optional[object] = None) -> zip_longest:
     """ Collect data into fixed-length chunks or blocks """
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
     args = [iter(iterable)] * n
@@ -714,7 +714,7 @@ def chunks(iterable, n):
             yield chunk
 
 
-def dict_chunks(dict_: dict[Any, Any], n: int) -> Iterator[dict[Any, Any]]:
+def dict_chunks(dict_: dict[Any, Any], n: int) -> 'Iterator[dict[Any, Any]]':
     """
     Iterate over the dictionary in groups of the requested size
     """
@@ -723,7 +723,7 @@ def dict_chunks(dict_: dict[Any, Any], n: int) -> Iterator[dict[Any, Any]]:
         yield {k: dict_[k] for k in itertools.islice(it, n)}
 
 
-def my_key_generator(namespace: str, fn: Callable, **kw) -> Callable[..., str]:
+def my_key_generator(namespace: str, fn: 'Callable', **kw) -> 'Callable[..., str]':
     """
     Customized key generator for dogpile
     """
@@ -774,14 +774,14 @@ class SurlAlgorithms(PolicyPackageAlgorithms):
         cls.register('BelleII', cls.construct_surl_BelleII)
 
     @classmethod
-    def get_algorithm(cls: type[SurlAlgorithmsT], naming_convention: str) -> Callable[[str, str, str], str]:
+    def get_algorithm(cls: type[SurlAlgorithmsT], naming_convention: str) -> 'Callable[[str, str, str], str]':
         """
         Looks up a SURL algorithm by name
         """
         return super()._get_one_algorithm(cls._algorithm_type, naming_convention)
 
     @classmethod
-    def register(cls: type[SurlAlgorithmsT], name: str, fn_construct_surl: Callable[[str, str, str], Optional[str]]) -> None:
+    def register(cls: type[SurlAlgorithmsT], name: str, fn_construct_surl: 'Callable[[str, str, str], Optional[str]]') -> None:
         """
         Register a new SURL algorithm
         """
@@ -918,7 +918,7 @@ def construct_surl(dsn: str, scope: str, filename: str, naming_convention: Optio
     return surl_algorithms.construct_surl(dsn, scope, filename, naming_convention)
 
 
-def clean_surls(surls: Iterable[str]) -> list[str]:
+def clean_surls(surls: 'Iterable[str]') -> list[str]:
     res = []
     for surl in surls:
         if surl.startswith('srm'):
@@ -951,7 +951,7 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         """
         super().__init__()
 
-    def extract_scope(self, did: str, scopes: Optional[Sequence[str]], extract_scope_convention: str) -> Sequence[str]:
+    def extract_scope(self, did: str, scopes: Optional['Sequence[str]'], extract_scope_convention: str) -> 'Sequence[str]':
         """
         Calls the correct algorithm for scope extraction
         """
@@ -974,14 +974,14 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         cls.register('dirac', cls.extract_scope_dirac)
 
     @classmethod
-    def get_algorithm(cls: type[ScopeExtractionAlgorithmsT], extract_scope_convention: str) -> Callable[[str, Optional[Sequence[str]]], Sequence[str]]:
+    def get_algorithm(cls: type[ScopeExtractionAlgorithmsT], extract_scope_convention: str) -> 'Callable[[str, Optional[Sequence[str]]], Sequence[str]]':
         """
         Looks up a scope extraction algorithm by name
         """
         return super()._get_one_algorithm(cls._algorithm_type, extract_scope_convention)
 
     @classmethod
-    def register(cls: type[ScopeExtractionAlgorithmsT], name: str, fn_extract_scope: Callable[[str, Optional[Sequence[str]]], Sequence[str]]) -> None:
+    def register(cls: type[ScopeExtractionAlgorithmsT], name: str, fn_extract_scope: 'Callable[[str, Optional[Sequence[str]]], Sequence[str]]') -> None:
         """
         Registers a new scope extraction algorithm
         """
@@ -989,7 +989,7 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         super()._register(cls._algorithm_type, algorithm_dict)
 
     @staticmethod
-    def extract_scope_atlas(did: str, scopes: Optional[Sequence[str]]) -> Sequence[str]:
+    def extract_scope_atlas(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
         # Try to extract the scope from the DSN
         if did.find(':') > -1:
             if len(did.split(':')) > 2:
@@ -1007,7 +1007,7 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
             return scope, did
 
     @staticmethod
-    def extract_scope_dirac(did: str, scopes: Optional[Sequence[str]]) -> Sequence[str]:
+    def extract_scope_dirac(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
         # Default dirac scope extract algorithm. Scope is the second element in the LFN or the first one (VO name)
         # if only one element is the result of a split.
         elem = did.rstrip('/').split('/')
@@ -1018,7 +1018,7 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         return scope, did
 
     @staticmethod
-    def extract_scope_belleii(did: str, scopes: Optional[Sequence[str]]) -> Sequence[str]:
+    def extract_scope_belleii(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
         split_did = did.split('/')
         if did.startswith('/belle/mock/'):
             return 'mock', did
@@ -1099,9 +1099,9 @@ ScopeExtractionAlgorithms._module_init_()
 
 def extract_scope(
         did: str,
-        scopes: Optional[Sequence[str]] = None,
+        scopes: Optional['Sequence[str]'] = None,
         default_extract: str = _DEFAULT_EXTRACT
-) -> Sequence[str]:
+) -> 'Sequence[str]':
     scope_extraction_algorithms = ScopeExtractionAlgorithms()
     extract_scope_convention = config_get('common', 'extract_scope', False, None) or config_get('policy', 'extract_scope', False, None)
     if extract_scope_convention is None or not ScopeExtractionAlgorithms.supports(extract_scope_convention):
@@ -1670,7 +1670,7 @@ def parse_replicas_metalink(root: ElementTree.Element) -> list[dict[str, Any]]:
 
 def get_thread_with_periodic_running_function(
         interval: Union[int, float],
-        action: Callable[..., Any],
+        action: 'Callable[..., Any]',
         graceful_stop: threading.Event
 ) -> threading.Thread:
     """
@@ -1821,8 +1821,8 @@ def setup_logger(
     def add_handler(logger: logging.Logger) -> None:
         hdlr = logging.StreamHandler()
 
-        def emit_decorator(fnc: Callable[..., Any]) -> Callable[..., Any]:
-            def func(*args) -> Callable[..., Any]:
+        def emit_decorator(fnc: 'Callable[..., Any]') -> 'Callable[..., Any]':
+            def func(*args) -> 'Callable[..., Any]':
                 if 'RUCIO_LOGGING_FORMAT' not in os.environ:
                     levelno = args[0].levelno
                     format_str = '%(asctime)s\t%(levelname)s\t%(message)s\033[0m'
@@ -1898,7 +1898,7 @@ def is_client() -> bool:
 class retry:
     """Retry callable object with configuragle number of attempts"""
 
-    def __init__(self, func: Callable[..., Any], *args, **kwargs):
+    def __init__(self, func: 'Callable[..., Any]', *args, **kwargs):
         '''
         :param func: a method that should be executed with retries
         :param args: parameters of the func
@@ -1906,7 +1906,7 @@ class retry:
         '''
         self.func, self.args, self.kwargs = func, args, kwargs
 
-    def __call__(self, mtries: int = 3, logger: "LoggerFunction" = logging.log) -> Callable[..., Any]:
+    def __call__(self, mtries: int = 3, logger: "LoggerFunction" = logging.log) -> 'Callable[..., Any]':
         '''
         :param mtries: maximum number of attempts to execute the function
         :param logger: preferred logger
@@ -1932,7 +1932,7 @@ class StoreAndDeprecateWarningAction(argparse.Action):
     '''
 
     def __init__(self,
-                 option_strings: Sequence[str],
+                 option_strings: 'Sequence[str]',
                  new_option_string: str,
                  dest: str,
                  **kwargs):
@@ -1965,7 +1965,7 @@ class StoreTrueAndDeprecateWarningAction(argparse._StoreConstAction):
     '''
 
     def __init__(self,
-                 option_strings: Sequence[str],
+                 option_strings: 'Sequence[str]',
                  new_option_string: str,
                  dest: str,
                  default: bool = False,

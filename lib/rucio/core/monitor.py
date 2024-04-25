@@ -21,7 +21,6 @@ import logging
 import os
 import string
 from abc import abstractmethod
-from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
@@ -37,6 +36,8 @@ from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import retrying
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Sequence
+
     from rucio.common.types import LoggerFunction
 
 _T = TypeVar('_T')
@@ -163,7 +164,7 @@ class _MultiMetric:
             statsd: str,
             prom: Optional[Union[str, Counter, Gauge, Histogram]] = None,
             documentation: Optional[str] = None,
-            labelnames: Optional[Sequence[str]] = None,
+            labelnames: Optional['Sequence[str]'] = None,
             registry: Optional[CollectorRegistry] = None
     ):
         """
@@ -191,7 +192,7 @@ class _MultiMetric:
         self._labelnames = labelnames
 
     @abstractmethod
-    def init_prometheus_metric(self, name: str, documentation: Optional[str], labelnames: Sequence[str] = ()):
+    def init_prometheus_metric(self, name: str, documentation: Optional[str], labelnames: 'Sequence[str]' = ()):
         pass
 
     def labels(self: _M, **labelkwargs) -> _M:
@@ -215,7 +216,7 @@ class _MultiCounter(_MultiMetric):
         if STATSD_CLIENT:
             STATSD_CLIENT.incr(self._statsd, delta)
 
-    def init_prometheus_metric(self, name: str, documentation: str, labelnames: Sequence[str] = ()) -> Counter:
+    def init_prometheus_metric(self, name: str, documentation: str, labelnames: 'Sequence[str]' = ()) -> Counter:
         return Counter(name, documentation, labelnames=labelnames, registry=self._registry)
 
 
@@ -226,7 +227,7 @@ class _MultiGauge(_MultiMetric):
         if STATSD_CLIENT:
             STATSD_CLIENT.gauge(self._statsd, value)
 
-    def init_prometheus_metric(self, name: str, documentation: str, labelnames: Sequence[str] = ()) -> Gauge:
+    def init_prometheus_metric(self, name: str, documentation: str, labelnames: 'Sequence[str]' = ()) -> Gauge:
         return Gauge(name, documentation, labelnames=labelnames, registry=self._registry)
 
 
@@ -237,9 +238,9 @@ class _MultiTiming(_MultiMetric):
             statsd: str,
             prom: Optional[str] = None,
             documentation: Optional[str] = None,
-            labelnames: Optional[Sequence[str]] = None,
+            labelnames: Optional['Sequence[str]'] = None,
             registry: Optional[CollectorRegistry] = None,
-            buckets: Iterable[float] = _HISTOGRAM_DEFAULT_BUCKETS,
+            buckets: 'Iterable[float]' = _HISTOGRAM_DEFAULT_BUCKETS,
     ) -> None:
         self._stopwatch = None
         self._histogram_buckets = tuple(buckets)
@@ -250,7 +251,7 @@ class _MultiTiming(_MultiMetric):
         if STATSD_CLIENT:
             STATSD_CLIENT.timing(self._statsd, value * 1000)
 
-    def init_prometheus_metric(self, name: str, documentation: str, labelnames: Sequence[str] = ()) -> Histogram:
+    def init_prometheus_metric(self, name: str, documentation: str, labelnames: 'Sequence[str]' = ()) -> Histogram:
         return Histogram(name, documentation, labelnames=labelnames, registry=self._registry, buckets=self._histogram_buckets)
 
     def __enter__(self):
@@ -265,9 +266,9 @@ class _MultiTiming(_MultiMetric):
 
 def _fetch_or_create_metric(
         name: str,
-        labelnames: Optional[Sequence[str]],
+        labelnames: Optional['Sequence[str]'],
         container: dict[str, _T],
-        factory: Callable[[str, Optional[Sequence[str]]], _T]
+        factory: 'Callable[[str, Optional[Sequence[str]]], _T]'
 ) -> "_T":
     metric = container.get(name)
     if not metric:
@@ -280,7 +281,7 @@ def _fetch_or_create_metric(
 
 def _fetch_or_create_counter(
         name: str,
-        labelnames: Optional[Sequence[str]] = None,
+        labelnames: Optional['Sequence[str]'] = None,
         documentation: Optional[str] = None,
         registry: Optional[CollectorRegistry] = None,
 ) -> _MultiCounter:
@@ -295,7 +296,7 @@ def _fetch_or_create_counter(
 
 def _fetch_or_create_gauge(
         name: str,
-        labelnames: Optional[Sequence[str]] = None,
+        labelnames: Optional['Sequence[str]'] = None,
         documentation: Optional[str] = None,
         registry: Optional[CollectorRegistry] = None,
 ) -> _MultiGauge:
@@ -310,10 +311,10 @@ def _fetch_or_create_gauge(
 
 def _fetch_or_create_timer(
         name: str,
-        labelnames: Optional[Sequence[str]] = None,
+        labelnames: Optional['Sequence[str]'] = None,
         documentation: Optional[str] = None,
         registry: Optional[CollectorRegistry] = None,
-        buckets: Iterable[float] = _HISTOGRAM_DEFAULT_BUCKETS
+        buckets: 'Iterable[float]' = _HISTOGRAM_DEFAULT_BUCKETS
 ) -> _MultiTiming:
     return _fetch_or_create_metric(
         name=name,
@@ -332,7 +333,7 @@ class MetricManager:
     """
 
     def __init__(self, prefix: Optional[str] = None, module: Optional[str] = None,
-                 registry: Optional[CollectorRegistry] = None, push_gateways: Optional[Sequence[str]] = None):
+                 registry: Optional[CollectorRegistry] = None, push_gateways: Optional['Sequence[str]'] = None):
         if prefix:
             self.prefix = prefix
         elif module:
@@ -354,7 +355,7 @@ class MetricManager:
             self,
             name: str,
             *,
-            labelnames: Optional[Sequence[str]] = None,
+            labelnames: Optional['Sequence[str]'] = None,
             documentation: Optional[str] = None,
     ) -> _MultiCounter:
         """
@@ -370,7 +371,7 @@ class MetricManager:
             self,
             name: str,
             *,
-            labelnames: Optional[Sequence[str]] = None,
+            labelnames: Optional['Sequence[str]'] = None,
             documentation: Optional[str] = None,
     ) -> _MultiGauge:
         """
@@ -386,9 +387,9 @@ class MetricManager:
             self,
             name: str,
             *,
-            labelnames: Optional[Sequence[str]] = None,
+            labelnames: Optional['Sequence[str]'] = None,
             documentation: Optional[str] = None,
-            buckets: Iterable[float] = _HISTOGRAM_DEFAULT_BUCKETS
+            buckets: 'Iterable[float]' = _HISTOGRAM_DEFAULT_BUCKETS
     ) -> _MultiTiming:
         """
         Log a time measurement.

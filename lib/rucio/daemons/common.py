@@ -20,13 +20,15 @@ import queue
 import socket
 import threading
 import time
-from collections.abc import Callable, Generator, Iterator, Sequence
-from typing import Any, Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
 
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import PriorityQueue
 from rucio.core import heartbeat as heartbeat_core
 from rucio.core.monitor import MetricManager
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Iterator, Sequence
 
 T = TypeVar('T')
 METRICS = MetricManager(module=__name__)
@@ -108,9 +110,9 @@ class HeartbeatHandler:
 def _activity_looper(
         once: bool,
         sleep_time: int,
-        activities: Optional[Sequence[str]],
+        activities: Optional['Sequence[str]'],
         heartbeat_handler: HeartbeatHandler,
-) -> Generator[tuple[str, float], tuple[float, bool], None]:
+) -> 'Generator[tuple[str, float], tuple[float, bool], None]':
     """
     Generator which loops (either once, or indefinitely) over all activities while ensuring that `sleep_time`
     passes between handling twice the same activity.
@@ -169,7 +171,7 @@ def db_workqueue(
         executable: str,
         partition_wait_time: int,
         sleep_time: int,
-        activities: Optional[Sequence[str]] = None,
+        activities: Optional['Sequence[str]'] = None,
 ):
     """
     Used to wrap a function for interacting with the database as a work queue: i.e. to select
@@ -185,7 +187,7 @@ def db_workqueue(
     :param activities: optional list of activities on which to work. The run_once_fnc will be called on activities one by one.
     """
 
-    def _decorate(run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, T]]]]) -> Callable[[], Iterator[Optional[T]]]:
+    def _decorate(run_once_fnc: 'Callable[..., Optional[Union[bool, tuple[bool, T]]]]') -> 'Callable[[], Iterator[Optional[T]]]':
 
         @functools.wraps(run_once_fnc)
         def _generator():
@@ -252,7 +254,7 @@ def run_daemon(
         executable: str,
         partition_wait_time: int,
         sleep_time: int,
-        run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, Any]]]],
+        run_once_fnc: 'Callable[..., Optional[Union[bool, tuple[bool, Any]]]]',
         activities: Optional[list[str]] = None):
     """
     Run the daemon loop and call the function run_once_fnc at each iteration
@@ -289,7 +291,7 @@ class ProducerConsumerDaemon(Generic[T]):
 
     def _produce(
             self,
-            it: Callable[[], Iterator[T]],
+            it: 'Callable[[], Iterator[T]]',
             wait_for_consumers: bool = False
     ):
         """
@@ -326,7 +328,7 @@ class ProducerConsumerDaemon(Generic[T]):
 
     def _consume(
             self,
-            fnc: Callable[[T], Any]
+            fnc: 'Callable[[T], Any]'
     ):
         """
         Wait for elements to arrive via the queue and call the given function on each element.

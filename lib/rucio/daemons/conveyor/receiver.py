@@ -22,8 +22,7 @@ import socket
 import threading
 import time
 import traceback
-from types import FrameType
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import stomp
 
@@ -38,6 +37,9 @@ from rucio.core.monitor import MetricManager
 from rucio.daemons.common import HeartbeatHandler
 from rucio.db.sqla.session import transactional_session
 from rucio.transfertool.fts3 import FTS3CompletionMessageTransferStatusReport
+
+if TYPE_CHECKING:
+    from types import FrameType
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 

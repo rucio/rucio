@@ -14,12 +14,14 @@
 
 import importlib
 import os
-from collections.abc import Callable
 from configparser import NoOptionError, NoSectionError
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from rucio.common import config
 from rucio.common.exception import InvalidAlgorithmName
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPackageAlgorithms')
 
@@ -31,7 +33,7 @@ class PolicyPackageAlgorithms:
     ALGORITHMS is of type Dict[str, Dict[str. Callable[..., Any]]]
     where the key is the algorithm type and the value is a dictionary of algorithm names and their callables
     """
-    _ALGORITHMS: dict[str, dict[str, Callable[..., Any]]] = {}
+    _ALGORITHMS: dict[str, dict[str, 'Callable[..., Any]']] = {}
     _loaded_policy_modules = False
 
     def __init__(self) -> None:
@@ -40,14 +42,14 @@ class PolicyPackageAlgorithms:
             self._loaded_policy_modules = True
 
     @classmethod
-    def _get_one_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> Callable[..., Any]:
+    def _get_one_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> 'Callable[..., Any]':
         """
         Get the algorithm from the dictionary of algorithms
         """
         return cls._ALGORITHMS[algorithm_type][name]
 
     @classmethod
-    def _get_algorithms(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str) -> dict[str, Callable[..., Any]]:
+    def _get_algorithms(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str) -> dict[str, 'Callable[..., Any]']:
         """
         Get the dictionary of algorithms for a given type
         """
@@ -56,7 +58,7 @@ class PolicyPackageAlgorithms:
     @classmethod
     def _register(
             cls: type[PolicyPackageAlgorithmsT],
-            algorithm_type: str, algorithm_dict: dict[str, Callable[..., Any]]) -> None:
+            algorithm_type: str, algorithm_dict: dict[str, 'Callable[..., Any]']) -> None:
         """
         Provided a dictionary of callable function,
         and the associated algorithm type,

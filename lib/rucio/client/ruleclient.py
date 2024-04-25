@@ -12,15 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Sequence
 from json import dumps, loads
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.utils import build_url
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 class RuleClient(BaseClient):
@@ -31,7 +33,7 @@ class RuleClient(BaseClient):
 
     def add_replication_rule(
         self,
-        dids: Sequence[dict[str, str]],
+        dids: 'Sequence[dict[str, str]]',
         copies: int,
         rse_expression: str,
         priority: int = 3,

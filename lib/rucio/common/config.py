@@ -17,7 +17,6 @@
 import configparser
 import json
 import os
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, overload
 
 from rucio.common import exception
@@ -27,6 +26,8 @@ _T = TypeVar('_T')
 _U = TypeVar('_U')
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
 
 
@@ -110,7 +111,7 @@ def config_get(
         session: "Optional[Session]" = ...,
         use_cache: bool = ...,
         expiration_time: int = ...,
-        convert_type_fnc: Callable[[str], _T],
+        convert_type_fnc: 'Callable[[str], _T]',
 ) -> _T:
     ...
 
@@ -126,7 +127,7 @@ def config_get(
         session: "Optional[Session]" = ...,
         use_cache: bool = ...,
         expiration_time: int = ...,
-        convert_type_fnc: Callable[[str], _U],
+        convert_type_fnc: 'Callable[[str], _U]',
 ) -> Union[_T, _U]:
     ...
 
@@ -143,7 +144,7 @@ def config_get(
         session: "Optional[Session]" = ...,
         use_cache: bool = ...,
         expiration_time: int = ...,
-        convert_type_fnc: Callable[[str], _U],
+        convert_type_fnc: 'Callable[[str], _U]',
 ) -> Union[_T, _U]:
     ...
 
@@ -158,7 +159,7 @@ def config_get(
         session: "Optional[Session]" = None,
         use_cache: bool = True,
         expiration_time: int = 900,
-        convert_type_fnc: Callable[[str], _T] = lambda x: x,
+        convert_type_fnc: 'Callable[[str], _T]' = lambda x: x,
 ) -> Union[_T, _U]:
     """
     Return the string value for a given option in a section
@@ -637,7 +638,7 @@ def __config_get_table(
         session: "Optional[Session]" = None,
         use_cache: bool = True,
         expiration_time: int = 900,
-        convert_type_fnc: Optional[Callable[[str], _T]],
+        convert_type_fnc: Optional['Callable[[str], _T]'],
 ) -> _T:
     """
     Search for a section-option configuration parameter in the configuration table

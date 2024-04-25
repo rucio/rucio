@@ -17,7 +17,6 @@ import logging
 import re
 import threading
 import time
-from collections.abc import Callable
 from datetime import datetime
 from json import dumps, loads
 from typing import TYPE_CHECKING
@@ -53,6 +52,7 @@ from rucio.daemons.common import run_daemon
 from rucio.db.sqla.constants import DIDType, SubscriptionState
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import FrameType
     from typing import Optional
 
@@ -213,7 +213,7 @@ def __split_rule_select_rses(
     return selected_rses, create_rule, wont_reevaluate
 
 
-def get_subscriptions(logger: Callable = logging.log) -> list[dict]:
+def get_subscriptions(logger: "Callable" = logging.log) -> list[dict]:
     """
     A method to extract the list of active subscriptions and exclude the one that have bad RSE expression.
     :param logger: The logger.
