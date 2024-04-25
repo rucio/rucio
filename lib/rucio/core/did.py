@@ -1223,27 +1223,19 @@ def delete_dids(
             existing_parent_dids = True
             detach_dids(scope=parent_did.scope, name=parent_did.name, dids=[{'scope': parent_did.child_scope, 'name': parent_did.child_name}], session=session)
 
-    # Remove generic did metadata
+    # Remove custom DID metadata
+    archive_metadata = config_get_bool('deletion', 'archive_metadata', default=False, session=session)
     must_delete_did_meta = True
     if session.bind.dialect.name == 'oracle':
         oracle_version = int(session.connection().connection.version.split('.')[0])
         if oracle_version < 12:
             must_delete_did_meta = False
     if must_delete_did_meta:
-        stmt = delete(
-            models.DidMeta
-        ).where(
-            exists(
-                select(1)
-            ).where(
-                models.DidMeta.scope == temp_table.scope,
-                models.DidMeta.name == temp_table.name
-            )
-        ).execution_options(
-            synchronize_session=False
-        )
         with METRICS.timer('delete_dids.did_meta'):
-            session.execute(stmt)
+            for _, did in all_dids.items():
+                if did.get('scope') and did.get('name'):
+                    # Run on_delete function in each metadata plugin.
+                    did_meta_plugins.on_delete(scope=did.get('scope'), name=did.get('name'), archive=archive_metadata, session=session)
 
     # Prepare the common part of the query for updating bad replicas if they exist
     bad_replica_stmt = update(

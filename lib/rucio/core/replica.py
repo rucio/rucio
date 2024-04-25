@@ -44,6 +44,7 @@ from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import SuspiciousAvailability
 from rucio.common.types import InternalScope
 from rucio.common.utils import add_url_query, chunks, clean_surls, str_to_date
+from rucio.core import did_meta_plugins
 from rucio.core.credential import get_signed_url
 from rucio.core.message import add_messages
 from rucio.core.monitor import MetricManager
@@ -2077,23 +2078,18 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         )
         session.execute(stmt)
 
-        # Remove DID Metadata
+        # Remove custom DID metadata
+        archive_metadata = config_get_bool('deletion', 'archive_metadata', default=False, session=session)
         must_delete_did_meta = True
         if session.bind.dialect.name == 'oracle':
             oracle_version = int(session.connection().connection.version.split('.')[0])
             if oracle_version < 12:
                 must_delete_did_meta = False
         if must_delete_did_meta:
-            stmt = delete(
-                models.DidMeta,
-            ).where(
-                exists(select(1)
-                       .where(and_(models.DidMeta.scope == scope_name_temp_table.scope,
-                                   models.DidMeta.name == scope_name_temp_table.name)))
-            ).execution_options(
-                synchronize_session=False
-            )
-            session.execute(stmt)
+            for did in dids_to_delete:
+                if did.scope and did.name:
+                    # Run on_delete function in each metadata plugin.
+                    did_meta_plugins.on_delete(scope=did.scope, name=did.name, archive=archive_metadata, session=session)
 
         for chunk in chunks(messages, 100):
             add_messages(chunk, session=session)

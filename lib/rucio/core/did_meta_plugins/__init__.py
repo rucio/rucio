@@ -20,7 +20,12 @@ from rucio.common import config, exception
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
+    from typing import List, Optional
+
     from sqlalchemy.orm import Session
+
+    from rucio.common.types import InternalScope
+
 
 # Set default modules.
 #
@@ -72,7 +77,7 @@ RESTRICTED_CHARACTERS = {
 
 
 @read_session
-def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
+def get_metadata(scope: "InternalScope", name: str, plugin: str = "DID_COLUMN", *, session: "Session"):
     """
     Gets the metadata for a given did from a specified plugin.
 
@@ -98,8 +103,36 @@ def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
     raise NotImplementedError('Metadata plugin "%s" is not enabled on the server.' % plugin)
 
 
+@read_session
+def get_metadata_archived(scope: "InternalScope", name: str, plugin: str = "JSON", *, session: "Session"):
+    """
+    Gets the archived metadata for a given did from a specified plugin.
+
+    If [plugin] is set to "all", metadata from all available metadata plugins will be returned,
+    else [plugin] can be used to only return the metadata using a specific plugin.
+
+    :param scope: The scope of the did.
+    :param name: The data identifier name.
+    :param plugin: (optional) Filter specific metadata plugins.
+    :returns: List of metadata for did.
+    :raises: NotImplementedError
+    """
+    if plugin.lower() == "all":
+        all_metadata = {}
+        for metadata_plugin in METADATA_PLUGIN_MODULES:
+            metadata = metadata_plugin.get_metadata_archived(scope, name, session=session)
+            all_metadata.update(metadata)
+        return all_metadata
+    else:
+        for metadata_plugin in METADATA_PLUGIN_MODULES:
+            if metadata_plugin.get_plugin_name().lower() == plugin.lower():
+                return metadata_plugin.get_metadata_archived(scope, name, session=session)
+    raise NotImplementedError('Metadata plugin "%s" is not enabled on the server.' % plugin)
+
+
 @transactional_session
-def set_metadata(scope, name, key, value, recursive=False, *, session: "Session"):
+def set_metadata(scope: "InternalScope", name: str, key: str, value: str, recursive: bool = False, *,
+                 session: "Session"):
     """
     Sets metadata for a given did.
 
@@ -133,7 +166,7 @@ def set_metadata(scope, name, key, value, recursive=False, *, session: "Session"
 
 
 @transactional_session
-def set_metadata_bulk(scope, name, meta, recursive=False, *, session: "Session"):
+def set_metadata_bulk(scope: "InternalScope", name: str, meta: dict, recursive: bool = False, *, session: "Session"):
     """
     Bulk sets metadata for a given did.
 
@@ -181,7 +214,7 @@ def set_metadata_bulk(scope, name, meta, recursive=False, *, session: "Session")
 
 
 @transactional_session
-def delete_metadata(scope, name, key, *, session: "Session"):
+def delete_metadata(scope: "InternalScope", name: str, key: str, *, session: "Session"):
     """
     Deletes metadata stored for a given key.
 
@@ -195,8 +228,9 @@ def delete_metadata(scope, name, key, *, session: "Session"):
 
 
 @read_session
-def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False, limit=None,
-              offset=None, long=False, recursive=False, ignore_dids=None, *, session: "Session"):
+def list_dids(scope: "InternalScope", filters: "Optional[dict]" = {}, did_type: str = 'collection',
+              ignore_case: bool = False, limit: "Optional[int]" = None, offset: "Optional[int]" = None,
+              long: bool = False, recursive: bool = False, ignore_dids: "Optional[List]" = None, *, session: "Session"):
     """
     Search data identifiers.
 
@@ -217,10 +251,12 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
     """
     # backwards compatability for filters as single {}.
     if isinstance(filters, dict):
-        filters = [filters]
+        _filters = [filters]
+    else:
+        _filters = filters
 
     required_unique_plugins = set()                 # keep track of which plugins are required
-    for or_group in filters:
+    for or_group in _filters:
         for key in or_group.keys():
             if key == 'name':                       # [name] is always passed through, and needs to be in schema of all plugins
                 continue
@@ -243,7 +279,21 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
         raise exception.InvalidMetadata('Filter keys used do not all belong to the same metadata plugin.')
     selected_plugin_to_use = list(required_unique_plugins)[0]
 
-    return selected_plugin_to_use.list_dids(scope=scope, filters=filters, did_type=did_type,
+    return selected_plugin_to_use.list_dids(scope=scope, filters=_filters, did_type=did_type,
                                             ignore_case=ignore_case, limit=limit,
                                             offset=offset, long=long, recursive=recursive,
                                             ignore_dids=ignore_dids, session=session)
+
+
+@transactional_session
+def on_delete(scope: "InternalScope", name: str, archive: bool = False, *, session: "Optional[Session]" = None) -> None:
+    """
+    Method called when a did is deleted.
+
+    :param scope: The scope of the did.
+    :param name: The name of the did.
+    :param archive: Flag to indicate if the metadata should be archived when the did is deleted.
+    :param session: The database session in use.
+    """
+    for metadata_plugin in METADATA_PLUGIN_MODULES:
+        metadata_plugin.on_delete(scope=scope, name=name, archive=archive, session=session)

@@ -197,6 +197,16 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
 
         return metadata[0]
 
+    def get_metadata_archived(self, scope, name, *, session: "Optional[Session]" = None):
+        """
+        Get archived did metadata.
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param session: The database session in use.
+        """
+        return NotImplementedError
+
     def set_metadata(self, scope, name, key, value, recursive=False, *, session: "Optional[Session]" = None):
         """
         Set single metadata key.
@@ -231,7 +241,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
 
     def delete_metadata(self, scope, name, key, *, session: "Optional[Session]" = None):
         """
-        Delete a key from metadata.
+        Deletes the metadata stored for the given key.
 
         :param scope: the scope of did
         :param name: the name of the did
@@ -242,6 +252,21 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                     "SET data = {}.data - '{}';".format(self.table, key)
         cur = self.client.cursor()
         cur.execute(statement)
+        cur.close()
+        self.client.commit()
+
+    def on_delete(self, scope: "InternalScope", name: str, archive: bool = False, session: "Optional[Session]" = None) -> None:
+        """
+        Method called when a did is deleted.
+
+        :param scope: The scope of the did.
+        :param name: The name of the did.
+        :param archive: Flag to indicate if the metadata should be archived when the did is deleted.
+        :param session: The database session in use.
+        """
+        statement = "DELETE FROM {table} WHERE scope=%(scope)s AND name=%(name)s;".format(table=self.table)
+        cur = self.client.cursor()
+        cur.execute(statement, {'scope': scope.internal, 'name': name})
         cur.close()
         self.client.commit()
 

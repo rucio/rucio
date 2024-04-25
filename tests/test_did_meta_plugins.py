@@ -16,11 +16,12 @@ from copy import deepcopy
 
 import pytest
 
+import rucio.core.did_meta_plugins
 from rucio.client.didclient import DIDClient
-from rucio.common.exception import KeyNotFound
+from rucio.common.exception import DataIdentifierNotFound, KeyNotFound
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, delete_dids, set_dids_metadata_bulk, set_metadata_bulk
-from rucio.core.did_meta_plugins import get_metadata, list_dids, set_metadata
+from rucio.core.did_meta_plugins import get_metadata, get_metadata_archived, list_dids, set_metadata
 from rucio.core.did_meta_plugins.mongo_meta import MongoDidMeta
 from rucio.core.did_meta_plugins.postgres_meta import ExternalPostgresJSONDidMeta
 from rucio.db.sqla.util import json_implemented
@@ -191,6 +192,108 @@ class TestDidMetaJSON:
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn4}] == results
         assert [tmp_dsn4] == results
 
+    @pytest.mark.parametrize(
+        "core_config_mock",
+        [
+            {
+                "table_content": [
+                    ("deletion", "archive_metadata", "False"),
+                ]
+            }
+        ],
+        indirect=True,
+    )
+    @pytest.mark.parametrize(
+        "caches_mock",
+        [
+            {
+                "caches_to_mock": [
+                    "rucio.core.config.REGION",
+                ]
+            }
+        ],
+        indirect=True,
+    )
+    def test_on_delete_metadata(self, vo, root_account, mock_scope, did_factory, core_config_mock, caches_mock):
+        """ DID (CORE): Test deletion of custom metadata when a DID is deleted """
+        skip_without_json()
+
+        # Create DIDs with arbitrary metadata.
+        dids = [did_factory.make_dataset() for _ in range(5)]
+        dids_to_delete = []
+        for did in dids:
+            keys = list(map(lambda i: 'test_key' + generate_uuid(), range(3)))
+            did['meta'] = {key: key + '_value' for key in keys}
+            dids_to_delete.append(
+                {'scope': did['scope'], 'name': did['name'], 'did_type': 'DATASET', 'purge_replicas': True})
+        set_dids_metadata_bulk(dids=dids, recursive=False)
+
+        # Check that metadata was successfully added.
+        for did in dids:
+            added_metadata = did['meta']
+            retrieved_metadata = get_metadata(plugin="ALL", scope=did['scope'], name=did['name'])
+            for key in added_metadata:
+                assert key in retrieved_metadata and retrieved_metadata[key] == added_metadata[key]
+
+        # Delete the DIDs and check that the metadata has been deleted.
+        delete_dids(dids=dids_to_delete, account=root_account)
+        for did in dids:
+            with pytest.raises(DataIdentifierNotFound):
+                get_metadata(scope=did['scope'], name=did['name'])
+
+        # Check that they didn't archive.
+        for did in dids:
+            with pytest.raises(DataIdentifierNotFound):
+                get_metadata_archived(did['scope'], did['name'], plugin="JSON")
+
+    @pytest.mark.parametrize(
+        "core_config_mock",
+        [
+            {
+                "table_content": [
+                    ("deletion", "archive_metadata", "True"),
+                ]
+            }
+        ],
+        indirect=True,
+    )
+    @pytest.mark.parametrize(
+        "caches_mock",
+        [
+            {
+                "caches_to_mock": [
+                    "rucio.core.config.REGION",
+                ]
+            }
+        ],
+        indirect=True,
+    )
+    def test_on_delete_metadata_archive(self, vo, root_account, mock_scope, did_factory, core_config_mock, caches_mock):
+        """ DID (CORE): Test archive of custom metadata when DID is deleted """
+        skip_without_json()
+
+        # Create DIDs with arbitrary metadata.
+        dids = [did_factory.make_dataset() for _ in range(5)]
+        dids_to_delete = []
+        for did in dids:
+            keys = list(map(lambda i: 'test_key' + generate_uuid(), range(3)))
+            did['meta'] = {key: key + '_value' for key in keys}
+            dids_to_delete.append(
+                {'scope': did['scope'], 'name': did['name'], 'did_type': 'DATASET', 'purge_replicas': True})
+        set_dids_metadata_bulk(dids=dids, recursive=False)
+
+        # Check that metadata was successfully added.
+        for did in dids:
+            added_metadata = did['meta']
+            retrieved_metadata = get_metadata(plugin="ALL", scope=did['scope'], name=did['name'])
+            for key in added_metadata:
+                assert key in retrieved_metadata and retrieved_metadata[key] == added_metadata[key]
+
+        # Delete the DIDs and check that the metadata has been archived.
+        delete_dids(dids=dids_to_delete, account=root_account)
+        for did in dids:
+            assert did['meta'] == get_metadata_archived(did['scope'], did['name'], plugin="JSON")
+
 
 @pytest.fixture
 def mongo_meta():
@@ -293,9 +396,47 @@ def postgres_json_meta():
     )
 
 
-@pytest.mark.noparallel(reason='race condition on try-create table')
+@pytest.fixture
+def switch_metadata_plugin(postgres_json_meta):
+    """
+    Fixture to manually switch the CUSTOM plugin to be the external postgres metadata plugin and return it to its
+    original value once a test has run.
+    """
+    plugin_before = rucio.core.did_meta_plugins.METADATA_PLUGIN_MODULES[1]
+    rucio.core.did_meta_plugins.METADATA_PLUGIN_MODULES[1] = postgres_json_meta
+    yield
+    rucio.core.did_meta_plugins.METADATA_PLUGIN_MODULES[1] = plugin_before
+
+
 @skip_rse_tests_with_accounts
+@pytest.mark.noparallel(reason='switching plugins & race condition on try-create table')
 class TestDidMetaExternalPostgresJSON:
+    def test_on_delete_metadata(self, vo, root_account, mock_scope, did_factory, switch_metadata_plugin):
+        """ DID (CORE): Test the removal of custom metadata when a DID is deleted """
+
+        # Create DIDs with arbitrary metadata.
+        dids = [did_factory.make_dataset() for _ in range(5)]
+        dids_to_delete = []
+        for did in dids:
+            keys = list(map(lambda i: 'test_key' + generate_uuid(), range(3)))
+            metadata = {key: key + '_value' for key in keys}
+            did['meta'] = metadata
+            dids_to_delete.append(
+                {'scope': did['scope'], 'name': did['name'], 'did_type': 'DATASET', 'purge_replicas': True})
+        set_dids_metadata_bulk(dids=dids, recursive=False)
+
+        # Check that metadata was successfully added.
+        for did in dids:
+            added_metadata = did['meta']
+            retrieved_metadata = get_metadata(scope=did['scope'], name=did['name'], plugin='POSTGRES_JSON')
+            for key in added_metadata:
+                assert key in retrieved_metadata and retrieved_metadata[key] == added_metadata[key]
+
+        # Delete the DIDs and check that the metadata has been deleted.
+        delete_dids(dids=dids_to_delete, account=root_account)
+        for did in dids:
+            with pytest.raises(DataIdentifierNotFound):
+                get_metadata(scope=did['scope'], name=did['name'])
 
     @pytest.mark.dirty
     def test_set_get_metadata(self, mock_scope, root_account, postgres_json_meta):
@@ -705,3 +846,5 @@ def test_set_dids_metadata_bulk_multi_client(did_factory, rucio_client):
         print('Metadata:', meta)
         for testkey in testmeta:
             assert testkey in meta and meta[testkey] == testmeta[testkey]
+
+
