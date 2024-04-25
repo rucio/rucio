@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from collections import namedtuple
-from collections.abc import Iterator
 from json import dumps, loads
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
@@ -25,6 +24,8 @@ from rucio.db.sqla.session import read_session, stream_session, transactional_se
 from rucio.gateway.permission import has_permission
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from sqlalchemy.orm import Session
 
 
@@ -163,7 +164,7 @@ def list_subscriptions(
     vo: str = 'def',
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     Returns a dictionary with the subscription information :
     Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
@@ -205,7 +206,7 @@ def list_subscription_rule_states(
     vo: str = 'def',
     *,
     session: "Session"
-) -> Iterator[SubscriptionRuleState]:
+) -> 'Iterator[SubscriptionRuleState]':
     """Returns a list of with the number of rules per state for a subscription.
 
     :param name: Name of the subscription

@@ -15,11 +15,10 @@
 
 import html
 import re
-from collections.abc import Iterable
 from json import dumps, load
 from os.path import dirname, join
 from time import time
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote, unquote
 
 from flask import Response, make_response, redirect, render_template, request
@@ -33,6 +32,9 @@ from rucio.db.sqla.constants import AccountType, IdentityType
 from rucio.gateway import authentication as auth
 from rucio.gateway import identity
 from rucio.gateway.account import account_exists, get_account_info, list_account_attributes
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 EXTRA_MODULES = import_extras(['onelogin'])
 
@@ -102,7 +104,7 @@ def prepare_saml_request(environ, data):
     return None
 
 
-def add_cookies(response: Response, cookie: Optional[Iterable[dict[str, Any]]] = None) -> Response:
+def add_cookies(response: Response, cookie: Optional['Iterable[dict[str, Any]]'] = None) -> Response:
     """
     Adds cookies to the response object.
     :param response: Flask response object

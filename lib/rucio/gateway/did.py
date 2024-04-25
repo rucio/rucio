@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterable, Iterator, Mapping, Sequence
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -29,13 +28,15 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
+
     from sqlalchemy.orm import Session
 
 
 @stream_session
 def list_dids(
     scope: str,
-    filters: Mapping[Any, Any],
+    filters: 'Mapping[Any, Any]',
     did_type: str = 'collection',
     ignore_case: bool = False,
     limit: Optional[int] = None,
@@ -45,7 +46,7 @@ def list_dids(
     vo: str = 'def',
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List dids in a scope.
 
@@ -85,9 +86,9 @@ def add_did(
     account: Optional[str] = None,
     statuses: Optional[dict[str, str]] = None,
     meta: Optional[dict[str, str]] = None,
-    rules: Optional[Sequence[dict[str, Any]]] = None,
+    rules: Optional['Sequence[dict[str, Any]]'] = None,
     lifetime: Optional[str] = None,
-    dids: Optional[Sequence[dict[str, Any]]] = None,
+    dids: Optional['Sequence[dict[str, Any]]'] = None,
     rse: Optional[str] = None,
     vo: str = 'def',
     *,
@@ -156,7 +157,7 @@ def add_did(
 
 @transactional_session
 def add_dids(
-    dids: Sequence[dict[str, Any]],
+    dids: 'Sequence[dict[str, Any]]',
     issuer: str,
     vo: str = 'def',
     *,
@@ -243,7 +244,7 @@ def attach_dids(
 
 @transactional_session
 def attach_dids_to_dids(
-    attachments: Sequence[dict[str, Any]],
+    attachments: 'Sequence[dict[str, Any]]',
     issuer: str,
     ignore_duplicate: bool = False,
     vo: str = 'def',
@@ -287,7 +288,7 @@ def attach_dids_to_dids(
 def detach_dids(
     scope: str,
     name: str,
-    dids: Sequence[dict[str, Any]],
+    dids: 'Sequence[dict[str, Any]]',
     issuer: str,
     vo: str = 'def',
     *,
@@ -323,7 +324,7 @@ def list_new_dids(
     vo: str = 'def',
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List recent identifiers.
 
@@ -342,7 +343,7 @@ def list_new_dids(
 
 @transactional_session
 def set_new_dids(
-    dids: Sequence[dict[str, Any]],
+    dids: 'Sequence[dict[str, Any]]',
     new_flag: bool = True,
     vo: str = 'def',
     *,
@@ -370,7 +371,7 @@ def list_content(
     vo: str = 'def',
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List data identifier contents.
 
@@ -394,7 +395,7 @@ def list_content_history(
     vo='def',
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List data identifier contents history.
 
@@ -414,12 +415,12 @@ def list_content_history(
 
 @stream_session
 def bulk_list_files(
-    dids: Iterable[dict[str, Any]],
+    dids: 'Iterable[dict[str, Any]]',
     long: bool = False,
     vo: str = 'def',
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List file contents of a list of data identifiers.
 
@@ -444,7 +445,7 @@ def list_files(
     vo: str = 'def',
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List data identifier file contents.
 
@@ -471,7 +472,7 @@ def scope_list(
     vo: str = 'def',
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List data identifiers in a scope.
 
@@ -588,7 +589,7 @@ def set_metadata_bulk(
 
 @transactional_session
 def set_dids_metadata_bulk(
-    dids: Iterable[dict[str, Any]],
+    dids: 'Iterable[dict[str, Any]]',
     issuer: str,
     recursive: bool = False,
     vo: str = 'def',
@@ -644,12 +645,12 @@ def get_metadata(
 
 @stream_session
 def get_metadata_bulk(
-    dids: Iterable[dict[str, Any]],
+    dids: 'Iterable[dict[str, Any]]',
     inherit: bool = False,
     vo: str = 'def',
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     Get metadata for a list of dids
     :param dids:               A list of dids.
@@ -724,7 +725,7 @@ def get_dataset_by_guid(
     vo: str = 'def',
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     Get the parent datasets for a given GUID.
     :param guid: The GUID.
@@ -748,7 +749,7 @@ def list_parent_dids(
     vo: str = 'def',
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List parent datasets and containers of a did.
 
@@ -806,7 +807,7 @@ def create_did_sample(
 
 @transactional_session
 def resurrect(
-    dids: Iterable[dict[str, Any]],
+    dids: 'Iterable[dict[str, Any]]',
     issuer: str,
     vo: str = 'def',
     *,
@@ -838,7 +839,7 @@ def list_archive_content(
     vo: str = 'def',
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List archive contents.
 
@@ -879,7 +880,7 @@ def add_did_to_followed(
 
 @transactional_session
 def add_dids_to_followed(
-    dids: Iterable[Mapping[str, Any]],
+    dids: 'Iterable[Mapping[str, Any]]',
     account: str,
     *,
     session: "Session",
@@ -903,7 +904,7 @@ def get_users_following_did(
     *,
     session: "Session",
     vo: str = 'def'
-) -> Iterator[dict[str, str]]:
+) -> 'Iterator[dict[str, str]]':
     """
     Return list of users following a did
 
@@ -948,7 +949,7 @@ def remove_did_from_followed(
 
 @transactional_session
 def remove_dids_from_followed(
-    dids: Iterable[Mapping[str, Any]],
+    dids: 'Iterable[Mapping[str, Any]]',
     account: str,
     issuer: str,
     *,

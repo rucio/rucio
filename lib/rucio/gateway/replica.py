@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import datetime
-from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
@@ -28,6 +27,8 @@ from rucio.db.sqla.session import read_session, stream_session, transactional_se
 from rucio.gateway import permission
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from sqlalchemy.orm import Session
 
 
@@ -419,7 +420,7 @@ def list_dataset_replicas_vp(scope, name, deep=False, vo='def', *, session: "Ses
 
 
 @stream_session
-def list_datasets_per_rse(rse: str, filters: Optional[dict[str, Any]] = None, limit: Optional[int] = None, vo: str = 'def', *, session: "Session") -> Iterator[dict[str, Any]]:
+def list_datasets_per_rse(rse: str, filters: Optional[dict[str, Any]] = None, limit: Optional[int] = None, vo: str = 'def', *, session: "Session") -> 'Iterator[dict[str, Any]]':
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.

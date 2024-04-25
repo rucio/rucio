@@ -14,7 +14,6 @@
 
 """Generic decommissioning profiles."""
 import logging
-from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -32,6 +31,8 @@ from rucio.db.sqla.constants import ReplicaState
 from .types import DecommissioningProfile, HandlerOutcome
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from rucio.common.types import LoggerFunction
 
 
@@ -137,7 +138,7 @@ def _generic_discover(
     rse: dict[str, Any],
     *,
     logger: "LoggerFunction" = logging.log
-) -> Iterable[dict[str, Any]]:
+) -> 'Iterable[dict[str, Any]]':
     """Discoverer function that calls the listing function from core.rule.
 
     :param rse: RSE table entry as a dictionary.
@@ -186,7 +187,7 @@ def _generic_finalize(
 
 def _process_replicas_with_no_locks(
     rse: dict[str, Any],
-    replicas: Iterable[dict[str, Any]],
+    replicas: 'Iterable[dict[str, Any]]',
     limit: int = 0,
     *,
     logger: "LoggerFunction" = logging.log,
@@ -382,7 +383,7 @@ def _call_for_attention(
     rule: dict[str, Any],
     rse: dict[str, Any],
     *,
-    logger: Callable[..., None] = logging.log
+    logger: "LoggerFunction" = logging.log
 ) -> HandlerOutcome:
     return HandlerOutcome.NEED_ATTENTION
 

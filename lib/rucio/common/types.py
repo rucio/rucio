@@ -14,7 +14,6 @@
 
 import sys
 from collections.abc import Callable
-from datetime import datetime
 from os import PathLike
 
 if sys.version_info < (3, 11):
@@ -26,6 +25,8 @@ else:
 
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from rucio.common.constants import SUPPORTED_PROTOCOLS_LITERAL
     from rucio.db.sqla.constants import AccountType, IdentityType, RequestState, RequestType
 
@@ -226,13 +227,13 @@ class HopDict(TypedDict):
 
 class TokenDict(TypedDict):
     token: str
-    expires_at: datetime
+    expires_at: 'datetime'
 
 
 class TokenValidationDict(TypedDict):
     account: Optional[InternalAccount]
     identity: Optional[str]
-    lifetime: datetime
+    lifetime: 'datetime'
     audience: Optional[str]
     authz_scope: Optional[str]
 
@@ -265,7 +266,7 @@ class IdentityDict(TypedDict):
 class UsageDict(TypedDict):
     bytes: int
     files: int
-    updated_at: Optional[datetime]
+    updated_at: Optional['datetime']
 
 
 class AccountUsageModelDict(TypedDict):
@@ -399,5 +400,5 @@ class RequestAttributesDict(TypedDict):
 class FilterDict(TypedDict):
     rule_id: str
     request_id: str
-    older_than: datetime
+    older_than: 'datetime'
     activities: Union[list[str], str]

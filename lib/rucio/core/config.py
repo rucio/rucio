@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 from dogpile.cache.api import NoValue
@@ -26,6 +25,8 @@ from rucio.db.sqla.session import read_session, transactional_session
 T = TypeVar('T')
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
 
 
@@ -182,7 +183,7 @@ def get(
         default: Optional[T] = None,
         use_cache: bool = True,
         expiration_time: int = 900,
-        convert_type_fnc: Callable[[str], T],
+        convert_type_fnc: 'Callable[[str], T]',
         session: "Session"
 ) -> T:
     """
@@ -231,7 +232,7 @@ def items(
         use_cache: bool = True,
         expiration_time: int = 900,
         *,
-        convert_type_fnc: Callable[[str], T],
+        convert_type_fnc: 'Callable[[str], T]',
         session: "Session"
 ) -> list[tuple[str, T]]:
     """

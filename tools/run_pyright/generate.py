@@ -15,18 +15,21 @@
 import json
 import subprocess
 import sys
-from argparse import ArgumentParser, Namespace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .models import Report, ReportDict
 from .utils import save_json
+
+if TYPE_CHECKING:
+    from argparse import ArgumentParser, Namespace
 
 PATHS = (
     'lib/',
 )
 
 
-def setup_parser(parser: ArgumentParser) -> None:
+def setup_parser(parser: 'ArgumentParser') -> None:
     parser.description = """
     Invokes Pyright to generate a report of current typing errors and warnings.
     """
@@ -34,7 +37,7 @@ def setup_parser(parser: ArgumentParser) -> None:
     parser.set_defaults(func=generate)
 
 
-def generate(args: Namespace) -> int:
+def generate(args: 'Namespace') -> int:
     """Generate a Pyright report and save it at the specified path."""
     reportdict = _run_pyright()
 

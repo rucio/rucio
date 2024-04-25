@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.common.exception
@@ -27,6 +26,8 @@ from rucio.db.sqla.constants import AccountType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from sqlalchemy.orm import Session
 
     from rucio.common.types import AccountAttributesDict, IdentityDict, UsageDict
@@ -146,7 +147,7 @@ def update_account(
 
 
 @stream_session
-def list_accounts(filter_: Optional[dict[str, Any]] = None, vo: str = 'def', *, session: "Session") -> Iterator[dict[str, Any]]:
+def list_accounts(filter_: Optional[dict[str, Any]] = None, vo: str = 'def', *, session: "Session") -> 'Iterator[dict[str, Any]]':
     """
     Lists all the Rucio account names.
 

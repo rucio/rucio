@@ -27,7 +27,7 @@ from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
 from rucio.common.schema import get_schema_value
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalAccount, InternalScope  # noqa: TCH001 (types are needed by SQLAlchemy)
 from rucio.db.sqla.constants import (
     AccountStatus,
     AccountType,
@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     from sqlalchemy.engine.base import Connection
     from sqlalchemy.orm import Session
     from sqlalchemy.sql import Insert, Update
+
 
 # SQLAlchemy defines the corresponding code behind TYPE_CHECKING
 # https://github.com/sqlalchemy/sqlalchemy/blob/d9acd6223299c118464d30abfa483e26a536239d/lib/sqlalchemy/orm/base.py#L814

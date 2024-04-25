@@ -18,15 +18,17 @@ along with some of the default methods for LFN2PFN translations.
 """
 import hashlib
 import logging
-from collections.abc import Callable, Mapping
 from configparser import NoOptionError, NoSectionError
-from typing import Any, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
 from urllib.parse import urlparse
 
 from rucio.common import config, exception
 from rucio.common.constants import RseAttr
 from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.rse import rsemanager
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 if getattr(rsemanager, 'CLIENT_MODE', None):
     from rucio.client.rseclient import RSEClient
@@ -66,13 +68,13 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         self.parser = self.get_parser(algorithm_name)
 
     @classmethod
-    def get_parser(cls, algorithm_name: str) -> Callable[..., Any]:
+    def get_parser(cls, algorithm_name: str) -> 'Callable[..., Any]':
         return super()._get_one_algorithm(cls._algorithm_type, algorithm_name)
 
     @classmethod
     def register(
         cls,
-        pfn2lfn_callable: Callable,
+        pfn2lfn_callable: 'Callable',
         name: Optional[str] = None
     ) -> None:
         """
@@ -88,7 +90,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         super()._register(cls._algorithm_type, algorithm_dict)
 
     @staticmethod
-    def _default(parsed_pfn: Mapping[str, str]) -> tuple[str, str]:
+    def _default(parsed_pfn: 'Mapping[str, str]') -> tuple[str, str]:
         """ Translate pfn to name/scope pair
 
         :param parsed_pfn: dictionary representing pfn containing:
@@ -102,7 +104,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         return name, scope
 
     @staticmethod
-    def _atlas(parsed_pfn: Mapping[str, str]) -> tuple[str, str]:
+    def _atlas(parsed_pfn: 'Mapping[str, str]') -> tuple[str, str]:
         """ Translate pfn to name/scope pair
 
         :param parsed_pfn: dictionary representing pfn containing:

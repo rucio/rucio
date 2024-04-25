@@ -14,13 +14,15 @@
 
 import json
 import sys
-from collections.abc import Callable
 from configparser import NoSectionError
-from typing import Any, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 from rucio.common.config import config_get_int, config_get_items
 from rucio.common.exception import InvalidRequest
 from rucio.common.plugins import PolicyPackageAlgorithms
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 FTS3TapeMetadataPluginType = TypeVar('FTS3TapeMetadataPluginType', bound='FTS3TapeMetadataPlugin')
 
@@ -65,7 +67,7 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         cls.register("test", func=lambda x: cls._collocation(cls, cls._test_collocation, x))  # type: ignore
 
     @classmethod
-    def register(cls: type[FTS3TapeMetadataPluginType], name: str, func: Callable, init_func: Optional[Callable] = None) -> None:
+    def register(cls: type[FTS3TapeMetadataPluginType], name: str, func: 'Callable', init_func: Optional['Callable'] = None) -> None:
         """
         Register a fts3 transfer plugin
 
@@ -99,7 +101,7 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
 
         return {"scheduling_hints": {"priority": priority}}
 
-    def _collocation(self, collocation_func: Callable, hints: dict[str, Any]) -> dict[str, dict]:
+    def _collocation(self, collocation_func: 'Callable', hints: dict[str, Any]) -> dict[str, dict]:
         """
         Wraps a 'collacation' style plugin for formatting
 

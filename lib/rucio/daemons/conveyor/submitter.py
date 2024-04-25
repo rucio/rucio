@@ -17,7 +17,6 @@ Conveyor transfer submitter is a daemon to manage non-tape file transfers.
 """
 import logging
 import threading
-from collections.abc import Mapping
 from typing import TYPE_CHECKING, Optional
 
 import rucio.db.sqla.util
@@ -37,6 +36,7 @@ from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from types import FrameType
 
     from rucio.common.types import LoggerFunction, RSESettingsDict
@@ -114,7 +114,7 @@ def _fetch_requests(
 
 
 def _handle_requests(
-        batch: tuple[Topology, Mapping[str, RequestWithSources]],
+        batch: tuple[Topology, 'Mapping[str, RequestWithSources]'],
         *,
         transfertools: list[str],
         schemes: Optional[list[str]],
@@ -301,7 +301,7 @@ def submitter(
             heartbeat_handler=heartbeat_handler,
         )
 
-    def _consumer(batch: tuple[Topology, Mapping[str, RequestWithSources]]) -> None:
+    def _consumer(batch: tuple[Topology, 'Mapping[str, RequestWithSources]']) -> None:
         return _handle_requests(
             batch,
             transfertools=transfertools,

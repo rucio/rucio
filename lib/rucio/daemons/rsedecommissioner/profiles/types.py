@@ -14,12 +14,13 @@
 
 """Types used for profile definitions."""
 import logging
-from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
     from rucio.common.types import LoggerFunction
 
 
@@ -42,10 +43,10 @@ class DecommissioningProfile:
     """
 
     rse: dict[str, Any]
-    initializer: Callable[..., None]
-    discoverer: Callable[..., Iterable[dict[str, Any]]]
-    handlers: list[tuple[Callable[..., bool], Callable[..., HandlerOutcome]]]
-    finalizer: Callable[..., bool]
+    initializer: "Callable[..., None]"
+    discoverer: "Callable[..., Iterable[dict[str, Any]]]"
+    handlers: list[tuple["Callable[..., bool]", "Callable[..., HandlerOutcome]"]]
+    finalizer: "Callable[..., bool]"
 
     def initialize(
         self,
@@ -59,7 +60,7 @@ class DecommissioningProfile:
         self,
         *,
         logger: "LoggerFunction" = logging.log
-    ) -> Iterable[dict[str, Any]]:
+    ) -> 'Iterable[dict[str, Any]]':
         """Call the discoverer."""
         return self.discoverer(self.rse, logger=logger)
 

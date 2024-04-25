@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import logging
-from collections.abc import Iterable, Iterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -32,11 +31,13 @@ from rucio.db.sqla.constants import DIDType, LockState, RuleGrouping, RuleNotifi
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
     from sqlalchemy.orm import Session
 
 
 @stream_session
-def get_dataset_locks(scope: InternalScope, name: str, *, session: "Session") -> Iterator[dict[str, Any]]:
+def get_dataset_locks(scope: InternalScope, name: str, *, session: "Session") -> "Iterator[dict[str, Any]]":
     """
     Get the dataset locks of a dataset
 
@@ -75,7 +76,7 @@ def get_dataset_locks(scope: InternalScope, name: str, *, session: "Session") ->
 
 
 @stream_session
-def get_dataset_locks_bulk(dids: Iterable[dict[str, Any]], *, session: "Session") -> Iterator[dict[str, Any]]:
+def get_dataset_locks_bulk(dids: "Iterable[dict[str, Any]]", *, session: "Session") -> "Iterator[dict[str, Any]]":
     """
     Get the dataset locks of a list of datasets or containers, recursively
 
@@ -111,7 +112,7 @@ def get_dataset_locks_bulk(dids: Iterable[dict[str, Any]], *, session: "Session"
 
 
 @stream_session
-def get_dataset_locks_by_rse_id(rse_id: str, *, session: "Session") -> Iterator[dict[str, Any]]:
+def get_dataset_locks_by_rse_id(rse_id: str, *, session: "Session") -> "Iterator[dict[str, Any]]":
     """
     Get the dataset locks of an RSE.
 
@@ -151,7 +152,7 @@ def get_dataset_locks_by_rse_id(rse_id: str, *, session: "Session") -> Iterator[
 
 
 @read_session
-def get_replica_locks(scope: InternalScope, name: str, nowait: bool = False, restrict_rses: Optional[Iterable[str]] = None, *, session: "Session") -> list[models.ReplicaLock]:
+def get_replica_locks(scope: InternalScope, name: str, nowait: bool = False, restrict_rses: Optional["Iterable[str]"] = None, *, session: "Session") -> list[models.ReplicaLock]:
     """
     Get the active replica locks for a file
 
@@ -244,7 +245,7 @@ def get_replica_locks_for_rule_id_per_rse(rule_id: str, *, session: "Session") -
 
 
 @read_session
-def get_files_and_replica_locks_of_dataset(scope: InternalScope, name: str, nowait: bool = False, restrict_rses: Optional[Iterable[str]] = None, only_stuck: bool = False,
+def get_files_and_replica_locks_of_dataset(scope: InternalScope, name: str, nowait: bool = False, restrict_rses: Optional["Iterable[str]"] = None, only_stuck: bool = False,
                                            total_threads: Optional[int] = None, thread_id: Optional[int] = None,
                                            *, session: "Session") -> dict[tuple[InternalScope, str], Union[models.ReplicaLock, list[models.ReplicaLock]]]:
     """
@@ -527,7 +528,7 @@ def failed_transfer(scope: InternalScope, name: str, rse_id: str, error_message:
 
 
 @transactional_session
-def touch_dataset_locks(dataset_locks: Iterable[dict[str, Any]], *, session: "Session") -> bool:
+def touch_dataset_locks(dataset_locks: "Iterable[dict[str, Any]]", *, session: "Session") -> bool:
     """
     Update the accessed_at timestamp of the given dataset locks + eol_at.
 
