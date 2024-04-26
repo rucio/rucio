@@ -14,3 +14,4 @@ updates:
       python-packages:
         patterns:
           - "*"
+    open-pull-requests-limit: 0  # Only allow security updates
