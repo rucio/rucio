@@ -19,11 +19,11 @@ import re
 import sys
 import traceback
 from base64 import b64decode
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Union, cast
 
 import paramiko
 from dogpile.cache import make_region
-from dogpile.cache.api import NO_VALUE
+from dogpile.cache.api import NO_VALUE, NoValue
 from sqlalchemy import delete, null, or_, select
 
 from rucio.common.cache import make_region_memcached
@@ -37,9 +37,9 @@ from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
-    from typing import Any, Union
-
     from sqlalchemy.orm import Session
+
+    from rucio.common.types import InternalAccount, TokenDict, TokenValidationDict
 
 
 def strip_x509_proxy_attributes(dn: str) -> str:
@@ -89,7 +89,15 @@ else:
 
 
 @transactional_session
-def get_auth_token_user_pass(account, username, password, appid, ip=None, *, session: "Session"):
+def get_auth_token_user_pass(
+    account: "InternalAccount",
+    username: str,
+    password: str,
+    appid: str,
+    ip: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional["TokenDict"]:
     """
     Authenticate a Rucio account temporarily via username and password.
 
@@ -149,7 +157,14 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, *, ses
 
 
 @transactional_session
-def get_auth_token_x509(account, dn, appid, ip=None, *, session: "Session"):
+def get_auth_token_x509(
+    account: "InternalAccount",
+    dn: str,
+    appid: str,
+    ip: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional["TokenDict"]:
     """
     Authenticate a Rucio account temporarily via an x509 certificate.
 
@@ -181,7 +196,14 @@ def get_auth_token_x509(account, dn, appid, ip=None, *, session: "Session"):
 
 
 @transactional_session
-def get_auth_token_gss(account, gsstoken, appid, ip=None, *, session: "Session"):
+def get_auth_token_gss(
+    account: "InternalAccount",
+    gsstoken: str,
+    appid: str,
+    ip: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional["TokenDict"]:
     """
     Authenticate a Rucio account temporarily via a GSS token.
 
@@ -213,7 +235,14 @@ def get_auth_token_gss(account, gsstoken, appid, ip=None, *, session: "Session")
 
 
 @transactional_session
-def get_auth_token_ssh(account, signature, appid, ip=None, *, session: "Session"):
+def get_auth_token_ssh(
+    account: "InternalAccount",
+    signature: str,
+    appid: str,
+    ip: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional["TokenDict"]:
     """
     Authenticate a Rucio account temporarily via SSH key exchange.
 
@@ -231,7 +260,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, *, session: "Session"
     # decode the signature which must come in base64 encoded
     try:
         signature += '=' * ((4 - len(signature) % 4) % 4)  # adding required padding
-        signature = b64decode(signature)
+        decoded_signature = b64decode(signature)
     except TypeError:
         raise CannotAuthenticate(f'Cannot authenticate to account {account} with malformed signature')
 
@@ -270,7 +299,7 @@ def get_auth_token_ssh(account, signature, appid, ip=None, *, session: "Session"
         pub_k = paramiko.RSAKey(data=b64decode(data))
         for challenge_token in active_challenge_tokens:
             if pub_k.verify_ssh_sig(str(challenge_token['token']).encode(),
-                                    paramiko.Message(signature)):
+                                    paramiko.Message(decoded_signature)):
                 match = True
                 break
         if match:
@@ -292,7 +321,13 @@ def get_auth_token_ssh(account, signature, appid, ip=None, *, session: "Session"
 
 
 @transactional_session
-def get_ssh_challenge_token(account, appid, ip=None, *, session: "Session"):
+def get_ssh_challenge_token(
+    account: "InternalAccount",
+    appid: str,
+    ip: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional["TokenDict"]:
     """
     Prepare a challenge token for subsequent SSH public key authentication.
 
@@ -328,7 +363,14 @@ def get_ssh_challenge_token(account, appid, ip=None, *, session: "Session"):
 
 
 @transactional_session
-def get_auth_token_saml(account, saml_nameid, appid, ip=None, *, session: "Session"):
+def get_auth_token_saml(
+    account: "InternalAccount",
+    saml_nameid: str,
+    appid: str,
+    ip: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional["TokenDict"]:
     """
     Authenticate a Rucio account temporarily via SAML.
 
@@ -359,7 +401,12 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, *, session: "Sessi
 
 
 @transactional_session
-def redirect_auth_oidc(auth_code, fetchtoken=False, *, session: "Session"):
+def redirect_auth_oidc(
+    auth_code: str,
+    fetchtoken: bool = False,
+    *,
+    session: "Session"
+) -> Optional[str]:
     """
     Finds the Authentication URL in the Rucio DB oauth_requests table
     and redirects user's browser to this URL.
@@ -400,7 +447,13 @@ def redirect_auth_oidc(auth_code, fetchtoken=False, *, session: "Session"):
 
 
 @transactional_session
-def delete_expired_tokens(total_workers, worker_number, limit=1000, *, session: "Session"):
+def delete_expired_tokens(
+    total_workers: int,
+    worker_number: int,
+    limit: int = 1000,
+    *,
+    session: "Session"
+) -> int:
     """
     Delete expired tokens.
 
@@ -460,7 +513,7 @@ def delete_expired_tokens(total_workers, worker_number, limit=1000, *, session: 
 
 
 @read_session
-def query_token(token, *, session: "Session"):
+def query_token(token: str, *, session: "Session") -> Optional["TokenValidationDict"]:
     """
     Validate an authentication token using the database. This method will only be called
     if no entry could be found in the according cache.
@@ -488,12 +541,12 @@ def query_token(token, *, session: "Session"):
     )
     result = session.execute(query).first()
     if result:
-        return result._asdict()
+        return cast("TokenValidationDict", result._asdict())
     return None
 
 
 @transactional_session
-def validate_auth_token(token: str, *, session: "Session") -> "dict[str, Any]":
+def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDict":
     """
     Validate an authentication token.
 
@@ -514,8 +567,8 @@ def validate_auth_token(token: str, *, session: "Session") -> "dict[str, Any]":
     token = token.strip()
     cache_key = token.replace(' ', '')
 
-    # Check if token ca be found in cache region
-    value: "Union[NO_VALUE, dict[str, Any]]" = TOKENREGION.get(cache_key)
+    # Check if token can be found in cache region
+    value: Union[NoValue, "TokenValidationDict"] = TOKENREGION.get(cache_key)
     if value is NO_VALUE:  # no cached entry found
         value = query_token(token, session=session)
         if not value:
@@ -527,19 +580,19 @@ def validate_auth_token(token: str, *, session: "Session") -> "dict[str, Any]":
                 raise CannotAuthenticate(traceback.format_exc())
         # save token in the cache
         TOKENREGION.set(cache_key, value)
-    lifetime = value.get('lifetime', datetime.datetime(1970, 1, 1))
+    lifetime = value.get('lifetime', datetime.datetime(1970, 1, 1))  # type: ignore (value is narrowed to dict, but type-checker doesn't see it)
     if lifetime < datetime.datetime.utcnow():  # check if expired
         TOKENREGION.delete(cache_key)
         raise CannotAuthenticate(f"Token found but expired since {date_to_str(lifetime)}.")
-    return value
+    return cast("TokenValidationDict", value)
 
 
-def token_dictionary(token: models.Token):
+def token_dictionary(token: models.Token) -> "TokenDict":
     return {'token': token.token, 'expires_at': token.expired_at}
 
 
 @transactional_session
-def __delete_expired_tokens_account(account, *, session: "Session"):
+def __delete_expired_tokens_account(account: "InternalAccount", *, session: "Session") -> None:
     """"
     Deletes expired tokens from the database.
 
