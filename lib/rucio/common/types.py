@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal, Optional, TypedDict, Union
 
 if TYPE_CHECKING:
@@ -191,3 +192,16 @@ class HopDict(TypedDict):
     dest_rse_id: str
     dest_scheme: "SUPPORTED_PROTOCOLS_LITERAL"
     dest_scheme_priority: int
+
+
+class TokenDict(TypedDict):
+    token: str
+    expires_at: datetime
+
+
+class TokenValidationDict(TypedDict):
+    account: Optional[InternalAccount]
+    identity: Optional[str]
+    lifetime: datetime
+    audience: Optional[str]
+    authz_scope: Optional[str]
