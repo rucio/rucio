@@ -54,22 +54,22 @@ def run_once(heartbeat_handler, **_kwargs):
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     start = time.time()  # NOQA
-    account_rse_ids = get_updated_account_counters(total_workers=total_workers,
-                                                   worker_number=worker_number)
-    logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(account_rse_ids)))
+    updated_account_counters = get_updated_account_counters(total_workers=total_workers,
+                                                            worker_number=worker_number)
+    logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(updated_account_counters)))
 
     # If the list is empty, sent the worker to sleep
-    if not account_rse_ids:
+    if not updated_account_counters:
         logger(logging.INFO, 'did not get any work')
         return
 
-    for account_rse_id in account_rse_ids:
+    for account_counter in updated_account_counters:
         worker_number, total_workers, logger = heartbeat_handler.live()
         if graceful_stop.is_set():
             break
         start_time = time.time()
-        update_account_counter(account=account_rse_id[0], rse_id=account_rse_id[1])
-        logger(logging.DEBUG, 'update of account-rse counter "%s-%s" took %f' % (account_rse_id[0], account_rse_id[1], time.time() - start_time))
+        update_account_counter(account=account_counter['account'], rse_id=account_counter['rse_id'])
+        logger(logging.DEBUG, 'update of account-rse counter "%s-%s" took %f' % (account_counter['account'], account_counter['rse_id'], time.time() - start_time))
 
 
 def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
