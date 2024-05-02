@@ -93,12 +93,7 @@ def get_updated_account_counters(total_workers, worker_number, *, session: "Sess
     query = session.query(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id).\
         distinct(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id)
 
-    if session.bind.dialect.name == 'oracle':
-        hash_variable = 'CONCAT(account, rse_id)'''
-    else:
-        hash_variable = 'concat(account, rse_id)'
-
-    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable=hash_variable)
+    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='CONCAT(account, rse_id)')
 
     return query.all()
 
