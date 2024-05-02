@@ -167,6 +167,11 @@ class RSESettingsDict(TypedDict):
     protocols: list[RSEProtocolDict]
 
 
+class RSEAccountCounterDict(TypedDict):
+    account: InternalAccount
+    rse_id: str
+
+
 class RuleDict(TypedDict):
     account: InternalAccount
     copies: int
