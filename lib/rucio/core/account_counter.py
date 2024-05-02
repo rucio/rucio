@@ -90,12 +90,16 @@ def get_updated_account_counters(total_workers, worker_number, *, session: "Sess
     :param session:            Database session in use.
     :returns:                  List of rse_ids whose rse_counters need to be updated.
     """
-    query = session.query(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id).\
-        distinct(models.UpdatedAccountCounter.account, models.UpdatedAccountCounter.rse_id)
+
+    query = select(
+        models.UpdatedAccountCounter.account,
+        models.UpdatedAccountCounter.rse_id,
+    ).distinct(
+    )
 
     query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='CONCAT(account, rse_id)')
 
-    return query.all()
+    return [row._asdict() for row in session.execute(query).all()]
 
 
 @transactional_session
