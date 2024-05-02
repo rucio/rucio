@@ -182,6 +182,38 @@ class RSEAccountCounterDict(TypedDict):
     account: InternalAccount
     rse_id: str
 
+    
+class RSEAccountUsageDict(TypedDict):
+    rse_id: str
+    rse: str
+    account: InternalAccount
+    used_files: int
+    used_bytes: int
+    quota_bytes: int
+
+
+class RSEGlobalAccountUsageDict(TypedDict):
+    rse_expression: str
+    bytes: int
+    files: int
+    bytes_limit: int
+    bytes_remaining: int
+
+
+class RSELocalAccountUsageDict(TypedDict):
+    rse_id: str
+    rse: str
+    bytes: int
+    files: int
+    bytes_limit: int
+    bytes_remaining: int
+
+
+class RSEResolvedGlobalAccountLimitDict(TypedDict):
+    resolved_rses: str
+    resolved_rse_ids: list[str]
+    limit: float
+
 
 class RuleDict(TypedDict):
     account: InternalAccount
