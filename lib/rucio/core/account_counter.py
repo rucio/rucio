@@ -23,11 +23,18 @@ from rucio.db.sqla.session import read_session, transactional_session
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from rucio.common.types import InternalAccount, RSEAccountCounterDict
+
 MAX_COUNTERS = 10
 
 
 @transactional_session
-def add_counter(rse_id, account, *, session: "Session"):
+def add_counter(
+    rse_id: str,
+    account: "InternalAccount",
+    *,
+    session: "Session"
+) -> None:
     """
     Creates the specified counter for a rse_id and account.
 
@@ -40,7 +47,14 @@ def add_counter(rse_id, account, *, session: "Session"):
 
 
 @transactional_session
-def increase(rse_id, account, files, bytes_, *, session: "Session"):
+def increase(
+    rse_id: str,
+    account: "InternalAccount",
+    files: int,
+    bytes_: int,
+    *,
+    session: "Session"
+) -> None:
     """
     Increments the specified counter by the specified amount.
 
@@ -54,7 +68,14 @@ def increase(rse_id, account, files, bytes_, *, session: "Session"):
 
 
 @transactional_session
-def decrease(rse_id, account, files, bytes_, *, session: "Session"):
+def decrease(
+    rse_id: str,
+    account: "InternalAccount",
+    files: int,
+    bytes_: int,
+    *,
+    session: "Session"
+) -> None:
     """
     Decreases the specified counter by the specified amount.
 
@@ -68,7 +89,12 @@ def decrease(rse_id, account, files, bytes_, *, session: "Session"):
 
 
 @transactional_session
-def del_counter(rse_id, account, *, session: "Session"):
+def del_counter(
+    rse_id: str,
+    account: "InternalAccount",
+    *,
+    session: "Session"
+) -> None:
     """
     Resets the specified counter and initializes it by the specified amounts.
 
@@ -81,7 +107,12 @@ def del_counter(rse_id, account, *, session: "Session"):
 
 
 @read_session
-def get_updated_account_counters(total_workers, worker_number, *, session: "Session"):
+def get_updated_account_counters(
+    total_workers: int,
+    worker_number: int,
+    *,
+    session: "Session"
+) -> list["RSEAccountCounterDict"]:
     """
     Get updated rse_counters.
 
@@ -99,11 +130,16 @@ def get_updated_account_counters(total_workers, worker_number, *, session: "Sess
 
     query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='CONCAT(account, rse_id)')
 
-    return [row._asdict() for row in session.execute(query).all()]
+    return [row._asdict() for row in session.execute(query).all()]  # type: ignore (pending SQLA2.1: https://github.com/rucio/rucio/discussions/6615)
 
 
 @transactional_session
-def update_account_counter(account, rse_id, *, session: "Session"):
+def update_account_counter(
+    account: "InternalAccount",
+    rse_id: str,
+    *,
+    session: "Session"
+) -> None:
     """
     Read the updated_account_counters and update the account_counter.
 
@@ -129,7 +165,12 @@ def update_account_counter(account, rse_id, *, session: "Session"):
 
 
 @transactional_session
-def update_account_counter_history(account, rse_id, *, session: "Session"):
+def update_account_counter_history(
+    account: "InternalAccount",
+    rse_id: str,
+    *,
+    session: "Session"
+) -> None:
     """
     Read the AccountUsage and update the AccountUsageHistory.
 
@@ -145,7 +186,7 @@ def update_account_counter_history(account, rse_id, *, session: "Session"):
 
 
 @transactional_session
-def fill_account_counter_history_table(*, session: "Session"):
+def fill_account_counter_history_table(*, session: "Session") -> None:
     """
     Make a snapshot of current counters
 
