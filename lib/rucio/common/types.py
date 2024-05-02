@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, TypedDict, Union
 
 if TYPE_CHECKING:
     from rucio.common.constants import SUPPORTED_PROTOCOLS_LITERAL
+    from rucio.db.sqla.constants import AccountType, IdentityType
 
 
 class InternalType:
@@ -220,3 +221,33 @@ class IPDict(TypedDict):
     site: str
     latitude: Optional[float]
     longitude: Optional[float]
+
+
+class AccountDict(TypedDict):
+    account: InternalAccount
+    type: "AccountType"
+    email: str
+
+
+class AccountAttributesDict(TypedDict):
+    key: str
+    value: Union[bool, str]
+
+
+class IdentityDict(TypedDict):
+    type: "IdentityType"
+    identity: str
+    email: str
+
+
+class UsageDict(TypedDict):
+    bytes: int
+    files: int
+    updated_at: Optional[datetime]
+
+
+class AccountUsageModelDict(TypedDict):
+    account: InternalAccount
+    rse_id: str
+    files: int
+    bytes: int
