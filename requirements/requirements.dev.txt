@@ -14,3 +14,4 @@ pydoc-markdown~=4.8.2                                       # Used for generatin
 sh~=2.0.6                                                   # Convenience library for running subprocesses in Python
 apispec==6.3.0                                              # Generate OpenApi definition out of pydoc comments
 apispec-webframeworks                                       # Integration of apispec in Flask
+pip-tools==7.4.1                                            # Generate requirements files with pinned dependencies
