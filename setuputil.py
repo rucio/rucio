@@ -138,11 +138,12 @@ def _build_requirements_table_by_key(requirements_table: "Mapping[str, Iterable[
     return req_table_by_key, extras_require
 
 
-def match_define_requirements(requirements_table):
+def match_define_requirements(app_type: str, requirements_table: "Mapping[str, Iterable[str]]") -> tuple[list[str], dict[str, list[str]]]:
     install_requires = []
     req_table_by_key, extras_require = _build_requirements_table_by_key(requirements_table)
+    req_file_name = "requirements/requirements.{}.txt".format(app_type)
 
-    with open('requirements.txt', 'r') as fhandle:
+    with open(req_file_name, 'r') as fhandle:
         for req in parse_requirements(fhandle.readlines()):
             if req.key in req_table_by_key:
                 for group in req_table_by_key[req.key]:
@@ -162,9 +163,11 @@ def match_define_requirements(requirements_table):
     return install_requires, extras_require
 
 
-def list_all_requirements(requirements_table: "Mapping[str, Iterable[str]]") -> None:
+def list_all_requirements(app_type: str, requirements_table: "Mapping[str, Iterable[str]]") -> None:
     req_table_by_key, _ = _build_requirements_table_by_key(requirements_table)
-    with open('requirements.txt', 'r') as fhandle:
+    req_file_name = "requirements/requirements.{}.txt".format(app_type)
+
+    with open(req_file_name, 'r') as fhandle:
         for req in parse_requirements(fhandle.readlines()):
             if req.key in req_table_by_key:
                 print(str(req))
