@@ -14,8 +14,12 @@
 
 import subprocess
 import sys
+from typing import TYPE_CHECKING, Union
 
 from pkg_resources import parse_requirements, safe_name
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 clients_requirements_table = {
     'install_requires': [
@@ -95,7 +99,7 @@ server_requirements_table = {
 }
 
 
-def run_shell_command(cmd):
+def run_shell_command(cmd: str) -> Union[str, bytearray, memoryview]:
     """
     Run a shell command in path and return output"
 
@@ -109,7 +113,7 @@ def run_shell_command(cmd):
     return stdout
 
 
-def get_rucio_version():
+def get_rucio_version() -> str:
     python_executable = "'" + sys.executable + "'"
     ver = run_shell_command(
         "PYTHONPATH=lib " + python_executable + " -c "
@@ -117,12 +121,12 @@ def get_rucio_version():
     )
     if not ver:
         raise RuntimeError("Could not fetch Rucio version")
-    return ver
+    return str(ver)
 
 
-def _build_requirements_table_by_key(requirements_table):
-    extras_require = {}
-    req_table_by_key = {}
+def _build_requirements_table_by_key(requirements_table: "Mapping[str, Iterable[str]]") -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    extras_require: dict[str, list[str]] = {}
+    req_table_by_key: dict[str, list[str]] = {}
     for group in requirements_table.keys():
         if group != 'install_requires' and group not in extras_require:
             extras_require[group] = []
@@ -158,7 +162,7 @@ def match_define_requirements(requirements_table):
     return install_requires, extras_require
 
 
-def list_all_requirements(requirements_table):
+def list_all_requirements(requirements_table: "Mapping[str, Iterable[str]]") -> None:
     req_table_by_key, _ = _build_requirements_table_by_key(requirements_table)
     with open('requirements.txt', 'r') as fhandle:
         for req in parse_requirements(fhandle.readlines()):
