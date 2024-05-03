@@ -36,9 +36,9 @@ RUN test "x${PYTHON}" = "x3.10" && \
 WORKDIR /usr/local/src/rucio
 
 # pre-install requirements
-COPY requirements.txt requirements.txt
+COPY requirements requirements
 RUN python -m pip --no-cache-dir install --upgrade pip && \
-    python -m pip --no-cache-dir install --upgrade -r requirements.txt
+    python -m pip --no-cache-dir install --upgrade -r requirements/requirements.server.txt -r requirements/requirements.dev.txt
 
 COPY etc etc
 

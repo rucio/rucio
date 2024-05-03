@@ -63,9 +63,9 @@ fi
 echo 'Clearing memcache'
 echo flush_all > /dev/tcp/127.0.0.1/11211
 
-if [ -f 'requirements.txt' ]; then
+if [ -f './requirements/requirements.dev.txt' ]; then
     echo 'Update dependencies with pip'
-    pip install --upgrade -r requirements.txt
+    pip install --upgrade -r ./requirements/requirements.server.txt -r ./requirements/requirements.dev.txt
 fi
 
 if test ${pip_only}; then

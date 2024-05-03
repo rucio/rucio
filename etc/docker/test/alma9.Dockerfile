@@ -97,7 +97,8 @@ FROM python as rucio-runtime
     COPY lib lib
     COPY etc etc
     COPY tests tests
-    COPY .flake8 .pep8 .pycodestyle pylintrc setup.py setup_rucio.py setup_rucio_client.py setup_webui.py requirements.txt setuputil.py ./
+    COPY requirements requirements
+    COPY .flake8 .pep8 .pycodestyle pylintrc setup.py setup_rucio.py setup_rucio_client.py setup_webui.py setuputil.py ./
 
     RUN dnf install -y epel-release.noarch && \
         dnf install -y 'dnf-command(config-manager)' && \
@@ -133,7 +134,7 @@ FROM rucio-runtime as requirements
         dnf -y --skip-broken install make gcc krb5-devel xmlsec1-devel xmlsec1-openssl-devel pkg-config libtool-ltdl-devel git && \
         python3 -m pip --no-cache-dir install --upgrade pip && \
         python3 -m pip --no-cache-dir install --upgrade setuptools wheel && \
-        python3 -m pip --no-cache-dir install --upgrade -r requirements.txt
+        python3 -m pip --no-cache-dir install --upgrade -r requirements/requirements.server.txt -r requirements/requirements.dev.txt
 
     COPY .flake8 .pep8 .pycodestyle pylintrc setup.py setup_rucio.py setup_rucio_client.py setup_webui.py ./
     RUN python3 -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,saml,dev] && \

@@ -7,7 +7,7 @@ include setuputil.py
 include setup.py
 include setup.cfg
 include pyproject.toml
-include requirements.txt
+include requirements/requirements.server.txt
 recursive-include lib/rucio/web/ui *
 prune dist
 prune examples
