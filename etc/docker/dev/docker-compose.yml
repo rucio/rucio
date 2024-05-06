@@ -152,7 +152,7 @@ services:
         soft: 10240
         hard: 10240
   ftsdb:
-    image: docker.io/mysql:8
+    image: docker.io/mysql:8.3
     platform: linux/amd64
     profiles:
       - storage
