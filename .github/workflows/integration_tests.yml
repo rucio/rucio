@@ -129,5 +129,8 @@ jobs:
         run: docker ps -a
       - name: Test Protocol Rclone
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_rse_protocol_rclone.py
+      - name: Test Ping
+        run: | 
+          docker exec -it dev_rucio_1 ping -c 5 ssh1
       - name: Stop containers
         run: docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata --profile iam down
