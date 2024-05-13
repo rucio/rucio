@@ -16,9 +16,9 @@
 This module defines the base class for implementing a transfer protocol,
 along with some of the default methods for LFN2PFN translations.
 """
-
 import hashlib
 import logging
+from collections.abc import Callable, Mapping
 from configparser import NoOptionError, NoSectionError
 from typing import TypeVar
 from urllib.parse import urlparse
@@ -34,6 +34,61 @@ if getattr(rsemanager, 'SERVER_MODE', None):
     from rucio.common.types import InternalScope
     from rucio.core import replica
     from rucio.core.rse import get_rse_vo
+
+
+class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
+    """
+        Translates a pfn dictionary into a scope and name
+    """
+    def __init__(self, vo: str = 'def'):
+        super().__init__()
+        self.register("def", RSEDeterministicScopeTranslation._default)
+        self.register("atlas", RSEDeterministicScopeTranslation._atlas)
+        policy_module = vo
+        # Uses the same policy as the DeterministicTranslation
+        if super()._supports(self.__class__.__name__, policy_module):
+            self.parser = self._get_one_algorithm(self.__class__.__name__, policy_module)
+        else:
+            self.parser = self._get_one_algorithm(self.__class__.__name__, "def")
+
+    @classmethod
+    def register(cls, name: str, func: Callable) -> None:
+        super()._register(cls.__name__, {name: func})
+
+    @staticmethod
+    def _default(parsed_pfn: Mapping[str, str]) -> tuple[str, str]:
+        """ Translate pfn to name/scope pair
+
+        :param parsed_pfn: dictionary representing pfn containing:
+            - path: str,
+            - name: str
+        :return: tuple containing name, scope
+        """
+        path = parsed_pfn['path']
+        scope = path.lstrip('/').split('/')[0]
+        name = parsed_pfn['name']
+        return name, scope
+
+    @staticmethod
+    def _atlas(parsed_pfn: Mapping[str, str]) -> tuple[str, str]:
+        """ Translate pfn to name/scope pair
+
+        :param parsed_pfn: dictionary representing pfn containing:
+            - path: str,
+            - name: str
+        :return: tuple containing name, scope
+        """
+        path = parsed_pfn['path']
+        if path.startswith('/user') or path.startswith('/group'):
+            scope = '%s.%s' % (path.split('/')[1], path.split('/')[2])
+            name = parsed_pfn['name']
+        else:
+            name, scope = RSEDeterministicScopeTranslation._default(parsed_pfn)
+
+        return name, scope
+
+
+RSEDeterministicScopeTranslation()
 
 
 RSEDeterministicTranslationT = TypeVar('RSEDeterministicTranslationT', bound='RSEDeterministicTranslation')

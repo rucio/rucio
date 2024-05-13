@@ -266,20 +266,11 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
         rse_info = rsemgr.get_rse_info(rse_id=rse_id, session=session)
         proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
         if rse_info['deterministic']:
-            # TBD : In case of deterministic RSE, call the extract_scope_from_path method
+            scope_proto = rsemgr.get_scope_protocol(vo=issuer.vo)
             parsed_pfn = proto.parse_pfns(pfns=pfns)
             for pfn in parsed_pfn:
-                # WARNING : this part is ATLAS specific and must be changed
-                path = parsed_pfn[pfn]['path']
-                if path.startswith('/user') or path.startswith('/group'):
-                    scope = '%s.%s' % (path.split('/')[1], path.split('/')[2])
-                    name = parsed_pfn[pfn]['name']
-                elif path.startswith('/'):
-                    scope = path.split('/')[1]
-                    name = parsed_pfn[pfn]['name']
-                else:
-                    scope = path.split('/')[0]
-                    name = parsed_pfn[pfn]['name']
+                # Translate into a scope and name
+                name, scope = scope_proto(parsed_pfn[pfn])
 
                 scope = InternalScope(scope, vo=issuer.vo)
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': status})
@@ -598,20 +589,12 @@ def get_did_from_pfns(pfns, rse_id=None, vo='def', *, session: "Session"):
         pfndict = {}
         proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
         if rse_info['deterministic']:
+            scope_proto = rsemgr.get_scope_protocol(vo=vo)
             parsed_pfn = proto.parse_pfns(pfns=pfns)
 
-            # WARNING : this part is ATLAS specific and must be changed
             for pfn in parsed_pfn:
-                path = parsed_pfn[pfn]['path']
-                if path.startswith('/user') or path.startswith('/group'):
-                    scope = '%s.%s' % (path.split('/')[1], path.split('/')[2])
-                    name = parsed_pfn[pfn]['name']
-                elif path.startswith('/'):
-                    scope = path.split('/')[1]
-                    name = parsed_pfn[pfn]['name']
-                else:
-                    scope = path.split('/')[0]
-                    name = parsed_pfn[pfn]['name']
+                # Translate into a scope and name
+                name, scope = scope_proto(parsed_pfn[pfn])
                 scope = InternalScope(scope, vo)
                 yield {pfn: {'scope': scope, 'name': name}}
         else:
