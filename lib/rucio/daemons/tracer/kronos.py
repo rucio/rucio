@@ -142,8 +142,8 @@ class AMQConsumer:
                                     self.__logger(logging.ERROR, 'Missing url in the following trace : ' + str(report))
                                 else:
                                     try:
-                                        surl = report['url']
-                                        declare_bad_file_replicas([surl, ], reason=reason, issuer=InternalAccount('root', vo=report['vo']), status=BadFilesStatus.SUSPICIOUS)
+                                        pfn = report['url']
+                                        declare_bad_file_replicas([pfn, ], reason=reason, issuer=InternalAccount('root', vo=report['vo']), status=BadFilesStatus.SUSPICIOUS)
                                         self.__logger(logging.INFO, 'Declare suspicious file %s with reason %s' % (report['url'], reason))
                                     except Exception as error:
                                         self.__logger(logging.ERROR, 'Failed to declare suspicious file' + str(error))

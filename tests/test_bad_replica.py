@@ -19,7 +19,7 @@ import pytest
 
 from rucio.client.rseclient import RSEClient
 from rucio.common.exception import InvalidType, RucioException, UnsupportedOperation
-from rucio.common.utils import clean_surls, generate_uuid
+from rucio.common.utils import clean_pfns, generate_uuid
 from rucio.core.did import delete_dids
 from rucio.core.replica import add_replicas, declare_bad_file_replicas, get_bad_pfns, get_bad_replicas_backlog, get_pfn_to_rse, get_replicas_state, list_bad_replicas, list_bad_replicas_status, list_replicas
 from rucio.daemons.badreplicas.minos import run as minos_run
@@ -91,7 +91,7 @@ def test_add_list_bad_replicas(rse_factory, mock_scope, root_account):
     assert list(r.keys()) == [rse2_id]
     list1 = r[rse2_id]
     list1.sort()
-    list2 = ['%s Already declared' % clean_surls([rep])[0] for rep in replicas]
+    list2 = ['%s Already declared' % clean_pfns([rep])[0] for rep in replicas]
     list2.sort()
     assert list1 == list2
 
@@ -361,7 +361,7 @@ def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_
         bad_pfns[res['pfn']] = (res['state'], res['reason'], res['expires_at'])
 
     for pfn in list_rep:
-        pfn = str(clean_surls([pfn])[0])
+        pfn = str(clean_pfns([pfn])[0])
         assert pfn in bad_pfns
         assert bad_pfns[pfn][0] == BadPFNStatus.TEMPORARY_UNAVAILABLE
         assert bad_pfns[pfn][1] == reason_str

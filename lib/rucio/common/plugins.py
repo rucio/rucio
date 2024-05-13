@@ -78,7 +78,7 @@ class PolicyPackageAlgorithms:
     def _register_all_policy_package_algorithms(cls: type[PolicyPackageAlgorithmsT]) -> None:
         '''
         Loads all the algorithms of a given type from the policy package(s) and registers them
-        :param algorithm_type: the type of algorithm to register (e.g. 'surl', 'lfn2pfn')
+        :param algorithm_type: the type of algorithm to register (e.g. 'lfn2pfn')
         :param dictionary: the dictionary to register them in
         :param vo: the name of the relevant VO (None for single VO)
         '''
@@ -133,6 +133,10 @@ class PolicyPackageAlgorithms:
 
             if hasattr(module, 'get_algorithms'):
                 all_algorithms = module.get_algorithms()
+
+                # for backward compatibility, rename 'surl' to 'non_deterministic_pfn' here
+                if 'surl' in all_algorithms:
+                    all_algorithms['non_deterministic_pfn'] = all_algorithms['surl']
 
                 # check that the names are correctly prefixed for multi-VO
                 if vo:
