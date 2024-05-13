@@ -286,7 +286,6 @@ class UploadClient:
                     state_reason = str(error)
 
             if success:
-                num_succeeded += 1
                 trace['transferEnd'] = time.time()
                 trace['clientState'] = 'DONE'
                 file['state'] = 'A'
@@ -296,6 +295,7 @@ class UploadClient:
                 if summary_file_path:
                     summary.append(copy.deepcopy(file))
 
+                registration_succeeded = True
                 if not no_register:
                     if register_after_upload:
                         self._register_file(file, registered_dataset_dids, ignore_availability=ignore_availability, activity=activity)
@@ -304,6 +304,7 @@ class UploadClient:
                         try:
                             self.client.update_replicas_states(rse, files=[replica_for_api])
                         except Exception as error:
+                            registration_succeeded = False
                             logger(logging.ERROR, 'Failed to update replica state for file {}'.format(basename))
                             logger(logging.DEBUG, 'Details: {}'.format(str(error)))
 
@@ -312,8 +313,13 @@ class UploadClient:
                     try:
                         self.client.attach_dids(file['dataset_scope'], file['dataset_name'], [file_did])
                     except Exception as error:
-                        logger(logging.WARNING, 'Failed to attach file to the dataset')
+                        registration_succeeded = False
+                        logger(logging.ERROR, 'Failed to attach file to the dataset')
                         logger(logging.DEBUG, 'Attaching to dataset {}'.format(str(error)))
+
+                # only report success if the registration operations succeeded as well
+                if registration_succeeded:
+                    num_succeeded += 1
             else:
                 trace['clientState'] = 'FAILED'
                 trace['stateReason'] = state_reason
