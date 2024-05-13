@@ -22,9 +22,11 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from rucio.client.downloadclient import DownloadClient
+from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_add_section, config_set
-from rucio.common.exception import InputValidationError, NoFilesUploaded, NotAllFilesUploaded
+from rucio.common.constants import RseAttr
+from rucio.common.exception import InputValidationError, NoFilesUploaded, NotAllFilesUploaded, ResourceTemporaryUnavailable
 from rucio.common.utils import adler32, generate_uuid
 from rucio.core.rse import add_protocol, add_rse_attribute
 
@@ -403,3 +405,33 @@ def test_upload_file_ignore_availability(rse_factory, scope, upload_client, file
 
     status = upload_client.upload(item, ignore_availability=True)
     assert status == 0
+
+
+@pytest.fixture
+def upload_client_registration_fail():
+    logger = logging.getLogger('upload_client')
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.DEBUG)
+    # modify the client object used by upload_client so that replica registration fails
+    class RegistrationFailureClient(Client):
+        def __init__(self, **args):
+            super(RegistrationFailureClient, self).__init__(**args)
+        def update_replicas_states(self, rse, files):
+            # simulate server timing out
+            raise ResourceTemporaryUnavailable
+    return UploadClient(logger=logger, _client=RegistrationFailureClient())
+
+
+def test_upload_registration_fail(rse, scope, upload_client_registration_fail, file_factory):
+    local_file = file_factory.file_generator()
+    fn = os.path.basename(local_file)
+
+    # upload a file and check that exception is raised
+    with pytest.raises(NoFilesUploaded):
+        upload_client_registration_fail.upload([{
+            'path': local_file,
+            'rse': rse,
+            'did_scope': scope,
+            'did_name': fn,
+            'guid': generate_uuid()
+        }])
