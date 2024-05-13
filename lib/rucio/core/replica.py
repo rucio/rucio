@@ -44,7 +44,7 @@ from rucio.common.cache import make_region_memcached
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import RseAttr, SuspiciousAvailability
 from rucio.common.types import InternalScope
-from rucio.common.utils import add_url_query, chunks, clean_surls, str_to_date
+from rucio.common.utils import add_url_query, chunks, clean_pfns, str_to_date
 from rucio.core.credential import get_signed_url
 from rucio.core.message import add_messages
 from rucio.core.monitor import MetricManager
@@ -456,13 +456,13 @@ def get_pfn_to_rse(pfns, vo='def', *, session: "Session"):
     storage_elements = []
     se_condition = []
     dict_rse = {}
-    surls = clean_surls(pfns)
-    scheme = surls[0].split(':')[0] if surls else None
-    for surl in surls:
-        if surl.split(':')[0] != scheme:
+    cleaned_pfns = clean_pfns(pfns)
+    scheme = cleaned_pfns[0].split(':')[0] if cleaned_pfns else None
+    for pfn in cleaned_pfns:
+        if pfn.split(':')[0] != scheme:
             raise exception.InvalidType('The PFNs specified must have the same protocol')
 
-        split_se = surl.split('/')[2].split(':')
+        split_se = pfn.split('/')[2].split(':')
         storage_element = split_se[0]
 
         if storage_element not in storage_elements:
@@ -486,28 +486,28 @@ def get_pfn_to_rse(pfns, vo='def', *, session: "Session"):
         if '%s://%s%s' % (protocol, hostname, prefix) not in protocols[rse_id]:
             protocols[rse_id].append('%s://%s%s' % (protocol, hostname, prefix))
     hint = None
-    for surl in surls:
+    for pfn in cleaned_pfns:
         if hint:
             for pattern in protocols[hint]:
-                if surl.find(pattern) > -1:
-                    dict_rse[hint].append(surl)
+                if pfn.find(pattern) > -1:
+                    dict_rse[hint].append(pfn)
         else:
             mult_rse_match = 0
             for rse_id in protocols:
                 for pattern in protocols[rse_id]:
-                    if surl.find(pattern) > -1 and get_rse_vo(rse_id=rse_id, session=session) == vo:
+                    if pfn.find(pattern) > -1 and get_rse_vo(rse_id=rse_id, session=session) == vo:
                         mult_rse_match += 1
                         if mult_rse_match > 1:
-                            print('ERROR, multiple matches : %s at %s' % (surl, rse_id))
-                            raise exception.RucioException('ERROR, multiple matches : %s at %s' % (surl, get_rse_name(rse_id=rse_id, session=session)))
+                            print('ERROR, multiple matches : %s at %s' % (pfn, rse_id))
+                            raise exception.RucioException('ERROR, multiple matches : %s at %s' % (pfn, get_rse_name(rse_id=rse_id, session=session)))
                         hint = rse_id
                         if hint not in dict_rse:
                             dict_rse[hint] = []
-                        dict_rse[hint].append(surl)
+                        dict_rse[hint].append(pfn)
             if mult_rse_match == 0:
                 if 'unknown' not in unknown_replicas:
                     unknown_replicas['unknown'] = []
-                unknown_replicas['unknown'].append(surl)
+                unknown_replicas['unknown'].append(pfn)
     return scheme, dict_rse, unknown_replicas
 
 
@@ -1536,7 +1536,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     def _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan', protocol_attr=None):
         p = rsemgr.create_protocol(rse_settings=rse_settings, operation='write', scheme=scheme, domain=domain, protocol_attr=protocol_attr)
         expected_pfns = p.lfns2pfns(lfns)
-        return clean_surls(expected_pfns.values())
+        return clean_pfns(expected_pfns.values())
 
     replica_rse = get_rse(rse_id=rse_id, session=session)
 
@@ -1574,7 +1574,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
             else:
                 # Check that the pfns match to the expected pfns
                 lfns = [{'scope': i['scope'].external, 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
-                pfns[scheme] = clean_surls(pfns[scheme])
+                pfns[scheme] = clean_pfns(pfns[scheme])
 
                 for protocol_attr in rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=scheme, domain='wan'):
                     pfns[scheme] = list(set(pfns[scheme]) - set(_expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan', protocol_attr=protocol_attr)))
@@ -3262,7 +3262,7 @@ def get_bad_pfns(limit=10000, thread=None, total_threads=None, *, session: "Sess
     query.order_by(models.BadPFNs.created_at)
     query = query.limit(limit)
     for path, state, reason, account, expires_at in query.yield_per(1000):
-        result.append({'pfn': clean_surls([str(path)])[0], 'state': state, 'reason': reason, 'account': account, 'expires_at': expires_at})
+        result.append({'pfn': clean_pfns([str(path)])[0], 'state': state, 'reason': reason, 'account': account, 'expires_at': expires_at})
     return result
 
 
@@ -3371,7 +3371,7 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, *, session:
     elif rep_state == BadPFNStatus.BAD and expires_at is not None:
         raise exception.InputValidationError("When adding a BAD pfn the expires_at value shouldn't be set.")
 
-    pfns = clean_surls(pfns)
+    pfns = clean_pfns(pfns)
     for pfn in pfns:
         new_pfn = models.BadPFNs(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
         new_pfn = session.merge(new_pfn)

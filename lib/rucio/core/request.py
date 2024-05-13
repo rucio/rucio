@@ -2836,7 +2836,7 @@ def get_source_rse(request_id, src_url, *, session: "Session", logger=logging.lo
                 src_rse_name = get_rse_name(src_rse_id, session=session)
                 logger(logging.DEBUG, "Find rse name %s for %s" % (src_rse_name, src_url))
                 return src_rse_name, src_rse_id
-        # cannot find matched surl
+        # cannot find matched source url
         logger(logging.WARNING, 'Cannot get correct RSE for source url: %s' % (src_url))
         return None, None
     except Exception:
