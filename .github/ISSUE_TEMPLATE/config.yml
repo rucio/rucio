@@ -4,8 +4,8 @@ contact_links:
     url: https://rucio.cern.ch/documentation/
     about: The Rucio Documentation might give you some information related to the problem.
   - name: ❓ Question - Ask us
-    url: https://rucio.cern.ch/contact.html
-    about: This issue tracker is not for technical support. Please use one of our dedicated channels, and ask the community for help.
+    url: https://rucio.cern.ch/documentation/contact_us/
+    about: If you do not need to report a bug or request a feature, but you have a question or need technical support, please use one of our contact channels listed here.
   - name: 🖋️  Issue related to the Documentation
     url: https://github.com/rucio/documentation
     about: If the issue is in or related to the documentation, please open it in the dedicated `rucio/documentation` repository.
