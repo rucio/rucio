@@ -96,6 +96,7 @@ def retrieve_messages(bulk: int = 1000,
                       thread: "Optional[int]" = None,
                       total_threads: "Optional[int]" = None,
                       event_type: "Optional[str]" = None,
+                      service_filter: "Optional[str]" = None,
                       lock: bool = False,
                       old_mode: bool = True,
                       *, session: "Session") -> "MessagesListType":
@@ -118,6 +119,8 @@ def retrieve_messages(bulk: int = 1000,
         subquery = filter_thread_work(session=session, query=subquery, total_threads=total_threads, thread_id=thread)
         if event_type:
             subquery = subquery.filter_by(event_type=event_type)
+        elif service_filter:
+            subquery = subquery.filter_by(services=service_filter)
         elif old_mode:
             subquery = subquery.filter(Message.event_type != 'email')
 
