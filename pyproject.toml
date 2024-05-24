@@ -56,6 +56,7 @@ ignore = [
     "UP030", # Use implicit references for positional format fields
     "UP031", # Use format specifiers instead of percent format
     "UP032", # Use f-string instead of `format` call
+    "UP037", # Remove quotes from type annotation. Seeing possible false positives caused by https://github.com/astral-sh/ruff/pull/11485
     "S101",  # Pending https://github.com/rucio/rucio/issues/6680
     "S105",  # Pending https://github.com/rucio/rucio/issues/6696
     "S108",  # Pending https://github.com/rucio/rucio/issues/6655
