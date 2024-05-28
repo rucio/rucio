@@ -14,7 +14,6 @@
 
 from rucio.common.config import config_get
 from rucio.common.types import InternalScope
-from rucio.core.scope import add_scope
 from rucio.core.account import add_account_attribute
 from rucio.core.scope import add_scope
 from rucio.gateway.permission import has_permission
