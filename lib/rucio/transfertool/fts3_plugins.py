@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-import logging
 import sys
 from collections.abc import Callable
 from configparser import NoSectionError
@@ -48,12 +47,9 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
             default=4096,
         )
 
-        # Use a default if the algorithm isn't supported
         if not self._supports(self.ALGORITHM_NAME, policy_algorithm):
-            logging.debug(f"Policy Algorithm {policy_algorithm} not found, ignoring.")
-            policy_algorithm = self.DEFAULT
+            raise ValueError(f'Policy Algorithm {policy_algorithm} not found')
 
-        # If the policy has a supplied and registered init function
         if self._supports(self._HINTS_NAME, policy_algorithm):
             self._get_one_algorithm(self._HINTS_NAME, name=policy_algorithm)()
 
@@ -65,7 +61,7 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
             "activity",
             func=lambda x: cls._activity_hints(cls, x),  # type: ignore
             init_func=lambda: cls._init_instance_activity_hints(cls))  # type: ignore
-        cls.register(cls.DEFAULT, func=lambda x: cls._collocation(cls, cls._default, x))  # type: ignore
+        cls.register(cls.DEFAULT, func=lambda x: cls._default(cls, x))  # type: ignore
         cls.register("test", func=lambda x: cls._collocation(cls, cls._test_collocation, x))  # type: ignore
 
     @classmethod

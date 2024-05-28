@@ -24,7 +24,6 @@ from rucio.core.topology import Topology
 from rucio.core.transfer import ProtocolFactory, build_transfer_paths
 from rucio.db.sqla.session import get_session
 from rucio.transfertool.fts3 import FTS3Transfertool, build_job_params
-from rucio.transfertool.fts3_plugins import FTS3TapeMetadataPlugin
 
 mock_session = get_session()
 
@@ -83,9 +82,6 @@ def test_scheduling_hints(file_config_mock, did_factory, rse_factory, root_accou
 
     # Make the transfer path
     transfer_path = _make_transfer_path(mock_did, rse_factory, root_account)
-
-    # Need to re-init the module once the config is set
-    FTS3TapeMetadataPlugin(" ")
 
     # Mock Transfer Tool
     fts3_tool = FTS3Transfertool(TEST_FTS_HOST)
@@ -266,3 +262,25 @@ def test_transfer_over_limit(file_config_mock, did_factory, rse_factory, root_ac
 
     with pytest.raises(InvalidRequest):
         job_params = fts3_tool._file_from_transfer(transfer_path[0], job_params)
+
+
+def test_include_none_by_default(did_factory, rse_factory, root_account):
+    # When there is not plugin specified in the config, do not include any archive metadata
+
+    mock_did = did_factory.random_file_did()
+    transfer_path = _make_transfer_path(mock_did, rse_factory, root_account)
+
+    # Mock Transfer Tool
+    fts3_tool = FTS3Transfertool(TEST_FTS_HOST)
+
+    job_params = build_job_params(
+        transfer_path=transfer_path,
+        bring_online=None,
+        default_lifetime=None,
+        archive_timeout_override=None,
+        max_time_in_queue=None,
+        logger=logging.log,
+    )
+
+    job_params = fts3_tool._file_from_transfer(transfer_path[0], job_params)
+    assert "archive_metadata" not in job_params
