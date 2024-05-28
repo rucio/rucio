@@ -826,8 +826,12 @@ class FTS3Transfertool(Transfertool):
         self.default_lifetime = default_lifetime
         self.archive_timeout_override = archive_timeout_override
 
-        tape_plugins = config_get_list("transfers", "fts3tape_metadata_plugins", False, "[]")
-        self.tape_metadata_plugins = [FTS3TapeMetadataPlugin(plugin.strip(" ")) for plugin in tape_plugins]
+        try:
+            tape_plugins = config_get_list("transfers", "fts3tape_metadata_plugins", raise_exception=True)
+            self.tape_metadata_plugins = [FTS3TapeMetadataPlugin(plugin.strip(" ")) for plugin in tape_plugins]
+        except (NoOptionError, NoSectionError, ValueError) as e:
+            self.logger(logging.DEBUG, f"Failed to set up any fts3 archive-metadata plugins: {e}")
+            self.tape_metadata_plugins = []
 
         self.token = None
         if oidc_support:
