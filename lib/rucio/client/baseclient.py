@@ -879,8 +879,8 @@ class BaseClient:
             return False
 
         try:
-            token_file_handler = open(self.token_file, 'r')
-            self.auth_token = token_file_handler.readline()
+            with open(self.token_file, 'r') as token_file_handler:
+                self.auth_token = token_file_handler.readline()
             self.headers['X-Rucio-Auth-Token'] = self.auth_token
         except OSError as error:
             print("I/O error({0}): {1}".format(error.errno, error.strerror))
