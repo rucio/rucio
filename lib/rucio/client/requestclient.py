@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
@@ -19,16 +20,23 @@ from requests.status_codes import codes
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.utils import build_url
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Sequence
+
 
 class RequestClient(BaseClient):
 
     REQUEST_BASEURL = 'requests'
 
-    def list_requests(self, src_rse, dst_rse, request_states):
+    def list_requests(
+            self,
+            src_rse: str,
+            dst_rse: str,
+            request_states: 'Sequence[str]'
+    ) -> 'Iterator[dict[str, Any]]':
         """Return latest request details
 
         :return: request information
-        :rtype: dict
         """
         path = '/'.join([self.REQUEST_BASEURL, 'list']) + '?' + '&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format(
             dst_rse), 'request_states={}'.format(request_states)])
@@ -41,11 +49,17 @@ class RequestClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_requests_history(self, src_rse, dst_rse, request_states, offset=0, limit=100):
+    def list_requests_history(
+            self,
+            src_rse: str,
+            dst_rse: str,
+            request_states: 'Sequence[str]',
+            offset: int = 0,
+            limit: int = 100
+    ) -> 'Iterator[dict[str, Any]]':
         """Return historical request details
 
         :return: request information
-        :rtype: dict
         """
         path = '/'.join([self.REQUEST_BASEURL, 'history', 'list']) + '?' + '&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format(
             dst_rse), 'request_states={}'.format(request_states), 'offset={}'.format(offset), 'limit={}'.format(limit)])
@@ -58,21 +72,23 @@ class RequestClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_request_by_did(self, name, rse, scope=None):
+    def list_request_by_did(
+            self,
+            name: str,
+            rse: str,
+            scope: Optional[str] = None
+    ) -> 'Iterator[dict[str, Any]]':
         """Return latest request details for a DID
 
         :param name: DID
-        :type name: str
         :param rse: Destination RSE name
-        :type rse: str
         :param scope: rucio scope, defaults to None
-        :param scope: str, optional
         :raises exc_cls: from BaseClient._get_exception
         :return: request information
-        :rtype: dict
         """
 
-        path = '/'.join([self.REQUEST_BASEURL, quote_plus(scope), quote_plus(name), rse])
+        if scope is not None:
+            path = '/'.join([self.REQUEST_BASEURL, quote_plus(scope), quote_plus(name), rse])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type_='GET')
 
@@ -82,21 +98,23 @@ class RequestClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_request_history_by_did(self, name, rse, scope=None):
+    def list_request_history_by_did(
+            self,
+            name: str,
+            rse: str,
+            scope: Optional[str] = None
+    ) -> 'Iterator[dict[str, Any]]':
         """Return latest request details for a DID
 
         :param name: DID
-        :type name: str
         :param rse: Destination RSE name
-        :type rse: str
         :param scope: rucio scope, defaults to None
-        :param scope: str, optional
         :raises exc_cls: from BaseClient._get_exception
         :return: request information
-        :rtype: dict
         """
 
-        path = '/'.join([self.REQUEST_BASEURL, 'history', quote_plus(scope), quote_plus(name), rse])
+        if scope is not None:
+            path = '/'.join([self.REQUEST_BASEURL, 'history', quote_plus(scope), quote_plus(name), rse])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type_='GET')
 
