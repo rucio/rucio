@@ -23,7 +23,7 @@ from flask import Flask, Response, request
 from rucio.common.config import config_get, config_get_int
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, InvalidObject, InvalidPath, InvalidType, ReplicaIsLocked, ReplicaNotFound, ResourceTemporaryUnavailable, RSENotFound, ScopeNotFound
-from rucio.common.utils import APIEncoder, parse_response, render_json_list
+from rucio.common.utils import APIEncoder, parse_response, render_json
 from rucio.core.replica_sorter import sort_replicas
 from rucio.db.sqla.constants import BadFilesStatus
 from rucio.gateway.quarantined_replica import quarantine_file_replicas
@@ -1066,7 +1066,7 @@ class SuspiciousReplicas(ErrorHandlingMethodView):
                 nattempts = int(params['nattempts'][0])
 
         result = get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts, vo=request.environ.get('vo'))
-        return Response(render_json_list(result), 200, content_type='application/json')
+        return Response(render_json(result), 200, content_type='application/json')
 
 
 class BadReplicasStates(ErrorHandlingMethodView):
