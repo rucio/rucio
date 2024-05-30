@@ -625,16 +625,15 @@ class APIEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def render_json(**data: Any) -> str:
-    """ JSON render function
-    """
+def render_json(*args, **kwargs) -> str:
+    """ Render a list or a dict as a JSON-formatted string. """
+    if args and isinstance(args[0], list):
+        data = args[0]
+    elif kwargs:
+        data = kwargs
+    else:
+        raise ValueError("Error while serializing object to JSON-formatted string: supported input types are list or dict.")
     return json.dumps(data, cls=APIEncoder)
-
-
-def render_json_list(list_) -> str:
-    """ JSON render function for list
-    """
-    return json.dumps(list_, cls=APIEncoder)
 
 
 def datetime_parser(dct: dict[Any, Any]) -> dict[Any, Any]:

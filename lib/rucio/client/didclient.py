@@ -21,7 +21,7 @@ from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.exception import DeprecationError
-from rucio.common.utils import build_url, date_to_str, render_json, render_json_list
+from rucio.common.utils import build_url, date_to_str, render_json
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping, Sequence
@@ -142,7 +142,7 @@ class DIDClient(BaseClient):
         """
         path = '/'.join([self.DIDS_BASEURL])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='POST', data=render_json_list(dids))
+        r = self._send_request(url, type_='POST', data=render_json(dids))
         if r.status_code == codes.created:
             return True
         else:
