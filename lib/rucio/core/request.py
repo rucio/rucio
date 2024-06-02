@@ -1142,6 +1142,7 @@ def get_request_history_by_did(scope, name, rse_id, request_type=None, *, sessio
 
             tmp['source_rse'] = get_rse_name(rse_id=tmp['source_rse_id'], session=session) if tmp['source_rse_id'] is not None else None
             tmp['dest_rse'] = get_rse_name(rse_id=tmp['dest_rse_id'], session=session) if tmp['dest_rse_id'] is not None else None
+            tmp['attributes'] = json.loads(str(tmp['attributes'] or '{}'))
 
             return tmp
     except IntegrityError as error:
