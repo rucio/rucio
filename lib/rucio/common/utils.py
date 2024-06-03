@@ -1230,17 +1230,17 @@ def detect_client_location():
     ip = None
 
     try:
-        s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-        s.connect(("2001:4860:4860:0:0:0:0:8888", 80))
-        ip = s.getsockname()[0]
+        with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as s:
+            s.connect(("2001:4860:4860:0:0:0:0:8888", 80))
+            ip = s.getsockname()[0]
     except Exception:
         pass
 
     if not ip:
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                ip = s.getsockname()[0]
         except Exception:
             pass
 
