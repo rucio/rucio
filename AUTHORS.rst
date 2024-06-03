@@ -66,6 +66,7 @@ Individual contributors to the source code
 - Jensen Zhang <hack@jensen-zhang.site>, 2022
 - Aksel Lunde Aase <aksel.lunde.aase@gmail.com>, 2022
 - Elena Gazzarrini <gazzarrini.elena@gmail.com>, 2022-2023
+- Maximilian Linhoff, <maximilian.linhoff@tu-dortmund.de>, 2024
 
 Organisations employing contributors
 ------------------------------------
@@ -93,3 +94,4 @@ Organisations employing contributors
 - Imperial College London (UK)
 - University of Chicago (USA)
 - Purdue University (USA)
+- TU Dortmund University (Germany)
