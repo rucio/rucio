@@ -44,7 +44,7 @@ GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'cache-consumer'
 
 
-class AMQConsumer(object):
+class AMQConsumer:
     """
     class Consumer
     """
