@@ -160,9 +160,9 @@ def get_replication_rule(rule_id: str, issuer: str, vo: str = 'def', *, session:
 
 @stream_session
 def list_replication_rules(
-    filters: Optional[dict[str, Any]] = None, 
-    vo: str = 'def', 
-    *, 
+    filters: Optional[dict[str, Any]] = None,
+    vo: str = 'def',
+    *,
     session: "Session"
 ) -> "Iterator[dict[str, Any]]":
     """
