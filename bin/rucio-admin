@@ -101,11 +101,80 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
+def depreciation_warning(wrapped_function: str, logger) -> None:
+    base_command = "rcom"
+    command_mapping = {
+        add_account: "add account",
+        list_accounts: "list account",
+        list_account_attributes: "list account attribute",
+        add_account_attribute: "add account attribute",
+        delete_account_attribute: "remove account attribute",
+        delete_account: "remove account",
+        info_account: "list account",
+        ban_account: "set account ban",
+        unban_account: "unset account ban",
+        update_account: "set account",
+        get_limits: "list account limits",
+        set_limits: "add account limits",
+        delete_limits: "remove account limits",
+        list_identities: "list account identities",
+        identity_add: "add account identities",
+        identity_delete: "remove account identities",
+        add_rse: "add rse",
+        update_rse: "set rse",
+        set_attribute_rse: "set rse attribute",
+        get_attribute_rse: "list rse attribute",
+        delete_attribute_rse: "remove rse attribute",
+        add_distance_rses: "add rse distance",
+        update_distance_rses: "set rse distance",
+        get_distance_rses: "list rse distance",
+        delete_distance_rses: "remove rse distance",
+        add_protocol_rse: "add rse protocol",
+        del_protocol_rse: "remove rse protocol",
+        list_rses: "list rse",
+        disable_rse: "remove rse",
+        add_qos_policy: "add rse qos-policy",
+        delete_qos_policy: "remove rse qos-policy",
+        list_qos_policies: "list rse qos-policy",
+        add_scope: "add scope",
+        list_scopes: "list scope",
+        info_rse: "list rse --info",
+        get_config: "list config",
+        set_config_option: "set config",
+        delete_config_option: "unset config",
+        add_subscription: "add subscription",
+        list_subscriptions: "list subscription",
+        update_subscription: "set subscription",
+        reevaluate_did_for_subscription: "",
+        declare_bad_file_replicas: "set replica state --bad",
+        quarantine_replicas: "set replica state --quarantine",
+        declare_temporary_unavailable_replicas: "set replica state --temporary_unavailable",
+        list_pfns: "list replica pfns",
+        set_tombstone: "add replica tombstone",
+        set_limit_rse: "set rse limit",
+        delete_limit_rse: "unset rse limit"
+    }
+    command_mapping = {key.__name__: value for key, value in command_mapping.items()}
+
+    try:
+        new_command = f"{base_command} --format text {command_mapping[wrapped_function]}"
+    except KeyError:
+        new_command = str(base_command)
+
+    logger.warning(
+        f"rucio-admin will be depreciated in release 39.0.0! Please migrate away from it. \n\
+        You can replace your existing command with $ {new_command}. \n\
+        (P.S.: This warning doesn't exist over there.)")
+
+
 def exception_handler(function):
     @wraps(function)
     def new_funct(*args, **kwargs):
+
         try:
-            return function(*args, **kwargs)
+            command_executed = function(*args, **kwargs)
+            depreciation_warning(function.__name__, logger)
+            return command_executed
         except InvalidObject as error:
             logger.error(error)
             return error.error_code

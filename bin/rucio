@@ -111,11 +111,66 @@ def get_scope(did, client):
     return None, did
 
 
+def depreciation_warning(wrapped_function: str, logger) -> None:
+    base_command = "rcom"
+    command_mapping = {
+        "ping": "ping",
+        "whoami_account": "whoami",
+        "list_file_replicas": "list replicas --type file",
+        "list_dataset_replicas": "list replica --type dataset",
+        "add_dataset": "add replica --type dataset",
+        "add_container": "add replica --type container",
+        "attach": "set did parent",
+        "detach": "unset did parent",
+        "ls": "list did",
+        "list_dids": "list did",
+        "list_dids_extended": "list did",
+        "list_parent_dids": "list did parent",
+        "list_parent_datasets": "list did parent --type dataset",
+        "list_scopes": "list scope",
+        "close": "set did status --closed",
+        "reopen": "set did status --open",
+        "erase": "remove did",
+        "list_files": "list did --type file",
+        "list_content": "list did --type dataset",
+        "list_content_history": "list did history",
+        "get_metadata": "list did metadata",
+        "set_metadata": "add did metadata",
+        "delete_metadata": "remove did metadata",
+        "list_rse_usage": "list rse usage",
+        "list_account_limits": "list account limits",
+        "add_rule": "add rule",
+        "delete_rule": "remove rule",
+        "rule_info": "list rule --info",
+        "list_rules": "list rule",
+        "list_rules_history": "list rule history",
+        "update_rule": "set rule",
+        "move_rule": "set rule --move",
+        "list_rses": "list rse",
+        "list_suspicious_replicas": "list replica state --suspicious",
+        "list_rse_attributes": "list rse attribute",
+        "list_datasets_rse": "list dataset",
+        "add_lifetime_exception": "add lifetime-exception"
+    }
+
+    try:
+        new_command = f"{base_command} --format text {command_mapping[wrapped_function]}"
+    except KeyError:
+        new_command = str(base_command)
+
+    logger.warning(
+        f"This rucio client will be depreciated in release 39.0.0! Please migrate away from it. \n\
+        You can replace your existing command with $ {new_command}. \n\
+        (P.S.: This warning doesn't exist over there.)")
+
+
 def exception_handler(function):
     @wraps(function)
     def new_funct(*args, **kwargs):
         try:
-            return function(*args, **kwargs)
+            command_executed = function(*args, **kwargs)
+            depreciation_warning(function.__name__, logger)
+            return command_executed
         except InvalidObject as error:
             logger.error(error)
             return error.error_code
