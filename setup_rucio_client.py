@@ -40,7 +40,7 @@ data_files = [
     ('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template', 'etc/rucio.cfg.atlas.client.template']),
     ('rucio_client/', ['tools/merge_rucio_configs.py']),
 ]
-scripts = ['bin/rucio', 'bin/rucio-admin']
+scripts = ['bin/rucio', 'bin/rucio-admin', 'bin/rcom']
 
 if os.path.exists('build/'):
     shutil.rmtree('build/')
