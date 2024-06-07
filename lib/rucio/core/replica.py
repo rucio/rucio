@@ -246,7 +246,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
 
 
 @transactional_session
-def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', force=False, *, session: "Session"):
+def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', force=False, logger: "LoggerFunction" = logging.log, *, session: "Session"):
     """
     Declare a list of bad replicas.
 
@@ -300,7 +300,6 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
     bad_replicas_to_update = []
 
     for scope, name, path, __exists, already_declared, size in __exist_replicas(rse_id=rse_id, replicas=replicas_list, session=session):
-
         declared = False
 
         if __exists:
@@ -314,6 +313,9 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                 new_bad_replica.save(session=session, flush=False)
                 declared = True
 
+        else:
+            unknown_replicas.append(f"{path_pfn_dict[path]} Unknown replica")
+
         if not declared:
             if already_declared:
                 unknown_replicas.append('%s %s' % (path_pfn_dict.get(path, '%s:%s' % (scope, name)), 'Already declared'))
@@ -325,7 +327,9 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                         no_hidden_char = False
                         break
                 if no_hidden_char:
-                    unknown_replicas.append('%s %s' % (path_pfn_dict[path], 'Unknown replica'))
+                    pfn = path_pfn_dict[path]
+                    if f"{pfn} Unknown replica" not in unknown_replicas:
+                        unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
 
     if status == BadFilesStatus.BAD:
         # For BAD file, we modify the replica state, not for suspicious
