@@ -172,7 +172,7 @@ class DIDClient(BaseClient):
 
         :param cnts: A list of containers.
         """
-        return self.add_dids(dids=[dict(list(cnts.items()) + [('type', 'CONTAINER')]) for cnt in cnts])
+        return self.add_dids(dids=[dict(list(cnt.items()) + [('type', 'CONTAINER')]) for cnt in cnts])
 
     def attach_dids(self, scope, name, dids, rse=None):
         """
