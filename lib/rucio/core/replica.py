@@ -278,6 +278,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': status})
                 path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
                 path_pfn_dict[path] = pfn
+                logger(logging.DEBUG, f"Declaring replica {scope}:{name} {status} at {rse_id} with path {path}")
 
         else:
             # For non-deterministic RSEs use the path + rse_id to extract the scope
@@ -287,10 +288,13 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                 replicas.append({'scope': None, 'name': None, 'rse_id': rse_id, 'path': path, 'state': status})
                 path_pfn_dict[path] = pfn
 
+                logger(logging.DEBUG, f"Declaring replica with pfn: {pfn} {status} at {rse_id} with path {path}")
+
     else:
         # If pfns is a list of replicas, just use scope, name and rse_id
         for pfn in pfns:
             replicas.append({'scope': pfn['scope'], 'name': pfn['name'], 'rse_id': rse_id, 'state': status})
+            logger(logging.DEBUG, f"Declaring replica {pfn['scope']}:{pfn['name']} {status} at {rse_id} without path")
 
     replicas_list = []
     for replica in replicas:
