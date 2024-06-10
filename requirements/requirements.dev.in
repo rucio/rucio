@@ -1,5 +1,5 @@
 # All dependencies needed to develop/test rucio should be defined here
--c requirements.server.txt
+-r requirements.server.txt
 pytest==7.4.3
 pytest-xdist==3.5.0                                         # Used for parallel testing
 pyflakes==3.1.0                                             # Passive checker of Python programs
