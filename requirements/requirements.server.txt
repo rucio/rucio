@@ -9,11 +9,11 @@ aiohttp==3.9.5
 aiosignal==1.3.1
     # via aiohttp
 alembic==1.12.1
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 annotated-types==0.6.0
     # via pydantic
 argcomplete==3.1.6
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 async-timeout==4.0.3
     # via
     #   aiohttp
@@ -28,7 +28,7 @@ bcrypt==4.1.2
 blinker==1.8.1
     # via flask
 boto3==1.29.5
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 botocore==1.32.7
     # via
     #   boto3
@@ -54,7 +54,7 @@ cryptography==42.0.5
     #   pyspnego
     #   requests-kerberos
 cx-oracle==8.3.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 decorator==5.1.1
     # via
     #   dogpile-cache
@@ -66,9 +66,9 @@ dnspython==2.6.1
 docopt==0.6.2
     # via stomp-py
 dogpile-cache==1.2.2
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 flask==3.0.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 frozenlist==1.4.1
     # via
     #   aiohttp
@@ -76,11 +76,11 @@ frozenlist==1.4.1
 future==1.0.0
     # via pyjwkest
 geoip2==4.7.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 globus-sdk==3.32.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 google-auth==2.23.4
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 greenlet==3.0.3
     # via sqlalchemy
 gssapi==1.8.3
@@ -102,15 +102,15 @@ jmespath==1.0.1
     #   boto3
     #   botocore
 jsonschema==4.20.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 jsonschema-specifications==2023.12.1
     # via jsonschema
 kerberos==1.3.1
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 krb5==0.5.1
     # via pyspnego
 libtorrent==2.0.9
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 lxml==5.2.1
     # via
     #   python3-saml
@@ -131,17 +131,17 @@ multidict==6.0.5
     #   aiohttp
     #   yarl
 oic==1.6.1
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 packaging==24.0
     # via qbittorrent-api
 paramiko==3.4.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 pbr==6.0.0
     # via stevedore
 prometheus-client==0.19.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 psycopg2-binary==2.9.9
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 pyasn1==0.6.0
     # via
     #   pyasn1-modules
@@ -165,42 +165,42 @@ pyjwkest==1.4.2
 pyjwt[crypto]==2.8.0
     # via globus-sdk
 pykerberos==1.2.4
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 pymemcache==4.0.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 pymongo==4.6.3
-    # via -r requirements/requirements.server.in
-pymysql==1.1.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
+pymysql==1.1.1
+    # via -r requirements.server.in
 pynacl==1.5.0
     # via paramiko
 pyspnego[kerberos]==0.10.2
     # via requests-kerberos
 python-dateutil==2.8.2
     # via
-    #   -r requirements/requirements.server.in
+    #   -r requirements.server.in
     #   botocore
 python-dotenv==1.0.1
     # via pydantic-settings
 python-magic==0.4.27
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 python-swiftclient==4.4.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 python3-saml==1.16.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 pyyaml==6.0.1
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 qbittorrent-api==2023.11.57
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 redis==5.0.1
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 referencing==0.35.1
     # via
     #   jsonschema
     #   jsonschema-specifications
 requests==2.32.2
     # via
-    #   -r requirements/requirements.server.in
+    #   -r requirements.server.in
     #   geoip2
     #   globus-sdk
     #   oic
@@ -209,7 +209,7 @@ requests==2.32.2
     #   qbittorrent-api
     #   requests-kerberos
 requests-kerberos==0.14.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 rpds-py==0.18.0
     # via
     #   jsonschema
@@ -225,16 +225,16 @@ six==1.16.0
     #   python-dateutil
 sqlalchemy==2.0.23
     # via
-    #   -r requirements/requirements.server.in
+    #   -r requirements.server.in
     #   alembic
 statsd==4.0.1
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 stevedore==5.2.0
     # via dogpile-cache
 stomp-py==8.1.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 tabulate==0.9.0
-    # via -r requirements/requirements.server.in
+    # via -r requirements.server.in
 typing-extensions==4.11.0
     # via
     #   alembic
@@ -245,7 +245,7 @@ typing-extensions==4.11.0
     #   sqlalchemy
 urllib3==1.26.18
     # via
-    #   -r requirements/requirements.server.in
+    #   -r requirements.server.in
     #   botocore
     #   qbittorrent-api
     #   requests
@@ -255,7 +255,7 @@ werkzeug==3.0.2
     # via flask
 xmlsec==1.3.13
     # via
-    #   -r requirements/requirements.server.in
+    #   -r requirements.server.in
     #   python3-saml
 yarl==1.9.4
     # via aiohttp
