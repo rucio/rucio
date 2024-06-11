@@ -14,6 +14,7 @@ geoip2==4.7.0                                               # GeoIP2 API (for IP
 google-auth==2.23.4                                         # Google authentication library for Python
 redis==5.0.1                                                # Python client for Redis key-value store
 Flask==3.0.0                                                # Python web framework
+werkzeug==3.0.3                                             # WSGI library
 oic==1.6.1                                                  # for authentication via OpenID Connect protocol
 prometheus_client==0.19.0                                   # Python client for the Prometheus monitoring system
 boto3==1.29.5                                               # S3 boto protocol (new version)
