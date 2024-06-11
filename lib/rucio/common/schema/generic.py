@@ -288,7 +288,7 @@ R_DIDS = {"description": "Array of Data Identifiers(DIDs)",
           "minItems": 1,
           "maxItems": 1000}
 
-ATTACHMENT = {"description": "Attachement",
+ATTACHMENT = {"description": "Attachment",
               "type": "object",
               "properties": {"scope": SCOPE,
                              "name": NAME,
