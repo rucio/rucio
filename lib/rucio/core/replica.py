@@ -695,7 +695,7 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
     x_caches = REGION.get('CacheSites')
     if x_caches is NO_VALUE:
         try:
-            response = requests.get('{}/serverRanges'.format(vp_endpoint), timeout=1, verify=False)
+            response = requests.get('{}/serverRanges'.format(vp_endpoint), timeout=1)
             if response.ok:
                 x_caches = response.json()
                 REGION.set('CacheSites', x_caches)
@@ -2958,7 +2958,6 @@ def list_dataset_replicas_vp(scope, name, deep=False, *, session: "Session", log
 
     try:
         vp_replies = requests.get('{}/ds/{}/{}:{}'.format(vp_endpoint, nr_replies, scope, name),
-                                  verify=False,
                                   timeout=1)
         if vp_replies.status_code == 200:
             vp_replies = vp_replies.json()
