@@ -14,7 +14,7 @@
 
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core.request import get_request
@@ -37,7 +37,7 @@ class TransferToolBuilder:
     Implements __hash__ and __eq__ to allow using it as key in dictionaries and group transfers
     by common transfertool.
     """
-    def __init__(self, transfertool_class: Type["Transfertool"], **kwargs):
+    def __init__(self, transfertool_class: type["Transfertool"], **kwargs):
         self.transfertool_class = transfertool_class
         self.fixed_kwargs = frozenset(kwargs.items())
 
