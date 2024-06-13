@@ -128,13 +128,19 @@ class DownloadClient:
         :param logger:           Optional: logging.Logger object. If None, default logger will be used.
         """
         self.check_pcache = check_pcache
-        if not logger:
+        if logger is None:
             self.logger = logging.log
         else:
-            self.logger = logger.log
+            if hasattr(logger, "debug"):
+                self.logger = logger.log
+            else:
+                self.logger = logger
+
         self.tracing = tracing
+
         if not self.tracing:
-            logger(logging.DEBUG, 'Tracing is turned off.')
+            self.logger(logging.DEBUG, 'Tracing is turned off.')
+
         self.is_human_readable = True
         self.client = client if client else Client()
         # if token should be used, use only JWT tokens
@@ -152,7 +158,7 @@ class DownloadClient:
                     break
         if self.is_admin:
             self.is_tape_excluded = False
-            logger(logging.DEBUG, 'Admin mode enabled')
+            self.logger(logging.DEBUG, 'Admin mode enabled')
 
         self.trace_tpl = {}
         self.trace_tpl['hostname'] = self.client_location['fqdn']

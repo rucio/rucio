@@ -752,3 +752,13 @@ def test_download_states():
     FileDownloadState.FAILED
 
     assert len(FileDownloadState) == 8
+
+
+def test_download_traceless(rucio_client):
+    client = DownloadClient(client=rucio_client, logger=None, tracing=False)
+    assert client.logger is not None
+    assert client.tracing is False
+
+    client = DownloadClient(client=rucio_client, logger=None, tracing=True)
+    assert client.logger is not None
+    assert client.tracing is True
