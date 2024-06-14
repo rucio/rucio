@@ -17,7 +17,6 @@ import logging
 import math
 import re
 import threading
-from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -36,6 +35,7 @@ from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEA
 from rucio.db.sqla.session import get_session
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import FrameType
     from typing import Optional
 

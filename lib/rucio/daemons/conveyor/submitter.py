@@ -17,8 +17,6 @@ Conveyor transfer submitter is a daemon to manage non-tape file transfers.
 """
 import logging
 import threading
-from collections.abc import Mapping
-from types import FrameType
 from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.db.sqla.util
@@ -38,6 +36,9 @@ from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from types import FrameType
+
     from rucio.daemons.common import HeartbeatHandler
 
 METRICS = MetricManager(module=__name__)
@@ -187,7 +188,7 @@ def _get_max_time_in_queue_conf() -> dict[str, int]:
 
 def submitter(
         once: bool = False,
-        rses: Optional[list[Mapping[str, Any]]] = None,
+        rses: Optional[list['Mapping[str, Any]']] = None,
         partition_wait_time: int = 10,
         bulk: int = 100,
         group_bulk: int = 1,

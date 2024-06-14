@@ -20,10 +20,8 @@ import math
 import random
 import threading
 import traceback
-import uuid
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict, namedtuple
-from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -51,6 +49,9 @@ from rucio.db.sqla.util import temp_table_mngr
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
+
+    import uuid
+    from collections.abc import Iterator, Mapping, Sequence
 
     from sqlalchemy.orm import Session
 
@@ -420,7 +421,7 @@ def list_and_mark_transfer_requests_and_source_replicas(
         limit: Optional[int] = None,
         activity: Optional[str] = None,
         older_than: Optional[datetime.datetime] = None,
-        rses: Optional[Sequence[str]] = None,
+        rses: Optional['Sequence[str]'] = None,
         request_type: Optional[list[RequestType]] = None,
         request_state: Optional[RequestState] = None,
         required_source_rse_attrs: Optional[list[str]] = None,
@@ -1830,7 +1831,7 @@ class TransferStatsManager:
             resolution: datetime.timedelta,
             start_time: "Optional[datetime.datetime]" = None,
             end_time: "Optional[datetime.datetime]" = None
-    ) -> Iterator[tuple[datetime.datetime, datetime.datetime]]:
+    ) -> 'Iterator[tuple[datetime.datetime, datetime.datetime]]':
         """
         Iterates, back in time, over time intervals of length `resolution` which are fully
         included within the input interval (start_time, end_time).
@@ -2408,7 +2409,7 @@ def list_transfer_limits(
 
 
 def _sync_rse_transfer_limit(
-        limit_id: Union[str, uuid.UUID],
+        limit_id: Union[str, 'uuid.UUID'],
         desired_rse_ids: set[str],
         *,
         session: "Session",

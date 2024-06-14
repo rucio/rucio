@@ -14,7 +14,6 @@
 
 import json
 import logging
-from collections.abc import Callable, Iterator, Sequence
 from configparser import NoOptionError, NoSectionError
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -84,6 +83,8 @@ from rucio.db.sqla.constants import OBSOLETE, BadFilesStatus, DIDAvailability, D
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator, Sequence
+
     from sqlalchemy.orm import Session
 
 
@@ -113,7 +114,7 @@ class AutoApprove(PolicyPackageAlgorithms):
         return self.get_configured_algorithm()(self.rule, self.did, self.session)
 
     @classmethod
-    def get_configured_algorithm(cls: type[AutoApproveT]) -> Callable[[models.ReplicationRule, models.DataIdentifier, 'Session'], bool]:
+    def get_configured_algorithm(cls: type[AutoApproveT]) -> "Callable[[models.ReplicationRule, models.DataIdentifier, Session], bool]":
         """
         Get the configured auto-approve algorithm
         """
@@ -125,7 +126,7 @@ class AutoApprove(PolicyPackageAlgorithms):
         return super()._get_one_algorithm(cls._algorithm_type, configured_algorithm)
 
     @classmethod
-    def register(cls: type[AutoApproveT], name: str, fn_auto_approve: Callable[[models.ReplicationRule, models.DataIdentifier, 'Session'], bool]) -> None:
+    def register(cls: type[AutoApproveT], name: str, fn_auto_approve: "Callable[[models.ReplicationRule, models.DataIdentifier, Session], bool]") -> None:
         """
         Register a new auto-approve algorithm
         """
@@ -163,7 +164,7 @@ class AutoApprove(PolicyPackageAlgorithms):
 
 @transactional_session
 def add_rule(
-    dids: Sequence[DIDDict],
+    dids: 'Sequence[DIDDict]',
     account: InternalAccount,
     copies: int,
     rse_expression: str,
@@ -477,8 +478,8 @@ def add_rule(
 
 @transactional_session
 def add_rules(
-    dids: Sequence[DIDDict],
-    rules: Sequence[RuleDict],
+    dids: 'Sequence[DIDDict]',
+    rules: 'Sequence[RuleDict]',
     *,
     session: "Session",
     logger: LoggerFunction = logging.log
@@ -954,7 +955,7 @@ def list_rules(
     filters: Optional[dict[str, Any]] = None,
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List replication rules.
 
@@ -1021,7 +1022,7 @@ def list_rule_history(
     rule_id: str,
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List the rule history of a rule.
 
@@ -1055,7 +1056,7 @@ def list_rule_full_history(
     name: str,
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List the rule history of a DID.
 
@@ -1094,7 +1095,7 @@ def list_associated_rules_for_file(
     name: str,
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """
     List replication rules a file is affected from.
 
@@ -2110,7 +2111,7 @@ def get_updated_dids(
     total_workers: int,
     worker_number: int,
     limit: int = 100,
-    blocked_dids: Optional[Sequence[tuple[str, str]]] = None,
+    blocked_dids: Optional['Sequence[tuple[str, str]]'] = None,
     *,
     session: "Session"
 ) -> list[tuple[str, InternalScope, str, DIDReEvaluation]]:
@@ -2196,7 +2197,7 @@ def get_expired_rules(
     total_workers: int,
     worker_number: int,
     limit: int = 100,
-    blocked_rules: Optional[Sequence[str]] = None,
+    blocked_rules: Optional['Sequence[str]'] = None,
     *,
     session: "Session"
 ) -> list[tuple[str, str]]:
@@ -2246,7 +2247,7 @@ def get_injected_rules(
     total_workers: int,
     worker_number: int,
     limit: int = 100,
-    blocked_rules: Optional[Sequence[str]] = None,
+    blocked_rules: Optional['Sequence[str]'] = None,
     *,
     session: "Session"
 ) -> list[str]:
@@ -2295,7 +2296,7 @@ def get_stuck_rules(
     worker_number: int,
     delta: int = 600,
     limit: int = 10,
-    blocked_rules: Optional[Sequence[str]] = None,
+    blocked_rules: Optional['Sequence[str]'] = None,
     *,
     session: "Session"
 ) -> list[str]:
@@ -3152,7 +3153,7 @@ def list_rules_for_rse_decommissioning(
     rse_id: str,
     *,
     session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> 'Iterator[dict[str, Any]]':
     """Return a generator of rules at the RSE that is being decommissioned.
 
     Decommissioning of an RSE involves deleting or moving away all rules that are
@@ -3215,13 +3216,13 @@ def list_rules_for_rse_decommissioning(
 
 @transactional_session
 def __find_missing_locks_and_create_them(
-    datasetfiles: Sequence[dict[str, Any]],
-    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
-    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
-    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    datasetfiles: 'Sequence[dict[str, Any]]',
+    locks: dict[tuple[InternalScope, str], 'Sequence[models.ReplicaLock]'],
+    replicas: dict[tuple[InternalScope, str], 'Sequence[models.CollectionReplica]'],
+    source_replicas: dict[tuple[InternalScope, str], 'Sequence[models.CollectionReplica]'],
     rseselector: RSESelector,
     rule: models.ReplicationRule,
-    source_rses: Sequence[str],
+    source_rses: 'Sequence[str]',
     *,
     session: "Session",
     logger: LoggerFunction = logging.log
@@ -3273,7 +3274,7 @@ def __find_missing_locks_and_create_them(
 
 @transactional_session
 def __find_surplus_locks_and_remove_them(
-    datasetfiles: Sequence[dict[str, Any]],
+    datasetfiles: 'Sequence[dict[str, Any]]',
     locks: dict[tuple[InternalScope, str], list[models.ReplicaLock]],
     rule: models.ReplicationRule,
     *,
@@ -3324,13 +3325,13 @@ def __find_surplus_locks_and_remove_them(
 
 @transactional_session
 def __find_stuck_locks_and_repair_them(
-    datasetfiles: Sequence[dict[str, Any]],
-    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
-    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
-    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    datasetfiles: 'Sequence[dict[str, Any]]',
+    locks: dict[tuple[InternalScope, str], 'Sequence[models.ReplicaLock]'],
+    replicas: dict[tuple[InternalScope, str], 'Sequence[models.CollectionReplica]'],
+    source_replicas: dict[tuple[InternalScope, str], 'Sequence[models.CollectionReplica]'],
     rseselector: RSESelector,
     rule: models.ReplicationRule,
-    source_rses: Sequence[str],
+    source_rses: 'Sequence[str]',
     *,
     session: "Session",
     logger: LoggerFunction = logging.log
@@ -3802,8 +3803,8 @@ def __evaluate_did_attach(
 def __resolve_did_to_locks_and_replicas(
     did: models.DataIdentifier,
     nowait: bool = False,
-    restrict_rses: Optional[Sequence[str]] = None,
-    source_rses: Optional[Sequence[str]] = None,
+    restrict_rses: Optional['Sequence[str]'] = None,
+    source_rses: Optional['Sequence[str]'] = None,
     only_stuck: bool = False,
     *,
     session: "Session"
@@ -3908,10 +3909,10 @@ def __resolve_did_to_locks_and_replicas(
 
 @transactional_session
 def __resolve_dids_to_locks_and_replicas(
-    dids: Sequence[models.DataIdentifierAssociation],
+    dids: 'Sequence[models.DataIdentifierAssociation]',
     nowait: bool = False,
-    restrict_rses: Optional[Sequence[str]] = None,
-    source_rses: Optional[Sequence[str]] = None,
+    restrict_rses: Optional['Sequence[str]'] = None,
+    source_rses: Optional['Sequence[str]'] = None,
     *,
     session: "Session"
 ) -> tuple[list[dict[str, Any]],
@@ -4078,14 +4079,14 @@ def __resolve_dids_to_locks_and_replicas(
 
 @transactional_session
 def __create_locks_replicas_transfers(
-    datasetfiles: Sequence[dict[str, Any]],
-    locks: dict[tuple[InternalScope, str], Sequence[models.ReplicaLock]],
-    replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
-    source_replicas: dict[tuple[InternalScope, str], Sequence[models.CollectionReplica]],
+    datasetfiles: 'Sequence[dict[str, Any]]',
+    locks: dict[tuple[InternalScope, str], 'Sequence[models.ReplicaLock]'],
+    replicas: dict[tuple[InternalScope, str], 'Sequence[models.CollectionReplica]'],
+    source_replicas: dict[tuple[InternalScope, str], 'Sequence[models.CollectionReplica]'],
     rseselector: RSESelector,
     rule: models.ReplicationRule,
-    preferred_rse_ids: Optional[Sequence[str]] = None,
-    source_rses: Optional[Sequence[str]] = None,
+    preferred_rse_ids: Optional['Sequence[str]'] = None,
+    source_rses: Optional['Sequence[str]'] = None,
     *,
     session: "Session",
     logger: LoggerFunction = logging.log
@@ -4460,7 +4461,7 @@ def archive_localgroupdisk_datasets(
 @read_session
 def get_scratch_policy(
     account: InternalAccount,
-    rses: Sequence[dict[str, Any]],
+    rses: 'Sequence[dict[str, Any]]',
     lifetime: Optional[int],
     *,
     session: "Session"

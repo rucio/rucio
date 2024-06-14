@@ -14,14 +14,12 @@
 
 import logging
 from abc import ABCMeta, abstractmethod
-from collections.abc import Sequence
-from typing import TYPE_CHECKING
-
-from rucio.common import types
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from collections.abc import Sequence
 
+    from rucio.common import types
     from rucio.core.rse import RseData
     from rucio.transfertool.transfertool import TransferStatusReport
 
@@ -32,7 +30,7 @@ class BittorrentDriver(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def make_driver(cls: "type[BittorrentDriver]", rse: "RseData", logger: types.LoggerFunction = logging.log) -> "Optional[BittorrentDriver]":
+    def make_driver(cls: "type[BittorrentDriver]", rse: "RseData", logger: 'types.LoggerFunction' = logging.log) -> "Optional[BittorrentDriver]":
         pass
 
     @abstractmethod
@@ -44,7 +42,7 @@ class BittorrentDriver(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def add_peers(self, torrent_id: str, peers: Sequence[tuple[str, int]]) -> None:
+    def add_peers(self, torrent_id: str, peers: 'Sequence[tuple[str, int]]') -> None:
         pass
 
     @abstractmethod

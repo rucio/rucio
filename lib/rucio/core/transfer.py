@@ -38,7 +38,6 @@ from rucio.core import request as request_core
 from rucio.core.account import list_accounts
 from rucio.core.monitor import MetricManager
 from rucio.core.request import DirectTransfer, RequestSource, RequestWithSources, TransferDestination, transition_request_state
-from rucio.core.rse import RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, RequestType, TransferLimitDirection
@@ -48,7 +47,6 @@ from rucio.transfertool.bittorrent import BittorrentTransfertool
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 from rucio.transfertool.mock import MockTransfertool
-from rucio.transfertool.transfertool import TransferStatusReport, Transfertool
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -57,8 +55,10 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from rucio.common.types import InternalAccount
+    from rucio.core.rse import RseData
     from rucio.core.topology import Topology
     from rucio.rse.protocols.protocol import RSEProtocol
+    from rucio.transfertool.transfertool import TransferStatusReport, Transfertool
 
     LoggerFunction = Callable[..., Any]
 
@@ -90,7 +90,7 @@ class ProtocolFactory:
     def __init__(self):
         self.protocols = {}
 
-    def protocol(self, rse: RseData, scheme: "Optional[str]", operation: str):
+    def protocol(self, rse: 'RseData', scheme: "Optional[str]", operation: str):
         protocol_key = '%s_%s_%s' % (operation, rse.id, scheme)
         protocol = self.protocols.get(protocol_key)
         if not protocol:
@@ -498,7 +498,7 @@ def set_transfers_state(
 
 @transactional_session
 def update_transfer_state(
-        tt_status_report: TransferStatusReport,
+        tt_status_report: 'TransferStatusReport',
         stats_manager: request_core.TransferStatsManager,
         *,
         session: "Session",

@@ -15,7 +15,6 @@
 import logging
 import threading
 from time import time
-from types import FrameType
 from typing import TYPE_CHECKING, Optional
 
 import rucio.db.sqla.util
@@ -31,6 +30,8 @@ from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
 from rucio.db.sqla.constants import RequestState, RequestType
 
 if TYPE_CHECKING:
+    from types import FrameType
+
     from sqlalchemy.orm import Session
 
     from rucio.daemons.common import HeartbeatHandler
@@ -39,7 +40,7 @@ GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'conveyor-preparer'
 
 
-def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional['FrameType'] = None) -> None:
     """
     Graceful exit.
     """

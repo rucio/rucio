@@ -22,7 +22,6 @@ import logging
 import os
 import re
 import threading
-from types import FrameType
 from typing import TYPE_CHECKING, Optional
 from urllib.parse import urlparse
 
@@ -48,6 +47,8 @@ from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEA
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
+    from types import FrameType
+
     from rucio.daemons.common import HeartbeatHandler
 
 GRACEFUL_STOP = threading.Event()
@@ -200,7 +201,7 @@ def finisher(
     ).run()
 
 
-def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional['FrameType'] = None) -> None:
     """
     Graceful exit.
     """

@@ -14,11 +14,9 @@
 
 import base64
 import logging
-from collections.abc import Mapping, Sequence
 from os import path
 from typing import TYPE_CHECKING, Any, Optional
 
-from rucio.common import types
 from rucio.common.config import config_get
 from rucio.common.constants import RseAttr
 from rucio.common.extra import import_extras
@@ -26,14 +24,17 @@ from rucio.common.utils import construct_torrent
 from rucio.core.did_meta_plugins import get_metadata
 from rucio.transfertool.transfertool import TransferStatusReport, Transfertool, TransferToolBuilder
 
-from .bittorrent_driver import BittorrentDriver
-
 if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from rucio.common import types
     from rucio.core.request import DirectTransfer
     from rucio.core.rse import RseData
 
+    from .bittorrent_driver import BittorrentDriver
+
 DRIVER_NAME_RSE_ATTRIBUTE = 'bittorrent_driver'
-DRIVER_CLASSES_BY_NAME: dict[str, type[BittorrentDriver]] = {}
+DRIVER_CLASSES_BY_NAME: dict[str, type['BittorrentDriver']] = {}
 
 EXTRA_MODULES = import_extras(['qbittorrentapi'])
 
@@ -51,7 +52,7 @@ class BittorrentTransfertool(Transfertool):
 
     required_rse_attrs = (DRIVER_NAME_RSE_ATTRIBUTE, )
 
-    def __init__(self, external_host: str, logger: types.LoggerFunction = logging.log) -> None:
+    def __init__(self, external_host: str, logger: 'types.LoggerFunction' = logging.log) -> None:
         super().__init__(external_host=external_host, logger=logger)
 
         self._drivers_by_rse_id = {}
@@ -60,7 +61,7 @@ class BittorrentTransfertool(Transfertool):
         self.tracker = config_get('transfers', 'bittorrent_tracker_addr', raise_exception=False, default=None)
 
     @classmethod
-    def _pick_management_api_driver_cls(cls: "type[BittorrentTransfertool]", rse: "RseData") -> Optional[type[BittorrentDriver]]:
+    def _pick_management_api_driver_cls(cls: "type[BittorrentTransfertool]", rse: "RseData") -> Optional[type['BittorrentDriver']]:
         driver_cls = DRIVER_CLASSES_BY_NAME.get(rse.attributes.get(DRIVER_NAME_RSE_ATTRIBUTE, ''))
         if driver_cls is None:
             return None
@@ -68,7 +69,7 @@ class BittorrentTransfertool(Transfertool):
             return None
         return driver_cls
 
-    def _driver_for_rse(self, rse: "RseData") -> Optional[BittorrentDriver]:
+    def _driver_for_rse(self, rse: "RseData") -> Optional['BittorrentDriver']:
         driver = self._drivers_by_rse_id.get(rse.id)
         if driver:
             return driver
@@ -93,7 +94,7 @@ class BittorrentTransfertool(Transfertool):
     def submission_builder_for_path(
             cls: "type[BittorrentTransfertool]",
             transfer_path: "list[DirectTransfer]",
-            logger: types.LoggerFunction = logging.log
+            logger: 'types.LoggerFunction' = logging.log
     ) -> "tuple[list[DirectTransfer], Optional[TransferToolBuilder]]":
         hop = transfer_path[0]
         if hop.rws.byte_count == 0:
@@ -121,7 +122,7 @@ class BittorrentTransfertool(Transfertool):
         return [{'transfers': transfer_path, 'job_params': {}} for transfer_path in transfer_paths]
 
     @staticmethod
-    def _connect_directly(torrent_id: str, peers_drivers: Sequence[BittorrentDriver]) -> None:
+    def _connect_directly(torrent_id: str, peers_drivers: 'Sequence[BittorrentDriver]') -> None:
         peer_addr = []
         for i, driver in enumerate(peers_drivers):
             peer_addr.append(driver.listen_addr())
@@ -178,7 +179,7 @@ class BittorrentTransfertool(Transfertool):
         self._connect_directly(torrent_id, [dst_driver] + list(src_drivers.values()))
         return torrent_id
 
-    def bulk_query(self, requests_by_eid, timeout: Optional[int] = None) -> Mapping[str, Mapping[str, TransferStatusReport]]:
+    def bulk_query(self, requests_by_eid, timeout: Optional[int] = None) -> 'Mapping[str, Mapping[str, TransferStatusReport]]':
         response = {}
         for transfer_id, requests in requests_by_eid.items():
             for request_id, request in requests.items():
@@ -189,10 +190,10 @@ class BittorrentTransfertool(Transfertool):
                 response.setdefault(transfer_id, {})[request_id] = driver.get_status(request_id=request_id, torrent_id=transfer_id)
         return response
 
-    def query(self, transfer_ids: Sequence[str], details: bool = False, timeout: Optional[int] = None) -> None:
+    def query(self, transfer_ids: 'Sequence[str]', details: bool = False, timeout: Optional[int] = None) -> None:
         pass
 
-    def cancel(self, transfer_ids: Sequence[str], timeout: Optional[int] = None) -> None:
+    def cancel(self, transfer_ids: 'Sequence[str]', timeout: Optional[int] = None) -> None:
         pass
 
     def update_priority(self, transfer_id: str, priority: int, timeout: Optional[int] = None) -> None:

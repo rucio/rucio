@@ -23,8 +23,6 @@ import logging
 import random
 import socket
 import threading
-from collections.abc import Callable
-from types import FrameType
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from rucio.common.config import config_get_int
@@ -41,6 +39,9 @@ from .profiles import PROFILE_MAP
 from .profiles.types import DecommissioningProfile, HandlerOutcome
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from types import FrameType
+
     from rucio.daemons.common import HeartbeatHandler
 
 GRACEFUL_STOP = threading.Event()
@@ -166,7 +167,7 @@ def run(
 
 def stop(
     signum: Optional[int] = None,
-    frame: Optional[FrameType] = None
+    frame: Optional['FrameType'] = None
 ) -> None:
     """
     Graceful exit.
@@ -178,7 +179,7 @@ def decommission_rse(
     rse: dict[str, Any],
     profile: DecommissioningProfile,
     *,
-    logger: Callable[..., None] = logging.log
+    logger: 'Callable[..., None]' = logging.log
 ) -> None:
     """RSE decommissioning template function.
 

@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterator, Sequence
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.gateway.permission
 from rucio.common.constants import RESERVED_KEYS
@@ -29,7 +28,7 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from collections.abc import Iterator, Sequence
 
     from sqlalchemy.orm import Session
 
@@ -348,7 +347,7 @@ def list_content_history(scope, name, vo='def', *, session: "Session"):
 
 
 @stream_session
-def bulk_list_files(dids: list[dict[str, Any]], long: bool = False, vo: str = 'def', *, session: "Session") -> Iterator[dict[str, Any]]:
+def bulk_list_files(dids: list[dict[str, Any]], long: bool = False, vo: str = 'def', *, session: "Session") -> "Iterator[dict[str, Any]]":
     """
     List file contents of a list of data identifiers.
 
