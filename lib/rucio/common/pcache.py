@@ -612,25 +612,25 @@ class Pcache:
         cache_file = self.pcache_dst_dir + "data"
 
         # Record source URL
+        fname = self.pcache_dst_dir + "src"
         try:
-            fname = self.pcache_dst_dir + "src"
             f = open(fname, 'w')
             f.write(self.src + '\n')
             f.close()
             self.chmod(fname, 0o666)
-        except:
-            pass
+        except Exception:
+            self.log(DEBUG, "Could not write and chmod %s", fname)
 
         # Record GUID if given
         if (self.guid):
+            fname = self.pcache_dst_dir + "guid"
             try:
-                fname = self.pcache_dst_dir + "guid"
                 f = open(fname, 'w')
                 f.write(self.guid + '\n')
                 f.close()
                 self.chmod(fname, 0o666)
-            except:
-                pass
+            except Exception:
+                self.log(DEBUG, "Could not write and chmod %s", fname)
 
         # Try to transfer the file up the the number of retries allowed
         retry = 0
@@ -855,8 +855,8 @@ class Pcache:
             self.log(ERROR, "rename %s %s", xfer_file, cache_file)
             try:
                 os.unlink(xfer_file)
-            except:
-                pass
+            except Exception:
+                self.log(DEBUG, "Failed to unlink %s", xfer_file)
             self.fail(104)
 
         # Make the file readable to all
@@ -946,10 +946,10 @@ class Pcache:
             for f in os.listdir(stats_dir):
                 try:
                     os.unlink(os.path.join(stats_dir, f))
-                except:
-                    pass
-        except:
-            pass
+                except Exception as e:
+                    self.log(DEBUG, "Failed to unlink %s", e)
+        except Exception as e:
+            self.log(DEBUG, "Failed to listdir %s", e)
         # XXXX error handling
         pass
 
@@ -972,9 +972,8 @@ class Pcache:
             f.write("%s\n" % value)
             f.close()
             self.chmod(stats_file, 0o666)
-        except:
-            pass
-            # XXX
+        except Exception:
+            self.log(DEBUG, "Failed to write to file %s", stats_file)
         self.unlock_dir(stats_dir)
 
     def update_stats(self, name: str, delta: int = 1) -> None:
@@ -991,8 +990,8 @@ class Pcache:
             f = open(filename)
             data = f.read()
             size = int(data)
-        except:
-            pass
+        except Exception as e:
+            self.log(WARN, f"Could not read file size of {filename}: {e}")
 
         # If we could not fetch the size, do a reinventory
         if size == 0:
@@ -1032,8 +1031,8 @@ class Pcache:
             f.write("%s\n" % size)
             f.close()
             self.chmod(filename, 0o666)
-        except:
-            pass  # XXXX
+        except Exception:
+            self.log(DEBUG, "Could not write to file %s", filename)
 
         self.unlock_file(inventory_lock)
         self.log(INFO, "inventory complete, cache size %s", size)
@@ -1045,15 +1044,16 @@ class Pcache:
         try:
             os.setsid()
         except OSError:
-            pass
+            self.log(DEBUG, "Failed to make a new session for daemon")
         try:
             os.chdir("/")
         except OSError:
-            pass
+            self.log(DEBUG, "Failed to change dir to '/'")
         try:
             os.umask(0)
         except OSError:
-            pass
+            self.log(DEBUG, "Failed to unmask dir")
+
         n = os.open("/dev/null", os.O_RDWR)
         i, o, e = sys.stdin.fileno(), sys.stdout.fileno(), sys.stderr.fileno()
         os.dup2(n, i)
@@ -1074,8 +1074,8 @@ class Pcache:
         for fd in range(0, maxfd + 1):
             try:
                 os.close(fd)
-            except:
-                pass
+            except Exception as e:
+                self.log(DEBUG, "Failed to close %s: %s", fd, e)
 
     # Panda server callback functions
     def do_http_post(self, url: str, data: "_QueryType") -> None:
@@ -1183,8 +1183,8 @@ class Pcache:
         if 0:
             try:
                 os.unlink(name)
-            except:
-                pass
+            except Exception as e:
+                self.log(DEBUG, "Failed to unlink %s: %s", name, e)
         status = fcntl.lockf(f, fcntl.LOCK_UN)
         f.close()
         del self.locks[name]
@@ -1195,8 +1195,8 @@ class Pcache:
             try:
                 f.close()
                 os.unlink(filename)
-            except:
-                pass
+            except Exception as e:
+                self.log(DEBUG, "Failed to close and unlink %s: %s", filename, e)
 
     # Cleanup functions
     def delete_file_and_parents(self, name: str) -> None:
@@ -1273,10 +1273,11 @@ class Pcache:
                     self.fail(109)
 
     def cleanup_failed_transfer(self) -> None:
+        fname = self.pcache_dir + 'xfer'
         try:
-            os.unlink(self.pcache_dir + 'xfer')
-        except:
-            pass
+            os.unlink(fname)
+        except Exception as e:
+            self.log(DEBUG, "Failed to cleanup failed transfer for %s: %s", fname, e)
 
     def empty_dir(self, d: str) -> None:
         status = None
@@ -1294,8 +1295,8 @@ class Pcache:
                 try:
                     guid = open(fullname).read().strip()
                     self.deleted_guids.append(guid)
-                except:
-                    pass  # XXXX
+                except Exception as e:
+                    self.log(INFO, "Failed to read %s: %s", fullname, e)
             elif name == "mru" and os.path.islink(fullname):
                 try:
                     mru_file = os.readlink(fullname)

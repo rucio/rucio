@@ -16,6 +16,7 @@
 
 import configparser
 import json
+import logging
 import os
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, overload
@@ -28,6 +29,8 @@ _U = TypeVar('_U')
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+    from rucio.common.types import LoggerFunction
 
 
 def convert_to_any_type(value: str) -> Union[bool, int, float, str]:
@@ -159,6 +162,7 @@ def config_get(
         use_cache: bool = True,
         expiration_time: int = 900,
         convert_type_fnc: Callable[[str], _T] = lambda x: x,
+        logger: "LoggerFunction" = logging.log
 ) -> Union[_T, _U]:
     """
     Return the string value for a given option in a section
@@ -193,8 +197,8 @@ def config_get(
             legacy_config = get_legacy_config(section, option)
             if legacy_config is not None:
                 return convert_type_fnc(legacy_config)
-        except ConfigNotFound:
-            pass
+        except ConfigNotFound as e:
+            logger(logging.DEBUG, e)
 
         from rucio.common.utils import is_client
         client_mode = is_client()

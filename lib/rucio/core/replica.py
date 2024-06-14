@@ -856,8 +856,8 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
         if client_location and 'site' in client_location and client_location['site']:
             try:
                 local_rses = [rse['id'] for rse in parse_expression('site=%s' % client_location['site'], filter_=filters, session=session)]
-            except Exception:
-                pass  # do not hard fail if site cannot be resolved or is empty
+            except Exception as e:
+                logging.log(logging.DEBUG, "Could not resolve local rse: %s", e)
 
     file, pfns_cache = {}, {}
     protocols_cache = defaultdict(dict)

@@ -1364,10 +1364,8 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
         # sort alphabetically for deterministic order
         try:
             datasets = sorted(datasets)
-        except Exception:
-            pass
-
-        # prnt(datasets)
+        except Exception as e:
+            logger(logging.DEBUG, "Could not sort datasets %s", e)
 
         rse_coverage = {}   # rse_coverage = { rse_id : bytes }
         rse_tuples = []     # rse_tuples = [(rse_id, staging_area, availability_write)]

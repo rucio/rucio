@@ -110,8 +110,8 @@ class AMQConsumer:
 
         try:
             self.__logger(logging.DEBUG, 'message received: %s %s %s' % (str(report['eventType']), report['filename'], report['remoteSite']))
-        except Exception:
-            pass
+        except Exception as e:
+            self.__logger(logging.DEBUG, 'Missing message info from message id #%s: %s', msg_id, e)
 
         if len(self.__ids) >= self.__chunksize:
             self.__update_atime()

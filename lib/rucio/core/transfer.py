@@ -613,6 +613,7 @@ def _create_transfer_definitions(
         operation_dest: str,
         domain: str,
         *,
+        logger: "LoggerFunction" = logging.log,
         session: "Session",
 ) -> "dict[RseData, list[DirectTransfer]]":
     """
@@ -715,8 +716,8 @@ def _create_transfer_definitions(
                         operation_dest=operation_dest,
                         domain=domain,
                         scheme=main_source_schemes)
-                except RSEProtocolNotSupported:
-                    continue
+                except RSEProtocolNotSupported as e:
+                    logger(logging.INFO, "Could not find matching rse protocol for %s: %s", main_source_schemes, e)
 
                 transfer_path[0].sources.append(
                     RequestSource(

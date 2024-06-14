@@ -188,8 +188,8 @@ def receiver(id_, total_threads=1, all_vos=False):
         for conn in conns:
             try:
                 conn.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+                logger(logging.DEBUG, f"Could not disconnect from connection, {e}")
 
 
 def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:

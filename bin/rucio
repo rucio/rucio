@@ -165,11 +165,12 @@ def exception_handler(function):
                 try:  # get the configured account from the configuration file
                     used_account = '%s (from rucio.cfg)' % config_get('client', 'account')
                 except:
-                    pass
+                    logger.debug("Failed to get account from rucio.cfg")
                 try:  # are we overridden by the environment?
                     used_account = '%s (from RUCIO_ACCOUNT)' % os.environ['RUCIO_ACCOUNT']
                 except:
-                    pass
+                    logger.debug("Failed to get account from environment variable 'RUCIO_ACCOUNT'")
+
                 logger.error('Specified account %s does not have an associated identity.' % used_account)
             else:
                 logger.debug(traceback.format_exc())

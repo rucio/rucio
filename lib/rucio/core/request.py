@@ -1001,7 +1001,8 @@ def transition_requests_state_if_possible(request_ids, new_state, *, session: "S
         for request_id in request_ids:
             try:
                 transition_request_state(request_id, new_state, session=session, logger=logger)
-            except UnsupportedOperation:
+            except UnsupportedOperation as e:
+                logger(logging.DEBUG, "Cannot request state %s for request id %s: %s", new_state, request_id, e)
                 continue
     except IntegrityError as error:
         raise RucioException(error.args)
