@@ -234,6 +234,8 @@ def get_client(args):
                  'oidc_issuer': args.oidc_issuer,
                  'oidc_username': args.oidc_username,
                  'oidc_password': args.oidc_password}
+    elif auth_type == "x509":
+        creds = {'client_cert': args.certificate, "client_key": args.client_key}
     else:
         creds = None
 
@@ -1854,7 +1856,8 @@ def get_parser():
                          + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')  # NOQA: W503
 
     # Options for the x509  auth_strategy
-    oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file.')
+    oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file for x509 Authentication.')
+    oparser.add_argument('--client_key', dest='client_key', default=None, help='Client key for x509 Authentication.')
     oparser.add_argument('--ca-certificate', dest='ca_certificate', default=None, help='CA certificate to verify peer against (SSL).')
 
     # Ping command
