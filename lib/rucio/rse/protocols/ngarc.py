@@ -22,7 +22,7 @@ from rucio.rse.protocols import protocol
 
 try:
     import arc  # pylint: disable=import-error
-except:
+except ImportError:
     pass
 
 if TYPE_CHECKING:
