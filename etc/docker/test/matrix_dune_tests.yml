@@ -1,0 +1,11 @@
+dists:
+  - id: alma9
+    allow:
+      python:
+        - "3.9"
+python:
+  - "3.9"
+suites:
+  - dune-test
+image_identifier:
+  - dune-test
