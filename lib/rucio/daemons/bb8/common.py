@@ -352,6 +352,17 @@ def list_rebalance_rule_candidates(
         ]
         rule_clause.append(models.ReplicationRule.scope.in_(allowed_scopes))
 
+    #Do not move rules which are owned by <disallowed_names> (coma separated names, e.g RelVal)
+    disallowed_names = config_get(
+        section="bb8",
+        option="disallowed_names",
+        raise_exception=False,
+        default=None,
+        expiration_time=3600,
+    )
+    if disallowed_names:
+        rule_clause.append(~models.ReplicationRule.name.contains(disallowed_names))
+
     # Only move rules that have a certain grouping <allowed_grouping> (accepted values : all, dataset, none)
     rule_grouping_mapping = {
         "all": RuleGrouping.ALL,
@@ -526,7 +537,6 @@ def select_target_rse(
     )
 
     # TODO: Implement subscription rebalancing
-
     if force_expression is not None:
         if parent_rule["grouping"] != RuleGrouping.NONE:
             rses = parse_expression(
