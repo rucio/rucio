@@ -1052,7 +1052,7 @@ class Pcache:
         try:
             os.umask(0)
         except OSError:
-            self.log(DEBUG, "Failed to unmask dir")
+            self.log(DEBUG, "Failed to umask dir")
 
         n = os.open("/dev/null", os.O_RDWR)
         i, o, e = sys.stdin.fileno(), sys.stdout.fileno(), sys.stderr.fileno()
