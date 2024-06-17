@@ -70,8 +70,8 @@ for broker in BROKERS_ALIAS:
     try:
         addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
         BROKERS_RESOLVED = [ai[4][0] for ai in addrinfos]
-    except:
-        pass
+    except Exception as e:
+        LOGGER.log(logging.DEBUG, "Failed to resolve broker: %s", e)
 
 CONNS = []
 

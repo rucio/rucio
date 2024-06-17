@@ -3805,6 +3805,7 @@ def __resolve_did_to_locks_and_replicas(
     restrict_rses: Optional[Sequence[str]] = None,
     source_rses: Optional[Sequence[str]] = None,
     only_stuck: bool = False,
+    logger: LoggerFunction = logging.log,
     *,
     session: "Session"
 ) -> tuple[list[dict[str, Any]],
@@ -3897,8 +3898,8 @@ def __resolve_did_to_locks_and_replicas(
         # order datasetfiles for deterministic result
         try:
             datasetfiles = sorted(datasetfiles, key=lambda x: "%s%s" % (x['scope'], x['name']))
-        except Exception:
-            pass
+        except Exception as e:
+            logger(logging.DEBUG, "Could not order all datasets %s", e)
 
     else:
         raise InvalidReplicationRule('The did \"%s:%s\" has been deleted.' % (did.scope, did.name))
@@ -4198,6 +4199,7 @@ def __delete_lock_and_update_replica(
 @transactional_session
 def __create_rule_approval_email(
     rule: models.ReplicationRule,
+    logger: LoggerFunction = logging.log,
     *,
     session: "Session"
 ) -> None:
@@ -4247,8 +4249,8 @@ def __create_rule_approval_email(
                         free_space_after = 'undefined'
                     else:
                         free_space_after = sizefmt(usage['free'] - did['bytes'])
-        except Exception:
-            pass
+        except Exception as e:
+            logger(logging.DEBUG, e)
 
     # Resolve recipients:
     recipients = _create_recipients_list(rse_expression=rule.rse_expression, filter_={'vo': vo}, session=session)
@@ -4289,6 +4291,7 @@ def __create_rule_approval_email(
 def _create_recipients_list(
     rse_expression: str,
     filter_: Optional[str] = None,
+    logger: LoggerFunction = logging.log,
     *,
     session: "Session"
 ) -> list[tuple[str, Union[str, InternalAccount]]]:
@@ -4312,8 +4315,8 @@ def _create_recipients_list(
                     email = get_account(account=account, session=session).email
                     if email:
                         recipients.append((email, account))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger(logging.DEBUG, "Could not access email for %s: %s", account, e)
 
     # LOCALGROUPDISK/LOCALGROUPTAPE
     if not recipients:
@@ -4333,8 +4336,8 @@ def _create_recipients_list(
                         email = get_account(account=account, session=session).email
                         if email:
                             recipients.append((email, account))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger(logging.DEBUG, "Could not access email for %s: %s", account, e)
 
     # GROUPDISK
     if not recipients:
@@ -4354,8 +4357,8 @@ def _create_recipients_list(
                         email = get_account(account=account, session=session).email
                         if email:
                             recipients.append((email, account))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger(logging.DEBUG, "Could not access email for %s: %s", account, e)
 
     # DDMADMIN as default
     if not recipients:

@@ -564,8 +564,8 @@ def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"
             try:
                 if oauth_req_params.refresh_lifetime is not None:
                     extra_dict['refresh_lifetime'] = int(oauth_req_params.refresh_lifetime)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.debug("Failed to get refresh lifetime for token: %s", e)
             try:
                 values = __get_keyvalues_from_claims(oidc_tokens['refresh_token'], ['exp'])
                 exp = values['exp']
@@ -1407,8 +1407,8 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
             try:
                 token_dict['audience'] = inspect_claims['aud']
                 token_dict['authz_scope'] = inspect_claims['scope']
-            except:
-                pass
+            except Exception as e:
+                logging.debug("Could not access audience and scope from oidc endpoint %s: %s", oidc_client.introspection_endpoint, e)
         METRICS.counter(name='JSONWebToken.valid').inc()
         # if token is valid and coming from known issuer --> check aud and scope and save it if unknown
         if token_dict['authz_scope'] and token_dict['audience']:

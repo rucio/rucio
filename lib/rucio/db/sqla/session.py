@@ -51,13 +51,17 @@ except:
     CURRENT_COMPONENT = None
 
 DATABASE_SECTION = 'database'
-try:
-    if CURRENT_COMPONENT:
-        sql_connection = config_get('%s-database' % CURRENT_COMPONENT, 'default', check_config_table=False).strip()
-        if sql_connection and len(sql_connection):
-            DATABASE_SECTION = '%s-database' % CURRENT_COMPONENT
-except:
-    pass
+
+if CURRENT_COMPONENT:
+    sql_connection = config_get(
+        '%s-database' % CURRENT_COMPONENT,
+        'default',
+        check_config_table=False,
+        raise_exception=False,
+        default='0').strip()
+    if (sql_connection != '0') and (len(sql_connection)):
+        DATABASE_SECTION = '%s-database' % CURRENT_COMPONENT
+
 
 DEFAULT_SCHEMA_NAME = config_get(DATABASE_SECTION, 'schema',
                                  raise_exception=False, default=None, check_config_table=False)
@@ -207,10 +211,10 @@ def get_engine():
             conv = mysql_convert_decimal_to_float(pymysql=sql_connection.startswith('mysql+pymysql'))
             params['connect_args'] = {'conv': conv}
         for param, param_type in config_params:
-            try:
-                params[param] = param_type(config_get(DATABASE_SECTION, param, check_config_table=False))
-            except:
-                pass
+            param_from_config = config_get(DATABASE_SECTION, param, check_config_table=False, raise_exception=False, default=None)
+            if param_from_config is not None:
+                params[param] = param_type(param_from_config)
+
         # Using sqlAlchemy 2.0 with future=True.
         # if backing up from 2.0, need to remove future=True .
         _ENGINE = create_engine(sql_connection, future=True, **params)

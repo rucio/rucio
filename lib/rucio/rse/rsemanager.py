@@ -272,8 +272,8 @@ def exists(rse_settings: types.RSESettingsDict, files, domain='wan', scheme=None
     except NotImplementedError:
         protocol = create_protocol(rse_settings, 'write', scheme=scheme, domain=domain, auth_token=auth_token, logger=logger)
         protocol.connect()
-    except:
-        pass
+    except Exception:
+        logger(logging.DEBUG, "Could not properly create %s protocol at RSE with settings %s", scheme, rse_settings)
 
     files = [files] if not type(files) is list else files
     for f in files:
