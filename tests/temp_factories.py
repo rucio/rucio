@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import configparser
 import os
 import shutil
 import tempfile
@@ -169,7 +170,10 @@ class TemporaryDidFactory:
         if not self.created_dids:
             return
 
-        self._cleanup_db_deps(session=session or self.db_session)
+        try:
+            self._cleanup_db_deps(session=session or self.db_session)
+        except configparser.NoSectionError:
+            pass
 
     @transactional_session
     def _cleanup_db_deps(self, *, session=None):
