@@ -478,7 +478,7 @@ typing-extensions==4.11.0
     #   pylint
     #   sqlalchemy
     #   typeapi
-urllib3==1.26.18
+urllib3==1.26.19
     # via
     #   -r requirements.server.txt
     #   botocore
