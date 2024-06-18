@@ -30,6 +30,7 @@ from configparser import NoOptionError, NoSectionError
 from copy import deepcopy
 from datetime import datetime
 from functools import wraps
+from typing import Optional
 
 from tabulate import tabulate
 
@@ -1077,6 +1078,24 @@ def download(args):
             logger.debug(args.dids)
         item_defaults['pfn'] = args.pfn
         item_defaults['did'] = did_str
+        if args.rses is None:
+            logger.warning("No RSE was given, selecting one.")
+            client = get_client(args)
+            replicas = client.list_replicas(
+                [{"scope": did_str.split(':')[0], "name": did_str.split(':')[-1]}],
+                schemes=args.protocol,
+                ignore_availability=False,
+                client_location=detect_client_location(),
+                resolve_archives=not args.no_resolve_archives
+            )
+
+            download_rse = _get_rse_for_pfn(replicas, args.pfn)
+            if download_rse is None:
+                logger.error("Could not find RSE for pfn %s", args.pfn)
+                return FAILURE
+            else:
+                item_defaults['rse'] = download_rse
+
         result = download_client.download_pfns([item_defaults], 1, trace_pattern, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
     if not result:
@@ -1116,6 +1135,21 @@ def download(args):
         print('{0:40} {1:6d}'.format('Files that cannot be downloaded: ', not_downloaded_files))
 
     return SUCCESS
+
+
+def _get_rse_for_pfn(replicas, pfn) -> Optional[str]:
+    # Check each rse in the replica list for the pfn. If no pfn is found, returns None.
+    # If it is found, stop the generator and return the item.
+    for replica in replicas:
+        try:
+            download_rse = next(
+                rse for rse in replica['rses']
+                if pfn in replica['rses'][rse]
+            )
+        except StopIteration:
+            continue
+        else:
+            return download_rse
 
 
 @exception_handler

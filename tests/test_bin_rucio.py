@@ -681,18 +681,33 @@ class TestBinRucio:
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, err)
 
         # download files
         download_dir = "/temp"
         replica_pfn = list(self.replica_client.list_replicas([{'scope': self.user, 'name': name}]))[0]['rses'][self.def_rse][0]
         cmd = f'rucio -v download  --dir {download_dir} --rse {self.def_rse} --pfn {replica_pfn} {self.user}:{name}'
         exitcode, out, err = execute(cmd)
-
         if "Access to local destination denied." in err:  # Known issue - see #6506
-            assert False, "test `test_download_pfn` unable to access file {self.user}/{name} in {download_dir}"
+            assert False, f"test `test_download_pfn` unable to access file {self.user}/{name} in {download_dir}"
         else:
             assert re.search('Total files.*1', out) is not None
+
+        # Try to use the --pfn without rse
+        cmd = f"rucio -v download  --dir {download_dir.rstrip('/')}/duplicate --pfn {replica_pfn} {self.user}:{name}"
+        exitcode, out, err = execute(cmd)
+
+        assert "No RSE was given, selecting one." in err
+        assert exitcode == 0
+        assert re.search('Total files.*1', out) is not None
+
+        # Download the pfn without an rse, except there is no RSE with that RSE
+        non_existent_pfn = "http://fake.pfn.marker/"
+        cmd = f"rucio -v download  --dir {download_dir.rstrip('/')}/duplicate --pfn {non_existent_pfn} {self.user}:{name}"
+        exitcode, out, err = execute(cmd)
+
+        assert "No RSE was given, selecting one." in err
+        assert f"Could not find RSE for pfn {non_existent_pfn}" in err
+        assert exitcode != 0
 
         try:
             for i in listdir('data13_hip'):
