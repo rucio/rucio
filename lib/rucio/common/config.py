@@ -708,7 +708,8 @@ def get_config_dirs() -> list[str]:
     """
     Returns all available configuration directories in order:
     - $RUCIO_HOME/etc/
-    - $VIRTUAL_ENV/etc/
+    - $VIRTUAL_ENV/etc/  
+    - $CONDA_ENV/etc
     - /opt/rucio/
     """
     configdirs = []
@@ -718,6 +719,9 @@ def get_config_dirs() -> list[str]:
 
     if 'VIRTUAL_ENV' in os.environ:
         configdirs.append('%s/etc/' % os.environ['VIRTUAL_ENV'])
+
+    if 'CONDA_PREFIX' in os.environ:
+        configdirs.append('%s/etc/' % os.environ['CONDA_PREFIX'])
 
     configdirs.append('/opt/rucio/etc/')
 
