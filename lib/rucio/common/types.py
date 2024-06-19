@@ -12,9 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable
+import sys
+from collections.abc import Callable, Mapping
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal, Optional, TypedDict, Union
+
+if sys.version_info < (3, 11):
+    from typing_extensions import TYPE_CHECKING, Any, NotRequired, Optional, TypedDict, Union  # noqa: UP035
+else:
+    from typing import TYPE_CHECKING, Any, NotRequired, Optional, TypedDict, Union
+
 
 if TYPE_CHECKING:
     from rucio.common.constants import SUPPORTED_PROTOCOLS_LITERAL
