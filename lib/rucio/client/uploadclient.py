@@ -21,6 +21,7 @@ import os.path
 import random
 import socket
 import time
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from rucio import version
 from rucio.client.client import Client
@@ -44,10 +45,21 @@ from rucio.common.exception import (
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, adler32, bittorrent_v2_merkle_sha256, detect_client_location, execute, generate_uuid, make_valid_did, md5, retry, send_trace
 from rucio.rse import rsemanager as rsemgr
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
+
+    from rucio.common.types import FileToUploadDict, LoggerFunction, RSESettingsDict
+    from rucio.rse.protocols.protocol import RSEProtocol
+
 
 class UploadClient:
 
-    def __init__(self, _client=None, logger=None, tracing=True):
+    def __init__(
+            self,
+            _client: Optional[Client] = None,
+            logger: Optional["LoggerFunction"] = None,
+            tracing: bool = True
+    ):
         """
         Initialises the basic settings for an UploadClient object
 
@@ -78,7 +90,14 @@ class UploadClient:
         self.trace['eventType'] = 'upload'
         self.trace['eventVersion'] = version.RUCIO_VERSION[0]
 
-    def upload(self, items, summary_file_path=None, traces_copy_out=None, ignore_availability=False, activity=None):
+    def upload(
+            self,
+            items: "FileToUploadDict",
+            summary_file_path: Optional[str] = None,
+            traces_copy_out: Optional[list[dict[str, Any]]] = None,
+            ignore_availability: bool = False,
+            activity: Optional[str] = None
+    ) -> int:
         """
         :param items: List of dictionaries. Each dictionary describing a file to upload. Keys:
             path                  - path of the file that will be uploaded
@@ -110,7 +129,7 @@ class UploadClient:
         :raises NotAllFilesUploaded: if not all files were successfully uploaded
         """
         # helper to get rse from rse_expression:
-        def _pick_random_rse(rse_expression):
+        def _pick_random_rse(rse_expression: str) -> dict[str, Any]:
             rses = [r['rse'] for r in self.client.list_rses(rse_expression)]  # can raise InvalidRSEExpression
             random.shuffle(rses)
             return rses[0]
@@ -353,7 +372,7 @@ class UploadClient:
             raise NotAllFilesUploaded()
         return 0
 
-    def _add_bittorrent_meta(self, file, logger):
+    def _add_bittorrent_meta(self, file: "Mapping[str, Any]", logger: "LoggerFunction") -> None:
         if not config_get_bool('client', 'register_bittorrent_meta', default=False):
             return
 
@@ -365,7 +384,13 @@ class UploadClient:
         }
         self.client.set_metadata_bulk(scope=file['did_scope'], name=file['did_name'], meta=bittorrent_meta)
 
-    def _register_file(self, file, registered_dataset_dids, ignore_availability=False, activity=None):
+    def _register_file(
+            self,
+            file: "Mapping[str, Any]",
+            registered_dataset_dids: set[str],
+            ignore_availability: bool = False,
+            activity: Optional[str] = None
+    ) -> None:
         """
         Registers the given file in Rucio. Creates a dataset if
         needed. Registers the file DID and creates the replication
@@ -446,7 +471,7 @@ class UploadClient:
                 self.client.add_replication_rule([file_did], copies=1, rse_expression=rse, lifetime=file.get('lifetime'), ignore_availability=ignore_availability, activity=activity)
                 logger(logging.INFO, 'Successfully added replication rule at %s' % rse)
 
-    def _get_file_guid(self, file):
+    def _get_file_guid(self, file: "Mapping[str, Any]") -> str:
         """
         Get the guid of a file, trying different strategies
         (This function is meant to be used as class internal only)
@@ -472,7 +497,11 @@ class UploadClient:
             guid = generate_uuid()
         return guid
 
-    def _collect_file_info(self, filepath, item):
+    def _collect_file_info(
+            self,
+            filepath: str,
+            item: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Collects infos (e.g. size, checksums, etc.) about the file and
         returns them as a dictionary
@@ -500,7 +529,7 @@ class UploadClient:
 
         return new_item
 
-    def _collect_and_validate_file_info(self, items):
+    def _collect_and_validate_file_info(self, items: "Iterable[dict[str, Any]]") -> list[dict[str, Any]]:
         """
         Checks if there are any inconsistencies within the given input
         options and stores the output of _collect_file_info for every file
@@ -558,7 +587,7 @@ class UploadClient:
 
         return files
 
-    def _convert_file_for_api(self, file):
+    def _convert_file_for_api(self, file: dict[str, Any]) -> dict[str, Any]:
         """
         Creates a new dictionary that contains only the values
         that are needed for the upload with the correct keys
@@ -581,7 +610,20 @@ class UploadClient:
             replica['pfn'] = pfn
         return replica
 
-    def _upload_item(self, rse_settings, rse_attributes, lfn, source_dir=None, domain='wan', impl=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None):
+    def _upload_item(
+            self,
+            rse_settings: "RSESettingsDict",
+            rse_attributes: dict[str, Any],
+            lfn: dict[str, Union[str, int]],
+            source_dir: Optional[str] = None,
+            domain: str = 'wan',
+            impl: Optional[str] = None,
+            force_pfn: Optional[str] = None,
+            force_scheme: Optional[str] = None,
+            transfer_timeout: Optional[int] = None,
+            delete_existing: bool = False,
+            sign_service: Optional[str] = None
+    ) -> Optional[str]:
         """
             Uploads a file to the connected storage.
 
@@ -718,7 +760,11 @@ class UploadClient:
 
         return pfn
 
-    def _retry_protocol_stat(self, protocol, pfn):
+    def _retry_protocol_stat(
+            self,
+            protocol: "RSEProtocol",
+            pfn: str
+    ) -> dict[str, Any]:
         """
         Try to stat file, on fail try again 1s, 2s, 4s, 8s, 16s, 32s later. Fail is all fail
         :param protocol:     The protocol to use to reach this file
@@ -746,7 +792,14 @@ class UploadClient:
                 time.sleep(2**attempt)
         return protocol.stat(pfn)
 
-    def _create_protocol(self, rse_settings, operation, impl=None, force_scheme=None, domain='wan'):
+    def _create_protocol(
+            self,
+            rse_settings: "RSESettingsDict",
+            operation: str,
+            impl: Optional[str] = None,
+            force_scheme: Optional[str] = None,
+            domain: str = 'wan'
+    ) -> "RSEProtocol":
         """
         Protocol construction.
         :param rse_settings:        rse_settings
@@ -763,7 +816,7 @@ class UploadClient:
             raise error
         return protocol
 
-    def _send_trace(self, trace):
+    def _send_trace(self, trace: dict[str, Any]) -> None:
         """
         Checks if sending trace is allowed and send the trace.
 
@@ -772,7 +825,7 @@ class UploadClient:
         if self.tracing:
             send_trace(trace, self.client.trace_host, self.client.user_agent)
 
-    def _recursive(self, item):
+    def _recursive(self, item: dict[str, Any]) -> list[dict[str, Any]]:
         """
         If the --recursive flag is set, it replicates the folder structure recursively into collections
         A folder only can have either other folders inside or files, but not both of them
@@ -839,7 +892,11 @@ class UploadClient:
                 self.logger(logging.ERROR, 'It was not possible to attach to collection with DID %s:%s' % (att['scope'], att['name']))
         return files
 
-    def preferred_impl(self, rse_settings, domain):
+    def preferred_impl(
+            self,
+            rse_settings: "RSESettingsDict",
+            domain: str
+    ) -> Optional[str]:
         """
             Finds the optimum protocol impl preferred by the client and
             supported by the remote RSE.
