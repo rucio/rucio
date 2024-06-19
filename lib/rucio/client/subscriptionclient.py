@@ -13,11 +13,15 @@
 # limitations under the License.
 
 from json import dumps
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.utils import build_url
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class SubscriptionClient(BaseClient):
@@ -26,29 +30,31 @@ class SubscriptionClient(BaseClient):
 
     SUB_BASEURL = 'subscriptions'
 
-    def add_subscription(self, name, account, filter_, replication_rules, comments, lifetime, retroactive, dry_run, priority=3):
+    def add_subscription(
+            self,
+            name: str,
+            account: str,
+            filter_: dict[str, Any],
+            replication_rules: dict[str, Any],
+            comments: str,
+            lifetime: Union[int, Literal[False]],
+            retroactive: bool,
+            dry_run: bool,
+            priority: int = 3
+    ) -> str:
         """
         Adds a new subscription which will be verified against every new added file and dataset
 
         :param name: Name of the subscription
-        :type:  String
         :param account: Account identifier
-        :type account:  String
         :param filter_: Dictionary of attributes by which the input data should be filtered
                        **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
-        :type filter_:  Dict
         :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
-        :type replication_rules:  Dict
         :param comments: Comments for the subscription
-        :type comments:  String
         :param lifetime: Subscription's lifetime (days); False if subscription has no lifetime
-        :type lifetime:  Integer or False
         :param retroactive: Flag to know if the subscription should be applied on previous data
-        :type retroactive:  Boolean
         :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
-        :type dry_run:  Boolean
         :param priority: The priority of the subscription (3 by default)
-        :type priority: Integer
         """
         path = self.SUB_BASEURL + '/' + account + '/' + name
         url = build_url(choice(self.list_hosts), path=path)
@@ -67,17 +73,18 @@ class SubscriptionClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
             raise exc_cls(exc_msg)
 
-    def list_subscriptions(self, name=None, account=None):
+    def list_subscriptions(
+            self,
+            name: Optional[str] = None,
+            account: Optional[dict[str, Any]] = None
+    ) -> Union["Iterator[dict[str, Any]]", list]:
         """
         Returns a dictionary with the subscription information :
         Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
 
         :param name: Name of the subscription
-        :type:  String
         :param account: Account identifier
-        :type account:  String
         :returns: Dictionary containing subscription parameter
-        :rtype:   Dict
         :raises: exception.NotFound if subscription is not found
         """
         path = self.SUB_BASEURL
@@ -98,36 +105,38 @@ class SubscriptionClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
         raise exc_cls(exc_msg)
 
-    def update_subscription(self, name, account=None, filter_=None, replication_rules=None, comments=None, lifetime=None, retroactive=None, dry_run=None, priority=None):
+    def update_subscription(
+            self,
+            name,
+            account: Optional[str] = None,
+            filter_: Optional[dict[str, Any]] = None,
+            replication_rules: Optional[dict[str, Any]] = None,
+            comments: Optional[str] = None,
+            lifetime: Optional[Union[int, Literal[False]]] = None,
+            retroactive: Optional[bool] = None,
+            dry_run: Optional[bool] = None,
+            priority: Optional[int] = None
+    ) -> Literal[True]:
         """
         Updates a subscription
 
         :param name: Name of the subscription
-        :type:  String
         :param account: Account identifier
-        :type account:  String
         :param filter_: Dictionary of attributes by which the input data should be filtered
                        **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
-        :type filter_:  Dict
         :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
-        :type replication_rules:  Dict
         :param comments: Comments for the subscription
-        :type comments:  String
         :param lifetime: Subscription's lifetime (days); False if subscription has no lifetime
-        :type lifetime:  Integer or False
         :param retroactive: Flag to know if the subscription should be applied on previous data
-        :type retroactive:  Boolean
         :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
-        :type dry_run:  Boolean
         :param priority: The priority of the subscription
-        :type priority: Integer
         :raises: exception.NotFound if subscription is not found
         """
         if not account:
             account = self.account
         if retroactive:
             raise NotImplementedError('Retroactive mode is not implemented')
-        path = self.SUB_BASEURL + '/' + account + '/' + name
+        path = self.SUB_BASEURL + '/' + account + '/' + name  # type: ignore
         url = build_url(choice(self.list_hosts), path=path)
         if filter_ and not isinstance(filter_, dict):
             raise TypeError('filter should be a dict')
@@ -142,7 +151,11 @@ class SubscriptionClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
             raise exc_cls(exc_msg)
 
-    def list_subscription_rules(self, account, name):
+    def list_subscription_rules(
+            self,
+            account: str,
+            name: str
+    ) -> "Iterator[dict[str, Any]]":
         """
         List the associated rules of a subscription.
 
