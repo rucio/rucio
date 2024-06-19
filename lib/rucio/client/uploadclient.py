@@ -526,8 +526,8 @@ class UploadClient:
                 continue
             if pfn:
                 item['force_scheme'] = pfn.split(':')[0]
-            if item.get('impl'):
-                impl = item.get('impl')
+            impl = item.get('impl')
+            if impl:
                 impl_split = impl.split('.')
                 if len(impl_split) == 1:
                     impl = 'rucio.rse.protocols.' + impl + '.Default'
@@ -789,31 +789,32 @@ class UploadClient:
         scope = item.get('did_scope') if item.get('did_scope') is not None else self.default_file_scope
         rse = item.get('rse')
         path = item.get('path')
-        if path[-1] == '/':
-            path = path[0:-1]
-        i = 0
-        path = os.path.abspath(path)
-        for root, dirs, fnames in os.walk(path):
-            if len(dirs) > 0 and len(fnames) > 0 and i == 0:
-                self.logger(logging.ERROR, 'A container can only have either collections or files, not both')
-                raise InputValidationError('Invalid input folder structure')
-            if len(fnames) > 0:
-                datasets.append({'scope': scope, 'name': root.split('/')[-1], 'rse': rse})
-                self.logger(logging.DEBUG, 'Appended dataset with DID %s:%s' % (scope, path))
-                for fname in fnames:
-                    file = self._collect_file_info(os.path.join(root, fname), item)
-                    file['dataset_scope'] = scope
-                    file['dataset_name'] = root.split('/')[-1]
-                    files.append(file)
-                    self.logger(logging.DEBUG, 'Appended file with DID %s:%s' % (scope, fname))
-            elif len(dirs) > 0:
-                containers.append({'scope': scope, 'name': root.split('/')[-1]})
-                self.logger(logging.DEBUG, 'Appended container with DID %s:%s' % (scope, path))
-                attach.extend([{'scope': scope, 'name': root.split('/')[-1], 'rse': rse, 'dids': {'scope': scope, 'name': dir_}} for dir_ in dirs])
-            elif len(dirs) == 0 and len(fnames) == 0:
-                self.logger(logging.WARNING, 'The folder %s is empty, skipping' % root)
-                continue
-            i += 1
+        if path:
+            if path[-1] == '/':
+                path = path[0:-1]
+            i = 0
+            path = os.path.abspath(path)
+            for root, dirs, fnames in os.walk(path):
+                if len(dirs) > 0 and len(fnames) > 0 and i == 0:
+                    self.logger(logging.ERROR, 'A container can only have either collections or files, not both')
+                    raise InputValidationError('Invalid input folder structure')
+                if len(fnames) > 0:
+                    datasets.append({'scope': scope, 'name': root.split('/')[-1], 'rse': rse})
+                    self.logger(logging.DEBUG, 'Appended dataset with DID %s:%s' % (scope, path))
+                    for fname in fnames:
+                        file = self._collect_file_info(os.path.join(root, fname), item)
+                        file['dataset_scope'] = scope
+                        file['dataset_name'] = root.split('/')[-1]
+                        files.append(file)
+                        self.logger(logging.DEBUG, 'Appended file with DID %s:%s' % (scope, fname))
+                elif len(dirs) > 0:
+                    containers.append({'scope': scope, 'name': root.split('/')[-1]})
+                    self.logger(logging.DEBUG, 'Appended container with DID %s:%s' % (scope, path))
+                    attach.extend([{'scope': scope, 'name': root.split('/')[-1], 'rse': rse, 'dids': {'scope': scope, 'name': dir_}} for dir_ in dirs])
+                elif len(dirs) == 0 and len(fnames) == 0:
+                    self.logger(logging.WARNING, 'The folder %s is empty, skipping' % root)
+                    continue
+                i += 1
         # if everything went ok, replicate the folder structure in Rucio storage
         for dataset in datasets:
             try:
