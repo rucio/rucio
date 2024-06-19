@@ -17,9 +17,9 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 
 if sys.version_info < (3, 11):
-    from typing_extensions import TYPE_CHECKING, Any, NotRequired, Optional, TypedDict, Union  # noqa: UP035
+    from typing_extensions import TYPE_CHECKING, Any, Literal, NotRequired, Optional, TypedDict, Union  # noqa: UP035
 else:
-    from typing import TYPE_CHECKING, Any, NotRequired, Optional, TypedDict, Union
+    from typing import TYPE_CHECKING, Any, Literal, NotRequired, Optional, TypedDict, Union
 
 
 if TYPE_CHECKING:
@@ -257,3 +257,22 @@ class AccountUsageModelDict(TypedDict):
     rse_id: str
     files: int
     bytes: int
+
+
+class FileToUploadDict(TypedDict):
+    path: str
+    rse: str
+    did_scope: NotRequired[str]
+    did_name: NotRequired[str]
+    dataset_scope: NotRequired[str]
+    dataset_name: NotRequired[str]
+    dataset_meta: NotRequired[str]
+    impl: NotRequired[Mapping[str, Any]]
+    force_scheme: NotRequired[str]
+    pfn: NotRequired[str]
+    no_register: NotRequired[bool]
+    register_after_upload: NotRequired[bool]
+    lifetime: NotRequired[int]
+    transfer_timeout: NotRequired[int]
+    guid: NotRequired[str]
+    recursive: NotRequired[bool]
