@@ -866,7 +866,7 @@ class UploadClient:
                 elif len(dirs) > 0:
                     containers.append({'scope': scope, 'name': root.split('/')[-1]})
                     self.logger(logging.DEBUG, 'Appended container with DID %s:%s' % (scope, path))
-                    attach.extend([{'scope': scope, 'name': root.split('/')[-1], 'rse': rse, 'dids': {'scope': scope, 'name': dir_}} for dir_ in dirs])
+                    attach.extend([{'scope': scope, 'name': root.split('/')[-1], 'rse': rse, 'did': {'scope': scope, 'name': dir_}} for dir_ in dirs])
                 elif len(dirs) == 0 and len(fnames) == 0:
                     self.logger(logging.WARNING, 'The folder %s is empty, skipping' % root)
                     continue
@@ -888,7 +888,7 @@ class UploadClient:
                 self.logger(logging.ERROR, 'It was not possible to create dataset with DID %s:%s' % (container['scope'], container['name']))
         for att in attach:
             try:
-                self.client.attach_dids(scope=att['scope'], name=att['name'], dids=[att['dids']])
+                self.client.attach_dids(scope=att['scope'], name=att['name'], dids=[att['did']])
                 self.logger(logging.INFO, 'DIDs attached to collection %s:%s' % (att['scope'], att['name']))
             except RucioException as error:
                 self.logger(logging.ERROR, error)
