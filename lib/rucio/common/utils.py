@@ -53,7 +53,7 @@ from rucio.common.config import config_get, config_has_section
 from rucio.common.exception import ConfigNotFound, DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, PolicyPackageVersionError, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.plugins import PolicyPackageAlgorithms
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalAccount, InternalScope, TraceDict
 
 EXTRA_MODULES = import_extras(['paramiko'])
 
@@ -1330,7 +1330,7 @@ def make_valid_did(lfn_dict: dict[str, Any]) -> dict[str, Any]:
     return lfn_copy
 
 
-def send_trace(trace: dict[str, Any], trace_endpoint: str, user_agent: str, retries: int = 5) -> int:
+def send_trace(trace: TraceDict, trace_endpoint: str, user_agent: str, retries: int = 5) -> int:
     """
     Send the given trace to the trace endpoint
 
