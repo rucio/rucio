@@ -21,7 +21,7 @@ import os.path
 import random
 import socket
 import time
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Final, Optional, Union, cast
 
 from rucio import version
 from rucio.client.client import Client
@@ -48,7 +48,7 @@ from rucio.rse import rsemanager as rsemgr
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from rucio.common.types import FileToUploadDict, LoggerFunction, RSESettingsDict
+    from rucio.common.types import AttachDict, DatasetDict, DIDStringDict, FileToUploadDict, FileToUploadWithCollectedAndDatasetInfoDict, FileToUploadWithCollectedInfoDict, LoggerFunction, RSESettingsDict, TraceBaseDict, TraceDict
     from rucio.rse.protocols.protocol import RSEProtocol
 
 
@@ -71,14 +71,14 @@ class UploadClient:
         else:
             self.logger = logger.log
 
-        self.client = _client if _client else Client()
+        self.client: Final[Client] = _client if _client else Client()
         self.client_location = detect_client_location()
         # if token should be used, use only JWT tokens
-        self.auth_token = self.client.auth_token if len(self.client.auth_token.split(".")) == 3 else None
+        self.auth_token: Optional[str] = self.client.auth_token if len(self.client.auth_token.split(".")) == 3 else None
         self.tracing = tracing
         if not self.tracing:
             logger(logging.DEBUG, 'Tracing is turned off.')
-        self.default_file_scope = 'user.' + self.client.account
+        self.default_file_scope: Final[str] = 'user.' + self.client.account
         self.rses = {}
         self.rse_expressions = {}
 
@@ -92,9 +92,9 @@ class UploadClient:
 
     def upload(
             self,
-            items: "FileToUploadDict",
+            items: "Iterable[FileToUploadDict]",
             summary_file_path: Optional[str] = None,
-            traces_copy_out: Optional[list[dict[str, Any]]] = None,
+            traces_copy_out: Optional[list["TraceBaseDict"]] = None,
             ignore_availability: bool = False,
             activity: Optional[str] = None
     ) -> int:
@@ -298,7 +298,7 @@ class UploadClient:
                                             sign_service=sign_service)
                     logger(logging.DEBUG, 'Upload done.')
                     success = True
-                    file['upload_result'] = {0: True, 1: None, 'success': True, 'pfn': pfn}  # needs to be removed
+                    file['upload_result'] = {0: True, 1: None, 'success': True, 'pfn': pfn}  # TODO: needs to be removed
                 except (ServiceUnavailable, ResourceTemporaryUnavailable, RSEOperationNotSupported, RucioException) as error:
                     logger(logging.WARNING, 'Upload attempt failed')
                     logger(logging.INFO, 'Exception: %s' % str(error), exc_info=True)
@@ -309,7 +309,7 @@ class UploadClient:
                 trace['clientState'] = 'DONE'
                 file['state'] = 'A'
                 logger(logging.INFO, 'Successfully uploaded file %s' % basename)
-                self._send_trace(trace)
+                self._send_trace(cast("TraceDict", trace))
 
                 if summary_file_path:
                     summary.append(copy.deepcopy(file))
@@ -330,7 +330,7 @@ class UploadClient:
                 # add file to dataset if needed
                 if dataset_did_str and not no_register:
                     try:
-                        self.client.attach_dids(file['dataset_scope'], file['dataset_name'], [file_did])
+                        self.client.attach_dids(file['dataset_scope'], file['dataset_name'], [file_did])  # type: ignore (`dataset_scope` and `dataset_name` always exist if `dataset_did_str`)
                     except Exception as error:
                         registration_succeeded = False
                         logger(logging.ERROR, 'Failed to attach file to the dataset')
@@ -342,7 +342,7 @@ class UploadClient:
             else:
                 trace['clientState'] = 'FAILED'
                 trace['stateReason'] = state_reason
-                self._send_trace(trace)
+                self._send_trace(cast('TraceDict', trace))
                 logger(logging.ERROR, 'Failed to upload file %s' % basename)
 
         if summary_file_path:
@@ -500,8 +500,8 @@ class UploadClient:
     def _collect_file_info(
             self,
             filepath: str,
-            item: dict[str, Any]
-    ) -> dict[str, Any]:
+            item: "FileToUploadDict"
+    ) -> "FileToUploadWithCollectedInfoDict":
         """
         Collects infos (e.g. size, checksums, etc.) about the file and
         returns them as a dictionary
@@ -513,6 +513,7 @@ class UploadClient:
         :returns: a dictionary containing all collected info and the input options
         """
         new_item = copy.deepcopy(item)
+        new_item = cast("FileToUploadWithCollectedInfoDict", new_item)
         new_item['path'] = filepath
         new_item['dirname'] = os.path.dirname(filepath)
         new_item['basename'] = os.path.basename(filepath)
@@ -529,7 +530,7 @@ class UploadClient:
 
         return new_item
 
-    def _collect_and_validate_file_info(self, items: "Iterable[dict[str, Any]]") -> list[dict[str, Any]]:
+    def _collect_and_validate_file_info(self, items: "Iterable[FileToUploadDict]") -> list["FileToUploadWithCollectedInfoDict"]:
         """
         Checks if there are any inconsistencies within the given input
         options and stores the output of _collect_file_info for every file
@@ -542,7 +543,7 @@ class UploadClient:
         :raises InputValidationError: if an input option has a wrong format
         """
         logger = self.logger
-        files = []
+        files: list["FileToUploadWithCollectedInfoDict"] = []
         for item in items:
             path = item.get('path')
             pfn = item.get('pfn')
@@ -573,7 +574,7 @@ class UploadClient:
                 elif not len(fnames):
                     logger(logging.WARNING, 'Skipping %s because it has no files in it. Subdirectories are not supported.' % dname)
             elif os.path.isdir(path) and recursive:
-                files.extend(self._recursive(item))
+                files.extend(cast("list[FileToUploadWithCollectedInfoDict]", self._recursive(item)))
             elif os.path.isfile(path) and not recursive:
                 file = self._collect_file_info(path, item)
                 files.append(file)
@@ -587,7 +588,7 @@ class UploadClient:
 
         return files
 
-    def _convert_file_for_api(self, file: dict[str, Any]) -> dict[str, Any]:
+    def _convert_file_for_api(self, file: "Mapping[str, Any]") -> dict[str, Any]:
         """
         Creates a new dictionary that contains only the values
         that are needed for the upload with the correct keys
@@ -676,7 +677,7 @@ class UploadClient:
                 pfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'write', pfn)
 
         # Create a name of tmp file if renaming operation is supported
-        pfn_tmp = '%s.rucio.upload' % pfn if protocol_write.renaming else pfn
+        pfn_tmp = cast(str, '%s.rucio.upload' % pfn if protocol_write.renaming else pfn)
         signed_read_pfn_tmp = '%s.rucio.upload' % signed_read_pfn if protocol_write.renaming else signed_read_pfn
 
         # Either DID exists or not register_after_upload
@@ -816,7 +817,7 @@ class UploadClient:
             raise error
         return protocol
 
-    def _send_trace(self, trace: dict[str, Any]) -> None:
+    def _send_trace(self, trace: "TraceDict") -> None:
         """
         Checks if sending trace is allowed and send the trace.
 
@@ -825,7 +826,7 @@ class UploadClient:
         if self.tracing:
             send_trace(trace, self.client.trace_host, self.client.user_agent)
 
-    def _recursive(self, item: dict[str, Any]) -> list[dict[str, Any]]:
+    def _recursive(self, item: "FileToUploadDict") -> list["FileToUploadWithCollectedAndDatasetInfoDict"]:
         """
         If the --recursive flag is set, it replicates the folder structure recursively into collections
         A folder only can have either other folders inside or files, but not both of them
@@ -835,12 +836,11 @@ class UploadClient:
 
         :param item:        dictionary containing all descriptions of the files to upload
         """
-        files = []
-        datasets = []
-        containers = []
-        attach = []
-        scope = item.get('did_scope') if item.get('did_scope') is not None else self.default_file_scope
-        scope = item.get('did_scope') 
+        files: list["FileToUploadWithCollectedAndDatasetInfoDict"] = []
+        datasets: list["DatasetDict"] = []
+        containers: list["DIDStringDict"] = []
+        attach: "Iterable[AttachDict]" = []
+        scope = item.get('did_scope')
         if scope is None:
             scope = self.default_file_scope
         rse = item.get('rse')
@@ -859,6 +859,7 @@ class UploadClient:
                     self.logger(logging.DEBUG, 'Appended dataset with DID %s:%s' % (scope, path))
                     for fname in fnames:
                         file = self._collect_file_info(os.path.join(root, fname), item)
+                        file = cast("FileToUploadWithCollectedAndDatasetInfoDict", file)
                         file['dataset_scope'] = scope
                         file['dataset_name'] = root.split('/')[-1]
                         files.append(file)
