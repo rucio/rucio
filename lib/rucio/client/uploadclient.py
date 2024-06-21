@@ -82,13 +82,13 @@ class UploadClient:
         self.rses = {}
         self.rse_expressions = {}
 
-        self.trace = {}
-        self.trace['hostname'] = socket.getfqdn()
-        self.trace['account'] = self.client.account
-        if self.client.vo != 'def':
-            self.trace['vo'] = self.client.vo
-        self.trace['eventType'] = 'upload'
-        self.trace['eventVersion'] = version.RUCIO_VERSION[0]
+        self.trace: "TraceBaseDict" = {
+            'hostname': socket.getfqdn(),
+            'account': self.client.account,
+            'eventType': 'upload',
+            'eventVersion': version.RUCIO_VERSION[0],
+            'vo': self.client.vo if self.client.vo != 'def' else None
+        }
 
     def upload(
             self,
@@ -840,6 +840,9 @@ class UploadClient:
         containers = []
         attach = []
         scope = item.get('did_scope') if item.get('did_scope') is not None else self.default_file_scope
+        scope = item.get('did_scope') 
+        if scope is None:
+            scope = self.default_file_scope
         rse = item.get('rse')
         path = item.get('path')
         if path:
