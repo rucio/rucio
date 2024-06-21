@@ -1363,88 +1363,6 @@ def list_replicas(
     )
 
 
-@transactional_session
-def __bulk_add_new_file_dids(files, account, dataset_meta=None, *, session: "Session"):
-    """
-    Bulk add new dids.
-
-    :param dids: the list of new files.
-    :param account: The account owner.
-    :param session: The database session in use.
-    :returns: True is successful.
-    """
-    for file in files:
-        new_did = models.DataIdentifier(scope=file['scope'], name=file['name'],
-                                        account=file.get('account') or account,
-                                        did_type=DIDType.FILE, bytes=file['bytes'],
-                                        md5=file.get('md5'), adler32=file.get('adler32'),
-                                        is_new=None)
-        new_did.save(session=session, flush=False)
-
-        if 'meta' in file and file['meta']:
-            rucio.core.did.set_metadata_bulk(scope=file['scope'], name=file['name'], meta=file['meta'], recursive=False, session=session)
-        if dataset_meta:
-            rucio.core.did.set_metadata_bulk(scope=file['scope'], name=file['name'], meta=dataset_meta, recursive=False, session=session)
-    try:
-        session.flush()
-    except IntegrityError as error:
-        if match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', error.args[0]) \
-                or match('.*IntegrityError.*FOREIGN KEY constraint failed.*', error.args[0]) \
-                or match('.*IntegrityError.*1452.*Cannot add or update a child row: a foreign key constraint fails.*', error.args[0]) \
-                or match('.*IntegrityError.*02291.*integrity constraint.*DIDS_SCOPE_FK.*violated - parent key not found.*', error.args[0]) \
-                or match('.*IntegrityError.*insert or update on table.*violates foreign key constraint "DIDS_SCOPE_FK".*', error.args[0]) \
-                or match('.*ForeignKeyViolation.*insert or update on table.*violates foreign key constraint.*', error.args[0]) \
-                or match('.*IntegrityError.*foreign key constraints? failed.*', error.args[0]):
-            raise exception.ScopeNotFound('Scope not found!')
-
-        raise exception.RucioException(error.args)
-    except DatabaseError as error:
-        if match('.*(DatabaseError).*ORA-14400.*inserted partition key does not map to any partition.*', error.args[0]):
-            raise exception.ScopeNotFound('Scope not found!')
-
-        raise exception.RucioException(error.args)
-    except FlushError as error:
-        if match('New instance .* with identity key .* conflicts with persistent instance', error.args[0]):
-            raise exception.DataIdentifierAlreadyExists('Data Identifier already exists!')
-        raise exception.RucioException(error.args)
-    return True
-
-
-@transactional_session
-def __bulk_add_file_dids(files, account, dataset_meta=None, *, session: "Session"):
-    """
-    Bulk add new dids.
-
-    :param dids: the list of files.
-    :param account: The account owner.
-    :param session: The database session in use.
-    :returns: list of replicas.
-    """
-    condition = []
-    for f in files:
-        condition.append(and_(models.DataIdentifier.scope == f['scope'], models.DataIdentifier.name == f['name'], models.DataIdentifier.did_type == DIDType.FILE))
-
-    q = session.query(models.DataIdentifier.scope,
-                      models.DataIdentifier.name,
-                      models.DataIdentifier.bytes,
-                      models.DataIdentifier.adler32,
-                      models.DataIdentifier.md5).with_hint(models.DataIdentifier, "INDEX(dids DIDS_PK)", 'oracle').filter(or_(*condition))
-    available_files = [dict([(column, getattr(row, column)) for column in row._fields]) for row in q]
-    new_files = list()
-    for file in files:
-        found = False
-        for available_file in available_files:
-            if file['scope'] == available_file['scope'] and file['name'] == available_file['name']:
-                found = True
-                break
-        if not found:
-            new_files.append(file)
-    __bulk_add_new_file_dids(files=new_files, account=account,
-                             dataset_meta=dataset_meta,
-                             session=session)
-    return new_files + available_files
-
-
 def tombstone_from_delay(tombstone_delay):
     # Tolerate None for tombstone_delay
     if not tombstone_delay:
@@ -1519,8 +1437,7 @@ def __bulk_add_replicas(rse_id, files, account, *, session: "Session"):
 
 
 @transactional_session
-def add_replicas(rse_id, files, account, ignore_availability=True,
-                 dataset_meta=None, *, session: "Session"):
+def add_replicas(rse_id, files, account, ignore_availability=True, auto_create_dids=True, *, session: "Session"):
     """
     Bulk add file replicas.
 
@@ -1528,6 +1445,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     :param files:   The list of files.
     :param account: The account owner.
     :param ignore_availability: Ignore the RSE blocklisting.
+    :param auto_create_dids: decides if missing DIDs must be created automatically.
     :param session: The database session in use.
 
     :returns: list of replicas.
@@ -1551,9 +1469,11 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
             if not replica_rse['deterministic']:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %s ' % (replica_rse['rse']))
 
-    replicas = __bulk_add_file_dids(files=files, account=account,
-                                    dataset_meta=dataset_meta,
-                                    session=session)
+    new_files = []
+    if auto_create_dids:
+        new_files = rucio.core.did.find_missing_file_dids(files=files, session=session)
+    if new_files:
+        rucio.core.did.add_dids(dids=new_files, account=account, allow_file_dids=True, session=session)
 
     pfns = {}  # dict[str, list[str]], {scheme: [pfns], scheme: [pfns]}
     for file in files:
@@ -1589,7 +1509,6 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
 
     nbfiles, bytes_ = __bulk_add_replicas(rse_id=rse_id, files=files, account=account, session=session)
     increase(rse_id=rse_id, files=nbfiles, bytes_=bytes_, session=session)
-    return replicas
 
 
 @transactional_session
