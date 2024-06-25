@@ -30,9 +30,11 @@ from typing import Any, Optional
 from rucio import version
 from rucio.client.client import Client
 from rucio.common.config import config_get
+from rucio.common.constants import RseAttr
 from rucio.common.didtype import DID
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException
 from rucio.common.pcache import Pcache
+from rucio.common.types import RSESettingsDict
 from rucio.common.utils import CHECKSUM_ALGO_DICT, GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM, adler32, detect_client_location, execute, extract_scope, generate_uuid, parse_replicas_from_file, parse_replicas_from_string, send_trace, sizefmt
 from rucio.rse import rsemanager as rsemgr
 
@@ -311,7 +313,6 @@ class DownloadClient:
         self.logger(logging.DEBUG, 'num_unmerged_items=%d; num_dids=%d; num_file_items=%d' % (len(items), len(did_to_input_items), len(file_items_with_sources)))
 
         input_items = self._prepare_items_for_download(did_to_input_items, file_items_with_sources)
-
         num_files_in = len(input_items)
         output_items = self._download_multithreaded(input_items, num_threads, trace_custom_fields, traces_copy_out)
         num_files_out = len(output_items)
@@ -644,8 +645,9 @@ class DownloadClient:
             if impl:
                 logger(logging.INFO, '%sUsing Implementation (impl): %s ' % (log_prefix, impl))
 
+            domain = self._select_domain(rse)
             try:
-                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, impl=impl, auth_token=self.auth_token, logger=logger)
+                protocol = rsemgr.create_protocol(rse, operation='read', domain=domain, scheme=scheme, impl=impl, auth_token=self.auth_token, logger=logger)
                 protocol.connect()
             except Exception as error:
                 logger(logging.WARNING, '%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
@@ -1066,6 +1068,23 @@ class DownloadClient:
 
         return items
 
+    def _select_domain(self, rse: RSESettingsDict) -> str:
+
+        # Default to wan, use lan if at the same site.
+        domain = 'wan'
+        try:
+            rse_attributes = self.client.list_rse_attributes(rse['rse'])
+        except:
+            self.logger(logging.WARNING, 'Attributes of the RSE: %s not available.' % rse)
+            rse_attributes = {}
+
+        if (self.client_location and 'lan' in rse['domain'] and RseAttr.SITE in rse_attributes):
+            if self.client_location['site'] == rse_attributes[RseAttr.SITE]:
+                domain = 'lan'
+
+        self.logger(logging.DEBUG, "Using %s as a domain", domain)
+        return domain
+
     def _resolve_one_item_dids(self, item):
         """
         Resolve scopes or wildcard DIDs to lists of full did names:
@@ -1121,7 +1140,6 @@ class DownloadClient:
         :raises InputValidationError: if one of the input items is in the wrong format
         """
         logger = self.logger
-
         # check mandatory options before doing any server calls
         resolve_archives = False
         for item in input_items:
@@ -1221,6 +1239,11 @@ class DownloadClient:
             if nrandom:
                 logger(logging.INFO, 'Selecting %d random replicas from DID(s): %s' % (nrandom, [str(did) for did in input_dids]))
 
+            test_rse = [i for i in self.client.list_rses(rse_expression=rse_expression)][0]['rse']
+            logger(logging.DEBUG, "Using rse %s to find a domain", test_rse)
+            rse_settings = rsemgr.get_rse_info(test_rse, vo=self.client.vo)
+            domain = self._select_domain(rse_settings)
+
             metalink_str = self.client.list_replicas([{'scope': did.scope, 'name': did.name} for did in input_dids],
                                                      schemes=schemes,
                                                      ignore_availability=False,
@@ -1230,7 +1253,8 @@ class DownloadClient:
                                                      resolve_archives=not item.get('no_resolve_archives'),
                                                      resolve_parents=True,
                                                      nrandom=nrandom,
-                                                     metalink=True)
+                                                     metalink=True,
+                                                     domain=domain)
             file_items = parse_replicas_from_string(metalink_str)  # type: ignore
             for file in file_items:
                 if impl:
