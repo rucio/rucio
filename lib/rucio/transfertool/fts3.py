@@ -326,6 +326,8 @@ def build_job_params(
     last_hop = transfer_path[-1]
     first_hop = transfer_path[0]
 
+    logger(logging.DEBUG, 'Is RSE of type TAPE?: %s %s' % (last_hop.dst.rse.name, last_hop.dst.rse.is_tape()))
+
     # Overwriting by default is set to True for non TAPE RSEs.
     # Tape RSEs can force overwrite by setting the "overwrite" attribute to True.
     overwrite, overwrite_when_only_on_disk, bring_online_local = True, False, None
