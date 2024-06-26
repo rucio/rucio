@@ -176,6 +176,7 @@ class DownloadClient:
         extract_args = '-C %(dest_dir_path)s -xf %(archive_file_path)s %(file_to_extract)s'
         self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger=self.logger))
         self.extract_scope_convention = config_get('common', 'extract_scope', False, None)
+        self.vo = self.client.vo if self.client.vo is not None else 'def'
 
     def download_pfns(
         self,
@@ -624,7 +625,7 @@ class DownloadClient:
             scheme = pfn.split(':')[0]
 
             try:
-                rse = rsemgr.get_rse_info(rse_name, vo=self.client.vo)
+                rse = rsemgr.get_rse_info(rse_name, vo=self.vo)
             except RucioException as error:
                 logger(logging.WARNING, '%sCould not get info of RSE %s: %s' % (log_prefix, rse_name, error))
                 trace['stateReason'] = str(error)
@@ -1241,7 +1242,7 @@ class DownloadClient:
 
             test_rse = [i for i in self.client.list_rses(rse_expression=rse_expression)][0]['rse']
             logger(logging.DEBUG, "Using rse %s to find a domain", test_rse)
-            rse_settings = rsemgr.get_rse_info(test_rse, vo=self.client.vo)
+            rse_settings = rsemgr.get_rse_info(test_rse, vo=self.vo)
             domain = self._select_domain(rse_settings)
 
             metalink_str = self.client.list_replicas([{'scope': did.scope, 'name': did.name} for did in input_dids],
