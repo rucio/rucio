@@ -241,57 +241,62 @@ class BaseClient:
         return auth_type
 
     def _get_creds(self, creds: Optional[dict[str, Any]]) -> dict[str, Any]:
-        if self.auth_type == 'oidc':
-            if not creds:
-                creds = {}
-            # if there are default values, check if rucio.cfg does not specify them, otherwise put default
-            if 'oidc_refresh_lifetime' not in creds or creds['oidc_refresh_lifetime'] is None:
-                creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime', False, None)
-            if 'oidc_issuer' not in creds or creds['oidc_issuer'] is None:
-                creds['oidc_issuer'] = config_get('client', 'oidc_issuer', False, None)
-            if 'oidc_audience' not in creds or creds['oidc_audience'] is None:
-                creds['oidc_audience'] = config_get('client', 'oidc_audience', False, None)
-            if 'oidc_auto' not in creds or creds['oidc_auto'] is False:
-                creds['oidc_auto'] = config_get_bool('client', 'oidc_auto', False, False)
-            if creds['oidc_auto']:
-                if 'oidc_username' not in creds or creds['oidc_username'] is None:
-                    creds['oidc_username'] = config_get('client', 'oidc_username', False, None)
-                if 'oidc_password' not in creds or creds['oidc_password'] is None:
-                    creds['oidc_password'] = config_get('client', 'oidc_password', False, None)
-            if 'oidc_scope' not in creds or creds['oidc_scope'] == 'openid profile':
-                creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
-            if 'oidc_polling' not in creds or creds['oidc_polling'] is False:
-                creds['oidc_polling'] = config_get_bool('client', 'oidc_polling', False, False)
-
-        if creds is None:
+        if not creds:
             self.logger.debug('No creds passed. Trying to get it from the config file.')
             creds = {}
-            try:
-                if self.auth_type in ['userpass', 'saml']:
+
+        try:
+            if self.auth_type == 'oidc':
+                # if there are default values, check if rucio.cfg does not specify them, otherwise put default
+                if 'oidc_refresh_lifetime' not in creds or creds['oidc_refresh_lifetime'] is None:
+                    creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime', False, None)
+                if 'oidc_issuer' not in creds or creds['oidc_issuer'] is None:
+                    creds['oidc_issuer'] = config_get('client', 'oidc_issuer', False, None)
+                if 'oidc_audience' not in creds or creds['oidc_audience'] is None:
+                    creds['oidc_audience'] = config_get('client', 'oidc_audience', False, None)
+                if 'oidc_auto' not in creds or creds['oidc_auto'] is False:
+                    creds['oidc_auto'] = config_get_bool('client', 'oidc_auto', False, False)
+                if creds['oidc_auto']:
+                    if 'oidc_username' not in creds or creds['oidc_username'] is None:
+                        creds['oidc_username'] = config_get('client', 'oidc_username', False, None)
+                    if 'oidc_password' not in creds or creds['oidc_password'] is None:
+                        creds['oidc_password'] = config_get('client', 'oidc_password', False, None)
+                if 'oidc_scope' not in creds or creds['oidc_scope'] == 'openid profile':
+                    creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
+                if 'oidc_polling' not in creds or creds['oidc_polling'] is False:
+                    creds['oidc_polling'] = config_get_bool('client', 'oidc_polling', False, False)
+
+            elif self.auth_type in ['userpass', 'saml']:
+                if 'username' not in creds or creds['username'] is None:
                     creds['username'] = config_get('client', 'username')
+                if 'password' not in creds or creds['password'] is None:
                     creds['password'] = config_get('client', 'password')
-                elif self.auth_type == 'x509':
+
+            elif self.auth_type == 'x509':
+                if 'client_cert' not in creds or creds['client_cert'] is None:
                     if "RUCIO_CLIENT_CERT" in environ:
-                        client_cert = environ["RUCIO_CLIENT_CERT"]
+                        creds['client_cert'] = environ["RUCIO_CLIENT_CERT"]
                     else:
-                        client_cert = config_get('client', 'client_cert')
-                    creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(client_cert)))
-                    if not path.exists(creds['client_cert']):
-                        raise MissingClientParameter('X.509 client certificate not found: %s' % creds['client_cert'])
+                        creds['client_cert'] = config_get('client', 'client_cert')
+                creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(creds['client_cert'])))
+                if not path.exists(creds['client_cert']):
+                    raise MissingClientParameter('X.509 client certificate not found: %s' % creds['client_cert'])
 
+                if 'client_key' not in creds or creds['client_key'] is None:
                     if "RUCIO_CLIENT_KEY" in environ:
-                        client_key = environ["RUCIO_CLIENT_KEY"]
+                        creds['client_key'] = environ["RUCIO_CLIENT_KEY"]
                     else:
-                        client_key = config_get('client', 'client_key')
-                    creds['client_key'] = path.abspath(path.expanduser(path.expandvars(client_key)))
-                    if not path.exists(creds['client_key']):
-                        raise MissingClientParameter('X.509 client key not found: %s' % creds['client_key'])
-                    else:
-                        perms = oct(os.stat(creds['client_key']).st_mode)[-3:]
-                        if perms not in ['400', '600']:
-                            raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (required: 400 or 600, found: %s)' % (creds['client_key'], perms))
+                        creds['client_key'] = config_get('client', 'client_key')
+                creds['client_key'] = path.abspath(path.expanduser(path.expandvars(creds['client_key'])))
+                if not path.exists(creds['client_key']):
+                    raise MissingClientParameter('X.509 client key not found: %s' % creds['client_key'])
+                else:
+                    perms = oct(os.stat(creds['client_key']).st_mode)[-3:]
+                    if perms not in ['400', '600']:
+                        raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (required: 400 or 600, found: %s)' % (creds['client_key'], perms))
 
-                elif self.auth_type == 'x509_proxy':
+            elif self.auth_type == 'x509_proxy':
+                if 'client_proxy' not in creds or creds['client_proxy'] is None:
                     try:
                         creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
                     except NoOptionError:
@@ -309,11 +314,15 @@ class BaseClient:
                                 raise MissingClientParameter(
                                     'Cannot find a valid X509 proxy; not in %s, $X509_USER_PROXY not set, and '
                                     '\'x509_proxy\' not set in the configuration file.' % fname)
-                elif self.auth_type == 'ssh':
+
+            elif self.auth_type == 'ssh':
+                if 'ssh_private_key' not in creds or creds['ssh_private_key'] is None:
                     creds['ssh_private_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'ssh_private_key'))))
-            except (NoOptionError, NoSectionError) as error:
-                if error.args[0] != 'client_key':
-                    raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
+
+        except (NoOptionError, NoSectionError) as error:
+            if error.args[0] != 'client_key':
+                raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
+
         return creds
 
     def _get_exception(self, headers: dict[str, str], status_code: Optional[int] = None, data=None) -> tuple[type[exception.RucioException], str]:

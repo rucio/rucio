@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, RucioException
+from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, MissingClientParameter, RucioException
 from rucio.common.utils import execute
 from rucio.tests.common import remove_config
 from tests.mocks.mock_http_server import MockServer
@@ -77,7 +77,7 @@ class TestBaseClient:
         creds = {'client_cert': '/opt/rucio/etc/web/notthere.crt'}
         from rucio.client.baseclient import BaseClient
 
-        with pytest.raises(CannotAuthenticate):
+        with pytest.raises(MissingClientParameter):
             BaseClient(account='root', ca_cert=self.cacert, auth_type='x509', creds=creds, vo=vo)
 
     def testClientProtocolNotSupported(self, vo):
