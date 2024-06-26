@@ -29,7 +29,7 @@ from rucio.client.ruleclient import RuleClient
 from rucio.common.constants import RseAttr
 from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierNotFound, InputValidationError, ReplicaIsLocked, ReplicaNotFound, RucioException, ScopeNotFound
 from rucio.common.schema import get_schema_value
-from rucio.common.utils import clean_surls, generate_uuid, parse_response
+from rucio.common.utils import clean_pfns, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
 from rucio.core.did import add_did, attach_dids, get_did, get_did_atime, list_files, set_status
 from rucio.core.replica import add_bad_dids, add_replica, add_replicas, delete_replicas, get_bad_pfns, get_replica, get_replica_atime, get_replicas_state, get_RSEcoverage_of_dataset, list_replicas, set_tombstone, touch_replica, update_replica_state
@@ -911,7 +911,7 @@ def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_
         bad_pfns[res['pfn']] = (res['state'], res['reason'], res['expires_at'])
 
     for pfn in list_rep:
-        pfn = str(clean_surls([pfn])[0])
+        pfn = str(clean_pfns([pfn])[0])
         assert pfn in bad_pfns
         assert bad_pfns[pfn][0] == BadPFNStatus.TEMPORARY_UNAVAILABLE
         assert bad_pfns[pfn][1] == reason_str
@@ -975,7 +975,7 @@ def test_client_declare_bad_pfns(rse_factory, mock_scope, replica_client):
         bad_pfns[res['pfn']] = (res['state'], res['reason'], res['expires_at'])
 
     for pfn in list_rep:
-        pfn = str(clean_surls([pfn])[0])
+        pfn = str(clean_pfns([pfn])[0])
         assert pfn in bad_pfns
         assert bad_pfns[pfn][0] == BadPFNStatus.BAD
         assert bad_pfns[pfn][1] == reason_str

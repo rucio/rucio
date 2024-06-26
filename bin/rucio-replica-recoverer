@@ -183,8 +183,8 @@ Terminal output:
 
 2019-02-19 14:39:24,114 709 INFO  replica_recoverer[0/0]: ready to query replicas at RSEs like *MOCK*, declared as suspicious in the last 3 days at least 10 times and which are available on other RSEs.
 2019-02-19 14:39:24,124 709 INFO  replica_recoverer[0/0]: suspicious replica query took 0.0101511478424 seconds, total of 1 replicas were found. [{'scope': 'mock', 'cnt': 11L, 'name': 'file_available_suspicious_5180be3e-4ebc-4c34-b528-efbfd09f067e', 'rse': 'MOCK_SUSPICIOUS'}]
-2019-02-19 14:39:24,125 709 INFO  replica_recoverer[0/0]: looking for replica surls.
-2019-02-19 14:39:24,160 709 INFO  replica_recoverer[0/0]: found 1/1 surls (took 0.035572052002 seconds) - declaring them as bad replicas now.
+2019-02-19 14:39:24,125 709 INFO  replica_recoverer[0/0]: looking for replica pfns.
+2019-02-19 14:39:24,160 709 INFO  replica_recoverer[0/0]: found 1/1 pfns (took 0.035572052002 seconds) - declaring them as bad replicas now.
 2019-02-19 14:39:24,160 709 INFO  replica_recoverer[0/0]: ready to declare 1 bad replica(s) on MOCK_SUSPICIOUS: ['file://localhost:0/tmp/rucio_rse1/mock/1f/6b/file_available_suspicious_5180be3e-4ebc-4c34-b528-efbfd09f067e'].
 2019-02-19 14:39:24,188 709 INFO  replica_recoverer[0/0]: finished declaring bad replicas on MOCK_SUSPICIOUS.
 2019-02-19 14:39:24,192 709 INFO  replica_recoverer[0/0]: graceful stop done
