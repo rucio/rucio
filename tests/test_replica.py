@@ -307,12 +307,14 @@ class TestReplicaCore:
 
         assert get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse_id': rse_id}) is None
         assert get_did_atime(scope=mock_scope, name=files1[0]['name']) is None
+        assert get_replica(rse_id=rse_id, scope=files1[0]['scope'], name=files1[0]['name'])['access_cnt'] == 0
 
         for r in [{'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse_id': rse_id, 'accessed_at': now}]:
             touch_replica(r)
 
         assert now == get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse_id': rse_id})
         assert now == get_did_atime(scope=mock_scope, name=files1[0]['name'])
+        assert 1 == get_replica(rse_id=rse_id, scope=files1[0]['scope'], name=files1[0]['name'])['access_cnt']
 
         for i in range(1, nbfiles):
             assert get_replica_atime({'scope': files1[i]['scope'], 'name': files1[i]['name'], 'rse_id': rse_id}) is None
