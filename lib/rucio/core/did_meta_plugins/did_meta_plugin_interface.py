@@ -54,6 +54,20 @@ class DidMetaPlugin(metaclass=ABCMeta):
         """
         pass
 
+    def get_metadata_archived(self,
+                              scope: "InternalScope",
+                              name: str,
+                              *,
+                              session: "Optional[Session]" = None):
+        """
+        Get archived data identifier metadata
+
+        :param scope: The scope name.
+        :param name: The data identifier name.
+        :param session: The database session in use.
+        """
+        pass
+
     @abstractmethod
     def set_metadata(
         self,
@@ -116,6 +130,22 @@ class DidMetaPlugin(metaclass=ABCMeta):
         :param scope: The scope of the did.
         :param name: The name of the did.
         :param key: Key of the metadata.
+        :param session: The database session in use.
+        """
+        pass
+
+    @abstractmethod
+    def on_delete(self,
+                  scope: "InternalScope",
+                  name: str,
+                  archive: bool = False,
+                  session: "Optional[Session]" = None):
+        """
+        Method called when a did is deleted.
+
+        :param scope: The scope of the did.
+        :param name: The name of the did.
+        :param archive: Flag to indicate if the metadata should be archived when the did is deleted.
         :param session: The database session in use.
         """
         pass
