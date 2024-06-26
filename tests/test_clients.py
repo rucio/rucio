@@ -64,6 +64,14 @@ class TestBaseClient:
         with pytest.raises(CannotAuthenticate):
             BaseClient(account='root', auth_type='userpass', creds=creds, vo=vo)
 
+    def testUserpassNoCredsPassed(self, vo):
+        """ CLIENTS (BASECLIENT): authenticate with userpass, with no credentials passed"""
+        from rucio.client.baseclient import BaseClient
+
+        client = BaseClient(account='root', ca_cert=self.cacert, auth_type='userpass', creds=None, vo=vo)
+        assert client.creds['username'] == 'ddmlab'
+        assert client.creds['password'] == 'secret'
+
     def testx509(self, vo):
         """ CLIENTS (BASECLIENT): authenticate with x509."""
         from rucio.client.baseclient import BaseClient
