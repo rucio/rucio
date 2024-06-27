@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# import pytest
+# moved to rucio.common.rucio_server_test.TestRucioServer
 
-# import rucio.common.rucio_server_test as server_test
+import pytest
+
+import rucio.common.rucio_server_tests as server_test
 
 
-# @pytest.mark.noparallel(reason='uses pre-defined RSE')
-# class TestRucioServer(server_test.TestRucioServer):
-#     # moved to rucio.common.test_rucio_server.TestRucioServer
-#     pass
+@pytest.mark.noparallel(reason='uses pre-defined RSE')
+class TestRucioServer(server_test.TestRucioServer):
+    pass

@@ -21,10 +21,6 @@ from string import ascii_uppercase
 
 import pytest
 
-from rucio.common.types import InternalScope
-from rucio.common.utils import generate_uuid
-from rucio.tests.common import did_name_generator
-
 _del_test_prefix = functools.partial(re.compile(r'^[Tt][Ee][Ss][Tt]_?').sub, '')
 # local imports in the fixtures to make this file loadable in e.g. client tests
 
@@ -612,80 +608,9 @@ def rse_name_generator():
 
 
 @pytest.fixture
-def client_rse_factory(rse_client, rse_name_generator):
-    """
-    Makes an rse factory that does not require a new db session
-    """
-    class MockRSEFactory:
-        @staticmethod
-        def make_posix_rse():
-            rse_name = rse_name_generator()
-            rse_client.add_rse(rse_name)
-            def_rse_id = rse_client.get_rse(rse=rse_name)['id']
+def client_rse_factory(rucio_client, vo, function_scope_prefix):
+    """ Makes an rse factory that does not require a new db session"""
+    from .temp_factories import ClientMockRSEFactory
 
-            protocol_parameters = {
-                'scheme': "file",
-                'hostname': '%s.cern.ch' % def_rse_id,
-                'port': 0,
-                'prefix': '/test_%s/' % def_rse_id,
-                'impl': 'rucio.rse.protocols.posix.Default',
-                'domains': {
-                    'wan': {
-                        'read': 1,
-                        'write': 1,
-                        'delete': 1,
-                        'third_party_copy_read': 1,
-                        'third_party_copy_write': 1,
-                    },
-                    'lan': {
-                        'read': 1,
-                        'write': 1,
-                        'delete': 1,
-                    }
-                }
-            }
-            rse_client.add_protocol(rse_name, protocol_parameters)
-            return rse_name, def_rse_id
-
-    yield MockRSEFactory
-
-
-@pytest.fixture
-def client_dataset_factory(file_factory, rucio_client, mock_scope, vo):
-    """Make and upload a dataset without a db session"""
-    class MockDatasetFactory:
-        @staticmethod
-        def upload_test_dataset(rse_name, name=None, scope=None, size=2, nb_files=2):
-            from rucio.client.uploadclient import UploadClient
-
-            if not scope:
-                scope = mock_scope
-            elif isinstance(scope, str):
-                scope = InternalScope(scope, vo=vo)
-
-            dataset_name = did_name_generator('dataset')
-            upload_items = []
-            dataset_files = []
-
-            for _ in range(0, nb_files):
-
-                path = file_factory.file_generator(size=size)
-                name = did_name_generator('file')
-
-                dataset_files.append({
-                    "name": name,
-                    "scope": scope,
-                    "bytes": 1})
-                upload_items.append({
-                    'path': path,
-                    'rse': rse_name,
-                    'dataset_scope': str(scope),
-                    'dataset_name': dataset_name,
-                    'did_scope': str(scope),
-                    'did_name': name,
-                    'guid': generate_uuid()})
-
-            UploadClient(rucio_client).upload(upload_items)
-            return upload_items
-
-    yield MockDatasetFactory
+    with ClientMockRSEFactory(db_session=rucio_client.session, vo=vo, name_prefix=function_scope_prefix) as factory:
+        yield factory

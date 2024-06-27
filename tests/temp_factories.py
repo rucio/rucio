@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import configparser
 import os
 import shutil
 import tempfile
@@ -169,11 +168,7 @@ class TemporaryDidFactory:
     def cleanup(self, session=None):
         if not self.created_dids:
             return
-
-        try:
-            self._cleanup_db_deps(session=session or self.db_session)
-        except configparser.NoSectionError:
-            pass
+        self._cleanup_db_deps(session=session or self.db_session)
 
     @transactional_session
     def _cleanup_db_deps(self, *, session=None):
@@ -369,3 +364,58 @@ class TemporaryFileFactory:
         for fp in self.non_basedir_files:
             if os.path.isfile(fp):
                 os.remove(fp)
+
+
+class ClientMockRSEFactory(TemporaryRSEFactory):
+    def __init__(self, vo, name_prefix, db_session=None, **kwargs):
+        super().__init__(vo, name_prefix, db_session, **kwargs)
+
+    @staticmethod
+    def make_posix_rse(rse_client, rse_name_generator):
+        rse_name = rse_name_generator()
+        rse_client.add_rse(rse_name)
+        def_rse_id = rse_client.get_rse(rse=rse_name)['id']
+
+        protocol_parameters = {
+            'scheme': "file",
+            'hostname': '%s.cern.ch' % def_rse_id,
+            'port': 0,
+            'prefix': '/test_%s/' % def_rse_id,
+            'impl': 'rucio.rse.protocols.posix.Default',
+            'domains': {
+                'wan': {
+                    'read': 1,
+                    'write': 1,
+                    'delete': 1,
+                    'third_party_copy_read': 1,
+                    'third_party_copy_write': 1,
+                },
+                'lan': {
+                    'read': 1,
+                    'write': 1,
+                    'delete': 1,
+                }
+            }
+        }
+        rse_client.add_protocol(rse_name, protocol_parameters)
+        return rse_name, def_rse_id
+
+    def cleanup(self, session=None):
+        if not self.created_rses:
+            return
+
+        self._cleanup_db_deps(session=session or self.db_session)
+
+    @transactional_session
+    def _cleanup_db_deps(self, *, session=None):
+        cleanup_db_deps(
+            model=models.RSE,
+            select_rows_stmt=models.RSE.id.in_(self.created_rses),
+            session=session,
+        )
+
+    def _cleanup_rses(self):
+        for rse_id in self.created_rses:
+            # Only archive RSE instead of deleting. Account handling code doesn't expect RSEs to ever be deleted.
+            # So running test in parallel results in some tests failing on foreign key errors.
+            rse_core.del_rse(rse_id)

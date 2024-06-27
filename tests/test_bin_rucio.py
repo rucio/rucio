@@ -20,6 +20,7 @@ from os import environ, path, remove, stat
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 import pytest
+from sqlalchemy.sql.expression import and_, delete
 
 from rucio.common.utils import generate_uuid, md5, render_json
 from rucio.rse import rsemanager as rsemgr
@@ -232,12 +233,12 @@ def test_rse_delete_distance(rse_name_generator):
     assert exitcode != 0
 
 
-def test_upload_file(file_factory, client_rse_factory, mock_scope):
+def test_upload_file(file_factory, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Rucio upload files"""
     tmp_file1 = file_factory.file_generator()
     tmp_file2 = file_factory.file_generator()
     tmp_file3 = file_factory.file_generator()
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     cmd = f"rucio -v upload --rse {mock_rse} --scope {mock_scope} {tmp_file1} {tmp_file2} {tmp_file3}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
@@ -253,13 +254,13 @@ def test_upload_file(file_factory, client_rse_factory, mock_scope):
     assert upload_string_3 in out or upload_string_3 in err
 
 
-def test_upload_file_register_after_upload(file_factory, client_rse_factory, mock_scope, rucio_client, vo, root_account):
+def test_upload_file_register_after_upload(file_factory, client_rse_factory, rse_client, rse_name_generator, mock_scope, rucio_client, vo, root_account):
     """CLIENT(USER): Rucio upload files with registration after upload"""
     # normal upload
     tmp_file1 = file_factory.file_generator()
     tmp_file2 = file_factory.file_generator()
     tmp_file3 = file_factory.file_generator()
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     cmd = f"rucio -v upload --rse {mock_rse} --scope {mock_scope} {tmp_file1} {tmp_file2} {tmp_file3}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
@@ -274,20 +275,23 @@ def test_upload_file_register_after_upload(file_factory, client_rse_factory, moc
     assert upload_string_2 in out or upload_string_2 in err
     assert upload_string_3 in out or upload_string_3 in err
 
-        # removing replica -> file on RSE should be overwritten
-        # (simulating an upload error, where a part of the file is uploaded but the replica is not registered)
+    # removing replica -> file on RSE should be overwritten
+    # (simulating an upload error, where a part of the file is uploaded but the replica is not registered)
     tmp_file1_name = os.path.basename(tmp_file1)
     if 'SUITE' not in environ or environ['SUITE'] != 'client':
+        from rucio.common.types import InternalScope
         from rucio.db.sqla import models, session
 
         db_session = session.get_session()
-        internal_scope = InternalScope(root_account, **vo)
+        internal_scope = InternalScope(mock_scope.external, vo)
         for model in [models.RSEFileAssociation, models.ReplicaLock, models.ReplicationRule, models.DidMeta, models.DataIdentifier]:
             stmt = delete(
                 model
             ).where(
-                and_(model.name == tmp_file1_name,
-                        model.scope == internal_scope)
+                and_(
+                    model.name == tmp_file1_name,
+                    model.scope == internal_scope
+                )
             )
             db_session.execute(stmt)
         db_session.commit()
@@ -299,7 +303,6 @@ def test_upload_file_register_after_upload(file_factory, client_rse_factory, moc
         assert upload_success_str(path.basename(tmp_file4)) in out or upload_success_str(path.basename(tmp_file4)) in err
         assert checksum_tmp_file4 == [replica for replica in rucio_client.list_replicas(dids=[{"name": tmp_file1_name, "scope": mock_scope.external}])][0]["md5"]
 
-
         # try to upload file that already exists on RSE and is already registered -> no overwrite
         cmd = f"rucio -v upload --rse {mock_rse} --scope {mock_scope.external} --name {tmp_file1_name} {tmp_file4} --register-after-upload"
         exitcode, out, err = execute(cmd)
@@ -309,10 +312,10 @@ def test_upload_file_register_after_upload(file_factory, client_rse_factory, moc
         assert "File already registered" in out or "File already registered" in err
 
 
-def test_upload_file_guid(file_factory, client_rse_factory, mock_scope):
+def test_upload_file_guid(file_factory, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Rucio upload file with guid"""
     tmp_file1 = file_factory.file_generator()
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     tmp_guid = generate_uuid()
     cmd = f"rucio -v upload --rse {mock_rse} --guid {tmp_guid} --scope {mock_scope} {tmp_file1}"
     exitcode, _, err = execute(cmd)
@@ -322,10 +325,10 @@ def test_upload_file_guid(file_factory, client_rse_factory, mock_scope):
     assert exitcode == 0
 
 
-def test_upload_file_with_impl(file_factory, client_rse_factory, mock_scope):
+def test_upload_file_with_impl(file_factory, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Rucio upload file with impl parameter assigned 'posix' value"""
     tmp_file1 = file_factory.file_generator()
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     impl = "posix"
     cmd = f"rucio -v upload --rse {mock_rse} --scope {mock_scope} --impl {impl} {tmp_file1}"
     exitcode, _, err = execute(cmd)
@@ -336,14 +339,14 @@ def test_upload_file_with_impl(file_factory, client_rse_factory, mock_scope):
     assert exitcode == 0
 
 
-def test_upload_repeated_file(file_factory, client_rse_factory, mock_scope):
+def test_upload_repeated_file(file_factory, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Rucio upload repeated files"""
     # One of the files to upload is already catalogued but was removed
     tmp_file1 = file_factory.file_generator()
     tmp_file2 = file_factory.file_generator()
     tmp_file3 = file_factory.file_generator()
     tmp_file1_name = path.basename(tmp_file1)
-    mock_rse, mock_rse_id = client_rse_factory.make_posix_rse()
+    mock_rse, mock_rse_id = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     print(mock_rse)
 
     cmd = f"rucio -v upload --rse {mock_rse} --scope {mock_scope.external} {tmp_file1}"
@@ -373,7 +376,7 @@ def test_upload_repeated_file(file_factory, client_rse_factory, mock_scope):
     assert upload_string_1 in out or upload_string_1 in err
 
 
-def test_upload_repeated_file_dataset(file_factory, mock_scope, client_rse_factory, rse_name_generator):
+def test_upload_repeated_file_dataset(file_factory, mock_scope, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT(USER): Rucio upload repeated files to dataset"""
     # One of the files to upload is already in the dataset
     tmp_file1 = file_factory.file_generator()
@@ -381,7 +384,7 @@ def test_upload_repeated_file_dataset(file_factory, mock_scope, client_rse_facto
     tmp_file3 = file_factory.file_generator()
     tmp_file1_name = tmp_file1.name
     tmp_file3_name = tmp_file3.name
-    tmp_rse, _ = client_rse_factory.make_posix_rse()
+    tmp_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     tmp_dsn = mock_scope.external + ":DSet" + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
     # Adding files to a new dataset
     cmd = f"rucio -v upload --rse {tmp_rse} --scope {mock_scope.external} {tmp_file1} {tmp_dsn}"
@@ -407,13 +410,13 @@ def test_upload_repeated_file_dataset(file_factory, mock_scope, client_rse_facto
     assert re.search(f"{mock_scope.external}:{tmp_file3_name}", out) is not None
 
 
-def test_upload_file_dataset(file_factory, rse_name_generator, client_rse_factory, mock_scope):
+def test_upload_file_dataset(file_factory, rse_name_generator, client_rse_factory, rse_client, mock_scope):
     """CLIENT(USER): Rucio upload files to dataset"""
     tmp_file1 = file_factory.file_generator()
     tmp_file2 = file_factory.file_generator()
     tmp_file3 = file_factory.file_generator()
     tmp_file1_name = tmp_file1.name
-    tmp_rse, _ = client_rse_factory.make_posix_rse()
+    tmp_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     tmp_dsn = mock_scope.external + ":DSet" + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
     # Adding files to a new dataset
     cmd = f"rucio -v upload --rse {tmp_rse} --scope {mock_scope.external} {tmp_file1} {tmp_file2} {tmp_file3} {tmp_dsn}"
@@ -429,14 +432,14 @@ def test_upload_file_dataset(file_factory, rse_name_generator, client_rse_factor
     assert re.search(f"{mock_scope.external}:{tmp_file1_name}", out) is not None
 
 
-def test_upload_file_dataset_register_after_upload(file_factory, rse_name_generator, client_rse_factory, mock_scope):
+def test_upload_file_dataset_register_after_upload(file_factory, rse_name_generator, client_rse_factory, rse_client, mock_scope):
     """CLIENT(USER): Rucio upload files to dataset with file registration after upload"""
     tmp_file1 = file_factory.file_generator()
     tmp_file2 = file_factory.file_generator()
     tmp_file3 = file_factory.file_generator()
     tmp_file1_name = tmp_file1.name
     tmp_dsn = mock_scope.external + ":DSet" + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-    rse_name, _ = client_rse_factory.make_posix_rse()
+    rse_name, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     # Adding files to a new dataset
     cmd = f"rucio -v upload --register-after-upload --rse {rse_name} --scope {mock_scope.external} {tmp_file1} {tmp_file2} {tmp_file3} {tmp_dsn}"
     exitcode, out, _ = execute(cmd)
@@ -451,11 +454,11 @@ def test_upload_file_dataset_register_after_upload(file_factory, rse_name_genera
     assert re.search(f"{mock_scope.external}:{tmp_file1_name}", out) is not None
 
 
-def test_upload_adds_md5digest(rucio_client, file_factory, client_rse_factory, mock_scope):
+def test_upload_adds_md5digest(rucio_client, file_factory, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Upload Checksums"""
     # user has a file to upload
     filename = file_factory.file_generator()
-    temp_rse, _ = client_rse_factory.make_posix_rse()
+    temp_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     tmp_file1_name = filename.name
     file_md5 = md5(filename)
     # user uploads file
@@ -469,10 +472,10 @@ def test_upload_adds_md5digest(rucio_client, file_factory, client_rse_factory, m
     assert meta["md5"] == file_md5
 
 
-def test_upload_expiration_date(file_factory, client_rse_factory, mock_scope):
+def test_upload_expiration_date(file_factory, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Rucio upload files"""
     tmp_file = file_factory.file_generator()
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     cmd = f"rucio -v upload --rse {mock_rse} --scope {mock_scope.external} --expiration-date 2021-10-10-20:00:00 --lifetime 20000  {tmp_file}"
     exitcode, out, err = execute(cmd)
     assert exitcode != 0
@@ -506,12 +509,12 @@ def test_create_dataset(mock_scope, rse_name_generator):
     assert re.search("Added " + tmp_name, out) is not None
 
 
-def test_add_files_to_dataset(file_factory, rse_name_generator, client_rse_factory, mock_scope):
+def test_add_files_to_dataset(file_factory, rse_name_generator, client_rse_factory, rse_client, mock_scope):
     """CLIENT(USER): Rucio add files to dataset"""
     tmp_file1 = file_factory.file_generator()
     tmp_file2 = file_factory.file_generator()
     tmp_dataset = mock_scope.external + ":DSet" + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     # add files
     cmd = f"rucio upload --rse {mock_rse} --scope {mock_scope.external} {tmp_file1} {tmp_file2}"
     exitcode, _, _ = execute(cmd)
@@ -531,9 +534,10 @@ def test_add_files_to_dataset(file_factory, rse_name_generator, client_rse_facto
     assert exitcode == 0
     assert re.search(tmp_file1.name, out) is not None
 
-def test_download_file(did_factory, client_rse_factory):
+
+def test_download_file(did_factory, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT(USER): Rucio download files"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
 
     tmp_dir = TemporaryDirectory()
     download_dir = tmp_dir.name
@@ -561,11 +565,12 @@ def test_download_file(did_factory, client_rse_factory):
 
     tmp_dir.cleanup()
 
-def test_download_pfn(did_factory, rucio_client, client_rse_factory, mock_scope):
+
+def test_download_pfn(did_factory, rucio_client, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Rucio download files"""
 
     # add files
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     did = did_factory.upload_test_file(mock_rse)
     scope, name = did["scope"].external, did["name"]
 
@@ -596,12 +601,12 @@ def test_download_pfn(did_factory, rucio_client, client_rse_factory, mock_scope)
     assert exitcode != 0
 
 
-def test_download_file_with_impl(file_factory, client_rse_factory, mock_scope):
+def test_download_file_with_impl(file_factory, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Rucio download files with impl parameter assigned 'posix' value"""
     tmp_file1 = file_factory.file_generator()
     impl = "posix"
     # add files
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     cmd = f"rucio upload --rse {mock_rse} --scope {mock_scope.external} --impl {impl} {tmp_file1}"
     exitcode, _, _ = execute(cmd)
     assert exitcode == 0
@@ -638,11 +643,11 @@ def test_download_file_with_impl(file_factory, client_rse_factory, mock_scope):
     "SUITE" in os.environ and os.environ["SUITE"] == "client",
     reason="Requires DB session to create datasets",
 )
-def test_download_no_subdir(did_factory, client_rse_factory):
+def test_download_no_subdir(did_factory, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT(USER): Rucio download files with --no-subdir and check that files already found locally are not replaced"""
 
     # add files
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     did = did_factory.upload_test_file(mock_rse)
     scope, name = did["scope"].external, did["name"]
     download_dir = TemporaryDirectory()
@@ -665,10 +670,14 @@ def test_download_no_subdir(did_factory, client_rse_factory):
     download_dir.cleanup()
 
 
-def test_download_filter(did_factory, client_rse_factory, client_dataset_factory):
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
+def test_download_filter(did_factory, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT(USER): Rucio download with filter options"""
     # Use filter option to download file with wildcarded name
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     did = did_factory.upload_test_file(mock_rse, return_full_item=True)
     scope, name, uuid = did["did_scope"], did["did_name"], did["guid"]
 
@@ -704,7 +713,7 @@ def test_download_filter(did_factory, client_rse_factory, client_dataset_factory
     assert name in os.listdir(f"{download_dir.rstrip('/')}/{scope}")
 
     # Only use filter option to download dataset
-    dataset = client_dataset_factory.upload_test_dataset(mock_rse)
+    dataset = did_factory.upload_test_dataset(mock_rse)
     scope, dataset_name, did_name = dataset[0]["dataset_scope"], dataset[0]["dataset_name"], dataset[1]["did_name"]
 
     cmd = f"rucio download --dir {download_dir} --scope {scope} --filter created_before=1900-01-01T00:00:00.000Z"
@@ -718,7 +727,7 @@ def test_download_filter(did_factory, client_rse_factory, client_dataset_factory
     # assert did_name in os.listdir(f"{download_dir.rstrip('/')}/{dataset_name}")
 
     # Use filter option to download dataset with wildcarded name
-    dataset = client_dataset_factory.upload_test_dataset(mock_rse)
+    dataset = did_factory.upload_test_dataset(mock_rse)
     scope, dataset_name, did_name = dataset[0]["dataset_scope"], dataset[0]["dataset_name"], dataset[1]["did_name"]
 
     cmd = f"rucio download --dir {download_dir} {scope}:{dataset_name}* --filter created_before=1900-01-01T00:00:00.000Z"
@@ -733,11 +742,11 @@ def test_download_filter(did_factory, client_rse_factory, client_dataset_factory
     temp_dir.cleanup()
 
 
-def test_download_timeout_options_accepted(did_factory, client_rse_factory):
+def test_download_timeout_options_accepted(did_factory, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT(USER): Rucio download timeout options"""
 
     # add files
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
 
     did = did_factory.upload_test_file(rse_name=mock_rse)
     scope = did["scope"]
@@ -760,7 +769,7 @@ def test_download_timeout_options_accepted(did_factory, client_rse_factory):
     "SUITE" in os.environ and os.environ["SUITE"] == "client",
     reason="Requires DB session to create datasets",
 )
-def test_download_metalink_file(did_factory, rucio_client, client_rse_factory):
+def test_download_metalink_file(did_factory, rucio_client, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT(USER): Rucio download with metalink file"""
     metalink_file_path = generate_uuid()
 
@@ -777,7 +786,7 @@ def test_download_metalink_file(did_factory, rucio_client, client_rse_factory):
     assert "Arguments dids and metalink cannot be used together" in err
 
     # Download only with metalink file
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     did = did_factory.upload_test_file(rse_name=mock_rse)
     scope = did["scope"].external
     tmp_file_name = did["name"]
@@ -795,7 +804,7 @@ def test_download_metalink_file(did_factory, rucio_client, client_rse_factory):
     assert re.search(tmp_file_name, out) is not None
 
 
-def test_download_succeeds_md5only(file_factory, rucio_client, client_rse_factory, vo, mock_scope):
+def test_download_succeeds_md5only(file_factory, rucio_client, client_rse_factory, rse_client, rse_name_generator, vo, mock_scope):
     """CLIENT(USER): Rucio download succeeds MD5 only"""
     # user has a file to upload
     filename = file_factory.file_generator()
@@ -808,7 +817,7 @@ def test_download_succeeds_md5only(file_factory, rucio_client, client_rse_factor
         "md5": file_md5,
     }
     # user uploads file
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rucio_client.add_replicas(files=[lfn], rse=mock_rse)
     rse_settings = rsemgr.get_rse_info(rse=mock_rse, vo=vo)
     protocol = rsemgr.create_protocol(rse_settings, "write")
@@ -827,7 +836,7 @@ def test_download_succeeds_md5only(file_factory, rucio_client, client_rse_factor
     assert re.search(filename.name, out) is not None
 
 
-def test_download_fails_badmd5(file_factory, rucio_client, client_rse_factory, mock_scope, vo):
+def test_download_fails_badmd5(file_factory, rucio_client, client_rse_factory, rse_client, rse_name_generator, mock_scope, vo):
     """CLIENT(USER): Rucio download fails on MD5 mismatch"""
     # user has a file to upload
     filename = file_factory.file_generator()
@@ -840,7 +849,7 @@ def test_download_fails_badmd5(file_factory, rucio_client, client_rse_factory, m
         "md5": "0123456789abcdef0123456789abcdef",
     }
     # user uploads file
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rucio_client.add_replicas(files=[lfn], rse=mock_rse)
     rse_settings = rsemgr.get_rse_info(rse=mock_rse, vo=vo)
     protocol = rsemgr.create_protocol(rse_settings, "write")
@@ -868,15 +877,15 @@ def test_download_fails_badmd5(file_factory, rucio_client, client_rse_factory, m
     "SUITE" in os.environ and os.environ["SUITE"] == "client",
     reason="Requires DB session to create datasets",
 )
-def test_download_dataset(client_dataset_factory, client_rse_factory):
+def test_download_dataset(client_rse_factory, did_factory, rse_client, rse_name_generator):
     """CLIENT(USER): Rucio download dataset"""
 
     tmp = TemporaryDirectory()
     download_dir = tmp.name
     # create dataset
 
-    mock_rse, _ = client_rse_factory.make_posix_rse()
-    dataset = client_dataset_factory.upload_test_dataset(rse_name=mock_rse)
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
+    dataset = did_factory.upload_test_dataset(rse_name=mock_rse)
     scope, dataset_name, file = dataset[0]["dataset_scope"], dataset[0]["dataset_name"], dataset[1]["did_name"]
 
     # download dataset
@@ -890,13 +899,13 @@ def test_download_dataset(client_dataset_factory, client_rse_factory):
     tmp.cleanup()
 
 
-def test_download_file_check_by_size(did_factory, client_rse_factory):
+def test_download_file_check_by_size(did_factory, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT(USER): Rucio download files"""
 
     tmp = TemporaryDirectory()
     download_dir = tmp.name
 
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     did = did_factory.upload_test_file(mock_rse)
     scope, name = did["scope"], did["name"]
 
@@ -913,10 +922,14 @@ def test_download_file_check_by_size(did_factory, client_rse_factory):
     assert "File with same name exists locally, but filesize mismatches" in err
 
 
-def test_list_blocklisted_replicas(client_dataset_factory, client_rse_factory):
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
+def test_list_blocklisted_replicas(client_rse_factory, rse_client, rse_name_generator, did_factory):
     """CLIENT(USER): Rucio list replicas"""
     # add rse
-    tmp_rse, _ = client_rse_factory.make_posix_rse()
+    tmp_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     cmd = (
         "rucio-admin rse add-protocol --hostname blocklistreplica --scheme file --prefix /rucio --port 0 --impl rucio.rse.protocols.posix.Default "
         '--domain-json \'{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}}\' %s' % tmp_rse
@@ -926,7 +939,7 @@ def test_list_blocklisted_replicas(client_dataset_factory, client_rse_factory):
     assert exitcode == 0
 
     # add files
-    dataset = client_dataset_factory.upload_test_dataset(rse_name=tmp_rse)
+    dataset = did_factory.upload_test_dataset(rse_name=tmp_rse)
     scope, dataset_name = dataset[0]["dataset_scope"], dataset[0]["dataset_name"]
 
     # Listing the replica should work before blocklisting the RSE
@@ -949,11 +962,11 @@ def test_list_blocklisted_replicas(client_dataset_factory, client_rse_factory):
     assert tmp_rse in out
 
 
-def test_create_rule(rse_name_generator, client_rse_factory, rucio_client, did_factory):
+def test_create_rule(rse_name_generator, client_rse_factory, rse_client, rucio_client, did_factory):
     """CLIENT(USER): Rucio add rule"""
 
     # add files
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     did = did_factory.upload_test_file(mock_rse)
     scope, name = did["scope"].external, did["name"]
 
@@ -971,7 +984,7 @@ def test_create_rule(rse_name_generator, client_rse_factory, rucio_client, did_f
     assert exitcode == 0
 
     # add rse
-    tmp_rse, _ = client_rse_factory.make_posix_rse()
+    tmp_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     # add quota
     rucio_client.set_local_account_limit("root", tmp_rse, -1)
     # add rse attributes
@@ -980,7 +993,7 @@ def test_create_rule(rse_name_generator, client_rse_factory, rucio_client, did_f
     assert exitcode == 0
 
     # add rse
-    tmp_rse, _ = client_rse_factory.make_posix_rse()
+    tmp_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     # add quota
     rucio_client.set_local_account_limit("root", tmp_rse, -1)
     # add rse attributes
@@ -1002,14 +1015,14 @@ def test_create_rule(rse_name_generator, client_rse_factory, rucio_client, did_f
     assert re.search(rule, out) is not None
 
 
-def test_create_rule_delayed(client_rse_factory, rucio_client, did_factory):
+def test_create_rule_delayed(client_rse_factory, rse_client, rse_name_generator, rucio_client, did_factory):
     """CLIENT(USER): Rucio add rule delayed"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     did = did_factory.upload_test_file(mock_rse)
     scope, name = did["scope"].external, did["name"]
 
     # add rse
-    tmp_rse, _ = client_rse_factory.make_posix_rse()
+    tmp_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
 
     # add quota
     rucio_client.set_local_account_limit("root", tmp_rse, -1)
@@ -1037,19 +1050,19 @@ def test_create_rule_delayed(client_rse_factory, rucio_client, did_factory):
     assert any(re.match(r"Locks OK/REPLICATING/STUCK:.* 0/0/0", line) for line in out_lines)
     # Check that "Created at" is approximately 3600 seconds in the future
     [created_at_line] = filter(lambda x: "Created at" in x, out_lines)
-    created_at = re.search(r"Created at:\s+(\d.*\d)$", created_at_line).group(1)
+    created_at = re.search(r"Created at:\s+(\d.*\d)$", created_at_line).group(1)  # type: ignore
     created_at = datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
     assert datetime.now(timezone.utc) + timedelta(seconds=3550) < created_at < datetime.now(timezone.utc) + timedelta(seconds=3650)
 
 
-def test_delete_rule(did_factory, client_rse_factory, rucio_client):
+def test_delete_rule(did_factory, client_rse_factory, rse_client, rse_name_generator, rucio_client):
     """CLIENT(USER): rule deletion"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     did = did_factory.upload_test_file(mock_rse)
     scope, name = did["scope"].external, did["name"]
 
     # add rse
-    tmp_rse, _ = client_rse_factory.make_posix_rse()
+    tmp_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rucio_client.set_local_account_limit("root", tmp_rse, -1)
 
     # add rse attributes
@@ -1078,23 +1091,23 @@ def test_delete_rule(did_factory, client_rse_factory, rucio_client):
     assert 5 == len(out.splitlines())
 
 
-def test_move_rule(did_factory, client_rse_factory, rucio_client):
+def test_move_rule(did_factory, client_rse_factory, rse_client, rse_name_generator, rucio_client):
     """CLIENT(USER): Rucio move rule"""
     # add files
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     did = did_factory.upload_test_file(mock_rse)
     scope, name = did["scope"].external, did["name"]
 
     # add rses
-    tmp_rse1, _ = client_rse_factory.make_posix_rse()
+    tmp_rse1, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rucio_client.add_rse_attribute(tmp_rse1, key="spacetoken", value="ATLASSCRATCHDISK")
     rucio_client.set_local_account_limit("root", tmp_rse1, -1)
 
-    tmp_rse2, _ = client_rse_factory.make_posix_rse()
+    tmp_rse2, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rucio_client.add_rse_attribute(tmp_rse2, key="spacetoken", value="ATLASSCRATCHDISK")
     rucio_client.set_local_account_limit("root", tmp_rse2, -1)
 
-    tmp_rse3, _ = client_rse_factory.make_posix_rse()
+    tmp_rse3, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rucio_client.add_rse_attribute(tmp_rse3, key="spacetoken", value="ATLASSCRATCHDISK")
     rucio_client.set_local_account_limit("root", tmp_rse3, -1)
 
@@ -1114,22 +1127,22 @@ def test_move_rule(did_factory, client_rse_factory, rucio_client):
     assert re.search(new_rule, out) is not None
 
 
-def test_move_rule_with_arguments(did_factory, client_rse_factory, rucio_client):
+def test_move_rule_with_arguments(did_factory, client_rse_factory, rse_client, rse_name_generator, rucio_client):
     """CLIENT(USER): Rucio move rule"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     did = did_factory.upload_test_file(mock_rse)
     scope, name = did["scope"].external, did["name"]
 
     # add rses
-    tmp_rse1, _ = client_rse_factory.make_posix_rse()
+    tmp_rse1, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rucio_client.add_rse_attribute(tmp_rse1, key="spacetoken", value="ATLASSCRATCHDISK")
     rucio_client.set_local_account_limit("root", tmp_rse1, -1)
 
-    tmp_rse2, _ = client_rse_factory.make_posix_rse()
+    tmp_rse2, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rucio_client.add_rse_attribute(tmp_rse2, key="spacetoken", value="ATLASSCRATCHDISK")
     rucio_client.set_local_account_limit("root", tmp_rse2, -1)
 
-    tmp_rse3, _ = client_rse_factory.make_posix_rse()
+    tmp_rse3, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rucio_client.add_rse_attribute(tmp_rse3, key="spacetoken", value="ATLASSCRATCHDISK")
     rucio_client.set_local_account_limit("root", tmp_rse3, -1)
 
@@ -1159,11 +1172,11 @@ def test_move_rule_with_arguments(did_factory, client_rse_factory, rucio_client)
     assert new_rule_source_replica_expression in out
 
 
-def test_add_file_twice(file_factory, client_rse_factory, mock_scope):
+def test_add_file_twice(file_factory, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Add file twice"""
     tmp_file1 = file_factory.file_generator()
     # add file twice
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     cmd = f"rucio upload --rse {mock_rse} --scope {mock_scope.external} {tmp_file1}"
 
     exitcode, out, err = execute(cmd)
@@ -1179,11 +1192,11 @@ def test_add_file_twice(file_factory, client_rse_factory, mock_scope):
     )
 
 
-def test_add_delete_add_file(file_factory, client_rse_factory, mock_scope):
+def test_add_delete_add_file(file_factory, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Add/Delete/Add"""
     tmp_file1 = file_factory.file_generator()
     # add file
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     cmd = f"rucio upload --rse {mock_rse} --scope {mock_scope.external} {tmp_file1}"
 
     exitcode, out, err = execute(cmd)
@@ -1223,7 +1236,7 @@ def test_add_delete_add_file(file_factory, client_rse_factory, mock_scope):
     )
 
 
-def test_attach_files_dataset(file_factory, rse_name_generator, client_rse_factory, mock_scope):
+def test_attach_files_dataset(file_factory, rse_name_generator, client_rse_factory, rse_client, mock_scope):
     """CLIENT(USER): Rucio attach files to dataset"""
     # Attach files to a dataset using the attach method
     tmp_file1 = file_factory.file_generator()
@@ -1231,7 +1244,7 @@ def test_attach_files_dataset(file_factory, rse_name_generator, client_rse_facto
     tmp_file3 = file_factory.file_generator()
     scope_name = mock_scope.external
     tmp_dsn = mock_scope.external + ":DSet" + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     # Adding files to a new dataset
     cmd = f"rucio upload --rse {mock_rse} --scope {scope_name} {tmp_file1} {tmp_dsn}"
 
@@ -1256,10 +1269,14 @@ def test_attach_files_dataset(file_factory, rse_name_generator, client_rse_facto
     assert re.search(f"{mock_scope.external}:{tmp_file3.name}", out) is not None
 
 
-def test_detach_files_dataset(client_dataset_factory, client_rse_factory):
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
+def test_detach_files_dataset(did_factory, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT(USER): Rucio detach files to dataset"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
-    dids = client_dataset_factory.upload_test_dataset(mock_rse, nb_files=3)
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
+    dids = did_factory.upload_test_dataset(mock_rse, nb_files=3)
     scope, dataset_name = dids[0]["dataset_scope"], dids[0]["dataset_name"]
     tmp_file1, tmp_file2, tmp_file3 = dids[0]["did_name"], dids[1]["did_name"], dids[2]["did_name"]
 
@@ -1278,11 +1295,15 @@ def test_detach_files_dataset(client_dataset_factory, client_rse_factory):
     assert re.search(f"{scope}:{tmp_file3}", out) is None
 
 
-def test_attach_file_twice(client_rse_factory, client_dataset_factory):
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
+def test_attach_file_twice(client_rse_factory, rse_client, rse_name_generator, did_factory):
     """CLIENT(USER): Rucio attach a file twice"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     # Test dataset has the files pre-attached
-    dids = client_dataset_factory.upload_test_dataset(mock_rse, nb_files=1)[0]
+    dids = did_factory.upload_test_dataset(mock_rse, nb_files=1)[0]
     scope, dataset_name, tmp_file1 = dids["dataset_scope"], dids["dataset_name"], dids["did_name"]
 
     # attach the files to the dataset
@@ -1312,13 +1333,19 @@ def test_attach_dataset_twice(did_client, mock_scope):
     assert re.search("Data identifier already added to the destination content", err) is not None
 
 
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
 def test_detach_non_existing_file(
-    client_dataset_factory,
+    did_factory,
     client_rse_factory,
+    rse_client,
+    rse_name_generator
 ):
     """CLIENT(USER): Rucio detach a non existing file"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
-    dids = client_dataset_factory.upload_test_dataset(mock_rse)[0]
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
+    dids = did_factory.upload_test_dataset(mock_rse)[0]
     scope, dataset_name = dids["dataset_scope"], dids["dataset_name"]
 
     # attach the files to the dataset
@@ -1507,10 +1534,10 @@ def test_export_data():
 
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason="fails when run in parallel")
-def test_set_tombstone(client_rse_factory, rucio_client):
+def test_set_tombstone(client_rse_factory, rse_client, rse_name_generator, rucio_client):
     """CLIENT(ADMIN): set a tombstone on a replica."""
     # Set tombstone on one replica
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rse = mock_rse
     scope = "mock"
     name = generate_uuid()
@@ -1535,9 +1562,9 @@ def test_set_tombstone(client_rse_factory, rucio_client):
 
 
 @pytest.mark.noparallel(reason="modifies account limit on pre-defined RSE")
-def test_list_account_limits(rucio_client, client_rse_factory):
+def test_list_account_limits(rucio_client, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT (USER): list account limits."""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rse = mock_rse
     rse_exp = f"MOCK3|{rse}"
     account = "root"
@@ -1562,21 +1589,22 @@ def test_list_account_limits(rucio_client, client_rse_factory):
     "SUITE" in os.environ and os.environ["SUITE"] == "client",
     reason="uses abacus daemon and core functions",
 )
-def test_list_account_usage(root_account, rucio_client, client_rse_factory):
+def test_list_account_usage(rucio_client, rse_client, vo):
     """CLIENT (USER): list account usage."""
+    from rucio.common.types import InternalAccount
     from rucio.core.account_counter import increase
     from rucio.daemons.abacus import account as abacus_account
     from rucio.db.sqla import models, session
 
-    mock_rse, mock_rse_id = client_rse_factory.make_posix_rse()
-
+    rse = "MOCK4"
+    rse_id = rse_client.get_rse(rse=rse)['id']
     db_session = session.get_session()
     for model in [models.AccountUsage, models.AccountLimit, models.AccountGlobalLimit, models.UpdatedAccountCounter]:
         stmt = delete(model)
         db_session.execute(stmt)
 
-    rse = mock_rse
-    rse_id = mock_rse_id
+    db_session.commit()
+
     rse_exp = f"MOCK|{rse}"
     account = "root"
     usage = 4
@@ -1584,10 +1612,13 @@ def test_list_account_usage(root_account, rucio_client, client_rse_factory):
     local_left = local_limit - usage
     global_limit = 20
     global_left = global_limit - usage
+
     rucio_client.set_local_account_limit(account, rse, local_limit)
     rucio_client.set_global_account_limit(account, rse_exp, global_limit)
-    increase(rse_id, root_account, 1, usage)
+    increase(rse_id, InternalAccount(account, vo=vo), 1, usage)
+
     abacus_account.run(once=True)
+
     cmd = f"rucio list-account-usage {account}"
     exitcode, out, err = execute(cmd)
     assert re.search(f".*{rse}.*{usage}.*{local_limit}.*{local_left}", out) is not None
@@ -1608,13 +1639,13 @@ def test_list_account_usage(root_account, rucio_client, client_rse_factory):
     rucio_client.set_global_account_limit(account, rse_exp, -1)
 
 
-def test_get_set_delete_limits_rse(account_name_generator, client_rse_factory):
+def test_get_set_delete_limits_rse(account_name_generator, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT(ADMIN): Get, set and delete RSE limits"""
     name = generate_uuid()
     value = random.randint(0, 100000)
     name2 = generate_uuid()
     value2 = random.randint(0, 100000)
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     name3 = generate_uuid()
     value3 = account_name_generator()
     cmd = f"rucio-admin rse set-limit {mock_rse} {name} {value}"
@@ -1651,9 +1682,9 @@ def test_get_set_delete_limits_rse(account_name_generator, client_rse_factory):
     assert re.search(f"{name2}: {value2}", out) is not None
 
 
-def test_upload_recursive_ok(file_factory, rse_name_generator, client_rse_factory, mock_scope):
+def test_upload_recursive_ok(rse_name_generator, client_rse_factory, rse_client, mock_scope):
     """CLIENT(USER): Upload and preserve folder structure"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     folder = "folder_" + generate_uuid()
     folder1 = f"{folder}/folder_{generate_uuid()}"
     folder2 = f"{folder}/folder_{generate_uuid()}"
@@ -1695,9 +1726,9 @@ def test_upload_recursive_ok(file_factory, rse_name_generator, client_rse_factor
     execute(cmd)
 
 
-def test_upload_recursive_subfolder(client_rse_factory, mock_scope):
+def test_upload_recursive_subfolder(client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Upload and preserve folder structure in a subfolder"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     folder = "folder_" + generate_uuid()
     folder1 = f"{folder}/folder_{generate_uuid()}"
     folder11 = f"{folder1}/folder_{generate_uuid()}"
@@ -1725,11 +1756,11 @@ def test_upload_recursive_subfolder(client_rse_factory, mock_scope):
     execute(cmd)
 
 
-def test_recursive_empty(client_rse_factory, mock_scope):
+def test_recursive_empty(client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Upload and preserve folder structure with an empty folder"""
     folder = "folder_" + generate_uuid()
     folder1 = f"{folder}/folder_{generate_uuid()}"
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     cmd = f"mkdir {folder}"
     execute(cmd)
     cmd = f"mkdir {folder1}"
@@ -1743,9 +1774,9 @@ def test_recursive_empty(client_rse_factory, mock_scope):
     execute(cmd)
 
 
-def test_upload_recursive_only_files(client_rse_factory, mock_scope):
+def test_upload_recursive_only_files(client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Upload and preserve folder structure only with files"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     folder = "folder_" + generate_uuid()
     file1 = f"file_{generate_uuid()}"
     file2 = f"file_{generate_uuid()}"
@@ -1814,12 +1845,12 @@ def test_update_rule_cancel_requests_args():
     assert exitcode != 0
 
 
-def test_update_rule_unset_child_rule(file_factory, rse_name_generator, client_rse_factory, mock_scope, rucio_client):
+def test_update_rule_unset_child_rule(file_factory, rse_name_generator, client_rse_factory, rse_client, mock_scope, rucio_client):
     """CLIENT(USER): update rule unsets a child rule property"""
 
     # PREPARING FILE AND RSE
     # add files
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     tmp_file = file_factory.file_generator()
     tmp_fname = tmp_file.name
     cmd = f"rucio upload --rse {mock_rse} --scope {mock_scope.external} {tmp_file}"
@@ -1874,9 +1905,9 @@ def test_update_rule_unset_child_rule(file_factory, rse_name_generator, client_r
     assert re.search("Cannot detach child when no such relationship exists", err) is not None
 
 
-def test_update_rule_no_child_selfassign(file_factory, rse_name_generator, client_rse_factory, mock_scope, rucio_client):
+def test_update_rule_no_child_selfassign(file_factory, rse_name_generator, client_rse_factory, rse_client, mock_scope, rucio_client):
     """CLIENT(USER): do not permit to assign self as own child"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     tmp_file = file_factory.file_generator()
     tmp_fname = tmp_file.name
     cmd = f"rucio upload --rse {mock_rse} --scope {mock_scope.external} {tmp_file}"
@@ -1914,9 +1945,9 @@ def test_update_rule_no_child_selfassign(file_factory, rse_name_generator, clien
     assert err
 
 
-def test_update_rule_boost_rule_arg(file_factory, rucio_client, client_rse_factory, mock_scope):
+def test_update_rule_boost_rule_arg(file_factory, rucio_client, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): update a rule with the `--boost_rule` option"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rucio_client.set_local_account_limit("root", mock_rse, -1)
     tmp_file1 = file_factory.file_generator()
     # add files
@@ -1925,7 +1956,7 @@ def test_update_rule_boost_rule_arg(file_factory, rucio_client, client_rse_facto
     exitcode, out, err = execute(cmd)
 
     # add rse
-    tmp_rse, _ = client_rse_factory.make_posix_rse()
+    tmp_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rucio_client.set_local_account_limit("root", tmp_rse, -1)
 
     # add rse attributes
@@ -1955,9 +1986,9 @@ def test_update_rule_boost_rule_arg(file_factory, rucio_client, client_rse_facto
     assert exitcode == 0
 
 
-def test_rucio_list_file_replicas(file_factory, rse_name_generator, client_rse_factory, mock_scope, rucio_client):
+def test_rucio_list_file_replicas(file_factory, rse_name_generator, client_rse_factory, rse_client, mock_scope, rucio_client):
     """CLIENT(USER): List missing file replicas"""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     rucio_client.set_local_account_limit("root", mock_rse, -1)
     tmp_file1 = file_factory.file_generator()
     # add files
@@ -1987,9 +2018,9 @@ def test_rucio_list_file_replicas(file_factory, rse_name_generator, client_rse_f
     assert tmp_file1.name in out
 
 
-def test_rucio_create_rule_with_0_copies(file_factory, client_rse_factory, mock_scope):
+def test_rucio_create_rule_with_0_copies(file_factory, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): The creation of a rule with 0 copies shouldn't be possible."""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     tmp_file1 = file_factory.file_generator()
     # add files
     cmd = f"rucio upload --rse {mock_rse} --scope {mock_scope.external} {tmp_file1}"
@@ -2046,9 +2077,9 @@ def test_add_lifetime_exception_large_dids_number(mock_scope):
     assert "Nothing to submit" in err
 
 
-def test_admin_rse_update_unsupported_option(client_rse_factory):
+def test_admin_rse_update_unsupported_option(client_rse_factory, rse_client, rse_name_generator):
     """ADMIN CLIENT: Rse update should throw an unsupported option exception on an unsupported exception."""
-    mock_rse, _ = client_rse_factory.make_posix_rse()
+    mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
     exitcode, out, err = execute(f"rucio-admin rse update --setting test_with_non_existing_option --value 3 --rse {mock_rse}")
 
     assert exitcode != 0
