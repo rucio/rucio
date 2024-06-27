@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from os import environ, listdir, path, remove, rmdir, stat, unlink
 
 import pytest
+from sqlalchemy import and_, delete
 
 from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.configclient import ConfigClient
@@ -364,11 +365,14 @@ class TestBinRucio:
             from rucio.db.sqla import models, session
             db_session = session.get_session()
             internal_scope = InternalScope(self.user, **self.vo)
-            db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
-            db_session.query(models.ReplicaLock).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
-            db_session.query(models.ReplicationRule).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
-            db_session.query(models.DidMeta).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
-            db_session.query(models.DataIdentifier).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
+            for model in [models.RSEFileAssociation, models.ReplicaLock, models.ReplicationRule, models.DidMeta, models.DataIdentifier]:
+                stmt = delete(
+                    model
+                ).where(
+                    and_(model.name == tmp_file1_name,
+                         model.scope == internal_scope)
+                )
+                db_session.execute(stmt)
             db_session.commit()
             tmp_file4 = file_generator()
             checksum_tmp_file4 = md5(tmp_file4)
@@ -1840,10 +1844,9 @@ class TestBinRucio:
         from rucio.db.sqla import models, session
 
         db_session = session.get_session()
-        db_session.query(models.AccountUsage).delete()
-        db_session.query(models.AccountLimit).delete()
-        db_session.query(models.AccountGlobalLimit).delete()
-        db_session.query(models.UpdatedAccountCounter).delete()
+        for model in [models.AccountUsage, models.AccountLimit, models.AccountGlobalLimit, models.UpdatedAccountCounter]:
+            stmt = delete(model)
+            db_session.execute(stmt)
         db_session.commit()
         rse = self.def_rse
         rse_id = self.def_rse_id
