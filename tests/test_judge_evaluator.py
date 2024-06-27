@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING
 
 import pytest
+from sqlalchemy import delete
 
 from rucio.common.config import config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
@@ -58,7 +59,8 @@ class TestJudgeEvaluator:
 
         @transactional_session
         def __cleanup_updated_dids(*, session=None):
-            session.query(UpdatedDID).delete()
+            stmt = delete(UpdatedDID)
+            session.execute(stmt)
 
         __cleanup_updated_dids()
 

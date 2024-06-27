@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+from sqlalchemy import select
 
 from rucio.common.exception import InvalidValueForKey, RucioException, UnsupportedKeyType, UnsupportedValueType
 from rucio.common.utils import generate_uuid as uuid
@@ -98,8 +99,13 @@ class TestMetaConventionsClient:
         for key_type in types:
             key_name = 'datatype%s' % str(uuid())
             rucio_client.add_key(key_name, key_type['type'])
-            stored_key_type = session.get_session().query(models.DIDMetaConventionsKey).filter_by(key=key_name).one()['key_type']
-            assert stored_key_type, key_type['expected']
+            stmt = select(
+                models.DIDMetaConventionsKey
+            ).where(
+                models.DIDMetaConventionsKey.key == key_name
+            )
+            stored_key = session.get_session().execute(stmt).scalar_one()
+            assert stored_key['key_type'], key_type['expected']
 
         with pytest.raises(UnsupportedKeyType):
             rucio_client.add_key('datatype', 'A')
@@ -130,8 +136,13 @@ def test_add_key():
     for key_type in types:
         key_name = 'datatype%s' % str(uuid())
         add_key(key_name, key_type['type'])
-        stored_key_type = session.get_session().query(models.DIDMetaConventionsKey).filter_by(key=key_name).one()['key_type']
-        assert stored_key_type, key_type['expected']
+        stmt = select(
+            models.DIDMetaConventionsKey
+        ).where(
+            models.DIDMetaConventionsKey.key == key_name
+        )
+        stored_key = session.get_session().execute(stmt).scalar_one()
+        assert stored_key['key_type'], key_type['expected']
 
     with pytest.raises(UnsupportedKeyType):
         add_key('datatype', DIDType.ARCHIVE)

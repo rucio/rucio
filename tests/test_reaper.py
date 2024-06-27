@@ -15,7 +15,7 @@
 from datetime import datetime, timedelta
 
 import pytest
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_, select
 
 from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound
 from rucio.common.types import InternalAccount, InternalScope
@@ -283,7 +283,14 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
 
     @read_session
     def __get_archive_contents_history_count(archive, *, session=None):
-        return session.query(ConstituentAssociationHistory).filter_by(**archive).count()
+        stmt = select(
+            func.count()
+        ).select_from(
+            ConstituentAssociationHistory
+        ).where(
+            and_(*[getattr(ConstituentAssociationHistory, k) == v for k, v in archive.items()])
+        )
+        return session.execute(stmt).scalar()
 
     # Run reaper the first time.
     # the expired non-archive replica of c_with_expired_replica must be removed,
@@ -400,24 +407,31 @@ def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock
         file_clause.append(and_(models.DeletedDataIdentifier.scope == did['scope'], models.DeletedDataIdentifier.name == did['name']))
 
     session = get_session()
-    query = session.query(models.DeletedDataIdentifier.scope,
-                          models.DeletedDataIdentifier.name,
-                          models.DeletedDataIdentifier.did_type).\
-        filter(or_(*file_clause))
+    stmt = select(
+        models.DeletedDataIdentifier.scope,
+        models.DeletedDataIdentifier.name,
+        models.DeletedDataIdentifier.did_type
+    ).where(
+        or_(*file_clause)
+    )
 
     deleted_dids = list()
-    for did in query.all():
+    for did in session.execute(stmt).scalars():
         print(did)
         deleted_dids.append(did)
     assert len(deleted_dids) == len(dids)
 
-    query = session.query(models.DataIdentifierAssociationHistory.child_scope,
-                          models.DataIdentifierAssociationHistory.child_name,
-                          models.DataIdentifierAssociationHistory.child_type).\
-        filter(and_(models.DataIdentifierAssociationHistory.scope == dataset['scope'], models.DataIdentifierAssociationHistory.name == dataset['name']))
+    stmt = select(
+        models.DataIdentifierAssociationHistory.child_scope,
+        models.DataIdentifierAssociationHistory.child_name,
+        models.DataIdentifierAssociationHistory.child_type
+    ).where(
+        and_(models.DataIdentifierAssociationHistory.scope == dataset['scope'],
+             models.DataIdentifierAssociationHistory.name == dataset['name'])
+    )
 
     deleted_dids = list()
-    for did in query.all():
+    for did in session.execute(stmt).scalars():
         print(did)
         deleted_dids.append(did)
     assert len(deleted_dids) == len(dids)
