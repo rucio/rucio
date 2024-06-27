@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import NoResultFound
 
 from rucio.client.didclient import DIDClient
@@ -169,7 +170,8 @@ class TestDatasetReplicaUpdate:
         dataset_name_without_collection_replica = did_name_generator('dataset')
         add_dids(dids=[{'name': dataset_name_without_collection_replica, 'scope': mock_scope, 'type': constants.DIDType.DATASET},
                        {'name': dataset_name_with_collection_replica, 'scope': mock_scope, 'type': constants.DIDType.DATASET}], account=root_account, session=db_session)
-        db_session.query(models.UpdatedCollectionReplica).delete()  # pylint: disable=no-member
+        stmt = delete(models.UpdatedCollectionReplica)
+        db_session.execute(stmt)
         db_session.commit()  # pylint: disable=no-member
 
         # setup test data - 4 without corresponding replica, 4 duplicates and 2 correct
@@ -189,7 +191,12 @@ class TestDatasetReplicaUpdate:
         cleaned_collection_replica_updates = get_cleaned_updated_collection_replicas(total_workers=0, worker_number=0, session=db_session)
         assert len(cleaned_collection_replica_updates) == 2
         for update_request in cleaned_collection_replica_updates:
-            update_request = db_session.query(models.UpdatedCollectionReplica).filter_by(id=update_request['id']).one()  # pylint: disable=no-member
+            stmt = select(
+                models.UpdatedCollectionReplica
+            ).where(
+                models.UpdatedCollectionReplica.id == update_request['id']
+            )
+            update_request = db_session.execute(stmt).scalar_one()
             assert update_request.scope == mock_scope
             assert update_request.name in (dataset_name_with_collection_replica, dataset_name_without_collection_replica)
 
@@ -209,11 +216,29 @@ class TestDatasetReplicaUpdate:
         # Update request with rse id
         # First update -> dataset replica should be available
         models.UpdatedCollectionReplica(rse_id=rse_id, scope=mock_scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=db_session)
-        update_request = db_session.query(models.UpdatedCollectionReplica).filter_by(rse_id=rse_id, scope=mock_scope, name=dataset_name).one()  # pylint: disable=no-member
+        stmt = select(
+            models.UpdatedCollectionReplica
+        ).where(
+            and_(models.UpdatedCollectionReplica.rse_id == rse_id,
+                 models.UpdatedCollectionReplica.scope == mock_scope,
+                 models.UpdatedCollectionReplica.name == dataset_name)
+        )
+        update_request = db_session.execute(stmt).scalar_one()
         update_collection_replica(update_request=update_request.to_dict(), session=db_session)
-        update_request = db_session.query(models.UpdatedCollectionReplica).filter_by(id=update_request.id).first()  # pylint: disable=no-member
+        stmt = select(
+            models.UpdatedCollectionReplica
+        ).where(
+            models.UpdatedCollectionReplica.id == update_request.id
+        )
+        update_request = db_session.execute(stmt).scalar()
         assert update_request is None
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == len(files) * file_size
@@ -223,9 +248,22 @@ class TestDatasetReplicaUpdate:
         # Delete one file replica -> dataset replica should be unavailable
         delete_replicas(rse_id=rse_id, files=[files[0]], session=db_session)
         db_session.commit()
-        update_request = db_session.query(models.UpdatedCollectionReplica).filter_by(rse_id=rse_id, scope=mock_scope, name=dataset_name).one()  # pylint: disable=no-member
+        stmt = select(
+            models.UpdatedCollectionReplica
+        ).where(
+            and_(models.UpdatedCollectionReplica.rse_id == rse_id,
+                 models.UpdatedCollectionReplica.scope == mock_scope,
+                 models.UpdatedCollectionReplica.name == dataset_name)
+        )
+        update_request = db_session.execute(stmt).scalar_one()
         update_collection_replica(update_request=update_request.to_dict(), session=db_session)
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
@@ -236,9 +274,22 @@ class TestDatasetReplicaUpdate:
         add_replicas(rse_id=rse_id, files=[files[0]], account=root_account, session=db_session)
         attach_dids(scope=mock_scope, name=dataset_name, dids=[files[0]], account=root_account, session=db_session)
         models.UpdatedCollectionReplica(rse_id=rse_id, scope=mock_scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=db_session)
-        update_request = db_session.query(models.UpdatedCollectionReplica).filter_by(rse_id=rse_id, scope=mock_scope, name=dataset_name).one()  # pylint: disable=no-member
+        stmt = select(
+            models.UpdatedCollectionReplica
+        ).where(
+            and_(models.UpdatedCollectionReplica.rse_id == rse_id,
+                 models.UpdatedCollectionReplica.scope == mock_scope,
+                 models.UpdatedCollectionReplica.name == dataset_name)
+        )
+        update_request = db_session.execute(stmt).scalar_one()
         update_collection_replica(update_request=update_request.to_dict(), session=db_session)
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == len(files) * file_size
@@ -263,9 +314,21 @@ class TestDatasetReplicaUpdate:
 
         # First update -> replicas should be available
         models.UpdatedCollectionReplica(scope=mock_scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=db_session)
-        update_request = db_session.query(models.UpdatedCollectionReplica).filter_by(scope=mock_scope, name=dataset_name).one()  # pylint: disable=no-member
+        stmt = select(
+            models.UpdatedCollectionReplica
+        ).where(
+            and_(models.UpdatedCollectionReplica.scope == mock_scope,
+                 models.UpdatedCollectionReplica.name == dataset_name)
+        )
+        update_request = db_session.execute(stmt).scalar_one()
         update_collection_replica(update_request=update_request.to_dict(), session=db_session)
-        for dataset_replica in db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name).all():  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name)
+        )
+        for dataset_replica in db_session.execute(stmt).scalars():
             assert dataset_replica['bytes'] == len(files) * file_size
             assert dataset_replica['length'] == len(files)
             assert dataset_replica['available_bytes'] == len(files) * file_size
@@ -277,16 +340,36 @@ class TestDatasetReplicaUpdate:
         db_session.commit()
         models.UpdatedCollectionReplica(scope=mock_scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=db_session)
         # delete_replica creates also update object but with rse_id -> extra filter for rse_id is NULL
-        update_request = db_session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.scope == mock_scope, models.UpdatedCollectionReplica.name == dataset_name,  # pylint: disable=no-member
-                                                                                  models.UpdatedCollectionReplica.rse_id.is_(None)).one()  # pylint: disable=no-member
+        stmt = select(
+            models.UpdatedCollectionReplica
+        ).where(
+            and_(models.UpdatedCollectionReplica.scope == mock_scope,
+                 models.UpdatedCollectionReplica.name == dataset_name,
+                 models.UpdatedCollectionReplica.rse_id.is_(None))
+        )
+        update_request = db_session.execute(stmt).scalar_one()
         update_collection_replica(update_request=update_request.to_dict(), session=db_session)
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name, rse_id=rse_id).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name,
+                 models.CollectionReplica.rse_id == rse_id)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files) - 1
         assert dataset_replica['state'] == ReplicaState.UNAVAILABLE
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name, rse_id=rse2_id).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name,
+                 models.CollectionReplica.rse_id == rse2_id)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == len(files) * file_size
@@ -294,19 +377,46 @@ class TestDatasetReplicaUpdate:
         assert dataset_replica['state'] == ReplicaState.AVAILABLE
 
         # Set the state of the first replica on the second RSE to UNAVAILABLE -> both replicass should be unavailable
-        file_replica = db_session.query(models.RSEFileAssociation).filter_by(rse_id=rse2_id, scope=mock_scope, name=files[0]['name']).one()  # pylint: disable=no-member
+        stmt = select(
+            models.RSEFileAssociation
+        ).where(
+            and_(models.RSEFileAssociation.rse_id == rse2_id,
+                 models.RSEFileAssociation.scope == mock_scope,
+                 models.RSEFileAssociation.name == files[0]['name'])
+        )
+        file_replica = db_session.execute(stmt).scalar_one()
         file_replica.state = constants.ReplicaState.UNAVAILABLE
         models.UpdatedCollectionReplica(scope=mock_scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=db_session)
-        update_request = db_session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.scope == mock_scope, models.UpdatedCollectionReplica.name == dataset_name,  # pylint: disable=no-member
-                                                                                  models.UpdatedCollectionReplica.rse_id.is_(None)).one()  # pylint: disable=no-member
+        stmt = select(
+            models.UpdatedCollectionReplica
+        ).where(
+            and_(models.UpdatedCollectionReplica.scope == mock_scope,
+                 models.UpdatedCollectionReplica.name == dataset_name,
+                 models.UpdatedCollectionReplica.rse_id.is_(None))
+        )
+        update_request = db_session.execute(stmt).scalar_one()
         update_collection_replica(update_request=update_request.to_dict(), session=db_session)
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name, rse_id=rse_id).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name,
+                 models.CollectionReplica.rse_id == rse_id)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files) - 1
         assert dataset_replica['state'] == ReplicaState.UNAVAILABLE
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name, rse_id=rse2_id).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name,
+                 models.CollectionReplica.rse_id == rse2_id)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
@@ -317,16 +427,36 @@ class TestDatasetReplicaUpdate:
         delete_replicas(rse_id=rse2_id, files=[files[0]], session=db_session)
         db_session.commit()
         models.UpdatedCollectionReplica(scope=mock_scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=db_session)
-        update_request = db_session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.scope == mock_scope, models.UpdatedCollectionReplica.name == dataset_name,  # pylint: disable=no-member
-                                                                                  models.UpdatedCollectionReplica.rse_id.is_(None)).one()  # pylint: disable=no-member
+        stmt = select(
+            models.UpdatedCollectionReplica
+        ).where(
+            and_(models.UpdatedCollectionReplica.scope == mock_scope,
+                 models.UpdatedCollectionReplica.name == dataset_name,
+                 models.UpdatedCollectionReplica.rse_id.is_(None))
+        )
+        update_request = db_session.execute(stmt).scalar_one()
         update_collection_replica(update_request=update_request.to_dict(), session=db_session)
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name, rse_id=rse_id).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name,
+                 models.CollectionReplica.rse_id == rse_id)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['length'] == len(files) - 1
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files) - 1
         assert dataset_replica['state'] == ReplicaState.AVAILABLE
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name, rse_id=rse2_id).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name,
+                 models.CollectionReplica.rse_id == rse2_id)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == (len(files) - 1) * file_size
         assert dataset_replica['length'] == len(files) - 1
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
@@ -337,16 +467,36 @@ class TestDatasetReplicaUpdate:
         add_replicas(rse_id=rse_id, files=[files[0]], account=root_account, session=db_session)
         attach_dids(scope=mock_scope, name=dataset_name, dids=[files[0]], account=root_account, session=db_session)
         models.UpdatedCollectionReplica(scope=mock_scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=db_session)
-        update_request = db_session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.scope == mock_scope, models.UpdatedCollectionReplica.name == dataset_name,  # pylint: disable=no-member
-                                                                                  models.UpdatedCollectionReplica.rse_id.is_(None)).one()  # pylint: disable=no-member
+        stmt = select(
+            models.UpdatedCollectionReplica
+        ).where(
+            and_(models.UpdatedCollectionReplica.scope == mock_scope,
+                 models.UpdatedCollectionReplica.name == dataset_name,
+                 models.UpdatedCollectionReplica.rse_id.is_(None))
+        )
+        update_request = db_session.execute(stmt).scalar_one()
         update_collection_replica(update_request=update_request.to_dict(), session=db_session)
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name, rse_id=rse_id).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name,
+                 models.CollectionReplica.rse_id == rse_id)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == len(files) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files)
         assert dataset_replica['state'] == ReplicaState.AVAILABLE
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name, rse_id=rse2_id).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name,
+                 models.CollectionReplica.rse_id == rse2_id)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == (len(files) - 1) * file_size
@@ -356,16 +506,36 @@ class TestDatasetReplicaUpdate:
         # Add first replica to the second RSE -> both replicas should be available again
         add_replicas(rse_id=rse2_id, files=[files[0]], account=root_account, session=db_session)
         models.UpdatedCollectionReplica(scope=mock_scope, name=dataset_name, did_type=constants.DIDType.DATASET).save(session=db_session)
-        update_request = db_session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.scope == mock_scope, models.UpdatedCollectionReplica.name == dataset_name,  # pylint: disable=no-member
-                                                                                  models.UpdatedCollectionReplica.rse_id.is_(None)).one()  # pylint: disable=no-member
+        stmt = select(
+            models.UpdatedCollectionReplica
+        ).where(
+            and_(models.UpdatedCollectionReplica.scope == mock_scope,
+                 models.UpdatedCollectionReplica.name == dataset_name,
+                 models.UpdatedCollectionReplica.rse_id.is_(None))
+        )
+        update_request = db_session.execute(stmt).scalar_one()
         update_collection_replica(update_request=update_request.to_dict(), session=db_session)
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name, rse_id=rse_id).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name,
+                 models.CollectionReplica.rse_id == rse_id)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == len(files) * file_size
         assert dataset_replica['available_replicas_cnt'] == len(files)
         assert dataset_replica['state'] == ReplicaState.AVAILABLE
-        dataset_replica = db_session.query(models.CollectionReplica).filter_by(scope=mock_scope, name=dataset_name, rse_id=rse2_id).one()  # pylint: disable=no-member
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == mock_scope,
+                 models.CollectionReplica.name == dataset_name,
+                 models.CollectionReplica.rse_id == rse2_id)
+        )
+        dataset_replica = db_session.execute(stmt).scalar_one()
         assert dataset_replica['bytes'] == len(files) * file_size
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['available_bytes'] == len(files) * file_size

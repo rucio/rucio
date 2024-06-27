@@ -15,6 +15,7 @@
 from copy import deepcopy
 
 import pytest
+from sqlalchemy import delete, select
 
 from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
@@ -71,7 +72,8 @@ def check_protocols(rse, test_data, vo='def'):
 def reset_rses():
     yield
     db_session = session.get_session()
-    for rse in db_session.query(models.RSE).all():
+    stmt = select(models.RSE)
+    for rse in db_session.execute(stmt).scalars():
         rse.deleted = False
         rse.deleted_at = None
         rse.save(session=db_session)
@@ -1198,7 +1200,8 @@ class TestImporterSyncModes:
 @pytest.fixture
 def distances_data(vo):
     db_session = session.get_session()
-    db_session.query(models.Distance).delete()
+    stmt = delete(models.Distance)
+    db_session.execute(stmt)
     db_session.commit()
 
     rse_1 = 'MOCK'
