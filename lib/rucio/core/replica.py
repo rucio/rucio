@@ -2426,7 +2426,7 @@ def touch_replica(replica, *, session: "Session"):
             filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
             prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
             execution_options(synchronize_session=False).\
-            values(accessed_at=accessed_at)
+            values(accessed_at=accessed_at, access_cnt=models.DataIdentifier.access_cnt + 1)
         session.execute(stmt)
 
     except DatabaseError:
