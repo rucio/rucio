@@ -681,11 +681,6 @@ def execute(cmd: str) -> tuple[int, str, str]:
     return exitcode, out.decode(encoding='utf-8'), err.decode(encoding='utf-8')
 
 
-def rse_supported_protocol_operations() -> list[str]:
-    """ Returns a list with operations supported by all RSE protocols."""
-    return ['read', 'write', 'delete', 'third_party_copy_read', 'third_party_copy_write']
-
-
 def rse_supported_protocol_domains() -> list[str]:
     """ Returns a list with all supported RSE protocol domains."""
     return ['lan', 'wan']
