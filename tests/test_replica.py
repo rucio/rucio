@@ -31,7 +31,7 @@ from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifi
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import clean_surls, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
-from rucio.core.did import add_did, attach_dids, get_did, get_did_atime, list_files, set_status
+from rucio.core.did import add_did, attach_dids, get_did, get_did_atime, get_did_access_cnt, list_files, set_status
 from rucio.core.replica import add_bad_dids, add_replica, add_replicas, delete_replicas, get_bad_pfns, get_replica, get_replica_atime, get_replicas_state, get_RSEcoverage_of_dataset, list_replicas, set_tombstone, touch_replica, update_replica_state
 from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import minos
@@ -307,14 +307,14 @@ class TestReplicaCore:
 
         assert get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse_id': rse_id}) is None
         assert get_did_atime(scope=mock_scope, name=files1[0]['name']) is None
-        assert get_replica(rse_id=rse_id, scope=files1[0]['scope'], name=files1[0]['name'])['access_cnt'] == 0
+        assert 0 == get_did_access_cnt(scop=mock_scope, name=files1[0]['name'])
 
         for r in [{'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse_id': rse_id, 'accessed_at': now}]:
             touch_replica(r)
 
         assert now == get_replica_atime({'scope': files1[0]['scope'], 'name': files1[0]['name'], 'rse_id': rse_id})
         assert now == get_did_atime(scope=mock_scope, name=files1[0]['name'])
-        assert 1 == get_replica(rse_id=rse_id, scope=files1[0]['scope'], name=files1[0]['name'])['access_cnt']
+        assert 1 == get_did_access_cnt(scop=mock_scope, name=files1[0]['name'])
 
         for i in range(1, nbfiles):
             assert get_replica_atime({'scope': files1[i]['scope'], 'name': files1[i]['name'], 'rse_id': rse_id}) is None
