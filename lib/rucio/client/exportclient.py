@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
@@ -23,7 +25,7 @@ class ExportClient(BaseClient):
 
     EXPORT_BASEURL = 'export'
 
-    def export_data(self, distance=True):
+    def export_data(self, distance: bool = True) -> dict[str, Any]:
         """
         Export RSE data (RSE, settings, attributes and distance).
         :param distance: To include the distance.
