@@ -49,6 +49,10 @@ if config_get_bool('transfers', 'srm_https_compatibility', raise_exception=False
     SCHEME_MAP['davs'].append('srm')
 
 SUPPORTED_PROTOCOLS_LITERAL = Literal['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 'storm', 'srm+https', 'scp', 'rsync', 'rclone', 'magnet']
+SUPPORTED_PROTOCOLS: list[str] = list(get_args(SUPPORTED_PROTOCOLS_LITERAL))
+
+RSE_SUPPORTED_PROTOCOL_DOMAINS_LITERAL = Literal['ALL', 'LAN', 'WAN']
+
 RSE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL = Literal['read', 'write', 'delete', 'third_party_copy_read', 'third_party_copy_write']
 RSE_SUPPORTED_PROTOCOL_OPERATIONS: list[str] = list(get_args(RSE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL))
 
