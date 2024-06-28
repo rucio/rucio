@@ -2410,7 +2410,6 @@ def touch_replica(replica, *, session: "Session"):
             prefix_with("/*+ index(REPLICAS REPLICAS_PK) */", dialect='oracle').\
             execution_options(synchronize_session=False).\
             values(accessed_at=accessed_at,
-                   access_cnt=models.RSEFileAssociation.access_cnt + 1,
                    tombstone=case((and_(models.RSEFileAssociation.tombstone != none_value,
                                         models.RSEFileAssociation.tombstone != OBSOLETE),
                                    accessed_at),
