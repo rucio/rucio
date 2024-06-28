@@ -385,15 +385,14 @@ class RSEClient(BaseClient):
         :raises KeyNotFound: if invalid data was provided for update.
         :raises AccessDenied: if not authorized.
         """
-        protocol_a = protocol_b = None
+
         protocols = self.get_protocols(rse, domain, operation, False, scheme_a)['protocols']
-        for p in protocols:
-            if p['scheme'] == scheme_a:
-                protocol_a = p
-            if p['scheme'] == scheme_b:
-                protocol_b = p
-        if (protocol_a or protocol_b) is None:
+        protocol_a = next((p for p in protocols if p['scheme'] == scheme_a), None)
+        protocol_b = next((p for p in protocols if p['scheme'] == scheme_b), None)
+
+        if protocol_a is None or protocol_b is None:
             return False
+        
         priority_a = protocol_a['domains'][domain][operation]
         priority_b = protocol_b['domains'][domain][operation]
         self.update_protocols(rse, protocol_a['scheme'], {'domains': {domain: {operation: priority_b}}}, protocol_a['hostname'], protocol_a['port'])
