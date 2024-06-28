@@ -1134,7 +1134,7 @@ def pid_exists(pid: int) -> bool:
         return True
 
 
-def sizefmt(num: Union[int, float], human: bool = True) -> str:
+def sizefmt(num: Union[int, float, None], human: bool = True) -> str:
     """
     Print human readable file sizes
     """

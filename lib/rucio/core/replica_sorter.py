@@ -35,7 +35,7 @@ from rucio.common.exception import InvalidRSEExpression
 from rucio.core.rse_expression_parser import parse_expression
 
 if TYPE_CHECKING:
-    from rucio.common.constants import SORTING_ALGORITHMS_LITERAL
+    from rucio.common.constants import SORTING_ALGORITHMS
 
 REGION = make_region_memcached(expiration_time=900, function_key_generator=utils.my_key_generator)
 
@@ -251,7 +251,7 @@ def site_selector(replicas, site, vo):
     return result
 
 
-def sort_replicas(dictreplica: dict, client_location: dict, selection: Optional["SORTING_ALGORITHMS_LITERAL"] = None) -> list:
+def sort_replicas(dictreplica: dict, client_location: dict, selection: Optional[str] = None) -> list:
     """
     General sorting method for a dictionary of replicas. Returns the List of replicas.
 
