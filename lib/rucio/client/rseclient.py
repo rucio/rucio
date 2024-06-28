@@ -584,7 +584,7 @@ class RSEClient(BaseClient):
                                                status_code=r.status_code,
                                                data=r.content)
 
-        return exc_cls(exc_msg)
+        raise exc_cls(exc_msg)
 
     def add_distance(self, source, destination, parameters):
         """
