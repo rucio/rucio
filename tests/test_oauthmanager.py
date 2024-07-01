@@ -18,7 +18,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from oic import rndstr
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.sql.expression import true
 
 from rucio.daemons.oauthmanager.oauthmanager import run, stop
@@ -76,27 +76,49 @@ def save_oidc_token(account, lifetime_access=0, lifetime_refresh=0, refresh_toke
 
 def get_oauth_session_param_count(account):
     session = get_session()
-    result = session.query(models.OAuthRequest).filter_by(account=account).all()  # pylint: disable=no-member
-    return len(result)
+    stmt = select(
+        func.count()
+    ).select_from(
+        models.OAuthRequest
+    ).where(
+        models.OAuthRequest.account == account
+    )
+    return session.execute(stmt).scalar()
 
 
 def get_token_count(account):
     session = get_session()
-    result = session.query(models.Token).filter_by(account=account).all()  # pylint: disable=no-member
-    for token in result:
-        print(token.token, token.expired_at, token.refresh_token, token.refresh_expired_at, token.oidc_scope)
-    return len(result)
+    stmt = select(
+        func.count()
+    ).select_from(
+        models.Token
+    ).where(
+        models.Token.account == account
+    )
+    return session.execute(stmt).scalar()
 
 
 def get_token_count_with_refresh_true(account):
     session = get_session()
-    result = session.query(models.Token.token).filter_by(account=account, refresh=true()).all()  # pylint: disable=no-member
-    return len(result)
+    stmt = select(
+        func.count()
+    ).select_from(
+        models.Token
+    ).where(
+        and_(models.Token.account == account,
+             models.Token.refresh == true())
+    )
+    return session.execute(stmt).scalar()
 
 
 def check_deleted_tokens(account):
     session = get_session()
-    result = session.query(models.Token).filter_by(account=account).all()  # pylint: disable=no-member
+    stmt = select(
+        models.Token
+    ).where(
+        models.Token.account == account
+    )
+    result = session.execute(stmt).scalars()
     all_deleted = True
     for elem in result:
         if elem.refresh_token is not None:
@@ -108,7 +130,12 @@ def check_deleted_tokens(account):
 
 def count_kept_tokens(account):
     session = get_session()
-    result = session.query(models.Token).filter_by(account=account).all()  # pylint: disable=no-member
+    stmt = select(
+        models.Token
+    ).where(
+        models.Token.account == account
+    )
+    result = session.execute(stmt).scalars()
     count = 0
     for elem in result:
         if elem.refresh_token is not None:
@@ -123,26 +150,40 @@ def count_kept_tokens(account):
 
 def count_expired_tokens(account):
     session = get_session()
-    result = session.query(models.Token).filter(and_(models.Token.account == account,  # pylint: disable=no-member
-                                                     models.Token.expired_at <= datetime.datetime.utcnow()))\
-                                        .all()
-    count = len(result)
-    return count
+    stmt = select(
+        func.count()
+    ).select_from(
+        models.Token
+    ).where(
+        and_(models.Token.account == account,
+             models.Token.expired_at <= datetime.datetime.utcnow())
+    )
+    return session.execute(stmt).scalar()
 
 
 def count_refresh_tokens_expired_or_none(account):
     session = get_session()
-    result = session.query(models.Token).filter(and_(models.Token.account == account))\
-                                        .filter(or_(models.Token.refresh_expired_at.__eq__(None), models.Token.refresh_expired_at <= datetime.datetime.utcnow()))\
-                                        .all()  # pylint: disable=no-member
-
-    count = len(result)
-    return count
+    stmt = select(
+        func.count()
+    ).select_from(
+        models.Token
+    ).where(
+        and_(models.Token.account == account,
+             or_(models.Token.refresh_expired_at.__eq__(None),
+                 models.Token.refresh_expired_at <= datetime.datetime.utcnow()))
+    )
+    return session.execute(stmt).scalar()
 
 
 def new_tokens_ok(account):
     session = get_session()
-    result = session.query(models.Token).filter_by(account=account, refresh=true()).all()  # pylint: disable=no-member
+    stmt = select(
+        models.Token
+    ).where(
+        and_(models.Token.account == account,
+             models.Token.refresh == true())
+    )
+    result = session.execute(stmt).scalars()
     token_names_expected = ["10_original_refreshed_and_deleted",
                             "11_to_be_kept_and_refreshed",
                             "14_original_refreshed_and_deleted",

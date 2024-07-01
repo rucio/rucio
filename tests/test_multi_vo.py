@@ -23,6 +23,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from oic import rndstr
+from sqlalchemy import select
 
 from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.client import Client
@@ -881,16 +882,17 @@ class TestMultiVoClients:
         add_counter(new_rse1_vo1_id, new_acc_vo1)
         add_counter(new_rse1_vo2_id, new_acc_vo2)
 
-        query = session.query(models.AccountUsage.account, models.AccountUsage.rse_id).\
-            distinct(models.AccountUsage.account, models.AccountUsage.rse_id).\
-            filter_by(account=new_acc_vo2)
-        acc_counters = list(query.all())
-
-        assert 1 == len(acc_counters)
-        for counter in acc_counters:
-            rse_id = counter[1]
-            vo = get_rse_vo(rse_id)
-            assert vo == second_vo
+        stmt = select(
+            models.AccountUsage.account,
+            models.AccountUsage.rse_id
+        ).distinct(
+        ).where(
+            models.AccountUsage.account == new_acc_vo2
+        )
+        acc_counters = session.execute(stmt).one()
+        rse_id = acc_counters[1]
+        vo = get_rse_vo(rse_id)
+        assert vo == second_vo
 
 
 class TestMultiVOBinRucio:

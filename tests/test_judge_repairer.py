@@ -17,6 +17,7 @@ from hashlib import sha256
 
 import pytest
 from dogpile.cache import make_region
+from sqlalchemy import and_, select
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
@@ -189,7 +190,12 @@ class TestJudgeRepairer:
 
         # Mark the rule STUCK to fake that the re-evaluation failed
         session = get_session()
-        rule = session.query(models.ReplicationRule).filter_by(id=rule_id).one()
+        stmt = select(
+            models.ReplicationRule
+        ).where(
+            models.ReplicationRule.id == rule_id
+        )
+        rule = session.execute(stmt).scalar_one()
         rule.state = RuleState.STUCK
         session.commit()
 
@@ -222,12 +228,15 @@ class TestJudgeRepairer:
         successful_transfer(scope=scope, name=files[2]['name'], rse_id=self.rse1_id, nowait=False)
         # Also make replicas AVAILABLE
         session = get_session()
-        replica = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=files[0]['name'], rse_id=self.rse1_id).one()
-        replica.state = ReplicaState.AVAILABLE
-        replica = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=files[1]['name'], rse_id=self.rse1_id).one()
-        replica.state = ReplicaState.AVAILABLE
-        replica = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=files[2]['name'], rse_id=self.rse1_id).one()
-        replica.state = ReplicaState.AVAILABLE
+        stmt = select(
+            models.RSEFileAssociation
+        ).where(
+            and_(models.RSEFileAssociation.scope == scope,
+                 models.RSEFileAssociation.name.in_([file['name'] for file in files]),
+                 models.RSEFileAssociation.rse_id == self.rse1_id)
+        )
+        for replica in session.execute(stmt).scalars():
+            replica.state = ReplicaState.AVAILABLE
         session.commit()
 
         rule_repairer(once=True)
@@ -319,7 +328,17 @@ class TestJudgeRepairer:
 
             if ignore_availability:
                 change_availability(False)
-                rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping=grouping, weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=ignore_availability, activity='DebugJudge')[0]
+                rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}],
+                                   account=self.jdoe,
+                                   copies=1,
+                                   rse_expression=rse,
+                                   grouping=grouping,
+                                   weight=None,
+                                   lifetime=None,
+                                   locked=False,
+                                   subscription_id=None,
+                                   ignore_availability=ignore_availability,
+                                   activity='DebugJudge')[0]
                 assert (RuleState.STUCK == get_rule(rule_id)['state'])
 
                 rule_repairer(once=True)
@@ -327,7 +346,17 @@ class TestJudgeRepairer:
 
                 change_availability(True)
             else:
-                rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=rse, grouping=grouping, weight=None, lifetime=None, locked=False, subscription_id=None, ignore_availability=ignore_availability, activity='DebugJudge')[0]
+                rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}],
+                                   account=self.jdoe,
+                                   copies=1,
+                                   rse_expression=rse,
+                                   grouping=grouping,
+                                   weight=None,
+                                   lifetime=None,
+                                   locked=False,
+                                   subscription_id=None,
+                                   ignore_availability=ignore_availability,
+                                   activity='DebugJudge')[0]
                 failed_transfer(scope=scope, name=files[0]['name'], rse_id=get_replica_locks(scope=files[0]['scope'], name=files[0]['name'])[0].rse_id)
                 change_availability(False)
                 assert (RuleState.STUCK == get_rule(rule_id)['state'])
