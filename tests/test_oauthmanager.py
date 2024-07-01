@@ -89,14 +89,13 @@ def get_oauth_session_param_count(account):
 def get_token_count(account):
     session = get_session()
     stmt = select(
+        func.count()
+    ).select_from(
         models.Token
     ).where(
         models.Token.account == account
     )
-    result = session.execute(stmt).scalars().all()
-    for token in result:
-        print(token.token, token.expired_at, token.refresh_token, token.refresh_expired_at, token.oidc_scope)
-    return len(result)
+    return session.execute(stmt).scalar()
 
 
 def get_token_count_with_refresh_true(account):
