@@ -22,7 +22,21 @@ from flask import Flask, Response, request
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.constants import SUPPORTED_PROTOCOLS
-from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, Duplicate, InvalidObject, InvalidPath, InvalidType, ReplicaIsLocked, ReplicaNotFound, ResourceTemporaryUnavailable, RSENotFound, ScopeNotFound
+from rucio.common.exception import (
+    AccessDenied,
+    DataIdentifierAlreadyExists,
+    DataIdentifierNotFound,
+    Duplicate,
+    InvalidObject,
+    InvalidPath,
+    InvalidType,
+    ReplicaIsLocked,
+    ReplicaNotFound,
+    ResourceTemporaryUnavailable,
+    RSENotFound,
+    ScopeNotFound,
+    SortingAlgorithmNotSupported,
+)
 from rucio.common.utils import APIEncoder, parse_response, render_json
 from rucio.core.replica_sorter import sort_replicas
 from rucio.db.sqla.constants import BadFilesStatus
@@ -252,7 +266,7 @@ class Replicas(ErrorHandlingMethodView):
             else:
                 response_generator = _generate_json_response(rfiles)
             return try_stream(response_generator, content_type=content_type)
-        except DataIdentifierNotFound as error:
+        except (DataIdentifierNotFound, SortingAlgorithmNotSupported) as error:
             return generate_http_error_flask(404, error)
 
     def post(self):
@@ -736,10 +750,8 @@ class ListReplicas(ErrorHandlingMethodView):
             else:
                 response_generator = _generate_json_response(rfiles)
             return try_stream(response_generator, content_type=content_type)
-        except InvalidObject as error:
+        except (InvalidObject, DataIdentifierNotFound, SortingAlgorithmNotSupported) as error:
             return generate_http_error_flask(400, error)
-        except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, error)
 
 
 class ReplicasDIDs(ErrorHandlingMethodView):

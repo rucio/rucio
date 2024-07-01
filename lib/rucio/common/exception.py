@@ -1089,3 +1089,13 @@ class DeprecationError(RucioException):
         super(DeprecationError, self).__init__(*args, **kwargs)
         self._message = 'Command or function has been deprecated.'
         self.error_code = 105
+
+
+class SortingAlgorithmNotSupported(RucioException):
+    """
+    Sorting algorithm is not supported.
+    """
+    def __init__(self, *args, **kwargs):
+        super(SortingAlgorithmNotSupported, self).__init__(*args, **kwargs)
+        self._message = 'Sorting algorithm is not supported.'
+        self.error_code = 106
