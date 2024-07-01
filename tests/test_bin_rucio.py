@@ -1134,7 +1134,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert not err
+        assert exitcode == 0  # Is a listed error (depreciation warning) because there's a warning in bin's log
 
         # list-file-replicas should, by default, list replicas from blocklisted rses
         cmd = 'rucio list-file-replicas {}'.format(tmp_dataset)
@@ -1194,9 +1194,8 @@ class TestBinRucio:
         cmd = "rucio add-rule {0}:{1} 3 'spacetoken=ATLASSCRATCHDISK'".format(self.user, tmp_file1[5:])
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out)
-        assert not err
-        rule = out[:-1]  # trimming new line character
+        assert exitcode == 0  # Is a listed error (depreciation warning) because there's a warning in bin's log
+        rule = out[:-1]  # triming new line character
         assert re.match(r'^\w+$', rule)
         # check if rule exist for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
@@ -1236,8 +1235,9 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert not err
-        rule = out[:-1]  # trimming new line character
+        assert exitcode == 0  # Is a listed error (depreciation warning) because there's a warning in bin's log
+        rule = out[:-1]  # triming new line character
+
         cmd = "rucio rule-info {0}".format(rule)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1353,8 +1353,8 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
-        assert not err
-        rule = out[:-1]  # trimming new line character
+        assert exitcode == 0  # Is a listed error (depreciation warning) because there's a warning in bin's log
+        rule = out[:-1]  # triming new line character
         assert re.match(r'^\w+$', rule)
 
         # move rule
@@ -1363,8 +1363,8 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
-        assert not err
-        new_rule = out[:-1]  # trimming new line character
+        assert exitcode == 0  # Is a listed error (depreciation warning) because there's a warning in bin's log
+        new_rule = out[:-1]  # triming new line character
 
         # check if rule exist for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
@@ -1425,8 +1425,8 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
-        assert not err
-        rule = out[:-1]  # trimming new line character
+        assert exitcode == 0  # Is a listed error (depreciation warning) because there's a warning in bin's log
+        rule = out[:-1]  # triming new line character
         assert re.match(r'^\w+$', rule)
         # move rule
         new_rule_expr = "spacetoken=ATLASSCRATCHDISK|spacetoken=ATLASSD"
@@ -1436,8 +1436,8 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert not err
-        new_rule_id = out[:-1]  # trimming new line character
+        assert exitcode == 0  # Is a listed error (depreciation warning) because there's a warning in bin's log
+        new_rule_id = out[:-1]  # triming new line character
 
         # check if rule exist for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
@@ -2080,21 +2080,22 @@ class TestBinRucio:
             tmp_rse = rse_name_generator()
             cmd = f'rucio-admin rse add {tmp_rse}'
             exitcode, out, err = execute(cmd)
-            assert not err
+            assert exitcode == 0  # Is a listed error (depreciation warning) because there's a warning in bin's log
 
             self.account_client.set_local_account_limit('root', tmp_rse, -1)
 
             cmd = (f'rucio-admin rse set-attribute --rse {tmp_rse}'
                    f' --key spacetoken --value RULELOC{i}')
             exitcode, out, err = execute(cmd)
-            assert not err
+            assert exitcode == 0  # Is a listed error (depreciation warning) because there's a warning in bin's log
 
         # PREPARING THE RULES
         # add rule
         rule_expr = "spacetoken=RULELOC0"
         cmd = f"rucio add-rule {self.user}:{tmp_fname} 1 '{rule_expr}'"
         exitcode, out, err = execute(cmd)
-        assert not err
+        assert 'ERROR' not in err
+        assert exitcode == 0
         # get the rules for the file
         cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".\
             format(self.user, tmp_file[5:])
@@ -2107,7 +2108,7 @@ class TestBinRucio:
         cmd = f"rucio move-rule {parentrule_id} '{new_rule_expr}'"
         exitcode, out, err = execute(cmd)
         childrule_id = out.strip()
-        assert err == ''
+        assert exitcode == 0
 
         # check if new rule exists for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_fname)
@@ -2137,21 +2138,22 @@ class TestBinRucio:
         tmp_rse = rse_name_generator()
         cmd = f'rucio-admin rse add {tmp_rse}'
         exitcode, out, err = execute(cmd)
-        assert not err
+        assert 'ERROR' not in err
+        assert exitcode == 0
 
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
 
         cmd = (f'rucio-admin rse set-attribute --rse {tmp_rse}'
                f' --key spacetoken --value RULELOC')
         exitcode, out, err = execute(cmd)
-        assert not err
+        assert exitcode == 0  # Is a listed error (depreciation warning) because there's a warning in bin's log
 
         # PREPARING THE RULES
         # add rule
         rule_expr = "spacetoken=RULELOC"
         cmd = f"rucio add-rule {self.user}:{tmp_fname} 1 '{rule_expr}'"
         exitcode, out, err = execute(cmd)
-        assert not err
+        assert exitcode == 0  # Is a listed error (depreciation warning) because there's a warning in bin's log
 
         # get the rules for the file
         cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".\
@@ -2334,7 +2336,6 @@ class TestBinRucio:
         exitcode, out, err = execute("rucio-admin rse update --setting country_name --value France --rse {}".format(self.def_rse))
         print(out, err)
         assert exitcode == 0
-        assert not err
 
     @pytest.mark.noparallel(reason='Modify config')
     def test_lifetime_cli(self):
