@@ -29,7 +29,7 @@ from sqlalchemy.sql.expression import and_, delete, desc, false, func, or_, sele
 from rucio.common import exception, types, utils
 from rucio.common.cache import make_region_memcached
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common.constants import RseAttr
+from rucio.common.constants import RSE_SUPPORTED_PROTOCOL_OPERATIONS, RseAttr
 from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
@@ -1303,7 +1303,7 @@ def add_protocol(
             if domain not in utils.rse_supported_protocol_domains():
                 raise exception.RSEProtocolDomainNotSupported(f"The protocol domain '{domain}' is not defined in the schema.")
             for op in parameter['domains'][domain]:
-                if op not in utils.rse_supported_protocol_operations():
+                if op not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = parameter['domains'][domain][op]
@@ -1427,7 +1427,7 @@ def _format_get_rse_protocols(
             'verify_checksum': verify_checksum if verify_checksum is not None else True,
             'volatile': _rse['volatile']}
 
-    for op in utils.rse_supported_protocol_operations():
+    for op in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
         info['%s_protocol' % op] = 1  # 1 indicates the default protocol
 
     for row in db_protocols:
@@ -1514,7 +1514,7 @@ def update_protocols(
             if domain not in utils.rse_supported_protocol_domains():
                 raise exception.RSEProtocolDomainNotSupported(f"The protocol domain '{domain}' is not defined in the schema.")
             for op in data['domains'][domain]:
-                if op not in utils.rse_supported_protocol_operations():
+                if op not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = data['domains'][domain][op]
