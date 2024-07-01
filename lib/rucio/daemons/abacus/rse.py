@@ -26,7 +26,7 @@ from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.rse_counter import fill_rse_counter_history_table, get_updated_rse_counters, update_rse_counter
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -36,7 +36,10 @@ graceful_stop = threading.Event()
 DAEMON_NAME = 'abacus-rse'
 
 
-def rse_update(once=False, sleep_time=10):
+def rse_update(
+        once: bool = False,
+        sleep_time: int = 10
+) -> None:
     """
     Main loop to check and update the RSE Counters.
     """
@@ -50,7 +53,10 @@ def rse_update(once=False, sleep_time=10):
     )
 
 
-def run_once(heartbeat_handler, **_kwargs):
+def run_once(
+        heartbeat_handler: HeartbeatHandler,
+        **_kwargs
+) -> None:
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     # Select a bunch of rses for to update for this worker
@@ -81,7 +87,12 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     graceful_stop.set()
 
 
-def run(once=False, threads=1, fill_history_table=False, sleep_time=10):
+def run(
+        once: bool = False,
+        threads: int = 1,
+        fill_history_table: bool = False,
+        sleep_time: int = 10
+) -> None:
     """
     Starts up the Abacus-RSE threads.
     """
@@ -95,12 +106,12 @@ def run(once=False, threads=1, fill_history_table=False, sleep_time=10):
         rse_update(once)
     else:
         logging.info('main: starting threads')
-        threads = [threading.Thread(target=rse_update, kwargs={'once': once, 'sleep_time': sleep_time}) for i in
-                   range(0, threads)]
+        thread_list = [threading.Thread(target=rse_update, kwargs={'once': once, 'sleep_time': sleep_time}) for i in
+                       range(0, threads)]
         if fill_history_table:
-            threads.append(get_thread_with_periodic_running_function(3600, fill_rse_counter_history_table, graceful_stop))
-        [t.start() for t in threads]
+            thread_list.append(get_thread_with_periodic_running_function(3600, fill_rse_counter_history_table, graceful_stop))
+        [t.start() for t in thread_list]
         logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+        while thread_list[0].is_alive():
+            [t.join(timeout=3.14) for t in thread_list]
