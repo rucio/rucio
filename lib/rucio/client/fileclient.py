@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from json import loads
+from typing import Any
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
@@ -26,7 +27,7 @@ class FileClient(BaseClient):
 
     BASEURL = 'files'
 
-    def list_file_replicas(self, scope, lfn):
+    def list_file_replicas(self, scope: str, lfn: str) -> list[dict[str, Any]]:
         """
         List file replicas.
 
