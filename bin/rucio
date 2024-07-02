@@ -1929,7 +1929,7 @@ To list the missing replica of a dataset of a given RSE-expression::
     list_file_replicas_parser.add_argument('--no-resolve-archives', dest='no_resolve_archives', default=False, action='store_true', help='Do not resolve archives which may contain the files.', required=False)
     list_file_replicas_parser.add_argument('--sort', dest='sort', default=None, action='store', help='Replica sort algorithm. Available options: geoip (default), random', required=False)
     list_file_replicas_parser.add_argument('--rses', dest='rses', default=None, action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
-            can be found in ' + Color.BOLD + 'http://rucio.cern.ch/documentation/rse_expressions/' + Color.END)
+            can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/concepts/rse_expressions' + Color.END)
 
     # The list-dataset-replicas command
     list_dataset_replicas_parser = subparsers.add_parser('list-dataset-replicas', help='List the dataset replicas.',
@@ -2431,13 +2431,13 @@ You can filter by account::
     list_rses_parser = subparsers.add_parser('list-rses', help='Show the list of all the registered Rucio Storage Elements (RSEs).')
     list_rses_parser.set_defaults(function=list_rses)
     list_rses_parser.add_argument('--rses', dest='rses', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
-can be found in ' + Color.BOLD + 'http://rucio.cern.ch/documentation/rse_expressions/' + Color.END)
+can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/concepts/rse_expressions' + Color.END)
 
     # The list-suspicious-replicas command
     list_suspicious_replicas_parser = subparsers.add_parser('list-suspicious-replicas', help='Show the list of all replicas marked "suspicious".')
     list_suspicious_replicas_parser.set_defaults(function=list_suspicious_replicas)
     list_suspicious_replicas_parser.add_argument('--expression', dest='rse_expression', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
-can be found in ' + Color.BOLD + 'http://rucio.cern.ch/documentation/rse_expressions/' + Color.END)
+can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/concepts/rse_expressions' + Color.END)
     list_suspicious_replicas_parser.add_argument('--younger_than', '--younger-than', new_option_string='--younger-than', dest='younger_than', action=StoreAndDeprecateWarningAction, help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00.')  # NOQA: E501
     list_suspicious_replicas_parser.add_argument('--nattempts', dest='nattempts', action='store', help='Minimum number of failed attempts to access a suspicious file.')
 
