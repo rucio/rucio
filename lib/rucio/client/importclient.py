@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
@@ -23,7 +25,7 @@ class ImportClient(BaseClient):
 
     IMPORT_BASEURL = 'import'
 
-    def import_data(self, data):
+    def import_data(self, data: dict[str, Any]) -> str:
         """
         Imports data into Rucio.
 
