@@ -185,11 +185,11 @@ def _list_rebalance_rule_candidates_dump(rse_id, mode=None, logger=logging.log):
     candidates = []
     rules = {}
     rse_dump_urls = __dump_url(rse_id=rse_id)
-    rse_dump_urls.reverse()
     resp = None
     if not rse_dump_urls:
         logger(logging.DEBUG, "URL of the dump was not built from template.")
         return candidates
+    rse_dump_urls.reverse()
     success = False
     while not success and len(rse_dump_urls):
         url = rse_dump_urls.pop()
