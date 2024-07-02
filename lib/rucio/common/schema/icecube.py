@@ -20,7 +20,8 @@ ACCOUNT_LENGTH = 25
 
 ACCOUNT = {"description": "Account name",
            "type": "string",
-           "pattern": "^[a-z0-9-_]{1,%s}$" % ACCOUNT_LENGTH}
+           "maxLength": ACCOUNT_LENGTH,
+           "pattern": "^[a-z0-9-_]+$"}
 
 ACCOUNTS = {"description": "Array of accounts",
             "type": "array",
@@ -46,7 +47,8 @@ SCOPE_LENGTH = 25
 
 SCOPE = {"description": "Scope name",
          "type": "string",
-         "pattern": "^[a-zA-Z_\\-.0-9]{1,%s}$" % SCOPE_LENGTH}
+         "maxLength": SCOPE_LENGTH,
+         "pattern": "^[a-zA-Z_\\-.0-9]+$"}
 
 R_SCOPE = {"description": "Scope name",
            "type": "string",
@@ -57,7 +59,8 @@ NAME_LENGTH = 500
 
 NAME = {"description": "IceCube Data Identifier name",
         "type": "string",
-        "pattern": r"^\/[A-Za-z0-9][A-Za-z0-9\\.\\-\\_\/\#]{1,%s}$" % NAME_LENGTH}
+        "maxLength": NAME_LENGTH,
+        "pattern": r"^\/[A-Za-z0-9][A-Za-z0-9\\.\\-\\_\/\#]*$"}
 
 # read name
 R_NAME = NAME
