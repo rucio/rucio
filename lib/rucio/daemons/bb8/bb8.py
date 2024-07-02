@@ -20,7 +20,7 @@ import functools
 import logging
 import socket
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from rucio.common.config import config_get_float
 from rucio.common.exception import InvalidRSEExpression
@@ -29,13 +29,11 @@ from rucio.core.heartbeat import list_payload_counts, sanity_check
 from rucio.core.rse import get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.bb8.common import get_active_locks, rebalance_rse
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 if TYPE_CHECKING:
     from types import FrameType
-    from typing import Optional
 
-    from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
 DAEMON_NAME = "rucio-bb8"
@@ -76,7 +74,7 @@ def rule_rebalancer(
 
 
 def run_once(
-    heartbeat_handler: "HeartbeatHandler",
+    heartbeat_handler: HeartbeatHandler,
     rse_expression: str,
     move_subscriptions: bool,
     use_dump: bool,
@@ -312,7 +310,7 @@ def run_once(
     return must_sleep
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
@@ -337,7 +335,7 @@ def run(
     hostname = socket.gethostname()
     sanity_check(executable=DAEMON_NAME, hostname=hostname)
     logging.info("BB8 starting %s threads", str(threads))
-    threads = [
+    thread_list = [
         threading.Thread(
             target=rule_rebalancer,
             kwargs={
@@ -349,7 +347,7 @@ def run(
         )
         for _ in range(0, threads)
     ]
-    [thread.start() for thread in threads]
+    [thread.start() for thread in thread_list]
     # Interruptible joins require a timeout.
-    while threads[0].is_alive():
-        [thread.join(timeout=3.14) for thread in threads]
+    while thread_list[0].is_alive():
+        [thread.join(timeout=3.14) for thread in thread_list]
