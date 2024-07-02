@@ -12,12 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.utils import build_url, render_json
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Mapping
 
 
 class LockClient(BaseClient):
@@ -26,7 +30,11 @@ class LockClient(BaseClient):
 
     LOCKS_BASEURL = 'locks'
 
-    def get_dataset_locks(self, scope, name):
+    def get_dataset_locks(
+            self,
+            scope: str,
+            name: str
+    ) -> "Iterator[dict[str, Any]]":
         """
         Get a dataset locks of the specified dataset.
 
@@ -46,7 +54,11 @@ class LockClient(BaseClient):
                                                    status_code=result.status_code)
             raise exc_cls(exc_msg)
 
-    def get_locks_for_dids(self, dids, **filter_args):
+    def get_locks_for_dids(
+            self,
+            dids: list["Mapping[str, Any]"],
+            **filter_args: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """
         Get list of locks for for all the files found, recursively, in the listed datasets or containers.
 
@@ -76,7 +88,7 @@ class LockClient(BaseClient):
                                                    status_code=result.status_code)
             raise exc_cls(exc_msg)
 
-    def get_dataset_locks_by_rse(self, rse):
+    def get_dataset_locks_by_rse(self, rse: str) -> "Iterator[dict[str, Any]]":
         """
         Get all dataset locks of the specified rse.
 
