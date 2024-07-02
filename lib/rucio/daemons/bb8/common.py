@@ -15,11 +15,11 @@
 import logging
 from datetime import date, datetime, timedelta
 from string import Template
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from requests import get
 from sqlalchemy import BigInteger, and_, cast, func, or_
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.expression import case, select
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
@@ -39,18 +39,25 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, LockState, RuleGrouping, RuleState
 from rucio.db.sqla.session import read_session, transactional_session
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from sqlalchemy.engine import Row
+
+    from rucio.common.types import LoggerFunction
+
 
 @transactional_session
 def rebalance_rule(
-    parent_rule,
-    activity,
-    rse_expression,
-    priority,
-    source_replica_expression="*\\bb8-enabled=false",
-    comment=None,
+    parent_rule: "Mapping[str, Any]",
+    activity: str,
+    rse_expression: str,
+    priority: int,
+    source_replica_expression: str = "*\\bb8-enabled=false",
+    comment: Optional[str] = None,
     *,
-    session,
-):
+    session: Session,
+) -> Optional[list[str]]:
     """
     Rebalance a replication rule to a new RSE
     :param parent_rule:                Replication rule to be rebalanced.
@@ -117,7 +124,10 @@ def rebalance_rule(
     return child_rule
 
 
-def __dump_url(rse_id, logger=logging.log):
+def __dump_url(
+        rse_id: str,
+        logger: "LoggerFunction" = logging.log
+) -> Union[list[str], Literal[False]]:
     """
     getting potential urls of the dump over last week
     :param rse_id:                     RSE where the dump is released.
@@ -173,7 +183,11 @@ def __dump_url(rse_id, logger=logging.log):
     return urls
 
 
-def _list_rebalance_rule_candidates_dump(rse_id, mode=None, logger=logging.log):
+def _list_rebalance_rule_candidates_dump(
+        rse_id: str,
+        mode: Optional[str] = None,
+        logger: "LoggerFunction" = logging.log
+) -> list[tuple]:
     """
     Download dump to temporary directory
     :param rse_id:                     RSE of the source.
@@ -251,7 +265,12 @@ def _list_rebalance_rule_candidates_dump(rse_id, mode=None, logger=logging.log):
 
 
 @transactional_session
-def list_rebalance_rule_candidates(rse_id, mode=None, *, session=None):
+def list_rebalance_rule_candidates(
+    rse_id: str,
+    mode: Optional[str] = None,
+    *,
+    session: Optional[Session] = None
+) -> Union[list[tuple], list["Row[tuple]"]]:
     """
     List the rebalance rule candidates based on the agreed on specification
     :param rse_id:       RSE of the source.
@@ -479,16 +498,16 @@ def list_rebalance_rule_candidates(rse_id, mode=None, *, session=None):
 
 @read_session
 def select_target_rse(
-    parent_rule: dict[str, Any],
+    parent_rule: "Mapping[str, Any]",
     current_rse_id: str,
     rse_expression: str,
     subscription_id: str,
-    rse_attributes: dict[str, Any],
-    other_rses: Optional[list[str]] = None,
+    rse_attributes: "Mapping[str, Any]",
+    other_rses: Optional["Sequence[str]"] = None,
     exclude_expression: Optional[str] = None,
     force_expression: Optional[str] = None,
     *,
-    session=None,
+    session: Optional[Session] = None,
 ) -> str:
     """
     Select a new target RSE for a rebalanced rule.
@@ -578,20 +597,20 @@ def select_target_rse(
 
 @transactional_session
 def rebalance_rse(
-    rse_id,
-    max_bytes=1e9,
-    max_files=None,
-    dry_run=False,
-    exclude_expression=None,
-    comment=None,
-    force_expression=None,
-    mode=None,
-    priority=3,
-    source_replica_expression="*\\bb8-enabled=false",
+    rse_id: str,
+    max_bytes: float = 1e9,
+    max_files: Optional[int] = None,
+    dry_run: bool = False,
+    exclude_expression: Optional[str] = None,
+    comment: Optional[str] = None,
+    force_expression: Optional[str] = None,
+    mode: Optional[str] = None,
+    priority: int = 3,
+    source_replica_expression: str = "*\\bb8-enabled=false",
     *,
-    session=None,
-    logger=logging.log,
-):
+    session: Optional[Session] = None,
+    logger: "LoggerFunction" = logging.log,
+) -> list[tuple]:
     """
     Rebalance data from an RSE
     :param rse_id:                     RSE to rebalance data from.
@@ -724,8 +743,11 @@ def rebalance_rse(
 
 
 @read_session
-def get_active_locks(*, session=None):
-    locks_dict = {}
+def get_active_locks(
+    *,
+    session: Optional[Session] = None
+) -> dict[str, dict[str, int]]:
+    locks_dict: dict[str, dict[str, int]] = {}
     rule_ids = (
         session.query(models.ReplicationRule.id)
         .filter(
