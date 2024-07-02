@@ -34,7 +34,7 @@ total_rebalance_volume = 0
 
 
 # groupdisks
-def group_space(site):
+def group_space(site: str) -> int:
     """
     groupdisks of given site
     contributing to primaries
