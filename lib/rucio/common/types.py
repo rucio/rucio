@@ -12,9 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from collections.abc import Callable
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal, Optional, TypedDict, Union
+
+if sys.version_info < (3, 11):
+    from typing_extensions import TYPE_CHECKING, Any, Literal, NotRequired, Optional, TypedDict, Union  # noqa: UP035
+else:
+    from typing import TYPE_CHECKING, Any, Literal, NotRequired, Optional, TypedDict, Union
+
 
 if TYPE_CHECKING:
     from rucio.common.constants import SUPPORTED_PROTOCOLS_LITERAL
@@ -193,6 +199,19 @@ class DIDDict(TypedDict):
     scope: InternalScope
 
 
+class DIDStringDict(TypedDict):
+    name: str
+    scope: str
+
+
+class DatasetDict(DIDStringDict):
+    rse: str
+
+
+class AttachDict(DatasetDict):
+    did: DIDStringDict
+
+
 class HopDict(TypedDict):
     source_rse_id: str
     source_scheme: "SUPPORTED_PROTOCOLS_LITERAL"
@@ -251,3 +270,73 @@ class AccountUsageModelDict(TypedDict):
     rse_id: str
     files: int
     bytes: int
+
+
+class TraceBaseDict(TypedDict):
+    hostname: str
+    account: str
+    eventType: str
+    eventVersion: str
+    vo: Optional[str]
+    uuid: NotRequired[str]
+    scope: NotRequired[str]
+    datasetScope: NotRequired[str]
+    dataset: NotRequired[str]
+    remoteSite: NotRequired[str]
+    filesize: NotRequired[int]
+    stateReason: NotRequired[str]
+    protocol: NotRequired[str]
+    clientState: NotRequired[str]
+    transferStart: NotRequired[float]
+    transferEnd: NotRequired[float]
+
+
+class TraceDict(TraceBaseDict):
+    uuid: str
+    scope: str
+    datasetScope: str
+    dataset: str
+    remoteSite: str
+    filesize: int
+    stateReason: str
+    protocol: str
+    clientState: str
+    transferStart: float
+    transferEnd: float
+
+
+class FileToUploadDict(TypedDict):
+    path: str
+    rse: str
+    did_scope: str
+    did_name: str
+    dataset_scope: NotRequired[str]
+    dataset_name: NotRequired[str]
+    dataset_meta: NotRequired[str]
+    impl: NotRequired[str]
+    force_scheme: NotRequired[str]
+    pfn: NotRequired[str]
+    no_register: NotRequired[bool]
+    register_after_upload: NotRequired[bool]
+    lifetime: NotRequired[int]
+    transfer_timeout: NotRequired[int]
+    guid: NotRequired[str]
+    recursive: NotRequired[bool]
+
+
+class FileToUploadWithCollectedInfoDict(FileToUploadDict):
+    basename: str
+    adler32: str
+    md5: str
+    meta: dict[str, str]
+    state: str
+    dataset_did_str: NotRequired[str]
+    dirname: str
+    upload_result: dict
+    bytes: int
+    basename: str
+
+
+class FileToUploadWithCollectedAndDatasetInfoDict(FileToUploadWithCollectedInfoDict):
+    dataset_scope: str
+    dataset_name: str
