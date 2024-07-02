@@ -39,7 +39,7 @@ from requests.status_codes import codes
 
 from rucio import version
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config import config_get, config_get_bool, config_get_int, config_has_section
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, ConfigNotFound, MissingClientParameter, MissingModuleException, NoAuthInformation, ServerConnectionException
 from rucio.common.extra import import_extras
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, setup_logger, ssh_sign
@@ -268,47 +268,77 @@ class BaseClient:
                 if self.auth_type in ['userpass', 'saml']:
                     creds['username'] = config_get('client', 'username')
                     creds['password'] = config_get('client', 'password')
+
                 elif self.auth_type == 'x509':
                     if "RUCIO_CLIENT_CERT" in environ:
                         client_cert = environ["RUCIO_CLIENT_CERT"]
                     else:
                         client_cert = config_get('client', 'client_cert')
-                    creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(client_cert)))
-                    if not path.exists(creds['client_cert']):
-                        raise MissingClientParameter('X.509 client certificate not found: %s' % creds['client_cert'])
+
+                    # only convert to absolute path if not empty, otherwise this will result in cwd being used
+                    if client_cert.strip() != "":
+                        creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(client_cert)))
+
+                    if 'client_cert' not in creds or not path.isfile(creds['client_cert']):
+                        raise MissingClientParameter('X.509 client certificate not found or not a file: %s' % creds['client_cert'])
 
                     if "RUCIO_CLIENT_KEY" in environ:
                         client_key = environ["RUCIO_CLIENT_KEY"]
                     else:
                         client_key = config_get('client', 'client_key')
-                    creds['client_key'] = path.abspath(path.expanduser(path.expandvars(client_key)))
-                    if not path.exists(creds['client_key']):
-                        raise MissingClientParameter('X.509 client key not found: %s' % creds['client_key'])
+
+                    if client_key.strip() != "":
+                        creds['client_key'] = path.abspath(path.expanduser(path.expandvars(client_key)))
+
+                    if "client_key" not in creds or not path.isfile(creds['client_key']):
+                        raise MissingClientParameter('X.509 client key not found or not a file: %s' % creds['client_key'])
                     else:
                         perms = oct(os.stat(creds['client_key']).st_mode)[-3:]
                         if perms not in ['400', '600']:
                             raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (required: 400 or 600, found: %s)' % (creds['client_key'], perms))
 
                 elif self.auth_type == 'x509_proxy':
-                    try:
-                        creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
-                    except NoOptionError:
-                        # Recreate the classic GSI logic for locating the proxy:
-                        # - $X509_USER_PROXY, if it is set.
-                        # - /tmp/x509up_u`id -u` otherwise.
-                        # If neither exists (at this point, we don't care if it exists but is invalid), then rethrow
-                        if 'X509_USER_PROXY' in environ:
-                            creds['client_proxy'] = environ['X509_USER_PROXY']
-                        else:
-                            fname = '/tmp/x509up_u%d' % geteuid()
-                            if path.exists(fname):
-                                creds['client_proxy'] = fname
-                            else:
-                                raise MissingClientParameter(
-                                    'Cannot find a valid X509 proxy; not in %s, $X509_USER_PROXY not set, and '
-                                    '\'x509_proxy\' not set in the configuration file.' % fname)
+
+                    # rucio speicific configuration takes precedence over GSI logic
+                    # environment variables take precedence over config values
+                    # So we check in order:
+                    # RUCIO_CLIENT_PROXY env variable
+                    # client.client_x509_proxy rucio cfg variable
+                    # X509_USER_PROXY env variable
+                    # /tmp/x509up_u`id -u` if exists
+
+                    gsi_proxy_path = '/tmp/x509up_u%d' % geteuid()
+
+                    if "RUCIO_CLIENT_PROXY" in environ:
+                        client_proxy = environ["RUCIO_CLIENT_PROXY"]
+                    elif config_has_section('client') and config_get('client', 'client_x509_proxy', default='') != '':
+                        client_proxy = config_get('client', 'client_x509_proxy')
+                    elif "X509_USER_PROXY" in environ:
+                        client_proxy = environ["X509_USER_PROXY"]
+                    elif path.isfile(gsi_proxy_path):
+                        client_proxy = gsi_proxy_path
+
+                    # only convert to absolute path if not empty, otherwise this will result in cwd being used
+                    if client_proxy.strip() != "":
+                        client_proxy = path.abspath(path.expanduser(path.expandvars(client_proxy)))
+
+                    if not path.isfile(client_proxy):
+                        raise MissingClientParameter(
+                            'Cannot find a valid X509 proxy; Checked $RUCIO_CLIENT_PROXY, $X509_USER_PROXY,'
+                            'client/client_x509_proxy configuration setting and default path: %s' % gsi_proxy_path
+                        )
+
+                    creds['client_proxy'] = client_proxy
                 elif self.auth_type == 'ssh':
-                    creds['ssh_private_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'ssh_private_key'))))
+                    ssh_private_key = config_get('client', 'ssh_private_key')
+                    if ssh_private_key.strip() != '':
+                        ssh_private_key = path.abspath(path.expanduser(path.expandvars(ssh_private_key)))
+
+                    if not path.isfile(ssh_private_key):
+                        raise CannotAuthenticate("Provided ssh private key %r does not exist", ssh_private_key)
+
+                    creds['ssh_private_key'] = ssh_private_key
+
             except (NoOptionError, NoSectionError) as error:
                 if error.args[0] != 'client_key':
                     raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
