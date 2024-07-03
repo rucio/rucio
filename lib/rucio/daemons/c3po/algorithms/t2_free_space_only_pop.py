@@ -61,7 +61,7 @@ class PlacementAlgorithm:
             decision['error_reason'] = 'already added replica for this did in the last 24h'
             return decision
 
-        if (not did[0].external.startswith('data')) and (not did[0].external.startswith('mc')):
+        if (did[0].external is not None) and (not did[0].external.startswith('data')) and (not did[0].external.startswith('mc')):
             decision['error_reason'] = 'not a data or mc dataset'
             return decision
 
