@@ -16,8 +16,13 @@
 Collector to get the SRM free and used information for DATADISK RSEs.
 """
 
+from typing import TYPE_CHECKING, Optional
+
 from rucio.db.sqla.models import RSEAttrAssociation, RSEUsage
 from rucio.db.sqla.session import read_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 class FreeSpaceCollector:
@@ -32,7 +37,11 @@ class FreeSpaceCollector:
             self.rses = {}
 
         @read_session
-        def _collect_free_space(self, *, session=None):
+        def _collect_free_space(
+            self,
+            *,
+            session: Optional["Session"] = None
+        ) -> None:
             """
             Retrieve free space from database
             """
@@ -48,14 +57,14 @@ class FreeSpaceCollector:
         if not FreeSpaceCollector.instance:
             FreeSpaceCollector.instance = FreeSpaceCollector._FreeSpaceCollector()
 
-    def collect_free_space(self):
+    def collect_free_space(self) -> None:
         """
         Execute the free space collector
         """
-        self.instance._collect_free_space()
+        self.instance._collect_free_space()  # type: ignore
 
-    def get_rse_space(self):
+    def get_rse_space(self) -> dict[str, dict[str, int]]:
         """
         Return the RSE space
         """
-        return self.instance.rses
+        return self.instance.rses  # type: ignore
