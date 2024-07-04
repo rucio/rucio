@@ -15,7 +15,6 @@
 import logging
 import threading
 from time import time
-from types import FrameType
 from typing import TYPE_CHECKING, Optional
 
 import rucio.db.sqla.util
@@ -24,22 +23,26 @@ from rucio.common.config import config_get_list
 from rucio.common.exception import RucioException
 from rucio.common.logging import setup_logging
 from rucio.core import transfer as transfer_core
-from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas, transition_requests_state_if_possible
+from rucio.core.request import RequestWithSources, list_and_mark_transfer_requests_and_source_replicas, transition_requests_state_if_possible
 from rucio.core.topology import ExpiringObjectCache, Topology
 from rucio.core.transfer import ProtocolFactory, build_transfer_paths, list_transfer_admin_accounts, prepare_transfers
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
 from rucio.db.sqla.constants import RequestState, RequestType
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from types import FrameType
+
     from sqlalchemy.orm import Session
 
+    from rucio.common.types import LoggerFunction
     from rucio.daemons.common import HeartbeatHandler
 
 GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'conveyor-preparer'
 
 
-def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
@@ -48,12 +51,12 @@ def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> Non
 
 
 def run(
-        once=False,
-        threads=1,
-        sleep_time=10,
-        bulk=100,
+        once: bool = False,
+        threads: int = 1,
+        sleep_time: int = 10,
+        bulk: int = 100,
         ignore_availability: bool = False
-):
+) -> None:
     """
     Running the preparer daemon either once or by default in a loop until stop is called.
     """
@@ -75,15 +78,15 @@ def run(
 
 
 def preparer(
-        once,
+        once: bool,
         sleep_time: int = 10,
         bulk: int = 100,
         ignore_availability: bool = False,
         partition_wait_time: int = 10,
-        transfertools=None,
-        cached_topology=None,
-        total_threads=1
-):
+        transfertools: Optional[list[str]] = None,
+        cached_topology: Optional[ExpiringObjectCache] = None,
+        total_threads: int = 1
+) -> None:
     # Make an initial heartbeat so that all instanced daemons have the correct worker number on the next try
     executable = DAEMON_NAME
     if not transfertools:
@@ -95,7 +98,11 @@ def preparer(
         executable=executable,
         partition_wait_time=partition_wait_time,
         sleep_time=sleep_time)
-    def _db_producer(*, activity: str, heartbeat_handler: "HeartbeatHandler"):
+    def _db_producer(
+        *,
+        activity: str,
+        heartbeat_handler: "HeartbeatHandler"
+    ) -> tuple[bool, tuple[Topology, dict[str, RequestWithSources]]]:
         return _fetch_requests(
             bulk=bulk,
             ignore_availability=ignore_availability,
@@ -104,7 +111,7 @@ def preparer(
             set_last_processed_by=not once,
         )
 
-    def _consumer(batch):
+    def _consumer(batch: tuple[Topology, "Mapping[str, RequestWithSources]"]) -> None:
         return _handle_requests(
             batch,
             transfertools=transfertools,
@@ -121,12 +128,12 @@ def preparer(
 def _fetch_requests(
         bulk: int,
         ignore_availability: bool,
-        cached_topology,
+        cached_topology: Optional[ExpiringObjectCache],
         heartbeat_handler: "HeartbeatHandler",
         set_last_processed_by: bool,
         *,
-        session: "Optional[Session]" = None,
-):
+        session: Optional["Session"] = None,
+) -> tuple[bool, tuple[Topology, dict[str, RequestWithSources]]]:
     worker_number, total_workers, logger = heartbeat_handler.live()
     topology = cached_topology.get() if cached_topology else Topology(ignore_availability=ignore_availability)
     topology.configure_multihop(logger=logger, session=session)
@@ -149,12 +156,12 @@ def _fetch_requests(
 
 
 def _handle_requests(
-        batch,
+        batch: tuple[Topology, "Mapping[str, RequestWithSources]"],
         *,
         transfertools: Optional[list[str]] = None,
         bulk: int = 100,
-        logger=logging.log,
-):
+        logger: "LoggerFunction" = logging.log,
+) -> None:
     topology, requests_with_sources = batch
 
     if not transfertools:

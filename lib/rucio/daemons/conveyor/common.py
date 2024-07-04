@@ -190,7 +190,7 @@ def __assign_to_transfertool(
 def assign_paths_to_transfertool_and_create_hops(
         candidate_paths_by_request_id: "Mapping[str, Sequence[DirectTransfer]]",
         default_tombstone_delay: int,
-        transfertools: "Optional[Sequence[str]]" = None,
+        transfertools: Optional["Sequence[str]"] = None,
         logger: "LoggerFunction" = logging.log,
 ) -> "tuple[dict[TransferToolBuilder, list[list[DirectTransfer]]], set[str]]":
     """
