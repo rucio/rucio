@@ -156,7 +156,7 @@ class PlacementAlgorithm:
             decision['error_reason'] = 'problems connecting to ES'
             return decision
 
-        if (last_accesses < self._min_recent_requests) and (pop < self._min_popularity):
+        if (last_accesses < self._min_recent_requests) and (decision['popularity'] < self._min_popularity):
             decision['error_reason'] = 'did not popular enough'
             return decision
 
