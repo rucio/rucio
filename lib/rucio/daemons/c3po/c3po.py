@@ -111,7 +111,8 @@ def read_dids(once=False, thread=0, did_collector=None, waiting_time=60, sleep_t
             sleep(sleep_time)
             continue
 
-        did_collector.get_dids()
+        if did_collector is not None:
+            did_collector.get_dids()
         timer = 0
 
 
