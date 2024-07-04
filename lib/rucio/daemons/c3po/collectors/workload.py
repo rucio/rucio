@@ -36,7 +36,10 @@ class WorkloadCollector:
         """
         Private class needed implement singleton.
         """
-        def __init__(self, delete_keys=False):
+        def __init__(
+                self,
+                delete_keys: bool = False
+        ):
             self._avg_jobs = {}
             self._cur_jobs = {}
             self._max_jobs = {}
@@ -48,7 +51,7 @@ class WorkloadCollector:
                 self._tms.delete_keys()
             self.reload_cache()
 
-        def reload_cache(self):
+        def reload_cache(self) -> None:
             self._tms.trim()
 
             for key in self._tms.get_keys():
@@ -60,7 +63,7 @@ class WorkloadCollector:
                     self._max_jobs[site] = max(job_series)
                     self._cur_jobs[site] = job_series[-1]
 
-        def collect_workload(self):
+        def collect_workload(self) -> None:
             start = time()
             resp = get(self._request_url, headers=self._request_headers)
             logging.debug("PanDA response took %fs" % (time() - start))
@@ -87,23 +90,23 @@ class WorkloadCollector:
         if not WorkloadCollector.instance:
             WorkloadCollector.instance = WorkloadCollector.__WorkloadCollector()
 
-    def get_avg_jobs(self, site):
-        return self.instance._avg_jobs[site]
+    def get_avg_jobs(self, site: str) -> float:
+        return self.instance._avg_jobs[site]  # type: ignore
 
-    def get_max_jobs(self, site):
-        return self.instance._max_jobs[site]
+    def get_max_jobs(self, site: str) -> int:
+        return self.instance._max_jobs[site]  # type: ignore
 
-    def get_cur_jobs(self, site):
-        return self.instance._cur_jobs[site]
+    def get_cur_jobs(self, site: str) -> int:
+        return self.instance._cur_jobs[site]  # type: ignore
 
-    def get_sites(self):
-        return list(self.instance._avg_jobs.keys())
+    def get_sites(self) -> list[str]:
+        return list(self.instance._avg_jobs.keys())  # type: ignore
 
-    def get_job_info(self, site):
+    def get_job_info(self, site: str) -> tuple[int, float, int]:
         return (self.get_cur_jobs(site), self.get_avg_jobs(site), self.get_max_jobs(site))
 
-    def get_series(self, site):
-        return self.instance._tms.get_series(site)
+    def get_series(self, site: str) -> tuple[int]:
+        return self.instance._tms.get_series(site)  # type: ignore
 
-    def collect_workload(self):
-        self.instance.collect_workload()
+    def collect_workload(self) -> None:
+        self.instance.collect_workload()  # type: ignore
