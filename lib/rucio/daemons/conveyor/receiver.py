@@ -22,8 +22,7 @@ import socket
 import threading
 import time
 import traceback
-from types import FrameType
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import stomp
 
@@ -39,6 +38,14 @@ from rucio.daemons.common import HeartbeatHandler
 from rucio.db.sqla.session import transactional_session
 from rucio.transfertool.fts3 import FTS3CompletionMessageTransferStatusReport
 
+if TYPE_CHECKING:
+    from types import FrameType
+
+    from sqlalchemy.orm import Session
+    from stomp.utils import Frame
+
+    from rucio.common.types import LoggerFunction
+
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 METRICS = MetricManager(module=__name__)
@@ -48,7 +55,14 @@ DAEMON_NAME = 'conveyor-receiver'
 
 class Receiver:
 
-    def __init__(self, broker, id_, total_threads, transfer_stats_manager: request_core.TransferStatsManager, all_vos=False):
+    def __init__(
+            self,
+            broker: str,
+            id_: str,
+            total_threads: int,
+            transfer_stats_manager: request_core.TransferStatsManager,
+            all_vos: bool = False
+    ):
         self.__all_vos = all_vos
         self.__broker = broker
         self.__id = id_
@@ -56,12 +70,12 @@ class Receiver:
         self._transfer_stats_manager = transfer_stats_manager
 
     @METRICS.count_it
-    def on_error(self, frame):
+    def on_error(self, frame: "Frame") -> None:
         logging.error('[%s] %s' % (self.__broker, frame.body))
 
     @METRICS.count_it
-    def on_message(self, frame):
-        msg = json.loads(frame.body)
+    def on_message(self, frame: "Frame") -> None:
+        msg = json.loads(frame.body)  # type: ignore
 
         if not self.__all_vos:
             if 'vo' not in msg or msg['vo'] != get_policy():
@@ -78,12 +92,18 @@ class Receiver:
                 self._perform_request_update(msg)
 
     @transactional_session
-    def _perform_request_update(self, msg, *, session=None, logger=logging.log):
+    def _perform_request_update(
+        self,
+        msg: dict[str, Any],
+        *,
+        session: Optional["Session"] = None,
+        logger: "LoggerFunction" = logging.log
+    ) -> None:
         external_host = msg.get('endpnt', None)
         request_id = msg['file_metadata'].get('request_id', None)
         try:
             tt_status_report = FTS3CompletionMessageTransferStatusReport(external_host, request_id=request_id, fts_message=msg)
-            if tt_status_report.get_db_fields_to_update(session=session, logger=logger):
+            if tt_status_report.get_db_fields_to_update(session=session, logger=logger):  # type: ignore
                 logging.info('RECEIVED %s', tt_status_report)
 
                 ret = transfer_core.update_transfer_state(
@@ -100,7 +120,11 @@ class Receiver:
             logging.critical(traceback.format_exc())
 
 
-def receiver(id_, total_threads=1, all_vos=False):
+def receiver(
+        id_: str,
+        total_threads: int = 1,
+        all_vos: bool = False
+) -> None:
     """
     Main loop to consume messages from the FTS3 producer.
     """
@@ -192,7 +216,7 @@ def receiver(id_, total_threads=1, all_vos=False):
                 pass
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
@@ -200,7 +224,10 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     GRACEFUL_STOP.set()
 
 
-def run(once=False, total_threads=1):
+def run(
+        once: bool = False,
+        total_threads: int = 1
+) -> None:
     """
     Starts up the receiver thread
     """
