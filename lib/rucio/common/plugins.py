@@ -124,12 +124,14 @@ class PolicyPackageAlgorithms:
             from rucio.common.utils import check_policy_package_version
 
             env_name = 'RUCIO_POLICY_PACKAGE' + ('' if not vo else '_' + vo.upper())
-            package = getattr(os.environ, env_name, "")
+            if env_name in os.environ:
+                package = os.environ[env_name]
             if not package:
                 package = str(config.config_get('policy', 'package' + ('' if not vo else '-' + vo)))
 
             check_policy_package_version(package)
             module = importlib.import_module(package)
+
 
             if hasattr(module, 'get_algorithms'):
                 all_algorithms = module.get_algorithms()
