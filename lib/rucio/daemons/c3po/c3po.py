@@ -122,7 +122,8 @@ def add_rule(client, did, src_rse, dst_rse):
     logging.debug(r)
 
 
-def place_replica(once=False,
+def place_replica(did_queue, 
+                  once=False,
                   thread=0,
                   did_queue=None,
                   waiting_time=100,
