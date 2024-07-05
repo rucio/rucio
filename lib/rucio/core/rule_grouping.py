@@ -473,7 +473,7 @@ def __apply_rule_to_files_dataset_grouping(
            dict[str, list[dict[str, models.ReplicaLock]]],
            list[dict[str, Any]]]:
     """
-    Apply a rule to files with ALL grouping.
+    Apply a rule to files with DATASET grouping.
 
     :param datasetfiles:       Dict holding all datasets and files.
     :param locks:              Dict holding all locks.
