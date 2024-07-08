@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,17 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import sys
-
-from rucio.client.bin.rucio_admin import main
-from rucio.client.commands.commands import main as command_main
-
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        if sys.argv[1] not in {"add", "unset", "remove", "list", "set", None, "-h"}:
-            # TODO Depreciation Map
-            main()
-        else:
-            command_main()
-    else:
-        command_main()
