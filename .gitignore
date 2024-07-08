@@ -50,7 +50,6 @@ docs/
 *.log
 *.pyc
 *.swp
-*.swp
 *~
 .venv
 lib/rucio/vcsversion.py
@@ -65,3 +64,6 @@ tools/test.file.1G
 
 # autotest logs/data
 /.autotest
+
+# JetBrains IDE
+.idea/
