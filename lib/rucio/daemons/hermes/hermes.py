@@ -561,127 +561,157 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     message_dict = {}
     message_ids = []
     start_time = time.time()
-    messages = retrieve_messages(
-        bulk=bulk,
-        old_mode=False,
-        thread=worker_number,
-        total_threads=total_workers,
-    )
-
-    to_delete = []
-    if messages:
-        for message in messages:
-            service = message["services"]
-            if service not in message_dict:
-                message_dict[service] = []
-            message_dict[service].append(message)
-            message_ids.append(message["id"])
-        logger(
-            logging.DEBUG,
-            "Retrieved %i messages retrieved in %s seconds",
-            len(messages),
-            time.time() - start_time,
+    # Default behaviour
+    if len(services_list) <= 1:
+        start_time = time.time()
+        messages = retrieve_messages(
+            bulk=bulk,
+            old_mode=False,
+            thread=worker_number,
+            total_threads=total_workers,
         )
 
-        if "influx" in message_dict and influx_endpoint:
-            # For influxDB, bulk submission, either everything succeeds or fails
-            t_time = time.time()
-            logger(logging.DEBUG, "Will submit to influxDB")
-            try:
-                state = aggregate_to_influx(
-                    messages=message_dict["influx"],
-                    bin_size="1m",
-                    endpoint=influx_endpoint,
-                    logger=logger,
-                )
-                if state in [204, 200]:
-                    logger(
-                        logging.INFO,
-                        "%s messages successfully submitted to influxDB in %s seconds",
-                        len(message_dict["influx"]),
-                        time.time() - t_time,
-                    )
-                    for message in message_dict["influx"]:
-                        to_delete.append(message)
-                else:
-                    logger(
-                        logging.ERROR,
-                        "Failure to submit %s messages to influxDB. Returned status: %s",
-                        len(message_dict["influx"]),
-                        state,
-                    )
-            except Exception as error:
-                logger(logging.ERROR, "Error sending to InfluxDB : %s", str(error))
+        to_delete = []
+        if messages:
+            for message in messages:
+                service = message["services"]
+                if service not in message_dict:
+                    message_dict[service] = []
+                message_dict[service].append(message)
+                message_ids.append(message["id"])
+            logger(
+                logging.DEBUG,
+                "Retrieved %i messages retrieved in %s seconds",
+                len(messages),
+                time.time() - start_time,
+            )
 
-        if "elastic" in message_dict and elastic_endpoint:
-            # For elastic, bulk submission, either everything succeeds or fails
-            t_time = time.time()
-            try:
-                state = submit_to_elastic(
-                    messages=message_dict["elastic"],
-                    endpoint=elastic_endpoint,
-                    logger=logger,
-                )
-                if state in [200, 204]:
-                    logger(
-                        logging.INFO,
-                        "%s messages successfully submitted to elastic in %s seconds",
-                        len(message_dict["elastic"]),
-                        time.time() - t_time,
-                    )
-                    for message in message_dict["elastic"]:
-                        to_delete.append(message)
-                else:
-                    logger(
-                        logging.ERROR,
-                        "Failure to submit %s messages to elastic. Returned status: %s",
-                        len(message_dict["elastic"]),
-                        state,
-                    )
-            except Exception as error:
-                logger(logging.ERROR, "Error sending to Elastic : %s", str(error))
+    # Multiple services in services_list
+    else:
+        for service in services_list:
+            message_dict[service] = []
+            start_time = time.time()
+            messages = retrieve_messages(
+                bulk=bulk,
+                old_mode=False,
+                thread=worker_number,
+                total_threads=total_workers,
+                service_filter=service
+            )
 
-        if "email" in message_dict:
-            t_time = time.time()
-            try:
-                messages_sent = deliver_emails(
-                    messages=message_dict["email"], logger=logger
+            to_delete = []
+            if messages:
+                for message in messages:
+                    message_dict[service].append(message)
+                    message_ids.append(message["id"])
+                logger(
+                    logging.DEBUG,
+                    "Retrieved %i messages retrieved in %s seconds for %s services",
+                    len(messages),
+                    time.time() - start_time,
+                    services_list,
                 )
+
+    # seperate this delivery from the retrieving of messages
+    if "influx" in message_dict and influx_endpoint:
+        # For influxDB, bulk submission, either everything succeeds or fails
+        t_time = time.time()
+        logger(logging.DEBUG, "Will submit to influxDB")
+        try:
+            state = aggregate_to_influx(
+                messages=message_dict["influx"],
+                bin_size="1m",
+                endpoint=influx_endpoint,
+                logger=logger,
+            )
+            if state in [204, 200]:
                 logger(
                     logging.INFO,
-                    "%s messages successfully submitted by emails in %s seconds",
-                    len(message_dict["email"]),
+                    "%s messages successfully submitted to influxDB in %s seconds",
+                    len(message_dict["influx"]),
                     time.time() - t_time,
                 )
-                for message in message_dict["email"]:
-                    if message["id"] in messages_sent:
-                        to_delete.append(message)
-            except Exception as error:
-                logger(logging.ERROR, "Error sending email : %s", str(error))
-
-        if "activemq" in message_dict and conns:
-            t_time = time.time()
-            try:
-                messages_sent = deliver_to_activemq(
-                    messages=message_dict["activemq"],
-                    conns=conns,
-                    destination=destination,
-                    username=username,
-                    password=password,
-                    use_ssl=use_ssl,
-                    logger=logger,
+                for message in message_dict["influx"]:
+                    to_delete.append(message)
+            else:
+                logger(
+                    logging.ERROR,
+                    "Failure to submit %s messages to influxDB. Returned status: %s",
+                    len(message_dict["influx"]),
+                    state,
                 )
+        except Exception as error:
+            logger(logging.ERROR, "Error sending to InfluxDB : %s", str(error))
+
+    if "elastic" in message_dict and elastic_endpoint:
+        # For elastic, bulk submission, either everything succeeds or fails
+        t_time = time.time()
+        try:
+            state = submit_to_elastic(
+                messages=message_dict["elastic"],
+                endpoint=elastic_endpoint,
+                logger=logger,
+            )
+            if state in [200, 204]:
                 logger(
                     logging.INFO,
-                    "%s messages successfully submitted to ActiveMQ in %s seconds",
-                    len(message_dict["activemq"]),
+                    "%s messages successfully submitted to elastic in %s seconds",
+                    len(message_dict["elastic"]),
                     time.time() - t_time,
                 )
-                for message in message_dict["activemq"]:
-                    if message["id"] in messages_sent:
-                        to_delete.append(message)
-            except Exception as error:
-                logger(logging.ERROR, "Error sending to ActiveMQ : %s", str(error))
+                for message in message_dict["elastic"]:
+                    to_delete.append(message)
+            else:
+                logger(
+                    logging.ERROR,
+                    "Failure to submit %s messages to elastic. Returned status: %s",
+                    len(message_dict["elastic"]),
+                    state,
+                )
+        except Exception as error:
+            logger(logging.ERROR, "Error sending to Elastic : %s", str(error))
+
+    if "email" in message_dict:
+        t_time = time.time()
+        try:
+            messages_sent = deliver_emails(
+                messages=message_dict["email"], logger=logger
+            )
+            logger(
+                logging.INFO,
+                "%s messages successfully submitted by emails in %s seconds",
+                len(message_dict["email"]),
+                time.time() - t_time,
+            )
+            for message in message_dict["email"]:
+                if message["id"] in messages_sent:
+                    to_delete.append(message)
+        except Exception as error:
+            logger(logging.ERROR, "Error sending email : %s", str(error))
+
+    if "activemq" in message_dict and conns:
+        t_time = time.time()
+        try:
+            messages_sent = deliver_to_activemq(
+                messages=message_dict["activemq"],
+                conns=conns,
+                destination=destination,
+                username=username,
+                password=password,
+                use_ssl=use_ssl,
+                logger=logger,
+            )
+            logger(
+                logging.INFO,
+                "%s messages successfully submitted to ActiveMQ in %s seconds",
+                len(message_dict["activemq"]),
+                time.time() - t_time,
+            )
+            for message in message_dict["activemq"]:
+                if message["id"] in messages_sent:
+                    to_delete.append(message)
+        except Exception as error:
+            logger(logging.ERROR, "Error sending to ActiveMQ : %s", str(error))
 
     logger(logging.INFO, "Deleting %s messages", len(to_delete))
     to_delete = [
