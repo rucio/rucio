@@ -71,7 +71,7 @@ def get_rses_to_process(
         include_rses: Optional[str],
         exclude_rses: Optional[str],
         vos: Optional["Sequence[str]"]
-) -> list[dict[str, Any]]:
+) -> Optional[list[dict[str, Any]]]:
     """
     Return the list of RSEs to process based on rses, include_rses and exclude_rses
 
@@ -128,7 +128,7 @@ def get_rses_to_process(
         excluded_rses = parse_expression(exclude_rses)
         rses_to_process = [rse for rse in rses_to_process if rse not in excluded_rses]
 
-    REGION.set(cache_key, rses)
+    REGION.set(cache_key, rses_to_process)
     logging.log(logging.INFO, 'Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses_to_process]))
     return rses_to_process
 
@@ -471,10 +471,11 @@ def run_once(
             return must_sleep
 
     rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
-    rses_to_process = [RseData(id_=rse['id'], name=rse['rse'], columns=rse) for rse in rses_to_process]
     if not rses_to_process:
         logger(logging.ERROR, 'Reaper: No RSEs found. Will sleep for 30 seconds')
         return must_sleep
+    else:
+        rses_to_process = [RseData(id_=rse['id'], name=rse['rse'], columns=rse) for rse in rses_to_process]
 
     # On big deletion campaigns, we desire to re-iterate fast on RSEs which have a lot of data to delete.
     # The called function will return the RSEs which have more work remaining.
