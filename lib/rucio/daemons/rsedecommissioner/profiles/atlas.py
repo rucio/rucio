@@ -15,7 +15,6 @@
 """ATLAS-specific decommissioning profiles."""
 
 import logging
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from rucio.core.did import get_metadata
@@ -23,6 +22,8 @@ from rucio.core.did import get_metadata
 from .generic import _call_for_attention, generic_move
 
 if TYPE_CHECKING:
+    from rucio.common.types import LoggerFunction
+
     from .types import DecommissioningProfile
 
 
@@ -53,7 +54,7 @@ def _is_log_file(
     rule: dict[str, Any],
     rse: dict[str, Any],
     *,
-    logger: Callable[..., None] = logging.log
+    logger: "LoggerFunction" = logging.log
 ) -> bool:
     """Check if the datatype metadata is 'log'."""
     return get_metadata(rule['scope'], rule['name'])['datatype'] == 'log'
