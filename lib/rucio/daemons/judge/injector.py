@@ -23,7 +23,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from random import randint
 from re import match
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.exc import DatabaseError
 
@@ -32,19 +32,21 @@ from rucio.common.exception import DatabaseException, InsufficientAccountLimit, 
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.rule import get_injected_rules, inject_rule, update_rule
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import HeartbeatHandler, run_daemon
 from rucio.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX
 
 if TYPE_CHECKING:
     from types import FrameType
-    from typing import Optional
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 DAEMON_NAME = 'judge-injector'
 
 
-def rule_injector(once=False, sleep_time=60):
+def rule_injector(
+        once: bool = False,
+        sleep_time: int = 60
+) -> None:
     """
     Main loop to check for asynchronous creation of replication rules
     """
@@ -62,7 +64,11 @@ def rule_injector(once=False, sleep_time=60):
     )
 
 
-def run_once(paused_rules, heartbeat_handler, **_kwargs):
+def run_once(
+        paused_rules: dict[str, datetime],
+        heartbeat_handler: HeartbeatHandler,
+        **_kwargs
+) -> None:
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     start = time.time()
@@ -123,7 +129,7 @@ def run_once(paused_rules, heartbeat_handler, **_kwargs):
             update_rule(rule_id=rule_id, options={'state': 'SUSPENDED'})
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
@@ -131,7 +137,11 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     graceful_stop.set()
 
 
-def run(once=False, threads=1, sleep_time=60):
+def run(
+        once: bool = False,
+        threads: int = 1,
+        sleep_time: int = 60
+) -> None:
     """
     Starts up the Judge-Injector threads.
     """
@@ -144,9 +154,9 @@ def run(once=False, threads=1, sleep_time=60):
         rule_injector(once)
     else:
         logging.info('Injector starting %s threads' % str(threads))
-        threads = [threading.Thread(target=rule_injector, kwargs={'once': once,
-                                                                  'sleep_time': sleep_time}) for i in range(0, threads)]
-        [t.start() for t in threads]
+        thread_list = [threading.Thread(target=rule_injector, kwargs={'once': once,
+                                                                      'sleep_time': sleep_time}) for i in range(0, threads)]
+        [t.start() for t in thread_list]
         # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+        while thread_list[0].is_alive():
+            [t.join(timeout=3.14) for t in thread_list]
