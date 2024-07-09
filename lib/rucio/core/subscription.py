@@ -23,7 +23,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, NoResultFound, StatementError
 from sqlalchemy.orm import aliased
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get_bool
 from rucio.common.exception import RucioException, SubscriptionDuplicate, SubscriptionNotFound
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import SubscriptionState
@@ -78,7 +78,7 @@ def add_subscription(name: str,
     :returns:                  The subscriptionid
     """
     try:
-        keep_history = config_get('subscriptions', 'keep_history')
+        keep_history = config_get_bool('subscriptions', 'keep_history')
     except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
 
@@ -109,7 +109,9 @@ def add_subscription(name: str,
                                                    lifetime=new_subscription.lifetime,
                                                    retroactive=new_subscription.retroactive,
                                                    policyid=new_subscription.policyid,
-                                                   comments=new_subscription.comments)
+                                                   comments=new_subscription.comments,
+                                                   created_at=datetime.datetime.utcnow(),
+                                                   updated_at=datetime.datetime.utcnow())
     try:
         new_subscription.save(session=session)
         if keep_history:
@@ -146,7 +148,7 @@ def update_subscription(name: str,
     :raises: SubscriptionNotFound if subscription is not found
     """
     try:
-        keep_history = config_get('subscriptions', 'keep_history')
+        keep_history = config_get_bool('subscriptions', 'keep_history')
     except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
     values = {'state': SubscriptionState.UPDATED}
@@ -196,7 +198,7 @@ def update_subscription(name: str,
                                                        comments=subscription.comments,
                                                        last_processed=subscription.last_processed,
                                                        expired_at=subscription.expired_at,
-                                                       updated_at=subscription.updated_at,
+                                                       updated_at=datetime.datetime.utcnow(),
                                                        created_at=subscription.created_at)
             subscription_history.save(session=session)
     except NoResultFound:
