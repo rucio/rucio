@@ -34,6 +34,8 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
+    from rucio.common.types import InternalScope
+
 
 class DidColumnMeta(DidMetaPlugin):
     """
@@ -280,6 +282,17 @@ class DidColumnMeta(DidMetaPlugin):
         :param key: Key of the metadata.
         """
         raise NotImplementedError('The DidColumnMeta plugin does not currently support deleting metadata.')
+
+    def on_delete(self, scope: "InternalScope", name: str, archive: bool = False, session: "Optional[Session]" = None) -> None:
+        """
+        Method called when a did is deleted.
+
+        :param scope: The scope of the did.
+        :param name: The name of the did.
+        :param archive: Flag to indicate if the metadata should be archived when the did is deleted.
+        :param session: The database session in use.
+        """
+        pass
 
     def manages_key(self, key, *, session: "Optional[Session]" = None):
         # Build list of which keys are managed by this plugin.

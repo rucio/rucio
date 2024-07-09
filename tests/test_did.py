@@ -40,11 +40,12 @@ from rucio.core.did import (
     set_status,
     touch_dids,
 )
+from rucio.core.did_meta_plugins.json_meta import JSONDidMeta
 from rucio.core.replica import add_replica, get_replica
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.util import json_implemented
 from rucio.gateway import did, scope
-from rucio.tests.common import did_name_generator, rse_name_generator, scope_name_generator
+from rucio.tests.common import did_name_generator, rse_name_generator, scope_name_generator, skip_without_json
 
 
 def skip_without_json():
@@ -67,7 +68,18 @@ class TestDIDCore:
                  'did_type': DIDType.DATASET} for i in range(5)]
         for dsn in dsns:
             add_did(scope=mock_scope, name=dsn['name'], did_type='DATASET', account=root_account)
+            meta = get_metadata(scope=mock_scope, name=dsn['name'])
+            assert isinstance(meta, dict)
+            assert meta != {}
         delete_dids(dids=dsns, account=root_account)
+        for dsn in dsns:
+            with pytest.raises(DataIdentifierNotFound):
+                get_metadata(scope=mock_scope, name=dsn['name'])
+        if json_implemented():
+            j = JSONDidMeta()
+            for dsn in dsns:
+                with pytest.raises(DataIdentifierNotFound):
+                    j.get_metadata_archived(dsn['scope'], dsn['name'])
 
     def test_touch_dids_atime(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Touch dids accessed_at timestamp"""
