@@ -21,12 +21,15 @@ import socket
 import threading
 import time
 from collections.abc import Callable, Generator, Iterator, Sequence
-from typing import Any, Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
 
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import PriorityQueue
 from rucio.core import heartbeat as heartbeat_core
 from rucio.core.monitor import MetricManager
+
+if TYPE_CHECKING:
+    from rucio.common.types import LoggerFunction
 
 T = TypeVar('T')
 METRICS = MetricManager(module=__name__)
@@ -57,28 +60,32 @@ class HeartbeatHandler:
         self.last_time = None
         self.last_payload = None
 
-    def __enter__(self):
+    def __enter__(self) -> 'HeartbeatHandler':
         heartbeat_core.sanity_check(executable=self.executable, hostname=self.hostname)
         self.live()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         if self.last_heart_beat:
             heartbeat_core.die(self.executable, self.hostname, self.pid, self.hb_thread)
             if self.logger:
                 self.logger(logging.INFO, 'Heartbeat cleaned up')
 
     @property
-    def hash_executable(self):
+    def hash_executable(self) -> str:
         if not self._hash_executable:
             self._hash_executable = heartbeat_core.calc_hash(self.executable)
         return self._hash_executable
 
     @property
-    def short_executable(self):
+    def short_executable(self) -> str:
         return min(self.executable, self.hash_executable, key=len)
 
-    def live(self, force_renew: bool = False, payload: Optional[str] = None):
+    def live(
+            self,
+            force_renew: bool = False,
+            payload: Optional[str] = None
+    ) -> tuple[int, int, Callable]:
         """
         :return: a tuple: <the number of the current worker>, <total number of workers>, <decorated logger>
         """
@@ -170,7 +177,18 @@ def db_workqueue(
         partition_wait_time: int,
         sleep_time: int,
         activities: Optional[Sequence[str]] = None,
-):
+) -> Callable[
+    [
+        Callable[
+            ...,
+            Union[bool, tuple[bool, T], None]
+        ]
+    ],
+    Callable[
+        [],
+        Iterator[Union[T, None]]
+    ]
+]:
     """
     Used to wrap a function for interacting with the database as a work queue: i.e. to select
     a set of rows and perform some work on those rows while ensuring that two instances running in parallel don't
@@ -188,7 +206,7 @@ def db_workqueue(
     def _decorate(run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, T]]]]) -> Callable[[], Iterator[Optional[T]]]:
 
         @functools.wraps(run_once_fnc)
-        def _generator():
+        def _generator() -> Iterator[T]:
 
             with HeartbeatHandler(executable=executable, renewal_interval=sleep_time - 1) as heartbeat_handler:
                 logger = heartbeat_handler.logger
@@ -253,7 +271,8 @@ def run_daemon(
         partition_wait_time: int,
         sleep_time: int,
         run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, Any]]]],
-        activities: Optional[list[str]] = None):
+        activities: Optional[list[str]] = None
+) -> None:
     """
     Run the daemon loop and call the function run_once_fnc at each iteration
     """
@@ -276,7 +295,13 @@ class ProducerConsumerDaemon(Generic[T]):
     Daemon which connects N producers with M consumers via a queue.
     """
 
-    def __init__(self, producers, consumers, graceful_stop, logger=logging.log):
+    def __init__(
+            self,
+            producers: Sequence[Callable[[], Iterator[T]]],
+            consumers: Sequence[Callable[..., None]],
+            graceful_stop: threading.Event,
+            logger: "LoggerFunction" = logging.log
+    ):
         self.producers = producers
         self.consumers = consumers
 
@@ -291,7 +316,7 @@ class ProducerConsumerDaemon(Generic[T]):
             self,
             it: Callable[[], Iterator[T]],
             wait_for_consumers: bool = False
-    ):
+    ) -> None:
         """
         Iterate over the generator function and put the extracted elements into the queue.
 
@@ -327,7 +352,7 @@ class ProducerConsumerDaemon(Generic[T]):
     def _consume(
             self,
             fnc: Callable[[T], Any]
-    ):
+    ) -> None:
         """
         Wait for elements to arrive via the queue and call the given function on each element.
 
@@ -348,9 +373,9 @@ class ProducerConsumerDaemon(Generic[T]):
             finally:
                 self.queue.task_done()
 
-    def run(self):
+    def run(self) -> None:
 
-        producer_threads = []
+        producer_threads: list[threading.Thread] = []
         for i, producer in enumerate(self.producers):
             thread = threading.Thread(
                 target=self._produce,
@@ -363,7 +388,7 @@ class ProducerConsumerDaemon(Generic[T]):
             thread.start()
             producer_threads.append(thread)
 
-        consumer_threads = []
+        consumer_threads: list[threading.Thread] = []
         for i, consumer in enumerate(self.consumers):
             thread = threading.Thread(
                 target=self._consume,
