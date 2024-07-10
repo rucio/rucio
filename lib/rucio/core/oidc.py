@@ -20,7 +20,7 @@ import traceback
 from datetime import datetime, timedelta
 from math import floor
 from secrets import choice
-from typing import TYPE_CHECKING, Any, Final, Optional
+from typing import TYPE_CHECKING, Any, Final, Optional, Union
 from urllib.parse import parse_qs, urljoin, urlparse
 
 import requests
@@ -474,7 +474,12 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
 
 
 @transactional_session
-def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"):
+def get_token_oidc(
+    auth_query_string: str,
+    ip: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional[dict[str, Optional[Union[str, bool]]]]:
     """
     After Rucio User got redirected to Rucio /auth/oidc_token (or /auth/oidc_code)
     REST endpoints with authz code and session state encoded within the URL.
@@ -1005,7 +1010,7 @@ def __change_refresh_state(token: str, refresh: bool = False, *, session: "Sessi
 
 
 @transactional_session
-def refresh_cli_auth_token(token_string: str, account: str, *, session: "Session"):
+def refresh_cli_auth_token(token_string: str, account: str, *, session: "Session") -> Optional[tuple[str, int]]:
     """
     Checks if there is active refresh token and if so returns
     either active token with expiration timestamp or requests a new
