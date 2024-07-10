@@ -101,7 +101,7 @@ class TestSubscriptionCoreGateway:
         {"overrides": [('subscriptions', 'keep_history', 'True')]},
     ], indirect=True)
     def test_keep_history_subscription(self, vo, rse_factory, file_config_mock):
-        """ SUBSCRIPTION (CLIENT): Test the keep_history oprtion """
+        """ SUBSCRIPTION (CLIENT): Test the keep_history option """
         subscription_name = uuid()
         rse1, _ = rse_factory.make_mock_rse()
         rse2, _ = rse_factory.make_mock_rse()
