@@ -1509,7 +1509,7 @@ class SubscriptionHistory(BASE, ModelBase):
     retroactive: Mapped[bool] = mapped_column(Boolean(name='SUBS_HISTORY_RETROACTIVE_CHK', create_constraint=True),
                                               default=False)
     expired_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    _table_args = (PrimaryKeyConstraint('id', 'updated_at', name='SUBSCRIPTIONS_PK'),)
+    _table_args = (PrimaryKeyConstraint('id', 'updated_at', name='SUBSCRIPTIONS_HISTORY_PK'),)
 
 
 class Token(BASE, ModelBase):

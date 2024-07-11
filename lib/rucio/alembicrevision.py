@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ALEMBIC_REVISION = 'a08fa8de1545'  # the current alembic head revision
+ALEMBIC_REVISION = 'b5493606bbf5'  # the current alembic head revision
