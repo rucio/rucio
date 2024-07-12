@@ -24,6 +24,8 @@ if TYPE_CHECKING:
 
 
 class CLIClientBase(ABC):
+    PARSER_NAME = ""
+
     def __init__(self, client: "Client", args: "Namespace", logger: "Logger") -> None:
         self.COMMAND_NAME = sys.argv[0].split("/")[-1]
         self.client = client
@@ -69,7 +71,7 @@ class CLIClientBase(ABC):
 
     @abstractmethod
     def parser(self, subparser: "_SubParsersAction[ArgumentParser]") -> "ArgumentParser":
-        parser_name = self.__class__.__name__.lower() if not hasattr(self, "PARSER_NAME") else self.PARSER_NAME
+        parser_name = self.__class__.__name__.lower() if self.PARSER_NAME == "" else self.PARSER_NAME
 
         command_parser = subparser.add_parser(parser_name, description=self._help(), help=self.module_help(), formatter_class=RawDescriptionHelpFormatter)
         return command_parser

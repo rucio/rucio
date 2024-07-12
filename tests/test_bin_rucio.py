@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import configparser
 import json
 import os
 import random
@@ -34,7 +35,113 @@ from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid, get_tmp_dir, md5, render_json
 from rucio.rse import rsemanager as rsemgr
-from rucio.tests.common import account_name_generator, execute, file_generator, get_long_vo, rse_name_generator, scope_name_generator
+from rucio.tests.common import account_name_generator, did_name_generator, execute, file_generator, get_long_vo, rse_name_generator, scope_name_generator
+
+
+@pytest.fixture
+def client_rse_factory(rse_client):
+    """
+    Makes an rse factory that does not require a new db session
+    """
+    class MockRSEFactory:
+        @staticmethod
+        def make_posix_rse():
+            rse_name = rse_name_generator()
+            rse_client.add_rse(rse_name)
+            def_rse_id = rse_client.get_rse(rse=rse_name)['id']
+
+            protocol_parameters = {
+                'scheme': "file",
+                'hostname': '%s.cern.ch' % def_rse_id,
+                'port': 0,
+                'prefix': '/test_%s/' % def_rse_id,
+                'impl': 'rucio.rse.protocols.posix.Default',
+                'domains': {
+                    'wan': {
+                        'read': 1,
+                        'write': 1,
+                        'delete': 1,
+                        'third_party_copy_read': 1,
+                        'third_party_copy_write': 1,
+                    },
+                    'lan': {
+                        'read': 1,
+                        'write': 1,
+                        'delete': 1,
+                    }
+                }
+            }
+            rse_client.add_protocol(rse_name, protocol_parameters)
+            return rse_name, def_rse_id
+
+    yield MockRSEFactory
+
+
+@pytest.fixture
+def client_dataset_factory(file_factory, rucio_client, mock_scope, vo):
+    """Make and upload a dataset without a db session"""
+    class MockDatasetFactory:
+        @staticmethod
+        def upload_test_dataset(rse_name, name=None, scope=None, size=2, nb_files=2):
+            from rucio.client.uploadclient import UploadClient
+
+            if not scope:
+                scope = mock_scope
+            elif isinstance(scope, str):
+                scope = InternalScope(scope, vo=vo)
+
+            dataset_name = did_name_generator('dataset')
+            upload_items = []
+            dataset_files = []
+
+            for _ in range(0, nb_files):
+
+                path = file_factory.file_generator(size=size)
+                name = did_name_generator('file')
+
+                dataset_files.append({
+                    "name": name,
+                    "scope": scope,
+                    "bytes": 1})
+                upload_items.append({
+                    'path': path,
+                    'rse': rse_name,
+                    'dataset_scope': str(scope),
+                    'dataset_name': dataset_name,
+                    'did_scope': str(scope),
+                    'did_name': name,
+                    'guid': generate_uuid()})
+
+            UploadClient(rucio_client).upload(upload_items)
+            return upload_items
+
+    yield MockDatasetFactory
+
+
+@pytest.fixture
+def client_file_factory(request, vo, mock_scope, function_scope_prefix, file_factory, root_account):
+    from .temp_factories import TemporaryDidFactory
+
+    class TempFileFactory(TemporaryDidFactory):
+        def cleanup(self, session=None):
+            try:
+                return super().cleanup(session)
+            except configparser.NoSectionError:
+                pass
+
+    session = None
+    if 'db_session' in request.fixturenames:
+        session = request.getfixturevalue('db_session')
+
+    with TempFileFactory(
+        vo=vo,
+        default_scope=mock_scope,
+        name_prefix=function_scope_prefix,
+        file_factory=file_factory,
+        default_account=root_account,
+        db_session=session
+    ) as factory:
+        yield factory
 
 
 class TestBinRucio:
@@ -2479,8 +2586,8 @@ class TestBinTranslations:
         _, new_out, _ = execute(cmd)
         assert out == new_out
 
-    def test_account_limits(self, jdoe_account, rse_factory):
-        mock_rse, _ = rse_factory.make_posix_rse()
+    def test_account_limits(self, jdoe_account, client_rse_factory):
+        mock_rse, _ = client_rse_factory.make_posix_rse()
         cmd = f"rucio-admin account get_limits {jdoe_account} {mock_rse}"
         _, out, _ = execute(cmd)
         cmd = f"rucio list account limits --acount-name {jdoe_account} --rse {mock_rse}"
@@ -2569,8 +2676,8 @@ class TestBinTranslations:
         assert exitcode == 0
         assert "ERROR" not in err
 
-    def test_attach_did(self, did_factory, rse_factory):
-        did = did_factory.random_file_did()
+    def test_attach_did(self, client_file_factory, client_dataset_factory, client_rse_factory):
+        did = client_file_factory.random_file_did()
         scope, name = did['scope'], did['name']
         cmd = f"rucio list did attachment --did {scope}:{name} --child"
         exitcode, out, err = execute(cmd)
@@ -2583,8 +2690,8 @@ class TestBinTranslations:
         assert out != ''
         assert 'ERROR' not in err
 
-        mock_rse, _ = rse_factory.make_posix_rse()
-        dids = did_factory.upload_test_dataset(mock_rse)
+        mock_rse, _ = client_rse_factory.make_posix_rse()
+        dids = client_dataset_factory.upload_test_dataset(mock_rse)
 
         scope = dids[0]['dataset_scope']
         dataset = dids[0]['dataset_name']
@@ -2597,30 +2704,27 @@ class TestBinTranslations:
 
         cmd = f"rucio add did attachment --target {scope}:{dataset} --did {scope}:{test_did}"
         exitcode, _, err = execute(cmd)
-        print(err)
         assert exitcode == 0
         assert "ERROR" not in err
 
-    def test_lifetime_exception(self, rse_factory, did_factory):
-        input_file = "./tmp/tmp_exception_files.txt"
-        mock_rse, _ = rse_factory.make_posix_rse()
-        did = did_factory.upload_test_dataset(mock_rse)
-
-        with open(input_file, 'w') as f:
+    def test_lifetime_exception(self, client_dataset_factory, client_rse_factory):
+        input_file = tempfile.NamedTemporaryFile()
+        mock_rse, _ = client_rse_factory.make_posix_rse()
+        did = client_dataset_factory.upload_test_dataset(mock_rse)
+        with open(input_file.name, 'w') as f:
             f.write(f"{did[0]['dataset_scope']}:{did[0]['dataset_name']}")
 
-        cmd = f"rucio add lifetime-exception --input-file {input_file} --reason mock_test --expiration 2100-12-30"
+        cmd = f"rucio add lifetime-exception --input-file {input_file.name} --reason mock_test --expiration 2100-12-30"
         exitcode, _, err = execute(cmd)
-        print(err)
         assert exitcode == 0
         if "not affected by the lifetime model" not in err:
             assert "ERROR" not in err
         else:
             assert "Nothing to submit" in err
 
-    def test_replica(self, did_factory, rse_factory):
-        mock_rse, _ = rse_factory.make_posix_rse()
-        did = did_factory.upload_test_file(mock_rse)
+    def test_replica(self, client_file_factory, client_rse_factory):
+        mock_rse, _ = client_rse_factory.make_posix_rse()
+        did = client_file_factory.upload_test_file(mock_rse)
         scope, name = did['scope'], did['name']
         cmd = f"rucio list replica --replica-type dataset --dids {scope}:{name}"
         exitcode, _, err = execute(cmd)
@@ -2632,9 +2736,9 @@ class TestBinTranslations:
         assert exitcode == 0
         assert "ERROR" not in err
 
-    def test_replica_pfn(self, rucio_client, did_factory, rse_factory):
-        mock_rse, _ = rse_factory.make_posix_rse()
-        did = did_factory.upload_test_file(mock_rse)
+    def test_replica_pfn(self, rucio_client, client_file_factory, client_rse_factory):
+        mock_rse, _ = client_rse_factory.make_posix_rse()
+        did = client_file_factory.upload_test_file(mock_rse)
         scope, name = did['scope'], did['name']
         rucio_client.add_replica(mock_rse, scope, name, 1, 'deadbeef')  # I don't know why this is the default adler32
 
@@ -2645,8 +2749,8 @@ class TestBinTranslations:
         assert out is not None
         assert 'ERROR' not in err
 
-    def test_replica_state(self, rse_factory, mock_scope, rucio_client):
-        mock_rse, _ = rse_factory.make_posix_rse()
+    def test_replica_state(self, mock_scope, rucio_client, client_rse_factory):
+        mock_rse, _ = client_rse_factory.make_posix_rse()
 
         name = generate_uuid()
         rucio_client.add_replica(mock_rse, mock_scope.external, name, 4, 'aaaaaaaa')
@@ -2669,10 +2773,10 @@ class TestBinTranslations:
         assert exitcode == 0
         assert 'ERROR' not in log
 
-    def test_replica_tombstone(self, rucio_client, did_factory, rse_factory):
-        mock_rse, _ = rse_factory.make_posix_rse()
-        rule_rse, _ = rse_factory.make_posix_rse()
-        did = did_factory.upload_test_file(mock_rse)
+    def test_replica_tombstone(self, rucio_client, client_file_factory, client_rse_factory):
+        mock_rse, _ = client_rse_factory.make_posix_rse()
+        rule_rse, _ = client_rse_factory.make_posix_rse()
+        did = client_file_factory.upload_test_file(mock_rse)
         scope, name = did['scope'], did['name']
 
         name = generate_uuid()
@@ -2742,9 +2846,9 @@ class TestBinTranslations:
         assert exitcode == 0
         assert 'ERROR' not in err
 
-    def test_rse_distance(self, rse_factory):
-        source_rse, _ = rse_factory.make_posix_rse()
-        dest_rse, _ = rse_factory.make_posix_rse()
+    def test_rse_distance(self, client_rse_factory):
+        source_rse, _ = client_rse_factory.make_posix_rse()
+        dest_rse, _ = client_rse_factory.make_posix_rse()
 
         cmd = f"rucio add rse distance --rse {source_rse} --destination {dest_rse} --distance 1"
         exitcode, _, err = execute(cmd)
@@ -2777,8 +2881,8 @@ class TestBinTranslations:
         assert exitcode == 0
         assert 'ERROR' not in err
 
-    def test_rse_limits(self, rse_factory):
-        mock_rse, _ = rse_factory.make_posix_rse()
+    def test_rse_limits(self, client_rse_factory):
+        mock_rse, _ = client_rse_factory.make_posix_rse()
         limit = 'mock_limit'
         cmd = f"rucio add rse limit --rse {mock_rse} --name {limit} --limit 100"
         exitcode, _, err = execute(cmd)
@@ -2790,8 +2894,8 @@ class TestBinTranslations:
         assert exitcode == 0
         assert 'ERROR' not in err
 
-    def test_rse_qos_policy(self, rse_factory):
-        mock_rse, _ = rse_factory.make_posix_rse()
+    def test_rse_qos_policy(self, client_rse_factory):
+        mock_rse, _ = client_rse_factory.make_posix_rse()
         policy = 'SOMETHING_I_GUESS'
         cmd = f"rucio add rse qos-policy --rse {mock_rse} --qos-policy {policy}"
         exitcode, out, err = execute(cmd)
@@ -2817,8 +2921,8 @@ class TestBinTranslations:
         assert 'ERROR' not in err
         assert policy not in out
 
-    def test_rse_usage(self, rse_factory):
-        mock_rse, _ = rse_factory.make_posix_rse()
+    def test_rse_usage(self, client_rse_factory):
+        mock_rse, _ = client_rse_factory.make_posix_rse()
         cmd = f"rucio list rse usage --rse {mock_rse}"
         exitcode, _, err = execute(cmd)
         assert exitcode == 0
@@ -2829,11 +2933,11 @@ class TestBinTranslations:
         assert exitcode == 0
         assert 'ERROR' not in err
 
-    def test_rule(self, rse_factory, did_factory):
-        mock_rse, _ = rse_factory.make_posix_rse()
-        rule_rse, _ = rse_factory.make_posix_rse()
+    def test_rule(self, client_rse_factory, client_file_factory):
+        mock_rse, _ = client_rse_factory.make_posix_rse()
+        rule_rse, _ = client_rse_factory.make_posix_rse()
 
-        did = did_factory.upload_test_file(mock_rse)
+        did = client_file_factory.upload_test_file(mock_rse)
         scope, name = did['scope'], did['name']
 
         cmd = f"rucio add rule --did {scope}:{name} --copies 1 --rse {rule_rse}"
@@ -2848,7 +2952,7 @@ class TestBinTranslations:
         assert "ERROR" not in err
         assert rule_id in out
 
-        move_rse, _ = rse_factory.make_posix_rse()
+        move_rse, _ = client_rse_factory.make_posix_rse()
         cmd = f"rucio set rule --rule-id {rule_id} --move --rse {move_rse}"
         exitcode, out, err = execute(cmd)
         assert exitcode == 0
@@ -2860,7 +2964,7 @@ class TestBinTranslations:
         assert 'ERROR' not in err
 
         # Do one without a child rule so i can delete it
-        additional_rse, _ = rse_factory.make_posix_rse()
+        additional_rse, _ = client_rse_factory.make_posix_rse()
         cmd = f"rucio add rule --did {scope}:{name} --copies 1 --rse {additional_rse}"
         exitcode, out, err = execute(cmd)
         assert exitcode == 0

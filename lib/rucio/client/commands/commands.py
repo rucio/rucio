@@ -251,8 +251,8 @@ class Commands:
         """
         client = self.get_client()
         info = client.whoami()
-        for k in info:
-            print(k.ljust(10) + ' : ' + str(info[k]))
+        for k in info:  # type: ignore
+            print(k.ljust(10) + ' : ' + str(info[k]))  # type: ignore
         return SUCCESS
 
     def run_command(self) -> tuple[int, Optional[Union[dict[str, Any], list[dict[str, Any]]]]]:

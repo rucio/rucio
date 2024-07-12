@@ -29,7 +29,6 @@ import uuid
 from configparser import NoOptionError, NoSectionError
 from copy import deepcopy
 from datetime import datetime
-from functools import wraps
 
 from tabulate import tabulate
 
@@ -71,9 +70,6 @@ FAILURE = 1
 
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
-
-logger = logging.log
-gfal2_logger = logging.getLogger("gfal2")
 tablefmt = 'psql'
 
 
@@ -82,10 +78,7 @@ def setup_gfal2_logger(logger):
     logger.addHandler(logging.StreamHandler())
 
 
-setup_gfal2_logger(gfal2_logger)
-
-
-def signal_handler(sig, frame):
+def signal_handler(sig, frame, logger):
     logger.warning('You pressed Ctrl+C! Exiting gracefully')
     child_processes = subprocess.Popen('ps -o pid --ppid %s --noheaders' % os.getpid(), shell=True, stdout=subprocess.PIPE)
     child_processes = child_processes.stdout.read()
@@ -95,9 +88,6 @@ def signal_handler(sig, frame):
         except Exception:
             print('Cannot kill child process')
     sys.exit(1)
-
-
-signal.signal(signal.SIGINT, signal_handler)
 
 
 def get_scope(did, client):
@@ -111,8 +101,7 @@ def get_scope(did, client):
     return None, did
 
 
-def exception_handler(function):
-    @wraps(function)
+def exception_handler(function, logger):
     def new_funct(*args, **kwargs):
         try:
             return function(*args, **kwargs)
@@ -240,8 +229,12 @@ def get_client(args, logger):
         creds = None
 
     try:
+        try:
+            account = args.account
+        except AttributeError:
+            account = args.issuer
         client = Client(rucio_host=args.host, auth_host=args.auth_host,
-                        account=args.account,
+                        account=account,
                         auth_type=auth_type, creds=creds,
                         ca_cert=args.ca_certificate, timeout=args.timeout,
                         user_agent=args.user_agent, vo=args.vo,
@@ -269,7 +262,6 @@ def __resolve_containers_to_datasets(scope, name, client):
     return datasets
 
 
-@exception_handler
 def ping(args, logger):
     """
     Pings a Rucio server.
@@ -283,7 +275,6 @@ def ping(args, logger):
     return FAILURE
 
 
-@exception_handler
 def whoami_account(args, logger):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
@@ -297,7 +288,6 @@ def whoami_account(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_dataset_replicas(args, logger):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -359,7 +349,6 @@ def list_dataset_replicas(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_file_replicas(args, logger):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -455,7 +444,6 @@ def list_file_replicas(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def add_dataset(args, logger):
     """
     %(prog)s add-dataset [options] <dsn>
@@ -469,7 +457,6 @@ def add_dataset(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def add_container(args, logger):
     """
     %(prog)s add-container [options] <dsn>
@@ -483,7 +470,6 @@ def add_container(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def attach(args, logger):
     """
     %(prog)s attach [options] <field1=value1 field2=value2 ...>
@@ -528,7 +514,6 @@ def attach(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def detach(args, logger):
     """
     %(prog)s detach [options] <field1=value1 field2=value2 ...>
@@ -546,7 +531,6 @@ def detach(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_dids(args, logger):
     """
     %(prog)s list-dids scope[:*|:name] [--filter 'value' | --recursive]
@@ -609,7 +593,6 @@ def list_dids(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_dids_extended(args, logger):
     """
     %(prog)s list-dids-extended scope[:*|:name] [--filter 'key=value' | --recursive]
@@ -620,7 +603,6 @@ def list_dids_extended(args, logger):
     return FAILURE
 
 
-@exception_handler
 def list_scopes(args, logger):
     """
     %(prog)s list-scopes <scope>
@@ -635,7 +617,6 @@ def list_scopes(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_files(args, logger):
     """
     %(prog)s list-files [options] <field1=value1 field2=value2 ...>
@@ -707,7 +688,6 @@ def list_files(args, logger):
         return SUCCESS
 
 
-@exception_handler
 def list_content(args, logger):
     """
     %(prog)s list-content [options] <field1=value1 field2=value2 ...>
@@ -728,7 +708,6 @@ def list_content(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_content_history(args, logger):
     """
     %(prog)s list-content-history [options] <field1=value1 field2=value2 ...>
@@ -745,7 +724,6 @@ def list_content_history(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_parent_dids(args, logger):
     """
     %(prog)s list-parent-dids
@@ -795,7 +773,6 @@ def list_parent_dids(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def close(args, logger):
     """
     %(prog)s close [options] <field1=value1 field2=value2 ...>
@@ -810,7 +787,6 @@ def close(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def reopen(args, logger):
     """
     %(prog)s reopen [options] <field1=value1 field2=value2 ...>
@@ -825,7 +801,6 @@ def reopen(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def stat(args, logger):
     """
     %(prog)s stat [options] <field1=value1 field2=value2 ...>
@@ -843,7 +818,7 @@ def stat(args, logger):
     return SUCCESS
 
 
-def erase(args):
+def erase(args, logger):
     """
     %(prog)s erase [options] <field1=value1 field2=value2 ...>
 
@@ -880,7 +855,6 @@ def erase(args):
     return SUCCESS
 
 
-@exception_handler
 def upload(args, logger):
     """
     rucio upload [scope:datasetname] [folder/] [files1 file2 file3]
@@ -957,7 +931,6 @@ def upload(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def download(args, logger):
     """
     %(prog)s download [options] <field1=value1 field2=value2 ...>
@@ -1120,7 +1093,6 @@ def download(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def get_metadata(args, logger):
     """
     %(prog)s get_metadata [options] <field1=value1 field2=value2 ...>
@@ -1143,7 +1115,6 @@ def get_metadata(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def set_metadata(args, logger):
     """
     %(prog)s set_metadata [options] <field1=value1 field2=value2 ...>
@@ -1159,7 +1130,6 @@ def set_metadata(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def delete_metadata(args, logger):
     """
     %(prog)s set_metadata [options] <field1=value1 field2=value2 ...>
@@ -1172,7 +1142,6 @@ def delete_metadata(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def add_rule(args, logger):
     """
     %(prog)s add-rule <did> <copies> <rse-expression> [options]
@@ -1231,7 +1200,6 @@ def add_rule(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def delete_rule(args, logger):
     """
     %(prog)s delete-rule [options] <ruleid>
@@ -1270,7 +1238,6 @@ def delete_rule(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def update_rule(args, logger):
     """
     %(prog)s update-rule [options] <ruleid>
@@ -1320,7 +1287,6 @@ def update_rule(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def move_rule(args, logger):
     """
     %(prog)s move-rule [options] <ruleid> <rse_expression>
@@ -1341,7 +1307,6 @@ def move_rule(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def info_rule(args, logger):
     """
     %(prog)s rule-info [options] <ruleid>
@@ -1393,7 +1358,6 @@ def info_rule(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_rules(args, logger):
     """
     %(prog)s list-rules ...
@@ -1469,7 +1433,6 @@ def list_rules(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_rules_history(args, logger):
     """
     %(prog)s list-rules_history ...
@@ -1497,7 +1460,6 @@ def list_rules_history(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_rses(args, logger):
     """
     %(prog)s list-rses [options] <field1=value1 field2=value2 ...>
@@ -1513,7 +1475,6 @@ def list_rses(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_suspicious_replicas(args, logger):
     """
     %(prog)s list-suspicious-replicas [options] <field1=value1 field2=value2 ...>
@@ -1542,7 +1503,6 @@ def list_suspicious_replicas(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_rse_attributes(args, logger):
     """
     %(prog)s list-rse-attributes [options] <field1=value1 field2=value2 ...>
@@ -1557,7 +1517,6 @@ def list_rse_attributes(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_rse_usage(args, logger):
     """
     %(prog)s list-rse-usage [options] <rse>
@@ -1597,7 +1556,6 @@ def list_rse_usage(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_account_limits(args, logger):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -1627,7 +1585,6 @@ def list_account_limits(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_account_usage(args, logger):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -1659,7 +1616,6 @@ def list_account_usage(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def list_datasets_rse(args, logger):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
@@ -1684,7 +1640,6 @@ def list_datasets_rse(args, logger):
     return SUCCESS
 
 
-@exception_handler
 def add_lifetime_exception(args, logger):
     """
     %(prog)s add_lifetime_exception [options] <field1=value1 field2=value2 ...>
@@ -1795,7 +1750,7 @@ def test_server(args):
     return SUCCESS
 
 
-def touch(args):
+def touch(args, logger):
     """
     %(prog)s touch [options] <did1 did2 ...>
     """
@@ -1811,7 +1766,7 @@ def rse_completer(prefix, parsed_args, **kwargs):
     """
     Completes the argument with a list of RSEs
     """
-    client = get_client(parsed_args)
+    client = get_client(parsed_args, logger=None)
     return ["%(rse)s" % rse for rse in client.list_rses()]
 
 
@@ -2482,6 +2437,9 @@ can be found in ' + Color.BOLD + 'http://rucio.cern.ch/documentation/rse_express
 
 
 def main():
+    gfal2_logger = logging.getLogger("gfal2")
+    setup_gfal2_logger(gfal2_logger)
+
     arguments = sys.argv[1:]
     # set the configuration before anything else, if the config parameter is present
     for argi in range(len(arguments)):
@@ -2497,9 +2455,12 @@ def main():
         sys.exit(FAILURE)
 
     args = oparser.parse_args(arguments)
+
     logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose)
+    signal.signal(signal.SIGINT, lambda x, y: signal_handler(x, y, logger))
+
     start_time = time.time()
-    result = args.function(args, logger)
+    result = exception_handler(args.function, logger)(args, logger)
     end_time = time.time()
     if args.verbose:
         print("Completed in %-0.4f sec." % (end_time - start_time))

@@ -17,7 +17,6 @@ import argparse
 import datetime
 import errno
 import json
-import logging
 import math
 import os
 import signal
@@ -25,7 +24,6 @@ import sys
 import time
 import traceback
 from configparser import NoOptionError, NoSectionError
-from functools import wraps
 from textwrap import dedent
 
 from tabulate import tabulate
@@ -54,7 +52,7 @@ from rucio.common.exception import (
     ScopeNotFound,
 )
 from rucio.common.extra import import_extras
-from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_surls, construct_surl, extract_scope, get_bytes_value_from_string, parse_response, render_json, sizefmt
+from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_surls, construct_surl, extract_scope, get_bytes_value_from_string, parse_response, render_json, setup_logger, sizefmt
 from rucio.rse import rsemanager as rsemgr
 
 EXTRA_MODULES = import_extras(['argcomplete'])
@@ -71,38 +69,15 @@ SUCCESS = 0
 FAILURE = 1
 DEFAULT_PORT = 443
 
-logger = logging.getLogger("user")
-
 tablefmt = 'psql'
 
 
-def setup_logger(logger):
-    logger.setLevel(logging.DEBUG)
-    hdlr = logging.StreamHandler()
-
-    def emit_decorator(fcn):
-        def func(*args):
-            formatter = logging.Formatter("%(message)s")
-            hdlr.setFormatter(formatter)
-            return fcn(*args)
-        return func
-    hdlr.emit = emit_decorator(hdlr.emit)
-    logger.addHandler(hdlr)
-
-
-setup_logger(logger)
-
-
-def signal_handler(signal, frame):
+def signal_handler(signal, frame, logger):
     logger.warning('You pressed Ctrl+C! Exiting gracefully')
     sys.exit(1)
 
 
-signal.signal(signal.SIGINT, signal_handler)
-
-
-def exception_handler(function):
-    @wraps(function)
+def exception_handler(function, logger):
     def new_funct(*args, **kwargs):
         try:
             return function(*args, **kwargs)
@@ -190,7 +165,7 @@ def exception_handler(function):
     return new_funct
 
 
-def get_client(args):
+def get_client(args, logger):
     """
     Returns a new client object.
     """
@@ -226,7 +201,8 @@ def get_client(args):
         client = Client(rucio_host=args.host, auth_host=args.auth_host,
                         account=args.issuer,
                         auth_type=auth_type, creds=creds,
-                        ca_cert=args.ca_certificate, timeout=args.timeout, vo=args.vo)
+                        ca_cert=args.ca_certificate, timeout=args.timeout, vo=args.vo,
+                        logger=logger)
     except CannotAuthenticate as error:
         logger.error(error)
         if 'alert certificate expired' in str(error):
@@ -248,85 +224,79 @@ def get_scope(did, client):
     return None, did
 
 
-@exception_handler
-def add_account(args):
+def add_account(args, logger):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
 
     Adds a new account. Specify metadata fields as arguments.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.add_account(account=args.account, type_=args.accounttype, email=args.accountemail)
     print('Added new account: %s' % args.account)
     return SUCCESS
 
 
-@exception_handler
-def delete_account(args):
+def delete_account(args, logger):
     """
     %(prog)s disable [options] <field1=value1 field2=value2 ...>
 
     Delete account.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.delete_account(args.acnt)
     print('Deleted account: %s' % args.acnt)
     return SUCCESS
 
 
-@exception_handler
-def update_account(args):
+def update_account(args, logger):
     """
     %(prog)s update [options] <field1=value1 field2=value2 ...>
 
     Update an account.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.update_account(account=args.account, key=args.key, value=args.value)
     print('%s of account %s changed to %s' % (args.key, args.account, args.value))
     return SUCCESS
 
 
-@exception_handler
-def ban_account(args):
+def ban_account(args, logger):
     """
     %(prog)s ban [options] <field1=value1 field2=value2 ...>
 
     Ban an account.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.update_account(account=args.account, key='status', value='SUSPENDED')
     print('Account %s banned' % args.account)
     return SUCCESS
 
 
-@exception_handler
-def unban_account(args):
+def unban_account(args, logger):
     """
     %(prog)s unban [options] <field1=value1 field2=value2 ...>
 
     Unban a banned account.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.update_account(account=args.account, key='status', value='ACTIVE')
     print('Account %s unbanned' % args.account)
     return SUCCESS
 
 
-@exception_handler
-def list_accounts(args):
+def list_accounts(args, logger):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
     List accounts.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     filters = {}
     if args.filters:
         for key, value in [(_.split('=')[0], _.split('=')[1]) for _ in args.filters.split(',')]:
@@ -337,43 +307,40 @@ def list_accounts(args):
     return SUCCESS
 
 
-@exception_handler
-def info_account(args):
+def info_account(args, logger):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
     Show extended information of a given account
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     info = client.get_account(account=args.account)
     for k in info:
         print(k.ljust(10) + ' : ' + str(info[k]))
     return SUCCESS
 
 
-@exception_handler
-def list_identities(args):
+def list_identities(args, logger):
     """
     %(prog)s list-identities [options] <field1=value1 field2=value2 ...>
 
     List all identities on an account.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     identities = client.list_identities(account=args.account)
     for identity in identities:
         print('Identity: %(identity)s,\ttype: %(type)s' % identity)
     return SUCCESS
 
 
-@exception_handler
-def set_limits(args):
+def set_limits(args, logger):
     """
     %(prog)s set [options] <field1=value1 field2=value2 ...>
 
     Set account limit for an account and rse.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     locality = args.locality.lower()
     byte_limit = None
     limit_input = args.bytes.lower()
@@ -394,15 +361,14 @@ def set_limits(args):
     return SUCCESS
 
 
-@exception_handler
-def get_limits(args):
+def get_limits(args, logger):
     """
     %(prog)s get-limits [options] <field1=value1 field2=value2 ...>
 
     Grant an identity access to an account.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     locality = args.locality.lower()
     limits = client.get_account_limits(account=args.account, rse_expression=args.rse, locality=locality)
     for rse in limits:
@@ -410,28 +376,26 @@ def get_limits(args):
     return SUCCESS
 
 
-@exception_handler
-def delete_limits(args):
+def delete_limits(args, logger):
     """
     %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
     Delete account limit for an account and rse.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.delete_account_limit(account=args.account, rse=args.rse, locality=args.locality)
     print('Deleted account limit for account %s and RSE %s' % (args.account, args.rse))
     return SUCCESS
 
 
-@exception_handler
-def identity_add(args):
+def identity_add(args, logger):
     """
     %(prog)s del [options] <field1=value1 field2=value2 ...>
 
     Grant an identity access to an account.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     if args.email == "":
         logger.error('Error: --email argument can\'t be an empty string. Failed to grant an identity access to an account')
         return FAILURE
@@ -445,64 +409,59 @@ def identity_add(args):
     return SUCCESS
 
 
-@exception_handler
-def identity_delete(args):
+def identity_delete(args, logger):
     """
     %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
     Revoke an identity's access to an account.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.del_identity(args.account, args.identity, authtype=args.authtype)
     print('Deleted identity: %s' % args.identity)
     return SUCCESS
 
 
-@exception_handler
-def add_rse(args):
+def add_rse(args, logger):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
 
     Adds a new RSE. Specify metadata fields as arguments.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.add_rse(args.rse, deterministic=not args.non_deterministic)
     print('Added new %sdeterministic RSE: %s' % ('non-' if args.non_deterministic else '', args.rse))
     return SUCCESS
 
 
-@exception_handler
-def disable_rse(args):
+def disable_rse(args, logger):
     """
     %(prog)s del [options] <field1=value1 field2=value2 ...>
 
     Disable RSE.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.delete_rse(args.rse)
     return SUCCESS
 
 
-@exception_handler
-def list_rses(args):
+def list_rses(args, logger):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
     List RSEs.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     rses = client.list_rses()
     for rse in rses:
         print('%(rse)s' % rse)
     return SUCCESS
 
 
-@exception_handler
-def update_rse(args):
+def update_rse(args, logger):
     """
     %(prog)s update [options] <field1=value1 field2=value2 ...>
 
@@ -514,7 +473,7 @@ def update_rse(args):
     Use '', 'None' or 'null' to wipe the value of following RSE settings:
       qos_class
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     if args.value in ['true', 'True', 'TRUE', '1']:
         args.value = True
     if args.value in ['false', 'False', 'FALSE', '0']:
@@ -529,15 +488,14 @@ def update_rse(args):
     return SUCCESS
 
 
-@exception_handler
-def info_rse(args):
+def info_rse(args, logger):
     """
     %(prog)s info [options] <field1=value1 field2=value2 ...>
 
     Show extended information of a given RSE
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     rseinfo = client.get_rse(rse=args.rse)
     attributes = client.list_rse_attributes(rse=args.rse)
     usage = client.get_rse_usage(rse=args.rse)
@@ -574,29 +532,27 @@ def info_rse(args):
     return SUCCESS
 
 
-@exception_handler
-def set_attribute_rse(args):
+def set_attribute_rse(args, logger):
     """
     %(prog)s set-attribute [options] <field1=value1 field2=value2 ...>
 
     Set RSE attributes.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.add_rse_attribute(rse=args.rse, key=args.key, value=args.value)
     print('Added new RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value))
     return SUCCESS
 
 
-@exception_handler
-def get_attribute_rse(args):
+def get_attribute_rse(args, logger):
     """
     %(prog)s get-attribute [options] <field1=value1 field2=value2 ...>
 
     Get RSE attributes.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     attributes = client.list_rse_attributes(rse=args.rse)
     for k in attributes:
         print(k + ': ' + str(attributes[k]))
@@ -604,42 +560,39 @@ def get_attribute_rse(args):
     return SUCCESS
 
 
-@exception_handler
-def delete_attribute_rse(args):
+def delete_attribute_rse(args, logger):
     """
     %(prog)s delete-attribute [options] <field1=value1 field2=value2 ...>
 
     Delete RSE attributes.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.delete_rse_attribute(rse=args.rse, key=args.key)
     print('Deleted RSE attribute for %s: %s-%s ' % (args.rse, args.key, args.value))
     return SUCCESS
 
 
-@exception_handler
-def add_distance_rses(args):
+def add_distance_rses(args, logger):
     """
     %(prog)s add-distance [options] SOURCE_RSE DEST_RSE
 
     Set the distance between two RSEs.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     params = {'distance': args.distance}
     client.add_distance(args.source, args.destination, params)
     print('Set distance from %s to %s to %d' % (args.source, args.destination, args.distance))
     return SUCCESS
 
 
-@exception_handler
-def get_distance_rses(args):
+def get_distance_rses(args, logger):
     """
     %(prog)s get-distance SOURCE_RSE DEST_RSE
 
     Retrieve the existing distance information between two RSEs.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     distance_info = client.get_distance(args.source, args.destination)
     if distance_info:
         print('Distance information from %s to %s: distance=%d' % (args.source, args.destination, distance_info[0]['distance']))
@@ -648,14 +601,13 @@ def get_distance_rses(args):
     return SUCCESS
 
 
-@exception_handler
-def update_distance_rses(args):
+def update_distance_rses(args, logger):
     """
     %(prog)s update-distance [options] SOURCE_RSE DEST_RSE
 
     Update the existing distance entry between two RSEs.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     params = {}
     if args.distance is not None:
         params['distance'] = args.distance
@@ -668,27 +620,25 @@ def update_distance_rses(args):
     return SUCCESS
 
 
-@exception_handler
-def delete_distance_rses(args):
+def delete_distance_rses(args, logger):
     """
     %(prog)s delete-distance [options] SOURCE_RSE DEST_RSE
 
     Update the existing distance entry between two RSEs.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.delete_distance(args.source, args.destination)
     print('Deleted distance information from %s to %s.' % (args.source, args.destination))
     return SUCCESS
 
 
-@exception_handler
-def add_protocol_rse(args):
+def add_protocol_rse(args, logger):
     """
     %(prog)s add-protocol-rse [options] <rse>
 
     Add a new protocol handler for an RSE
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     proto = {'hostname': args.hostname,
              'scheme': args.scheme,
              'port': args.port,
@@ -713,14 +663,13 @@ def add_protocol_rse(args):
     return SUCCESS
 
 
-@exception_handler
-def del_protocol_rse(args):
+def del_protocol_rse(args, logger):
     """
     %(prog)s delete-protocol-rse [options] <rse>
 
     Remove a protocol handler for a RSE
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     kwargs = {}
     if args.port:
         kwargs['port'] = args.port
@@ -729,54 +678,50 @@ def del_protocol_rse(args):
     client.delete_protocols(args.rse, args.scheme, **kwargs)
 
 
-@exception_handler
-def add_qos_policy(args):
+def add_qos_policy(args, logger):
     """
     %(prog)s add-qos-policy <rse> <qos_policy>
 
     Add a QoS policy to an RSE.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.add_qos_policy(args.rse, args.qos_policy)
     print('Added QoS policy to RSE %s: %s' % (args.rse, args.qos_policy))
     return SUCCESS
 
 
-@exception_handler
-def delete_qos_policy(args):
+def delete_qos_policy(args, logger):
     """
     %(prog)s delete-qos-policy <rse> <qos_policy>
 
     Delete a QoS policy from an RSE.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.delete_qos_policy(args.rse, args.qos_policy)
     print('Deleted QoS policy from RSE %s: %s' % (args.rse, args.qos_policy))
     return SUCCESS
 
 
-@exception_handler
-def list_qos_policies(args):
+def list_qos_policies(args, logger):
     """
     %(prog)s list-qos-policies <rse>
 
     List all QoS policies of an RSE.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     qos_policies = client.list_qos_policies(args.rse)
     for qos_policy in sorted(qos_policies):
         print(qos_policy)
     return SUCCESS
 
 
-@exception_handler
-def set_limit_rse(args):
+def set_limit_rse(args, logger):
     """
     %(prog)s set-limit <rse> <name> <value>
 
     Set the RSE limit given the rse name and the name and value of the limit
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     try:
         args.value = int(args.value)
         if client.set_rse_limits(args.rse, args.name, args.value):
@@ -787,14 +732,13 @@ def set_limit_rse(args):
     return SUCCESS
 
 
-@exception_handler
-def delete_limit_rse(args):
+def delete_limit_rse(args, logger):
     """
     %(prog)s delete-limit <rse> <name>
 
     Delete the RSE limit given the rse name and the name of the limit
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     limits = client.get_rse_limits(args.rse)
     if args.name not in limits.keys():
         logger.error('Limit %s not defined in RSE %s' % (args.name, args.rse))
@@ -805,29 +749,27 @@ def delete_limit_rse(args):
     return SUCCESS
 
 
-@exception_handler
-def add_scope(args):
+def add_scope(args, logger):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
 
     Add scope.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.add_scope(account=args.account, scope=args.scope)
     print('Added new scope to account: %s-%s' % (args.scope, args.account))
     return SUCCESS
 
 
-@exception_handler
-def list_scopes(args):
+def list_scopes(args, logger):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
     List scopes.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     if args.account:
         scopes = client.list_scopes_for_account(args.account)
     else:
@@ -838,14 +780,13 @@ def list_scopes(args):
     return SUCCESS
 
 
-@exception_handler
-def get_config(args):
+def get_config(args, logger):
     """
     %(prog)s get [options] <field1=value1 field2=value2 ...>
 
     Get the configuration. Either everything, or matching the given section/option.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     res = client.get_config(section=args.section, option=args.option)
     if not isinstance(res, dict):
         print('[%s]\n%s=%s' % (args.section, args.option, str(res)))
@@ -866,27 +807,25 @@ def get_config(args):
     return SUCCESS
 
 
-@exception_handler
-def set_config_option(args):
+def set_config_option(args, logger):
     """
     %(prog)s set [options] <field1=value1 field2=value2 ...>
 
     Set the configuration value for a matching section/option. Missing section/option will be created.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.set_config_option(section=args.section, option=args.option, value=args.value)
     print('Set configuration: %s.%s=%s' % (args.section, args.option, args.value))
     return SUCCESS
 
 
-@exception_handler
-def delete_config_option(args):
+def delete_config_option(args, logger):
     """
     %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
     Delete a configuration option from a section
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     if client.delete_config_option(section=args.section, option=args.option):
         print('Deleted section \'%s\' option \'%s\'' % (args.section, args.option))
     else:
@@ -894,15 +833,14 @@ def delete_config_option(args):
     return SUCCESS
 
 
-@exception_handler
-def add_subscription(args):
+def add_subscription(args, logger):
     """
     %(prog)s add [options] name Filter replication_rules
 
     Add subscription.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     if args.subs_account:
         account = args.subs_account
     elif args.issuer:
@@ -915,15 +853,14 @@ def add_subscription(args):
     return SUCCESS
 
 
-@exception_handler
-def list_subscriptions(args):
+def list_subscriptions(args, logger):
     """
     %(prog)s list [options] [name]
 
     List subscriptions.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     if args.subs_account:
         account = args.subs_account
     elif args.issuer:
@@ -940,15 +877,14 @@ def list_subscriptions(args):
     return SUCCESS
 
 
-@exception_handler
-def update_subscription(args):
+def update_subscription(args, logger):
     """
     %(prog)s update [options] name filter replication_rules
 
     Update a subscription.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     if args.subs_account:
         account = args.subs_account
     elif args.issuer:
@@ -960,30 +896,28 @@ def update_subscription(args):
     return SUCCESS
 
 
-@exception_handler
-def reevaluate_did_for_subscription(args):
+def reevaluate_did_for_subscription(args, logger):
     """
     %(prog)s reevaulate [options] dids
 
     Reevaluate a list of DIDs against all active subscriptions.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     for did in args.dids.split(','):
         scope, name = get_scope(did, client)
         client.set_metadata(scope, name, 'is_new', True)
     return SUCCESS
 
 
-@exception_handler
-def list_account_attributes(args):
+def list_account_attributes(args, logger):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
     List the attributes for an account.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     account = args.account or client.account
     attributes = next(client.list_account_attributes(account))
     table = []
@@ -993,39 +927,36 @@ def list_account_attributes(args):
     return SUCCESS
 
 
-@exception_handler
-def add_account_attribute(args):
+def add_account_attribute(args, logger):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
     Add attribute for an account.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.add_account_attribute(account=args.account, key=args.key, value=args.value)
     return SUCCESS
 
 
-@exception_handler
-def delete_account_attribute(args):
+def delete_account_attribute(args, logger):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
     Delete attribute for an account.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     client.delete_account_attribute(account=args.account, key=args.key)
     return SUCCESS
 
 
-@exception_handler
-def quarantine_replicas(args):
+def quarantine_replicas(args, logger):
     """
     %(prog)s quarantine --rse <rse> (--paths <file with replica paths>|<path> ...)
     Quarantine replicas
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     chunk = []
 
     # send requests in chunks
@@ -1049,7 +980,7 @@ def quarantine_replicas(args):
     return SUCCESS
 
 
-def __declare_bad_file_replicas_by_lfns(args: object) -> object:
+def __declare_bad_file_replicas_by_lfns(args: object, logger) -> object:
     """
     Declare a list of bad replicas using RSE name, scope and list of LFNs.
     """
@@ -1059,7 +990,7 @@ def __declare_bad_file_replicas_by_lfns(args: object) -> object:
     reason = args.reason
     scope = args.scope
     rse = args.rse
-    client = get_client(args)
+    client = get_client(args, logger)
     replicas = []
 
     # send requests in chunks
@@ -1083,8 +1014,7 @@ def __declare_bad_file_replicas_by_lfns(args: object) -> object:
     return SUCCESS
 
 
-@exception_handler
-def declare_bad_file_replicas(args):
+def declare_bad_file_replicas(args, logger):
     """
 
     Declare replicas as bad.
@@ -1092,9 +1022,9 @@ def declare_bad_file_replicas(args):
     """
 
     if args.lfns:
-        return __declare_bad_file_replicas_by_lfns(args)
+        return __declare_bad_file_replicas_by_lfns(args, logger)
 
-    client = get_client(args)
+    client = get_client(args, logger)
 
     if args.inputfile:
         with open(args.inputfile) as infile:
@@ -1174,15 +1104,14 @@ def declare_bad_file_replicas(args):
     return SUCCESS
 
 
-@exception_handler
-def declare_temporary_unavailable_replicas(args):
+def declare_temporary_unavailable_replicas(args, logger):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
     Declare a list of temporary unavailable replicas.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     bad_files = []
     if args.inputfile:
         with open(args.inputfile) as infile:
@@ -1215,15 +1144,14 @@ def declare_temporary_unavailable_replicas(args):
     return SUCCESS
 
 
-@exception_handler
-def list_pfns(args):
+def list_pfns(args, logger):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
     List the possible PFN for a file at a site.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     dids = args.dids.split(',')
     rse = args.rse
     protocol = args.protocol
@@ -1268,15 +1196,14 @@ def list_pfns(args):
     return SUCCESS
 
 
-@exception_handler
-def import_data(args):
+def import_data(args, logger):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
     Import data from JSON file to Rucio.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     import_file_path = args.file_path
     data = None
     print('Start reading file.')
@@ -1302,15 +1229,14 @@ def import_data(args):
         return FAILURE
 
 
-@exception_handler
-def export_data(args):
+def export_data(args, logger):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
     Export data from Rucio to JSON file.
 
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     destination_file_path = args.file_path
     print('Start querying data.')
     data = client.export_data()
@@ -1326,14 +1252,13 @@ def export_data(args):
         return FAILURE
 
 
-@exception_handler
-def set_tombstone(args):
+def set_tombstone(args, logger):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
     Set a tombstone on a list of replicas.
     """
-    client = get_client(args)
+    client = get_client(args, logger)
     dids = args.dids
     rse = args.rse
     dids = [dids] if ',' not in dids else dids.split(',')
@@ -2366,7 +2291,7 @@ def get_parser():
     return oparser
 
 
-def main():
+def main(logger):
     oparser = get_parser()
     if EXTRA_MODULES['argcomplete']:
         argcomplete.autocomplete(oparser)
@@ -2434,11 +2359,20 @@ def main():
                 'delete_limit_rse': delete_limit_rse,
                 }
 
+    possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
+                                                    os.pardir, os.pardir))
+    if os.path.exists(os.path.join(possible_topdir, 'lib/rucio', '__init__.py')):
+        sys.path.insert(0, possible_topdir)
+
+    signal.signal(signal.SIGINT, lambda x, y: signal_handler(x, y, logger))
+
     if args.verbose:
-        logger.setLevel(logging.DEBUG)
+        from logging import DEBUG
+        logger.setLevel(DEBUG)
+
     start_time = time.time()
     command = commands.get(args.which)
-    result = command(args)
+    result = exception_handler(command, logger)(args, logger)
     end_time = time.time()
     if args.verbose:
         print("Completed in %-0.4f sec." % (end_time - start_time))
@@ -2446,4 +2380,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    logger = setup_logger(module_name=__name__, logger_name="user",)
+
+    main(logger)

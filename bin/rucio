@@ -19,8 +19,11 @@ from rucio.client.commands.commands import main as command_main
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
-        if sys.argv[1] not in {"add", "unset", "remove", "list", "set", None, "-h"}:
-            # TODO Depreciation Map
+        try:
+            arguments = [arg for arg in sys.argv if (arg[0] != '-') or (arg == '-h')]
+        except IndexError:
+            arguments = [None]
+        if not any([argument in ["add", "unset", "remove", "list", "set", None, "ping", "whoami", "-h"] for argument in arguments]):
             main()
         else:
             command_main()

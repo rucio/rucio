@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,10 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from rucio.client.bin.rucio_admin import main
-from rucio.common.utils import setup_logger
-
-if __name__ == '__main__':
-    logger = setup_logger(module_name=__name__, logger_name="user")
-    main(logger)
-
