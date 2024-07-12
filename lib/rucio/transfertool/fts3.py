@@ -358,7 +358,7 @@ def build_job_params(
         # "transfers -> overwrite_corrupted_files setting. The logic behind this flag is that
         # it will update the rws (RequestWithSources) with the "overwrite" attribute set to True
         # after finding an 'Destination file exists and overwrite is not enabled' error message
-        overwrite_corrupted_files = last_hop.dst.rws.attributes.ge('overwrite', False)
+        overwrite_corrupted_files = last_hop.rws.attributes.ge('overwrite', False)
         if overwrite_corrupted_files:
             overwrite = True  # both for DISK and TAPE
 
