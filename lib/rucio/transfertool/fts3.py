@@ -332,6 +332,8 @@ def build_job_params(
 
     # Overwriting by default is set to True for non TAPE RSEs.
     # Tape RSEs can force overwrite by setting the "overwrite" attribute to True.
+    # There is yet another configuration option: transfers->overwrite_corrupted_files that when is set to True
+    # it will retry failed requests with overwrite flag set to True
     overwrite, overwrite_when_only_on_disk, bring_online_local = True, False, None
     if first_hop.src.rse.is_tape_or_staging_required():
         # Activate bring_online if it was requested by first hop
@@ -343,14 +345,30 @@ def build_job_params(
         # This functionality should reduce the number of stuck files in the disk buffer that are not migrated to tape media (for whatever reason).
         # Please be aware that FTS does not guarantee an atomic operation from the time it checks for existence of the file on disk and tape and
         # the moment the file is overwritten, so there is a race condition that could overwrite the file on the tape media
-        overwrite = last_hop.dst.rse.attributes.get('overwrite', False)  # honour RSE configuration to force overwrite
+        overwrite = last_hop.dst.rse.attributes.get('overwrite', False)  # honour RSE configuration to force overwrite for all requests
         overwrite_when_only_on_disk = last_hop.dst.rse.attributes.get('overwrite_when_only_on_disk', False)
+
         # setting both flags is incompatible, so we opt in for the safest approach: "overwrite_when_only_on_disk"
         # this is aligned with FTS implementation: see
         if overwrite and overwrite_when_only_on_disk:
             overwrite = False
 
-    logger(logging.DEBUG, 'Is it tape?: %s %s overwrite_when_only_on_disk:%s' % (last_hop.dst.rse.name, last_hop.dst.rse.is_tape(), overwrite_when_only_on_disk))
+    if not (overwrite and overwrite_when_only_on_disk):
+        # if there are no overwrite flags set, we still need to check for the
+        # "transfers -> overwrite_corrupted_files setting. The logic behind this flag is that
+        # it will update the rws (RequestWithSources) with the "overwrite" attribute set to True
+        # after finding an 'Destination file exists and overwrite is not enabled' error message
+        overwrite_corrupted_files = last_hop.dst.rws.attributes.ge('overwrite', False)
+        if overwrite_corrupted_files:
+            overwrite = True  # both for DISK and TAPE
+
+    logger(logging.DEBUG, 'RSE:%s Is it Tape? %s overwrite_when_only_on_disk:%s overwrite:%s overwrite_corrupted_files=%s' % (
+        last_hop.dst.rse.name,
+        last_hop.dst.rse.is_tape(),
+        overwrite_when_only_on_disk,
+        overwrite,
+        overwrite_corrupted_files))
+
     logger(logging.DEBUG, 'RSE attributes are: %s' % (last_hop.dst.rse.attributes))
 
     # Get dest space token
