@@ -26,20 +26,20 @@ from tabulate import tabulate
 
 from rucio import version
 from rucio.client.client import Client
-from rucio.client.rcom.account import Account, AccountAttribute, AccountBan, AccountIdentities, AccountLimits
-from rucio.client.rcom.config import Config
-from rucio.client.rcom.did import DID, DIDAttachment, DIDHistory, DIDMetadata
-from rucio.client.rcom.download import Download
-from rucio.client.rcom.lifetime_exception import LifetimeException
-from rucio.client.rcom.replica import Replica, ReplicaPFN, ReplicaState, ReplicaTombstone
-from rucio.client.rcom.rse import RSE, RSEAttribute, RSEDistance, RSELimit, RSEProtocol, RSEQOSPolicy, RSEUsage
-from rucio.client.rcom.rule import Rule
-from rucio.client.rcom.scope import Scope
-from rucio.client.rcom.subscription import Subscription
-from rucio.client.rcom.upload import Upload
-from rucio.client.rcom.utils import exception_handler
+from rucio.client.commands.account import Account, AccountAttribute, AccountBan, AccountIdentities, AccountLimits
+from rucio.client.commands.config import Config
+from rucio.client.commands.did import DID, DIDAttachment, DIDHistory, DIDMetadata
+from rucio.client.commands.download import Download
+from rucio.client.commands.lifetime_exception import LifetimeException
+from rucio.client.commands.replica import Replica, ReplicaPFN, ReplicaState, ReplicaTombstone
+from rucio.client.commands.rse import RSE, RSEAttribute, RSEDistance, RSELimit, RSEProtocol, RSEQOSPolicy, RSEUsage
+from rucio.client.commands.rule import Rule
+from rucio.client.commands.scope import Scope
+from rucio.client.commands.subscription import Subscription
+from rucio.client.commands.upload import Upload
+from rucio.client.commands.utils import exception_handler
 from rucio.common.config import config_get
-from rucio.common.exception import CannotAuthenticate, ConfigNotFound
+from rucio.common.exception import CannotAuthenticate
 from rucio.common.extra import import_extras
 from rucio.common.utils import setup_logger
 
@@ -61,7 +61,7 @@ COMMAND_MAP = {
     "rse": {key: item for key, item in zip([None, "usage", "distance", "attribute", "protocol", "limit", "qos-policy"], [RSE, RSEUsage, RSEDistance, RSEAttribute, RSEProtocol, RSELimit, RSEQOSPolicy])},
     "scope": {None: Scope},
     "subscription": {None: Subscription},
-    "lifetime_exception": {None: LifetimeException},
+    "lifetime-exception": {None: LifetimeException},
     "rule": {None: Rule},
 }
 
@@ -75,7 +75,8 @@ class Commands:
         self.subcommand = None if not hasattr(args, "subcommand") else args.subcommand
 
         self.args = args
-        self.client = self.get_client()
+        self.client = None
+        # self.client = self.get_client()
 
     @staticmethod
     def parse_command():
@@ -119,16 +120,17 @@ class Commands:
     def main_arguments(parser_object):
         main_args = parser_object.add_argument_group("Main Arguments")
 
-        main_args.add_argument("--version", action="version", version=version.version_string())
+        main_args.add_argument("--version", action="version", version='%(prog)s ' + version.version_string())
         main_args.add_argument("--config", help="The Rucio configuration file to use.")
         main_args.add_argument("--verbose", "-v", default=False, action="store_true", help="Print more verbose output.")
         main_args.add_argument("-H", "--host", metavar="ADDRESS", help="The Rucio API host.")
         main_args.add_argument("--auth-host", metavar="ADDRESS", help="The Rucio Authentication host.")
-        main_args.add_argument("-a", "--account", metavar="ACCOUNT", help="Rucio account to use.")
+        main_args.add_argument("-a", "--account", dest='issuer', metavar="ACCOUNT", help="Rucio account to use.")
         main_args.add_argument("-S", "--auth-strategy", help="Authentication strategy (userpass, x509...)")
         main_args.add_argument("-T", "--timeout", type=float, help="Set all timeout values to seconds.")
         main_args.add_argument("--user-agent", "-U", dest="user_agent", default="rucio-clients", help="Rucio User Agent")
         main_args.add_argument("--vo", metavar="VO", help="VO to authenticate at. Only used in multi-VO mode.")
+        main_args.add_argument("--view", help='Which type of view to use', default=None, choices={None, "history", "info"})
         # TODO Change default to rich once rich tables are implemented
         # TODO Documentation table
         main_args.add_argument(
@@ -213,7 +215,7 @@ class Commands:
             client = Client(
                 rucio_host=self.args.host,
                 auth_host=self.args.auth_host,
-                account=self.args.account,
+                account=self.args.issuer,
                 auth_type=auth_type,
                 creds=creds,
                 ca_cert=self.args.ca_certificate,
@@ -237,23 +239,28 @@ class Commands:
         """
         Pings a Rucio server.
         """
-        server_info = self.client.ping()
+        server_info = self.get_client().ping()
         if server_info:
-            return {"version": server_info["version"]}
-        self.logger.error("Ping failed")
+            print(server_info["version"])
+        else:
+            self.logger.error("Ping failed")
 
     def whoami(self):
         """
         Show extended information of a given account
         """
-        return self.client.whoami()
+        client = self.get_client()
+        info = client.whoami()
+        for k in info:
+            print(k.ljust(10) + ' : ' + str(info[k]))
+        return SUCCESS
 
     def run_command(self) -> tuple[int, Optional[Union[dict[str, Any], list[dict[str, Any]]]]]:
         oddball_commands = {
             "ping": self.ping,
             "whoami": self.whoami,
-            "upload": Upload(self.client, self.args, self.logger),
-            "download": Download(self.client, self.args, self.logger)
+            "upload": Upload(self.client, self.args, self.logger),  # type: ignore
+            "download": Download(self.client, self.args, self.logger)  # type: ignore
         }
         if self.command in oddball_commands.keys():
             return exception_handler(oddball_commands[self.command], logger=self.logger)()
@@ -325,8 +332,6 @@ def main():
 
     args = parser_object.parse_args()
     if args.config is not None:
-        if not os.path.exists(args.config):
-            raise ConfigNotFound
         os.environ["RUCIO_CONFIG"] = args.config
 
     if args.command is None:

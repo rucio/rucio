@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import random
 import re
@@ -2141,6 +2142,7 @@ class TestBinRucio:
 
         cmd = f"rucio update-rule --child-rule-id None {parentrule_id}"
         exitcode, out, err = execute(cmd)
+        print(err)
         assert 'ERROR' in err
         assert re.search('Cannot detach child when no such relationship exists', err) is not None
 
@@ -2347,7 +2349,7 @@ class TestBinRucio:
         exitcode, out, err = execute("rucio-admin rse update --setting test_with_non_existing_option --value 3 --rse {}".format(self.def_rse))
         print(out, err)
         assert exitcode != 0
-        assert "There is an error with one of the input parameters.\nDetails: The key 'test_with_non_existing_option' does not exist for RSE properties.\nThis means that the input you provided did not meet all the requirements." in err
+        assert "Details: The key 'test_with_non_existing_option' does not exist for RSE properties." in err
 
         exitcode, out, err = execute("rucio-admin rse update --setting country_name --value France --rse {}".format(self.def_rse))
         print(out, err)
@@ -2394,3 +2396,503 @@ class TestBinRucio:
         list_exceptions = [(excep['scope'], excep['name']) for excep in self.lifetime_client.list_exceptions()]
         assert (self.user, tmp_dsn_name1) in list_exceptions
         assert (self.user, tmp_dsn_name2) not in list_exceptions
+
+
+class TestBinTranslations:
+    """
+    Test that each command refresh command works the same as the old ones
+    """
+
+    def test_account(self):
+        tmp_val = account_name_generator()
+        old_command = f'rucio-admin account add {tmp_val}'
+        _, out, _ = execute(old_command)
+        new_account = account_name_generator()
+        new_command = f"rucio add account --account-name {new_account}"
+        exitcode, refreshed_out, _ = execute(new_command)
+        assert exitcode == 0
+        assert out.replace(tmp_val, new_account) == refreshed_out
+
+        new_command = f"rucio set account --account-name {new_account} --key email --value jdoe@cern.ch"
+        exitcode, _, err = execute(new_command)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+        new_command = "rucio --view history list account --account-name root"
+        exitcode, _, err = execute(new_command)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+    def test_account_attribute(self, jdoe_account):
+        fake_key = generate_uuid()[:15]
+        cmd = f'rucio-admin account add-attribute {jdoe_account} --key test_{fake_key}_key --value true'
+        _, out, old_log = execute(cmd)
+        new_fake_key = generate_uuid()[:15]
+        cmd = f'rucio add account attribute --account-name {jdoe_account} --attr-key test_{new_fake_key}_key --attr-value true'
+        exitcode, new_out, log = execute(cmd)
+        assert exitcode == 0
+        assert old_log.replace(fake_key, new_fake_key) == log
+
+        cmd = f'rucio-admin account list-attributes {jdoe_account}'
+        _, out, _ = execute(cmd)
+        cmd = f'rucio list account attribute --account-name {jdoe_account}'
+        exitcode, new_out, _ = execute(cmd)
+        assert exitcode == 0
+        assert out == new_out
+
+        cmd = f'rucio-admin account delete-attribute {jdoe_account} --key test_{fake_key}_key'
+        _, out, _ = execute(cmd)
+        cmd = f'rucio remove account attribute --account-name {jdoe_account} --attr-key test_{new_fake_key}_key'
+        exitcode, new_out, _ = execute(cmd)
+        assert exitcode == 0
+        assert out.replace(fake_key, new_fake_key) == new_out
+
+    def test_account_ban(self):
+        tmp_account = account_name_generator()
+        execute(f'rucio-admin account add {tmp_account}')
+
+        cmd = f'rucio-admin account ban --account {tmp_account}'
+        _, _, ban_log = execute(cmd)
+        cmd = f'rucio-admin account unban --account {tmp_account}'
+        _, _, unban_log = execute(cmd)
+
+        cmd = f"rucio set account ban --account-name {tmp_account}"
+        exitcode, _, new_ban_log = execute(cmd)
+        assert exitcode == 0
+        assert ban_log == new_ban_log
+
+        cmd = f"rucio unset account ban --account-name {tmp_account}"
+        exitcode, _, new_unban_log = execute(cmd)
+        assert exitcode == 0
+        assert unban_log == new_unban_log
+
+    def test_account_identities(self, jdoe_account):
+        cmd = "rucio-admin account identity list-identities"
+        _, out, _ = execute(cmd)
+        cmd = "rucio list account identities"
+        _, new_out, _ = execute(cmd)
+        assert out == new_out
+
+        cmd = f"rucio-admin account identity list-identities {jdoe_account}"
+        _, out, _ = execute(cmd)
+        cmd = f"rucio list account identities --acount_name {jdoe_account}"
+        _, new_out, _ = execute(cmd)
+        assert out == new_out
+
+    def test_account_limits(self, jdoe_account, rse_factory):
+        mock_rse, _ = rse_factory.make_posix_rse()
+        cmd = f"rucio-admin account get_limits {jdoe_account} {mock_rse}"
+        _, out, _ = execute(cmd)
+        cmd = f"rucio list account limits --acount-name {jdoe_account} --rse {mock_rse}"
+        _, new_out, _ = execute(cmd)
+        assert out == new_out
+
+        bytes_limit = 10
+        cmd = f"rucio-admin account set-limits {jdoe_account} {mock_rse} {bytes_limit}"
+        _, _, set_log = execute(cmd)
+        cmd = f"rucio-admin account delete-limits {jdoe_account} {mock_rse}"
+        _, _, delete_log = execute(cmd)
+
+        cmd = f"rucio add account limits --account-name {jdoe_account} --rse {mock_rse} --bytes {bytes_limit}"
+        _, _, new_set_log = execute(cmd)
+        assert new_set_log == set_log
+
+        cmd = f"rucio remove account limits --account-name {jdoe_account} --rse {mock_rse}"
+        _, _, new_rm_log = execute(cmd)
+        assert new_rm_log == delete_log
+
+    @pytest.mark.noparallel("Changes config settings")
+    def test_config(self):
+        cmd = "rucio-admin config get"
+        _, out, _ = execute(cmd)
+        cmd = 'rucio list config'
+        exitcode, new_out, _ = execute(cmd)
+        assert exitcode == 0
+        assert out == new_out
+
+        _, out, _ = execute('rucio-admin config get --section vo-map')
+        exitcode, new_out, _ = execute('rucio list config --section vo-map')
+        assert exitcode == 0
+        assert out == new_out
+
+        section = "vo-map"
+        option = 'new_option'
+        value = 'new_value'
+
+        _, set_out, _ = execute(f"rucio-admin config set --section {section} --option {option} --value {value}")
+        _, delete_out, _ = execute(f"rucio-admin config delete --section {section} --option {option}")
+
+        cmd = f"rucio set config --section {section} --option {option} --value {value}"
+        exitcode, new_set_out, _ = execute(cmd)
+        assert exitcode == 0
+        assert set_out.replace("rucio-admin", "rucio") == new_set_out
+
+        cmd = f"rucio unset config --section {section} --option {option}"
+        exitcode, unset_out, _ = execute(cmd)
+        assert exitcode == 0
+        assert unset_out == delete_out.replace("rucio-admin", "rucio")
+
+    def test_did(self, mock_scope):
+        cmd = f'rucio list did --did {mock_scope}:*'
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+        file = file_generator().split('/')[-1]
+        cmd = f"rucio -v add did --type dataset --did {mock_scope}:{file}"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+        cmd = f'rucio list did --did {mock_scope}:*'
+        exitcode, new_out, err = execute(cmd)
+        assert exitcode == 0
+        assert f"{mock_scope}:{file}" in new_out
+        assert "ERROR" not in err
+
+        file = file_generator().split('/')[-1]
+        cmd = f"rucio add did --type container --did {mock_scope}:{file}"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+        cmd = f'rucio list did --did {mock_scope}:*'
+        exitcode, new_out, err = execute(cmd)
+        assert exitcode == 0
+        assert f"{mock_scope}:{file}" in new_out
+        assert "ERROR" not in err
+
+    def test_did_history(self):
+        cmd = "rucio list did history"
+        exitcode, _, err = execute(cmd)
+
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+    def test_attach_did(self, did_factory, rse_factory):
+        did = did_factory.random_file_did()
+        scope, name = did['scope'], did['name']
+        cmd = f"rucio list did attachment --did {scope}:{name} --child"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert out != ''
+
+        cmd = f"rucio list did attachment --did {scope}:{name} --parent"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert out != ''
+        assert 'ERROR' not in err
+
+        mock_rse, _ = rse_factory.make_posix_rse()
+        dids = did_factory.upload_test_dataset(mock_rse)
+
+        scope = dids[0]['dataset_scope']
+        dataset = dids[0]['dataset_name']
+        test_did = dids[0]['did_name']
+
+        cmd = f"rucio remove did attachment --target {scope}:{dataset} --did {scope}:{test_did}"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+        cmd = f"rucio add did attachment --target {scope}:{dataset} --did {scope}:{test_did}"
+        exitcode, _, err = execute(cmd)
+        print(err)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+    def test_lifetime_exception(self, rse_factory, did_factory):
+        input_file = "./tmp/tmp_exception_files.txt"
+        mock_rse, _ = rse_factory.make_posix_rse()
+        did = did_factory.upload_test_dataset(mock_rse)
+
+        with open(input_file, 'w') as f:
+            f.write(f"{did[0]['dataset_scope']}:{did[0]['dataset_name']}")
+
+        cmd = f"rucio add lifetime-exception --input-file {input_file} --reason mock_test --expiration 2100-12-30"
+        exitcode, _, err = execute(cmd)
+        print(err)
+        assert exitcode == 0
+        if "not affected by the lifetime model" not in err:
+            assert "ERROR" not in err
+        else:
+            assert "Nothing to submit" in err
+
+    def test_replica(self, did_factory, rse_factory):
+        mock_rse, _ = rse_factory.make_posix_rse()
+        did = did_factory.upload_test_file(mock_rse)
+        scope, name = did['scope'], did['name']
+        cmd = f"rucio list replica --replica-type dataset --dids {scope}:{name}"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+        cmd = f"rucio list replica --replica-type file --dids {scope}:{name}"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+    def test_replica_pfn(self, rucio_client, did_factory, rse_factory):
+        mock_rse, _ = rse_factory.make_posix_rse()
+        did = did_factory.upload_test_file(mock_rse)
+        scope, name = did['scope'], did['name']
+        rucio_client.add_replica(mock_rse, scope, name, 1, 'deadbeef')  # I don't know why this is the default adler32
+
+        cmd = f"rucio list replica pfn --did {scope}:{name} --rse {mock_rse}"
+        exitcode, out, err = execute(cmd)
+
+        assert exitcode == 0
+        assert out is not None
+        assert 'ERROR' not in err
+
+    def test_replica_state(self, rse_factory, mock_scope, rucio_client):
+        mock_rse, _ = rse_factory.make_posix_rse()
+
+        name = generate_uuid()
+        rucio_client.add_replica(mock_rse, mock_scope.external, name, 4, 'aaaaaaaa')
+        cmd = f"rucio set replica state --bad --did {mock_scope.external}:{name} --rse {mock_rse}"
+        exitcode, _, log = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in log
+
+        name = generate_uuid()
+        rucio_client.add_replica(mock_rse, mock_scope.external, name, 4, 'aaaaaaaa')
+        cmd = f"rucio set replica state --temporary-unavailable --did {mock_scope.external}:{name} --rse {mock_rse} --duration 12"
+        exitcode, _, log = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in log
+
+        name = generate_uuid()
+        rucio_client.add_replica(mock_rse, mock_scope.external, name, 4, 'aaaaaaaa')
+        cmd = f"rucio set replica state --quarantine --did {mock_scope.external}:{name} --rse {mock_rse}"
+        exitcode, _, log = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in log
+
+    def test_replica_tombstone(self, rucio_client, did_factory, rse_factory):
+        mock_rse, _ = rse_factory.make_posix_rse()
+        rule_rse, _ = rse_factory.make_posix_rse()
+        did = did_factory.upload_test_file(mock_rse)
+        scope, name = did['scope'], did['name']
+
+        name = generate_uuid()
+        rucio_client.add_replica(rule_rse, scope, name, 4, 'aaaaaaaa')
+
+        cmd = f"rucio add replica tombstone --dids {scope}:{name} --rse {rule_rse}"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+    def test_rse(self):
+        rse_name = rse_name_generator()
+        cmd = f"rucio add rse --rse {rse_name}"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+        rse_expression = rse_name.split('_')[0]
+        cmd = f"rucio list rse --rse {rse_expression}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+        assert rse_name in out
+
+        # cmd = f"rucio -v --view info list rse --rse {rse_expression}"
+        # exitcode, _, err = execute(cmd)
+        # print(err)
+        # assert exitcode == 0
+        # assert "ERROR" not in err
+
+        cmd = f"rucio set rse --rse {rse_name} --key name --value {rse_name_generator()}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+        cmd = f"rucio remove rse --rse {rse_name}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+    def test_rse_attribute(self):
+        rse_name = rse_name_generator()
+        _, _, err = execute(f"rucio add rse --rse {rse_name}")
+        assert "ERROR" not in err
+
+        cmd = f"rucio list rse attribute --rse {rse_name}"
+        _, _, err = execute(cmd)
+        assert 'ERROR' not in err
+
+        cmd = f"rucio set rse attribute --rse {rse_name} --key name --value {rse_name}"
+        _, _, err = execute(cmd)
+        assert 'ERROR' not in err
+
+    def test_rse_protocol(self):
+        rse_name = rse_name_generator()
+        _, _, err = execute(f"rucio add rse --rse {rse_name}")
+        assert "ERROR" not in err
+
+        domain_json = '''{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}}'''
+        cmd = f"rucio -v add rse protocol --rse {rse_name} --host-name blocklistreplica --scheme file --prefix /rucio --port 0 --impl rucio.rse.protocols.posix.Default --domain-json '{domain_json}'"
+        exitcode, _, err = execute(cmd)
+        assert "ERROR" not in err
+        assert exitcode == 0
+
+        cmd = f'rucio remove rse protocol --rse {rse_name} --host-name blocklistreplica --scheme file'
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+    def test_rse_distance(self, rse_factory):
+        source_rse, _ = rse_factory.make_posix_rse()
+        dest_rse, _ = rse_factory.make_posix_rse()
+
+        cmd = f"rucio add rse distance --rse {source_rse} --destination {dest_rse} --distance 1"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+        cmd = f"rucio list rse distance --rse {source_rse} --destination {dest_rse}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+        assert dest_rse in out
+        assert '1' in out
+
+        cmd = f"rucio set rse distance --rse {source_rse} --destination {dest_rse} --distance 10"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+        cmd = f"rucio list rse distance --rse {source_rse} --destination {dest_rse}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+        assert dest_rse in out
+        assert '10' in out
+
+        cmd = f"rucio remove rse distance --rse {source_rse} --destination {dest_rse}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+    def test_rse_limits(self, rse_factory):
+        mock_rse, _ = rse_factory.make_posix_rse()
+        limit = 'mock_limit'
+        cmd = f"rucio add rse limit --rse {mock_rse} --name {limit} --limit 100"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+        cmd = f"rucio remove rse limit --rse {mock_rse} --name {limit}"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+    def test_rse_qos_policy(self, rse_factory):
+        mock_rse, _ = rse_factory.make_posix_rse()
+        policy = 'SOMETHING_I_GUESS'
+        cmd = f"rucio add rse qos-policy --rse {mock_rse} --qos-policy {policy}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+        assert policy in out
+
+        cmd = f"rucio list rse qos-policy --rse {mock_rse}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+        assert policy in out
+
+        cmd = f"rucio remove rse qos-policy --rse {mock_rse} --qos-policy {policy}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+        assert policy in out
+
+        cmd = f"rucio list rse qos-policy --rse {mock_rse}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+        assert policy not in out
+
+    def test_rse_usage(self, rse_factory):
+        mock_rse, _ = rse_factory.make_posix_rse()
+        cmd = f"rucio list rse usage --rse {mock_rse}"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+        cmd = f"rucio list rse usage --rse {mock_rse} --show-accounts"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+    def test_rule(self, rse_factory, did_factory):
+        mock_rse, _ = rse_factory.make_posix_rse()
+        rule_rse, _ = rse_factory.make_posix_rse()
+
+        did = did_factory.upload_test_file(mock_rse)
+        scope, name = did['scope'], did['name']
+
+        cmd = f"rucio add rule --did {scope}:{name} --copies 1 --rse {rule_rse}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+        rule_id = out.strip('\n')
+
+        cmd = f"rucio list rule --did {scope}:{name}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+        assert rule_id in out
+
+        move_rse, _ = rse_factory.make_posix_rse()
+        cmd = f"rucio set rule --rule-id {rule_id} --move --rse {move_rse}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+        cmd = f"rucio set rule --rule-id {rule_id} --priority 3"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+        # Do one without a child rule so i can delete it
+        additional_rse, _ = rse_factory.make_posix_rse()
+        cmd = f"rucio add rule --did {scope}:{name} --copies 1 --rse {additional_rse}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+        rule_id = out.strip('\n')
+
+        cmd = f"rucio remove rule --rule-id {rule_id}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert 'ERROR' not in err
+
+    def test_scope(self):
+        new_scope = scope_name_generator()
+        cmd = f"rucio add scope --scope {new_scope} --account root"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+
+        cmd = "rucio list scope"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+        assert new_scope in out
+
+    def test_subscription(self):
+        subscription_name = generate_uuid()
+
+        filter_ = json.dumps({})
+        rules = json.dumps([{"copies": 1, "rse_expression": "JDOE_DATADISK", "lifetime": 3600, "activity": "User Subscriptions"}])
+
+        cmd = f"rucio -v add subscription --account root --name {subscription_name} --filter '{filter_}' --rules '{rules}'"
+        exitcode, _, err = execute(cmd)
+        print(err)
+        assert exitcode == 0
+        assert "ERROR" not in err

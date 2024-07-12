@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from logging import Logger
 
     from rucio.client.client import Client
-    from rucio.client.rcom.utils import MultiOutType
+    from rucio.client.commands.utils import MultiOutType
 
 
 class CLIClientBase(ABC):
