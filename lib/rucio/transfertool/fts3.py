@@ -388,6 +388,7 @@ def build_job_params(
                   'job_metadata': {
                       'issuer': 'rucio',
                       'multi_sources': False,
+                      'overwrite_when_only_on_disk': overwrite_when_only_on_disk,
                   },
                   'overwrite': overwrite,
                   'overwrite_when_only_on_disk': overwrite_when_only_on_disk,
