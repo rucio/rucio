@@ -79,13 +79,15 @@ def list_expired_dids(
         models.DataIdentifier.did_type,
         models.DataIdentifier.created_at,
         models.DataIdentifier.purge_replicas
+    ).with_hint(
+        models.DataIdentifier,
+        'INDEX(DIDS DIDS_EXPIRED_AT_IDX)',
+        'oracle'
     ).where(
         models.DataIdentifier.expired_at < datetime.utcnow(),
         not_(sub_query),
     ).order_by(
         models.DataIdentifier.expired_at
-    ).with_hint(
-        models.DataIdentifier, "index(DIDS DIDS_EXPIRED_AT_IDX)", 'oracle'
     )
 
     if session.bind.dialect.name in ['oracle', 'mysql', 'postgresql']:
@@ -286,18 +288,27 @@ def attach_dids_to_dids(
             cont = []
             stmt = select(
                 models.DataIdentifier
+            ).with_hint(
+                models.DataIdentifier,
+                'INDEX(DIDS DIDS_PK)',
+                'oracle'
             ).where(
                 models.DataIdentifier.scope == attachment['scope'],
                 models.DataIdentifier.name == attachment['name']
-            ).with_hint(
-                models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
             )
             parent_did = session.execute(stmt).scalar_one()
             update_parent = False
 
             if not first_iteration:
-                session.query(children_temp_table).delete()
-            session.execute(insert(children_temp_table), [{'scope': s, 'name': n} for s, n in children])
+                stmt = delete(
+                    children_temp_table
+                )
+                session.execute(stmt)
+            values = [{'scope': s, 'name': n} for s, n in children]
+            stmt = insert(
+                children_temp_table
+            )
+            session.execute(stmt, values)
 
             if parent_did.did_type == DIDType.FILE:
                 # check if parent file has the archive extension
@@ -346,7 +357,10 @@ def attach_dids_to_dids(
     # to remove duplicates, then back to a list of unique dictionaries)
     parent_dids = [dict(tup) for tup in set(tuple(dictionary.items()) for dictionary in parent_dids)]
     if parent_dids:
-        session.execute(insert(models.UpdatedDID), parent_dids)
+        stmt = insert(
+            models.UpdatedDID
+        )
+        session.execute(stmt, parent_dids)
 
 
 def __add_files_to_archive(
@@ -383,10 +397,8 @@ def __add_files_to_archive(
     ).outerjoin_from(
         files_temp_table,
         models.DataIdentifier,
-        and_(
-            models.DataIdentifier.scope == files_temp_table.scope,
-            models.DataIdentifier.name == files_temp_table.name,
-        ),
+        and_(models.DataIdentifier.scope == files_temp_table.scope,
+             models.DataIdentifier.name == files_temp_table.name)
     )
     if ignore_duplicate:
         stmt = stmt.add_columns(
@@ -394,12 +406,10 @@ def __add_files_to_archive(
         ).outerjoin_from(
             files_temp_table,
             models.ConstituentAssociation,
-            and_(
-                models.ConstituentAssociation.scope == parent_did.scope,
-                models.ConstituentAssociation.name == parent_did.name,
-                models.ConstituentAssociation.child_scope == files_temp_table.scope,
-                models.ConstituentAssociation.child_name == files_temp_table.name,
-            ),
+            and_(models.ConstituentAssociation.scope == parent_did.scope,
+                 models.ConstituentAssociation.name == parent_did.name,
+                 models.ConstituentAssociation.child_scope == files_temp_table.scope,
+                 models.ConstituentAssociation.child_name == files_temp_table.name)
         )
 
     dids_to_add = {}
@@ -459,8 +469,16 @@ def __add_files_to_archive(
 
     # insert into archive_contents
     try:
-        dids_to_add and session.execute(insert(models.DataIdentifier), list(dids_to_add.values()))
-        archive_contents_to_add and session.execute(insert(models.ConstituentAssociation), list(archive_contents_to_add.values()))
+        values = list(dids_to_add.values())
+        stmt = insert(
+            models.DataIdentifier
+        )
+        dids_to_add and session.execute(stmt, values)
+        values = list(archive_contents_to_add.values())
+        stmt = insert(
+            models.ConstituentAssociation
+        )
+        archive_contents_to_add and session.execute(stmt, values)
         if must_set_constituent:
             stmt = update(
                 models.DataIdentifier
@@ -468,16 +486,16 @@ def __add_files_to_archive(
                 exists(
                     select(1)
                 ).where(
-                    models.DataIdentifier.scope == files_temp_table.scope,
-                    models.DataIdentifier.name == files_temp_table.name
+                    and_(models.DataIdentifier.scope == files_temp_table.scope,
+                         models.DataIdentifier.name == files_temp_table.name)
                 )
             ).where(
                 or_(models.DataIdentifier.constituent.is_(None),
                     models.DataIdentifier.constituent == false())
-            ).execution_options(
+            ).values({
+                models.DataIdentifier.constituent: True
+            }).execution_options(
                 synchronize_session=False
-            ).values(
-                constituent=True
             )
             session.execute(stmt)
         session.flush()
@@ -495,18 +513,18 @@ def __add_files_to_archive(
             exists(
                 select(1).prefix_with("/*+ INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX) */", dialect="oracle")
             ).where(
-                models.DataIdentifierAssociation.child_scope == parent_did.scope,
-                models.DataIdentifierAssociation.child_name == parent_did.name,
-                models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
-                models.DataIdentifierAssociation.name == models.DataIdentifier.name
+                and_(models.DataIdentifierAssociation.child_scope == parent_did.scope,
+                     models.DataIdentifierAssociation.child_name == parent_did.name,
+                     models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
+                     models.DataIdentifierAssociation.name == models.DataIdentifier.name)
             )
         ).where(
             or_(models.DataIdentifier.is_archive.is_(None),
                 models.DataIdentifier.is_archive == false())
-        ).execution_options(
+        ).values({
+            models.DataIdentifier.is_archive: True
+        }).execution_options(
             synchronize_session=False
-        ).values(
-            is_archive=True
         )
         session.execute(stmt)
 
@@ -560,10 +578,8 @@ def __add_files_to_dataset(
     ).outerjoin_from(
         files_temp_table,
         models.DataIdentifier,
-        and_(
-            models.DataIdentifier.scope == files_temp_table.scope,
-            models.DataIdentifier.name == files_temp_table.name,
-        ),
+        and_(models.DataIdentifier.scope == files_temp_table.scope,
+             models.DataIdentifier.name == files_temp_table.name),
     )
     if ignore_duplicate:
         stmt = stmt.add_columns(
@@ -571,12 +587,10 @@ def __add_files_to_dataset(
         ).outerjoin_from(
             files_temp_table,
             models.DataIdentifierAssociation,
-            and_(
-                models.DataIdentifierAssociation.scope == parent_did.scope,
-                models.DataIdentifierAssociation.name == parent_did.name,
-                models.DataIdentifierAssociation.child_scope == files_temp_table.scope,
-                models.DataIdentifierAssociation.child_name == files_temp_table.name,
-            ),
+            and_(models.DataIdentifierAssociation.scope == parent_did.scope,
+                 models.DataIdentifierAssociation.name == parent_did.name,
+                 models.DataIdentifierAssociation.child_scope == files_temp_table.scope,
+                 models.DataIdentifierAssociation.child_name == files_temp_table.name),
         )
 
     files_to_add = {}
@@ -624,7 +638,11 @@ def __add_files_to_dataset(
         }
 
     try:
-        files_to_add and session.execute(insert(models.DataIdentifierAssociation), list(files_to_add.values()))
+        values = list(files_to_add.values())
+        stmt = insert(
+            models.DataIdentifierAssociation
+        )
+        files_to_add and session.execute(stmt, values)
         session.flush()
         return files_to_add
     except IntegrityError as error:
@@ -674,10 +692,8 @@ def __add_collections_to_container(
     ).outerjoin_from(
         collections_temp_table,
         models.DataIdentifier,
-        and_(
-            models.DataIdentifier.scope == collections_temp_table.scope,
-            models.DataIdentifier.name == collections_temp_table.name,
-        ),
+        and_(models.DataIdentifier.scope == collections_temp_table.scope,
+             models.DataIdentifier.name == collections_temp_table.name),
     )
 
     container_parents = None
@@ -782,10 +798,12 @@ def __add_files_to_archive_without_temp_tables(
         models.DataIdentifier.availability,
         models.DataIdentifier.adler32,
         models.DataIdentifier.md5,
+    ).with_hint(
+        models.DataIdentifier,
+        'INDEX(DIDS DIDS_PK)',
+        'oracle'
     ).where(
         models.DataIdentifier.did_type == DIDType.FILE
-    ).with_hint(
-        models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
     )
 
     file_condition = []
@@ -802,7 +820,9 @@ def __add_files_to_archive_without_temp_tables(
             models.ConstituentAssociation.child_scope,
             models.ConstituentAssociation.child_name
         ).with_hint(
-            models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle'
+            models.ConstituentAssociation,
+            'INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)',
+            'oracle'
         )
         content_condition = []
         for file in files:
@@ -810,10 +830,12 @@ def __add_files_to_archive_without_temp_tables(
                                           models.ConstituentAssociation.name == name,
                                           models.ConstituentAssociation.child_scope == file['scope'],
                                           models.ConstituentAssociation.child_name == file['name']))
-        for row in session.execute(content_query.where(or_(*content_condition))):
+        stmt = content_query.where(or_(*content_condition))
+        for row in session.execute(stmt):
             existing_content.append(row)
 
-    for row in session.execute(files_query.where(or_(*file_condition))):
+    stmt = files_query.where(or_(*file_condition))
+    for row in session.execute(stmt):
         existing_files['%s:%s' % (row.scope.internal, row.name)] = {'child_scope': row.scope,
                                                                     'child_name': row.name,
                                                                     'scope': scope,
@@ -859,7 +881,10 @@ def __add_files_to_archive_without_temp_tables(
 
     # insert into archive_contents
     try:
-        new_files and session.execute(insert(models.DataIdentifier), new_files)
+        stmt = insert(
+            models.DataIdentifier
+        )
+        new_files and session.execute(stmt, new_files)
         if existing_files_condition:
             for chunk in chunks(existing_files_condition, 20):
                 stmt = update(
@@ -867,17 +892,18 @@ def __add_files_to_archive_without_temp_tables(
                 ).prefix_with(
                     "/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle'
                 ).where(
-                    models.DataIdentifier.did_type == DIDType.FILE
-                ).where(
-                    or_(models.DataIdentifier.constituent.is_(None),
-                        models.DataIdentifier.constituent == false())
-                ).where(
-                    or_(*chunk)
-                ).values(
-                    constituent=True
-                )
+                    and_(models.DataIdentifier.did_type == DIDType.FILE,
+                         or_(models.DataIdentifier.constituent.is_(None),
+                             models.DataIdentifier.constituent == false()),
+                         or_(*chunk))
+                ).values({
+                    models.DataIdentifier.constituent: True
+                })
                 session.execute(stmt)
-        contents and session.execute(insert(models.ConstituentAssociation), contents)
+        stmt = insert(
+            models.ConstituentAssociation
+        )
+        contents and session.execute(stmt, contents)
         session.flush()
     except IntegrityError as error:
         raise exception.RucioException(error.args)
@@ -885,9 +911,9 @@ def __add_files_to_archive_without_temp_tables(
     stmt = select(
         models.DataIdentifier
     ).where(
-        models.DataIdentifier.did_type == DIDType.FILE,
-        models.DataIdentifier.scope == scope,
-        models.DataIdentifier.name == name,
+        and_(models.DataIdentifier.did_type == DIDType.FILE,
+             models.DataIdentifier.scope == scope,
+             models.DataIdentifier.name == name)
     )
     archive_did = session.execute(stmt).scalar()
     if not archive_did.is_archive:
@@ -901,18 +927,18 @@ def __add_files_to_archive_without_temp_tables(
             exists(
                 select(1).prefix_with("/*+ INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX) */", dialect="oracle")
             ).where(
-                models.DataIdentifierAssociation.child_scope == scope,
-                models.DataIdentifierAssociation.child_name == name,
-                models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
-                models.DataIdentifierAssociation.name == models.DataIdentifier.name
+                and_(models.DataIdentifierAssociation.child_scope == scope,
+                     models.DataIdentifierAssociation.child_name == name,
+                     models.DataIdentifierAssociation.scope == models.DataIdentifier.scope,
+                     models.DataIdentifierAssociation.name == models.DataIdentifier.name)
             )
         ).where(
             or_(models.DataIdentifier.is_archive.is_(None),
                 models.DataIdentifier.is_archive == false())
-        ).execution_options(
+        ).values({
+            models.DataIdentifier.is_archive: True
+        }).execution_options(
             synchronize_session=False
-        ).values(
-            is_archive=True
         )
         session.execute(stmt)
 
@@ -960,7 +986,9 @@ def __add_files_to_dataset_without_temp_tables(
             models.DataIdentifierAssociation.child_scope,
             models.DataIdentifierAssociation.child_name
         ).with_hint(
-            models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'
+            models.DataIdentifierAssociation,
+            'INDEX(CONTENTS CONTENTS_PK)',
+            'oracle'
         )
         content_condition = []
         for file in files:
@@ -968,7 +996,8 @@ def __add_files_to_dataset_without_temp_tables(
                                           models.DataIdentifierAssociation.name == name,
                                           models.DataIdentifierAssociation.child_scope == file['scope'],
                                           models.DataIdentifierAssociation.child_name == file['name']))
-        for row in session.execute(content_query.where(or_(*content_condition))):
+        stmt = content_query.where(or_(*content_condition))
+        for row in session.execute(stmt):
             existing_content.append(row)
 
     contents = []
@@ -990,7 +1019,9 @@ def __add_files_to_dataset_without_temp_tables(
     stmt = select(
         models.DataIdentifier
     ).with_hint(
-        models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+        models.DataIdentifier,
+        'INDEX(DIDS DIDS_PK)',
+        'oracle'
     ).where(
         or_(*added_archives_condition)
     ).limit(
@@ -1000,18 +1031,20 @@ def __add_files_to_dataset_without_temp_tables(
         stmt = update(
             models.DataIdentifier
         ).where(
-            models.DataIdentifier.scope == scope,
-            models.DataIdentifier.name == name,
-        ).where(
-            or_(models.DataIdentifier.is_archive.is_(None),
-                models.DataIdentifier.is_archive == false())
-        ).values(
-            is_archive=True
-        )
+            and_(models.DataIdentifier.scope == scope,
+                 models.DataIdentifier.name == name,
+                 or_(models.DataIdentifier.is_archive.is_(None),
+                     models.DataIdentifier.is_archive == false()))
+        ).values({
+            models.DataIdentifier.is_archive: True
+        })
         session.execute(stmt)
 
     try:
-        contents and session.execute(insert(models.DataIdentifierAssociation), contents)
+        stmt = insert(
+            models.DataIdentifierAssociation
+        )
+        contents and session.execute(stmt, contents)
         session.flush()
         return contents
     except IntegrityError as error:
@@ -1067,12 +1100,13 @@ def __add_collections_to_container_without_temp_tables(
         models.DataIdentifier.name,
         models.DataIdentifier.did_type
     ).with_hint(
-        models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+        models.DataIdentifier,
+        'INDEX(DIDS DIDS_PK)',
+        'oracle'
     ).where(
         or_(*condition)
     )
     for row in session.execute(stmt):
-
         if row.did_type == DIDType.FILE:
             raise exception.UnsupportedOperation("Adding a file (%s:%s) to a container (%s:%s) is forbidden" % (row.scope, row.name, scope, name))
 
@@ -1217,7 +1251,11 @@ def delete_dids(
         return
 
     temp_table = temp_table_mngr(session).create_scope_name_table()
-    session.execute(insert(temp_table), list(data_in_temp_table.values()))
+    values = list(data_in_temp_table.values())
+    stmt = insert(
+        temp_table
+    )
+    session.execute(stmt, values)
 
     # Delete rules on did
     skip_deletion = False  # Skip deletion in case of expiration of a rule
@@ -1284,8 +1322,8 @@ def delete_dids(
             exists(
                 select(1)
             ).where(
-                models.DidMeta.scope == temp_table.scope,
-                models.DidMeta.name == temp_table.name
+                and_(models.DidMeta.scope == temp_table.scope,
+                     models.DidMeta.name == temp_table.name)
             )
         ).execution_options(
             synchronize_session=False
@@ -1298,17 +1336,25 @@ def delete_dids(
         models.BadReplicas
     ).where(
         models.BadReplicas.state == BadFilesStatus.BAD
-    ).values(
-        state=BadFilesStatus.DELETED,
-        updated_at=datetime.utcnow(),
-    ).execution_options(
+    ).values({
+        models.BadReplicas.state: BadFilesStatus.DELETED,
+        models.BadReplicas.updated_at: datetime.utcnow(),
+    }).execution_options(
         synchronize_session=False
     )
 
     if file_dids:
         if data_in_temp_table is not file_dids:
-            session.execute(delete(temp_table))
-            session.execute(insert(temp_table), list(file_dids.values()))
+            stmt = delete(
+                temp_table
+            )
+            session.execute(stmt)
+
+            values = list(file_dids.values())
+            stmt = insert(
+                temp_table
+            )
+            session.execute(stmt, values)
             data_in_temp_table = file_dids
 
         # update bad files passed directly as input
@@ -1316,16 +1362,24 @@ def delete_dids(
             exists(
                 select(1)
             ).where(
-                models.BadReplicas.scope == temp_table.scope,
-                models.BadReplicas.name == temp_table.name
+                and_(models.BadReplicas.scope == temp_table.scope,
+                     models.BadReplicas.name == temp_table.name)
             )
         )
         session.execute(stmt)
 
     if collection_dids:
         if data_in_temp_table is not collection_dids:
-            session.execute(delete(temp_table))
-            session.execute(insert(temp_table), list(collection_dids.values()))
+            stmt = delete(
+                temp_table
+            )
+            session.execute(stmt)
+
+            values = list(collection_dids.values())
+            stmt = insert(
+                temp_table
+            )
+            session.execute(stmt, values)
             data_in_temp_table = collection_dids
 
         # Find files of datasets passed as input and put them in a separate temp table
@@ -1337,6 +1391,7 @@ def delete_dids(
             select(
                 models.DataIdentifierAssociation.child_scope,
                 models.DataIdentifierAssociation.child_name,
+            ).distinct(
             ).join_from(
                 temp_table,
                 models.DataIdentifierAssociation,
@@ -1344,7 +1399,6 @@ def delete_dids(
                      models.DataIdentifierAssociation.name == temp_table.name)
             ).where(
                 models.DataIdentifierAssociation.child_type == DIDType.FILE
-            ).distinct(
             )
         )
         session.execute(stmt)
@@ -1354,8 +1408,8 @@ def delete_dids(
             exists(
                 select(1)
             ).where(
-                models.BadReplicas.scope == resolved_files_temp_table.scope,
-                models.BadReplicas.name == resolved_files_temp_table.name
+                and_(models.BadReplicas.scope == resolved_files_temp_table.scope,
+                     models.BadReplicas.name == resolved_files_temp_table.name)
             )
         )
         session.execute(stmt)
@@ -1369,16 +1423,16 @@ def delete_dids(
                     exists(
                         select(1)
                     ).where(
-                        models.RSEFileAssociation.scope == resolved_files_temp_table.scope,
-                        models.RSEFileAssociation.name == resolved_files_temp_table.name
+                        and_(models.RSEFileAssociation.scope == resolved_files_temp_table.scope,
+                             models.RSEFileAssociation.name == resolved_files_temp_table.name)
                     )
                 ).where(
-                    models.RSEFileAssociation.lock_cnt == 0,
-                    models.RSEFileAssociation.tombstone != null()
-                ).execution_options(
+                    and_(models.RSEFileAssociation.lock_cnt == 0,
+                         models.RSEFileAssociation.tombstone != null())
+                ).values({
+                    models.RSEFileAssociation.tombstone: datetime(1970, 1, 1)
+                }).execution_options(
                     synchronize_session=False
-                ).values(
-                    tombstone=datetime(1970, 1, 1)
                 )
                 session.execute(stmt)
 
@@ -1390,8 +1444,8 @@ def delete_dids(
                 exists(
                     select(1)
                 ).where(
-                    models.DataIdentifierAssociation.scope == temp_table.scope,
-                    models.DataIdentifierAssociation.name == temp_table.name
+                    and_(models.DataIdentifierAssociation.scope == temp_table.scope,
+                         models.DataIdentifierAssociation.name == temp_table.name)
                 )
             ).execution_options(
                 synchronize_session=False
@@ -1407,8 +1461,8 @@ def delete_dids(
                 exists(
                     select(1)
                 ).where(
-                    models.CollectionReplica.scope == temp_table.scope,
-                    models.CollectionReplica.name == temp_table.name
+                    and_(models.CollectionReplica.scope == temp_table.scope,
+                         models.CollectionReplica.name == temp_table.name)
                 )
             ).execution_options(
                 synchronize_session=False
@@ -1423,8 +1477,16 @@ def delete_dids(
 
     if collection_dids:
         if data_in_temp_table is not collection_dids:
-            session.execute(delete(temp_table))
-            session.execute(insert(temp_table), list(collection_dids.values()))
+            stmt = delete(
+                temp_table
+            )
+            session.execute(stmt)
+
+            values = list(collection_dids.values())
+            stmt = insert(
+                temp_table
+            )
+            session.execute(stmt, values)
             data_in_temp_table = collection_dids
 
         with METRICS.timer('delete_dids.dids_followed'):
@@ -1434,8 +1496,8 @@ def delete_dids(
                 exists(
                     select(1)
                 ).where(
-                    models.DidsFollowed.scope == temp_table.scope,
-                    models.DidsFollowed.name == temp_table.name
+                    and_(models.DidsFollowed.scope == temp_table.scope,
+                         models.DidsFollowed.name == temp_table.name)
                 )
             ).execution_options(
                 synchronize_session=False
@@ -1446,9 +1508,9 @@ def delete_dids(
             dids_to_delete_filter = exists(
                 select(1)
             ).where(
-                models.DataIdentifier.scope == temp_table.scope,
-                models.DataIdentifier.name == temp_table.name,
-                models.DataIdentifier.did_type.in_([DIDType.CONTAINER, DIDType.DATASET])
+                and_(models.DataIdentifier.scope == temp_table.scope,
+                     models.DataIdentifier.name == temp_table.name,
+                     models.DataIdentifier.did_type.in_([DIDType.CONTAINER, DIDType.DATASET]))
             )
 
             if archive_dids:
@@ -1465,8 +1527,16 @@ def delete_dids(
 
     if file_dids:
         if data_in_temp_table is not file_dids:
-            session.execute(delete(temp_table))
-            session.execute(insert(temp_table), list(file_dids.values()))
+            stmt = delete(
+                temp_table
+            )
+            session.execute(stmt)
+
+            values = list(file_dids.values())
+            stmt = insert(
+                temp_table
+            )
+            session.execute(stmt, values)
             data_in_temp_table = file_dids
         stmt = update(
             models.DataIdentifier
@@ -1474,15 +1544,15 @@ def delete_dids(
             exists(
                 select(1)
             ).where(
-                models.DataIdentifier.scope == temp_table.scope,
-                models.DataIdentifier.name == temp_table.name
+                and_(models.DataIdentifier.scope == temp_table.scope,
+                     models.DataIdentifier.name == temp_table.name)
             )
         ).where(
             models.DataIdentifier.did_type == DIDType.FILE
-        ).execution_options(
+        ).values({
+            models.DataIdentifier.expired_at: None
+        }).execution_options(
             synchronize_session=False
-        ).values(
-            expired_at=None
         )
         session.execute(stmt)
 
@@ -1507,11 +1577,10 @@ def detach_dids(
     stmt = select(
         models.DataIdentifier
     ).where(
-        models.DataIdentifier.scope == scope,
-        models.DataIdentifier.name == name,
-    ).where(
-        or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
-            models.DataIdentifier.did_type == DIDType.DATASET)
+        and_(models.DataIdentifier.scope == scope,
+             models.DataIdentifier.name == name,
+             or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
+                 models.DataIdentifier.did_type == DIDType.DATASET))
     )
     try:
         did = session.execute(stmt).scalar_one()
@@ -1527,9 +1596,9 @@ def detach_dids(
     # TODO: should judge target did's status: open, monotonic, close.
     stmt = select(
         models.DataIdentifierAssociation
-    ).filter_by(
-        scope=scope,
-        name=name,
+    ).where(
+        and_(models.DataIdentifierAssociation.scope == scope,
+             models.DataIdentifierAssociation.name == name)
     ).limit(
         1
     )
@@ -1540,14 +1609,13 @@ def detach_dids(
             raise exception.UnsupportedOperation('Self-detach is not valid.')
         child_scope = source['scope']
         child_name = source['name']
-        associ_did = session.execute(
-            stmt.filter_by(
-                child_scope=child_scope,
-                child_name=child_name
-            ).limit(
-                1
-            )
-        ).scalar()
+        curr_stmt = stmt.where(
+            and_(models.DataIdentifierAssociation.child_scope == child_scope,
+                 models.DataIdentifierAssociation.child_name == child_name)
+        ).limit(
+            1
+        )
+        associ_did = session.execute(curr_stmt).scalar()
         if associ_did is None:
             raise exception.DataIdentifierNotFound(f"Data identifier '{child_scope}:{child_name}' not found under '{scope}:{name}'")
 
@@ -1637,26 +1705,31 @@ def list_new_dids(
     ).prefix_with(
         "/*+ INDEX(RULES RULES_SCOPE_NAME_IDX) */", dialect='oracle'
     ).where(
-        models.DataIdentifier.scope == models.ReplicationRule.scope,
-        models.DataIdentifier.name == models.ReplicationRule.name,
-        models.ReplicationRule.state == RuleState.INJECT
+        and_(models.DataIdentifier.scope == models.ReplicationRule.scope,
+             models.DataIdentifier.name == models.ReplicationRule.name,
+             models.ReplicationRule.state == RuleState.INJECT)
     )
 
     select_stmt = select(
         models.DataIdentifier
     ).with_hint(
-        models.DataIdentifier, "index(dids DIDS_IS_NEW_IDX)", 'oracle'
-    ).filter_by(
-        is_new=True
+        models.DataIdentifier,
+        'INDEX(dids DIDS_IS_NEW_IDX)',
+        'oracle'
     ).where(
-        ~exists(sub_query)
+        and_(models.DataIdentifier.is_new == true(),
+             ~exists(sub_query))
     )
 
     if did_type:
         if isinstance(did_type, str):
-            select_stmt = select_stmt.filter_by(did_type=DIDType[did_type])
+            select_stmt = select_stmt.where(
+                models.DataIdentifier.did_type == DIDType[did_type]
+            )
         elif isinstance(did_type, Enum):
-            select_stmt = select_stmt.filter_by(did_type=did_type)
+            select_stmt = select_stmt.where(
+                models.DataIdentifier.did_type == did_type
+            )
 
     select_stmt = filter_thread_work(session=session, query=select_stmt, total_threads=total_threads, thread_id=thread, hash_variable='name')
 
@@ -1689,12 +1762,12 @@ def set_new_dids(
         try:
             stmt = update(
                 models.DataIdentifier
-            ).filter_by(
-                scope=did['scope'],
-                name=did['name']
-            ).values(
-                is_new=new_flag
-            ).execution_options(
+            ).where(
+                and_(models.DataIdentifier.scope == did['scope'],
+                     models.DataIdentifier.name == did['name'])
+            ).values({
+                models.DataIdentifier.is_new: new_flag
+            }).execution_options(
                 synchronize_session=False
             )
             rowcount = session.execute(stmt).rowcount
@@ -1728,10 +1801,12 @@ def list_content(
     stmt = select(
         models.DataIdentifierAssociation
     ).with_hint(
-        models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'
-    ).filter_by(
-        scope=scope,
-        name=name
+        models.DataIdentifierAssociation,
+        'INDEX(CONTENTS CONTENTS_PK)',
+        'oracle'
+    ).where(
+        and_(models.DataIdentifierAssociation.scope == scope,
+             models.DataIdentifierAssociation.name == name)
     )
     children_found = False
     for tmp_did in session.execute(stmt).yield_per(5).scalars():
@@ -1760,9 +1835,9 @@ def list_content_history(
     try:
         stmt = select(
             models.DataIdentifierAssociationHistory
-        ).filter_by(
-            scope=scope,
-            name=name
+        ).where(
+            and_(models.DataIdentifierAssociationHistory.scope == scope,
+                 models.DataIdentifierAssociationHistory.name == name)
         )
         for tmp_did in session.execute(stmt).yield_per(5).scalars():
             yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
@@ -1795,9 +1870,9 @@ def list_parent_dids(
         models.DataIdentifierAssociation.scope,
         models.DataIdentifierAssociation.name,
         models.DataIdentifierAssociation.did_type
-    ).filter_by(
-        child_scope=scope,
-        child_name=name
+    ).where(
+        and_(models.DataIdentifierAssociation.child_scope == scope,
+             models.DataIdentifierAssociation.child_name == name)
     )
     for did in session.execute(stmt).yield_per(5):
         yield {'scope': did.scope, 'name': did.name, 'type': did.did_type}
@@ -1824,9 +1899,9 @@ def list_all_parent_dids(
         models.DataIdentifierAssociation.scope,
         models.DataIdentifierAssociation.name,
         models.DataIdentifierAssociation.did_type
-    ).filter_by(
-        child_scope=scope,
-        child_name=name
+    ).where(
+        and_(models.DataIdentifierAssociation.child_scope == scope,
+             models.DataIdentifierAssociation.child_name == name)
     )
     for did in session.execute(stmt).yield_per(5):
         yield {'scope': did.scope, 'name': did.name, 'type': did.did_type}
@@ -1860,11 +1935,9 @@ def list_child_dids_stmt(
     ).join_from(
         input_dids_table,
         models.DataIdentifierAssociation,
-        and_(
-            models.DataIdentifierAssociation.scope == input_dids_table.scope,
-            models.DataIdentifierAssociation.name == input_dids_table.name,
-            models.DataIdentifierAssociation.did_type.in_(dids_to_resolve),
-        ),
+        and_(models.DataIdentifierAssociation.scope == input_dids_table.scope,
+             models.DataIdentifierAssociation.name == input_dids_table.name,
+             models.DataIdentifierAssociation.did_type.in_(dids_to_resolve)),
     ).cte(
         recursive=True,
     )
@@ -1877,9 +1950,9 @@ def list_child_dids_stmt(
             models.DataIdentifierAssociation.child_name,
             models.DataIdentifierAssociation.child_type,
         ).where(
-            models.DataIdentifierAssociation.scope == initial_set.c.child_scope,
-            models.DataIdentifierAssociation.name == initial_set.c.child_name,
-            models.DataIdentifierAssociation.did_type.in_(dids_to_resolve),
+            and_(models.DataIdentifierAssociation.scope == initial_set.c.child_scope,
+                 models.DataIdentifierAssociation.name == initial_set.c.child_name,
+                 models.DataIdentifierAssociation.did_type.in_(dids_to_resolve))
         )
     )
 
@@ -1917,9 +1990,9 @@ def list_one_did_childs_stmt(
         models.DataIdentifierAssociation.child_name,
         models.DataIdentifierAssociation.child_type,
     ).where(
-        models.DataIdentifierAssociation.scope == scope,
-        models.DataIdentifierAssociation.name == name,
-        models.DataIdentifierAssociation.did_type.in_(dids_to_resolve),
+        and_(models.DataIdentifierAssociation.scope == scope,
+             models.DataIdentifierAssociation.name == name,
+             models.DataIdentifierAssociation.did_type.in_(dids_to_resolve))
     ).cte(
         recursive=True,
     )
@@ -1932,9 +2005,9 @@ def list_one_did_childs_stmt(
             models.DataIdentifierAssociation.child_name,
             models.DataIdentifierAssociation.child_type,
         ).where(
-            models.DataIdentifierAssociation.scope == initial_set.c.child_scope,
-            models.DataIdentifierAssociation.name == initial_set.c.child_name,
-            models.DataIdentifierAssociation.did_type.in_(dids_to_resolve),
+            and_(models.DataIdentifierAssociation.scope == initial_set.c.child_scope,
+                 models.DataIdentifierAssociation.name == initial_set.c.child_name,
+                 models.DataIdentifierAssociation.did_type.in_(dids_to_resolve))
         )
     )
 
@@ -2016,11 +2089,13 @@ def list_files(scope: "InternalScope", name: str, long: bool = False, *, session
             models.DataIdentifier.events,
             models.DataIdentifier.lumiblocknr,
             models.DataIdentifier.did_type
-        ).filter_by(
-            scope=scope,
-            name=name
         ).with_hint(
-            models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+            models.DataIdentifier,
+            'INDEX(DIDS DIDS_PK)',
+            'oracle'
+        ).where(
+            and_(models.DataIdentifier.scope == scope,
+                 models.DataIdentifier.name == name)
         )
         did = session.execute(stmt).one()
 
@@ -2039,7 +2114,9 @@ def list_files(scope: "InternalScope", name: str, long: bool = False, *, session
                 models.DataIdentifierAssociation.child_name,
                 models.DataIdentifierAssociation.child_type
             ).with_hint(
-                models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'
+                models.DataIdentifierAssociation,
+                'INDEX(CONTENTS CONTENTS_PK)',
+                'oracle'
             )
 
             if long:
@@ -2053,10 +2130,12 @@ def list_files(scope: "InternalScope", name: str, long: bool = False, *, session
                     models.DataIdentifierAssociation.events,
                     models.DataIdentifier.lumiblocknr
                 ).with_hint(
-                    models.DataIdentifierAssociation, "INDEX_RS_ASC(DIDS DIDS_PK) INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", "oracle"
+                    models.DataIdentifierAssociation,
+                    'INDEX_RS_ASC(DIDS DIDS_PK) INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)',
+                    'oracle'
                 ).where(
-                    models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
-                    models.DataIdentifier.name == models.DataIdentifierAssociation.child_name
+                    and_(models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
+                         models.DataIdentifier.name == models.DataIdentifierAssociation.child_name)
                 )
             else:
                 dst_cnt_query = select(
@@ -2069,7 +2148,9 @@ def list_files(scope: "InternalScope", name: str, long: bool = False, *, session
                     models.DataIdentifierAssociation.events,
                     bindparam("lumiblocknr", None)
                 ).with_hint(
-                    models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_PK)", 'oracle'
+                    models.DataIdentifierAssociation,
+                    'INDEX(CONTENTS CONTENTS_PK)',
+                    'oracle'
                 )
 
             dids = [(scope, name, did[7]), ]
@@ -2094,7 +2175,10 @@ def list_files(scope: "InternalScope", name: str, long: bool = False, *, session
                                    'guid': guid and guid.upper(),
                                    'events': events}
                 else:
-                    stmt = cnt_query.filter_by(scope=s, name=n)
+                    stmt = cnt_query.where(
+                        and_(models.DataIdentifierAssociation.scope == s,
+                             models.DataIdentifierAssociation.name == n)
+                    )
                     for child_scope, child_name, child_type in session.execute(stmt).yield_per(500):
                         dids.append((child_scope, child_name, child_type))
 
@@ -2126,18 +2210,17 @@ def scope_list(
     def __topdids(scope):
         sub_stmt = select(
             models.DataIdentifierAssociation.child_name
-        ).filter_by(
-            scope=scope,
-            child_scope=scope
+        ).where(
+            and_(models.DataIdentifierAssociation.scope == scope,
+                 models.DataIdentifierAssociation.child_scope == scope)
         )
         stmt = select(
             models.DataIdentifier.name,
             models.DataIdentifier.did_type,
             models.DataIdentifier.bytes
-        ).filter_by(
-            scope=scope
         ).where(
-            not_(models.DataIdentifier.name.in_(sub_stmt))
+            and_(models.DataIdentifier.scope == scope,
+                 not_(models.DataIdentifier.name.in_(sub_stmt)))
         ).order_by(
             models.DataIdentifier.name
         )
@@ -2150,9 +2233,9 @@ def scope_list(
     def __diddriller(pdid: "Mapping[str, Any]") -> "Iterator[dict[str, Any]]":
         stmt = select(
             models.DataIdentifierAssociation
-        ).filter_by(
-            scope=pdid['scope'],
-            name=pdid['name']
+        ).where(
+            and_(models.DataIdentifierAssociation.scope == pdid['scope'],
+                 models.DataIdentifierAssociation.name == pdid['name'])
         ).order_by(
             models.DataIdentifierAssociation.child_name
         )
@@ -2169,9 +2252,9 @@ def scope_list(
     else:
         stmt = select(
             models.DataIdentifier
-        ).filter_by(
-            scope=scope,
-            name=name
+        ).where(
+            and_(models.DataIdentifier.scope == scope,
+                 models.DataIdentifier.name == name)
         ).limit(
             1
         )
@@ -2203,10 +2286,12 @@ def __get_did(
         stmt = select(
             models.DataIdentifier
         ).with_hint(
-            models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+            models.DataIdentifier,
+            'INDEX(DIDS DIDS_PK)',
+            'oracle'
         ).where(
-            models.DataIdentifier.scope == scope,
-            models.DataIdentifier.name == name,
+            and_(models.DataIdentifier.scope == scope,
+                 models.DataIdentifier.name == name)
         )
         return session.execute(stmt).scalar_one()
     except NoResultFound:
@@ -2252,7 +2337,8 @@ def get_files(files: "Sequence[Mapping[str, Any]]", *, session: "Session") -> li
     """
     file_condition = []
     for file in files:
-        file_condition.append(and_(models.DataIdentifier.scope == file['scope'], models.DataIdentifier.name == file['name']))
+        file_condition.append(and_(models.DataIdentifier.scope == file['scope'],
+                                   models.DataIdentifier.name == file['name']))
 
     stmt = select(
         models.DataIdentifier.scope,
@@ -2263,12 +2349,13 @@ def get_files(files: "Sequence[Mapping[str, Any]]", *, session: "Session") -> li
         models.DataIdentifier.availability,
         models.DataIdentifier.adler32,
         models.DataIdentifier.md5
-    ).where(
-        models.DataIdentifier.did_type == DIDType.FILE
     ).with_hint(
-        models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+        models.DataIdentifier,
+        'INDEX(DIDS DIDS_PK)',
+        'oracle'
     ).where(
-        or_(*file_condition)
+        and_(models.DataIdentifier.did_type == DIDType.FILE,
+             or_(*file_condition))
     )
 
     rows = []
@@ -2482,7 +2569,9 @@ def get_metadata_bulk(
                 stmt = select(
                     models.DataIdentifier
                 ).with_hint(
-                    models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'
+                    models.DataIdentifier,
+                    'INDEX(DIDS DIDS_PK)',
+                    'oracle'
                 ).where(
                     or_(*chunk)
                 )
@@ -2531,14 +2620,13 @@ def set_status(
 
     update_stmt = update(
         models.DataIdentifier
-    ).filter_by(
-        scope=scope,
-        name=name
+    ).where(
+        and_(models.DataIdentifier.scope == scope,
+             models.DataIdentifier.name == name,
+             or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
+                 models.DataIdentifier.did_type == DIDType.DATASET))
     ).prefix_with(
         "/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle'
-    ).where(
-        or_(models.DataIdentifier.did_type == DIDType.CONTAINER,
-            models.DataIdentifier.did_type == DIDType.DATASET)
     ).execution_options(
         synchronize_session=False
     )
@@ -2548,10 +2636,9 @@ def set_status(
             raise exception.UnsupportedStatus(f'The status {k} is not a valid data identifier status.')
         if k == 'open':
             if not kwargs[k]:
-                update_stmt = update_stmt.filter_by(
-                    is_open=True
-                ).where(
-                    models.DataIdentifier.did_type != DIDType.FILE
+                update_stmt = update_stmt.where(
+                    and_(models.DataIdentifier.is_open == true(),
+                         models.DataIdentifier.did_type != DIDType.FILE)
                 )
                 values['is_open'], values['closed_at'] = False, datetime.utcnow()
                 values['bytes'], values['length'], values['events'] = __resolve_bytes_length_events_did(did=__get_did(scope=scope, name=name, session=session),
@@ -2559,13 +2646,13 @@ def set_status(
                 # Update datasetlocks as well
                 stmt = update(
                     models.DatasetLock
-                ).filter_by(
-                    scope=scope,
-                    name=name
-                ).values(
-                    length=values['length'],
-                    bytes=values['bytes']
-                )
+                ).where(
+                    and_(models.DatasetLock.scope == scope,
+                         models.DatasetLock.name == name)
+                ).values({
+                    models.DatasetLock.length: values['length'],
+                    models.DatasetLock.bytes: values['bytes']
+                })
                 session.execute(stmt)
 
                 # Generate a message
@@ -2585,10 +2672,9 @@ def set_status(
 
             else:
                 # Set status to open only for privileged accounts
-                update_stmt = update_stmt.filter_by(
-                    is_open=False
-                ).where(
-                    models.DataIdentifier.did_type != DIDType.FILE
+                update_stmt = update_stmt.where(
+                    and_(models.DataIdentifier.is_open == false(),
+                         models.DataIdentifier.did_type != DIDType.FILE)
                 )
                 values['is_open'] = True
 
@@ -2597,15 +2683,17 @@ def set_status(
                     message['vo'] = scope.vo
                 add_message('OPEN', message, session=session)
 
-    update_stmt = update_stmt.values(values)
+    update_stmt = update_stmt.values(
+        values
+    )
     rowcount = session.execute(update_stmt).rowcount
 
     if not rowcount:
         stmt = select(
             models.DataIdentifier
-        ).filter_by(
-            scope=scope,
-            name=name
+        ).where(
+            and_(models.DataIdentifier.scope == scope,
+                 models.DataIdentifier.name == name)
         )
         try:
             session.execute(stmt).scalar_one()
@@ -2617,9 +2705,9 @@ def set_status(
         if not values['is_open']:
             stmt = select(
                 models.ReplicationRule
-            ).filter_by(
-                scope=scope,
-                name=name
+            ).where(
+                and_(models.ReplicationRule.scope == scope,
+                     models.ReplicationRule.name == name)
             )
             for rule in session.execute(stmt).scalars():
                 rucio.core.rule.generate_rule_notifications(rule=rule, session=session)
@@ -2673,9 +2761,9 @@ def get_did_atime(
     """
     stmt = select(
         models.DataIdentifier.accessed_at
-    ).filter_by(
-        scope=scope,
-        name=name
+    ).where(
+        and_(models.DataIdentifier.scope == scope,
+             models.DataIdentifier.name == name)
     )
     return session.execute(stmt).one()[0]
 
@@ -2697,9 +2785,9 @@ def get_did_access_cnt(
     """
     stmt = select(
         models.DataIdentifier.access_cnt
-    ).filter_by(
-        scope=scope,
-        name=name
+    ).where(
+        and_(models.DataIdentifier.scope == scope,
+             models.DataIdentifier.name == name)
     )
     return session.execute(stmt).one()[0]
 
@@ -2719,22 +2807,26 @@ def get_dataset_by_guid(
     """
     stmt = select(
         models.DataIdentifier
-    ).filter_by(
-        guid=guid,
-        did_type=DIDType.FILE
     ).with_hint(
-        models.ReplicaLock, "INDEX(DIDS_GUIDS_IDX)", 'oracle'
+        models.ReplicaLock,
+        'INDEX(DIDS_GUIDS_IDX)',
+        'oracle'
+    ).where(
+        and_(models.DataIdentifier.guid == guid,
+             models.DataIdentifier.did_type == DIDType.FILE)
     )
     try:
         r = session.execute(stmt).scalar_one()
         datasets_stmt = select(
             models.DataIdentifierAssociation.scope,
             models.DataIdentifierAssociation.name
-        ).filter_by(
-            child_scope=r.scope,
-            child_name=r.name
         ).with_hint(
-            models.DataIdentifierAssociation, "INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX)", 'oracle'
+            models.DataIdentifierAssociation,
+            'INDEX(CONTENTS CONTENTS_CHILD_SCOPE_NAME_IDX)',
+            'oracle'
+        ).where(
+            and_(models.DataIdentifierAssociation.child_scope == r.scope,
+                 models.DataIdentifierAssociation.child_name == r.name)
         )
 
     except NoResultFound:
@@ -2764,15 +2856,15 @@ def touch_dids(
         for did in dids:
             stmt = update(
                 models.DataIdentifier
-            ).filter_by(
-                scope=did['scope'],
-                name=did['name'],
-                did_type=did['type']
-            ).values(
-                accessed_at=did.get('accessed_at') or now,
-                access_cnt=case((models.DataIdentifier.access_cnt == none_value, 1),
-                                else_=(models.DataIdentifier.access_cnt + 1))  # type: ignore
-            ).execution_options(
+            ).where(
+                and_(models.DataIdentifier.scope == did['scope'],
+                     models.DataIdentifier.name == did['name'],
+                     models.DataIdentifier.did_type == did['type'])
+            ).values({
+                models.DataIdentifier.accessed_at: did.get('accessed_at') or now,
+                models.DataIdentifier.access_cnt: case((models.DataIdentifier.access_cnt == none_value, 1),
+                                                       else_=(models.DataIdentifier.access_cnt + 1))  # type: ignore
+            }).execution_options(
                 synchronize_session=False
             )
             session.execute(stmt)
@@ -2835,8 +2927,8 @@ def __resolve_bytes_length_events_did(
                 func.sum(models.DataIdentifierAssociation.bytes),
                 func.sum(models.DataIdentifierAssociation.events),
             ).where(
-                models.DataIdentifierAssociation.scope == did.scope,
-                models.DataIdentifierAssociation.name == did.name
+                and_(models.DataIdentifierAssociation.scope == did.scope,
+                     models.DataIdentifierAssociation.name == did.name)
             )
         elif did.did_type == DIDType.CONTAINER and dynamic_depth == DIDType.DATASET:
             child_did_stmt = list_one_did_childs_stmt(did.scope, did.name, did_type=DIDType.DATASET).subquery()
@@ -2890,10 +2982,12 @@ def resurrect(dids: "Iterable[Mapping[str, Any]]", *, session: "Session") -> Non
             stmt = select(
                 models.DeletedDataIdentifier
             ).with_hint(
-                models.DeletedDataIdentifier, "INDEX(DELETED_DIDS DELETED_DIDS_PK)", 'oracle'
-            ).filter_by(
-                scope=did['scope'],
-                name=did['name']
+                models.DeletedDataIdentifier,
+                'INDEX(DELETED_DIDS DELETED_DIDS_PK)',
+                'oracle'
+            ).where(
+                and_(models.DeletedDataIdentifier.scope == did['scope'],
+                     models.DeletedDataIdentifier.name == did['name'])
             )
             del_did = session.execute(stmt).scalar_one()
         except NoResultFound:
@@ -2901,13 +2995,13 @@ def resurrect(dids: "Iterable[Mapping[str, Any]]", *, session: "Session") -> Non
             stmt = update(
                 models.DataIdentifier
             ).where(
-                models.DataIdentifier.scope == did['scope'],
-                models.DataIdentifier.name == did['name'],
-                models.DataIdentifier.expired_at < datetime.utcnow()
-            ).execution_options(
+                and_(models.DataIdentifier.scope == did['scope'],
+                     models.DataIdentifier.name == did['name'],
+                     models.DataIdentifier.expired_at < datetime.utcnow())
+            ).values({
+                models.DataIdentifier.expired_at: None
+            }).execution_options(
                 synchronize_session=False
-            ).values(
-                expired_at=None
             )
             rowcount = session.execute(stmt).rowcount
             if rowcount:
@@ -2926,14 +3020,13 @@ def resurrect(dids: "Iterable[Mapping[str, Any]]", *, session: "Session") -> Non
             models.DeletedDataIdentifier
         ).prefix_with(
             "/*+ INDEX(DELETED_DIDS DELETED_DIDS_PK) */", dialect='oracle'
-        ).filter_by(
-            scope=did['scope'],
-            name=did['name']
+        ).where(
+            and_(models.DeletedDataIdentifier.scope == did['scope'],
+                 models.DeletedDataIdentifier.name == did['name'])
         )
         session.execute(stmt)
 
-        models.DataIdentifier(**kargs).\
-            save(session=session, flush=False)
+        models.DataIdentifier(**kargs).save(session=session, flush=False)
 
 
 @stream_session
@@ -2954,10 +3047,12 @@ def list_archive_content(
         stmt = select(
             models.ConstituentAssociation
         ).with_hint(
-            models.ConstituentAssociation, "INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)", 'oracle'
-        ).filter_by(
-            scope=scope,
-            name=name
+            models.ConstituentAssociation,
+            'INDEX(ARCHIVE_CONTENTS ARCH_CONTENTS_PK)',
+            'oracle'
+        ).where(
+            and_(models.ConstituentAssociation.scope == scope,
+                 models.ConstituentAssociation.name == name)
         )
 
         for tmp_did in session.execute(stmt).yield_per(5).scalars():
@@ -3006,9 +3101,9 @@ def add_dids_to_followed(
             # Get the did details corresponding to the scope and name passed.
             stmt = select(
                 models.DataIdentifier
-            ).filter_by(
-                scope=did['scope'],
-                name=did['name']
+            ).where(
+                and_(models.DataIdentifier.scope == did['scope'],
+                     models.DataIdentifier.name == did['name'])
             )
             did = session.execute(stmt).scalar_one()
             # Add the queried to the followed table.
@@ -3039,9 +3134,9 @@ def get_users_following_did(
     try:
         stmt = select(
             models.DidsFollowed
-        ).filter_by(
-            scope=scope,
-            name=name
+        ).where(
+            and_(models.DidsFollowed.scope == scope,
+                 models.DidsFollowed.name == name)
         )
         for user in session.execute(stmt).scalars().all():
             # Return a dictionary of users to be rendered as json.
@@ -3089,10 +3184,10 @@ def remove_dids_from_followed(
         for did in dids:
             stmt = delete(
                 models.DidsFollowed
-            ).filter_by(
-                scope=did['scope'],
-                name=did['name'],
-                account=account
+            ).where(
+                and_(models.DidsFollowed.scope == did['scope'],
+                     models.DidsFollowed.name == did['name'],
+                     models.DidsFollowed.account == account)
             ).execution_options(
                 synchronize_session=False
             )
@@ -3122,9 +3217,9 @@ def trigger_event(
     try:
         stmt = select(
             models.DidsFollowed
-        ).filter_by(
-            scope=scope,
-            name=name
+        ).where(
+            and_(models.DidsFollowed.scope == scope,
+                 models.DidsFollowed.name == name)
         )
         for did in session.execute(stmt).scalars().all():
             # Create a new event using the specified parameters.
@@ -3179,10 +3274,10 @@ def create_reports(
                 # Clean up the event after creating the report
                 stmt = delete(
                     models.FollowEvents
-                ).filter_by(
-                    scope=event.scope,
-                    name=event.name,
-                    account=event.account
+                ).where(
+                    and_(models.FollowEvents.scope == event.scope,
+                         models.FollowEvents.name == event.name,
+                         models.FollowEvents.account == event.account)
                 ).execution_options(
                     synchronize_session=False
                 )
@@ -3192,8 +3287,8 @@ def create_reports(
             # Get the email associated with the account.
             stmt = select(
                 models.Account.email
-            ).filter_by(
-                account=account
+            ).where(
+                models.Account.account == account
             )
             email = session.execute(stmt).scalar()
             add_message('email', {'to': email,
