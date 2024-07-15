@@ -16,7 +16,7 @@
 Interface for identity abstraction layer
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from rucio.common import exception
 from rucio.common.types import InternalAccount
@@ -26,13 +26,21 @@ from rucio.db.sqla.session import read_session, transactional_session
 from rucio.gateway import permission
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from collections.abc import Sequence
 
+    from sqlalchemy import Row
     from sqlalchemy.orm import Session
 
 
 @transactional_session
-def add_identity(identity_key, id_type, email, password=None, *, session: "Session"):
+def add_identity(
+    identity_key: str,
+    id_type: str,
+    email: str,
+    password: Optional[str] = None,
+    *,
+    session: "Session"
+) -> None:
     """
     Creates a user identity.
 
@@ -46,7 +54,14 @@ def add_identity(identity_key, id_type, email, password=None, *, session: "Sessi
 
 
 @transactional_session
-def del_identity(identity_key, id_type, issuer, vo='def', *, session: "Session"):
+def del_identity(
+    identity_key: str,
+    id_type: str,
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Deletes a user identity.
     :param identity_key: The identity key name. For example x509 DN, or a username.
@@ -55,16 +70,27 @@ def del_identity(identity_key, id_type, issuer, vo='def', *, session: "Session")
     :param vo: the VO of the issuer.
     :param session: The database session in use.
     """
-    id_type = IdentityType[id_type.upper()]
-    kwargs = {'accounts': identity.list_accounts_for_identity(identity_key, id_type, session=session)}
+    converted_id_type = IdentityType[id_type.upper()]
+    kwargs = {'accounts': identity.list_accounts_for_identity(identity_key, converted_id_type, session=session)}
     if not permission.has_permission(issuer=issuer, vo=vo, action='del_identity', kwargs=kwargs, session=session):
         raise exception.AccessDenied('Account %s can not delete identity' % (issuer))
 
-    return identity.del_identity(identity_key, id_type, session=session)
+    return identity.del_identity(identity_key, converted_id_type, session=session)
 
 
 @transactional_session
-def add_account_identity(identity_key, id_type, account, email, issuer, default=False, password=None, vo='def', *, session: "Session"):
+def add_account_identity(
+    identity_key: str,
+    id_type: str,
+    account: str,
+    email: str,
+    issuer: str,
+    default: bool = False,
+    password: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Adds a membership association between identity and account.
 
@@ -82,14 +108,14 @@ def add_account_identity(identity_key, id_type, account, email, issuer, default=
     if not permission.has_permission(issuer=issuer, vo=vo, action='add_account_identity', kwargs=kwargs, session=session):
         raise exception.AccessDenied('Account %s can not add account identity' % (issuer))
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
     return identity.add_account_identity(identity=identity_key, type_=IdentityType[id_type.upper()], default=default,
-                                         email=email, account=account, password=password, session=session)
+                                         email=email, account=internal_account, password=password, session=session)
 
 
 @read_session
-def verify_identity(identity_key: str, id_type: str, password: "Optional[str]" = None, *, session: "Session") -> bool:
+def verify_identity(identity_key: str, id_type: str, password: Optional[str] = None, *, session: "Session") -> bool:
     """
     Verifies a user identity.
     :param identity_key: The identity key name. For example x509 DN, or a username.
@@ -101,7 +127,15 @@ def verify_identity(identity_key: str, id_type: str, password: "Optional[str]" =
 
 
 @transactional_session
-def del_account_identity(identity_key, id_type, account, issuer, vo='def', *, session: "Session"):
+def del_account_identity(
+    identity_key: str,
+    id_type: str,
+    account: str,
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Removes a membership association between identity and account.
 
@@ -116,13 +150,13 @@ def del_account_identity(identity_key, id_type, account, issuer, vo='def', *, se
     if not permission.has_permission(issuer=issuer, vo=vo, action='del_account_identity', kwargs=kwargs, session=session):
         raise exception.AccessDenied('Account %s can not delete account identity' % (issuer))
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    return identity.del_account_identity(identity_key, IdentityType[id_type.upper()], account, session=session)
+    return identity.del_account_identity(identity_key, IdentityType[id_type.upper()], internal_account, session=session)
 
 
 @read_session
-def list_identities(*, session: "Session", **kwargs):
+def list_identities(*, session: "Session", **kwargs) -> "Sequence[Row[tuple[str, IdentityType]]]":
     """
     Returns a list of all enabled identities.
 
@@ -133,7 +167,12 @@ def list_identities(*, session: "Session", **kwargs):
 
 
 @read_session
-def get_default_account(identity_key, id_type, *, session: "Session"):
+def get_default_account(
+    identity_key: str,
+    id_type: str,
+    *,
+    session: "Session"
+) -> str:
     """
     Returns the default account for this identity.
 
@@ -146,7 +185,12 @@ def get_default_account(identity_key, id_type, *, session: "Session"):
 
 
 @read_session
-def list_accounts_for_identity(identity_key, id_type, *, session: "Session"):
+def list_accounts_for_identity(
+    identity_key: str,
+    id_type: str,
+    *,
+    session: "Session"
+) -> list[str]:
     """
     Returns a list of all accounts for an identity.
 
