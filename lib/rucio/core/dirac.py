@@ -15,7 +15,7 @@
 import re
 from json import loads
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy.exc import NoResultFound
 
@@ -32,11 +32,18 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from sqlalchemy.orm import Session
 
 
 @read_session
-def _exists(scope, name, *, session: "Session"):
+def _exists(
+    scope: str,
+    name: str,
+    *,
+    session: "Session"
+) -> tuple[bool, Optional[DIDType]]:
     """
     Check if the did exists
 
@@ -53,7 +60,15 @@ def _exists(scope, name, *, session: "Session"):
 
 
 @transactional_session
-def add_files(lfns: list[dict], account: str, ignore_availability: bool, parents_metadata: Optional[dict] = None, vo: str = 'def', *, session: "Session"):
+def add_files(
+    lfns: "Iterable[dict[str, Any]]",
+    account: str,
+    ignore_availability: bool,
+    parents_metadata: Optional[dict[str, Any]] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Bulk add files :
     - Create the file and replica.
