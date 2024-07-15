@@ -106,7 +106,7 @@ def add_exception(
             else:
                 if isinstance(expires_at, str):
                     expires_at = str_to_date(expires_at)
-                if expires_at > datetime.utcnow() + timedelta(days=max_extension):
+                if expires_at and (expires_at > datetime.utcnow() + timedelta(days=max_extension)):
                     expires_at = datetime.utcnow() + timedelta(days=max_extension)
     except (ConfigNotFound, ValueError, NoSectionError):
         max_extension = None
