@@ -15,7 +15,7 @@
 from configparser import NoSectionError
 from datetime import datetime, timedelta
 from re import match
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound
@@ -32,8 +32,7 @@ from rucio.db.sqla.constants import DIDType, LifetimeExceptionsState
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-    from typing import Any, Optional, Union
+    from collections.abc import Iterable, Iterator, Sequence
 
     from sqlalchemy.orm import Session
 
@@ -42,8 +41,8 @@ if TYPE_CHECKING:
 
 @stream_session
 def list_exceptions(
-        exception_id: 'Optional[str]',
-        states: 'list[LifetimeExceptionsState]',
+        exception_id: Optional[str],
+        states: Optional['Iterable[LifetimeExceptionsState]'],
         *,
         session: 'Session',
 ) -> 'Iterator[dict[str, Any]]':
@@ -75,14 +74,14 @@ def list_exceptions(
 
 @transactional_session
 def add_exception(
-        dids: 'list[dict[str, Any]]',
+        dids: "Iterable[dict[str, Any]]",
         account: 'InternalAccount',
-        pattern: 'Optional[str]',
+        pattern: Optional[str],
         comments: str,
-        expires_at: 'Optional[Union[str, datetime]]',
+        expires_at: Optional[Union[str, datetime]],
         *,
         session: 'Session'
-) -> 'dict[str, Any]':
+) -> dict[str, Any]:
     """
     Add exceptions to Lifetime Model.
 
@@ -149,12 +148,12 @@ def add_exception(
 
 @transactional_session
 def __add_exception(
-        dids: 'list[dict[str, Any]]',
+        dids: 'Sequence[dict[str, Any]]',
         account: 'InternalAccount',
-        pattern: 'Optional[str]',
+        pattern: Optional[str],
         comments: str,
-        expires_at: 'Optional[Union[str, datetime]]',
-        estimated_volume: 'Optional[int]' = None,
+        expires_at: Optional[Union[str, datetime]],
+        estimated_volume: Optional[int] = None,
         *,
         session: 'Session',
 ) -> str:
@@ -267,10 +266,10 @@ def update_exception(
 def define_eol(
         scope: 'InternalScope',
         name: str,
-        rses: 'list[dict[str, Any]]',
+        rses: 'Iterable[dict[str, Any]]',
         *,
         session: 'Session',
-) -> 'Optional[datetime]':
+) -> Optional[datetime]:
     """
     ATLAS policy for rules on SCRATCHDISK
 
@@ -300,11 +299,11 @@ def define_eol(
         return None
     policy_dict = rucio.common.policy.get_lifetime_policy()
     did_type = 'other'
-    if scope.external.startswith('mc'):
+    if scope.external.startswith('mc'):  # type: ignore
         did_type = 'mc'
-    elif scope.external.startswith('data'):
+    elif scope.external.startswith('data'):  # type: ignore
         did_type = 'data'
-    elif scope.external.startswith('valid'):
+    elif scope.external.startswith('valid'):  # type: ignore
         did_type = 'valid'
     else:
         did_type = 'other'
