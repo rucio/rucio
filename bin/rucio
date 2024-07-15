@@ -17,13 +17,65 @@ import sys
 from rucio.client.bin.rucio import main
 from rucio.client.commands.commands import main as command_main
 
+
+def make_warning(arguments: list[str]) -> None:
+    command_mapping = {
+        "list-file-replicas": "list replicas",
+        "list-dataset-replicas": "list replica --type dataset",
+        "add-dataset": "add replica --type dataset",
+        "add-container": "add replica --type container",
+        "attach": "add did parent",
+        "detach": "remove did parent",
+        "ls": "list did",
+        "list-dids": "list did",
+        "list-dids-extended": "--view info list did",
+        "list-parent-dids": "list did parent",
+        "list-parent-datasets": "list did parent --type dataset",
+        "list-scopes": "list scope",
+        "erase": "remove did",
+        "list-files": "list did --type file",
+        "list-content": "list did --type dataset",
+        "list-content-history": "list did history",
+        "get-metadata": "list did metadata",
+        "set-metadata": "add did metadata",
+        "delete-metadata": "remove did metadata",
+        "list-rse-usage": "list rse usage",
+        "list-account-limits": "list account limits",
+        "add-rule": "add rule",
+        "delete-rule": "remove rule",
+        "rule-info": "--view info list rule",
+        "list-rules": "list rule",
+        "list-rules-history": "--view history list rule ",
+        "update-rule": "set rule",
+        "move-rule": "set rule --move",
+        "list-rses": "list rse",
+        "list-suspicious-replicas": "list replica state --suspicious",
+        "list-rse-attributes": "list rse attribute",
+        "list-datasets-rse": "list dataset",
+        "add-lifetime-exception": "add lifetime-exception"
+    }
+
+    try:
+        argument = [arg for arg in arguments if arg in command_mapping.keys()][0]
+        new_command = f"`rucio {command_mapping[argument]}`"
+    except (KeyError, IndexError):
+        new_command = "found by using rucio -h"
+
+    # As a print statement so it cannot be disabled
+    print(f"""\n
+        WARNING: This client command will be deprecated. Please use the updated version of this command - {new_command}.\n
+        A description of changes to the client structure can be found here: https://rucio.cern.ch/documentation/user/using_the_client
+    """)
+
+
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         try:
             arguments = [arg for arg in sys.argv if (arg[0] != '-') or (arg == '-h')]
         except IndexError:
-            arguments = [None]
-        if not any([argument in ["add", "unset", "remove", "list", "set", None, "ping", "whoami", "-h"] for argument in arguments]):
+            arguments = [""]
+        if not any([argument in ["add", "unset", "remove", "list", "set", "", "ping", "whoami", "-h"] for argument in arguments]):
+            make_warning(arguments)
             main()
         else:
             command_main()

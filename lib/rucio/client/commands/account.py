@@ -163,6 +163,8 @@ class AccountIdentities(CLIClientBase):
         return identity_delete(self.args, self.logger)
 
     def list(self):
+        if self.args.account is None:
+            raise ValueError
         return list_identities(self.args, self.logger)
 
 

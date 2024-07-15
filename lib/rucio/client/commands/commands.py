@@ -92,7 +92,7 @@ class Commands:
             choices={"add", "remove", "set", "unset", "list"},
             nargs="?",
             default=None,
-            help="Type of operation to execute. See <Table I'll link somewhere> for details."
+            help="Type of operation to execute. See https://rucio.cern.ch/documentation/user/using_the_client for details."
         )
 
         # Main Commands:

@@ -105,7 +105,7 @@ class RSEAttribute(CLIClientBase):
     def remove(self) -> None:
         delete_attribute_rse(self.args, self.logger)
 
-    def set(self) -> None:
+    def add(self) -> None:
         set_attribute_rse(self.args, self.logger)
 
     def list(self) -> None:

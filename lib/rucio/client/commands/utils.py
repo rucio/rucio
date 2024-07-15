@@ -47,6 +47,9 @@ def exception_handler(function, logger):
         except NotImplementedError as error:
             logger.error(f"Cannot run that operation/command combination {error}")
             return FAILURE, None
+        except ValueError as error:
+            logger.error(error)
+            logger.debug("This means you have missed a required argument.")
         except InvalidObject as error:
             logger.error(error)
             return error.error_code, None
