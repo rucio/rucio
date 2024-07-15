@@ -91,20 +91,15 @@ def delete_distances(src_rse_id: Optional[str] = None, dest_rse_id: Optional[str
     :param session: The database session to use.
     """
 
+    if not dest_rse_id or not src_rse_id:
+        return
     try:
         stmt = delete(
             Distance
+        ).where(
+            and_(Distance.src_rse_id == src_rse_id,
+                 Distance.dest_rse_id == dest_rse_id)
         )
-
-        if src_rse_id:
-            stmt = stmt.where(
-                Distance.src_rse_id == src_rse_id
-            )
-        if dest_rse_id:
-            stmt = stmt.where(
-                Distance.dest_rse_id == dest_rse_id
-            )
-
         session.execute(stmt)
     except IntegrityError as error:
         raise exception.RucioException(error.args)
@@ -120,19 +115,15 @@ def update_distances(src_rse_id: Optional[str] = None, dest_rse_id: Optional[str
     :param distance: The new distance to set
     :param session: The database session to use.
     """
+    if not dest_rse_id or not src_rse_id:
+        return
     try:
         stmt = update(
             Distance
-        )
-        if src_rse_id:
-            stmt = stmt.where(
-                Distance.src_rse_id == src_rse_id
-            )
-        if dest_rse_id:
-            stmt = stmt.where(
-                Distance.dest_rse_id == dest_rse_id
-            )
-        stmt = stmt.values({
+        ).where(
+            and_(Distance.src_rse_id == src_rse_id,
+                 Distance.dest_rse_id == dest_rse_id)
+        ).values({
             Distance.distance: distance
         })
         session.execute(stmt)
