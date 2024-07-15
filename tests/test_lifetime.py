@@ -31,6 +31,7 @@ from rucio.db.sqla.constants import DIDType
 from rucio.tests.common import skip_multivo
 
 
+@pytest.mark.noparallel(reason='Race conditions with the other tests in test_lifetime.py, they all modify and use the config.')
 @skip_multivo(reason='only valid for ATLAS')
 def test_lifetime_creation_core(root_account, rse_factory, mock_scope, did_factory):
     """
@@ -98,6 +99,7 @@ def test_lifetime_creation_core(root_account, rse_factory, mock_scope, did_facto
         assert did in list_exceptions
 
 
+@pytest.mark.noparallel(reason='Race conditions with the other tests in test_lifetime.py, they all modify and use the config.')
 @skip_multivo(reason='only valid for ATLAS')
 def test_lifetime_truncate_expiration(root_account, rse_factory, mock_scope, did_factory, rucio_client):
     """
@@ -130,6 +132,7 @@ def test_lifetime_truncate_expiration(root_account, rse_factory, mock_scope, did
     assert exception['expires_at'] - exception['created_at'] > timedelta(29)
 
 
+@pytest.mark.noparallel(reason='Race conditions with the other tests in test_lifetime.py, they all modify and use the config.')
 @skip_multivo(reason='only valid for ATLAS')
 def test_lifetime_creation_client(root_account, rse_factory, mock_scope, did_factory, rucio_client):
     """
