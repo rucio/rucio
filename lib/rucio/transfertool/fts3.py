@@ -455,13 +455,11 @@ def build_job_params(
             h_overwrite = transfer_hop.rws.attributes.get('overwrite', True)
 
             # if one hop cannot be overwritten, quit early
-            if h_overwrite is False:
-                break
-
             job_params['overwrite'] = h_overwrite and job_params['overwrite']
             # Allow overwrite_hop if all intermediate hops allow it (ignoring the last hop)
             overwrite_hop = h_overwrite and overwrite_hop
-
+            if h_overwrite is False:
+                break
     if not job_params['overwrite'] and overwrite_hop:
         job_params['overwrite_hop'] = overwrite_hop
 
