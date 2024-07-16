@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from rucio.common import exception
 from rucio.core import credential
@@ -23,6 +23,8 @@ from rucio.gateway import permission
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, SUPPORTED_SIGN_URL_SERVICES_LITERAL
+
 
 @read_session
 def get_signed_url(
@@ -30,8 +32,8 @@ def get_signed_url(
     appid: str,
     ip: str,
     rse: str,
-    service: Literal['gsc', 's3', 'swift'],
-    operation: Literal['read', 'write', 'delete'],
+    service: 'SUPPORTED_SIGN_URL_SERVICES_LITERAL',
+    operation: 'RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL',
     url: str,
     lifetime: int,
     vo: str = 'def',
