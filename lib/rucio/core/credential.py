@@ -17,7 +17,7 @@ import datetime
 import hmac
 import time
 from hashlib import sha1
-from typing import Literal
+from typing import Literal, Optional
 from urllib.parse import urlencode, urlparse
 
 import boto3
@@ -43,7 +43,7 @@ def get_signed_url(
         service: Literal['gsc', 's3', 'swift'],
         operation: Literal['read', 'write', 'delete'],
         url: str,
-        lifetime: int = 600
+        lifetime: Optional[int] = 600
 ) -> str:
     """
     Get a signed URL for a particular service and operation.
