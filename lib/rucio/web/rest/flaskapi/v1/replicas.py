@@ -15,6 +15,7 @@
 from datetime import datetime
 from itertools import chain
 from json import dumps, loads
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, unquote
 from xml.sax.saxutils import escape
 
@@ -62,6 +63,9 @@ from rucio.gateway.replica import (
 )
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
+
+if TYPE_CHECKING:
+    from rucio.common.types import IPDict
 
 
 def _sorted_with_priorities(replicas, sorted_pfns, limit=None):
@@ -232,7 +236,7 @@ class Replicas(ErrorHandlingMethodView):
         select, limit = None, None
 
         client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
-        client_location = {'ip': client_ip, 'fqdn': None, 'site': None}
+        client_location: 'IPDict' = {'ip': client_ip, 'fqdn': None, 'site': None}
 
         schemes = request.args.get('schemes', default=None)
         select = request.args.get('select', default=None)
@@ -659,9 +663,9 @@ class ListReplicas(ErrorHandlingMethodView):
 
         parameters = json_parameters(parse_response)
 
-        client_location = {'ip': client_ip,
-                           'fqdn': None,
-                           'site': None}
+        client_location: 'IPDict' = {'ip': client_ip,
+                                     'fqdn': None,
+                                     'site': None}
         client_location.update(param_get(parameters, 'client_location', default={}))
 
         # making sure IP address is not overwritten
