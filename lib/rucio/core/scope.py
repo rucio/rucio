@@ -20,6 +20,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.exception import AccountNotFound, Duplicate, RucioException, VONotFound
+from rucio.common.types import InternalScope
 from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, ScopeStatus
@@ -85,7 +86,7 @@ def bulk_add_scopes(scopes, account, skipExisting=False, *, session: "Session"):
 
 
 @read_session
-def list_scopes(filter_: Optional[dict[str, Any]] = None, *, session: "Session") -> list[str]:
+def list_scopes(filter_: Optional[dict[str, Any]] = None, *, session: "Session") -> list[InternalScope]:
     """
     Lists all scopes.
     :param filter_: Dictionary of attributes by which the input data should be filtered
