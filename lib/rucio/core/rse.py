@@ -459,10 +459,8 @@ def rse_exists(rse, vo='def', include_deleted=False, *, session: "Session"):
     stmt = select(
         models.RSE
     ).where(
-        and_(
-            models.RSE.rse == rse,
-            models.RSE.vo == vo
-        )
+        and_(models.RSE.rse == rse,
+             models.RSE.vo == vo)
     )
     if not include_deleted:
         stmt = stmt.where(models.RSE.deleted == false())
@@ -482,8 +480,8 @@ def del_rse(rse_id, *, session: "Session"):
         stmt = select(
             models.RSE
         ).where(
-            models.RSE.id == rse_id,
-            models.RSE.deleted == false()
+            and_(models.RSE.id == rse_id,
+                 models.RSE.deleted == false())
         )
         db_rse = session.execute(stmt).scalar_one()
         rse_name = db_rse.rse
@@ -511,8 +509,8 @@ def restore_rse(rse_id, *, session: "Session"):
         stmt = select(
             models.RSE
         ).where(
-            models.RSE.id == rse_id,
-            models.RSE.deleted == true()
+            and_(models.RSE.id == rse_id,
+                 models.RSE.deleted == true())
         )
         db_rse = session.execute(stmt).scalar_one()
     except sqlalchemy.orm.exc.NoResultFound:
@@ -578,13 +576,14 @@ def get_rse(rse_id, *, session: "Session"):
     :raises RSENotFound: If referred RSE was not found in the database.
     """
 
-    false_value = False  # To make pep8 checker happy ...
     try:
-        tmp = session.query(models.RSE).\
-            filter(sqlalchemy.and_(models.RSE.deleted == false_value,
-                                   models.RSE.id == rse_id))\
-            .one()
-        return _format_get_rse(tmp, session=session)
+        stmt = select(
+            models.RSE
+        ).where(
+            and_(models.RSE.deleted == false(),
+                 models.RSE.id == rse_id)
+        )
+        return _format_get_rse(session.execute(stmt).scalar_one(), session=session)
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE with id \'%s\' cannot be found' % rse_id)
 
@@ -616,8 +615,8 @@ def get_rse_id(rse, vo='def', include_deleted=True, *, session: "Session"):
         stmt = select(
             models.RSE.id
         ).where(
-            models.RSE.rse == rse,
-            models.RSE.vo == vo
+            and_(models.RSE.rse == rse,
+                 models.RSE.vo == vo)
         )
         if not include_deleted:
             stmt = stmt.where(models.RSE.deleted == false())
@@ -740,11 +739,9 @@ def list_rses(filters: Optional[dict[str, Any]] = None, *, session: "Session") -
                 attr_assoc_alias = aliased(models.RSEAttrAssociation)
                 stmt = stmt.join(
                     attr_assoc_alias,
-                    and_(
-                        attr_assoc_alias.rse_id == models.RSE.id,
-                        attr_assoc_alias.key == k,
-                        attr_assoc_alias.value == v,
-                    )
+                    and_(attr_assoc_alias.rse_id == models.RSE.id,
+                         attr_assoc_alias.key == k,
+                         attr_assoc_alias.value == v)
                 )
     else:
         stmt = stmt.order_by(
@@ -794,8 +791,8 @@ def del_rse_attribute(rse_id, key, *, session: "Session"):
         stmt = select(
             models.RSEAttrAssociation
         ).where(
-            models.RSEAttrAssociation.rse_id == rse_id,
-            models.RSEAttrAssociation.key == key
+            and_(models.RSEAttrAssociation.rse_id == rse_id,
+                 models.RSEAttrAssociation.key == key)
         )
         rse_attr = session.execute(stmt).scalar_one()
     except sqlalchemy.orm.exc.NoResultFound:
@@ -884,8 +881,8 @@ def has_rse_attribute(rse_id, key, *, session: "Session"):
     stmt = select(
         models.RSEAttrAssociation.value
     ).where(
-        models.RSEAttrAssociation.rse_id == rse_id,
-        models.RSEAttrAssociation.key == key
+        and_(models.RSEAttrAssociation.rse_id == rse_id,
+             models.RSEAttrAssociation.key == key)
     )
     if session.execute(stmt).scalar():
         return True
@@ -910,10 +907,8 @@ def get_rses_with_attribute(key, *, session: "Session"):
         models.RSE.deleted == false()
     ).join(
         models.RSEAttrAssociation,
-        and_(
-            models.RSEAttrAssociation.rse_id == models.RSE.id,
-            models.RSEAttrAssociation.key == key
-        )
+        and_(models.RSEAttrAssociation.rse_id == models.RSE.id,
+             models.RSEAttrAssociation.key == key)
     )
 
     for db_rse in session.execute(stmt).scalars():
@@ -947,15 +942,13 @@ def get_rses_with_attribute_value(key, value, vo='def', *, session: "Session"):
             models.RSE.id,
             models.RSE.rse,
         ).where(
-            models.RSE.deleted == false(),
-            models.RSE.vo == vo
+            and_(models.RSE.deleted == false(),
+                 models.RSE.vo == vo)
         ).join(
             models.RSEAttrAssociation,
-            and_(
-                models.RSEAttrAssociation.rse_id == models.RSE.id,
-                models.RSEAttrAssociation.key == key,
-                models.RSEAttrAssociation.value == value
-            )
+            and_(models.RSEAttrAssociation.rse_id == models.RSE.id,
+                 models.RSEAttrAssociation.key == key,
+                 models.RSEAttrAssociation.value == value)
         )
 
         for row in session.execute(stmt):
@@ -993,8 +986,8 @@ def get_rse_attribute(rse_id: str, key: str, use_cache: bool = True, *, session:
     stmt = select(
         models.RSEAttrAssociation.value
     ).where(
-        models.RSEAttrAssociation.rse_id == rse_id,
-        models.RSEAttrAssociation.key == key
+        and_(models.RSEAttrAssociation.rse_id == rse_id,
+             models.RSEAttrAssociation.key == key)
     )
     value = session.execute(stmt).scalar_one_or_none()
 
@@ -1213,10 +1206,8 @@ def get_rse_transfer_limits(rse_id, activity=None, *, session: "Session"):
         )
         if activity:
             stmt = stmt.where(
-                or_(
-                    models.TransferLimit.activity == activity,
-                    models.TransferLimit.activity == 'all_activities',
-                )
+                or_(models.TransferLimit.activity == activity,
+                    models.TransferLimit.activity == 'all_activities')
             )
 
         limits = {}
@@ -1785,8 +1776,8 @@ def delete_qos_policy(rse_id, qos_policy, *, session: "Session"):
         stmt = delete(
             models.RSEQoSAssociation
         ).where(
-            models.RSEQoSAssociation.rse_id == rse_id,
-            models.RSEQoSAssociation.qos_policy == qos_policy
+            and_(models.RSEQoSAssociation.rse_id == rse_id,
+                 models.RSEQoSAssociation.qos_policy == qos_policy)
         )
         session.execute(stmt)
     except DatabaseError as error:
@@ -1834,12 +1825,14 @@ def fill_rse_expired(rse_id, *, session: "Session"):
         func.sum(models.RSEFileAssociation.bytes).label("bytes"),
         func.count().label("length")
     ).with_hint(
-        models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_RSE_ID_TOMBSTONE_IDX)", 'oracle'
+        models.RSEFileAssociation,
+        'INDEX(REPLICAS REPLICAS_RSE_ID_TOMBSTONE_IDX)',
+        'oracle'
     ).where(
-        models.RSEFileAssociation.tombstone < datetime.utcnow(),
-        models.RSEFileAssociation.lock_cnt == 0,
-        models.RSEFileAssociation.rse_id == rse_id,
-        models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD))
+        and_(models.RSEFileAssociation.tombstone < datetime.utcnow(),
+             models.RSEFileAssociation.lock_cnt == 0,
+             models.RSEFileAssociation.rse_id == rse_id,
+             models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)))
     )
 
     sum_bytes, sum_files = session.execute(stmt).one()
