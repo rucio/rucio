@@ -23,7 +23,7 @@ import traceback
 import uuid
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict, namedtuple
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -36,7 +36,7 @@ from sqlalchemy.sql.functions import coalesce
 from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.constants import RseAttr
 from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RucioException, UnsupportedOperation
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import FilterDict, InternalAccount, InternalScope, LoggerFunction, RequestDict
 from rucio.common.utils import chunks, generate_uuid
 from rucio.core.distance import get_distances
 from rucio.core.message import add_message, add_messages
@@ -52,7 +52,9 @@ RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
 
+    from sqlalchemy.engine import Row
     from sqlalchemy.orm import Session
+    from sqlalchemy.sql.selectable import Subquery
 
     from rucio.rse.protocols.protocol import RSEProtocol
 
@@ -72,7 +74,15 @@ TRANSFER_TIME_BUCKETS = (
 
 
 class RequestSource:
-    def __init__(self, rse: RseData, ranking=None, distance=None, file_path=None, scheme=None, url=None):
+    def __init__(
+            self,
+            rse: RseData,
+            ranking: Optional[int] = None,
+            distance: Optional[int] = None,
+            file_path: Optional[str] = None,
+            scheme: Optional[str] = None,
+            url: Optional[str] = None
+    ):
         self.rse = rse
         self.distance = distance if distance is not None else 9999
         self.ranking = ranking if ranking is not None else 0
@@ -80,16 +90,20 @@ class RequestSource:
         self.scheme = scheme
         self.url = url
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "src_rse={}".format(self.rse)
 
 
 class TransferDestination:
-    def __init__(self, rse: RseData, scheme):
+    def __init__(
+            self,
+            rse: RseData,
+            scheme: str
+    ):
         self.rse = rse
         self.scheme = scheme
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "dst_rse={}".format(self.rse)
 
 
@@ -136,21 +150,21 @@ class RequestWithSources:
         self.sources: list[RequestSource] = []
         self.requested_source: Optional[RequestSource] = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "{}({}:{})".format(self.request_id, self.scope, self.name)
 
     @property
-    def attributes(self):
+    def attributes(self) -> dict[str, Any]:
         if self._dict_attributes is None:
             self._dict_attributes = self._parse_db_attributes(self._db_attributes)
         return self._dict_attributes
 
     @attributes.setter
-    def attributes(self, db_attributes):
+    def attributes(self, db_attributes: dict[str, Any]) -> None:
         self._dict_attributes = self._parse_db_attributes(db_attributes)
 
     @staticmethod
-    def _parse_db_attributes(db_attributes):
+    def _parse_db_attributes(db_attributes: Optional[Union[str, dict[str, Any]]]) -> dict[str, Any]:
         attr = {}
         if db_attributes:
             if isinstance(db_attributes, dict):
@@ -202,7 +216,10 @@ class DirectTransfer(metaclass=ABCMeta):
         pass
 
 
-def should_retry_request(req, retry_protocol_mismatches):
+def should_retry_request(
+        req: RequestDict,
+        retry_protocol_mismatches: bool
+) -> bool:
     """
     Whether should retry this request.
 
@@ -228,7 +245,14 @@ def should_retry_request(req, retry_protocol_mismatches):
 
 @METRICS.time_it
 @transactional_session
-def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mismatches=False, *, session: "Session", logger=logging.log):
+def requeue_and_archive(
+    request: RequestDict,
+    source_ranking_update: bool = True,
+    retry_protocol_mismatches: bool = False,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> Optional[RequestDict]:
     """
     Requeue and archive a failed request.
     TODO: Multiple requeue.
@@ -273,7 +297,12 @@ def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mism
 
 @METRICS.count_it
 @transactional_session
-def queue_requests(requests, *, session: "Session", logger=logging.log):
+def queue_requests(
+    requests: Iterable[RequestDict],
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> list[str]:
     """
     Submit transfer requests on destination RSEs for data identifiers.
 
@@ -670,7 +699,11 @@ def list_and_mark_transfer_requests_and_source_replicas(
 
 
 @read_session
-def fetch_paths(request_id, *, session: "Session"):
+def fetch_paths(
+    request_id: str,
+    *,
+    session: "Session"
+) -> dict[str, list[str]]:
     """
     Find the paths for which the provided request is a constituent hop.
 
@@ -706,24 +739,24 @@ def fetch_paths(request_id, *, session: "Session"):
 @transactional_session
 def get_and_mark_next(
         rse_collection: "RseCollection",
-        request_type,
-        state,
+        request_type: Union[list[RequestType], RequestType],
+        state: Union[list[RequestState], RequestState],
         processed_by: Optional[str] = None,
         processed_at_delay: int = 600,
         limit: int = 100,
         older_than: "Optional[datetime.datetime]" = None,
-        rse_id: "Optional[str]" = None,
-        activity: "Optional[str]" = None,
+        rse_id: Optional[str] = None,
+        activity: Optional[str] = None,
         total_workers: int = 0,
         worker_number: int = 0,
-        mode_all=False,
-        hash_variable='id',
-        activity_shares=None,
-        include_dependent=True,
-        transfertool=None,
+        mode_all: bool = False,
+        hash_variable: str = 'id',
+        activity_shares: Optional[dict[str, Any]] = None,
+        include_dependent: bool = True,
+        transfertool: Optional[str] = None,
         *,
         session: "Session"
-):
+) -> list[dict[str, Any]]:
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -763,9 +796,9 @@ def get_and_mark_next(
 
     result = []
     if not activity_shares:
-        activity_shares = [None]
+        activity_shares = [None]  # type: ignore
 
-    for share in activity_shares:
+    for share in activity_shares:  # type: ignore
 
         query = select(
             models.Request.id
@@ -822,11 +855,11 @@ def get_and_mark_next(
         query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable=hash_variable)
 
         if share:
-            query = query.limit(activity_shares[share])
+            query = query.limit(activity_shares[share])  # type: ignore
         else:
             query = query.limit(limit)
 
-        if session.bind.dialect.name == 'oracle':
+        if session.bind.dialect.name == 'oracle':  # type: ignore
             query = select(
                 models.Request
             ).where(
@@ -893,7 +926,7 @@ def update_request(
         *,
         raise_on_missing: bool = False,
         session: "Session",
-):
+) -> bool:
 
     rowcount = 0
     try:
@@ -957,9 +990,9 @@ def transition_request_state(
         err_msg: Optional[str] = None,
         attributes: Optional[dict[str, str]] = None,
         *,
-        request: "Optional[dict[str, Any]]" = None,
+        request: Optional[dict[str, Any]] = None,
         session: "Session",
-        logger=logging.log
+        logger: LoggerFunction = logging.log
 ) -> bool:
     """
     Update the request if its state changed. Return a boolean showing if the request was actually updated or not.
@@ -1001,7 +1034,13 @@ def transition_request_state(
 
 @METRICS.count_it
 @transactional_session
-def transition_requests_state_if_possible(request_ids, new_state, *, session: "Session", logger=logging.log):
+def transition_requests_state_if_possible(
+    request_ids: Iterable[str],
+    new_state: str,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Bulk update the state of requests. Skips silently if the request_id does not exist.
 
@@ -1023,7 +1062,11 @@ def transition_requests_state_if_possible(request_ids, new_state, *, session: "S
 
 @METRICS.count_it
 @transactional_session
-def touch_requests_by_rule(rule_id, *, session: "Session"):
+def touch_requests_by_rule(
+    rule_id: str,
+    *,
+    session: "Session"
+) -> None:
     """
     Update the update time of requests in a rule. Fails silently if no requests on this rule.
 
@@ -1052,7 +1095,11 @@ def touch_requests_by_rule(rule_id, *, session: "Session"):
 
 
 @read_session
-def get_request(request_id, *, session: "Session"):
+def get_request(
+    request_id: str,
+    *,
+    session: "Session"
+) -> Optional[dict[str, Any]]:
     """
     Retrieve a request by its ID.
 
@@ -1081,7 +1128,14 @@ def get_request(request_id, *, session: "Session"):
 
 @METRICS.count_it
 @read_session
-def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Session"):
+def get_request_by_did(
+    scope: InternalScope,
+    name: str,
+    rse_id: str,
+    request_type: Optional[RequestType] = None,
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Retrieve a request by its DID for a destination RSE.
 
@@ -1123,7 +1177,14 @@ def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Sess
 
 @METRICS.count_it
 @read_session
-def get_request_history_by_did(scope, name, rse_id, request_type=None, *, session: "Session"):
+def get_request_history_by_did(
+    scope: InternalScope,
+    name: str,
+    rse_id: str,
+    request_type: Optional[RequestType] = None,
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Retrieve a historical request by its DID for a destination RSE.
 
@@ -1162,7 +1223,7 @@ def get_request_history_by_did(scope, name, rse_id, request_type=None, *, sessio
         raise RucioException(error.args)
 
 
-def is_intermediate_hop(request):
+def is_intermediate_hop(request: RequestDict) -> bool:
     """
     Check if the request is an intermediate hop in a multi-hop transfer.
     """
@@ -1172,7 +1233,11 @@ def is_intermediate_hop(request):
 
 
 @transactional_session
-def handle_failed_intermediate_hop(request, *, session: "Session") -> int:
+def handle_failed_intermediate_hop(
+    request: RequestDict,
+    *,
+    session: "Session"
+) -> int:
     """
     Perform housekeeping behind a failed intermediate hop
     Returns the number of updated requests
@@ -1205,7 +1270,11 @@ def handle_failed_intermediate_hop(request, *, session: "Session") -> int:
 
 @METRICS.count_it
 @transactional_session
-def archive_request(request_id, *, session: "Session"):
+def archive_request(
+    request_id: str,
+    *,
+    session: "Session"
+) -> None:
     """
     Move a request to the history table.
 
@@ -1280,7 +1349,15 @@ def archive_request(request_id, *, session: "Session"):
 
 @METRICS.count_it
 @transactional_session
-def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSFER, *, session: "Session", logger=logging.log):
+def cancel_request_did(
+    scope: InternalScope,
+    name: str,
+    dest_rse_id: str,
+    request_type: RequestType = RequestType.TRANSFER,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> dict[str, Any]:
     """
     Cancel a request based on a DID and request type.
 
@@ -1320,7 +1397,12 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
 
 
 @read_session
-def get_sources(request_id, rse_id=None, *, session: "Session"):
+def get_sources(
+    request_id: str,
+    rse_id: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional[list[dict[str, Any]]]:
     """
     Retrieve sources by its ID.
 
@@ -1355,7 +1437,11 @@ def get_sources(request_id, rse_id=None, *, session: "Session"):
 
 
 @read_session
-def get_heavy_load_rses(threshold, *, session: "Session"):
+def get_heavy_load_rses(
+    threshold: int,
+    *,
+    session: "Session"
+) -> Optional[list[dict[str, Any]]]:
     """
     Retrieve heavy load rses.
 
@@ -1418,7 +1504,7 @@ class TransferStatsManager:
         self.downsample_timer = None
         self.downsample_period = math.ceil(raw_retention.total_seconds())
 
-    def __enter__(self):
+    def __enter__(self) -> "TransferStatsManager":
         self.record_stats = config_get_bool('transfers', 'stats_enabled', default=self.record_stats)
         downsample_period = config_get_int('transfers', 'stats_downsample_period', default=self.downsample_period)
         # Introduce some voluntary jitter to reduce the likely-hood of performing this database
@@ -1431,7 +1517,7 @@ class TransferStatsManager:
             self.downsample_timer.start()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         if self.save_timer is not None:
             self.save_timer.cancel()
         if self.downsample_timer is not None:
@@ -1481,7 +1567,7 @@ class TransferStatsManager:
         if save_samples:
             self._save_samples(timestamp=save_timestamp, samples=save_samples, session=session)
 
-    def periodic_save(self):
+    def periodic_save(self) -> None:
         """
         Save samples to the database if the end of the current recording interval was reached.
         Opportunistically perform down-sampling.
@@ -1545,7 +1631,7 @@ class TransferStatsManager:
             )
             session.execute(stmt, rows_to_insert)
 
-    def periodic_downsample_and_cleanup(self):
+    def periodic_downsample_and_cleanup(self) -> None:
         """
         Periodically create lower resolution samples from higher resolution ones.
         """
@@ -1667,9 +1753,9 @@ class TransferStatsManager:
     def load_totals(
             self,
             older_t: "datetime.datetime",
-            dest_rse_id: "Optional[str]" = None,
-            src_rse_id: "Optional[str]" = None,
-            activity: "Optional[str]" = None,
+            dest_rse_id: Optional[str] = None,
+            src_rse_id: Optional[str] = None,
+            activity: Optional[str] = None,
             by_activity: bool = True,
             *,
             session: "Session"
@@ -1711,13 +1797,13 @@ class TransferStatsManager:
             resolution: "datetime.timedelta",
             recent_t: "datetime.datetime",
             older_t: "datetime.datetime",
-            dest_rse_id: "Optional[str]" = None,
-            src_rse_id: "Optional[str]" = None,
-            activity: "Optional[str]" = None,
+            dest_rse_id: Optional[str] = None,
+            src_rse_id: Optional[str] = None,
+            activity: Optional[str] = None,
             by_activity: bool = True,
             *,
             session: "Session"
-    ) -> "Iterator[Mapping[str, str | int]]":
+    ) -> "Iterator[Mapping[str, Union[str, int]]]":
         """
         Load aggregated totals for the given resolution and time interval.
 
@@ -1795,7 +1881,7 @@ class TransferStatsManager:
 
     @staticmethod
     def _cleanup(
-            id_temp_table,
+            id_temp_table: Any,
             resolution: "datetime.timedelta",
             timestamp: "datetime.datetime",
             limit: "Optional[int]" = 10000,
@@ -1818,7 +1904,7 @@ class TransferStatsManager:
 
         # Oracle does not support chaining order_by(), limit(), and
         # with_for_update(). Use a nested query to overcome this.
-        if session.bind.dialect.name == 'oracle':
+        if session.bind.dialect.name == 'oracle':  # type: ignore
             stmt = select(
                 models.TransferStats.id
             ).where(
@@ -1878,13 +1964,13 @@ class TransferStatsManager:
 
 @read_session
 def get_request_metrics(
-        dest_rse_id: "Optional[str]" = None,
-        src_rse_id: "Optional[str]" = None,
-        activity: "Optional[str]" = None,
-        group_by_rse_attribute: "Optional[str]" = None,
+        dest_rse_id: Optional[str] = None,
+        src_rse_id: Optional[str] = None,
+        activity: Optional[str] = None,
+        group_by_rse_attribute: Optional[str] = None,
         *,
         session: "Session"
-):
+) -> dict[str, Any]:
     metrics = {}
     now = datetime.datetime.utcnow()
 
@@ -1973,13 +2059,23 @@ def get_request_metrics(
 
 @read_session
 def get_request_stats(
-        state: "RequestState | list[RequestState]",
-        dest_rse_id: "Optional[str]" = None,
-        src_rse_id: "Optional[str]" = None,
-        activity: "Optional[str]" = None,
+        state: Union[RequestState, list[RequestState]],
+        dest_rse_id: Optional[str] = None,
+        src_rse_id: Optional[str] = None,
+        activity: Optional[str] = None,
         *,
         session: "Session"
-):
+) -> Sequence[
+    """Row[tuple[
+              Optional[InternalAccount],
+              RequestState,
+              uuid.UUID,
+              Optional[uuid.UUID],
+              Optional[str],
+              int,
+              Optional[int]
+    ]]"""
+]:
     """
     Retrieve statistics about requests by destination, activity and state.
     """
@@ -2036,7 +2132,7 @@ def release_waiting_requests_per_deadline(
         deadline: int = 1,
         *,
         session: "Session",
-):
+) -> int:
     """
     Release waiting requests that were waiting too long and exceeded the maximum waiting time to be released.
     If the DID of a request is attached to a dataset, the oldest requested_at date of all requests related to the dataset will be used for checking and all requests of this dataset will be released.
@@ -2067,13 +2163,13 @@ def release_waiting_requests_per_deadline(
         amount_released_requests = update(
             models.Request
         ).where(
-            models.Request.id.in_(old_requests_subquery)
+            models.Request.id.in_(old_requests_subquery)  # type: ignore
         ).execution_options(
             synchronize_session=False
         ).values({
             models.Request.state: RequestState.QUEUED
         })
-    return session.execute(amount_released_requests).rowcount
+    return session.execute(amount_released_requests).rowcount  # type: ignore
 
 
 @transactional_session
@@ -2083,7 +2179,7 @@ def release_waiting_requests_per_free_volume(
         volume: int = 0,
         *,
         session: "Session"
-):
+) -> int:
     """
     Release waiting requests if they fit in available transfer volume. If the DID of a request is attached to a dataset, the volume will be checked for the whole dataset as all requests related to this dataset will be released.
 
@@ -2093,7 +2189,7 @@ def release_waiting_requests_per_free_volume(
     :param session: The database session.
     """
 
-    dialect = session.bind.dialect.name
+    dialect = session.bind.dialect.name  # type: ignore
     if dialect == 'mysql' or dialect == 'sqlite':
         coalesce_func = func.ifnull
     elif dialect == 'oracle':
@@ -2139,7 +2235,7 @@ def release_waiting_requests_per_free_volume(
     amount_released_requests = update(
         models.Request
     ).where(
-        models.Request.id.in_(cumulated_volume_subquery)
+        models.Request.id.in_(cumulated_volume_subquery)  # type: ignore
     ).execution_options(
         synchronize_session=False
     ).values({
@@ -2154,7 +2250,7 @@ def create_base_query_grouped_fifo(
         source_rse_id: Optional[str] = None,
         *,
         session: "Session"
-):
+) -> tuple["Subquery", "Subquery"]:
     """
     Build the sqlalchemy queries to filter relevant requests and to group them in datasets.
     Group requests either by same destination RSE or source RSE.
@@ -2163,7 +2259,7 @@ def create_base_query_grouped_fifo(
     :param source_rse_id: The destination RSE id to filter on
     :param session: The database session.
     """
-    dialect = session.bind.dialect.name
+    dialect = session.bind.dialect.name  # type: ignore
     if dialect == 'mysql' or dialect == 'sqlite':
         coalesce_func = func.ifnull
     elif dialect == 'oracle':
@@ -2240,7 +2336,7 @@ def release_waiting_requests_fifo(
         account: Optional[InternalAccount] = None,
         *,
         session: "Session"
-):
+) -> int:
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
 
@@ -2252,7 +2348,7 @@ def release_waiting_requests_fifo(
     :param session: The database session.
     """
 
-    dialect = session.bind.dialect.name
+    dialect = session.bind.dialect.name  # type: ignore
     rowcount = 0
 
     subquery = select(
@@ -2291,7 +2387,7 @@ def release_waiting_requests_fifo(
     stmt = update(
         models.Request
     ).where(
-        models.Request.id.in_(subquery)
+        models.Request.id.in_(subquery)  # type: ignore
     ).execution_options(
         synchronize_session=False
     ).values({
@@ -2310,7 +2406,7 @@ def release_waiting_requests_grouped_fifo(
         volume: int = 0,
         *,
         session: "Session"
-):
+) -> int:
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
     Also all requests to DIDs that are attached to the same dataset get released, if one children of the dataset is chosen to be released (Grouped FIFO).
@@ -2356,7 +2452,7 @@ def release_waiting_requests_grouped_fifo(
     stmt = update(
         models.Request
     ).where(
-        models.Request.id.in_(cumulated_children_subquery)
+        models.Request.id.in_(cumulated_children_subquery)  # type: ignore
     ).execution_options(
         synchronize_session=False
     ).values({
@@ -2379,7 +2475,7 @@ def release_all_waiting_requests(
         account: Optional[InternalAccount] = None,
         *,
         session: "Session"
-):
+) -> int:
     """
     Release all waiting requests per destination RSE.
 
@@ -2425,7 +2521,7 @@ def release_all_waiting_requests(
 def list_transfer_limits(
         *,
         session: "Session",
-):
+) -> Iterator[dict[str, Any]]:
     stmt = select(
         models.TransferLimit
     )
@@ -2439,7 +2535,7 @@ def _sync_rse_transfer_limit(
         desired_rse_ids: set[str],
         *,
         session: "Session",
-):
+) -> None:
     """
     Ensure that an RSETransferLimit exists in the database for each of the given rses (and only for these rses)
     """
@@ -2479,7 +2575,7 @@ def re_sync_all_transfer_limits(
         delete_empty: bool = False,
         *,
         session: "Session",
-):
+) -> None:
     """
     For each TransferLimit in the database, re-evaluate the rse expression and ensure that the
     correct RSETransferLimits are in the database
@@ -2513,7 +2609,7 @@ def set_transfer_limit(
         waitings: Optional[int] = None,
         *,
         session: "Session",
-):
+) -> uuid.UUID:
     """
     Create or update a transfer limit
 
@@ -2598,7 +2694,7 @@ def set_transfer_limit_stats(
         transfers: int,
         *,
         session: "Session",
-):
+) -> None:
     """
     Set the statistics of the TransferLimit
     """
@@ -2620,7 +2716,7 @@ def delete_transfer_limit(
         direction: TransferLimitDirection = TransferLimitDirection.DESTINATION,
         *,
         session: "Session",
-):
+) -> None:
 
     if activity is None:
         activity = 'all_activities'
@@ -2656,7 +2752,7 @@ def delete_transfer_limit_by_id(
         limit_id: str,
         *,
         session: "Session",
-):
+) -> None:
     stmt = delete(
         models.RSETransferLimit
     ).where(
@@ -2673,7 +2769,13 @@ def delete_transfer_limit_by_id(
 
 
 @transactional_session
-def update_requests_priority(priority, filter_, *, session: "Session", logger=logging.log):
+def update_requests_priority(
+    priority: int,
+    filter_: FilterDict,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> dict[str, Any]:
     """
     Update priority of requests.
 
@@ -2721,7 +2823,13 @@ def update_requests_priority(priority, filter_, *, session: "Session", logger=lo
 
 
 @read_session
-def add_monitor_message(new_state, request, additional_fields, *, session: "Session"):
+def add_monitor_message(
+    new_state: RequestState,
+    request: RequestDict,
+    additional_fields: "Mapping[str, Any]",
+    *,
+    session: "Session"
+) -> None:
     """
     Create a message for hermes from a request
 
@@ -2817,7 +2925,10 @@ def add_monitor_message(new_state, request, additional_fields, *, session: "Sess
     add_message(transfer_status, message, session=session)
 
 
-def get_transfer_error(state, reason=None):
+def get_transfer_error(
+        state: RequestState,
+        reason: Optional[str] = None
+) -> str:
     """
     Transform a specific RequestState to an error message
 
@@ -2842,7 +2953,13 @@ def get_transfer_error(state, reason=None):
 
 
 @read_session
-def get_source_rse(request_id, src_url, *, session: "Session", logger=logging.log):
+def get_source_rse(
+    request_id: str,
+    src_url: str,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> tuple[Optional[str], Optional[str]]:
     """
     Based on a request, and src_url extract the source rse name and id.
 
@@ -2873,7 +2990,13 @@ def get_source_rse(request_id, src_url, *, session: "Session", logger=logging.lo
 
 
 @stream_session
-def list_requests(src_rse_ids, dst_rse_ids, states=None, *, session: "Session"):
+def list_requests(
+    src_rse_ids: Sequence[str],
+    dst_rse_ids: Sequence[str],
+    states: Optional[Sequence[RequestState]] = None,
+    *,
+    session: "Session"
+) -> Iterator[models.Request]:
     """
     List all requests in a specific state from a source RSE to a destination RSE.
 
@@ -2897,7 +3020,15 @@ def list_requests(src_rse_ids, dst_rse_ids, states=None, *, session: "Session"):
 
 
 @stream_session
-def list_requests_history(src_rse_ids, dst_rse_ids, states=None, offset=None, limit=None, *, session: "Session"):
+def list_requests_history(
+    src_rse_ids: Sequence[str],
+    dst_rse_ids: Sequence[str],
+    states: Optional[Sequence[RequestState]] = None,
+    offset: Optional[int] = None,
+    limit: Optional[int] = None,
+    *,
+    session: "Session"
+) -> Iterator[models.RequestHistory]:
     """
     List all historical requests in a specific state from a source RSE to a destination RSE.
 
