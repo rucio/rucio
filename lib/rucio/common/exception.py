@@ -1099,3 +1099,13 @@ class SortingAlgorithmNotSupported(RucioException):
         super(SortingAlgorithmNotSupported, self).__init__(*args, **kwargs)
         self._message = 'Sorting algorithm is not supported.'
         self.error_code = 106
+
+
+class TraceValidationSchemaNotFound(RucioException):
+    """
+    Trace validation schema not found.
+    """
+    def __init__(self, *args, **kwargs):
+        super(TraceValidationSchemaNotFound, self).__init__(*args, **kwargs)
+        self._message = 'Trace validation schema not found.'
+        self.error_code = 107
