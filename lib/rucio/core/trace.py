@@ -27,7 +27,7 @@ import stomp
 from jsonschema import Draft7Validator, ValidationError, validate
 
 from rucio.common.config import config_get, config_get_int
-from rucio.common.exception import InvalidObject
+from rucio.common.exception import InvalidObject, TraceValidationSchemaNotFound
 from rucio.common.logging import rucio_log_formatter
 from rucio.common.schema.generic import TIME_ENTRY, UUID, IPv4orIPv6
 from rucio.core.monitor import MetricManager
@@ -359,21 +359,17 @@ def validate_schema(obj: str) -> None:
 
     :param obj: The object to validate.
 
-    :raises: InvalidObject
+    :raises: InvalidObject, TraceValidationSchemaNotFound
     """
     loaded_obj: 'TraceSchemaDict' = json.loads(obj)
 
-    try:
-        if loaded_obj and 'eventType' in loaded_obj:
-            schema = SCHEMAS.get(loaded_obj['eventType'].lower())
-            if schema is None:
-                validation_error = ValidationError(
-                    message=f"Trace schema for eventType {loaded_obj['eventType']} is not currently supported.",
-                    cause="SCHEMA_NOT_FOUND")
-                raise validation_error
-            validate(loaded_obj, schema, format_checker=FORMAT_CHECKER)
-    except ValidationError as error:
-        if error.cause == "SCHEMA_NOT_FOUND":
-            LOGGER.error(error)
+    if loaded_obj and 'eventType' in loaded_obj:
+        event_type = loaded_obj['eventType'].lower()
+        schema = SCHEMAS.get(event_type)
+        if schema is not None:
+            try:
+                validate(loaded_obj, schema, format_checker=FORMAT_CHECKER)
+            except ValidationError as error:
+                raise InvalidObject(error)
         else:
-            raise InvalidObject(error)
+            raise TraceValidationSchemaNotFound("Trace schema for eventType %s not found. This event type might not be supported." % event_type)

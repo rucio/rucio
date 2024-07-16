@@ -20,7 +20,7 @@ import uuid
 
 import pytest
 
-from rucio.common.exception import InvalidObject
+from rucio.common.exception import InvalidObject, TraceValidationSchemaNotFound
 from rucio.common.schema.generic import IPv4orIPv6
 from rucio.core.trace import SCHEMAS, validate_schema
 
@@ -86,12 +86,8 @@ def test_trace_ip():
             validate_schema(obj)
 
 
-def test_non_existant_event_type_validation_rejection(caplog):
-    """
-    Test if an incoming trace with a non-supported schema logs a warning
-    instead of printing entire stack-trace
-    """
+def test_non_existant_event_type_validation_rejection():
     event_type = "put_new_type"
     obj = json.dumps({"eventType": f"{event_type}"})
-    validate_schema(obj)
-    assert f"schema for eventType {event_type} is not currently supported" in caplog.text
+    with pytest.raises(TraceValidationSchemaNotFound):
+        validate_schema(obj)
