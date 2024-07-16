@@ -15,7 +15,7 @@
 from re import match
 from typing import TYPE_CHECKING, Optional, Union
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
@@ -85,8 +85,12 @@ def del_key(key: str, *, session: "Session") -> None:
     :param key: the name for the key.
     :param session: The database session in use.
     """
-    statement = select(models.DIDMetaConventionsKey.key).where(models.DIDMetaConventionsKey.key == key)
-    session.delete(statement)
+    stmt = delete(
+        models.DIDMetaConventionsKey
+    ).where(
+        models.DIDMetaConventionsKey.key == key
+    )
+    session.execute(stmt)
 
 
 @read_session
@@ -98,12 +102,10 @@ def list_keys(*, session: "Session") -> list[str]:
 
     :returns: A list containing all keys.
     """
-    key_list = []
-    statement = select(models.DIDMetaConventionsKey.key)
-    query = session.execute(statement).scalars()
-    for row in query:
-        key_list.append(row)
-    return key_list
+    stmt = select(
+        models.DIDMetaConventionsKey.key
+    )
+    return list(session.execute(stmt).scalars().all())
 
 
 @transactional_session
@@ -167,12 +169,12 @@ def list_values(key: str, *, session: "Session") -> list[str]:
 
     :returns: A list containing all values.
     """
-    value_list = []
-    statement = select(models.DIDMetaConventionsConstraints.value).where(models.DIDMetaConventionsConstraints.key == key)
-    query = session.execute(statement).scalars()
-    for row in query:
-        value_list.append(row)
-    return value_list
+    statement = select(
+        models.DIDMetaConventionsConstraints.value
+    ).where(
+        models.DIDMetaConventionsConstraints.key == key
+    )
+    return list(session.execute(statement).scalars().all())
 
 
 @read_session
@@ -193,7 +195,8 @@ def validate_meta(meta: dict, did_type: DIDType, *, session: "Session") -> None:
             statement = select(
                 models.DIDMetaConventionsConstraints.value
             ).where(
-                and_(models.DIDMetaConventionsConstraints.value == meta[key], models.DIDMetaConventionsConstraints.key == key)
+                and_(models.DIDMetaConventionsConstraints.value == meta[key],
+                     models.DIDMetaConventionsConstraints.key == key)
             )
             session.execute(statement).one()
         except NoResultFound:
