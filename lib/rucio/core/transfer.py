@@ -749,11 +749,11 @@ def _create_stagein_definitions(
                     rse=source.rse,
                     file_path=source.file_path,
                     url=source.url,
-                    scheme=limit_dest_schemes,
+                    scheme=limit_dest_schemes,  # type: ignore (list passed instead of single scheme)
                 ),
                 destination=TransferDestination(
                     rse=rws.dest_rse,
-                    scheme=limit_dest_schemes,
+                    scheme=limit_dest_schemes,  # type: ignore (list passed instead of single scheme)
                 ),
                 operation_src=operation_src,
                 operation_dest=operation_dest,

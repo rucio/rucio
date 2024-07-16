@@ -2928,7 +2928,7 @@ def add_monitor_message(
 def get_transfer_error(
         state: RequestState,
         reason: Optional[str] = None
-) -> str:
+) -> Optional[str]:
     """
     Transform a specific RequestState to an error message
 
