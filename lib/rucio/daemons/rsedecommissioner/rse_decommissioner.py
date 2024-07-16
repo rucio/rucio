@@ -98,7 +98,7 @@ def run_once(
         # Get the decommission attribute (encodes the decommissioning config)
         attr = get_rse_attribute(rse['id'], RseAttr.DECOMMISSION)
         try:
-            config = attr_to_config(attr)
+            config = attr_to_config(attr)  # type: ignore (attr could be None)
         except InvalidStatusName:
             logger(logging.ERROR, 'RSE %s has an invalid decommissioning status',
                    rse['rse'])
