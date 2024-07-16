@@ -80,8 +80,7 @@ for broker in BROKERS_RESOLVED:
 
 
 def date_handler(obj):
-    '''
-    '''
+    """ Format dates to ISO format. """
     return obj.isoformat() if hasattr(obj, 'isoformat') else obj
 
 
