@@ -349,8 +349,9 @@ def validate_schema(obj):
         if obj and 'eventType' in obj:
             event_type = SCHEMAS.get(obj['eventType'].lower())
             if not event_type:
-                validation_error = ValidationError(message=f"Trace schema for eventType {obj['eventType']} is not currently supported.")
-                validation_error.cause = "SCHEMA_NOT_FOUND"
+                validation_error = ValidationError(
+                    message=f"Trace schema for eventType {obj['eventType']} is not currently supported.",
+                    cause="SCHEMA_NOT_FOUND")
                 raise validation_error
             validate(obj, SCHEMAS.get(obj['eventType'].lower()), format_checker=FORMAT_CHECKER)
     except ValidationError as error:
