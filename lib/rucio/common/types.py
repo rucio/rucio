@@ -178,7 +178,7 @@ class RSEAccountCounterDict(TypedDict):
     account: InternalAccount
     rse_id: str
 
-    
+
 class RSEAccountUsageDict(TypedDict):
     rse_id: str
     rse: str
