@@ -29,6 +29,7 @@ import traceback
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
+from sqlalchemy import and_, delete
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import FlushError
 
@@ -102,8 +103,16 @@ def declare_bad_file_replicas(
                                                  reason=reason, state=status, account=issuer,
                                                  bytes=size)
             new_bad_replica.save(session=session, flush=False)
-            session.query(models.Source).filter_by(scope=scope, name=name,  # type: ignore (session could be None)
-                                                   rse_id=rse_id).delete(synchronize_session=False)
+            stmt = delete(
+                models.Source
+            ).where(
+                and_(models.Source.scope == scope,
+                     models.Source.name == name,
+                     models.Source.rse_id == rse_id)
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)  # type: ignore (session could be None)
         else:
             if already_declared:
                 unknown_replicas.append('%s:%s %s' % (did['scope'], did['name'],
