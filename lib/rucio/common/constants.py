@@ -74,12 +74,14 @@ FTS_JOB_TYPE = namedtuple('FTS_JOB_TYPE', ['MULTIPLE_REPLICA', 'MULTI_HOP', 'SES
 MAX_MESSAGE_LENGTH = 4000
 
 
+@enum.unique
 class SuspiciousAvailability(enum.Enum):
     ALL = 0
     EXIST_COPIES = 1
     LAST_COPY = 2
 
 
+@enum.unique
 class ReplicaState(enum.Enum):
     # From rucio.db.sqla.constants, update that file at the same time as this
     AVAILABLE = 'A'
