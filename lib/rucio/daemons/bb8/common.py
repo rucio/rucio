@@ -474,7 +474,7 @@ def list_rebalance_rule_candidates(
         ),
         models.DatasetLock.accessed_at
     )
-    return list(session.execute(stmt).all())
+    return list(session.execute(stmt).all())  # type: ignore (session could be None)
 
 
 @read_session
@@ -736,7 +736,7 @@ def get_active_locks(
                  models.ReplicationRule.state == RuleState.STUCK),
              models.ReplicationRule.comments == "Background rebalancing")
     )
-    for rule_id in session.execute(stmt).scalars().all():
+    for rule_id in session.execute(stmt).scalars().all():    # type: ignore (session could be None)
         stmt = select(
             func.count(),
             func.sum(models.ReplicaLock.bytes),
@@ -751,7 +751,7 @@ def get_active_locks(
             models.ReplicaLock.state,
             models.ReplicaLock.rse_id
         )
-        for cnt, size, _, rse_id in session.execute(stmt).all():
+        for cnt, size, _, rse_id in session.execute(stmt).all():  # type: ignore (session could be None)
             if rse_id not in locks_dict:
                 locks_dict[rse_id] = {"bytes": 0, "locks": 0}
             locks_dict[rse_id]["locks"] += cnt
