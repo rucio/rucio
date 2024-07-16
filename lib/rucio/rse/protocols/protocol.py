@@ -41,16 +41,31 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
     """
         Translates a pfn dictionary into a scope and name
     """
+
+    _algorithm_type = "pfn2scope_name"
+
     def __init__(self, vo: str = 'def'):
         super().__init__()
         self.register("def", RSEDeterministicScopeTranslation._default)
         self.register("atlas", RSEDeterministicScopeTranslation._atlas)
         policy_module = vo
-        # Uses the same policy as the DeterministicTranslation
-        if super()._supports(self.__class__.__name__, policy_module):
-            self.parser = self._get_one_algorithm(self.__class__.__name__, policy_module)
-        else:
-            self.parser = self._get_one_algorithm(self.__class__.__name__, "def")
+        try:
+            # Use the function defined in the policy package if it's configured so
+            algo_type = self._algorithm_type
+            algorithm_name = config.config_get('policy', self._algorithm_type)
+        except (NoOptionError, NoSectionError, RuntimeError):
+            # Don't use a function from the policy package. Use one defined in this class according to vo
+            algo_type = self.__class__.__name__
+            if super()._supports(self.__class__.__name__, policy_module):
+                algorithm_name = policy_module
+            else:
+                algorithm_name = "def"
+
+        self.parser = self.get_parser(algo_type, algorithm_name)
+
+    @classmethod
+    def get_parser(cls, algorithm_type, algorithm_name):
+        return super()._get_one_algorithm(algorithm_type, algorithm_name)
 
     @classmethod
     def register(cls, name: str, func: Callable) -> None:
