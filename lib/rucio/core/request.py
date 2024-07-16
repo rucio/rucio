@@ -752,11 +752,11 @@ def get_and_mark_next(
     METRICS.counter('get_next.requests.{request_type}.{state}').labels(request_type=request_type_metric_label, state=state_metric_label).inc()
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
-    if type(request_type) is not list:
+    if not isinstance(request_type, list):
         request_type = [request_type, request_type]
     elif len(request_type) == 1:
         request_type = [request_type[0], request_type[0]]
-    if type(state) is not list:
+    if not isinstance(state, list):
         state = [state, state]
     elif len(state) == 1:
         state = [state[0], state[0]]
@@ -2702,7 +2702,7 @@ def update_requests_priority(priority, filter_, *, session: "Session", logger=lo
         if 'older_than' in filter_:
             query = query.where(models.Request.created_at < filter_['older_than'])
         if 'activities' in filter_:
-            if type(filter_['activities']) is not list:
+            if not isinstance(filter_['activities'], list):
                 filter_['activities'] = filter_['activities'].split(',')
             query = query.filter(models.Request.activity.in_(filter_['activities']))
 
