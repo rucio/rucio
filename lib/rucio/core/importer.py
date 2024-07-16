@@ -15,6 +15,8 @@
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import select
+
 from rucio.common.config import config_get
 from rucio.common.constants import RseAttr
 from rucio.common.exception import RSEOperationNotSupported
@@ -196,7 +198,12 @@ def import_accounts(accounts: Iterable[dict[str, Any]], vo: str = 'def', *, sess
     outdated_accounts = [account for account in accounts if account['account'] in old_accounts]
     to_be_removed_accounts = [old_account for old_account in old_accounts if old_account not in [account['account'] for account in accounts]]
     old_identities = identity_module.list_identities(session=session)
-    old_identity_account = session.query(models.IdentityAccountAssociation.identity, models.IdentityAccountAssociation.identity_type, models.IdentityAccountAssociation.account).all()
+    stmt = select(
+        models.IdentityAccountAssociation.identity,
+        models.IdentityAccountAssociation.identity_type,
+        models.IdentityAccountAssociation.account
+    )
+    old_identity_account = session.execute(stmt).all()
 
     # add missing accounts
     for account_dict in missing_accounts:
