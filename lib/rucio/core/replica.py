@@ -999,7 +999,7 @@ def _build_list_replicas_pfn(
                             # don't forget to mangle gfal-style davs URL into generic https URL
                             pfn = f"root://{root_proxy_internal}//{pfn.replace('davs://', 'https://')}"
 
-    simulate_multirange = get_rse_attribute(rse_id, RseAttr.SIMULATE_MULTIRANGE)
+    simulate_multirange = get_rse_attribute(rse_id, RseAttr.SIMULATE_MULTIRANGE, session=session)
 
     if simulate_multirange is not None:
         try:
