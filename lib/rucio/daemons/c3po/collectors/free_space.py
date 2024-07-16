@@ -18,6 +18,8 @@ Collector to get the SRM free and used information for DATADISK RSEs.
 
 from typing import TYPE_CHECKING, Optional
 
+from sqlalchemy import and_, select
+
 from rucio.db.sqla.models import RSEAttrAssociation, RSEUsage
 from rucio.db.sqla.session import read_session
 
@@ -45,10 +47,19 @@ class FreeSpaceCollector:
             """
             Retrieve free space from database
             """
-            query = session.query(RSEUsage.rse_id, RSEUsage.free, RSEUsage.used).\
-                join(RSEAttrAssociation, RSEUsage.rse_id == RSEAttrAssociation.rse_id).\
-                filter(RSEUsage.source == 'storage').filter(RSEAttrAssociation.key == 'type', RSEAttrAssociation.value == 'DATADISK')
-            for rse_id, free, used in query:
+            stmt = select(
+                RSEUsage.rse_id,
+                RSEUsage.free,
+                RSEUsage.used
+            ).join(
+                RSEAttrAssociation,
+                RSEAttrAssociation.rse_id == RSEUsage.rse_id
+            ).where(
+                and_(RSEUsage.source == 'storage',
+                     RSEAttrAssociation.key == 'type',
+                     RSEAttrAssociation.value == 'DATADISK'),
+            )
+            for rse_id, free, used in session.execute(stmt).all():  # type: ignore (session could be None)
                 self.rses[rse_id] = {'total': used + free, 'used': used, 'free': free}
 
     instance = None
