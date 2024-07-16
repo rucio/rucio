@@ -1109,3 +1109,13 @@ class ErrorLoadingPolicyPackage(RucioException):
         super(ErrorLoadingPolicyPackage, self).__init__(*args, **kwargs)
         self._message = 'An error occurred while loading the specified policy package'
         self.error_code = 107
+
+
+class TraceValidationSchemaNotFound(RucioException):
+    """
+    Trace validation schema not found.
+    """
+    def __init__(self, *args, **kwargs):
+        super(TraceValidationSchemaNotFound, self).__init__(*args, **kwargs)
+        self._message = 'Trace validation schema not found.'
+        self.error_code = 108
