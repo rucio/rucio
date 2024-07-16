@@ -16,8 +16,7 @@ import datetime
 import hashlib
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import func, select
-from sqlalchemy.sql import distinct
+from sqlalchemy import and_, delete, func, select, update
 
 from rucio.common.exception import DatabaseException
 from rucio.common.utils import pid_exists
@@ -93,17 +92,39 @@ def _sanity_check(
     :param expiration_delay: time (in seconds) after which any inactive health check will be removed
     :param session: The database session in use.
     """
+    base_stmt = select(
+        Heartbeats.pid
+    ).distinct(
+    ).where(
+        Heartbeats.hostname == hostname
+    )
     if executable:
         if not hash_executable:
             hash_executable = calc_hash(executable)
 
-        for pid, in session.query(distinct(Heartbeats.pid)).filter_by(executable=hash_executable, hostname=hostname):
+        stmt = base_stmt.where(
+            Heartbeats.executable == hash_executable
+        )
+        for pid in session.execute(stmt).scalars().all():
             if not pid_exists(pid):
-                session.query(Heartbeats).filter_by(executable=hash_executable, hostname=hostname, pid=pid).delete()
+                stmt = delete(
+                    Heartbeats
+                ).where(
+                    and_(Heartbeats.executable == hash_executable,
+                         Heartbeats.hostname == hostname,
+                         Heartbeats.pid == pid)
+                )
+                session.execute(stmt)
     else:
-        for pid, in session.query(distinct(Heartbeats.pid)).filter_by(hostname=hostname):
+        for pid in session.execute(base_stmt).scalars().all():
             if not pid_exists(pid):
-                session.query(Heartbeats).filter_by(hostname=hostname, pid=pid).delete()
+                stmt = delete(
+                    Heartbeats
+                ).where(
+                    and_(Heartbeats.hostname == hostname,
+                         Heartbeats.pid == pid)
+                )
+                session.execute(stmt)
 
     if expiration_delay:
         cardiac_arrest(older_than=expiration_delay, session=session)
@@ -150,13 +171,18 @@ def live(
         thread_name = "thread"
 
     # upsert the heartbeat
-    rowcount = session.query(Heartbeats)\
-        .filter_by(executable=hash_executable,
-                   hostname=hostname,
-                   pid=pid,
-                   thread_id=thread_id)\
-        .update({'updated_at': datetime.datetime.utcnow(), 'payload': payload})
-    if not rowcount:
+    stmt = update(
+        Heartbeats
+    ).where(
+        and_(Heartbeats.executable == hash_executable,
+             Heartbeats.hostname == hostname,
+             Heartbeats.pid == pid,
+             Heartbeats.thread_id == thread_id)
+    ).values({
+        Heartbeats.updated_at: datetime.datetime.utcnow(),
+        Heartbeats.payload: payload
+    })
+    if not session.execute(stmt).rowcount:
         Heartbeats(executable=hash_executable,
                    readable=executable[:Heartbeats.readable.property.columns[0].type.length],
                    hostname=hostname,
@@ -166,19 +192,27 @@ def live(
                    payload=payload).save(session=session)
 
     # assign thread identifier
-    query = session.query(Heartbeats.hostname,
-                          Heartbeats.pid,
-                          Heartbeats.thread_id)\
-                   .with_hint(Heartbeats, "index(HEARTBEATS HEARTBEATS_PK)", 'oracle')\
-                   .filter(Heartbeats.executable == hash_executable)\
-                   .filter(Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))\
-                   .group_by(Heartbeats.hostname,
-                             Heartbeats.pid,
-                             Heartbeats.thread_id)\
-                   .order_by(Heartbeats.hostname,
-                             Heartbeats.pid,
-                             Heartbeats.thread_id)
-    result = query.all()
+    stmt = select(
+        Heartbeats.hostname,
+        Heartbeats.pid,
+        Heartbeats.thread_id
+    ).with_hint(
+        Heartbeats,
+        'INDEX(HEARTBEATS HEARTBEATS_PK)',
+        'oracle'
+    ).where(
+        and_(Heartbeats.executable == hash_executable,
+             Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))
+    ).group_by(
+        Heartbeats.hostname,
+        Heartbeats.pid,
+        Heartbeats.thread_id
+    ).order_by(
+        Heartbeats.hostname,
+        Heartbeats.pid,
+        Heartbeats.thread_id
+    )
+    result = session.execute(stmt).all()
 
     # there is no universally applicable rownumber in SQLAlchemy
     # so we have to do it in Python
@@ -217,15 +251,20 @@ def die(
     if not hash_executable:
         hash_executable = calc_hash(executable)
 
-    query = session.query(Heartbeats).filter_by(executable=hash_executable,
-                                                hostname=hostname,
-                                                pid=pid,
-                                                thread_id=thread.ident)
+    stmt = delete(
+        Heartbeats
+    ).where(
+        and_(Heartbeats.executable == hash_executable,
+             Heartbeats.hostname == hostname,
+             Heartbeats.pid == pid,
+             Heartbeats.thread_id == thread.ident)
+    )
 
     if older_than:
-        query = query.filter(Heartbeats.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))
-
-    query.delete()
+        stmt = stmt.where(
+            Heartbeats.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than)
+        )
+    session.execute(stmt)
 
 
 @transactional_session
@@ -237,12 +276,15 @@ def cardiac_arrest(older_than: Optional[int] = None, *, session: "Session") -> N
     :param session: The database session in use.
     """
 
-    query = session.query(Heartbeats)
+    stmt = delete(
+        Heartbeats
+    )
 
     if older_than:
-        query = query.filter(Heartbeats.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))
-
-    query.delete()
+        stmt = stmt.where(
+            Heartbeats.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than)
+        )
+    session.execute(stmt)
 
 
 @read_session
@@ -297,14 +339,19 @@ def list_payload_counts(
 
     if not hash_executable:
         hash_executable = calc_hash(executable)
-    query = session.query(Heartbeats.payload,
-                          func.count(Heartbeats.payload))\
-                   .filter(Heartbeats.executable == hash_executable)\
-                   .filter(Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))\
-                   .group_by(Heartbeats.payload)\
-                   .order_by(Heartbeats.payload)
+    stmt = select(
+        Heartbeats.payload,
+        func.count(Heartbeats.payload)
+    ).where(
+        and_(Heartbeats.executable == hash_executable,
+             Heartbeats.updated_at >= datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))
+    ).group_by(
+        Heartbeats.payload
+    ).order_by(
+        Heartbeats.payload
+    )
 
-    return dict((payload, count) for payload, count in query.all() if payload)
+    return dict((payload, count) for payload, count in session.execute(stmt).all() if payload)
 
 
 def calc_hash(executable: str) -> str:
