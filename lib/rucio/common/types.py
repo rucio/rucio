@@ -24,7 +24,7 @@ else:
 
 if TYPE_CHECKING:
     from rucio.common.constants import SUPPORTED_PROTOCOLS_LITERAL
-    from rucio.db.sqla.constants import AccountType, IdentityType
+    from rucio.db.sqla.constants import AccountType, IdentityType, RequestState, RequestType
 
 
 class InternalType:
@@ -340,3 +340,38 @@ class FileToUploadWithCollectedInfoDict(FileToUploadDict):
 class FileToUploadWithCollectedAndDatasetInfoDict(FileToUploadWithCollectedInfoDict):
     dataset_scope: str
     dataset_name: str
+
+
+class RequestDict(TypedDict):
+    id: str
+    request_id: str
+    scope: InternalScope
+    name: str
+    source_rse_id: str
+    dest_rse_id: str
+    state: RequestState
+    rule_id: str
+    bytes: int
+    sources: list[dict[str, Any]]
+    request_type: RequestType
+    retry_count: Optional[int]
+    previous_attempt_id: str
+    external_host: str
+    external_id: str
+    transfertool: str
+    attributes: "RequestAttributesDict"
+
+
+class RequestAttributesDict(TypedDict):
+    activity: str
+    bytes: int
+    md5: str
+    adler32: str
+    is_intermediate_hop: bool
+
+
+class FilterDict(TypedDict):
+    rule_id: str
+    request_id: str
+    older_than: datetime
+    activities: Union[list[str], str]
