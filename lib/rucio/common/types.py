@@ -345,18 +345,37 @@ class FileToUploadWithCollectedAndDatasetInfoDict(FileToUploadWithCollectedInfoD
     dataset_name: str
 
 
+class RequestGatewayDict(TypedDict):
+    """
+    Request dict expected as input to gateway
+    """
+    scope: str
+    name: str
+    account: Optional[str]
+    dest_rse_id: str
+    request_type: "RequestType"
+    attributes: "RequestAttributesDict"
+
+
 class RequestDict(TypedDict):
+    """
+    Requested dict used in core
+    """
     id: str
     request_id: str
     scope: InternalScope
     name: str
     source_rse_id: str
     dest_rse_id: str
-    state: RequestState
+    dest_url: str
+    state: "RequestState"
+    account: NotRequired[InternalAccount]
     rule_id: str
+    adler32: str
     bytes: int
+    err_msg: str
     sources: list[dict[str, Any]]
-    request_type: RequestType
+    request_type: "RequestType"
     retry_count: Optional[int]
     previous_attempt_id: str
     external_host: str
