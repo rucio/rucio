@@ -271,6 +271,12 @@ class TokenValidationDict(TypedDict):
 
 
 class IPDict(TypedDict):
+    ip: Optional[str]
+    fqdn: Optional[str]
+    site: Optional[str]
+
+
+class IPWithLocationDict(TypedDict):
     ip: str
     fqdn: str
     site: str

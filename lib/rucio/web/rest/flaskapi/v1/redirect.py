@@ -26,6 +26,7 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_acc
 if TYPE_CHECKING:
     from typing import Optional
 
+    from rucio.common.types import IPDict
     from rucio.web.rest.flaskapi.v1.types import HeadersType
 
 
@@ -116,7 +117,7 @@ class MetaLinkRedirector(ErrorHandlingMethodView):
         # set the correct client IP
         client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
-        client_location = {
+        client_location: 'IPDict' = {
             'ip': request.args.get('ip', default=client_ip),
             'fqdn': request.args.get('fqdn', default=None),
             'site': request.args.get('site', default=None),
@@ -274,7 +275,7 @@ class HeaderRedirector(ErrorHandlingMethodView):
         try:
             client_ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
-            client_location = {
+            client_location: 'IPDict' = {
                 'ip': request.args.get('ip', default=client_ip),
                 'fqdn': request.args.get('fqdn', default=None),
                 'site': request.args.get('site', default=None),
@@ -295,7 +296,7 @@ class HeaderRedirector(ErrorHandlingMethodView):
             vo = extract_vo(request.headers)
 
             replicas = list(
-                list_replicas(
+                list_replicas(  # type: ignore (session parameter missing)
                     dids=[{'scope': scope, 'name': name, 'type': 'FILE'}],
                     schemes=schemes,
                     client_location=client_location,
