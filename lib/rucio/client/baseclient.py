@@ -171,6 +171,9 @@ class BaseClient:
                 except (NoOptionError, NoSectionError):
                     self.logger.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
                     self.ca_cert = True
+                except ConfigNotFound:
+                    self.logger.debug('No configuration found. Falling back to Mozilla default CA bundle (certifi).')
+                    self.ca_cert = True
 
         if account is None:
             self.logger.debug('No account passed. Trying to get it from the RUCIO_ACCOUNT environment variable or the config file.')
@@ -194,6 +197,9 @@ class BaseClient:
                     self.vo = config_get('client', 'vo')
                 except (NoOptionError, NoSectionError):
                     self.logger.debug('No VO found. Using default VO.')
+                    self.vo = 'def'
+                except ConfigNotFound:
+                    self.logger.debug('No configuration found. Using default VO.')
                     self.vo = 'def'
 
         self.auth_token_file_path, self.token_exp_epoch_file, self.token_file, self.token_path = self._get_auth_tokens()
