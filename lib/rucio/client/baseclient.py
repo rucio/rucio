@@ -94,14 +94,12 @@ class BaseClient:
         """
         Constructor of the BaseClient.
         :param rucio_host: The address of the rucio server, if None it is read from the config file.
-        :param rucio_port: The port of the rucio server, if None it is read from the config file.
         :param auth_host: The address of the rucio authentication server, if None it is read from the config file.
-        :param auth_port: The port of the rucio authentication server, if None it is read from the config file.
         :param account: The account to authenticate to rucio.
-        :param use_ssl: Enable or disable ssl for commucation. Default is enabled.
         :param ca_cert: The path to the rucio server certificate.
         :param auth_type: The type of authentication (e.g.: 'userpass', 'kerberos' ...)
         :param creds: Dictionary with credentials needed for authentication.
+        :param timeout: The timeout value for the client in seconds. Defaults to 600 seconds.
         :param user_agent: Indicates the client.
         :param vo: The VO to authenticate into.
         :param logger: Logger object to use. If None, use the default LOG created by the module
@@ -167,7 +165,7 @@ class BaseClient:
                 self.logger.debug('HTTPS is required, but no ca_cert was passed and X509_CERT_DIR is not defined. Trying to get it from the config file.')
                 try:
                     self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
-                except (NoOptionError, NoSectionError):
+                except (NoOptionError, NoSectionError, ConfigNotFound):
                     self.logger.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
                     self.ca_cert = True
 
@@ -193,7 +191,7 @@ class BaseClient:
                 self.logger.debug('No VO found. Trying to get it from the config file.')
                 try:
                     self.vo = config_get('client', 'vo')
-                except (NoOptionError, NoSectionError):
+                except (NoOptionError, NoSectionError, ConfigNotFound):
                     self.logger.debug('No VO found. Using default VO.')
                     self.vo = 'def'
 
