@@ -42,19 +42,21 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         Translates a pfn dictionary into a scope and name
     """
 
-    _algorithm_type = "pfn2scope_name"
+    _algorithm_type = "pfn2lfn"
 
     def __init__(self, vo: str = 'def'):
         super().__init__()
         self.register("def", RSEDeterministicScopeTranslation._default)
         self.register("atlas", RSEDeterministicScopeTranslation._atlas)
         policy_module = vo
+        logger = logging.getLogger(__name__)
         try:
             # Use the function defined in the policy package if it's configured so
             algo_type = self._algorithm_type
             algorithm_name = config.config_get('policy', self._algorithm_type)
         except (NoOptionError, NoSectionError, RuntimeError):
             # Don't use a function from the policy package. Use one defined in this class according to vo
+            logger.debug("PFN2LFN function will not be fetched from the policy package")
             algo_type = self.__class__.__name__
             if super()._supports(self.__class__.__name__, policy_module):
                 algorithm_name = policy_module
