@@ -46,7 +46,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.plugins import PolicyPackageAlgorithms
-from rucio.common.types import InternalAccount, InternalScope, TraceDict
+from rucio.common.types import InternalAccount, InternalScope, LFNDict, TraceDict
 
 EXTRA_MODULES = import_extras(['paramiko'])
 
@@ -788,7 +788,7 @@ def ssh_sign(private_key: str, message: str) -> str:
     return base64_encoded
 
 
-def make_valid_did(lfn_dict: dict[str, Any]) -> dict[str, Any]:
+def make_valid_did(lfn_dict: LFNDict) -> LFNDict:
     """
     When managing information about a LFN (such as in `rucio upload` or
     the RSE manager's upload), we add the `filename` attribute to record
@@ -805,7 +805,7 @@ def make_valid_did(lfn_dict: dict[str, Any]) -> dict[str, Any]:
     lfn_copy = dict(lfn_dict)
     lfn_copy['name'] = lfn_copy.get('name', lfn_copy['filename'])
     del lfn_copy['filename']
-    return lfn_copy
+    return lfn_copy  # type: ignore
 
 
 def send_trace(trace: TraceDict, trace_endpoint: str, user_agent: str, retries: int = 5) -> int:
