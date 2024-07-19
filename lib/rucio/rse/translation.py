@@ -23,6 +23,8 @@ from rucio.common.plugins import PolicyPackageAlgorithms
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
+    from rucio.common.types import RSESettingsDict
+
 
 class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
     """
@@ -118,7 +120,12 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
     _DEFAULT_LFN2PFN = "hash"
     _algorithm_type = "lfn2pfn"
 
-    def __init__(self, rse=None, rse_attributes=None, protocol_attributes=None):
+    def __init__(
+            self,
+            rse: Optional[str] = None,
+            rse_attributes: Optional["RSESettingsDict"] = None,
+            protocol_attributes: Optional[dict[str, Any]] = None
+    ):
         """
         Initialize a translator object from the RSE, its attributes, and the protocol-specific
         attributes.
@@ -133,7 +140,10 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         self.protocol_attributes = protocol_attributes if protocol_attributes else {}
 
     @classmethod
-    def supports(cls, name):
+    def supports(
+        cls,
+        name: str
+    ) -> bool:
         """
         Check to see if a specific algorithm is supported.
 
@@ -143,7 +153,11 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return super()._supports(cls._algorithm_type, name)
 
     @classmethod
-    def register(cls, lfn2pfn_callable, name=None):
+    def register(
+        cls,
+        lfn2pfn_callable: 'Callable',
+        name: Optional[str] = None
+    ) -> None:
         """
         Provided a callable function, register it as one of the valid LFN2PFN algorithms.
 
@@ -165,7 +179,13 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         super()._register(cls._algorithm_type, algorithm_dict)
 
     @staticmethod
-    def __hash(scope, name, rse, rse_attrs, protocol_attrs):
+    def __hash(
+        scope: str,
+        name: str,
+        rse: str,
+        rse_attrs: dict[str, Any],
+        protocol_attrs: dict[str, Any]
+    ) -> str:
         """
         Given a LFN, turn it into a sub-directory structure using a hash function.
 
@@ -188,7 +208,13 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
 
     @staticmethod
-    def __identity(scope, name, rse, rse_attrs, protocol_attrs):
+    def __identity(
+        scope: str,
+        name: str,
+        rse: str,
+        rse_attrs: dict[str, Any],
+        protocol_attrs: dict[str, Any]
+    ) -> str:
         """
         Given a LFN, convert it directly to a path using the mapping:
 
@@ -209,7 +235,13 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return '%s/%s' % (scope, name)
 
     @staticmethod
-    def __belleii(scope, name, rse, rse_attrs, protocol_attrs):
+    def __belleii(
+        scope: str,
+        name: str,
+        rse: str,
+        rse_attrs: dict[str, Any],
+        protocol_attrs: dict[str, Any]
+    ) -> str:
         """
         Given a LFN, convert it directly to a path using the mapping:
 
@@ -231,7 +263,13 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return name
 
     @staticmethod
-    def __ligo(scope, name, rse, rse_attrs, protocol_attrs):
+    def __ligo(
+        scope: str,
+        name: str,
+        rse: str,
+        rse_attrs: dict[str, Any],
+        protocol_attrs: dict[str, Any]
+    ) -> str:
         """
         Given a LFN, convert it directly to a path using the Caltech schema
 
@@ -252,7 +290,13 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return ligo_lfn2pfn.ligo_lab(scope, name, None, None, None)
 
     @staticmethod
-    def __xenon(scope, name, rse, rse_attrs, protocol_attrs):
+    def __xenon(
+        scope: str,
+        name: str,
+        rse: str,
+        rse_attrs: dict[str, Any],
+        protocol_attrs: dict[str, Any]
+    ) -> str:
         """
         Given a LFN, turn it into a two level sub-directory structure based on the scope
         plus a third level based on the name
@@ -270,7 +314,7 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return '%s/%s/%s/%s' % (scope[0:7], scope[4:len(scope)], name.split('-')[0] + "-" + name.split('-')[1], name)
 
     @classmethod
-    def _module_init_(cls):
+    def _module_init_(cls) -> None:
         """
         Initialize the class object on first module load.
         """
@@ -292,7 +336,11 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
 
         cls._DEFAULT_LFN2PFN = config.get_lfn2pfn_algorithm_default()
 
-    def path(self, scope, name):
+    def path(
+            self,
+            scope: str,
+            name: str
+    ) -> str:
         """ Transforms the logical file name into a PFN's path.
 
             :param lfn: filename
