@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
-    from rucio.common.types import InternalAccount
+    from rucio.common.types import InternalAccount, LFNDict
     from rucio.core.rse import RseData
     from rucio.core.topology import Topology
     from rucio.rse.protocols.protocol import RSEProtocol
@@ -210,7 +210,12 @@ class DirectTransferImplementation(DirectTransfer):
         # Compute the source URL
         source_sign_url = src.rse.attributes.get(RseAttr.SIGN_URL, None)
         dest_sign_url = dst.rse.attributes.get(RseAttr.SIGN_URL, None)
-        source_url = list(protocol.lfns2pfns(lfns={'scope': rws.scope.external, 'name': rws.name, 'path': src.file_path}).values())[0]
+        lfn: "LFNDict" = {
+            'scope': rws.scope.external,  # type: ignore (scope.external might be None)
+            'name': rws.name,
+            'path': src.file_path
+        }
+        source_url = list(protocol.lfns2pfns(lfns=lfn).values())[0]
         source_url = cls.__rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=src.scheme)
         return source_url
 
@@ -223,7 +228,11 @@ class DirectTransferImplementation(DirectTransfer):
         protocol = protocol_factory.protocol(dst.rse, dst.scheme, operation)
 
         if dst.rse.info['deterministic']:
-            dest_url = list(protocol.lfns2pfns(lfns={'scope': rws.scope.external, 'name': rws.name}).values())[0]
+            lfn: "LFNDict" = {
+                'scope': rws.scope.external,  # type: ignore (scope.external might be None)
+                'name': rws.name
+            }
+            dest_url = list(protocol.lfns2pfns(lfns=lfn).values())[0]
         else:
             # compute dest url in case of non deterministic
             # naming convention, etc.
@@ -236,7 +245,12 @@ class DirectTransferImplementation(DirectTransfer):
                 if rws.retry_count or rws.activity == 'Recovery':
                     dest_path = '%s_%i' % (dest_path, int(time.time()))
 
-            dest_url = list(protocol.lfns2pfns(lfns={'scope': rws.scope.external, 'name': rws.name, 'path': dest_path}).values())[0]
+            lfn: "LFNDict" = {
+                'scope': rws.scope.external,  # type: ignore (scope.external might be None)
+                'name': rws.name,
+                'path': dest_path
+            }
+            dest_url = list(protocol.lfns2pfns(lfns=lfn).values())[0]
 
         dest_sign_url = dst.rse.attributes.get(RseAttr.SIGN_URL, None)
         dest_url = cls.__rewrite_dest_url(dest_url, dest_sign_url=dest_sign_url)

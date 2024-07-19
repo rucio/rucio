@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from types import FrameType
     from typing import Optional
 
+    from rucio.common.types import LFNDict
     from rucio.daemons.common import HeartbeatHandler
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -120,10 +121,13 @@ def run_once(
                 if replica['scope']:
                     scope = replica['scope'].external
                 try:
+                    lfn: "LFNDict" = {
+                        'scope': scope,
+                        'name': replica['name'],
+                        'path': replica['path']
+                    }
                     pfn = str(list(rsemgr.lfns2pfns(rse_settings=rse_info,
-                                                    lfns=[{'scope': scope,
-                                                           'name': replica['name'],
-                                                           'path': replica['path']}],
+                                                    lfns=[lfn],
                                                     operation='delete',
                                                     scheme=scheme).values())[0])
                     logger(logging.INFO, 'Deletion ATTEMPT of %s:%s as %s on %s', scope, replica['name'], pfn, rse)
