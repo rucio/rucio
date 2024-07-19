@@ -35,7 +35,7 @@ from sqlalchemy.orm.exc import FlushError
 
 from rucio.common import exception
 from rucio.common.logging import formatted_logger, setup_logging
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalAccount, InternalScope, LFNDict
 from rucio.common.utils import daemon_sleep
 from rucio.core.heartbeat import die, live, sanity_check
 from rucio.core.monitor import MetricManager
@@ -444,10 +444,12 @@ def process_dark_files(
                        % (rse, scope, name))
                 rse_id = get_rse_id(rse=rse)
                 internal_scope = InternalScope(scope=scope, vo=issuer.vo)
-                lfns = [{'scope': scope, 'name': name}]
-
+                lfn: "LFNDict" = {
+                    'scope': scope,
+                    'name': name,
+                }
                 attributes = get_rse_info(rse=rse)
-                pfns = lfns2pfns(rse_settings=attributes, lfns=lfns, operation='delete')
+                pfns = lfns2pfns(rse_settings=attributes, lfns=[lfn], operation='delete')
                 pfn_key = scope + ':' + name
                 url = pfns[pfn_key]
                 urls = [url]
