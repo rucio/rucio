@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from json import dumps
+from typing import TYPE_CHECKING
 
 from flask import Flask, Response, jsonify, request
 
@@ -65,6 +66,9 @@ from rucio.gateway.rse import (
 from rucio.rse import rsemanager
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
+
+if TYPE_CHECKING:
+    from rucio.common.types import LFNDict
 
 
 class RSEs(ErrorHandlingMethodView):
@@ -899,7 +903,7 @@ class LFNS2PFNS(ErrorHandlingMethodView):
         if any(filter(lambda info: len(info) != 2, lfns)):
             invalid_lfns = ', '.join(filter(lambda info: len(info) != 2, lfns))
             return generate_http_error_flask(400, InvalidPath.__name__, 'LFN(s) in invalid format: ' + invalid_lfns)
-        lfns = list(map(lambda info: {'scope': info[0], 'name': info[1]}, lfns))
+        lfns_list: list["LFNDict"] = list(map(lambda info: {'scope': info[0], 'name': info[1]}, lfns))
         scheme = request.args.get('scheme', default=None)
         domain = request.args.get('domain', default='wan')
         operation = request.args.get('operation', default='write')
@@ -909,7 +913,7 @@ class LFNS2PFNS(ErrorHandlingMethodView):
         except (RSENotFound, RSEProtocolNotSupported, RSEProtocolDomainNotSupported) as error:
             return generate_http_error_flask(404, error)
 
-        pfns = rsemanager.lfns2pfns(rse_settings, lfns, operation=operation, scheme=scheme, domain=domain)
+        pfns = rsemanager.lfns2pfns(rse_settings, lfns_list, operation=operation, scheme=scheme, domain=domain)
         if not pfns:
             return generate_http_error_flask(404, ReplicaNotFound.__name__, 'No replicas found')
 
