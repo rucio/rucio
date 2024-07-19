@@ -36,7 +36,7 @@ if getattr(rsemanager, 'SERVER_MODE', None):
     from rucio.core.rse import get_rse_vo
 
 if getattr(rsemanager, 'SERVER_MODE', None) or TYPE_CHECKING:
-    from rucio.common.types import InternalScope, LoggerFunction, RSESettingsDict
+    from rucio.common.types import InternalScope, LFNDict, LoggerFunction, RSESettingsDict
 
 if TYPE_CHECKING:
     from rucio.common.types import DIDDict
@@ -400,7 +400,7 @@ class RSEProtocol:
 
     def lfns2pfns(
             self,
-            lfns: Union[list["DIDDict"], "DIDDict"]
+            lfns: Union[list["LFNDict"], "LFNDict"]
     ) -> dict[str, str]:
         """
             Returns a fully qualified PFN for the file referred by path.
@@ -554,7 +554,7 @@ class RSEProtocol:
 
     def exists(
             self,
-            path: str
+            path: Optional[str]
     ) -> bool:
         """
             Checks if the requested file is known by the referred RSE.
@@ -602,7 +602,7 @@ class RSEProtocol:
             self,
             source: str,
             target: str,
-            source_dir: str,
+            source_dir: Optional[str],
             transfer_timeout: Optional[int] = None
     ) -> None:
         """
@@ -649,11 +649,11 @@ class RSEProtocol:
         """
         raise NotImplementedError
 
-    def get_space_usage(self) -> list[dict[str, int]]:
+    def get_space_usage(self) -> tuple[int, int]:
         """
             Get RSE space usage information.
 
-            :returns: a list with dict containing 'totalsize' and 'unusedsize'
+            :returns: a tuple 'totalsize' and 'unusedsize'
 
             :raises ServiceUnavailable: if some generic error occurred in the library.
         """
