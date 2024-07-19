@@ -18,6 +18,7 @@ along with some of the default methods for LFN2PFN translations.
 """
 import logging
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any, Optional, Union
 from urllib.parse import urlparse
 
 from rucio.common import exception
@@ -28,15 +29,25 @@ if getattr(rsemanager, 'CLIENT_MODE', None):
     from rucio.client.rseclient import RSEClient
 
 if getattr(rsemanager, 'SERVER_MODE', None):
-    from rucio.common.types import InternalScope
     from rucio.core import replica
     from rucio.core.rse import get_rse_vo
+
+if getattr(rsemanager, 'SERVER_MODE', None) or TYPE_CHECKING:
+    from rucio.common.types import InternalScope, LoggerFunction, RSESettingsDict
+
+if TYPE_CHECKING:
+    from rucio.common.types import DIDDict
 
 
 class RSEProtocol(ABC):
     """ This class is virtual and acts as a base to inherit new protocols from. It further provides some common functionality which applies for the majority of the protocols."""
 
-    def __init__(self, protocol_attr, rse_settings, logger=logging.log):
+    def __init__(
+            self,
+            protocol_attr: dict[str, Any],
+            rse_settings: "RSESettingsDict",
+            logger: "LoggerFunction" = logging.log
+    ):
         """ Initializes the object with information about the referred RSE.
 
             :param protocol_attr:  Properties of the requested protocol.
@@ -67,7 +78,10 @@ class RSEProtocol(ABC):
             if getattr(rsemanager, 'SERVER_MODE', None):
                 setattr(self, '_get_path', self._get_path_nondeterministic_server)
 
-    def lfns2pfns(self, lfns):
+    def lfns2pfns(
+            self,
+            lfns: Union[list["DIDDict"], "DIDDict"]
+    ) -> dict[str, str]:
         """
             Returns a fully qualified PFN for the file referred by path.
 
@@ -109,7 +123,10 @@ class RSEProtocol(ABC):
                     self.logger(logging.WARNING, str(e))
         return pfns
 
-    def __lfns2pfns_client(self, lfns):
+    def __lfns2pfns_client(
+            self,
+            lfns: Union[list["DIDDict"], "DIDDict"]
+    ) -> dict[str, str]:
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if necessary.
 
             :param scope: list of DIDs
@@ -122,7 +139,10 @@ class RSEProtocol(ABC):
         lfn_query = ["%s:%s" % (lfn['scope'], lfn['name']) for lfn in lfns]
         return client.lfns2pfns(self.rse['rse'], lfn_query, scheme=self.attributes['scheme'])
 
-    def _get_path(self, scope, name):
+    def _get_path(
+            self,
+            scope: str,
+            name: str):
         """ Transforms the logical file name into a PFN.
             Suitable for sites implementing the RUCIO naming convention.
             This implementation is only invoked if the RSE is deterministic.
@@ -132,26 +152,33 @@ class RSEProtocol(ABC):
 
             :returns: RSE specific URI of the physical file
         """
-        return self.translator.path(scope, name)
+        return self.translator.path(scope, name)  # type: ignore (translator could be none)
 
-    def _get_path_nondeterministic_server(self, scope, name):  # pylint: disable=invalid-name
+    def _get_path_nondeterministic_server(  # pylint: disable=invalid-name
+            self,
+            scope: str,
+            name: str
+    ) -> str:
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if necessary. """
         vo = get_rse_vo(self.rse['id'])  # pylint: disable=E0601
-        scope = InternalScope(scope, vo=vo)  # pylint: disable=E0601
-        rep = replica.get_replica(scope=scope, name=name, rse_id=self.rse['id'])  # pylint: disable=E0601
+        internal_scope = InternalScope(scope, vo=vo)  # pylint: disable=E0601
+        rep = replica.get_replica(scope=internal_scope, name=name, rse_id=self.rse['id'])  # pylint: disable=E0601
         if 'path' in rep and rep['path'] is not None:
             path = rep['path']
         elif 'state' in rep and (rep['state'] is None or rep['state'] == 'UNAVAILABLE'):
-            raise exception.ReplicaUnAvailable('Missing path information and state is UNAVAILABLE for replica %s:%s on non-deterministic storage named %s' % (scope, name, self.rse['rse']))
+            raise exception.ReplicaUnAvailable('Missing path information and state is UNAVAILABLE for replica %s:%s on non-deterministic storage named %s' % (internal_scope, name, self.rse['rse']))
         else:
-            raise exception.ReplicaNotFound('Missing path information for replica %s:%s on non-deterministic storage named %s' % (scope, name, self.rse['rse']))
+            raise exception.ReplicaNotFound('Missing path information for replica %s:%s on non-deterministic storage named %s' % (internal_scope, name, self.rse['rse']))
         if path.startswith('/'):
             path = path[1:]
         if path.endswith('/'):
             path = path[:-1]
         return path
 
-    def parse_pfns(self, pfns):
+    def parse_pfns(
+            self,
+            pfns: Union[list[str], str]
+    ) -> dict[str, dict[str, str]]:
         """
             Splits the given PFN into the parts known by the protocol. It is also checked if the provided protocol supports the given PFNs.
 
@@ -205,7 +232,10 @@ class RSEProtocol(ABC):
 
         return ret
 
-    def exists(self, path):
+    def exists(
+            self,
+            path: str
+    ) -> bool:
         """
             Checks if the requested file is known by the referred RSE.
 
@@ -218,7 +248,7 @@ class RSEProtocol(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def connect(self):
+    def connect(self) -> None:
         """
             Establishes the actual connection to the referred RSE.
 
@@ -227,12 +257,17 @@ class RSEProtocol(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def close(self):
+    def close(self) -> None:
         """ Closes the connection to RSE."""
         raise NotImplementedError
 
     @abstractmethod
-    def get(self, path, dest, transfer_timeout=None):
+    def get(
+            self,
+            path: str,
+            dest: str,
+            transfer_timeout: Optional[int] = None
+    ) -> None:
         """
             Provides access to files stored inside connected the RSE.
 
@@ -247,7 +282,13 @@ class RSEProtocol(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def put(self, source, target, source_dir, transfer_timeout=None):
+    def put(
+            self,
+            source: str,
+            target: str,
+            source_dir: str,
+            transfer_timeout: Optional[int] = None
+    ) -> None:
         """
             Allows to store files inside the referred RSE.
 
@@ -263,7 +304,10 @@ class RSEProtocol(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def delete(self, path):
+    def delete(
+            self,
+            path: str
+    ) -> None:
         """
             Deletes a file from the connected RSE.
 
@@ -275,7 +319,11 @@ class RSEProtocol(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def rename(self, path, new_path):
+    def rename(
+            self,
+            path: str,
+            new_path: str
+    ) -> None:
         """ Allows to rename a file stored inside the connected RSE.
 
             :param path: path to the current file on the storage
@@ -287,7 +335,7 @@ class RSEProtocol(ABC):
         """
         raise NotImplementedError
 
-    def get_space_usage(self):
+    def get_space_usage(self) -> list[dict[str, int]]:
         """
             Get RSE space usage information.
 
@@ -297,7 +345,7 @@ class RSEProtocol(ABC):
         """
         raise NotImplementedError
 
-    def stat(self, path):
+    def stat(self, path: str) -> dict[str, Any]:
         """
             Returns the stats of a file.
 
