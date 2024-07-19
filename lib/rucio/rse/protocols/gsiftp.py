@@ -50,7 +50,7 @@ class Default(protocol.RSEProtocol):
         """
         Get RSE space usage information.
 
-        :returns: a list with dict containing 'totalsize' and 'unusedsize'
+        :returns: a tuple containing 'totalsize' and 'unusedsize'
 
         :raises ServiceUnavailable: if some generic error occurred in the library.
         """
