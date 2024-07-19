@@ -37,7 +37,7 @@ class Default(protocol.RSEProtocol):
             :raises RSEAccessDenied: if no connection could be established.
         """
         extended_attributes = self.rse['protocol']['extended_attributes']
-        if 'STAGE_SVCCLASS' in extended_attributes:
+        if isinstance(extended_attributes, dict) and 'STAGE_SVCCLASS' in extended_attributes:
             os.environ['STAGE_SVCCLASS'] = extended_attributes['STAGE_SVCCLASS']
 
     def path2pfn(self, path):
