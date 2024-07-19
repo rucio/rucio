@@ -21,7 +21,7 @@ import os.path
 import random
 import socket
 import time
-from typing import TYPE_CHECKING, Any, Final, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Final, Optional, cast
 
 from rucio import version
 from rucio.client.client import Client
@@ -51,7 +51,7 @@ from rucio.rse import rsemanager as rsemgr
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from rucio.common.types import AttachDict, DatasetDict, DIDStringDict, FileToUploadDict, FileToUploadWithCollectedAndDatasetInfoDict, FileToUploadWithCollectedInfoDict, LoggerFunction, PathTypeAlias, RSESettingsDict, TraceBaseDict, TraceDict
+    from rucio.common.types import AttachDict, DatasetDict, DIDStringDict, FileToUploadDict, FileToUploadWithCollectedAndDatasetInfoDict, FileToUploadWithCollectedInfoDict, LFNDict, LoggerFunction, PathTypeAlias, RSESettingsDict, TraceBaseDict, TraceDict
     from rucio.rse.protocols.protocol import RSEProtocol
 
 
@@ -625,7 +625,7 @@ class UploadClient:
             self,
             rse_settings: "RSESettingsDict",
             rse_attributes: dict[str, Any],
-            lfn: dict[str, Union[str, int]],
+            lfn: "LFNDict",
             source_dir: Optional[str] = None,
             domain: str = 'wan',
             impl: Optional[str] = None,
