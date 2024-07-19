@@ -236,10 +236,10 @@ class TokenValidationDict(TypedDict):
 
 class IPDict(TypedDict):
     ip: str
-    fqdn: str
-    site: str
-    latitude: Optional[float]
-    longitude: Optional[float]
+    fqdn: Optional[str]
+    site: Optional[str]
+    latitude: NotRequired[Optional[float]]
+    longitude: NotRequired[Optional[float]]
 
 
 class AccountDict(TypedDict):
