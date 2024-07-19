@@ -304,8 +304,7 @@ def exists(rse_settings: types.RSESettingsDict, files, domain='wan', scheme=None
 
     protocol.close()
     if len(ret) == 1:
-        for x in ret:
-            return ret[x]
+        return next(iter(ret.values()))
     return [gs, ret]
 
 
@@ -502,11 +501,11 @@ def upload(rse_settings: types.RSESettingsDict, lfns, domain='wan', source_dir=N
     protocol.close()
     protocol_delete.close()
     if len(ret) == 1:
-        for x in ret:
-            if isinstance(ret[x], Exception):
-                raise ret[x]
-            else:
-                return {0: ret[x], 1: ret, 'success': ret[x], 'pfn': pfn}
+        ret_value = next(iter(ret.values()))
+        if isinstance(ret_value, Exception):
+            raise ret_value
+        else:
+            return {0: ret_value, 1: ret, 'success': ret_value, 'pfn': pfn}
     return {0: gs, 1: ret, 'success': gs, 'pfn': pfn}
 
 
@@ -546,11 +545,11 @@ def delete(rse_settings: types.RSESettingsDict, lfns, domain='wan', auth_token=N
 
     protocol.close()
     if len(ret) == 1:
-        for x in ret:
-            if isinstance(ret[x], Exception):
-                raise ret[x]
-            else:
-                return ret[x]
+        ret_value = next(iter(ret.values()))
+        if isinstance(ret_value, Exception):
+            raise ret_value
+        else:
+            return ret_value
     return [gs, ret]
 
 
@@ -623,11 +622,11 @@ def rename(rse_settings: types.RSESettingsDict, files, domain='wan', auth_token=
 
     protocol.close()
     if len(ret) == 1:
-        for x in ret:
-            if isinstance(ret[x], Exception):
-                raise ret[x]
-            else:
-                return ret[x]
+        ret_value = next(iter(ret.values()))
+        if isinstance(ret_value, Exception):
+            raise ret_value
+        else:
+            return ret_value
     return [gs, ret]
 
 
