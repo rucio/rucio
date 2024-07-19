@@ -245,7 +245,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
             upload_client = UploadClient(client)
             ret = upload_client.upload(files)
             if ret == 0:
-                logger(logging.INFO, f"{dsn} successfully registered on {rse}")
+                logger(logging.INFO, "%s successfully registered on %s", dsn, rse)
                 METRICS.counter(name="addnewdataset.done").inc()
                 METRICS.counter(name="addnewfile.done").inc(nbfiles)
                 METRICS.timer(name='datasetinjection').observe(stopwatch.elapsed)
@@ -254,7 +254,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
                 logger(logging.INFO, "Error uploading files")
                 failures.append(rse)
         except Exception as error:
-            logger(logging.ERROR, f"Error uploading files on {rse}: {str(error)}")
+            logger(logging.ERROR, "Error uploading files on %s: %s", rse, str(error))
             failures.append(rse)
         finally:
             for physical_fname in physical_fnames:
@@ -262,12 +262,16 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
             rmdir(tmpdir)
     logger(
         logging.INFO,
-        f"It took {cycle_stopwatch.elapsed} seconds to upload datasets on {len(successes)} RSEs: {str(successes)}",
+        "It took %f seconds to upload datasets on %s RSEs: %s",
+        cycle_stopwatch.elapsed,
+        len(successes),
+        str(successes),
     )
-    logger(
-        logging.INFO,
-        f"Datasets could not be uploaded on {len(failures)} RSEs: {str(failures)}",
-    )
+    if failures:
+        logger(
+            logging.WARNING,
+            "Datasets could not be uploaded on %s RSEs: %s", len(failures), str(failures),
+        )
     return True
 
 
