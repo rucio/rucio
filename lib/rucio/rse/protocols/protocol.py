@@ -20,7 +20,7 @@ import hashlib
 import logging
 from collections.abc import Callable, Mapping
 from configparser import NoOptionError, NoSectionError
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 from urllib.parse import urlparse
 
 from rucio.common import config, exception
@@ -32,9 +32,14 @@ if getattr(rsemanager, 'CLIENT_MODE', None):
     from rucio.client.rseclient import RSEClient
 
 if getattr(rsemanager, 'SERVER_MODE', None):
-    from rucio.common.types import InternalScope
     from rucio.core import replica
     from rucio.core.rse import get_rse_vo
+
+if getattr(rsemanager, 'SERVER_MODE', None) or TYPE_CHECKING:
+    from rucio.common.types import InternalScope, LoggerFunction, RSESettingsDict
+
+if TYPE_CHECKING:
+    from rucio.common.types import DIDDict
 
 
 class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
@@ -120,7 +125,12 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
     _DEFAULT_LFN2PFN = "hash"
     _algorithm_type = "lfn2pfn"
 
-    def __init__(self, rse=None, rse_attributes=None, protocol_attributes=None):
+    def __init__(
+            self,
+            rse: Optional[str] = None,
+            rse_attributes: Optional["RSESettingsDict"] = None,
+            protocol_attributes: Optional[dict[str, Any]] = None
+    ):
         """
         Initialize a translator object from the RSE, its attributes, and the protocol-specific
         attributes.
@@ -135,7 +145,10 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         self.protocol_attributes = protocol_attributes if protocol_attributes else {}
 
     @classmethod
-    def supports(cls, name):
+    def supports(
+        cls,
+        name: str
+    ) -> bool:
         """
         Check to see if a specific algorithm is supported.
 
@@ -145,7 +158,11 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return super()._supports(cls._algorithm_type, name)
 
     @classmethod
-    def register(cls, lfn2pfn_callable, name=None):
+    def register(
+        cls,
+        lfn2pfn_callable: Callable,
+        name: Optional[str] = None
+    ) -> None:
         """
         Provided a callable function, register it as one of the valid LFN2PFN algorithms.
 
@@ -167,7 +184,13 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         super()._register(cls._algorithm_type, algorithm_dict)
 
     @staticmethod
-    def __hash(scope, name, rse, rse_attrs, protocol_attrs):
+    def __hash(
+        scope: str,
+        name: str,
+        rse: str,
+        rse_attrs: dict[str, Any],
+        protocol_attrs: dict[str, Any]
+    ) -> str:
         """
         Given a LFN, turn it into a sub-directory structure using a hash function.
 
@@ -190,7 +213,13 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return '%s/%s/%s/%s' % (scope, hstr[0:2], hstr[2:4], name)
 
     @staticmethod
-    def __identity(scope, name, rse, rse_attrs, protocol_attrs):
+    def __identity(
+        scope: str,
+        name: str,
+        rse: str,
+        rse_attrs: dict[str, Any],
+        protocol_attrs: dict[str, Any]
+    ) -> str:
         """
         Given a LFN, convert it directly to a path using the mapping:
 
@@ -211,7 +240,13 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return '%s/%s' % (scope, name)
 
     @staticmethod
-    def __belleii(scope, name, rse, rse_attrs, protocol_attrs):
+    def __belleii(
+        scope: str,
+        name: str,
+        rse: str,
+        rse_attrs: dict[str, Any],
+        protocol_attrs: dict[str, Any]
+    ) -> str:
         """
         Given a LFN, convert it directly to a path using the mapping:
 
@@ -233,7 +268,13 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return name
 
     @staticmethod
-    def __ligo(scope, name, rse, rse_attrs, protocol_attrs):
+    def __ligo(
+        scope: str,
+        name: str,
+        rse: str,
+        rse_attrs: dict[str, Any],
+        protocol_attrs: dict[str, Any]
+    ) -> str:
         """
         Given a LFN, convert it directly to a path using the Caltech schema
 
@@ -254,7 +295,13 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return ligo_lfn2pfn.ligo_lab(scope, name, None, None, None)
 
     @staticmethod
-    def __xenon(scope, name, rse, rse_attrs, protocol_attrs):
+    def __xenon(
+        scope: str,
+        name: str,
+        rse: str,
+        rse_attrs: dict[str, Any],
+        protocol_attrs: dict[str, Any]
+    ) -> str:
         """
         Given a LFN, turn it into a two level sub-directory structure based on the scope
         plus a third level based on the name
@@ -272,7 +319,7 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return '%s/%s/%s/%s' % (scope[0:7], scope[4:len(scope)], name.split('-')[0] + "-" + name.split('-')[1], name)
 
     @classmethod
-    def _module_init_(cls):
+    def _module_init_(cls) -> None:
         """
         Initialize the class object on first module load.
         """
@@ -294,7 +341,11 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
 
         cls._DEFAULT_LFN2PFN = config.get_lfn2pfn_algorithm_default()
 
-    def path(self, scope, name):
+    def path(
+            self,
+            scope: str,
+            name: str
+    ) -> str:
         """ Transforms the logical file name into a PFN's path.
 
             :param lfn: filename
@@ -315,7 +366,12 @@ RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
 class RSEProtocol:
     """ This class is virtual and acts as a base to inherit new protocols from. It further provides some common functionality which applies for the amjority of the protocols."""
 
-    def __init__(self, protocol_attr, rse_settings, logger=logging.log):
+    def __init__(
+            self,
+            protocol_attr: dict[str, Any],
+            rse_settings: "RSESettingsDict",
+            logger: "LoggerFunction" = logging.log
+    ):
         """ Initializes the object with information about the referred RSE.
 
             :param protocol_attr:  Properties of the requested protocol.
@@ -342,7 +398,10 @@ class RSEProtocol:
             if getattr(rsemanager, 'SERVER_MODE', None):
                 setattr(self, '_get_path', self._get_path_nondeterministic_server)
 
-    def lfns2pfns(self, lfns):
+    def lfns2pfns(
+            self,
+            lfns: Union[list["DIDDict"], "DIDDict"]
+    ) -> dict[str, str]:
         """
             Returns a fully qualified PFN for the file referred by path.
 
@@ -384,7 +443,10 @@ class RSEProtocol:
                     self.logger(logging.WARNING, str(e))
         return pfns
 
-    def __lfns2pfns_client(self, lfns):
+    def __lfns2pfns_client(
+            self,
+            lfns: Union[list["DIDDict"], "DIDDict"]
+    ) -> dict[str, str]:
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if necessary.
 
             :param scope: list of DIDs
@@ -397,7 +459,10 @@ class RSEProtocol:
         lfn_query = ["%s:%s" % (lfn['scope'], lfn['name']) for lfn in lfns]
         return client.lfns2pfns(self.rse['rse'], lfn_query, scheme=self.attributes['scheme'])
 
-    def _get_path(self, scope, name):
+    def _get_path(
+            self,
+            scope: str,
+            name: str):
         """ Transforms the logical file name into a PFN.
             Suitable for sites implementing the RUCIO naming convention.
             This implementation is only invoked if the RSE is deterministic.
@@ -407,26 +472,33 @@ class RSEProtocol:
 
             :returns: RSE specific URI of the physical file
         """
-        return self.translator.path(scope, name)
+        return self.translator.path(scope, name)  # type: ignore (translator could be none)
 
-    def _get_path_nondeterministic_server(self, scope, name):  # pylint: disable=invalid-name
+    def _get_path_nondeterministic_server(  # pylint: disable=invalid-name
+            self,
+            scope: str,
+            name: str
+    ) -> str:
         """ Provides the path of a replica for non-deterministic sites. Will be assigned to get path by the __init__ method if necessary. """
         vo = get_rse_vo(self.rse['id'])  # pylint: disable=E0601
-        scope = InternalScope(scope, vo=vo)  # pylint: disable=E0601
-        rep = replica.get_replica(scope=scope, name=name, rse_id=self.rse['id'])  # pylint: disable=E0601
+        internal_scope = InternalScope(scope, vo=vo)  # pylint: disable=E0601
+        rep = replica.get_replica(scope=internal_scope, name=name, rse_id=self.rse['id'])  # pylint: disable=E0601
         if 'path' in rep and rep['path'] is not None:
             path = rep['path']
         elif 'state' in rep and (rep['state'] is None or rep['state'] == 'UNAVAILABLE'):
-            raise exception.ReplicaUnAvailable('Missing path information and state is UNAVAILABLE for replica %s:%s on non-deterministic storage named %s' % (scope, name, self.rse['rse']))
+            raise exception.ReplicaUnAvailable('Missing path information and state is UNAVAILABLE for replica %s:%s on non-deterministic storage named %s' % (internal_scope, name, self.rse['rse']))
         else:
-            raise exception.ReplicaNotFound('Missing path information for replica %s:%s on non-deterministic storage named %s' % (scope, name, self.rse['rse']))
+            raise exception.ReplicaNotFound('Missing path information for replica %s:%s on non-deterministic storage named %s' % (internal_scope, name, self.rse['rse']))
         if path.startswith('/'):
             path = path[1:]
         if path.endswith('/'):
             path = path[:-1]
         return path
 
-    def parse_pfns(self, pfns):
+    def parse_pfns(
+            self,
+            pfns: Union[list[str], str]
+    ) -> dict[str, dict[str, str]]:
         """
             Splits the given PFN into the parts known by the protocol. It is also checked if the provided protocol supports the given PFNs.
 
@@ -480,7 +552,10 @@ class RSEProtocol:
 
         return ret
 
-    def exists(self, path):
+    def exists(
+            self,
+            path: str
+    ) -> bool:
         """
             Checks if the requested file is known by the referred RSE.
 
@@ -492,7 +567,7 @@ class RSEProtocol:
         """
         raise NotImplementedError
 
-    def connect(self):
+    def connect(self) -> None:
         """
             Establishes the actual connection to the referred RSE.
 
@@ -500,11 +575,16 @@ class RSEProtocol:
         """
         raise NotImplementedError
 
-    def close(self):
+    def close(self) -> None:
         """ Closes the connection to RSE."""
         raise NotImplementedError
 
-    def get(self, path, dest, transfer_timeout=None):
+    def get(
+            self,
+            path: str,
+            dest: str,
+            transfer_timeout: Optional[int] = None
+    ) -> None:
         """
             Provides access to files stored inside connected the RSE.
 
@@ -518,7 +598,13 @@ class RSEProtocol:
          """
         raise NotImplementedError
 
-    def put(self, source, target, source_dir, transfer_timeout=None):
+    def put(
+            self,
+            source: str,
+            target: str,
+            source_dir: str,
+            transfer_timeout: Optional[int] = None
+    ) -> None:
         """
             Allows to store files inside the referred RSE.
 
@@ -533,7 +619,10 @@ class RSEProtocol:
         """
         raise NotImplementedError
 
-    def delete(self, path):
+    def delete(
+            self,
+            path: str
+    ) -> None:
         """
             Deletes a file from the connected RSE.
 
@@ -544,7 +633,11 @@ class RSEProtocol:
         """
         raise NotImplementedError
 
-    def rename(self, path, new_path):
+    def rename(
+            self,
+            path: str,
+            new_path: str
+    ) -> None:
         """ Allows to rename a file stored inside the connected RSE.
 
             :param path: path to the current file on the storage
@@ -556,7 +649,7 @@ class RSEProtocol:
         """
         raise NotImplementedError
 
-    def get_space_usage(self):
+    def get_space_usage(self) -> list[dict[str, int]]:
         """
             Get RSE space usage information.
 
@@ -566,7 +659,7 @@ class RSEProtocol:
         """
         raise NotImplementedError
 
-    def stat(self, path):
+    def stat(self, path: str) -> dict[str, Any]:
         """
             Returns the stats of a file.
 
