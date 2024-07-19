@@ -34,7 +34,6 @@ if TYPE_CHECKING:
     from rucio.rse.protocols.protocol import RSEProtocol
 
 
-
 def get_scope_protocol(vo: str = 'def') -> 'Callable':
     """
         Returns the callable protocol to translate the pfn to a name/scope pair
