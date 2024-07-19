@@ -259,6 +259,15 @@ class DIDStringDict(TypedDict):
     scope: str
 
 
+class LFNDict(TypedDict):
+    name: str
+    scope: str
+    filesize: NotRequired[int]
+    adler32: NotRequired[str]
+    md5: NotRequired[str]
+    filename: NotRequired[str]
+
+
 class DatasetDict(DIDStringDict):
     rse: str
 
