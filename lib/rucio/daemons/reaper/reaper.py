@@ -57,7 +57,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from types import FrameType
 
-    from rucio.common.types import LoggerFunction
+    from rucio.common.types import LFNDict, LoggerFunction
     from rucio.daemons.common import HeartbeatHandler
 
 GRACEFUL_STOP = threading.Event()
@@ -632,8 +632,13 @@ def _run_once(
                 del_start_time = time.time()
                 for replica in file_replicas:
                     try:
+                        lfn: "LFNDict" = {
+                            'scope': replica['scope'].external,
+                            'name': replica['name'],
+                            'path': replica['path']
+                        }
                         replica['pfn'] = str(list(rsemgr.lfns2pfns(rse_settings=rse.info,
-                                                                   lfns=[{'scope': replica['scope'].external, 'name': replica['name'], 'path': replica['path']}],
+                                                                   lfns=[lfn],
                                                                    operation='delete', scheme=scheme).values())[0])
                     except (ReplicaUnAvailable, ReplicaNotFound) as error:
                         logger(logging.WARNING, 'Failed get pfn UNAVAILABLE replica %s:%s on %s with error %s', replica['scope'], replica['name'], rse.name, str(error))

@@ -130,7 +130,7 @@ class GlobusRSEProtocol(RSEProtocol):
 
         return ret
 
-    def exists(self, path):
+    def exists(self, path: str) -> bool:
         """
             Checks if the requested file is known by the referred RSE.
 
