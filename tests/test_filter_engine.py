@@ -159,18 +159,19 @@ class TestFilterEngineReal:
         set_metadata(scope=mock_scope, name=did_name2, key='run_number', value=2)
 
         dids = []
-        q = FilterEngine('run_number=1', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('run_number=1', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)
 
         dids = []
-        q = FilterEngine('run_number!=1', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('run_number!=1', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 2 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 1, 3 (NULL counted in not equals)
+        db_session.commit()
 
         # Plugin: JSON
         #
@@ -183,25 +184,25 @@ class TestFilterEngineReal:
             set_metadata(scope=mock_scope, name=did_name3, key='testkeyint3', value=2)
 
             dids = []
-            q = FilterEngine('testkeyint1=1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1=1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 1 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)
 
         if json_implemented(session=db_session):
             dids = []
-            q = FilterEngine('testkeyint1!=1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1!=1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 0 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)
 
@@ -212,32 +213,33 @@ class TestFilterEngineReal:
         set_metadata(scope=mock_scope, name=did_name, key='run_number', value=1)
 
         dids = []
-        q = FilterEngine('run_number > 0', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('run_number > 0', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
         dids = []
-        q = FilterEngine('run_number < 2', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('run_number < 2', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
         dids = []
-        q = FilterEngine('run_number < 0', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('run_number < 0', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 != list(map(lambda did: did.name == did_name, dids)).count(True)
 
         dids = []
-        q = FilterEngine('run_number > 2', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('run_number > 2', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 != list(map(lambda did: did.name == did_name, dids)).count(True)
+        db_session.commit()
 
         # Plugin: JSON
         #
@@ -246,46 +248,46 @@ class TestFilterEngineReal:
             set_metadata(scope=mock_scope, name=did_name, key='testkeyint1', value=1)
 
             dids = []
-            q = FilterEngine('testkeyint1 > 0', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1 > 0', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
             dids = []
-            q = FilterEngine('testkeyint1 < 2', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1 < 2', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
             dids = []
-            q = FilterEngine('testkeyint1 < 0', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1 < 0', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 1 != list(map(lambda did: did.name == did_name, dids)).count(True)
 
             dids = []
-            q = FilterEngine('testkeyint1 > 2', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1 > 2', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 1 != list(map(lambda did: did.name == did_name, dids)).count(True)
 
@@ -296,25 +298,26 @@ class TestFilterEngineReal:
         set_metadata(scope=mock_scope, name=did_name, key='run_number', value=1)
 
         dids = []
-        q = FilterEngine('0 < run_number < 2', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('0 < run_number < 2', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
         dids = []
-        q = FilterEngine('0 < run_number <= 1', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('0 < run_number <= 1', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
         dids = []
-        q = FilterEngine('0 <= run_number < 1', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('0 <= run_number < 1', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 != list(map(lambda did: did.name == did_name, dids)).count(True)
+        db_session.commit()
 
         # Plugin: JSON
         #
@@ -323,35 +326,35 @@ class TestFilterEngineReal:
             set_metadata(scope=mock_scope, name=did_name, key='testkeyint1', value=1)
 
             dids = []
-            q = FilterEngine('0 < testkeyint1 < 2', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('0 < testkeyint1 < 2', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
             dids = []
-            q = FilterEngine('0 < testkeyint1 <= 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('0 < testkeyint1 <= 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
             dids = []
-            q = FilterEngine('0 <= testkeyint1 < 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('0 <= testkeyint1 < 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 1 != list(map(lambda did: did.name == did_name, dids)).count(True)
 
@@ -367,18 +370,19 @@ class TestFilterEngineReal:
         set_metadata(scope=mock_scope, name=did_name3, key='project', value="test")
 
         dids = []
-        q = FilterEngine('run_number = 1, project = test', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('run_number = 1, project = test', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 3
 
         dids = []
-        q = FilterEngine('run_number = 1, project != test', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('run_number = 1, project != test', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 1
+        db_session.commit()
 
         # Plugin: JSON
         #
@@ -392,24 +396,24 @@ class TestFilterEngineReal:
             set_metadata(scope=mock_scope, name=did_name3, key='testkeystr1', value="test")
 
             dids = []
-            q = FilterEngine('testkeyint1 = 1, testkeystr1 = test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1 = 1, testkeystr1 = test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 1 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 3
 
             dids = []
-            q = FilterEngine('testkeyint1 = 1, testkeystr1 != test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1 = 1, testkeystr1 != test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 0 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)
 
@@ -425,39 +429,40 @@ class TestFilterEngineReal:
         set_metadata(scope=mock_scope, name=did_name3, key='project', value="test")
 
         dids = []
-        q = FilterEngine('run_number = 1; project = test', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('run_number = 1; project = test', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 3 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 1, 2, 3
 
         dids = []
-        q = FilterEngine('run_number = 1; project != test', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('run_number = 1; project != test', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 2 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 1, 3
 
         dids = []
-        q = FilterEngine('run_number = 0; run_number = 1', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('run_number = 0; run_number = 1', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 2 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 1, 3
 
         dids = []
-        q = FilterEngine('run_number = 0; run_number = 3', model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('run_number = 0; run_number = 3', model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 0 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)
 
         dids = []
-        q = FilterEngine('name = {}; name = {}; name = {}'.format(did_name1, did_name2, did_name3), model_class=models.DataIdentifier).create_sqla_query(
+        stmt = FilterEngine('name = {}; name = {}; name = {}'.format(did_name1, did_name2, did_name3), model_class=models.DataIdentifier).create_sqla_query(
             additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 3 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 1, 2, 3
+        db_session.commit()
 
         # Plugin: JSON
         #
@@ -471,57 +476,57 @@ class TestFilterEngineReal:
             set_metadata(scope=mock_scope, name=did_name3, key='testkeystr1', value="test")
 
             dids = []
-            q = FilterEngine('testkeyint1 = 1; testkeystr1 = test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1 = 1; testkeystr1 = test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 3 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 1, 2, 3
 
             dids = []
-            q = FilterEngine('testkeyint1 = 1; testkeystr1 != test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1 = 1; testkeystr1 != test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 2 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 1, 3
 
             dids = []
-            q = FilterEngine('testkeyint1 = 0; testkeyint1 = 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1 = 0; testkeyint1 = 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 2 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 1, 3
 
             dids = []
-            q = FilterEngine('testkeyint1 = 0; testkeyint1 = 3', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1 = 0; testkeyint1 = 3', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 0 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)
 
             dids = []
-            q = FilterEngine('name = {}; name = {}; name = {}'.format(did_name1, did_name2, did_name3), model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('name = {}; name = {}; name = {}'.format(did_name1, did_name2, did_name3), model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 3 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 1, 2, 3
 
@@ -537,16 +542,17 @@ class TestFilterEngineReal:
         set_metadata(scope=mock_scope, name=did_name3, key='project', value="test")
 
         dids = []
-        q = FilterEngine('run_number = 1, project != test; project = test', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        stmt = FilterEngine('run_number = 1, project != test; project = test', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 3 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 1, 2, 3
 
         dids = []
-        q = FilterEngine('run_number = 1, project = test; run_number != 1', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        stmt = FilterEngine('run_number = 1, project = test; run_number != 1', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 2 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 2, 3
+        db_session.commit()
 
         # Plugin: JSON
         #
@@ -560,72 +566,72 @@ class TestFilterEngineReal:
             set_metadata(scope=mock_scope, name=did_name3, key='testkeystr1', value="test")
 
             dids = []
-            q = FilterEngine('testkeyint1 = 1, testkeystr1 != test; testkeystr1 = test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1 = 1, testkeystr1 != test; testkeystr1 = test', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 2 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 2, 3
 
             dids = []
-            q = FilterEngine('testkeyint1 = 1, testkeystr1 = test; testkeyint1 != 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeyint1 = 1, testkeystr1 = test; testkeyint1 != 1', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 1 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 3
 
-    def test_BackwardsCompatibilityCreatedAfter(self, mock_scope, root_account):
+    def test_BackwardsCompatibilityCreatedAfter(self, db_session, mock_scope, root_account):
         before = datetime.strftime(datetime.utcnow() - timedelta(seconds=1), "%Y-%m-%dT%H:%M:%S.%fZ")  # w/ -1s buffer
         did_name = self._create_tmp_DID(mock_scope, root_account)
 
         dids = []
-        q = FilterEngine('created_after={}'.format(before), model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        stmt = FilterEngine('created_after={}'.format(before), model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
-    def test_BackwardsCompatibilityCreatedBefore(self, mock_scope, root_account):
+    def test_BackwardsCompatibilityCreatedBefore(self, db_session, mock_scope, root_account):
         did_name = self._create_tmp_DID(mock_scope, root_account)
         after = datetime.strftime(datetime.utcnow() + timedelta(seconds=1), "%Y-%m-%dT%H:%M:%S.%fZ")  # w/ +1s buffer
 
         dids = []
-        q = FilterEngine('created_before={}'.format(after), model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        stmt = FilterEngine('created_before={}'.format(after), model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
-    def test_BackwardsCompatibilityLength(self, mock_scope, root_account):
+    def test_BackwardsCompatibilityLength(self, db_session, mock_scope, root_account):
         did_name = self._create_tmp_DID(mock_scope, root_account)
         set_metadata(scope=mock_scope, name=did_name, key='length', value='10')
 
         dids = []
-        q = FilterEngine('length >= 10', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        stmt = FilterEngine('length >= 10', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
         dids = []
-        q = FilterEngine('length > 9', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        stmt = FilterEngine('length > 9', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
         dids = []
-        q = FilterEngine('length <= 10', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        stmt = FilterEngine('length <= 10', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
         dids = []
-        q = FilterEngine('length < 11', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        stmt = FilterEngine('length < 11', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
@@ -643,28 +649,29 @@ class TestFilterEngineReal:
         set_metadata(scope=mock_scope, name=did_name4, key='project', value="anothertest2")
 
         dids = []
-        q = FilterEngine('project = test*', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        stmt = FilterEngine('project = test*', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 2 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True)  # 1, 2
 
         dids = []
-        q = FilterEngine('project = *test*', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        stmt = FilterEngine('project = *test*', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 4 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True)  # 1, 2, 3, 4
 
         dids = []
-        q = FilterEngine('project != *anothertest*', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        stmt = FilterEngine('project != *anothertest*', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 3 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True)  # 3, 4, 5 (NULL counted in not equals)
 
         dids = []
-        q = FilterEngine('project != *test*', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
-        dids += [did for did in q.yield_per(5)]
+        stmt = FilterEngine('project != *test*', model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
+        dids += [did for did in db_session.execute(stmt).yield_per(5)]
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True)  # 5 (NULL counted in not equals)
+        db_session.commit()
 
         # Plugin: JSON
         #
@@ -680,47 +687,47 @@ class TestFilterEngineReal:
             set_metadata(scope=mock_scope, name=did_name4, key='testkeystr1', value="anothertest2")
 
             dids = []
-            q = FilterEngine('testkeystr1 = test*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeystr1 = test*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 2 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True)  # 1, 2
 
             dids = []
-            q = FilterEngine('testkeystr1 = *test*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+            stmt = FilterEngine('testkeystr1 = *test*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                 additional_model_attributes=[
                     models.DidMeta.scope,
                     models.DidMeta.name
                 ],
                 json_column=models.DidMeta.meta)
-            dids += [did for did in q.yield_per(5)]
+            dids += [did for did in db_session.execute(stmt).yield_per(5)]
             dids = set(dids)
             assert 4 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True)  # 1, 2, 3, 4
 
             if db_session.bind.dialect.name != 'oracle':
                 dids = []
-                q = FilterEngine('testkeystr1 != *anothertest*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                stmt = FilterEngine('testkeystr1 != *anothertest*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                     additional_model_attributes=[
                         models.DidMeta.scope,
                         models.DidMeta.name
                     ],
                     json_column=models.DidMeta.meta)
-                dids += [did for did in q.yield_per(5)]
+                dids += [did for did in db_session.execute(stmt).yield_per(5)]
                 dids = set(dids)
                 assert 2 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True)  # 3, 4
 
                 dids = []
-                q = FilterEngine('testkeystr1 != *test*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
+                stmt = FilterEngine('testkeystr1 != *test*', model_class=models.DidMeta, strict_coerce=False).create_sqla_query(
                     additional_model_attributes=[
                         models.DidMeta.scope,
                         models.DidMeta.name
                     ],
                     json_column=models.DidMeta.meta)
-                dids += [did for did in q.yield_per(5)]
+                dids += [did for did in db_session.execute(stmt).yield_per(5)]
                 dids = set(dids)
                 assert 0 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3, did_name4, did_name5), dids)).count(True)
 
