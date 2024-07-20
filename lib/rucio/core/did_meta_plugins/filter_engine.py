@@ -20,7 +20,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 import sqlalchemy
-from sqlalchemy import and_, cast, or_
+from sqlalchemy import and_, cast, or_, select
 from sqlalchemy.orm import InstrumentedAttribute, Query
 from sqlalchemy.sql.expression import text
 
@@ -525,7 +525,12 @@ class FilterEngine:
 
                 and_expressions.append(expression)
             or_expressions.append(and_(*and_expressions))
-        return session.query(*all_model_attributes).filter(or_(*or_expressions))
+        stmt = select(
+            *all_model_attributes
+        ).where(
+            or_(*or_expressions)
+        )
+        return stmt
 
     def evaluate(self) -> bool:
         """
