@@ -20,8 +20,8 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 import sqlalchemy
-from sqlalchemy import and_, cast, or_, select
-from sqlalchemy.orm import InstrumentedAttribute, Query
+from sqlalchemy import Select, and_, cast, or_, select
+from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.expression import text
 
 from rucio.common import exception
@@ -434,7 +434,7 @@ class FilterEngine:
         additional_model_attributes: Optional[list[InstrumentedAttribute[Any]]] = None,
         additional_filters: Optional["Iterable[FilterTuple]"] = None,
         json_column: Optional[InstrumentedAttribute] = None
-    ) -> Query:
+    ) -> Select:
         """
         Returns a database query that fully describes the filters.
 
@@ -445,7 +445,7 @@ class FilterEngine:
         :param additional_model_attributes: Additional model attributes to retrieve.
         :param additional_filters: Additional filters to be applied to all clauses.
         :param json_column: Column to be checked if filter key has not been coerced to a model attribute. Only valid if engine instantiated with strict_coerce=False.
-        :returns: A database query.
+        :returns: A SQLAlchemy Select object.
         :raises: FilterEngineGenericError
         """
         additional_model_attributes = additional_model_attributes or []
