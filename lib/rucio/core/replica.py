@@ -1662,9 +1662,9 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
             if not replica_rse['deterministic']:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %s ' % (replica_rse['rse']))
 
-    replicas = __bulk_add_file_dids(files=files, account=account,
-                                    dataset_meta=dataset_meta,
-                                    session=session)
+    __bulk_add_file_dids(files=files, account=account,
+                         dataset_meta=dataset_meta,
+                         session=session)
 
     pfns = {}  # dict[str, list[str]], {scheme: [pfns], scheme: [pfns]}
     for file in files:
@@ -1700,7 +1700,6 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
 
     nbfiles, bytes_ = __bulk_add_replicas(rse_id=rse_id, files=files, account=account, session=session)
     increase(rse_id=rse_id, files=nbfiles, bytes_=bytes_, session=session)
-    return replicas
 
 
 @transactional_session
