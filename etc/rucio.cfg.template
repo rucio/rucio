@@ -229,9 +229,9 @@ panda_url = http://bigpanda.cern.ch/jobs/?category=analysis&jobstatus=running
 window = 604800
 
 [policy]
-package = ATLASRucioPolicy
-permission = atlas
-schema = atlas
+package = atlas_rucio_policy_package
+#permission = atlas
+#schema = atlas
 lfn2pfn_algorithm_default = hash
 support = hn-atlas-dist-analysis-help@cern.ch
 support_rucio = https://github.com/rucio/rucio/issues/
