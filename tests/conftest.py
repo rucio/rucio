@@ -18,8 +18,32 @@ import traceback
 from os import environ
 from random import choice
 from string import ascii_uppercase
+from typing import TYPE_CHECKING, Any, Optional
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Iterator
+    from configparser import ConfigParser
+
+    from dogpile.cache.region import CacheRegion
+    from flask.testing import FlaskClient
+    from prometheus_client import CollectorRegistry
+    from sqlalchemy.orm.scoping import scoped_session
+    from werkzeug.test import TestResponse
+
+    from rucio.client import Client
+    from rucio.client.accountclient import AccountClient
+    from rucio.client.didclient import DIDClient
+    from rucio.client.diracclient import DiracClient
+    from rucio.client.downloadclient import DownloadClient
+    from rucio.client.replicaclient import ReplicaClient
+    from rucio.client.rseclient import RSEClient
+    from rucio.client.scopeclient import ScopeClient
+    from rucio.common.types import InternalAccount, InternalScope
+
+    from .temp_factories import TemporaryDidFactory, TemporaryFileFactory, TemporaryRSEFactory
+
 
 _del_test_prefix = functools.partial(re.compile(r'^[Tt][Ee][Ss][Tt]_?').sub, '')
 # local imports in the fixtures to make this file loadable in e.g. client tests
@@ -27,16 +51,20 @@ _del_test_prefix = functools.partial(re.compile(r'^[Tt][Ee][Ss][Tt]_?').sub, '')
 pytest_plugins = ('tests.ruciopytest.artifacts_plugin', )
 
 
-def pytest_configure(config):
+def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
-    config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests' )
+    config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests')
 
     if config.pluginmanager.hasplugin("xdist"):
         from .ruciopytest import xdist_noparallel_scheduler
         config.pluginmanager.register(xdist_noparallel_scheduler)
 
 
-def pytest_make_parametrize_id(config, val, argname):
+def pytest_make_parametrize_id(
+        config: pytest.Config,
+        val: dict[str, tuple[str, str, Any]],
+        argname: str
+) -> Optional[str]:
     if argname == 'file_config_mock':
         cfg = {}
         for section, option, value in val['overrides']:
@@ -52,7 +80,7 @@ def pytest_make_parametrize_id(config, val, argname):
 
 
 @pytest.fixture(scope='session')
-def session_scope_prefix():
+def session_scope_prefix() -> str:
     """
     Generate a name prefix to be shared by objects created during this pytest session
     """
@@ -60,7 +88,10 @@ def session_scope_prefix():
 
 
 @pytest.fixture(scope='module')
-def module_scope_prefix(request, session_scope_prefix):
+def module_scope_prefix(
+    request: pytest.FixtureRequest,
+    session_scope_prefix: str
+) -> str:
     """
     Generate a name prefix to be shared by objects created during this pytest module
     Relies on pytest's builtin fixture "request"
@@ -70,19 +101,25 @@ def module_scope_prefix(request, session_scope_prefix):
 
 
 @pytest.fixture(scope='class')
-def class_scope_prefix(request, module_scope_prefix):
+def class_scope_prefix(
+    request: pytest.FixtureRequest,
+    module_scope_prefix: str
+) -> str:
     if not request.cls:
         return module_scope_prefix
     return module_scope_prefix + _del_test_prefix(request.cls.__name__) + '-'
 
 
 @pytest.fixture(scope='function')
-def function_scope_prefix(request, class_scope_prefix):
+def function_scope_prefix(
+    request: pytest.FixtureRequest,
+    class_scope_prefix: str
+) -> str:
     return class_scope_prefix + _del_test_prefix(request.node.originalname) + '-'
 
 
 @pytest.fixture(scope='session')
-def vo():
+def vo() -> str:
     if environ.get('SUITE', 'remote_dbs') != 'client':
         # Server test, we can use short VO via DB for internal tests
         from rucio.tests.common_server import get_vo
@@ -94,7 +131,7 @@ def vo():
 
 
 @pytest.fixture(scope='session')
-def second_vo():
+def second_vo() -> str:
     from rucio.common.config import config_get_bool
     from rucio.core.vo import add_vo, vo_exists
     multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
@@ -108,68 +145,68 @@ def second_vo():
 
 
 @pytest.fixture(scope='session')
-def long_vo():
+def long_vo() -> str:
     from rucio.tests.common import get_long_vo
     return get_long_vo()
 
 
 @pytest.fixture(scope='module')
-def account_client():
+def account_client() -> "AccountClient":
     from rucio.client.accountclient import AccountClient
 
     return AccountClient()
 
 
 @pytest.fixture(scope='module')
-def replica_client():
+def replica_client() -> "ReplicaClient":
     from rucio.client.replicaclient import ReplicaClient
 
     return ReplicaClient()
 
 
 @pytest.fixture(scope='module')
-def rucio_client():
+def rucio_client() -> "Client":
     from rucio.client import Client
     return Client()
 
 
 @pytest.fixture(scope='module')
-def did_client():
+def did_client() -> "DIDClient":
     from rucio.client.didclient import DIDClient
 
     return DIDClient()
 
 
 @pytest.fixture(scope='module')
-def rse_client():
+def rse_client() -> "RSEClient":
     from rucio.client.rseclient import RSEClient
 
     return RSEClient()
 
 
 @pytest.fixture(scope='module')
-def scope_client():
+def scope_client() -> "ScopeClient":
     from rucio.client.scopeclient import ScopeClient
 
     return ScopeClient()
 
 
 @pytest.fixture(scope='module')
-def dirac_client():
+def dirac_client() -> "DiracClient":
     from rucio.client.diracclient import DiracClient
 
     return DiracClient()
 
 
 @pytest.fixture
-def download_client():
+def download_client() -> "DownloadClient":
     from rucio.client.downloadclient import DownloadClient
 
     return DownloadClient()
 
 
 @pytest.fixture
-def rest_client():
+def rest_client() -> "Iterator[FlaskClient]":
     from flask.testing import FlaskClient
 
     from rucio.tests.common import print_response
@@ -179,7 +216,12 @@ def rest_client():
         def __init__(self, *args, **kwargs):
             super(WrappedFlaskClient, self).__init__(*args, **kwargs)
 
-        def open(self, path='/', *args, **kwargs):
+        def open(
+                self,
+                path: str = '/',
+                *args,
+                **kwargs
+        ) -> "TestResponse":
             print(kwargs.get('method', 'GET'), path)
             response = super(WrappedFlaskClient, self).open(path, *args, **kwargs)
             try:
@@ -198,7 +240,10 @@ def rest_client():
 
 
 @pytest.fixture
-def auth_token(rest_client, long_vo):
+def auth_token(
+    rest_client: "FlaskClient",
+    long_vo: str
+) -> str:
     from rucio.tests.common import headers, loginhdr, vohdr
 
     auth_response = rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(long_vo)))
@@ -209,35 +254,35 @@ def auth_token(rest_client, long_vo):
 
 
 @pytest.fixture(scope='module')
-def mock_scope(vo):
+def mock_scope(vo: str) -> "InternalScope":
     from rucio.common.types import InternalScope
 
     return InternalScope('mock', vo=vo)
 
 
 @pytest.fixture(scope='module')
-def test_scope(vo):
+def test_scope(vo: str) -> "InternalScope":
     from rucio.common.types import InternalScope
 
     return InternalScope('test', vo=vo)
 
 
 @pytest.fixture(scope='module')
-def root_account(vo):
+def root_account(vo: str) -> "InternalAccount":
     from rucio.common.types import InternalAccount
 
     return InternalAccount('root', vo=vo)
 
 
 @pytest.fixture(scope='module')
-def jdoe_account(vo):
+def jdoe_account(vo: str) -> "InternalAccount":
     from rucio.common.types import InternalAccount
 
     return InternalAccount('jdoe', vo=vo)
 
 
 @pytest.fixture
-def random_account(vo):
+def random_account(vo: str) -> "Iterator[InternalAccount]":
     import random
     import string
 
@@ -255,7 +300,7 @@ def random_account(vo):
 
 
 @pytest.fixture(scope="module")
-def containerized_rses(rucio_client):
+def containerized_rses(rucio_client: "Client") -> list[tuple[str, str]]:
     """
     Detects if containerized rses for xrootd & ssh are available in the testing environment.
     :return: A list of (rse_name, rse_id) tuples.
@@ -282,7 +327,11 @@ def containerized_rses(rucio_client):
 
 
 @pytest.fixture
-def rse_factory(request, vo, function_scope_prefix):
+def rse_factory(
+    request: pytest.FixtureRequest,
+    vo: str,
+    function_scope_prefix: str
+) -> "Iterator[TemporaryRSEFactory]":
     from .temp_factories import TemporaryRSEFactory
 
     session = None
@@ -294,19 +343,30 @@ def rse_factory(request, vo, function_scope_prefix):
 
 
 @pytest.fixture(scope="class")
-def rse_factory_unittest(request, vo, class_scope_prefix):
+def rse_factory_unittest(
+    request: pytest.FixtureRequest,
+    vo: str,
+    class_scope_prefix: str
+) -> "Iterator[TemporaryRSEFactory]":
     """
     unittest classes can get access to rse_factory fixture via this fixture
     """
     from .temp_factories import TemporaryRSEFactory
 
     with TemporaryRSEFactory(vo=vo, name_prefix=class_scope_prefix) as factory:
-        request.cls.rse_factory = factory
+        request.cls.rse_factory = factory  # type: ignore
         yield factory
 
 
 @pytest.fixture
-def did_factory(request, vo, mock_scope, function_scope_prefix, file_factory, root_account):
+def did_factory(
+    request: pytest.FixtureRequest,
+    vo: str,
+    mock_scope: "InternalScope",
+    function_scope_prefix: str,
+    file_factory: "TemporaryFileFactory",
+    root_account: "InternalAccount"
+) -> "Iterator[TemporaryDidFactory]":
     from .temp_factories import TemporaryDidFactory
 
     session = None
@@ -319,7 +379,7 @@ def did_factory(request, vo, mock_scope, function_scope_prefix, file_factory, ro
 
 
 @pytest.fixture
-def file_factory(tmp_path_factory):
+def file_factory(tmp_path_factory: pytest.TempPathFactory) -> "Iterator[TemporaryFileFactory]":
     from .temp_factories import TemporaryFileFactory
 
     with TemporaryFileFactory(pytest_path_factory=tmp_path_factory) as factory:
@@ -327,12 +387,15 @@ def file_factory(tmp_path_factory):
 
 
 @pytest.fixture
-def scope_factory():
+def scope_factory() -> "Callable[[Iterable[str], Optional[str]], tuple[str, list[InternalScope]]]":
     from rucio.common.types import InternalAccount, InternalScope
     from rucio.common.utils import generate_uuid
     from rucio.core.scope import add_scope
 
-    def create_scopes(vos, account_name=None):
+    def create_scopes(
+            vos: "Iterable[str]",
+            account_name: Optional[str] = None
+    ) -> tuple[str, list["InternalScope"]]:
         scope_uuid = str(generate_uuid()).lower()[:16]
         scope_name = 'shr_%s' % scope_uuid
         created_scopes = []
@@ -346,27 +409,27 @@ def scope_factory():
 
 
 class _TagFactory:
-    def __init__(self, prefix):
+    def __init__(self, prefix: str):
         self.prefix = prefix
         self.index = 0
 
-    def new_tag(self):
+    def new_tag(self) -> str:
         self.index += 1
         return f'{self.prefix}-{self.index}'
 
 
 @pytest.fixture
-def tag_factory(function_scope_prefix):
+def tag_factory(function_scope_prefix: str) -> _TagFactory:
     return _TagFactory(prefix=f'{function_scope_prefix}{"".join(choice(ascii_uppercase) for _ in range(6))}'.replace('_', '-'))
 
 
 @pytest.fixture(scope='class')
-def tag_factory_class(class_scope_prefix):
+def tag_factory_class(class_scope_prefix: str) -> _TagFactory:
     return _TagFactory(prefix=f'{class_scope_prefix}{"".join(choice(ascii_uppercase) for _ in range(6))}'.replace('_', '-'))
 
 
 @pytest.fixture
-def db_session():
+def db_session() -> "Iterator[scoped_session]":
     from rucio.db.sqla import session
 
     db_session = session.get_session()
@@ -375,7 +438,7 @@ def db_session():
     db_session.close()
 
 
-def __get_fixture_param(request):
+def __get_fixture_param(request: pytest.FixtureRequest) -> Any:
     fixture_param = getattr(request, "param", None)
     if not fixture_param and request.instance:
         # Parametrize support is incomplete for legacy unittest test cases
@@ -386,10 +449,14 @@ def __get_fixture_param(request):
     return fixture_param
 
 
-def __create_in_memory_db_table(name, *columns, **kwargs):
+def __create_in_memory_db_table(
+        name: str,
+        *columns,
+        **kwargs
+):
     """
     Create an in-memory temporary table using the sqlite memory driver.
-    Make sqlalchemy  aware of that table by registering it via a
+    Make sqlalchemy aware of that table by registering it via a
     declarative base.
     """
     import datetime
@@ -434,7 +501,7 @@ def __create_in_memory_db_table(name, *columns, **kwargs):
 
 
 @pytest.fixture
-def message_mock():
+def message_mock() -> "Iterator[None]":
     """
     Fixture which overrides the Message table with a private instance
     """
@@ -463,7 +530,7 @@ def message_mock():
 
 
 @pytest.fixture
-def core_config_mock(request):
+def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
     """
     Fixture to allow having per-test core.config tables without affecting the other parallel tests.
 
@@ -507,7 +574,7 @@ def core_config_mock(request):
 
 
 @pytest.fixture
-def file_config_mock(request):
+def file_config_mock(request: pytest.FixtureRequest) -> "Iterator[ConfigParser]":
     """
     Fixture which allows to have an isolated in-memory configuration file instance which
     is not persisted after exiting the fixture.
@@ -535,7 +602,7 @@ def file_config_mock(request):
 
 
 @pytest.fixture
-def caches_mock(request):
+def caches_mock(request: pytest.FixtureRequest) -> "Iterator[list[CacheRegion]]":
     """
     Fixture which overrides the different internal caches with in-memory ones for the duration
     of a particular test.
@@ -570,7 +637,7 @@ def caches_mock(request):
 
 
 @pytest.fixture
-def metrics_mock():
+def metrics_mock() -> "Iterator[CollectorRegistry]":
     """
     Overrides the prometheus metric registry and allows to verify if the desired
     prometheus metrics were correctly recorded.
