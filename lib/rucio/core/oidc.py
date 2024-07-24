@@ -118,24 +118,30 @@ def _token_cache_set(key: str, value: str) -> None:
     REGION.set(key, value)
 
 
-def request_token(audience: str, scope: str, use_cache: bool = True) -> Optional[str]:
+def request_token(
+    audience: str,
+    scope: str,
+    vo: str = 'def',
+    use_cache: bool = True
+) -> Optional[str]:
     """Request a token from the provider.
 
     Return ``None`` if the configuration was not loaded properly or the request
     was unsuccessful.
     """
-    if not all([OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_PROVIDER_ENDPOINT]):
-        if OIDC_CONFIGURATION_RUN or not __load_oidc_configuration():
-            return None
+    if not OIDC_CONFIGURATION_RUN:
+        __load_oidc_configuration()
+    if not all(vo in var for var in [OIDC_CLIENT_IDS, OIDC_CLIENT_SECRETS, OIDC_PROVIDER_ENDPOINTS]):
+        return None
 
-    key = hashlib.md5(f'audience={audience};scope={scope}'.encode()).hexdigest()
+    key = hashlib.md5(f'audience={audience};scope={scope};vo={vo}'.encode()).hexdigest()
 
     if use_cache and (token := _token_cache_get(key)):
         return token
 
     try:
-        response = requests.post(url=OIDC_PROVIDER_ENDPOINT,
-                                 auth=(OIDC_CLIENT_ID, OIDC_CLIENT_SECRET),
+        response = requests.post(url=OIDC_PROVIDER_ENDPOINTS[vo],
+                                 auth=(OIDC_CLIENT_IDS[vo], OIDC_CLIENT_SECRETS[vo]),
                                  data={'grant_type': 'client_credentials',
                                        'audience': audience,
                                        'scope': scope})
@@ -203,9 +209,9 @@ def __get_rucio_oidc_clients(keytimeout: int = 43200) -> tuple[dict, dict]:
 OIDC_CLIENTS = {}
 OIDC_ADMIN_CLIENTS = {}
 # New-style token support.
-OIDC_CLIENT_ID = ''
-OIDC_CLIENT_SECRET = ''
-OIDC_PROVIDER_ENDPOINT = ''
+OIDC_CLIENT_IDS = {}
+OIDC_CLIENT_SECRETS = {}
+OIDC_PROVIDER_ENDPOINTS = {}
 OIDC_CONFIGURATION_RUN = False
 
 
@@ -225,40 +231,39 @@ def __initialize_oidc_clients() -> None:
         pass
 
 
-def __load_oidc_configuration() -> bool:
+def __load_oidc_configuration() -> None:
     """Load the configuration for the new-style token support."""
-    global OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_PROVIDER_ENDPOINT, OIDC_CONFIGURATION_RUN
+    global OIDC_CLIENT_IDS, OIDC_CLIENT_SECRETS, OIDC_PROVIDER_ENDPOINTS, OIDC_CONFIGURATION_RUN
 
     OIDC_CONFIGURATION_RUN = True
 
     if not IDPSECRETS:
         logging.error('Configuration option "idpsecrets" in section "oidc" is not set')
-        return False
-    if not ADMIN_ISSUER_ID:
-        logging.error('Configuration option "admin_issuer" in section "oidc" is not set')
-        return False
+        return
 
+    issuers = {}
     try:
         with open(IDPSECRETS) as f:
             data = json.load(f)
-            OIDC_CLIENT_ID = data[ADMIN_ISSUER_ID]['client_id']
-            OIDC_CLIENT_SECRET = data[ADMIN_ISSUER_ID]['client_secret']
-            issuer = data[ADMIN_ISSUER_ID]['issuer']
+            for vo in data:
+                OIDC_CLIENT_IDS[vo] = data[vo]['client_id']
+                OIDC_CLIENT_SECRETS[vo] = data[vo]['client_secret']
+                issuers[vo] = data[vo]['issuer']
     except Exception:
         logging.error('Failed to parse configuration file "%s"', IDPSECRETS,
                       exc_info=True)
-        return False
-    try:
-        oidc_discover_url = urljoin(issuer, '.well-known/openid-configuration')
-        response = requests.get(oidc_discover_url)
-        response.raise_for_status()
-        payload = response.json()
-        OIDC_PROVIDER_ENDPOINT = payload['token_endpoint']
-    except (requests.HTTPError, requests.JSONDecodeError, KeyError):
-        logging.error('Failed to discover token endpoint', exc_info=True)
-        return False
+        return
 
-    return True
+    for vo in issuers:
+        try:
+            oidc_discover_url = urljoin(issuers[vo], '.well-known/openid-configuration')
+            response = requests.get(oidc_discover_url)
+            response.raise_for_status()
+            payload = response.json()
+            OIDC_PROVIDER_ENDPOINTS[vo] = payload['token_endpoint']
+        except (requests.HTTPError, requests.JSONDecodeError, KeyError):
+            logging.error('Failed to discover token endpoint for vo "%s"', vo,
+                          exc_info=True)
 
 
 def __get_init_oidc_client(token_object: models.Token = None, token_type: str = None, **kwargs) -> dict[Any, Any]:
