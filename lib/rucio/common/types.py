@@ -309,7 +309,7 @@ class TraceDict(TraceBaseDict):
 
 
 class FileToUploadDict(TypedDict):
-    path: str
+    path: PathTypeAlias
     rse: str
     did_scope: str
     did_name: str

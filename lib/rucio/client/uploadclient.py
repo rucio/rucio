@@ -48,7 +48,7 @@ from rucio.rse import rsemanager as rsemgr
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from rucio.common.types import AttachDict, DatasetDict, DIDStringDict, FileToUploadDict, FileToUploadWithCollectedAndDatasetInfoDict, FileToUploadWithCollectedInfoDict, LoggerFunction, RSESettingsDict, TraceBaseDict, TraceDict
+    from rucio.common.types import AttachDict, DatasetDict, DIDStringDict, FileToUploadDict, FileToUploadWithCollectedAndDatasetInfoDict, FileToUploadWithCollectedInfoDict, LoggerFunction, PathTypeAlias, RSESettingsDict, TraceBaseDict, TraceDict
     from rucio.rse.protocols.protocol import RSEProtocol
 
 
@@ -499,7 +499,7 @@ class UploadClient:
 
     def _collect_file_info(
             self,
-            filepath: str,
+            filepath: "PathTypeAlias",
             item: "FileToUploadDict"
     ) -> "FileToUploadWithCollectedInfoDict":
         """
