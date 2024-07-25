@@ -25,7 +25,7 @@ clients_requirements_table = {
     'install_requires': [
         'requests',
         'urllib3',
-        'dogpile.cache',
+        'dogpile-cache',
         'tabulate',
         'jsonschema',
         'dataclasses',
@@ -72,7 +72,7 @@ server_requirements_table = {
         'alembic',
         'pymemcache',
         'python-dateutil',
-        'stomp.py',
+        'stomp-py',
         'statsd',
         'geoip2',
         'google-auth',
