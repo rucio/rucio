@@ -176,25 +176,41 @@ def create_root_account() -> None:
     salt = urandom(255)
     salted_password = salt + up_pwd.encode()
     hashed_password = sha256(salted_password).hexdigest()
-    identity1 = models.Identity(identity=up_id, identity_type=IdentityType.USERPASS, password=hashed_password, salt=salt, email=up_email)
-    iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, identity_type=identity1.identity_type, account=account.account, is_default=True)
+
+    identities = []
+    associations = []
+
+    if up_id and up_pwd:
+        identity1 = models.Identity(identity=up_id, identity_type=IdentityType.USERPASS, password=hashed_password, salt=salt, email=up_email)
+        iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, identity_type=identity1.identity_type, account=account.account, is_default=True)
+        identities.append(identity1)
+        associations.append(iaa1)
 
     # X509 authentication
-    identity2 = models.Identity(identity=x509_id, identity_type=IdentityType.X509, email=x509_email)
-    iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, identity_type=identity2.identity_type, account=account.account, is_default=True)
+    if x509_id and x509_email:
+        identity2 = models.Identity(identity=x509_id, identity_type=IdentityType.X509, email=x509_email)
+        iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, identity_type=identity2.identity_type, account=account.account, is_default=True)
+        identities.append(identity2)
+        associations.append(iaa2)
 
     # GSS authentication
-    identity3 = models.Identity(identity=gss_id, identity_type=IdentityType.GSS, email=gss_email)
-    iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, identity_type=identity3.identity_type, account=account.account, is_default=True)
+    if gss_id and gss_email:
+        identity3 = models.Identity(identity=gss_id, identity_type=IdentityType.GSS, email=gss_email)
+        iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, identity_type=identity3.identity_type, account=account.account, is_default=True)
+        identities.append(identity3)
+        associations.append(iaa3)
 
     # SSH authentication
-    identity4 = models.Identity(identity=ssh_id, identity_type=IdentityType.SSH, email=ssh_email)
-    iaa4 = models.IdentityAccountAssociation(identity=identity4.identity, identity_type=identity4.identity_type, account=account.account, is_default=True)
+    if ssh_id and ssh_email:
+        identity4 = models.Identity(identity=ssh_id, identity_type=IdentityType.SSH, email=ssh_email)
+        iaa4 = models.IdentityAccountAssociation(identity=identity4.identity, identity_type=identity4.identity_type, account=account.account, is_default=True)
+        identities.append(identity4)
+        associations.append(iaa4)
 
     with session_scoped() as s:
         s.begin()
         # Apply
-        for identity in [identity1, identity2, identity3, identity4]:
+        for identity in identities:
             try:
                 s.add(identity)
                 s.commit()
@@ -203,7 +219,7 @@ def create_root_account() -> None:
                 s.rollback()
         s.add(account)
         s.flush()
-        s.add_all([iaa1, iaa2, iaa3, iaa4])
+        s.add_all(associations)
         s.commit()
 
 

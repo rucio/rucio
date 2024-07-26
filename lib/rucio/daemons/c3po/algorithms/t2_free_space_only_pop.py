@@ -14,6 +14,7 @@
 
 import logging
 from operator import itemgetter
+from typing import TYPE_CHECKING, Any
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import DataIdentifierNotFound
@@ -25,6 +26,9 @@ from rucio.daemons.c3po.collectors.free_space import FreeSpaceCollector
 from rucio.daemons.c3po.utils.expiring_dataset_cache import ExpiringDatasetCache
 from rucio.daemons.c3po.utils.popularity import get_popularity
 from rucio.db.sqla.constants import ReplicaState
+
+if TYPE_CHECKING:
+    from rucio.common.types import InternalScope
 
 
 class PlacementAlgorithm:
@@ -44,24 +48,24 @@ class PlacementAlgorithm:
 
         self.__setup_penalties()
 
-    def __setup_penalties(self):
+    def __setup_penalties(self) -> None:
         self._penalties = {}
         for rse_id in self._rses:
             self._penalties[rse_id] = 1.0
 
-    def __update_penalties(self):
+    def __update_penalties(self) -> None:
         for rse_id, penalty in self._penalties.items():
             if penalty > 1.0:
                 self._penalties[rse_id] = penalty - 1
 
-    def place(self, did):
+    def place(self, did: tuple['InternalScope', str]) -> dict[str, Any]:
         self.__update_penalties()
-        decision = {'did': '{}:{}'.format(did[0].internal, did[1])}
+        decision: dict[str, Any] = {'did': '{}:{}'.format(did[0].internal, did[1])}
         if (self._added_cache.check_dataset(decision['did'])):
             decision['error_reason'] = 'already added replica for this did in the last 24h'
             return decision
 
-        if (not did[0].external.startswith('data')) and (not did[0].external.startswith('mc')):
+        if (did[0].external is not None) and (not did[0].external.startswith('data')) and (not did[0].external.startswith('mc')):
             decision['error_reason'] = 'not a data or mc dataset'
             return decision
 

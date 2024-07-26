@@ -31,7 +31,7 @@ from rucio.common import constants
 from rucio.common.config import config_get, config_get_list
 from rucio.common.constants import SUPPORTED_PROTOCOLS, RseAttr
 from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RSEProtocolNotSupported, RucioException, UnsupportedOperation
-from rucio.common.utils import construct_surl
+from rucio.common.utils import construct_non_deterministic_pfn
 from rucio.core import did
 from rucio.core import message as message_core
 from rucio.core import request as request_core
@@ -231,7 +231,7 @@ class DirectTransferImplementation(DirectTransfer):
             # DQ2 path always starts with /, but prefix might not end with /
             naming_convention = dst.rse.attributes.get(RseAttr.NAMING_CONVENTION, None)
             if rws.scope.external is not None:
-                dest_path = construct_surl(dsn, rws.scope.external, rws.name, naming_convention)
+                dest_path = construct_non_deterministic_pfn(dsn, rws.scope.external, rws.name, naming_convention)
             if dst.rse.is_tape():
                 if rws.retry_count or rws.activity == 'Recovery':
                     dest_path = '%s_%i' % (dest_path, int(time.time()))

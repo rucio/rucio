@@ -14,6 +14,7 @@
 
 import logging
 from operator import itemgetter
+from typing import TYPE_CHECKING, Any
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.constants import RseAttr
@@ -30,12 +31,26 @@ from rucio.daemons.c3po.utils.popularity import get_popularity
 from rucio.daemons.c3po.utils.timeseries import RedisTimeSeries
 from rucio.db.sqla.constants import ReplicaState
 
+if TYPE_CHECKING:
+    from rucio.common.types import InternalScope
+
 
 class PlacementAlgorithm:
     """
     Placement algorithm that focusses on free space on T2 DATADISK RSEs. It incorporates network metrics for placement decisions.
     """
-    def __init__(self, datatypes, dest_rse_expr, max_bytes_hour, max_files_hour, max_bytes_hour_rse, max_files_hour_rse, min_popularity, min_recent_requests, max_replicas):
+    def __init__(
+            self,
+            datatypes: str,
+            dest_rse_expr: str,
+            max_bytes_hour: int,
+            max_files_hour: int,
+            max_bytes_hour_rse: int,
+            max_files_hour_rse: int,
+            min_popularity: int,
+            min_recent_requests: int,
+            max_replicas: int
+    ):
         self._fsc = FreeSpaceCollector()
         self._nmc = NetworkMetricsCollector()
         self._added_cache = ExpiringDatasetCache(config_get('c3po', 'redis_host'), config_get_int('c3po', 'redis_port'), timeout=86400)
@@ -68,7 +83,7 @@ class PlacementAlgorithm:
 
         self._print_params()
 
-    def _print_params(self):
+    def _print_params(self) -> None:
         logging.debug('Parameter Overview:')
         logging.debug('Algorithm: t2_free_space_only_pop_with_network')
         logging.debug('Datatypes: %s' % ','.join(self._datatypes))
@@ -77,7 +92,7 @@ class PlacementAlgorithm:
         logging.debug('Min recent requests / Min popularity: %d / %d' % (self._min_recent_requests, self._min_popularity))
         logging.debug('Max existing replicas: %d' % self._max_replicas)
 
-    def __update_penalties(self):
+    def __update_penalties(self) -> None:
         for rse_id, penalty in self._dst_penalties.items():
             if penalty < 100.0:
                 self._dst_penalties[rse_id] += 10.0
@@ -86,13 +101,13 @@ class PlacementAlgorithm:
             if penalty < 100.0:
                 self._src_penalties[rse_id] += 10.0
 
-    def check_did(self, did):
-        decision = {'did': '{}:{}'.format(did[0].internal, did[1])}
+    def check_did(self, did: tuple['InternalScope', str]) -> dict[str, Any]:
+        decision: dict[str, Any] = {'did': '{}:{}'.format(did[0].internal, did[1])}
         if (self._added_cache.check_dataset(decision['did'])):
             decision['error_reason'] = 'already added replica for this did in the last 24h'
             return decision
 
-        if (not did[0].external.startswith('data')) and (not did[0].external.startswith('mc')):
+        if (did[0].external is not None) and (not did[0].external.startswith('data')) and (not did[0].external.startswith('mc')):
             decision['error_reason'] = 'not a data or mc dataset'
             return decision
 
@@ -141,13 +156,13 @@ class PlacementAlgorithm:
             decision['error_reason'] = 'problems connecting to ES'
             return decision
 
-        if (last_accesses < self._min_recent_requests) and (pop < self._min_popularity):
+        if (last_accesses < self._min_recent_requests) and (decision['popularity'] < self._min_popularity):
             decision['error_reason'] = 'did not popular enough'
             return decision
 
         return decision
 
-    def place(self, did):
+    def place(self, did: tuple['InternalScope', str]) -> dict[str, Any]:
         self.__update_penalties()
         self._added_bytes.trim()
         self._added_files.trim()
@@ -189,10 +204,10 @@ class PlacementAlgorithm:
                     net_metrics = self._nmc.getMbps(src_site, metric_type)
                     if net_metrics:
                         break
-                if len(net_metrics) == 0:
+                if len(net_metrics) == 0:  # type: ignore
                     continue
                 available_reps[src_rse_id] = {}
-                for dst_site, mbps in net_metrics.items():
+                for dst_site, mbps in net_metrics.items():  # type: ignore
                     if src_site == dst_site:
                         continue
                     if dst_site in self._sites:

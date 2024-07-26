@@ -8,7 +8,7 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Update pip
         run: python3 -m pip install -U pip setuptools
       - name: Install python requirements for matrix_parser.py
@@ -32,11 +32,11 @@ jobs:
         cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
       - name: Checkout rucio containers repository
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           repository: rucio/containers
           fetch-depth: 0
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         name: Checkout rucio source
         with:
           path: dev/rucio

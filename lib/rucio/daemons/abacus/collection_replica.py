@@ -25,7 +25,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.core.replica import get_cleaned_updated_collection_replicas, update_collection_replica
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -35,7 +35,11 @@ graceful_stop = threading.Event()
 DAEMON_NAME = 'abacus-collection-replica'
 
 
-def collection_replica_update(once=False, limit=1000, sleep_time=10):
+def collection_replica_update(
+        once: bool = False,
+        limit: int = 1000,
+        sleep_time: int = 10
+) -> None:
     """
     Main loop to check and update the collection replicas.
     """
@@ -52,7 +56,11 @@ def collection_replica_update(once=False, limit=1000, sleep_time=10):
     )
 
 
-def run_once(heartbeat_handler, limit, **_kwargs):
+def run_once(
+        heartbeat_handler: HeartbeatHandler,
+        limit: int,
+        **_kwargs
+) -> bool:
     worker_number, total_workers, logger = heartbeat_handler.live()
     # Select a bunch of collection replicas for to update for this worker
     start = time.time()  # NOQA
@@ -89,7 +97,11 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     graceful_stop.set()
 
 
-def run(once=False, threads=1, sleep_time=10, limit=1000):
+def run(
+        once: bool = False,
+        threads: int = 1,
+        sleep_time: int = 10,
+        limit: int = 1000):
     """
     Starts up the Abacus-Collection-Replica threads.
     """
@@ -103,10 +115,10 @@ def run(once=False, threads=1, sleep_time=10, limit=1000):
         collection_replica_update(once)
     else:
         logging.info('main: starting threads')
-        threads = [threading.Thread(target=collection_replica_update, kwargs={'once': once, 'sleep_time': sleep_time, 'limit': limit})
-                   for _ in range(0, threads)]
-        [t.start() for t in threads]
+        thread_list = [threading.Thread(target=collection_replica_update, kwargs={'once': once, 'sleep_time': sleep_time, 'limit': limit})
+                       for _ in range(0, threads)]
+        [t.start() for t in thread_list]
         logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+        while thread_list[0].is_alive():
+            [t.join(timeout=3.14) for t in thread_list]

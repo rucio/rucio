@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
 from datetime import datetime
 from json import loads
 from json.decoder import JSONDecodeError
 
 import pytest
+from sqlalchemy import select
 
 from rucio.common.constants import RseAttr
 from rucio.common.exception import InvalidObject, SubscriptionDuplicate, SubscriptionNotFound
@@ -30,9 +32,17 @@ from rucio.core.rse import add_rse_attribute
 from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
 from rucio.daemons.transmogrifier.transmogrifier import get_subscriptions, run
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, DIDType, RuleState
+from rucio.db.sqla.session import read_session
 from rucio.gateway.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription
 from rucio.tests.common import auth, did_name_generator, headers, rse_name_generator
+
+
+@read_session
+def get_subscription_history(subscription_name, *, session=None):
+    stmt = select(models.SubscriptionHistory).where(models.SubscriptionHistory.name == subscription_name).order_by(models.SubscriptionHistory.updated_at)
+    return [hist[0] for hist in session.execute(stmt)]
 
 
 class TestSubscriptionCoreGateway:
@@ -85,6 +95,44 @@ class TestSubscriptionCoreGateway:
         subscription_core.delete_subscription(sub_id)
         with pytest.raises(SubscriptionNotFound):
             get_subscription_by_id(sub_id, vo=vo)
+
+    @pytest.mark.dirty
+    @pytest.mark.parametrize("file_config_mock", [
+        {"overrides": [('subscriptions', 'keep_history', 'True')]},
+    ], indirect=True)
+    def test_keep_history_subscription(self, vo, rse_factory, file_config_mock):
+        """ SUBSCRIPTION (CLIENT): Test the keep_history option """
+        subscription_name = uuid()
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
+        rse_expression = '%s|%s' % (rse1, rse2)
+        sub_id = add_subscription(name=subscription_name,
+                                  account='root',
+                                  filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+                                  replication_rules=[{'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
+                                  lifetime=100000,
+                                  retroactive=False,
+                                  dry_run=False,
+                                  comments='This is a comment',
+                                  issuer='root',
+                                  vo=vo)
+        result = [sub['id'] for sub in list_subscriptions(name=subscription_name, account='root', vo=vo)]
+        assert sub_id == result[0]
+        time.sleep(1)
+        result = update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root', vo=vo)
+        assert result is None
+        result = list_subscriptions(name=subscription_name, account='root', vo=vo)
+        sub = []
+        for res in result:
+            sub.append(res)
+        assert len(sub) == 1
+        assert loads(sub[0]['filter'])['project'][0] == 'toto'
+        # Check that the history was properly updated
+        history = get_subscription_history(subscription_name)
+        assert len(history) == 2
+        assert history[0]['updated_at'] < history[1]['updated_at']
+        assert (loads(history[0]['filter'])['project']) == self.projects
+        assert (loads(history[1]['filter'])['project']) == ['toto', ]
 
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_list_subscription_by_id(self, vo, rse_factory):

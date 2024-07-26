@@ -14,7 +14,7 @@
 import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import insert, literal, select
+from sqlalchemy import and_, delete, insert, literal, select
 from sqlalchemy.exc import NoResultFound
 
 from rucio.db.sqla import filter_thread_work, models
@@ -103,7 +103,15 @@ def del_counter(
     :param session: The database session in use.
     """
 
-    session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).delete(synchronize_session=False)
+    stmt = delete(
+        models.AccountUsage
+    ).where(
+        and_(models.AccountUsage.rse_id == rse_id,
+             models.AccountUsage.account == account)
+    ).execution_options(
+        synchronize_session=False
+    )
+    session.execute(stmt)
 
 
 @read_session
@@ -148,10 +156,22 @@ def update_account_counter(
     :param session:  Database session in use.
     """
 
-    updated_account_counters = session.query(models.UpdatedAccountCounter).filter_by(account=account, rse_id=rse_id).all()
+    stmt = select(
+        models.UpdatedAccountCounter
+    ).where(
+        and_(models.UpdatedAccountCounter.account == account,
+             models.UpdatedAccountCounter.rse_id == rse_id)
+    )
+    updated_account_counters = session.execute(stmt).scalars().all()
 
     try:
-        account_counter = session.query(models.AccountUsage).filter_by(account=account, rse_id=rse_id).one()
+        stmt = select(
+            models.AccountUsage
+        ).where(
+            and_(models.AccountUsage.account == account,
+                 models.AccountUsage.rse_id == rse_id)
+        )
+        account_counter = session.execute(stmt).scalar_one()
         account_counter.bytes += sum([updated_account_counter.bytes for updated_account_counter in updated_account_counters])
         account_counter.files += sum([updated_account_counter.files for updated_account_counter in updated_account_counters])
     except NoResultFound:
@@ -178,7 +198,13 @@ def update_account_counter_history(
     :param rse_id:   The rse_id to update.
     :param session:  Database session in use.
     """
-    counter = session.query(models.AccountUsage).filter_by(rse_id=rse_id, account=account).one_or_none()
+    stmt = select(
+        models.AccountUsage
+    ).where(
+        and_(models.AccountUsage.account == account,
+             models.AccountUsage.rse_id == rse_id)
+    )
+    counter = session.execute(stmt).scalar_one_or_none()
     if counter:
         models.AccountUsageHistory(rse_id=rse_id, account=account, files=counter.files, bytes=counter.bytes).save(session=session)
     else:

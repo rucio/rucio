@@ -23,7 +23,7 @@ from json import dumps
 from queue import Queue
 from threading import Event, Thread
 from time import sleep
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
 from requests import post
@@ -42,13 +42,17 @@ from rucio.daemons.c3po.collectors.workload import WorkloadCollector
 
 if TYPE_CHECKING:
     from types import FrameType
-    from typing import Optional
 
 GRACEFUL_STOP = Event()
 DAEMON_NAME = 'c3po'
 
 
-def read_free_space(once=False, thread=0, waiting_time=1800, sleep_time=10):
+def read_free_space(
+        once: bool = False,
+        thread: int = 0,
+        waiting_time: int = 1800,
+        sleep_time: int = 10
+) -> None:
     """
     Thread to collect the space usage information for RSEs.
     """
@@ -65,7 +69,12 @@ def read_free_space(once=False, thread=0, waiting_time=1800, sleep_time=10):
         timer = 0
 
 
-def read_workload(once=False, thread=0, waiting_time=1800, sleep_time=10):
+def read_workload(
+        once: bool = False,
+        thread: int = 0,
+        waiting_time: int = 1800,
+        sleep_time: int = 10
+) -> None:
     """
     Thread to collect the workload information from PanDA.
     """
@@ -82,7 +91,12 @@ def read_workload(once=False, thread=0, waiting_time=1800, sleep_time=10):
         timer = 0
 
 
-def print_workload(once=False, thread=0, waiting_time=600, sleep_time=10):
+def print_workload(
+        once: bool = False,
+        thread: int = 0,
+        waiting_time: int = 600,
+        sleep_time: int = 10
+) -> None:
     """
     Thread to regularly output the workload to logs for debugging.
     """
@@ -100,7 +114,13 @@ def print_workload(once=False, thread=0, waiting_time=600, sleep_time=10):
         timer = 0
 
 
-def read_dids(once=False, thread=0, did_collector=None, waiting_time=60, sleep_time=10):
+def read_dids(
+        once: bool = False,
+        thread: int = 0,
+        did_collector: Optional[JediDIDCollector] = None,
+        waiting_time: int = 60,
+        sleep_time: int = 10
+) -> None:
     """
     Thread to collect DIDs for the placement algorithm.
     """
@@ -111,33 +131,41 @@ def read_dids(once=False, thread=0, did_collector=None, waiting_time=60, sleep_t
             sleep(sleep_time)
             continue
 
-        did_collector.get_dids()
+        if did_collector is not None:
+            did_collector.get_dids()
         timer = 0
 
 
-def add_rule(client, did, src_rse, dst_rse):
+def add_rule(
+        client: Client,
+        did: dict[str, str],
+        src_rse: str,
+        dst_rse: str
+) -> None:
     logging.debug('add rule for %s from %s to %s' % (did, src_rse, dst_rse))
     r = client.add_replication_rule([did, ], 1, dst_rse, lifetime=604800, account='c3po', source_replica_expression=src_rse, activity='Data Brokering', asynchronous=True)
     logging.debug(r)
 
 
-def place_replica(once=False,
-                  thread=0,
-                  did_queue=None,
-                  waiting_time=100,
-                  dry_run=False,
-                  sampling=False,
-                  algorithms='t2_free_space_only_pop_with_network',
-                  datatypes='NTUP,DAOD',
-                  dest_rse_expr='type=DATADISK',
-                  max_bytes_hour=100000000000000,
-                  max_files_hour=100000,
-                  max_bytes_hour_rse=50000000000000,
-                  max_files_hour_rse=10000,
-                  min_popularity=8,
-                  min_recent_requests=5,
-                  max_replicas=5,
-                  sleep_time=10):
+def place_replica(
+        did_queue: Queue,
+        once: bool = False,
+        thread: int = 0,
+        waiting_time: int = 100,
+        dry_run: bool = False,
+        sampling: bool = False,
+        algorithms: str = 't2_free_space_only_pop_with_network',
+        datatypes: str = 'NTUP,DAOD',
+        dest_rse_expr: str = 'type=DATADISK',
+        max_bytes_hour: int = 100000000000000,
+        max_files_hour: int = 100000,
+        max_bytes_hour_rse: int = 50000000000000,
+        max_files_hour_rse: int = 10000,
+        min_popularity: int = 8,
+        min_recent_requests: int = 5,
+        max_replicas: int = 5,
+        sleep_time: int = 10
+) -> None:
     """
     Thread to run the placement algorithm to decide if and where to put new replicas.
     """
@@ -148,17 +176,17 @@ def place_replica(once=False,
         if 'algorithms' in c3po_options:
             algorithms = config_get('c3po', 'algorithms')
 
-        algorithms = algorithms.split(',')
+        algorithms_list = algorithms.split(',')
 
         if not dry_run:
-            if len(algorithms) != 1:
+            if len(algorithms_list) != 1:
                 logging.error('Multiple algorithms are only allowed in dry_run mode')
                 return
             client = Client(auth_type='x509_proxy', account='c3po', creds={'client_proxy': '/opt/rucio/etc/ddmadmin.long.proxy'})
 
         vo = client.vo
         instances = {}
-        for algorithm in algorithms:
+        for algorithm in algorithms_list:
             module_path = 'rucio.daemons.c3po.algorithms.' + algorithm
             module = __import__(module_path, globals(), locals(), ['PlacementAlgorithm'])
             instance = module.PlacementAlgorithm(datatypes, dest_rse_expr, max_bytes_hour, max_files_hour, max_bytes_hour_rse, max_files_hour_rse, min_popularity, min_recent_requests, max_replicas)
@@ -244,7 +272,7 @@ def place_replica(once=False,
                     if (not dry_run) and create_rule:
                         # DO IT!
                         try:
-                            add_rule(client, {'scope': did[0].external, 'name': did[1]}, decision.get('source_rse'), decision.get('destination_rse'))
+                            add_rule(client, {'scope': did[0].external, 'name': did[1]}, decision.get('source_rse'), decision.get('destination_rse'))  # type: ignore
                         except exception.RucioException as e:
                             logging.debug(e)
 
@@ -253,34 +281,36 @@ def place_replica(once=False,
         logging.critical(e)
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional['FrameType'] = None) -> None:
     """
     Graceful exit.
     """
     GRACEFUL_STOP.set()
 
 
-def run(once=False,
-        threads=1,
-        only_workload=False,
-        dry_run=False,
-        sampling=False,
-        algorithms='t2_free_space_only_pop_with_network',
-        datatypes='NTUP,DAOD',
-        dest_rse_expr='type=DATADISK',
-        max_bytes_hour=100000000000000,
-        max_files_hour=100000,
-        max_bytes_hour_rse=50000000000000,
-        max_files_hour_rse=10000,
-        min_popularity=8,
-        min_recent_requests=5,
-        max_replicas=5,
-        waiting_time_read_free_space=1800,
-        waiting_time_read_workload=1800,
-        waiting_time_print_workload=600,
-        waiting_time_read_dids=60,
-        waiting_time_place_replica=100,
-        sleep_time=10):
+def run(
+        once: bool = False,
+        threads: int = 1,
+        only_workload: bool = False,
+        dry_run: bool = False,
+        sampling: bool = False,
+        algorithms: str = 't2_free_space_only_pop_with_network',
+        datatypes: str = 'NTUP,DAOD',
+        dest_rse_expr: str = 'type=DATADISK',
+        max_bytes_hour: int = 100000000000000,
+        max_files_hour: int = 100000,
+        max_bytes_hour_rse: int = 50000000000000,
+        max_files_hour_rse: int = 10000,
+        min_popularity: int = 8,
+        min_recent_requests: int = 5,
+        max_replicas: int = 5,
+        waiting_time_read_free_space: int = 1800,
+        waiting_time_read_workload: int = 1800,
+        waiting_time_print_workload: int = 600,
+        waiting_time_read_dids: int = 60,
+        waiting_time_place_replica: int = 100,
+        sleep_time: int = 10
+) -> None:
     """
     Starts up the main thread
     """

@@ -16,6 +16,7 @@ import json as json_lib
 import operator
 from typing import TYPE_CHECKING, Any, cast
 
+from sqlalchemy import and_, select
 from sqlalchemy.exc import DataError, NoResultFound
 
 from rucio.common import exception
@@ -52,7 +53,13 @@ class JSONDidMeta(DidMetaPlugin):
             raise NotImplementedError
 
         try:
-            row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
+            stmt = select(
+                models.DidMeta
+            ).where(
+                and_(models.DidMeta.scope == scope,
+                     models.DidMeta.name == name)
+            )
+            row = session.execute(stmt).scalar_one()
             meta = getattr(row, 'meta')
             return json_lib.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
         except NoResultFound:
@@ -67,10 +74,22 @@ class JSONDidMeta(DidMetaPlugin):
         if not json_implemented(session=session):
             raise NotImplementedError
 
-        if session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one_or_none() is None:
+        stmt = select(
+            models.DataIdentifier
+        ).where(
+            and_(models.DataIdentifier.scope == scope,
+                 models.DataIdentifier.name == name)
+        )
+        if session.execute(stmt).one_or_none() is None:
             raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
 
-        row_did_meta = session.query(models.DidMeta).filter_by(scope=scope, name=name).scalar()
+        stmt = select(
+            models.DidMeta
+        ).where(
+            and_(models.DidMeta.scope == scope,
+                 models.DidMeta.name == name)
+        )
+        row_did_meta = session.execute(stmt).scalar_one_or_none()
         if row_did_meta is None:
             # Add metadata column to new table (if not already present)
             row_did_meta = models.DidMeta(scope=scope, name=name)
@@ -112,7 +131,13 @@ class JSONDidMeta(DidMetaPlugin):
             raise NotImplementedError
 
         try:
-            row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
+            stmt = select(
+                models.DidMeta
+            ).where(
+                and_(models.DidMeta.scope == scope,
+                     models.DidMeta.name == name)
+            )
+            row = session.execute(stmt).scalar_one()
             existing_meta = getattr(row, 'meta')
             # Oracle returns a string instead of a dict
             if session.bind.dialect.name in ['oracle', 'sqlite'] and existing_meta is not None:

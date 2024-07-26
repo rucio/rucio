@@ -17,6 +17,7 @@ import datetime
 import hmac
 import time
 from hashlib import sha1
+from typing import Literal
 from urllib.parse import urlencode, urlparse
 
 import boto3
@@ -37,7 +38,13 @@ REGION = make_region_memcached(expiration_time=900)
 METRICS = MetricManager(module=__name__)
 
 
-def get_signed_url(rse_id: str, service: str, operation: str, url: str, lifetime: int = 600) -> str:
+def get_signed_url(
+        rse_id: str,
+        service: Literal['gsc', 's3', 'swift'],
+        operation: Literal['read', 'write', 'delete'],
+        url: str,
+        lifetime: int = 600
+) -> str:
     """
     Get a signed URL for a particular service and operation.
 

@@ -16,7 +16,7 @@
 import logging
 from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.exc import NoResultFound
 
@@ -30,6 +30,9 @@ from rucio.core.rule import list_rules_for_rse_decommissioning, move_rule, updat
 from rucio.db.sqla.constants import ReplicaState
 
 from .types import DecommissioningProfile, HandlerOutcome
+
+if TYPE_CHECKING:
+    from rucio.common.types import LoggerFunction
 
 
 def generic_delete(rse: dict[str, Any], config: dict[str, Any]) -> DecommissioningProfile:
@@ -96,7 +99,7 @@ def generic_move(rse: dict[str, Any], config: dict[str, Any]) -> Decommissioning
 def _generic_initialize(
     rse: dict[str, Any],
     *,
-    logger: Callable[..., None] = logging.log,
+    logger: "LoggerFunction" = logging.log,
 ) -> None:
     """Initializer function that sets the RSE availability flags and the decommissioning status.
 
@@ -133,7 +136,7 @@ def _generic_initialize(
 def _generic_discover(
     rse: dict[str, Any],
     *,
-    logger: Callable[..., None] = logging.log
+    logger: "LoggerFunction" = logging.log
 ) -> Iterable[dict[str, Any]]:
     """Discoverer function that calls the listing function from core.rule.
 
@@ -147,7 +150,7 @@ def _generic_discover(
 def _generic_finalize(
     rse: dict[str, Any],
     *,
-    logger: Callable[..., None] = logging.log
+    logger: "LoggerFunction" = logging.log
 ) -> bool:
     """Check for remaining replicas at the RSE and resolve where possible.
 
@@ -186,7 +189,7 @@ def _process_replicas_with_no_locks(
     replicas: Iterable[dict[str, Any]],
     limit: int = 0,
     *,
-    logger: Callable[..., None] = logging.log,
+    logger: "LoggerFunction" = logging.log,
 ) -> int:
     """Process replicas that remain at the RSE after the decommissioning.
 
@@ -307,7 +310,7 @@ def _is_locked(
     rule: dict[str, Any],
     rse: dict[str, Any],
     *,
-    logger: Callable[..., None] = logging.log
+    logger: "LoggerFunction" = logging.log
 ) -> bool:
     logger(logging.INFO,
            '(%s) Rule %s for %s:%s is locked',
@@ -319,7 +322,7 @@ def _is_being_deleted(
     rule: dict[str, Any],
     rse: dict[str, Any],
     *,
-    logger: Callable[..., None] = logging.log
+    logger: "LoggerFunction" = logging.log
 ) -> bool:
     """Check if the rule is already set to be deleted."""
     if rule['expires_at'] is not None and rule['expires_at'] < datetime.utcnow():
@@ -334,7 +337,7 @@ def _has_trivial_rse_expression(
     rule: dict[str, Any],
     rse: dict[str, Any],
     *,
-    logger: Callable[..., None] = logging.log
+    logger: "LoggerFunction" = logging.log
 ) -> bool:
     """Check for a trivial rse_expression."""
     return rule['rse_expression'] == rse['rse']
@@ -344,7 +347,7 @@ def _has_all_replicas_on_rse(
     rule: dict[str, Any],
     rse: dict[str, Any],
     *,
-    logger: Callable[..., None] = logging.log
+    logger: "LoggerFunction" = logging.log
 ) -> bool:
     """Check if the all the replicas are on the RSE."""
     # Check the list of RSEs that the replicas locked by this rule reside on.
@@ -363,7 +366,7 @@ def _has_child_rule_id(
     rule: dict[str, Any],
     rse: dict[str, Any],
     *,
-    logger: Callable[..., None] = logging.log
+    logger: "LoggerFunction" = logging.log
 ) -> bool:
     """Check for non-empty child_rule_id."""
     if rule['child_rule_id']:
@@ -388,7 +391,7 @@ def _count_as_processed(
     rule: dict[str, Any],
     rse: dict[str, Any],
     *,
-    logger: Callable[..., None] = logging.log
+    logger: "LoggerFunction" = logging.log
 ) -> HandlerOutcome:
     """Do nothing but increment the limit checker."""
     return HandlerOutcome.UNTOUCHED
@@ -398,7 +401,7 @@ def _delete_rule(
     rule: dict[str, Any],
     rse: dict[str, Any],
     *,
-    logger: Callable[..., None] = logging.log
+    logger: "LoggerFunction" = logging.log
 ) -> HandlerOutcome:
     """Delete the rule."""
     logger(logging.DEBUG, '(%s) Deleting rule %s for %s:%s',
@@ -424,7 +427,7 @@ class RuleMover:
         rule: dict[str, Any],
         rse: dict[str, Any],
         *,
-        logger: Callable[..., None] = logging.log
+        logger: "LoggerFunction" = logging.log
     ) -> HandlerOutcome:
         """Move the rule."""
         # Move the rule.

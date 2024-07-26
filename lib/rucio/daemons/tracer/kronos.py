@@ -26,7 +26,7 @@ from json import loads as jloads
 from queue import Queue
 from threading import Event, Thread
 from time import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
@@ -34,7 +34,7 @@ from rucio.common.exception import DatabaseException, RSENotFound
 from rucio.common.logging import setup_logging
 from rucio.common.stomp_utils import StompConnectionManager
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalAccount, InternalScope, LoggerFunction
 from rucio.core.did import list_parent_dids, touch_dids
 from rucio.core.lock import touch_dataset_locks
 from rucio.core.monitor import MetricManager
@@ -44,8 +44,11 @@ from rucio.daemons.common import HeartbeatHandler, run_daemon
 from rucio.db.sqla.constants import BadFilesStatus, DIDType
 
 if TYPE_CHECKING:
+    from collections.abc import Set
     from types import FrameType
-    from typing import Optional
+
+    from stomp import Connection
+    from stomp.utils import Frame
 
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
@@ -57,7 +60,18 @@ graceful_stop = Event()
 class AMQConsumer:
     """ActiveMQ message consumer"""
 
-    def __init__(self, broker, conn, queue, chunksize, subscription_id, excluded_usrdns, dataset_queue, bad_files_patterns, logger=logging.log):
+    def __init__(
+            self,
+            broker: str,
+            conn: "Connection",
+            queue: str,
+            chunksize: int,
+            subscription_id: str,
+            excluded_usrdns: "Set[str]",
+            dataset_queue: Queue,
+            bad_files_patterns: list[re.Pattern],
+            logger: LoggerFunction = logging.log
+    ):
         self.__broker = broker
         self.__conn = conn
         self.__queue = queue
@@ -74,15 +88,15 @@ class AMQConsumer:
         self.__logger = logger
 
     @METRICS.count_it
-    def on_heartbeat_timeout(self):
+    def on_heartbeat_timeout(self) -> None:
         self.__conn.disconnect()
 
     @METRICS.count_it
-    def on_error(self, frame):
+    def on_error(self, frame: "Frame") -> None:
         self.__logger(logging.ERROR, 'Message receive error: [%s] %s' % (self.__broker, frame.body))
 
     @METRICS.count_it
-    def on_message(self, frame):
+    def on_message(self, frame: "Frame") -> None:
         appversion = 'dq2'
         msg_id = frame.headers['message-id']
         if 'appversion' in frame.headers:
@@ -96,7 +110,7 @@ class AMQConsumer:
                 self.__conn.ack(msg_id, self.__subscription_id)
                 return
             else:
-                report = jloads(frame.body)
+                report = jloads(frame.body)  # type: ignore
         except Exception:
             # message is corrupt, not much to do here
             # send count to graphite, send ack to broker and return
@@ -121,7 +135,7 @@ class AMQConsumer:
             self.__reports = []
             self.__ids = []
 
-    def __update_atime(self):
+    def __update_atime(self) -> None:
         """
         Bulk update atime.
         """
@@ -142,8 +156,8 @@ class AMQConsumer:
                                     self.__logger(logging.ERROR, 'Missing url in the following trace : ' + str(report))
                                 else:
                                     try:
-                                        surl = report['url']
-                                        declare_bad_file_replicas([surl, ], reason=reason, issuer=InternalAccount('root', vo=report['vo']), status=BadFilesStatus.SUSPICIOUS)
+                                        pfn = report['url']
+                                        declare_bad_file_replicas([pfn, ], reason=reason, issuer=InternalAccount('root', vo=report['vo']), status=BadFilesStatus.SUSPICIOUS)
                                         self.__logger(logging.INFO, 'Declare suspicious file %s with reason %s' % (report['url'], reason))
                                     except Exception as error:
                                         self.__logger(logging.ERROR, 'Failed to declare suspicious file' + str(error))
@@ -297,7 +311,11 @@ class AMQConsumer:
         METRICS.counter('updated_replicas').inc()
 
 
-def kronos_file(once: bool = False, dataset_queue: Queue = None, sleep_time: int = 60):
+def kronos_file(
+        once: bool = False,
+        dataset_queue: Optional[Queue] = None,
+        sleep_time: int = 60
+) -> None:
     """
     Main loop to consume tracer reports.
     """
@@ -311,14 +329,14 @@ def kronos_file(once: bool = False, dataset_queue: Queue = None, sleep_time: int
         run_once_fnc=functools.partial(
             run_once_kronos_file,
             stomp_conn_mngr=stomp_conn_mngr,
-            dataset_queue=dataset_queue,
+            dataset_queue=dataset_queue,  # type: ignore
             sleep_time=sleep_time,
         )
     )
     stomp_conn_mngr.disconnect()
 
 
-def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: StompConnectionManager, dataset_queue: Queue, sleep_time: int, **kwargs):
+def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: StompConnectionManager, dataset_queue: Queue, sleep_time: int, **kwargs) -> None:
     """
     Run the amq consumer once.
     """
@@ -388,7 +406,7 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
             conn.subscribe(destination=config_get('tracer-kronos', 'queue'), ack='client-individual', id=subscription_id, headers={'activemq.prefetchSize': prefetch_size})
 
 
-def kronos_dataset(dataset_queue: Queue, once: bool = False, sleep_time: int = 60):
+def kronos_dataset(dataset_queue: Queue, once: bool = False, sleep_time: int = 60) -> None:
     return_values = {'heartbeat_handler': HeartbeatHandler("kronos-dataset", 10)}
     run_daemon(
         once=once,
@@ -407,7 +425,7 @@ def kronos_dataset(dataset_queue: Queue, once: bool = False, sleep_time: int = 6
     run_once_kronos_dataset(dataset_queue=dataset_queue, return_values=return_values, heartbeat_handler=return_values['heartbeat_handler'], sleep_time=sleep_time)
 
 
-def run_once_kronos_dataset(dataset_queue: Queue, return_values: dict, heartbeat_handler: HeartbeatHandler, **kwargs):
+def run_once_kronos_dataset(dataset_queue: Queue, return_values: dict, heartbeat_handler: HeartbeatHandler, **kwargs) -> None:
     if heartbeat_handler is None:
         if "heartbeat_handler" not in return_values.keys():
             return_values["heartbeat_handler"] = HeartbeatHandler("kronos-dataset", 10)
@@ -477,14 +495,19 @@ def run_once_kronos_dataset(dataset_queue: Queue, return_values: dict, heartbeat
     logger(logging.INFO, 'update done for %d collection replicas, %d failed (%ds)' % (total, failed, time() - start))
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
     graceful_stop.set()
 
 
-def run(once=False, threads=1, sleep_time_datasets=60, sleep_time_files=60):
+def run(
+        once: bool = False,
+        threads: int = 1,
+        sleep_time_datasets: int = 60,
+        sleep_time_files: int = 60
+) -> None:
     """
     Starts up the consumer threads
     """

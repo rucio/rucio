@@ -19,11 +19,11 @@ from configparser import NoOptionError, NoSectionError
 from json import dumps
 from typing import TYPE_CHECKING
 
-from sqlalchemy import func
+from sqlalchemy import and_, delete, func, select
 from sqlalchemy.exc import IntegrityError, NoResultFound, StatementError
 from sqlalchemy.orm import aliased
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get_bool
 from rucio.common.exception import RucioException, SubscriptionDuplicate, SubscriptionNotFound
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import SubscriptionState
@@ -78,7 +78,7 @@ def add_subscription(name: str,
     :returns:                  The subscriptionid
     """
     try:
-        keep_history = config_get('subscriptions', 'keep_history')
+        keep_history = config_get_bool('subscriptions', 'keep_history')
     except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
 
@@ -109,7 +109,9 @@ def add_subscription(name: str,
                                                    lifetime=new_subscription.lifetime,
                                                    retroactive=new_subscription.retroactive,
                                                    policyid=new_subscription.policyid,
-                                                   comments=new_subscription.comments)
+                                                   comments=new_subscription.comments,
+                                                   created_at=datetime.datetime.utcnow(),
+                                                   updated_at=datetime.datetime.utcnow())
     try:
         new_subscription.save(session=session)
         if keep_history:
@@ -146,7 +148,7 @@ def update_subscription(name: str,
     :raises: SubscriptionNotFound if subscription is not found
     """
     try:
-        keep_history = config_get('subscriptions', 'keep_history')
+        keep_history = config_get_bool('subscriptions', 'keep_history')
     except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
     values = {'state': SubscriptionState.UPDATED}
@@ -172,7 +174,13 @@ def update_subscription(name: str,
 
     SubscriptionHistory = models.SubscriptionHistory
     try:
-        subscription = session.query(models.Subscription).filter_by(account=account, name=name).one()
+        stmt = select(
+            models.Subscription
+        ).where(
+            and_(models.Subscription.name == name,
+                 models.Subscription.account == account)
+        )
+        subscription = session.execute(stmt).scalar_one()
 
         # To avoid update in the subscription history table whenever last processed field is changed
         current_subscription_state = subscription.to_dict()
@@ -196,7 +204,7 @@ def update_subscription(name: str,
                                                        comments=subscription.comments,
                                                        last_processed=subscription.last_processed,
                                                        expired_at=subscription.expired_at,
-                                                       updated_at=subscription.updated_at,
+                                                       updated_at=datetime.datetime.utcnow(),
                                                        created_at=subscription.created_at)
             subscription_history.save(session=session)
     except NoResultFound:
@@ -224,23 +232,33 @@ def list_subscriptions(name: "Optional[str]" = None,
     :rtype:                    Dict
     :raises:                   exception.NotFound if subscription is not found
     """
-    query = session.query(models.Subscription)
+    stmt = select(
+        models.Subscription
+    )
     try:
         if name:
-            query = query.filter_by(name=name)
+            stmt = stmt.where(
+                models.Subscription.name == name
+            )
         if account:
             if account.internal is not None and '*' in account.internal:
                 account_str = account.internal.replace('*', '%')
-                query = query.filter(models.Subscription.account.like(account_str))
+                stmt = stmt.where(
+                    models.Subscription.account.like(account_str)
+                )
             else:
-                query = query.filter_by(account=account)
+                stmt = stmt.where(
+                    models.Subscription.account == account
+                )
         if state:
-            query = query.filter_by(state=state)
+            stmt = stmt.where(
+                models.Subscription.state == state
+            )
     except IntegrityError as error:
         logger(logging.ERROR, str(error))
         raise RucioException(error.args)
     found = False
-    for row in query:
+    for row in session.execute(stmt).scalars().all():
         found = True
         yield row.to_dict()
     if not found:
@@ -255,7 +273,12 @@ def delete_subscription(subscription_id: str, *, session: "Session") -> None:
     :param subscription_id: Subscription identifier
     :type subscription_id:  String
     """
-    session.query(models.Subscription).filter_by(id=subscription_id).delete()
+    stmt = delete(
+        models.Subscription
+    ).where(
+        models.Subscription.id == subscription_id
+    )
+    session.execute(stmt)
 
 
 @stream_session
@@ -271,28 +294,44 @@ def list_subscription_rule_states(name=None, account=None, *, session: "Session"
     subscription = aliased(models.Subscription)
     rule = aliased(models.ReplicationRule)
     # count needs a label to allow conversion to dict (label name can be changed)
-    query = session.query(
-        subscription.account, subscription.name, rule.state, func.count().label('count')).join(
-        rule, subscription.id == rule.subscription_id)
+    stmt = select(
+        subscription.account,
+        subscription.name,
+        rule.state,
+        func.count().label('count')
+    ).join(
+        rule,
+        subscription.id == rule.subscription_id
+    )
 
     try:
         if name:
-            query = query.filter(subscription.name == name)
+            stmt = stmt.where(
+                subscription.name == name
+            )
 
         if account:
             if '*' in account.internal:
                 account_str = account.internal.replace('*', '%')
-                query = query.filter(subscription.account.like(account_str))
+                stmt = stmt.where(
+                    subscription.account.like(account_str)
+                )
             else:
-                query = query.filter(subscription.account == account)
+                stmt = stmt.where(
+                    subscription.account == account
+                )
 
     except IntegrityError as error:
         logger(logging.ERROR, str(error))
         raise RucioException(error.args)
 
-    query = query.group_by(subscription.account, subscription.name, rule.state)
+    stmt = stmt.group_by(
+        subscription.account,
+        subscription.name,
+        rule.state
+    )
 
-    for row in query:
+    for row in session.execute(stmt).all():
         yield row
 
 
@@ -308,8 +347,12 @@ def get_subscription_by_id(subscription_id, *, session: "Session"):
     """
 
     try:
-        subscription = session.query(models.Subscription).filter_by(id=subscription_id).one()
-        return subscription.to_dict()
+        stmt = select(
+            models.Subscription
+        ).where(
+            models.Subscription.id == subscription_id
+        )
+        return session.execute(stmt).scalar_one().to_dict()
     except NoResultFound:
         raise SubscriptionNotFound('No subscription with the id %s found' % (subscription_id))
     except StatementError:

@@ -21,7 +21,7 @@ import functools
 import itertools
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common.config import config_get_bool
 from rucio.common.constants import RseAttr
@@ -42,16 +42,15 @@ from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
-    from typing import Optional
+    from collections.abc import Iterable, Mapping, Sequence
 
     from sqlalchemy.orm import Session
 
-    from rucio.common.types import InternalAccount
+    from rucio.common.types import InternalAccount, LoggerFunction, RSESettingsDict
     from rucio.core.request import DirectTransfer, RequestWithSources
     from rucio.core.topology import Topology
     from rucio.core.transfer import ProtocolFactory
-    from rucio.transfertool.transfertool import TransferToolBuilder
+    from rucio.transfertool.transfertool import Transfertool, TransferToolBuilder
 
 METRICS = MetricManager(module=__name__)
 
@@ -61,13 +60,13 @@ def pick_and_prepare_submission_path(
         topology: "Topology",
         protocol_factory: "ProtocolFactory",
         default_tombstone_delay: int = transfer_core.DEFAULT_MULTIHOP_TOMBSTONE_DELAY,
-        admin_accounts: "Optional[set[InternalAccount]]" = None,
-        schemes: "Optional[list[str]]" = None,
-        failover_schemes: "Optional[list[str]]" = None,
+        admin_accounts: Optional[set["InternalAccount"]] = None,
+        schemes: Optional["Sequence[str]"] = None,
+        failover_schemes: Optional["Sequence[str]"] = None,
         max_sources: int = 4,
-        transfertools: "Optional[list[str]]" = None,
-        logger=logging.log
-) -> "dict[TransferToolBuilder, list[list[DirectTransfer]]]":
+        transfertools: Optional["Sequence[str]"] = None,
+        logger: "LoggerFunction" = logging.log
+) -> dict["TransferToolBuilder", list[list["DirectTransfer"]]]:
     """
     For each transfer, pick a (sub)path; and a transfertool to be used to submit that (sub)path
     """
@@ -146,10 +145,10 @@ def pick_and_prepare_submission_path(
 
 
 def __assign_to_transfertool(
-        transfer_path: "list[DirectTransfer]",
-        transfertools: "Optional[list[str]]",
-        logger: "Callable",
-) -> "list[tuple[list[DirectTransfer], Optional[TransferToolBuilder]]]":
+        transfer_path: list["DirectTransfer"],
+        transfertools: Optional["Iterable[str]"],
+        logger: "LoggerFunction",
+) -> list[tuple[list["DirectTransfer"], Optional["TransferToolBuilder"]]]:
     """
     Iterate over a multihop path and assign sub-paths to transfertools in chucks from left to right.
 
@@ -189,10 +188,10 @@ def __assign_to_transfertool(
 
 
 def assign_paths_to_transfertool_and_create_hops(
-        candidate_paths_by_request_id: "dict[str: list[DirectTransfer]]",
+        candidate_paths_by_request_id: "Mapping[str, Sequence[DirectTransfer]]",
         default_tombstone_delay: int,
-        transfertools: "Optional[list[str]]" = None,
-        logger: "Callable" = logging.log,
+        transfertools: Optional["Sequence[str]"] = None,
+        logger: "LoggerFunction" = logging.log,
 ) -> "tuple[dict[TransferToolBuilder, list[list[DirectTransfer]]], set[str]]":
     """
     for each request, pick the first path which can be submitted by one of the transfertools.
@@ -231,9 +230,9 @@ def __assign_paths_to_transfertool_and_create_hops(
         request_id: str,
         candidate_paths: "Sequence[list[DirectTransfer]]",
         default_tombstone_delay: int,
-        transfertools: "Optional[list[str]]" = None,
+        transfertools: "Optional[Sequence[str]]" = None,
         *,
-        logger: "Callable" = logging.log,
+        logger: "LoggerFunction" = logging.log,
         session: "Session",
 ) -> "tuple[Optional[list[DirectTransfer]], Optional[TransferToolBuilder]]":
     """
@@ -308,7 +307,7 @@ def __create_missing_replicas_and_requests(
         transfer_path: "list[DirectTransfer]",
         default_tombstone_delay: int,
         *,
-        logger: "Callable",
+        logger: "LoggerFunction",
         session: "Session"
 ) -> tuple[bool, bool]:
     """
@@ -391,7 +390,13 @@ def __create_missing_replicas_and_requests(
     return creation_successful, must_skip_submission
 
 
-def submit_transfer(transfertool_obj, transfers, job_params, timeout=None, logger=logging.log):
+def submit_transfer(
+        transfertool_obj: "Transfertool",
+        transfers: "Sequence[DirectTransfer]",
+        job_params: dict[str, str],
+        timeout: Optional[int] = None,
+        logger: "LoggerFunction" = logging.log
+) -> None:
     """
     Submit a transfer or staging request
 
@@ -423,7 +428,13 @@ def submit_transfer(transfertool_obj, transfers, job_params, timeout=None, logge
             _submit_transfers(transfertool_obj, [transfer], job_params, timeout, logger)
 
 
-def _submit_transfers(transfertool_obj, transfers, job_params, timeout=None, logger=logging.log):
+def _submit_transfers(
+        transfertool_obj: "Transfertool",
+        transfers: "Sequence[DirectTransfer]",
+        job_params: dict[str, str],
+        timeout: Optional[int] = None,
+        logger: "LoggerFunction" = logging.log
+) -> None:
     """
     helper function for submit_transfers. Performs the actual submission of one or more transfers.
 
@@ -485,7 +496,13 @@ def _submit_transfers(transfertool_obj, transfers, job_params, timeout=None, log
                     logger(logging.ERROR, 'Failed to cancel transfers %s on %s with error' % (eid, transfertool_obj), exc_info=True)
 
 
-def get_conveyor_rses(rses=None, include_rses=None, exclude_rses=None, vos=None, logger=logging.log):
+def get_conveyor_rses(
+        rses: Optional["Sequence[Mapping[str, Any]]"] = None,
+        include_rses: Optional[str] = None,
+        exclude_rses: Optional[str] = None,
+        vos: Optional["Sequence[str]"] = None,
+        logger: "LoggerFunction" = logging.log
+) -> list["RSESettingsDict"]:
     """
     Get a list of rses for conveyor
 

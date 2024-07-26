@@ -53,7 +53,7 @@ from rucio.common.config import config_get, config_has_section
 from rucio.common.exception import ConfigNotFound, DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, PolicyPackageVersionError, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.plugins import PolicyPackageAlgorithms
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalAccount, InternalScope, TraceDict
 
 EXTRA_MODULES = import_extras(['paramiko'])
 
@@ -624,9 +624,14 @@ class APIEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def render_json(**data: Any) -> str:
-    """ JSON render function
-    """
+def render_json(*args, **kwargs) -> str:
+    """ Render a list or a dict as a JSON-formatted string. """
+    if args and isinstance(args[0], list):
+        data = args[0]
+    elif kwargs:
+        data = kwargs
+    else:
+        raise ValueError("Error while serializing object to JSON-formatted string: supported input types are list or dict.")
     return json.dumps(data, cls=APIEncoder)
 
 
@@ -680,11 +685,6 @@ def execute(cmd: str) -> tuple[int, str, str]:
     return exitcode, out.decode(encoding='utf-8'), err.decode(encoding='utf-8')
 
 
-def rse_supported_protocol_operations() -> list[str]:
-    """ Returns a list with operations supported by all RSE protocols."""
-    return ['read', 'write', 'delete', 'third_party_copy_read', 'third_party_copy_write']
-
-
 def rse_supported_protocol_domains() -> list[str]:
     """ Returns a list with all supported RSE protocol domains."""
     return ['lan', 'wan']
@@ -734,57 +734,58 @@ def my_key_generator(namespace: str, fn: Callable, **kw) -> Callable[..., str]:
     return generate_key
 
 
-SurlAlgorithmsT = TypeVar('SurlAlgorithmsT', bound='SurlAlgorithms')
+NonDeterministicPFNAlgorithmsT = TypeVar('NonDeterministicPFNAlgorithmsT', bound='NonDeterministicPFNAlgorithms')
 
 
-class SurlAlgorithms(PolicyPackageAlgorithms):
+class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
     """
-    Handle SURL construction, including registration of SURL algorithms from policy packages
+    Handle PFN construction for non-deterministic RSEs, including registration of algorithms
+    from policy packages
     """
 
-    _algorithm_type = 'surl'
+    _algorithm_type = 'non_deterministic_pfn'
 
     def __init__(self) -> None:
         """
-        Initialises a SURL construction object
+        Initialises a non-deterministic PFN construction object
         """
         super().__init__()
 
-    def construct_surl(self, dsn: str, scope: str, filename: str, naming_convention: str) -> str:
+    def construct_non_deterministic_pfn(self, dsn: str, scope: Optional[str], filename: str, naming_convention: str) -> str:
         """
-        Calls the correct algorithm to generate a SURL
+        Calls the correct algorithm to generate a non-deterministic PFN
         """
         return self.get_algorithm(naming_convention)(dsn, scope, filename)
 
     @classmethod
-    def supports(cls: type[SurlAlgorithmsT], naming_convention: str) -> bool:
+    def supports(cls: type[NonDeterministicPFNAlgorithmsT], naming_convention: str) -> bool:
         """
-        Checks whether a SURL algorithm is supported
+        Checks whether a non-deterministic PFN algorithm is supported
         """
         return super()._supports(cls._algorithm_type, naming_convention)
 
     @classmethod
-    def _module_init_(cls: type[SurlAlgorithmsT]) -> None:
+    def _module_init_(cls: type[NonDeterministicPFNAlgorithmsT]) -> None:
         """
-        Registers the included SURL algorithms
+        Registers the included non-deterministic PFN algorithms
         """
-        cls.register('T0', cls.construct_surl_T0)
-        cls.register('DQ2', cls.construct_surl_DQ2)
-        cls.register('BelleII', cls.construct_surl_BelleII)
+        cls.register('T0', cls.construct_non_deterministic_pfn_T0)
+        cls.register('DQ2', cls.construct_non_deterministic_pfn_DQ2)
+        cls.register('BelleII', cls.construct_non_deterministic_pfn_BelleII)
 
     @classmethod
-    def get_algorithm(cls: type[SurlAlgorithmsT], naming_convention: str) -> Callable[[str, str, str], str]:
+    def get_algorithm(cls: type[NonDeterministicPFNAlgorithmsT], naming_convention: str) -> Callable[[str, Optional[str], str], str]:
         """
-        Looks up a SURL algorithm by name
+        Looks up a non-deterministic PFN algorithm by name
         """
         return super()._get_one_algorithm(cls._algorithm_type, naming_convention)
 
     @classmethod
-    def register(cls: type[SurlAlgorithmsT], name: str, fn_construct_surl: Callable[[str, str, str], Optional[str]]) -> None:
+    def register(cls: type[NonDeterministicPFNAlgorithmsT], name: str, fn_construct_non_deterministic_pfn: Callable[[str, Optional[str], str], Optional[str]]) -> None:
         """
-        Register a new SURL algorithm
+        Register a new non-deterministic PFN algorithm
         """
-        algorithm_dict = {name: fn_construct_surl}
+        algorithm_dict = {name: fn_construct_non_deterministic_pfn}
         super()._register(cls._algorithm_type, algorithm_dict)
 
     @staticmethod
@@ -824,13 +825,13 @@ class SurlAlgorithms(PolicyPackageAlgorithms):
         return stripped_tag
 
     @staticmethod
-    def construct_surl_DQ2(dsn: str, scope: str, filename: str) -> str:
+    def construct_non_deterministic_pfn_DQ2(dsn: str, scope: Optional[str], filename: str) -> str:
         """
-        Defines relative SURL for new replicas. This method
+        Defines relative PFN for new replicas. This method
         contains DQ2 convention. To be used for non-deterministic sites.
         Method imported from DQ2.
 
-        @return: relative SURL for new replica.
+        @return: relative PFN for new replica.
         @rtype: str
         """
         # check how many dots in dsn
@@ -840,17 +841,17 @@ class SurlAlgorithms(PolicyPackageAlgorithms):
         if nfields == 0:
             return '/other/other/%s' % (filename)
         elif nfields == 1:
-            stripped_dsn = SurlAlgorithms.__strip_dsn(dsn)
+            stripped_dsn = NonDeterministicPFNAlgorithms.__strip_dsn(dsn)
             return '/other/%s/%s' % (stripped_dsn, filename)
         elif nfields == 2:
             project = fields[0]
-            stripped_dsn = SurlAlgorithms.__strip_dsn(dsn)
+            stripped_dsn = NonDeterministicPFNAlgorithms.__strip_dsn(dsn)
             return '/%s/%s/%s' % (project, stripped_dsn, filename)
         elif nfields < 5 or re.match('user*|group*', fields[0]):
             project = fields[0]
             f2 = fields[1]
             f3 = fields[2]
-            stripped_dsn = SurlAlgorithms.__strip_dsn(dsn)
+            stripped_dsn = NonDeterministicPFNAlgorithms.__strip_dsn(dsn)
             return '/%s/%s/%s/%s/%s' % (project, f2, f3, stripped_dsn, filename)
         else:
             project = fields[0]
@@ -858,17 +859,17 @@ class SurlAlgorithms(PolicyPackageAlgorithms):
             if nfields == 5:
                 tag = 'other'
             else:
-                tag = SurlAlgorithms.__strip_tag(fields[-1])
-            stripped_dsn = SurlAlgorithms.__strip_dsn(dsn)
+                tag = NonDeterministicPFNAlgorithms.__strip_tag(fields[-1])
+            stripped_dsn = NonDeterministicPFNAlgorithms.__strip_dsn(dsn)
             return '/%s/%s/%s/%s/%s' % (project, dataset_type, tag, stripped_dsn, filename)
 
     @staticmethod
-    def construct_surl_T0(dsn: str, scope: str, filename: str) -> Optional[str]:
+    def construct_non_deterministic_pfn_T0(dsn: str, scope: Optional[str], filename: str) -> Optional[str]:
         """
-        Defines relative SURL for new replicas. This method
+        Defines relative PFN for new replicas. This method
         contains Tier0 convention. To be used for non-deterministic sites.
 
-        @return: relative SURL for new replica.
+        @return: relative PFN for new replica.
         @rtype: str
         """
         fields = dsn.split('.')
@@ -883,9 +884,9 @@ class SurlAlgorithms(PolicyPackageAlgorithms):
             return '/other/other/other/other/%s' % (filename)
 
     @staticmethod
-    def construct_surl_BelleII(dsn: str, scope: str, filename: str) -> str:
+    def construct_non_deterministic_pfn_BelleII(dsn: str, scope: Optional[str], filename: str) -> str:
         """
-        Defines relative SURL for Belle II specific replicas.
+        Defines relative PFN for Belle II specific replicas.
         This method contains the Belle II convention.
         To be used for non-deterministic Belle II sites.
         DSN (or datablock in the Belle II naming) contains /
@@ -899,37 +900,37 @@ class SurlAlgorithms(PolicyPackageAlgorithms):
             return '%s/%s' % (dsn, filename)
 
 
-_DEFAULT_SURL = 'DQ2'
-SurlAlgorithms._module_init_()
+_DEFAULT_NON_DETERMINISTIC_PFN = 'DQ2'
+NonDeterministicPFNAlgorithms._module_init_()
 
 
-def construct_surl(dsn: str, scope: str, filename: str, naming_convention: Optional[str] = None) -> str:
+def construct_non_deterministic_pfn(dsn: str, scope: Optional[str], filename: str, naming_convention: Optional[str] = None) -> str:
     """
-    Applies non-deterministic source url convention to the given replica.
+    Applies non-deterministic PFN convention to the given replica.
     use the naming_convention to call the actual function which will do the job.
-    Rucio administrators can potentially register additional surl generation algorithms,
+    Rucio administrators can potentially register additional PFN generation algorithms,
     which are not implemented inside this main rucio repository, so changing the
     argument list must be done with caution.
     """
-    surl_algorithms = SurlAlgorithms()
-    if naming_convention is None or not SurlAlgorithms.supports(naming_convention):
-        naming_convention = _DEFAULT_SURL
-    return surl_algorithms.construct_surl(dsn, scope, filename, naming_convention)
+    pfn_algorithms = NonDeterministicPFNAlgorithms()
+    if naming_convention is None or not NonDeterministicPFNAlgorithms.supports(naming_convention):
+        naming_convention = _DEFAULT_NON_DETERMINISTIC_PFN
+    return pfn_algorithms.construct_non_deterministic_pfn(dsn, scope, filename, naming_convention)
 
 
-def clean_surls(surls: Iterable[str]) -> list[str]:
+def clean_pfns(pfns: Iterable[str]) -> list[str]:
     res = []
-    for surl in surls:
-        if surl.startswith('srm'):
-            surl = re.sub(':[0-9]+/', '/', surl)
-            surl = re.sub(r'/srm/managerv1\?SFN=', '', surl)
-            surl = re.sub(r'/srm/v2/server\?SFN=', '', surl)
-            surl = re.sub(r'/srm/managerv2\?SFN=', '', surl)
-        if '?GoogleAccessId' in surl:
-            surl = surl.split('?GoogleAccessId')[0]
-        if '?X-Amz' in surl:
-            surl = surl.split('?X-Amz')[0]
-        res.append(surl)
+    for pfn in pfns:
+        if pfn.startswith('srm'):
+            pfn = re.sub(':[0-9]+/', '/', pfn)
+            pfn = re.sub(r'/srm/managerv1\?SFN=', '', pfn)
+            pfn = re.sub(r'/srm/v2/server\?SFN=', '', pfn)
+            pfn = re.sub(r'/srm/managerv2\?SFN=', '', pfn)
+        if '?GoogleAccessId' in pfn:
+            pfn = pfn.split('?GoogleAccessId')[0]
+        if '?X-Amz' in pfn:
+            pfn = pfn.split('?X-Amz')[0]
+        res.append(pfn)
     res.sort()
     return res
 
@@ -1138,7 +1139,7 @@ def pid_exists(pid: int) -> bool:
         return True
 
 
-def sizefmt(num: Union[int, float], human: bool = True) -> str:
+def sizefmt(num: Union[int, float, None], human: bool = True) -> str:
     """
     Print human readable file sizes
     """

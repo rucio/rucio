@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from os import environ, listdir, path, remove, rmdir, stat, unlink
 
 import pytest
+from sqlalchemy import and_, delete
 
 from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.configclient import ConfigClient
@@ -364,11 +365,14 @@ class TestBinRucio:
             from rucio.db.sqla import models, session
             db_session = session.get_session()
             internal_scope = InternalScope(self.user, **self.vo)
-            db_session.query(models.RSEFileAssociation).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
-            db_session.query(models.ReplicaLock).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
-            db_session.query(models.ReplicationRule).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
-            db_session.query(models.DidMeta).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
-            db_session.query(models.DataIdentifier).filter_by(name=tmp_file1_name, scope=internal_scope).delete()
+            for model in [models.RSEFileAssociation, models.ReplicaLock, models.ReplicationRule, models.DidMeta, models.DataIdentifier]:
+                stmt = delete(
+                    model
+                ).where(
+                    and_(model.name == tmp_file1_name,
+                         model.scope == internal_scope)
+                )
+                db_session.execute(stmt)
             db_session.commit()
             tmp_file4 = file_generator()
             checksum_tmp_file4 = md5(tmp_file4)
@@ -681,18 +685,33 @@ class TestBinRucio:
         cmd = 'rucio upload --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, err)
 
         # download files
         download_dir = "/temp"
         replica_pfn = list(self.replica_client.list_replicas([{'scope': self.user, 'name': name}]))[0]['rses'][self.def_rse][0]
         cmd = f'rucio -v download  --dir {download_dir} --rse {self.def_rse} --pfn {replica_pfn} {self.user}:{name}'
         exitcode, out, err = execute(cmd)
-
         if "Access to local destination denied." in err:  # Known issue - see #6506
-            assert False, "test `test_download_pfn` unable to access file {self.user}/{name} in {download_dir}"
+            assert False, f"test `test_download_pfn` unable to access file {self.user}/{name} in {download_dir}"
         else:
             assert re.search('Total files.*1', out) is not None
+
+        # Try to use the --pfn without rse
+        cmd = f"rucio -v download  --dir {download_dir.rstrip('/')}/duplicate --pfn {replica_pfn} {self.user}:{name}"
+        exitcode, out, err = execute(cmd)
+
+        assert "No RSE was given, selecting one." in err
+        assert exitcode == 0
+        assert re.search('Total files.*1', out) is not None
+
+        # Download the pfn without an rse, except there is no RSE with that RSE
+        non_existent_pfn = "http://fake.pfn.marker/"
+        cmd = f"rucio -v download  --dir {download_dir.rstrip('/')}/duplicate --pfn {non_existent_pfn} {self.user}:{name}"
+        exitcode, out, err = execute(cmd)
+
+        assert "No RSE was given, selecting one." in err
+        assert f"Could not find RSE for pfn {non_existent_pfn}" in err
+        assert exitcode != 0
 
         try:
             for i in listdir('data13_hip'):
@@ -1840,10 +1859,9 @@ class TestBinRucio:
         from rucio.db.sqla import models, session
 
         db_session = session.get_session()
-        db_session.query(models.AccountUsage).delete()
-        db_session.query(models.AccountLimit).delete()
-        db_session.query(models.AccountGlobalLimit).delete()
-        db_session.query(models.UpdatedAccountCounter).delete()
+        for model in [models.AccountUsage, models.AccountLimit, models.AccountGlobalLimit, models.UpdatedAccountCounter]:
+            stmt = delete(model)
+            db_session.execute(stmt)
         db_session.commit()
         rse = self.def_rse
         rse_id = self.def_rse_id

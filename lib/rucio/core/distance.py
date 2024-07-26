@@ -14,6 +14,7 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
+from sqlalchemy import and_, delete, select, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 
@@ -58,19 +59,23 @@ def get_distances(src_rse_id: Optional[str] = None, dest_rse_id: Optional[str] =
     """
 
     try:
-        query = session.query(Distance)
+        stmt = select(
+            Distance
+        )
         if src_rse_id:
-            query = query.filter(Distance.src_rse_id == src_rse_id)
+            stmt = stmt.where(
+                Distance.src_rse_id == src_rse_id
+            )
         if dest_rse_id:
-            query = query.filter(Distance.dest_rse_id == dest_rse_id)
+            stmt = stmt.where(
+                Distance.dest_rse_id == dest_rse_id
+            )
 
         distances = []
-        tmp = query.all()
-        if tmp:
-            for t in tmp:
-                t2 = t.to_dict()
-                t2['ranking'] = t2['distance']  # Compatibility with old clients
-                distances.append(t2)
+        for t in session.execute(stmt).scalars().all():
+            t2 = t.to_dict()
+            t2['ranking'] = t2['distance']  # Compatibility with old clients
+            distances.append(t2)
         return distances
     except IntegrityError as error:
         raise exception.RucioException(error.args)
@@ -86,15 +91,16 @@ def delete_distances(src_rse_id: Optional[str] = None, dest_rse_id: Optional[str
     :param session: The database session to use.
     """
 
+    if not dest_rse_id or not src_rse_id:
+        return
     try:
-        query = session.query(Distance)
-
-        if src_rse_id:
-            query = query.filter(Distance.src_rse_id == src_rse_id)
-        if dest_rse_id:
-            query = query.filter(Distance.dest_rse_id == dest_rse_id)
-
-        query.delete()
+        stmt = delete(
+            Distance
+        ).where(
+            and_(Distance.src_rse_id == src_rse_id,
+                 Distance.dest_rse_id == dest_rse_id)
+        )
+        session.execute(stmt)
     except IntegrityError as error:
         raise exception.RucioException(error.args)
 
@@ -109,13 +115,18 @@ def update_distances(src_rse_id: Optional[str] = None, dest_rse_id: Optional[str
     :param distance: The new distance to set
     :param session: The database session to use.
     """
+    if not dest_rse_id or not src_rse_id:
+        return
     try:
-        query = session.query(Distance)
-        if src_rse_id:
-            query = query.filter(Distance.src_rse_id == src_rse_id)
-        if dest_rse_id:
-            query = query.filter(Distance.dest_rse_id == dest_rse_id)
-        query.update({Distance.distance: distance})
+        stmt = update(
+            Distance
+        ).where(
+            and_(Distance.src_rse_id == src_rse_id,
+                 Distance.dest_rse_id == dest_rse_id)
+        ).values({
+            Distance.distance: distance
+        })
+        session.execute(stmt)
     except IntegrityError as error:
         raise exception.RucioException(error.args)
 
@@ -129,7 +140,10 @@ def list_distances(filter_: Optional[dict[str, Any]] = None, *, session: "Sessio
     :param session: The database session in use.
     """
     filter_ = filter_ or {}
-    return [distance.to_dict() for distance in session.query(Distance).all()]
+    stmt = select(
+        Distance
+    )
+    return [distance.to_dict() for distance in session.execute(stmt).scalars().all()]
 
 
 @read_session
@@ -145,12 +159,21 @@ def export_distances(vo: str = 'def', *, session: "Session") -> dict[str, Any]:
     try:
         rse_src = aliased(RSE)
         rse_dest = aliased(RSE)
-        query = session.query(Distance, rse_src.id, rse_dest.id)\
-                       .join(rse_src, rse_src.id == Distance.src_rse_id)\
-                       .join(rse_dest, rse_dest.id == Distance.dest_rse_id)\
-                       .filter(rse_src.vo == vo)\
-                       .filter(rse_dest.vo == vo)
-        for result in query.all():
+        stmt = select(
+            Distance,
+            rse_src.id,
+            rse_dest.id
+        ).join(
+            rse_src,
+            rse_src.id == Distance.src_rse_id
+        ).join(
+            rse_dest,
+            rse_dest.id == Distance.dest_rse_id
+        ).where(
+            and_(rse_src.vo == vo,
+                 rse_dest.vo == vo)
+        )
+        for result in session.execute(stmt).all():
             distance = result[0]
             src_id = result[1]
             dst_id = result[2]
