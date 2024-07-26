@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from sqlalchemy.sql._typing import ColumnExpressionArgument
     from sqlalchemy.sql.selectable import Select
 
-    from rucio.common.types import InternalAccount, InternalScope, LoggerFunction
+    from rucio.common.types import DIDDict, DIDWithTypeDict, InternalAccount, InternalScope, LoggerFunction
 
 
 METRICS = MetricManager(module=__name__)
@@ -3031,3 +3031,52 @@ def insert_deleted_dids(filter_: "ColumnExpressionArgument[bool]", *, session: "
             is_archive=did.is_archive,
             constituent=did.constituent
         ).save(session=session, flush=False)
+
+
+@read_session
+def find_files_with_missing_dids(
+    files: "Iterable[DIDDict]",
+    *,
+    session: "Session"
+) -> list["DIDWithTypeDict"]:
+    """
+    Given an iterable of files, check if any of them have missing DIDs.
+
+    :param files: Iterable of files, containing scope and name
+
+    :return: List of files with missing DIDs
+    """
+
+    temp_table = temp_table_mngr(session).create_scope_name_table()
+    values = [{'scope': scope, 'name': name} for scope, name in files]
+    stmt = insert(
+        temp_table
+    )
+    session.execute(stmt, values)
+
+    stmt = select(
+        models.DataIdentifier.scope,
+        models.DataIdentifier.name,
+    ).with_hint(
+        models.DataIdentifier, "INDEX(dids DIDS_PK)", 'oracle'
+    ).where(
+        models.DataIdentifier.did_type == DIDType.FILE
+    ).join_from(
+        temp_table,
+        models.DataIdentifier,
+        and_(models.DataIdentifier.scope == temp_table.scope,
+             models.DataIdentifier.name == temp_table.name),
+    )
+    available_files = {(scope, name) for scope, name in session.execute(stmt)}
+
+    missing_files: list["DIDWithTypeDict"] = []
+
+    for file in files:
+        if (file['scope'], file['name']) not in available_files:
+            missing_files.append({
+                'scope': file['scope'],
+                'name': file['name'],
+                'type': DIDType.FILE
+            })
+
+    return missing_files
