@@ -21,6 +21,7 @@ from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope, IPDict
 from rucio.common.utils import gateway_update_return_dict, invert_dict
 from rucio.core import replica
+from rucio.core.did import find_files_with_missing_dids
 from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.db.sqla.constants import BadFilesStatus, DatabaseOperationType
 from rucio.db.sqla.session import db_session
@@ -327,11 +328,24 @@ def add_replicas(
         if not permission.has_permission(issuer=issuer, vo=vo, action='skip_availability_check', kwargs=kwargs, session=session):
             ignore_availability = False
 
-        issuer_account = InternalAccount(issuer, vo=vo)
         for f in files:
             f['scope'] = InternalScope(f['scope'], vo=vo)
             if 'account' in f:
                 f['account'] = InternalAccount(f['account'], vo=vo)
+
+        # If `files` contains any files with missing DIDs (i.e. new files),
+        # check if the account has permission to add DIDs.
+        new_files = find_files_with_missing_dids(files=files, session=session)
+        if new_files:
+            kwargs['dids'] = new_files
+            if not permission.has_permission(issuer=issuer, vo=vo, action='add_dids', kwargs=kwargs, session=session):
+                raise exception.AccessDenied(
+                    'Operation involves the following new files which will require the creation of new DIDs:\n'
+                    '%s\n'
+                    'However, account %s can not add file DIDs on %s' % (str(new_files), issuer, rse)
+                )
+
+        issuer_account = InternalAccount(issuer, vo=vo)
 
         replica.add_replicas(rse_id=rse_id, files=files, account=issuer_account, ignore_availability=ignore_availability, session=session)
 

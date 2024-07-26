@@ -3037,7 +3037,8 @@ def insert_deleted_dids(filter_: "ColumnExpressionArgument[bool]", *, session: "
 def find_files_with_missing_dids(
     files: "Iterable[DIDDict]",
     *,
-    session: "Session"
+    session: "Session",
+    logger: "LoggerFunction" = logging.log,
 ) -> list["DIDWithTypeDict"]:
     """
     Given an iterable of files, check if any of them have missing DIDs.
@@ -3048,7 +3049,7 @@ def find_files_with_missing_dids(
     """
 
     temp_table = temp_table_mngr(session).create_scope_name_table()
-    values = [{'scope': scope, 'name': name} for scope, name in files]
+    values = [{'scope': file['scope'], 'name': file['name']} for file in files]
     stmt = insert(
         temp_table
     )
@@ -3078,5 +3079,8 @@ def find_files_with_missing_dids(
                 'name': file['name'],
                 'type': DIDType.FILE
             })
+
+    if missing_files:
+        logger(logging.DEBUG, "Files with missing DIDs found: %s" % missing_files)
 
     return missing_files
