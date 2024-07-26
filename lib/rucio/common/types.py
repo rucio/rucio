@@ -24,7 +24,7 @@ else:
 
 if TYPE_CHECKING:
     from rucio.common.constants import SUPPORTED_PROTOCOLS_LITERAL
-    from rucio.db.sqla.constants import AccountType, IdentityType
+    from rucio.db.sqla.constants import AccountType, DIDType, IdentityType
 
 
 class InternalType:
@@ -197,6 +197,10 @@ class RuleDict(TypedDict):
 class DIDDict(TypedDict):
     name: str
     scope: InternalScope
+
+
+class DIDWithTypeDict(DIDDict):
+    type: "DIDType"
 
 
 class DIDStringDict(TypedDict):
