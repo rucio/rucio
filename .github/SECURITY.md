@@ -21,5 +21,5 @@ on the Rucio documentation.
 
 ## Reporting a Vulnerability
 
-Please report it privately using GitHub's [Report a vulnerability][https://github.com/rucio/rucio/security/advisories/new] 
+Please report it privately using GitHub's [Report a vulnerability](https://github.com/rucio/rucio/security/advisories/new) 
 option. You can also reach the security team at rucio-security@cern.ch.
