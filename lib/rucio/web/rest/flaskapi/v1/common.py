@@ -19,7 +19,7 @@ import re
 from configparser import NoOptionError, NoSectionError
 from functools import wraps
 from time import time
-from typing import TYPE_CHECKING, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, Union
 
 import flask
 from flask.views import MethodView
@@ -37,10 +37,9 @@ from rucio.gateway.identity import get_default_account, list_accounts_for_identi
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
-    from typing import Any, Literal, Optional
 
     from _typeshed import SupportsIter
-    from _typeshed.wsgi import StartResponse, WSGIEnvironment
+    from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
     from flask.typing import ResponseReturnValue
 
     from rucio.web.rest.flaskapi.v1.types import HeadersType
@@ -54,10 +53,10 @@ class CORSMiddleware:
     This middleware intercepts the preflight OPTIONS requests and returns a 200 OK response.
     """
 
-    def __init__(self, app: flask.Flask) -> None:
+    def __init__(self, app: 'WSGIApplication') -> None:
         self.app = app
 
-    def __call__(self, environ: 'WSGIEnvironment', start_response: 'StartResponse') -> Union['ResponseReturnValue', 'Iterable[bytes]']:
+    def __call__(self, environ: 'WSGIEnvironment', start_response: 'StartResponse') -> 'Iterable[bytes]':
         request: Request = Request(environ)
 
         if request.environ.get('REQUEST_METHOD') == 'OPTIONS':
@@ -65,7 +64,7 @@ class CORSMiddleware:
                 webui_urls = config.config_get_list('webui', 'urls')
             except (NoOptionError, NoSectionError, RuntimeError) as error:
                 logging.exception('Could not get webui urls from config file')
-                return str(error), 500
+                return str(error), 500  # type: ignore (return type incompatible with Flask middleware)
             if request.origin in webui_urls:
                 response: Response = Response(status=200)
                 response.headers['Access-Control-Allow-Origin'] = request.origin
@@ -86,7 +85,7 @@ class ErrorHandlingMethodView(MethodView):
     Exceptions for all defined methods automatically.
     """
 
-    def get_headers(self) -> "Optional[HeadersType]":
+    def get_headers(self) -> Optional['HeadersType']:
         """Can be overridden to add headers to generic error responses."""
         return None
 
@@ -201,7 +200,7 @@ def check_accept_header_wrapper_flask(supported_content_types: 'Iterable[str]'):
     return wrapper
 
 
-def parse_scope_name(scope_name: str, vo: str) -> tuple[str, ...]:
+def parse_scope_name(scope_name: str, vo: Optional[str]) -> tuple[str, ...]:
     """
     Parses the given scope_name according to the schema's
     SCOPE_NAME_REGEXP and returns a (scope, name) tuple.
@@ -211,6 +210,9 @@ def parse_scope_name(scope_name: str, vo: str) -> tuple[str, ...]:
     :raises ValueError: when scope_name could not be parsed.
     :returns: a (scope, name) tuple.
     """
+    if not vo:
+        vo = 'def'
+
     # why again does that regex start with a slash?
     scope_regex = re.match(get_schema_value('SCOPE_NAME_REGEXP', vo), '/' + scope_name)
     if scope_regex is None:
@@ -272,7 +274,7 @@ def generate_http_error_flask(
         status_code: int,
         exc: Union[str, BaseException],
         exc_msg: Optional[str] = None,
-        headers: "Optional[HeadersType]" = None,
+        headers: Optional['HeadersType'] = None,
 ) -> "flask.Response":
     """Utitily function to generate a complete HTTP error response.
 
