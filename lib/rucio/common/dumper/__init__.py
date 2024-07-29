@@ -81,7 +81,7 @@ def mkdir(dir_: "StrOrBytesPath") -> None:
     try:
         os.mkdir(dir_)
     except OSError as error:
-        assert error.errno == 17
+        assert error.errno == 17  # noqa: S101
 
 
 def cacert_config(config: "ModuleType", rucio_home: str) -> Optional[Union["FileDescriptorOrPath", Literal[False]]]:
