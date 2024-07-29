@@ -69,8 +69,8 @@ class LockClient(BaseClient):
         """
 
         # convert did list to list of dictionaries
-
-        assert all(did.get("type", "dataset") in ("dataset", "container") for did in dids), "did type can be either 'container' or 'dataset'"
+        if not all(did.get("type", "dataset") in ("dataset", "container") for did in dids):
+            raise ValueError("DID type can be either 'container' or 'dataset'")
 
         path = '/'.join([self.LOCKS_BASEURL, "bulk_locks_for_dids"])
         url = build_url(choice(self.list_hosts), path=path)
