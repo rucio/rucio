@@ -41,10 +41,12 @@ class Consistency(data_models.DataModel):
                 ddm_endpoint, prev_date, cache_dir=cache_dir)
             next_date_fname = data_models.Replica.download(
                 ddm_endpoint, next_date, cache_dir=cache_dir)
-            assert prev_date_fname is not None
-            assert next_date_fname is not None
+            if (prev_date_fname is None) or (next_date_fname is None):
+                raise ValueError("Both prev_data_fname and next_date_fname are required for subcommand='consistency'")
+        elif subcommand == 'consistency-manual':
+            pass
         else:
-            assert subcommand == 'consistency-manual'
+            raise ValueError("subcommand %s not accepted, choice from ('consistency','consistency-manual')" % subcommand)
 
         prefix_components = path_parsing.components(dumper.ddmendpoint_url(ddm_endpoint))
 
@@ -166,7 +168,8 @@ def min3(*values):
     Minimum between the 3 values ignoring None
     '''
     values = [value for value in values if value is not None]
-    assert len(values) > 0
+    if len(values) <= 0:
+        raise ValueError("Not enough values to sort.")  # Need a better error message, but this function doesn't have a lot of info.
     return min(values)
 
 
@@ -301,7 +304,8 @@ def gnu_sort(file_path, prefix=None, delimiter=None, fieldspec=None, cache_dir=D
     memory and it is relatively fast if used with the environment variable
     LC_ALL set to C as in this function.
     '''
-    assert (delimiter is None and fieldspec is None) or (delimiter is not None and fieldspec is not None)
+    if (delimiter is None and fieldspec is not None) or (delimiter is not None and fieldspec is None):
+        raise ValueError("Either both delimiter and fieldspec is set, or neither are.")
     if delimiter is None:
         cmd_line = 'LC_ALL=C sort {0} > {1}'
     else:
@@ -388,10 +392,8 @@ def _parse_args_consistency(args):
         error('The storage dump filename must be of the form '
               '"dump_YYYYMMDD" where the date correspond to the date '
               'of the newest files included')
-    date_str = date_str.group(1)
-    assert date_str is not None
     try:
-        args_dict['date'] = date = datetime.datetime.strptime(date_str, '%Y%m%d')
+        args_dict['date'] = date = datetime.datetime.strptime(date_str.group(1), '%Y%m%d')
     except ValueError:
         error('Invalid date {0}'.format(date_str))
 
