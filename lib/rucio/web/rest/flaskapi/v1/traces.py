@@ -27,7 +27,7 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, json_para
 if TYPE_CHECKING:
     from typing import Optional
 
-    from rucio.web.rest.flaskapi.v1.common import HeadersType
+    from rucio.web.rest.flaskapi.v1.types import HeadersType
 
 
 class Trace(ErrorHandlingMethodView):

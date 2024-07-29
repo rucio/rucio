@@ -44,7 +44,7 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_acc
 if TYPE_CHECKING:
     from typing import Optional, Union
 
-    from rucio.web.rest.flaskapi.v1.common import HeadersType
+    from rucio.web.rest.flaskapi.v1.types import HeadersType, Response200OKWithHeaders, Response206PartialContentWithHeaders
 
 EXTRA_MODULES = import_extras(['onelogin'])
 
