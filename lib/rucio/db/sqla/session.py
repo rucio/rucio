@@ -234,7 +234,8 @@ def get_engine() -> 'Engine':
             event.listen(_ENGINE, 'connect', _fk_pragma_on_connect)
         elif 'oracle' in sql_connection:
             event.listen(_ENGINE, 'connect', my_on_connect)
-    assert _ENGINE
+    if not _ENGINE:
+        raise RuntimeError("Could not form database engine.")
     return _ENGINE
 
 
@@ -272,7 +273,6 @@ def get_maker() -> sessionmaker:
         May assign __MAKER if not already assigned.
     """
     global _MAKER, _ENGINE
-    assert _ENGINE
     if not _MAKER:
         # turn on sqlAlchemy 2.0 with future=True.
         _MAKER = sessionmaker(bind=_ENGINE, autocommit=False, autoflush=True, expire_on_commit=True, future=True)
@@ -291,7 +291,8 @@ def get_session() -> scoped_session:
             get_maker()
         finally:
             _LOCK.release()
-    assert _MAKER
+    if not _MAKER:
+        raise RuntimeError("Database schema not in place, cannot make session.")
     session = scoped_session(_MAKER)
     return session
 
