@@ -31,9 +31,10 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_acc
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    import werkzeug
+    from werkzeug import Response as WerkzeugResponse
 
-    from rucio.web.rest.flaskapi.v1.types import Response200OK, Response201Created
+    from rucio.web.rest.flaskapi.v1.types import ResponseType
+
 
 class Attributes(ErrorHandlingMethodView):
 
@@ -83,7 +84,7 @@ class Attributes(ErrorHandlingMethodView):
 
         return jsonify(attribs)
 
-    def post(self, account: str, key: str) -> Union[Response, 'Response201Created']:
+    def post(self, account: str, key: str) -> Union[Response, 'ResponseType[Literal[201]]']:
         """
         ---
         summary: Create attribute
@@ -227,7 +228,7 @@ class Scopes(ErrorHandlingMethodView):
 
         return jsonify(scopes)
 
-    def post(self, account: str, scope: str) -> Union[Response, 'Response201Created']:
+    def post(self, account: str, scope: str) -> Union[Response, 'ResponseType[Literal[201]]']:
         """
         ---
         summary: Create scope
@@ -282,7 +283,7 @@ class AccountParameter(ErrorHandlingMethodView):
     """ create, update, get and disable rucio accounts. """
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, account: str) -> Union[Response, "werkzeug.Response"]:
+    def get(self, account: str) -> Union[Response, "WerkzeugResponse"]:
         """
         ---
         summary: List account parameters
@@ -394,7 +395,7 @@ class AccountParameter(ErrorHandlingMethodView):
 
         return '', 200
 
-    def post(self, account: str) -> Union[Response, 'Response201Created']:
+    def post(self, account: str) -> Union[Response, 'ResponseType[Literal[201]]']:
         """
         ---
         summary: Create
@@ -621,7 +622,7 @@ class GlobalAccountLimits(ErrorHandlingMethodView):
 
 
 class Identities(ErrorHandlingMethodView):
-    def post(self, account: str) -> Union[Response, 'Response201Created']:
+    def post(self, account: str) -> Union[Response, 'ResponseType[Literal[201]]']:
         """
         ---
         summary: Create identity
@@ -749,7 +750,7 @@ class Identities(ErrorHandlingMethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, error)
 
-    def delete(self, account: str) -> Union[Response, 'Response200OK']:
+    def delete(self, account: str) -> Union[Response, 'ResponseType[Literal[200]]']:
         """
         ---
         summary: Delete identity
