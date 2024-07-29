@@ -119,13 +119,14 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         """Check the to-be-submitted file transfer params are both json encodable and under the size limit for transfer"""
         try:
             hints_json = json.dumps(hint_dict)
-            assert sys.getsizeof(hints_json) < self.transfer_limit
+            in_tranfer_limit = sys.getsizeof(hints_json) < self.transfer_limit
 
         except TypeError as e:
             raise InvalidRequest("Request malformed, cannot encode to JSON", e)
-        except AssertionError as e:
+
+        if not in_tranfer_limit:
             raise InvalidRequest(
-                f"Request too large, decrease to less than {self.transfer_limit}", e
+                f"Request too large, decrease to less than {self.transfer_limit}"
             )
 
     def hints(self, hint_kwargs: dict) -> dict[str, Any]:

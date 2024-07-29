@@ -315,7 +315,7 @@ def try_drop_constraint(constraint_name: str, table_name: str) -> None:
         op.drop_constraint(constraint_name, table_name)
     except DatabaseError as e:
         if 'nonexistent constraint' not in str(e):
-            raise DatabaseError(e)
+            raise RuntimeError(e)
 
 
 def list_oracle_global_temp_tables(session: "Session") -> list[str]:
