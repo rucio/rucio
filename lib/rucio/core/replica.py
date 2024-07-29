@@ -4046,21 +4046,16 @@ def get_suspicious_reason(rse_id, scope, name, nattempts=0, logger=logging.log, 
                       bad_replicas_alias.name == name,
                       bad_replicas_alias.scope == scope,
                       bad_replicas_alias.state != 'S'))))
-    ).subquery()
+    )
 
     count_query = select(
         func.count()
     ).select_from(
-        stmt
+        stmt.subquery()
     )
     count = session.execute(count_query).scalar_one()
 
-    grouped_stmt = select(
-        bad_replicas_alias.scope,
-        bad_replicas_alias.name,
-        bad_replicas_alias.reason,
-        bad_replicas_alias.rse_id
-    ).group_by(
+    grouped_stmt = stmt.group_by(
         bad_replicas_alias.rse_id,
         bad_replicas_alias.scope,
         bad_replicas_alias.name,
