@@ -125,7 +125,8 @@ def drop_everything() -> None:
             conn.execute(DropSchema(schema, cascade=True))
 
         if engine.dialect.name == 'postgresql':
-            assert isinstance(inspector, PGInspector), 'expected a PGInspector'
+            if not isinstance(inspector, PGInspector):
+                raise ValueError('expected a PGInspector')
             for enum in inspector.get_enums(schema='*'):
                 sqlalchemy.Enum(**enum).drop(bind=conn)
 
@@ -313,7 +314,8 @@ def try_drop_constraint(constraint_name: str, table_name: str) -> None:
     try:
         op.drop_constraint(constraint_name, table_name)
     except DatabaseError as e:
-        assert 'nonexistent constraint' in str(e)
+        if 'nonexistent constraint' not in str(e):
+            raise DatabaseError(e)
 
 
 def list_oracle_global_temp_tables(session: "Session") -> list[str]:
