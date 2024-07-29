@@ -845,7 +845,7 @@ class UploadClient:
             scope = self.default_file_scope
         rse = item.get('rse')
         path = item.get('path')
-        if path:
+        if path and isinstance(path, str):
             if path[-1] == '/':
                 path = path[0:-1]
             i = 0
