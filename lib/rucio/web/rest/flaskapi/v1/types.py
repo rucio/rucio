@@ -13,13 +13,8 @@
 # limitations under the License.
 
 from collections.abc import Sequence
-from typing import TypeVar, Union
+from typing import Union
 
 from werkzeug.datastructures import Headers
 
 HeadersType = Union[Headers, dict[str, str], Sequence[tuple[str, str]]]
-
-ResponseCode = TypeVar('ResponseCode', bound=int)
-
-ResponseType = tuple[str, ResponseCode]  # Example: ('Created', 201)
-ResponseTypeWithHeaders = tuple[str, ResponseCode, HeadersType]
