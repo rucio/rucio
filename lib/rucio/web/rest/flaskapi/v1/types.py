@@ -13,15 +13,13 @@
 # limitations under the License.
 
 from collections.abc import Sequence
-from typing import Literal, Optional, Union
+from typing import TypeVar, Union
 
 from werkzeug.datastructures import Headers
 
 HeadersType = Union[Headers, dict[str, str], Sequence[tuple[str, str]]]
 
-Response200OK = tuple[Literal[''], Literal[200]]
-Response200OKWithHeaders = tuple[Literal[''], Literal[200], Headers]
+ResponseCode = TypeVar('ResponseCode', bound=int)
 
-Response201Created = tuple[Literal['Created'], Literal[201]]
-
-Response206PartialContentWithHeaders = tuple[str, Literal[206], Headers]
+ResponseType = tuple[str, ResponseCode]  # Example: ('Created', 201)
+ResponseTypeWithHeaders = tuple[str, ResponseCode, HeadersType]
