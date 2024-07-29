@@ -36,11 +36,10 @@ from rucio.gateway.authentication import validate_auth_token
 from rucio.gateway.identity import get_default_account, list_accounts_for_identity, verify_identity
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Sequence
+    from collections.abc import Callable, Iterable
     from typing import Any, Literal, Optional, Union
 
-    HeadersType = Union[Headers, dict[str, str], Sequence[tuple[str, str]]]
-
+    from rucio.web.rest.flaskapi.v1.types import HeadersType
 
 class CORSMiddleware:
     """
