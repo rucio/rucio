@@ -514,7 +514,7 @@ class Account(ErrorHandlingMethodView):
             for account in list_accounts(filter_=_filter, vo=vo):
                 yield render_json(**account) + "\n"
 
-        return try_stream(generate(_filter=dict(request.args.items(multi=False)), vo=request.environ.get('vo')))
+        return try_stream(generate(_filter=dict(request.args.items(multi=False)), vo=request.environ.get('vo', 'def')))
 
 
 class LocalAccountLimits(ErrorHandlingMethodView):
@@ -738,7 +738,7 @@ class Identities(ErrorHandlingMethodView):
                 for identity in list_identities(account, vo=vo):
                     yield render_json(**identity) + "\n"
 
-            return try_stream(generate(request.environ.get('vo')))
+            return try_stream(generate(request.environ.get('vo', 'def')))
         except AccountNotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -832,7 +832,7 @@ class Rules(ErrorHandlingMethodView):
                 for rule in list_replication_rules(filters=filters, vo=vo):
                     yield dumps(rule, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ.get('vo', 'def')))
         except RuleNotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -958,7 +958,7 @@ class LocalUsage(ErrorHandlingMethodView):
                 for usage in get_local_account_usage(account=account, rse=rse, issuer=issuer, vo=vo):
                     yield dumps(usage, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')))
+            return try_stream(generate(issuer=request.environ.get('issuer'), vo=request.environ.get('vo', 'def')))
         except (AccountNotFound, RSENotFound) as error:
             return generate_http_error_flask(404, error)
         except AccessDenied as error:
@@ -1022,7 +1022,7 @@ class GlobalUsage(ErrorHandlingMethodView):
                 for usage in get_global_account_usage(account=account, rse_expression=rse_expression, issuer=issuer, vo=vo):
                     yield dumps(usage, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo'), issuer=request.environ.get('issuer')))
+            return try_stream(generate(vo=request.environ.get('vo', 'def'), issuer=request.environ.get('issuer')))
         except (AccountNotFound, RSENotFound) as error:
             return generate_http_error_flask(404, error)
         except AccessDenied as error:
