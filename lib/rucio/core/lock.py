@@ -87,7 +87,8 @@ def get_dataset_locks_bulk(dids: Iterable[dict[str, Any]], *, session: "Session"
 
     for did in dids:
         scope = did["scope"]
-        assert isinstance(scope, InternalScope)
+        if not isinstance(scope, InternalScope):
+            raise ValueError("Scope must be passed as an InternalScope object.")
         name = did["name"]
         did_type = did.get("type")
         if not did_type:
@@ -96,21 +97,23 @@ def get_dataset_locks_bulk(dids: Iterable[dict[str, Any]], *, session: "Session"
             except DataIdentifierNotFound:
                 continue
             did_type = did_info["type"]
-        assert did_type in (DIDType.DATASET, DIDType.CONTAINER)
+
         if did_type == DIDType.DATASET:
             for lock_dict in get_dataset_locks(scope, name, session=session):
                 yield lock_dict
-        else:
+        elif did_type == DIDType.CONTAINER:
             for dataset_info in rucio.core.did.list_child_datasets(scope, name, session=session):
                 dataset_scope, dataset_name = dataset_info["scope"], dataset_info["name"]
                 for lock_dict in get_dataset_locks(dataset_scope, dataset_name, session=session):
                     yield lock_dict
+        else:
+            raise ValueError("Can only get locks for datasets and containers.")
 
 
 @stream_session
 def get_dataset_locks_by_rse_id(rse_id: str, *, session: "Session") -> Iterator[dict[str, Any]]:
     """
-    Get the dataset locks of an RSE.
+    Get the dataset locks of an RSE.l   r
 
     :param rse_id:         RSE id to get the locks from.
     :param session:        The db session.
