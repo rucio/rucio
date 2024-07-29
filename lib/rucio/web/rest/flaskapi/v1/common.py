@@ -234,15 +234,12 @@ def try_stream(generator, content_type=None) -> "flask.Response":
         return flask.Response('', content_type=content_type)
 
 
-def error_headers(exc_cls: str, exc_msg):
-    def strip_newlines(msg):
-        if msg is None:
-            return None
-
+def error_headers(exc_cls: str, exc_msg: str):
+    def strip_newlines(msg: str) -> str:
         return msg.replace('\n', ' ').replace('\r', ' ')
 
-    exc_msg = strip_newlines(exc_msg)
     if exc_msg:
+        exc_msg = strip_newlines(exc_msg)
         # Truncate too long exc_msg
         oldlen = len(exc_msg)
         exc_msg = exc_msg[:min(oldlen, 125)]
