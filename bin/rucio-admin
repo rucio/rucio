@@ -1196,7 +1196,9 @@ def declare_temporary_unavailable_replicas(args):
     else:
         bad_files = args.listbadfiles
 
-    assert args.duration is not None, "Duration should have been set, something went wrong!"
+    if args.duration is None:
+        raise ValueError("Duration should have been set, something went wrong!")
+
     expiration_date = (datetime.datetime.utcnow() + datetime.timedelta(seconds=args.duration)).isoformat()
 
     chunk_size = 10000
