@@ -76,7 +76,7 @@ class Archive(ErrorHandlingMethodView):
                 for file in list_archive_content(scope=scope, name=name, vo=vo):
                     yield dumps(file) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ.get('vo', 'def')))
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
