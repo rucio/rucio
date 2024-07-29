@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
     from rucio.web.rest.flaskapi.v1.types import HeadersType
 
+
 class CORSMiddleware:
     """
     WebUI 2.0 makes preflight requests to the API, which are not handled by the API.
