@@ -15,7 +15,7 @@
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Literal, Union
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from flask import Blueprint, Flask, Response, redirect, render_template, request
@@ -43,9 +43,7 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_acc
 
 if TYPE_CHECKING:
 
-    from werkzeug import Response as WerkzeugResponse
-
-    from rucio.web.rest.flaskapi.v1.types import ResponseType, ResponseTypeWithHeaders
+    from flask.typing import ResponseReturnValue
 
 EXTRA_MODULES = import_extras(['onelogin'])
 
@@ -69,7 +67,7 @@ class UserPass(ErrorHandlingMethodView):
         headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token, X-Rucio-Auth-Token-Expires, X-Rucio-Auth-Account, X-Rucio-Auth-Accounts'
         return headers
 
-    def options(self) -> 'ResponseTypeWithHeaders[Literal[200]]':
+    def options(self) -> 'ResponseReturnValue':
         """
         ---
         summary: UserPass Allow cross-site scripting
@@ -105,7 +103,7 @@ class UserPass(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self) -> Union[Response, "ResponseTypeWithHeaders[Literal[200, 206]]"]:
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: UserPass
@@ -246,7 +244,7 @@ class OIDC(ErrorHandlingMethodView):
         headers['Access-Control-Allow-Credentials'] = 'true'
         return headers
 
-    def options(self) -> 'ResponseTypeWithHeaders[Literal[200]]':
+    def options(self) -> 'ResponseReturnValue':
         """
         ---
         summary: OIDC Allow cross-site scripting
@@ -278,7 +276,7 @@ class OIDC(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self) -> Union[Response, 'ResponseTypeWithHeaders[Literal[200]]']:
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: OIDC
@@ -393,7 +391,7 @@ class RedirectOIDC(ErrorHandlingMethodView):
         headers.set('Access-Control-Allow-Credentials', 'true')
         return headers
 
-    def options(self) -> 'ResponseTypeWithHeaders[Literal[200]]':
+    def options(self) -> 'ResponseReturnValue':
         """
         ---
         summary: RedirectOIDC Allow cross-site scripting
@@ -424,7 +422,7 @@ class RedirectOIDC(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream', 'text/html'])
-    def get(self) -> Union['WerkzeugResponse', 'ResponseTypeWithHeaders[Literal[200, 401, 500]]']:
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: RedirectOIDC
@@ -508,7 +506,7 @@ class CodeOIDC(ErrorHandlingMethodView):
         headers.set('Access-Control-Allow-Credentials', 'true')
         return headers
 
-    def options(self) -> 'ResponseTypeWithHeaders[Literal[200]]':
+    def options(self) -> 'ResponseReturnValue':
         """
         ---
         summary: CodeOIDC Allow cross-site scripting
@@ -539,7 +537,7 @@ class CodeOIDC(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream', 'text/html'])
-    def get(self) -> 'ResponseTypeWithHeaders[Literal[200, 400, 401, 500]]':
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: CodeOIDC
@@ -605,7 +603,7 @@ class TokenOIDC(ErrorHandlingMethodView):
         headers.set('Access-Control-Allow-Credentials', 'true')
         return headers
 
-    def options(self) -> "ResponseTypeWithHeaders[Literal[200]]":
+    def options(self) -> 'ResponseReturnValue':
         """
         ---
         summary: TokenOIDC Allow cross-site scripting
@@ -636,7 +634,7 @@ class TokenOIDC(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self) -> Union[Response, 'WerkzeugResponse', "ResponseTypeWithHeaders[Literal[200, 400, 401]]"]:
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: TokenOIDC
@@ -720,7 +718,7 @@ class RefreshOIDC(ErrorHandlingMethodView):
         headers.set('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         return headers
 
-    def options(self) -> 'ResponseTypeWithHeaders[Literal[200]]':
+    def options(self) -> 'ResponseReturnValue':
         """
         ---
         summary: RefreshOIDC Allow cross-site scripting
@@ -755,7 +753,7 @@ class RefreshOIDC(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self) -> Union[Response, 'ResponseTypeWithHeaders[Literal[200]]']:
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: RefreshOIDC
@@ -829,7 +827,7 @@ class GSS(ErrorHandlingMethodView):
         headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
         return headers
 
-    def options(self) -> 'ResponseTypeWithHeaders[Literal[200]]':
+    def options(self) -> 'ResponseReturnValue':
         """
         ---
         summary: GSS Allow cross-site scripting
@@ -864,7 +862,7 @@ class GSS(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self) -> Union[Response, 'ResponseTypeWithHeaders[Literal[200]]']:
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: GSS
@@ -956,7 +954,7 @@ class x509(ErrorHandlingMethodView):
         headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token, X-Rucio-Auth-Token-Expires, X-Rucio-Auth-Account, X-Rucio-Auth-Accounts'
         return headers
 
-    def options(self) -> 'ResponseTypeWithHeaders[Literal[200]]':
+    def options(self) -> 'ResponseReturnValue':
         """
         ---
         summary: x509 Allow cross-site scripting
@@ -991,7 +989,7 @@ class x509(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self) -> Union[Response, 'ResponseTypeWithHeaders[Literal[200, 206]]']:
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: x509
@@ -1126,7 +1124,7 @@ class SSH(ErrorHandlingMethodView):
         headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
         return headers
 
-    def options(self) -> 'ResponseTypeWithHeaders[Literal[200]]':
+    def options(self) -> 'ResponseReturnValue':
         """
         ---
         summary: SSH Allow cross-site scripting
@@ -1161,7 +1159,7 @@ class SSH(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self) -> Union[Response, 'ResponseTypeWithHeaders[Literal[200]]']:
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: SSH
@@ -1252,7 +1250,7 @@ class SSHChallengeToken(ErrorHandlingMethodView):
         headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
         return headers
 
-    def options(self) -> 'ResponseTypeWithHeaders[Literal[200]]':
+    def options(self) -> 'ResponseReturnValue':
         """
         ---
         summary: SSHChallengeToken Allow cross-site scripting
@@ -1287,7 +1285,7 @@ class SSHChallengeToken(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self) -> Union[Response, 'ResponseTypeWithHeaders[Literal[200]]']:
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: SSHChallengeToken
@@ -1364,7 +1362,7 @@ class SAML(ErrorHandlingMethodView):
         headers.set('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
         return headers
 
-    def options(self) -> 'ResponseTypeWithHeaders[Literal[200]]':
+    def options(self) -> 'ResponseReturnValue':
         """
         ---
         summary: SAML Allow cross-site scripting
@@ -1399,7 +1397,7 @@ class SAML(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self) -> Union[Response, 'ResponseTypeWithHeaders[Literal[200, 400]]']:
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: SAML
@@ -1487,7 +1485,7 @@ class SAML(ErrorHandlingMethodView):
         headers.set('X-Rucio-SAML-Auth-URL', auth.login())
         return '', 200, headers
 
-    def post(self) -> Union[Response, 'ResponseType[Literal[200]]', 'ResponseTypeWithHeaders[Literal[200]]']:
+    def post(self) -> 'ResponseReturnValue':
         """
         ---
         summary: Post a SAML request
@@ -1531,7 +1529,7 @@ class Validate(ErrorHandlingMethodView):
         headers['Access-Control-Expose-Headers'] = 'X-Rucio-Auth-Token'
         return headers
 
-    def options(self) -> 'ResponseTypeWithHeaders[Literal[200]]':
+    def options(self) -> 'ResponseReturnValue':
         """
         ---
         summary: Validate Allow cross-site scripting
@@ -1566,7 +1564,7 @@ class Validate(ErrorHandlingMethodView):
         return '', 200, self.get_headers()
 
     @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self) -> Union[Response, 'ResponseTypeWithHeaders[Literal[200]]']:
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: Validate
