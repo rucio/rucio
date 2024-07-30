@@ -20,7 +20,7 @@ import hashlib
 import logging
 from collections.abc import Callable, Mapping
 from configparser import NoOptionError, NoSectionError
-from typing import TypeVar
+from typing import TypeVar, Any
 from urllib.parse import urlparse
 
 from rucio.common import config, exception
@@ -58,7 +58,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
             # Don't use a function from the policy package. Use one defined in this class according to vo
             logger.debug("PFN2LFN function will not be fetched from the policy package")
             algo_type = self.__class__.__name__
-            if super()._supports(self.__class__.__name__, policy_module):
+            if super()._supports(algo_type, policy_module):
                 algorithm_name = policy_module
             else:
                 algorithm_name = "def"
@@ -66,7 +66,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         self.parser = self.get_parser(algo_type, algorithm_name)
 
     @classmethod
-    def get_parser(cls, algorithm_type, algorithm_name):
+    def get_parser(cls, algorithm_type: str, algorithm_name: str) -> Callable[..., Any]:
         return super()._get_one_algorithm(algorithm_type, algorithm_name)
 
     @classmethod
