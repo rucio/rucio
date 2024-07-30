@@ -292,7 +292,7 @@ pluggy==1.5.0
     # via pytest
 prometheus-client==0.20.0
     # via -r requirements.server.txt
-psycopg2-binary==2.9.9
+psycopg==3.2.1
     # via -r requirements.server.txt
 pyasn1==0.6.0
     # via
