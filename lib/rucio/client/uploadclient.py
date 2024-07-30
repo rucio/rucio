@@ -372,10 +372,7 @@ class UploadClient:
             raise NotAllFilesUploaded()
         return 0
 
-    def _add_bittorrent_meta(self, file: "Mapping[str, Any]", logger: "LoggerFunction") -> None:
-        if not config_get_bool('client', 'register_bittorrent_meta', default=False):
-            return
-
+    def _add_bittorrent_meta(self, file: "Mapping[str, Any]") -> None:
         pieces_root, pieces_layers, piece_length = bittorrent_v2_merkle_sha256(os.path.join(file['dirname'], file['basename']))
         bittorrent_meta = {
             'bittorrent_pieces_root': base64.b64encode(pieces_root).decode(),
@@ -383,6 +380,7 @@ class UploadClient:
             'bittorrent_piece_length': piece_length,
         }
         self.client.set_metadata_bulk(scope=file['did_scope'], name=file['did_name'], meta=bittorrent_meta)
+        self.logger(logging.INFO, f"Added bittorrent metadata to file DID {file['did_scope']}:{file['did_name']}")
 
     def _register_file(
             self,
@@ -434,7 +432,6 @@ class UploadClient:
                 logger(logging.INFO, 'Successfully created dataset %s' % dataset_did_str)
             except DataIdentifierAlreadyExists:
                 logger(logging.INFO, 'Dataset %s already exists - no rule will be created' % dataset_did_str)
-
                 if file.get('lifetime') is not None:
                     raise InputValidationError('Dataset %s exists and lifetime %s given. Prohibited to modify parent dataset lifetime.' % (dataset_did_str,
                                                                                                                                            file.get('lifetime')))
@@ -453,7 +450,6 @@ class UploadClient:
 
             if str(meta['adler32']).lstrip('0') != str(file['adler32']).lstrip('0'):
                 logger(logging.ERROR, 'Local checksum %s does not match remote checksum %s' % (file['adler32'], meta['adler32']))
-
                 raise DataIdentifierAlreadyExists
 
             # add file to rse if it is not registered yet
@@ -464,7 +460,8 @@ class UploadClient:
         except DataIdentifierNotFound:
             logger(logging.DEBUG, 'File DID does not exist')
             self.client.add_replicas(rse=rse, files=[replica_for_api])
-            self._add_bittorrent_meta(file=file, logger=logger)
+            if config_get_bool('client', 'register_bittorrent_meta', default=False):
+                self._add_bittorrent_meta(file=file)
             logger(logging.INFO, 'Successfully added replica in Rucio catalogue at %s' % rse)
             if not dataset_did_str:
                 # only need to add rules for files if no dataset is given
