@@ -387,7 +387,11 @@ def read_session(function: "Callable[P, R]"):
     @retrying(retry_on_exception=retry_if_db_connection_error,
               wait_fixed=500,
               stop_max_attempt_number=2)
-    def new_funct(*args: "P.args", session: "Optional[Session]" = None, **kwargs):  # pylint:disable=missing-kwoa
+    def new_funct(
+        session: "Optional[Session]" = None, 
+        *args: "P.args", 
+        **kwargs: "P.kwargs"
+    ) -> "R":   # pylint:disable=missing-kwoa
         if isgeneratorfunction(function):
             raise RucioException('read_session decorator should not be used with generator. Use stream_session instead.')
 
@@ -427,10 +431,13 @@ def stream_session(function: "Callable[P, R]"):
     @retrying(retry_on_exception=retry_if_db_connection_error,
               wait_fixed=500,
               stop_max_attempt_number=2)
-    def new_funct(*args: "P.args", session: "Optional[Session]" = None, **kwargs):  # pylint:disable=missing-kwoa
-
-        if not isgeneratorfunction(function):
-            raise RucioException('stream_session decorator should be used only with generator. Use read_session instead.')
+    def new_funct(
+        session: "Optional[Session]" = None, 
+        *args: "P.args", 
+        **kwargs: "P.kwargs"
+    ) -> "Iterator[IterableTypeVar]":  # pylint:disable=missing-kwoa
+        if isgeneratorfunction(function):
+            raise RucioException('read_session decorator should not be used with generator. Use stream_session instead.')
 
         if not session:
             session_scoped = get_session()
@@ -467,9 +474,9 @@ def transactional_session(function: "Callable[P, R]") -> 'Callable':
     session is a sqlalchemy session, and you can get one calling get_session().
     '''
     def new_funct(
-            *args: "P.args",
             session: "Optional[Session]" = None,
-            **kwargs
+            *args: "P.args",
+            **kwargs: "P.kwargs"
     ) -> "R":  # pylint:disable=missing-kwoa
         if not session:
             session_scoped = get_session()
