@@ -37,17 +37,21 @@ from rucio.common.utils import retrying
 EXTRA_MODULES = import_extras(['MySQLdb', 'pymysql'])
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-    from typing import Optional, ParamSpec, TypeVar
+    from collections.abc import Callable, Iterable, Iterator
+    from typing import Optional, TypeVar
 
     from pymysql import Connection as MySQLConnection
     from sqlalchemy.engine.base import Engine
+    from typing_extensions import ParamSpec
 
     from rucio.common.types import LoggerFunction
 
     P = ParamSpec('P')
     R = TypeVar('R')
-    CallableTypeVar = TypeVar('CallableTypeVar', bound='Callable[..., Any]')
+    IterableTypeVar = TypeVar('IterableTypeVar', bound=Iterable[Any])
+
+    Q = ParamSpec('Q')
+    S = TypeVar('S')
 
 
 try:
@@ -339,9 +343,9 @@ def retry_if_db_connection_error(exception: Exception) -> bool:
 
 
 def _update_session_wrapper(
-        wrapper: "CallableTypeVar",
-        wrapped: 'Callable'
-) -> "CallableTypeVar":
+        wrapper: "Callable[Q, S]",
+        wrapped: "Callable[P, R]"
+) -> "Callable[Q, S]":
     """
     In addition to the work done by functools.update_wrapper, this function also preservers
     the signature of the initial function. With the exception that the 'session' parameter
@@ -375,7 +379,7 @@ def _update_session_wrapper(
     return wrapper
 
 
-def read_session(function: "Callable[P, R]"):
+def read_session(function: "Callable[P, R]") -> "Callable[P, R]":
     '''
     decorator that set the session variable to use inside a function.
     With that decorator it's possible to use the session variable like if a global variable session is declared.
@@ -388,8 +392,8 @@ def read_session(function: "Callable[P, R]"):
               wait_fixed=500,
               stop_max_attempt_number=2)
     def new_funct(
-        session: "Optional[Session]" = None, 
-        *args: "P.args", 
+        session: "Optional[Session]" = None,
+        *args: "P.args",
         **kwargs: "P.kwargs"
     ) -> "R":   # pylint:disable=missing-kwoa
         if isgeneratorfunction(function):
@@ -400,7 +404,7 @@ def read_session(function: "Callable[P, R]"):
             session = session_scoped()
             session.begin()  # type: ignore
             try:
-                return function(*args, session=session, **kwargs)
+                return function(session=session, *args, **kwargs)
             except TimeoutError as error:
                 session.rollback()  # type: ignore
                 raise DatabaseException(str(error))
@@ -413,13 +417,13 @@ def read_session(function: "Callable[P, R]"):
             finally:
                 session_scoped.remove()
         try:
-            return function(*args, session=session, **kwargs)
+            return function(session=session, *args, **kwargs)
         except Exception:
             raise
     return _update_session_wrapper(new_funct, function)
 
 
-def stream_session(function: "Callable[P, R]"):
+def stream_session(function: "Callable[P, IterableTypeVar]") -> "Callable[P, Iterator[IterableTypeVar]]":
     '''
     decorator that set the session variable to use inside a function.
     With that decorator it's possible to use the session variable like if a global variable session is declared.
@@ -432,8 +436,8 @@ def stream_session(function: "Callable[P, R]"):
               wait_fixed=500,
               stop_max_attempt_number=2)
     def new_funct(
-        session: "Optional[Session]" = None, 
-        *args: "P.args", 
+        session: "Optional[Session]" = None,
+        *args: "P.args",
         **kwargs: "P.kwargs"
     ) -> "Iterator[IterableTypeVar]":  # pylint:disable=missing-kwoa
         if isgeneratorfunction(function):
@@ -444,7 +448,7 @@ def stream_session(function: "Callable[P, R]"):
             session = session_scoped()
             session.begin()  # type: ignore
             try:
-                for row in function(*args, session=session, **kwargs):
+                for row in function(session=session, *args, **kwargs):
                     yield row
             except TimeoutError as error:
                 session.rollback()  # type: ignore
@@ -459,14 +463,14 @@ def stream_session(function: "Callable[P, R]"):
                 session_scoped.remove()
         else:
             try:
-                for row in function(*args, session=session, **kwargs):
+                for row in function(session=session, *args, **kwargs):
                     yield row
             except:
                 raise
     return _update_session_wrapper(new_funct, function)
 
 
-def transactional_session(function: "Callable[P, R]") -> 'Callable':
+def transactional_session(function: "Callable[P, R]") -> "Callable[P, R]":
     '''
     decorator that set the session variable to use inside a function.
     With that decorator it's possible to use the session variable like if a global variable session is declared.
@@ -483,7 +487,7 @@ def transactional_session(function: "Callable[P, R]") -> 'Callable':
             session = session_scoped()
             session.begin()  # type: ignore
             try:
-                result = function(*args, session=session, **kwargs)
+                result = function(session=session, *args, **kwargs)
                 session.commit()  # type: ignore
             except TimeoutError as error:
                 session.rollback()  # type: ignore
@@ -497,6 +501,6 @@ def transactional_session(function: "Callable[P, R]") -> 'Callable':
             finally:
                 session_scoped.remove()  # pylint: disable=maybe-no-member
         else:
-            result = function(*args, session=session, **kwargs)
+            result = function(session=session, *args, **kwargs)
         return result
     return _update_session_wrapper(new_funct, function)
