@@ -308,7 +308,7 @@ def wait_for_database(
     while True:
         try:
             session = get_session()
-            if session.bind.dialect.name == 'oracle':
+            if session.bind.dialect.name == 'oracle':  # type: ignore (session.bind could be None)
                 session.execute(text('select 1 from dual'))
             else:
                 session.execute(text('select 1'))
