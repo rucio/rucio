@@ -80,6 +80,9 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
             user=user,
             password=password)
 
+        # makes Rucio receive Decimal from Postgres as float
+        self.client.adapters.register_loader("numeric", psycopg.types.numeric.FloatLoader)
+
         # set search_path to include database schema by default
         cur = self.client.cursor()
         cur.execute("SET search_path TO %s", db_schema)
