@@ -34,7 +34,7 @@ from rucio.common.config import config_get_bool, config_get_list
 from rucio.common.exception import DatabaseException, ReplicaNotFound, RequestNotFound, RSEProtocolNotSupported, UnsupportedOperation
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.types import InternalAccount, LoggerFunction
+from rucio.common.types import InternalAccount, LoggerFunction, RequestDict
 from rucio.common.utils import chunks
 from rucio.core import replica as replica_core
 from rucio.core import request as request_core
@@ -112,7 +112,7 @@ def _fetch_requests(
 
 
 def _handle_requests(
-        batch: tuple[list[dict[str, Any]], Topology],
+        batch: tuple[list[RequestDict], Topology],
         bulk: int,
         suspicious_patterns: list[re.Pattern],
         retry_protocol_mismatches: bool,
@@ -192,7 +192,7 @@ def finisher(
             heartbeat_handler=heartbeat_handler,
         )
 
-    def _consumer(batch: tuple[list[dict[str, Any]], Topology]) -> None:
+    def _consumer(batch: tuple[list[RequestDict], Topology]) -> None:
         return _handle_requests(
             batch=batch,
             bulk=bulk,
@@ -245,7 +245,7 @@ def run(
 
 def _finish_requests(
         topology: Topology,
-        reqs: list[dict[str, Any]],
+        reqs: list[RequestDict],
         suspicious_patterns: list[re.Pattern],
         retry_protocol_mismatches: bool,
         logger: LoggerFunction = logging.log
@@ -364,7 +364,7 @@ def __get_undeterministic_rses(logger: LoggerFunction = logging.log) -> list[str
 
 
 def __check_suspicious_files(
-        req: dict[str, Any],
+        req: RequestDict,
         suspicious_patterns: list[re.Pattern],
         logger: LoggerFunction = logging.log
 ) -> bool:
