@@ -181,7 +181,7 @@ class Default(protocol.RSEProtocol):
         lfns = [lfns] if isinstance(lfns, dict) else lfns
         for lfn in lfns:
             scope, name = str(lfn['scope']), lfn['name']
-            if lfn.get('path'):
+            if 'path' in lfn and lfn.get('path'):
                 pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'],
                                                          '://',
                                                          self.attributes['hostname'],

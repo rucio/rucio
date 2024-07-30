@@ -173,6 +173,12 @@ class RSESettingsDict(TypedDict):
     domain: list[str]
     protocols: list[RSEProtocolDict]
 
+    # Compatibility with protocols that access protocol-specific data from rse_settings (e.g. RFIO)
+    protocol: RSEProtocolDict
+    prefix: str
+    scheme: str
+    hostname: str
+
 
 class RSEAccountCounterDict(TypedDict):
     account: InternalAccount
@@ -202,6 +208,16 @@ class DIDDict(TypedDict):
 class DIDStringDict(TypedDict):
     name: str
     scope: str
+
+
+class LFNDict(TypedDict):
+    name: str
+    scope: str
+    path: NotRequired[str]
+    filesize: NotRequired[int]
+    adler32: NotRequired[str]
+    md5: NotRequired[str]
+    filename: NotRequired[str]
 
 
 class DatasetDict(DIDStringDict):
