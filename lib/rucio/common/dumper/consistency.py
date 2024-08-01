@@ -42,7 +42,7 @@ class Consistency(data_models.DataModel):
             next_date_fname = data_models.Replica.download(
                 ddm_endpoint, next_date, cache_dir=cache_dir)
             if (prev_date_fname is None) or (next_date_fname is None):
-                raise ValueError("Both prev_data_fname and next_date_fname are required for subcommand='consistency'")
+                raise ValueError("Both prev_date_fname and next_date_fname are required for subcommand='consistency'; found prev_data_fname=%s and next_date_fname=%s" % (prev_date_fname, next_date_fname))
         elif subcommand == 'consistency-manual':
             pass
         else:
@@ -168,8 +168,8 @@ def min3(*values):
     Minimum between the 3 values ignoring None
     '''
     values = [value for value in values if value is not None]
-    if len(values) <= 0:
-        raise ValueError("Not enough values to sort.")  # Need a better error message, but this function doesn't have a lot of info.
+    if len(values) == 0:
+        raise ValueError("Input contains 0 non-null values.")
     return min(values)
 
 
@@ -304,7 +304,7 @@ def gnu_sort(file_path, prefix=None, delimiter=None, fieldspec=None, cache_dir=D
     memory and it is relatively fast if used with the environment variable
     LC_ALL set to C as in this function.
     '''
-    if (delimiter is None and fieldspec is not None) or (delimiter is not None and fieldspec is None):
+    if (delimiter is not None) ^ (fieldspec is not None):
         raise ValueError("Either both delimiter and fieldspec is set, or neither are.")
     if delimiter is None:
         cmd_line = 'LC_ALL=C sort {0} > {1}'
@@ -392,8 +392,12 @@ def _parse_args_consistency(args):
         error('The storage dump filename must be of the form '
               '"dump_YYYYMMDD" where the date correspond to the date '
               'of the newest files included')
+
+    date_str = date_str.group(1)
+    if date_str is None:
+        error('Invalid date {0}'.format(date_str))
     try:
-        args_dict['date'] = date = datetime.datetime.strptime(date_str.group(1), '%Y%m%d')
+        args_dict['date'] = date = datetime.datetime.strptime(date_str, '%Y%m%d')
     except ValueError:
         error('Invalid date {0}'.format(date_str))
 

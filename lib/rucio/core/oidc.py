@@ -103,6 +103,7 @@ def _token_cache_get(
             METRICS.counter('token_cache.invalid').inc()
             return None
     else:
+        METRICS.counter('token_cache.invalid').inc()
         return None
 
     now = datetime.utcnow().timestamp()

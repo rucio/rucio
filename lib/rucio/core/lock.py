@@ -113,7 +113,7 @@ def get_dataset_locks_bulk(dids: Iterable[dict[str, Any]], *, session: "Session"
 @stream_session
 def get_dataset_locks_by_rse_id(rse_id: str, *, session: "Session") -> Iterator[dict[str, Any]]:
     """
-    Get the dataset locks of an RSE.l   r
+    Get the dataset locks of an RSE.
 
     :param rse_id:         RSE id to get the locks from.
     :param session:        The db session.

@@ -232,9 +232,9 @@ class CompleteDataset(DataModel):
         if len(args) == 8:
             logger.warning('Extra parameter\nrse: %s\ndataset: %s\n', self.rse, self.name)
             self.state = args[7]
-        elif len(args) <= 8:
-            self.state = None
         else:
+            self.state = None
+        if len(args) > 8:
             raise ValueError("Too many arguments, must be 8 or less. Instead passed %s" % len(args))
 
 
@@ -262,9 +262,7 @@ class Replica(DataModel):
 
         if len(args) == 8:
             logger.warning('Missing parameter\nrse: %s\ndataset: %s\n', self.rse, self.name)
-        elif len(args) <= 9:
-            pass
-        else:
+        elif len(args) > 9:
             raise ValueError("Too many arguments. Must be 9 or less, instead passed %s" % len(args))
 
 
