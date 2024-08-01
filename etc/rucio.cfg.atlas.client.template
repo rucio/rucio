@@ -29,8 +29,9 @@ request_retries = 3
 auth_type = x509_proxy
 
 [policy]
-permission = atlas
-schema = atlas
+package = atlas_rucio_policy_package
+#permission = atlas
+#schema = atlas
 lfn2pfn_algorithm_default = hash
 support = hn-atlas-dist-analysis-help@cern.ch
 support_rucio = https://github.com/rucio/rucio/issues/
