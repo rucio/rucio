@@ -273,6 +273,8 @@ def get_maker() -> sessionmaker:
         May assign __MAKER if not already assigned.
     """
     global _MAKER, _ENGINE
+    if not _ENGINE:
+        raise RuntimeError("Could not form database engine.")
     if not _MAKER:
         # turn on sqlAlchemy 2.0 with future=True.
         _MAKER = sessionmaker(bind=_ENGINE, autocommit=False, autoflush=True, expire_on_commit=True, future=True)
@@ -292,7 +294,7 @@ def get_session() -> scoped_session:
         finally:
             _LOCK.release()
     if not _MAKER:
-        raise RuntimeError("Database schema not in place, cannot make session.")
+        raise RuntimeError("Session factory is not defined.")
     session = scoped_session(_MAKER)
     return session
 
