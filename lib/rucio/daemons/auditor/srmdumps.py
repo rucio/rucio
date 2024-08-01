@@ -85,8 +85,9 @@ def mkdir(dir_: str) -> None:
     '''
     try:
         os.mkdir(dir_)
-    except OSError as e:
-        assert e.errno == 17  # noqa: S101
+    except OSError as error:
+        if error.errno != 17:
+            raise error
 
 
 def get_newest(
