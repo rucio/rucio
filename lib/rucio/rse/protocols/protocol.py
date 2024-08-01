@@ -20,7 +20,7 @@ import hashlib
 import logging
 from collections.abc import Callable, Mapping
 from configparser import NoOptionError, NoSectionError
-from typing import TypeVar, Any
+from typing import Any, TypeVar
 from urllib.parse import urlparse
 
 from rucio.common import config, exception
