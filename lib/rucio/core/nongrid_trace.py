@@ -16,12 +16,16 @@ import json
 import logging.handlers
 import random
 import socket
+from typing import TYPE_CHECKING, Any, Union, overload
 
 import stomp
 
 from rucio.common.config import config_get, config_get_int
 from rucio.common.logging import rucio_log_formatter
 from rucio.core.monitor import MetricManager
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 METRICS = MetricManager(module=__name__)
 
@@ -79,14 +83,23 @@ for broker in BROKERS_RESOLVED:
     CONNS.append(stomp.Connection(host_and_ports=[(broker, PORT)], vhost=VHOST, reconnect_attempts_max=3))
 
 
-def date_handler(obj):
-    '''
-    '''
+@overload
+def date_handler(obj: "datetime") -> str:
+    ...
+
+
+@overload
+def date_handler(obj: object) -> object:
+    ...
+
+
+def date_handler(obj: Any) -> Union[str, object]:
+    """ Format dates to ISO format. """
     return obj.isoformat() if hasattr(obj, 'isoformat') else obj
 
 
 @METRICS.count_it
-def trace(payload):
+def trace(payload: dict[str, Any]) -> None:
     """
     Write a trace to the buffer log file and send it to active mq.
 

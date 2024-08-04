@@ -305,6 +305,10 @@ class TraceDict(TraceBaseDict):
     transferEnd: float
 
 
+class TraceSchemaDict(TypedDict):
+    eventType: str
+
+
 class FileToUploadDict(TypedDict):
     path: str
     rse: str
