@@ -140,7 +140,7 @@ pbr==6.0.0
     # via stevedore
 prometheus-client==0.20.0
     # via -r requirements.server.in
-psycopg2-binary==2.9.9
+psycopg==3.2.1
     # via -r requirements.server.in
 pyasn1==0.6.0
     # via

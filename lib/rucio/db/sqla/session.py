@@ -149,26 +149,6 @@ def mysql_convert_decimal_to_float(
     return converter
 
 
-def psql_convert_decimal_to_float(dbapi_conn, connection_rec) -> None:
-    """
-    The default datatype returned by psycopg2 for numerics is decimal.Decimal.
-    This type cannot be serialised to JSON, therefore we need to autoconvert to floats.
-
-    :param dbapi_conn: DBAPI connection
-    :param connection_rec: connection record
-    """
-
-    try:
-        import psycopg2.extensions  # pylint: disable=import-error
-    except:
-        raise RucioException('Trying to use PostgreSQL without psycopg2 or psycopg2-binary installed!')
-
-    DEC2FLOAT = psycopg2.extensions.new_type(psycopg2.extensions.DECIMAL.values,
-                                             'DEC2FLOAT',
-                                             lambda value, curs: float(value) if value is not None else None)
-    psycopg2.extensions.register_type(DEC2FLOAT)
-
-
 def my_on_connect(dbapi_con, connection_record) -> None:
     """ Adds information to track performance and resource by module.
         Info are recorded in the V$SESSION and V$SQLAREA views.
@@ -228,8 +208,6 @@ def get_engine() -> 'Engine':
         _ENGINE = create_engine(sql_connection, future=True, **params)
         if 'mysql' in sql_connection:
             event.listen(_ENGINE, 'checkout', mysql_ping_listener)
-        elif 'postgresql' in sql_connection:
-            event.listen(_ENGINE, 'connect', psql_convert_decimal_to_float)
         elif 'sqlite' in sql_connection:
             event.listen(_ENGINE, 'connect', _fk_pragma_on_connect)
         elif 'oracle' in sql_connection:
