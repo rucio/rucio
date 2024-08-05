@@ -743,10 +743,9 @@ def list_rses(filters: Optional[dict[str, Any]] = None, *, session: "Session") -
                          attr_assoc_alias.key == k,
                          attr_assoc_alias.value == v)
                 )
-    else:
-        stmt = stmt.order_by(
-            models.RSE.rse
-        )
+    stmt = stmt.order_by(
+        models.RSE.rse
+    )
 
     for row in session.execute(stmt).scalars():
         rse_list.append(row.to_dict())
