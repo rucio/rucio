@@ -453,10 +453,11 @@ class Attachments(ErrorHandlingMethodView):
         if isinstance(parameters, list):
             attachments = parameters
             ignore_duplicate = False
-        else:
-            assert isinstance(parameters, dict)
+        elif isinstance(parameters, dict):
             attachments = param_get(parameters, 'attachments')
             ignore_duplicate = param_get(parameters, 'ignore_duplicate', default=False)
+        else:
+            return generate_http_error_flask(406, exc="Invalid attachment format.")
 
         try:
             attach_dids_to_dids(attachments=attachments, ignore_duplicate=ignore_duplicate, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))

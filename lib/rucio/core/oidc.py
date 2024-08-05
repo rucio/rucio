@@ -96,10 +96,13 @@ def _token_cache_get(
         METRICS.counter('token_cache.miss').inc()
         return None
 
-    try:
-        assert isinstance(value, str)
-        payload = JWT().unpack(value).payload()
-    except Exception:
+    if isinstance(value, str):
+        try:
+            payload = JWT().unpack(value).payload()
+        except Exception:
+            METRICS.counter('token_cache.invalid').inc()
+            return None
+    else:
         METRICS.counter('token_cache.invalid').inc()
         return None
 

@@ -150,20 +150,17 @@ class DataModel:
         logger = logging.getLogger('auditor.data_models')
         requests_session = get_requests_session()
         if date == 'latest':
-            url = ''.join((cls.BASE_URL, cls.URI, '?rse={0}'.format(rse)))
+            url = ''.join((cls.BASE_URL, cls.URI, '?rse={0}'.format(rse)))  # type: ignore
             request_headers = requests_session.head(url)
             for field in request_headers.headers['content-disposition'].split(';'):
                 if field.startswith('filename='):
                     date = field.split('=')[1].split('_')[-1].split('.')[0]
 
+        elif isinstance(date, datetime.datetime):
+            date = date.strftime('%d-%m-%Y')
+            url = ''.join((cls.BASE_URL, cls.URI, '?rse={0}&date={1}'.format(rse, date)))  # type: ignore
         else:
-            assert isinstance(date, datetime.datetime)
-            date = date.strftime('%d-%m-%Y')  # pylint: disable=no-member
-            url = ''.join((
-                cls.BASE_URL,
-                cls.URI,
-                '?rse={0}&date={1}'.format(rse, date),
-            ))
+            raise ValueError("Passed date (%s) must be a datetime object or 'latest'." % date)
 
         if not os.path.isdir(cache_dir):
             os.mkdir(cache_dir)
@@ -237,7 +234,8 @@ class CompleteDataset(DataModel):
             self.state = args[7]
         else:
             self.state = None
-        assert len(args) <= 8
+        if len(args) > 8:
+            raise ValueError("Too many arguments, must be 8 or less. Instead passed %s" % len(args))
 
 
 class Replica(DataModel):
@@ -264,7 +262,8 @@ class Replica(DataModel):
 
         if len(args) == 8:
             logger.warning('Missing parameter\nrse: %s\ndataset: %s\n', self.rse, self.name)
-        assert len(args) <= 9
+        elif len(args) > 9:
+            raise ValueError("Too many arguments. Must be 9 or less, instead passed %s" % len(args))
 
 
 class Filter:
@@ -292,7 +291,8 @@ class Filter:
         for expr in filter_str.split(','):
             key, expected = expr.split('=')
             # Better checks required
-            assert key in record_class.get_fieldnames()
+            if key not in record_class.get_fieldnames():
+                raise ValueError("Key %s not supported." % key)
             parser = list(filter(lambda t: t[0] == key, record_class.SCHEMA))[0][1]
             self.conditions.append(self._Condition(
                 comparator=operator.eq,

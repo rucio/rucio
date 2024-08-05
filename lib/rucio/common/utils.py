@@ -1941,7 +1941,8 @@ class StoreAndDeprecateWarningAction(argparse.Action):
             option_strings=option_strings,
             dest=dest,
             **kwargs)
-        assert new_option_string in option_strings
+        if new_option_string not in option_strings:
+            raise ValueError("%s not supported as a string option." % new_option_string)
         self.new_option_string = new_option_string
 
     def __call__(self, parser, namespace, values, option_string: Optional[str] = None):
@@ -1979,7 +1980,8 @@ class StoreTrueAndDeprecateWarningAction(argparse._StoreConstAction):
             default=default,
             required=required,
             help=help)
-        assert new_option_string in option_strings
+        if new_option_string not in option_strings:
+            raise ValueError("%s not supported as a string option." % new_option_string)
         self.new_option_string = new_option_string
 
     def __call__(self, parser, namespace, values, option_string: Optional[str] = None):
