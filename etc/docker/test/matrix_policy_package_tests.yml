@@ -1,10 +1,10 @@
 atlas:
-  installation_cmd: ""
   config_overrides:
     permission: atlas
     extract_scope:  atlas
     schema: atlas
     lfn2pfn_algorithm_default: "hash"
+    package: atlas_rucio_policy_package
   tests:
     allow:
       - rucio_tests
