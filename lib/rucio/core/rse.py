@@ -710,7 +710,6 @@ def list_rses(filters: Optional[dict[str, Any]] = None, *, session: "Session") -
     """
 
     filters = filters or {}
-    rse_list = []
     filters = filters.copy()  # Make a copy, so we can pop() without affecting the object `filters` outside this function
 
     stmt = select(
@@ -747,10 +746,7 @@ def list_rses(filters: Optional[dict[str, Any]] = None, *, session: "Session") -
         models.RSE.rse
     )
 
-    for row in session.execute(stmt).scalars():
-        rse_list.append(row.to_dict())
-
-    return rse_list
+    return [row.to_dict() for row in session.execute(stmt).scalars()]
 
 
 @transactional_session
