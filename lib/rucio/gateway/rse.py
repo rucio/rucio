@@ -61,8 +61,9 @@ def add_rse(rse, issuer, vo='def', deterministic=True, volatile=False, city=None
     """
     validate_schema(name='rse', obj=rse, vo=vo)
     kwargs = {'rse': rse}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='add_rse', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not add RSE' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='add_rse', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not add RSE. %s' % (issuer, auth_result.message))
 
     return rse_module.add_rse(rse, vo=vo, deterministic=deterministic, volatile=volatile, city=city,
                               region_code=region_code, country_name=country_name, staging_area=staging_area,
@@ -102,8 +103,9 @@ def del_rse(rse, issuer, vo='def', *, session: "Session"):
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
 
     kwargs = {'rse': rse, 'rse_id': rse_id}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='del_rse', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not delete RSE' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='del_rse', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not delete RSE. %s' % (issuer, auth_result.message))
 
     return rse_module.del_rse(rse_id, session=session)
 
@@ -142,8 +144,9 @@ def del_rse_attribute(rse, key, issuer, vo='def', *, session: "Session"):
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
 
     kwargs = {'rse': rse, 'rse_id': rse_id, 'key': key}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='del_rse_attribute', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not delete RSE attributes' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='del_rse_attribute', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not delete RSE attributes. %s' % (issuer, auth_result.message))
 
     return rse_module.del_rse_attribute(rse_id=rse_id, key=key, session=session)
 
@@ -164,8 +167,9 @@ def add_rse_attribute(rse, key, value, issuer, vo='def', *, session: "Session"):
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
 
     kwargs = {'rse': rse, 'rse_id': rse_id, 'key': key, 'value': value}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='add_rse_attribute', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not add RSE attributes' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='add_rse_attribute', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not add RSE attributes. %s' % (issuer, auth_result.message))
 
     return rse_module.add_rse_attribute(rse_id=rse_id, key=key, value=value, session=session)
 
@@ -227,8 +231,9 @@ def add_protocol(rse, issuer, vo='def', *, session: "Session", **data):
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
 
     kwargs = {'rse': rse, 'rse_id': rse_id}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='add_protocol', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not add protocols to RSE %s' % (issuer, rse))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='add_protocol', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not add protocols to RSE %s. %s' % (issuer, rse, auth_result.message))
     rse_module.add_protocol(rse_id, data['data'], session=session)
 
 
@@ -265,8 +270,9 @@ def del_protocols(rse, scheme, issuer, vo='def', hostname=None, port=None, *, se
     """
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
     kwargs = {'rse': rse, 'rse_id': rse_id}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='del_protocol', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not delete protocols from RSE %s' % (issuer, rse))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='del_protocol', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not delete protocols from RSE %s. %s' % (issuer, rse, auth_result.message))
     rse_module.del_protocols(rse_id=rse_id, scheme=scheme, hostname=hostname, port=port, session=session)
 
 
@@ -286,8 +292,9 @@ def update_protocols(rse, scheme, data, issuer, vo='def', hostname=None, port=No
     """
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
     kwargs = {'rse': rse, 'rse_id': rse_id}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='update_protocol', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not update protocols from RSE %s' % (issuer, rse))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='update_protocol', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not update protocols from RSE %s. %s' % (issuer, rse, auth_result.message))
     rse_module.update_protocols(rse_id=rse_id, scheme=scheme, hostname=hostname, port=port, data=data, session=session)
 
 
@@ -310,8 +317,9 @@ def set_rse_usage(rse, source, used, free, issuer, files=None, vo='def', *, sess
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
 
     kwargs = {'rse': rse, 'rse_id': rse_id}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='set_rse_usage', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not update RSE usage information for RSE %s' % (issuer, rse))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='set_rse_usage', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not update RSE usage information for RSE %s. %s' % (issuer, rse, auth_result.message))
 
     return rse_module.set_rse_usage(rse_id=rse_id, source=source, used=used, free=free, files=files, session=session)
 
@@ -374,8 +382,9 @@ def set_rse_limits(rse, name, value, issuer, vo='def', *, session: "Session"):
     """
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
     kwargs = {'rse': rse, 'rse_id': rse_id}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='set_rse_limits', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not update RSE limits for RSE %s' % (issuer, rse))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='set_rse_limits', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not update RSE limits for RSE %s. %s' % (issuer, rse, auth_result.message))
 
     return rse_module.set_rse_limits(rse_id=rse_id, name=name, value=value, session=session)
 
@@ -395,8 +404,9 @@ def delete_rse_limits(rse, name, issuer, vo='def', *, session: "Session"):
     """
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
     kwargs = {'rse': rse, 'rse_id': rse_id}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='delete_rse_limits', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not update RSE limits for RSE %s' % (issuer, rse))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='delete_rse_limits', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not update RSE limits for RSE %s. %s' % (issuer, rse, auth_result.message))
 
     return rse_module.delete_rse_limits(rse_id=rse_id, name=name, session=session)
 
@@ -448,8 +458,9 @@ def update_rse(rse, parameters, issuer, vo='def', *, session: "Session"):
     """
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
     kwargs = {'rse': rse, 'rse_id': rse_id}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='update_rse', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not update RSE' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='update_rse', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not update RSE. %s' % (issuer, auth_result.message))
     return rse_module.update_rse(rse_id=rse_id, parameters=parameters, session=session)
 
 
@@ -466,8 +477,9 @@ def add_distance(source, destination, issuer, vo='def', distance=None, *, sessio
     :param session: The database session in use.
     """
     kwargs = {'source': source, 'destination': destination}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='add_distance', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not add RSE distances' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='add_distance', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not add RSE distances. %s' % (issuer, auth_result.message))
     try:
         return distance_module.add_distance(src_rse_id=rse_module.get_rse_id(source, vo=vo, session=session),
                                             dest_rse_id=rse_module.get_rse_id(destination, vo=vo, session=session),
@@ -490,8 +502,9 @@ def update_distance(source, destination, distance, issuer, vo='def', *, session:
     :param session: The database session to use.
     """
     kwargs = {'source': source, 'destination': destination}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='update_distance', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not update RSE distances' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='update_distance', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not update RSE distances. %s' % (issuer, auth_result.message))
 
     return distance_module.update_distances(src_rse_id=rse_module.get_rse_id(source, vo=vo, session=session),
                                             dest_rse_id=rse_module.get_rse_id(destination, vo=vo, session=session),
@@ -530,8 +543,9 @@ def delete_distance(source, destination, issuer, vo='def', *, session: "Session"
     :param session: The database session in use.
     """
     kwargs = {'source': source, 'destination': destination}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='delete_distance', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not update RSE distances' % issuer)
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='delete_distance', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not update RSE distances. %s' % (issuer, auth_result.message))
 
     return distance_module.delete_distances(src_rse_id=rse_module.get_rse_id(source, vo=vo, session=session),
                                             dest_rse_id=rse_module.get_rse_id(destination, vo=vo, session=session),
@@ -555,8 +569,9 @@ def add_qos_policy(rse, qos_policy, issuer, vo='def', *, session: "Session"):
 
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
     kwargs = {'rse_id': rse_id}
-    if not permission.has_permission(issuer=issuer, action='add_qos_policy', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s cannot add QoS policies to RSE %s' % (issuer, rse))
+    auth_result = permission.has_permission(issuer=issuer, action='add_qos_policy', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s cannot add QoS policies to RSE %s. %s' % (issuer, rse, auth_result.message))
 
     return rse_module.add_qos_policy(rse_id, qos_policy, session=session)
 
@@ -577,8 +592,9 @@ def delete_qos_policy(rse, qos_policy, issuer, vo='def', *, session: "Session"):
 
     rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
     kwargs = {'rse_id': rse}
-    if not permission.has_permission(issuer=issuer, action='delete_qos_policy', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s cannot delete QoS policies from RSE %s' % (issuer, rse))
+    auth_result = permission.has_permission(issuer=issuer, action='delete_qos_policy', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s cannot delete QoS policies from RSE %s. %s' % (issuer, rse, auth_result.message))
 
     return rse_module.delete_qos_policy(rse_id, qos_policy, session=session)
 
