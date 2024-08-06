@@ -68,14 +68,16 @@ def add_files(
     for rse in rses:
         rse_id = rses[rse]
         kwargs = {'rse': rse, 'rse_id': rse_id}
-        if not has_permission(issuer=issuer, action='add_replicas', kwargs=kwargs, vo=vo, session=session):
-            raise AccessDenied('Account %s can not add file replicas on %s for VO %s' % (issuer, rse, vo))
+        auth_result = has_permission(issuer=issuer, action='add_replicas', kwargs=kwargs, vo=vo, session=session)
+        if not auth_result.allowed:
+            raise AccessDenied('Account %s can not add file replicas on %s for VO %s. %s' % (issuer, rse, vo, auth_result.message))
         if not has_permission(issuer=issuer, action='skip_availability_check', kwargs=kwargs, vo=vo, session=session):
             ignore_availability = False
 
     # Check if the issuer can add the files
     kwargs = {'issuer': issuer, 'dids': dids}
-    if not has_permission(issuer=issuer, action='add_dids', kwargs=kwargs, vo=vo, session=session):
-        raise AccessDenied('Account %s can not bulk add data identifier for VO %s' % (issuer, vo))
+    auth_result = has_permission(issuer=issuer, action='add_dids', kwargs=kwargs, vo=vo, session=session)
+    if not auth_result.allowed:
+        raise AccessDenied('Account %s can not bulk add data identifier for VO %s. %s' % (issuer, vo, auth_result.message))
 
     dirac.add_files(lfns=lfns, account=issuer, ignore_availability=ignore_availability, parents_metadata=parents_metadata, vo=vo, session=session)
