@@ -1869,11 +1869,15 @@ def list_parent_dids(
     stmt = select(
         models.DataIdentifierAssociation.scope,
         models.DataIdentifierAssociation.name,
-        models.DataIdentifierAssociation.did_type
+        models.DataIdentifierAssociation.did_type,
+        models.DataIdentifier.created_at
     ).where(
         and_(models.DataIdentifierAssociation.child_scope == scope,
-             models.DataIdentifierAssociation.child_name == name)
+             models.DataIdentifierAssociation.child_name == name,
+             models.DataIdentifier.scope == models.DataIdentifierAssociation.scope,
+             models.DataIdentifier.name == models.DataIdentifierAssociation.name)
     )
+
     for did in session.execute(stmt).yield_per(5):
         yield {'scope': did.scope, 'name': did.name, 'type': did.did_type}
 
