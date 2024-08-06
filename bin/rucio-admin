@@ -27,7 +27,7 @@ import sys
 import time
 import traceback
 from configparser import NoOptionError, NoSectionError
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 from textwrap import dedent
 
@@ -36,6 +36,7 @@ from rich.console import Console
 from rich.highlighter import ReprHighlighter
 from rich.logging import RichHandler
 from rich.padding import Padding
+from rich.status import Status
 from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme
@@ -96,18 +97,18 @@ LOG_THEMES = {
     'logging.level.critical': 'default on red',
     'repr.bool_true': 'green',
     'repr.bool_false': 'red',
-    'log.time': 'turquoise4',
+    'log.time': 'turquoise4'
 }
 
 RICH_DID_TYPE = {
     'DIDType.CONTAINER': 'bold dodger_blue1',
-    'DIDType.DATASET': 'bold dark_orange',
+    'DIDType.DATASET': 'bold orange3',
     'DIDType.FILE': 'bold default',
     'DIDType.COLLECTION': 'bold green',
     'DIDType.ALL': 'bold magenta',
     'DIDType.DERIVED': 'bold magenta',
     'CONTAINER': 'bold dodger_blue1',
-    'DATASET': 'bold dark_orange',
+    'DATASET': 'bold orange3',
     'FILE': 'bold default',
     'COLLECTION': 'bold green',
     'ALL': 'bold magenta',
@@ -119,30 +120,30 @@ RICH_BOOLEAN = {
 }
 RICH_RULE_STATE = {
     'OK': 'bold green',
-    'REPLICATING': 'bold default',  # or default - neutral
-    'STUCK': 'bold dark_orange',
-    'WAITING APPROVAL': 'bold slate_blue3',
-    'INJECT': 'bold cyan',
+    'REPLICATING': 'bold default',
+    'STUCK': 'bold orange3',
+    'WAITING APPROVAL': 'bold dodger_blue1',
+    'INJECT': 'bold medium_purple3',
     'SUSPENDED': 'bold red'
 }
 RICH_RSE_TYPE = {
     'DISK': 'bold dodger_blue1',
-    'TAPE': 'bold dark_orange',
+    'TAPE': 'bold orange3',
     'UNKNOWN': 'bold'
 }
 RICH_SUBSCRIPTION_STATE = {
-    'ACTIVE': 'bold medium_purple3',
+    'ACTIVE': 'bold green',
     'INACTIVE': 'bold',
     'NEW': 'bold dodger_blue1',
     'UPDATED': 'bold green',
     'BROKEN': 'bold red',
-    'UNKNOWN': 'bold red'
+    'UNKNOWN': 'bold orange3'
 }
 RICH_AVAILABILITY = {
     'AVAILABLE': 'bold green',
     'DELETED': 'bold',
-    'LOST': 'bold medium_purple3',
-    'UNKNOWN': 'bold medium_purple3'
+    'LOST': 'bold red',
+    'UNKNOWN': 'bold orange3'
 }
 RICH_ACCOUNT_STATUS = {
     'ACTIVE': 'bold green',
@@ -152,10 +153,10 @@ RICH_ACCOUNT_STATUS = {
 RICH_REPLICA_STATE = {
     'A': 'bold green',
     'U': 'bold red',
-    'C': 'bold dark_orange',
-    'B': 'bold default',
+    'C': 'bold default',
+    'B': 'bold dodger_blue1',
     'D': 'bold red',
-    'T': 'bold dodger_blue1'
+    'T': 'bold orange3'
 }
 RICH_ACCOUNT_TYPE = {
     'USER': 'default',
@@ -166,7 +167,12 @@ RICH_HIGHLIGHT_TEXT = 'grey50'  # used to highlight prints between tables, e.g. 
 RICH_HIGHLIGHT_SUBHEADER = 'cyan'  # used to highlight prints between for a section, e.g. protocols or usage per account
 RICH_JSON_STR = 'green'
 RICH_JSON_NUM = 'bold cyan'
+RICH_SPINNER = 'dots2'
+RICH_SPINNER_STYLE = 'green'
 RICH_TABLE_FMT = box.SQUARE
+
+SUCCESS_ICON = '[bold green]\u2714[/]'
+FAILURE_ICON = '[bold red]\u2717[/]'
 
 # setting up rich console
 console = Console(theme=Theme(LOG_THEMES), soft_wrap=True)
@@ -254,10 +260,10 @@ def setup_rich_logger(module_name, logger_name, logger_level=logging.NOTSET, ver
             milliseconds = timestamp.microsecond // 1000
             return Text(f"[{formatted_time},{milliseconds:03d}]")
 
+        console = console if console is not None else Console()
         highlighter = ReprHighlighter()
-        handler = RichHandler(rich_tracebacks=True, markup=True, show_path=verbose, show_time=verbose,
-                              console=console, tracebacks_width=min(console.width, MAX_TRACEBACK_WIDTH), tracebacks_word_wrap=True,
-                              log_time_format=time_formatter, highlighter=highlighter)
+        handler = RichHandler(rich_tracebacks=True, markup=True, show_path=verbose, show_time=verbose, console=console, tracebacks_width=min(console.width, MAX_TRACEBACK_WIDTH),
+                              tracebacks_word_wrap=True, log_time_format=time_formatter, highlighter=highlighter)
         logger.addHandler(handler)
 
     # setting handler and formatter
@@ -548,21 +554,26 @@ def list_accounts(args):
     if args.filters:
         for key, value in [(_.split('=')[0], _.split('=')[1]) for _ in args.filters.split(',')]:
             filters[key] = value
-    accounts = client.list_accounts(identity=args.identity, account_type=args.account_type, filters=filters)
+
     if cli_config == 'rich':
-        table_data = [[account['account'], account['status']] for account in accounts]
-        table = generate_table(RICH_TABLE_FMT, headers=['ACCOUNT', 'STATUS'], rows=table_data, col_alignments=['left', 'left'])
-        if console.is_terminal:
-            if args.no_pager:
-                console.print(table)
+        status = Status('Fetching accounts', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            accounts = client.list_accounts(identity=args.identity, account_type=args.account_type, filters=filters)
+            table_data = [[account['account']] for account in accounts]
+            table = generate_table(RICH_TABLE_FMT, headers=['ACCOUNT'], rows=table_data, col_alignments=['left', 'left'])
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table)
             else:
                 console.width = sys.maxsize
-                console.begin_capture()
                 console.print(table)
-        else:
-            console.width = sys.maxsize
-            console.print(table)
     else:
+        accounts = client.list_accounts(identity=args.identity, account_type=args.account_type, filters=filters)
         for account in accounts:
             print(account['account'])
     return SUCCESS
@@ -579,7 +590,8 @@ def info_account(args):
     client = get_client(args)
     info = client.get_account(account=args.account)
     if cli_config == 'rich':
-        table_data = [(k, Text(str(v), style=RICH_ACCOUNT_STATUS.get(str(v), 'default'))) for k, v in sorted(info.items())]
+        keyword_style = {**RICH_ACCOUNT_STATUS, **RICH_ACCOUNT_TYPE} if console.is_terminal else {}
+        table_data = [(k, Text(str(v), style=keyword_style.get(str(v), 'default'))) for k, v in sorted(info.items())]
         table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, show_header=False, row_styles=['none'], col_alignments=['left', 'left'])
         if console.is_terminal:
             if args.no_pager:
@@ -756,21 +768,25 @@ def list_rses(args):
 
     """
     client = get_client(args)
-    rses = client.list_rses()
     if cli_config == 'rich':
-        table_data = [[rse['rse'], rse['rse_type']] for rse in sorted(rses, key=lambda elem: elem['rse'])]
-        table = generate_table(RICH_TABLE_FMT, headers=['RSE', 'TYPE'], rows=table_data, col_alignments=['left', 'left'])
-        if console.is_terminal:
-            if args.no_pager:
-                console.print(table)
+        status = Status('Fetching RSEs', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            rses = client.list_rses()
+            table_data = [[rse['rse'], rse['rse_type']] for rse in sorted(rses, key=lambda elem: elem['rse'])]
+            table = generate_table(RICH_TABLE_FMT, headers=['RSE', 'TYPE'], rows=table_data, col_alignments=['left', 'left'])
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table)
             else:
                 console.width = sys.maxsize
-                console.begin_capture()
                 console.print(table)
-        else:
-            console.width = sys.maxsize
-            console.print(table)
     else:
+        rses = client.list_rses()
         for rse in rses:
             print(rse['rse'])
     return SUCCESS
@@ -813,91 +829,104 @@ def info_rse(args):
 
     """
     client = get_client(args)
-    rseinfo = client.get_rse(rse=args.rse)
-    attributes = client.list_rse_attributes(rse=args.rse)
-    usage = client.get_rse_usage(rse=args.rse, filters={'per_account': None})
-    rse_limits = client.get_rse_limits(args.rse)
-
     if cli_config == 'rich':
-        keyword_styles = {**RICH_BOOLEAN, **RICH_RSE_TYPE} if console.is_terminal else {}
-        if console.is_terminal and not args.no_pager:
-            console.width = sys.maxsize
-            console.begin_capture()
-        elif not console.is_terminal:
-            console.width = sys.maxsize
+        status = Status('Fetching RSE info', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            rseinfo = client.get_rse(rse=args.rse)
+            attributes = client.list_rse_attributes(rse=args.rse)
+            usage = client.get_rse_usage(rse=args.rse, filters={'per_account': None})
+            rse_limits = client.get_rse_limits(args.rse)
 
-        table_data = []
-        for i, key in enumerate(sorted(rseinfo)):
-            if i == 0:
-                console.print('[b]Settings:[/]')
-            if key != 'protocols':
-                if not isinstance(rseinfo[key], list):
-                    table_data.append((key, Text(str(rseinfo[key]), style=keyword_styles.get(str(rseinfo[key]), 'default'))))
-                else:
-                    table_data.append((key, rseinfo[key]))
+            keyword_styles = {**RICH_BOOLEAN, **RICH_RSE_TYPE} if console.is_terminal else {}
+            output = []
+            table_data = []
+            for i, key in enumerate(sorted(rseinfo)):
+                if i == 0:
+                    output.append('[b]Settings:[/]')
+                if key != 'protocols':
+                    if not isinstance(rseinfo[key], list):
+                        table_data.append((key, Text(str(rseinfo[key]), style=keyword_styles.get(str(rseinfo[key]), 'default'))))
+                    else:
+                        table_data.append((key, rseinfo[key]))
 
-        table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, show_header=False, row_styles=['none'], col_alignments=['left', 'left'])
-        console.print(table)
-
-        table_data = []
-        for i, attribute in enumerate(sorted(attributes)):
-            if i == 0:
-                console.print('\n[b]Attributes:[/]')
-            table_data.append((attribute, Text(str(attributes[attribute]), style=keyword_styles.get(str(attributes[attribute]), 'default'))))
-        table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, show_header=False, row_styles=['none'], col_alignments=['left', 'left'])
-        console.print(table)
-
-        for i, protocol in enumerate(sorted(rseinfo['protocols'], key=lambda x: x['scheme'])):
-            if i == 0:
-                console.print('\n[b]Protocols:[/]')
-            console.print(Padding.indent(Text(protocol['scheme'], style=RICH_HIGHLIGHT_SUBHEADER), 2))
+            table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, show_header=False, row_styles=['none'], col_alignments=['left', 'left'])
+            output.append(table)
 
             table_data = []
-            for item in sorted(protocol):
-                if item == 'domains':
-                    tree = Tree('')
-                    for domain, values in protocol[item].items():
-                        branch = tree.add(f'[{RICH_JSON_STR}]{domain}')
-                        for k, v in values.items():
-                            branch.add(f'[{RICH_JSON_STR}]{k}[/]: [{RICH_JSON_NUM}]{v}[/]')
-                    table_data.append([item, tree])
+            for i, attribute in enumerate(sorted(attributes)):
+                if i == 0:
+                    output.append('\n[b]Attributes:[/]')
+                table_data.append((attribute, Text(str(attributes[attribute]), style=keyword_styles.get(str(attributes[attribute]), 'default'))))
+            table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, show_header=False, row_styles=['none'], col_alignments=['left', 'left'])
+            output.append(table)
+
+            for i, protocol in enumerate(sorted(rseinfo['protocols'], key=lambda x: x['scheme'])):
+                if i == 0:
+                    output.append('\n[b]Protocols:[/]')
+                output.append(Padding.indent(Text(protocol['scheme'], style=RICH_HIGHLIGHT_SUBHEADER), 2))
+
+                table_data = []
+                for item in sorted(protocol):
+                    if item == 'domains':
+                        tree = Tree('')
+                        for domain, values in protocol[item].items():
+                            branch = tree.add(f'[{RICH_JSON_STR}]{domain}')
+                            for k, v in values.items():
+                                branch.add(f'[{RICH_JSON_STR}]{k}[/]: [{RICH_JSON_NUM}]{v}[/]')
+                        table_data.append([item, tree])
+                    else:
+                        table_data.append([item, Text(str(protocol[item]), style=keyword_styles.get(protocol[item], 'default'))])
+
+                table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, row_styles=['none'], show_header=False, col_alignments=['left', 'left'])
+                output.append(Padding.indent(table, 2))
+
+            header = ['SOURCE', 'USED', 'FILES', 'FREE', 'TOTAL', 'UPDATED AT']
+            key2id = {header[i].lower().replace(' ', '_'): i for i in range(len(header))}
+            table_data = []
+            for i, elem in enumerate(sorted(usage, key=lambda x: x['source'])):
+                if i == 0:
+                    output.append('\n[b]Usage:[/]')
+
+                row = [''] * len(header)
+                row[0] = elem['source']
+                for item in sorted(elem):
+                    if item in ['used', 'free', 'total']:
+                        row[key2id[item]] = sizefmt(elem[item], True)
+                    elif item != 'source' and item in key2id:
+                        row[key2id[item]] = elem[item]
+                table_data.append(row)
+
+            if len(table_data) > 0:
+                usage_table = generate_table(RICH_TABLE_FMT, headers=header, rows=table_data, col_alignments=['left', 'right', 'right', 'right', 'right', 'left'])
+                output.append(usage_table)
+
+            table_data = []
+            for i, limit in enumerate(rse_limits):
+                if i == 0:
+                    output.append('\n[b]RSE limits:[/]')
+                table_data.append((limit, str(rse_limits[limit]) + ' B'))
+
+            if len(table_data) > 0:
+                table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, show_header=False, row_styles=['none'], col_alignments=['left', 'right'])
+                output.append(table)
+
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(*output)
                 else:
-                    table_data.append([item, Text(str(protocol[item]), style=keyword_styles.get(protocol[item], 'default'))])
-
-            table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, row_styles=['none'], show_header=False, col_alignments=['left', 'left'])
-            console.print(Padding.indent(table, 2))
-
-        header = ['SOURCE', 'USED', 'FILES', 'FREE', 'TOTAL', 'UPDATED AT']
-        key2id = {header[i].lower().replace(' ', '_'): i for i in range(len(header))}
-        table_data = []
-        for i, elem in enumerate(sorted(usage, key=lambda x: x['source'])):
-            if i == 0:
-                console.print('\n[b]Usage:[/]')
-
-            row = [''] * len(header)
-            row[0] = elem['source']
-            for item in sorted(elem):
-                if item in ['used', 'free', 'total']:
-                    row[key2id[item]] = sizefmt(elem[item], True)
-                elif item != 'source' and item in key2id:
-                    row[key2id[item]] = elem[item]
-            table_data.append(row)
-
-        if len(table_data) > 0:
-            usage_table = generate_table(RICH_TABLE_FMT, headers=header, rows=table_data, col_alignments=['left', 'right', 'right', 'right', 'right', 'left'])
-            console.print(usage_table)
-
-        table_data = []
-        for i, limit in enumerate(rse_limits):
-            if i == 0:
-                console.print('\n[b]RSE limits:[/]')
-            table_data.append((limit, str(rse_limits[limit]) + ' B'))
-
-        if len(table_data) > 0:
-            table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, show_header=False, row_styles=['none'], col_alignments=['left', 'right'])
-            console.print(table)
-
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(*output)
+            else:
+                console.width = sys.maxsize
+                console.print(*output)
     else:
+        rseinfo = client.get_rse(rse=args.rse)
+        attributes = client.list_rse_attributes(rse=args.rse)
+        usage = client.get_rse_usage(rse=args.rse, filters={'per_account': None})
+        rse_limits = client.get_rse_limits(args.rse)
+
         print('Settings:')
         print('=========')
         for key in sorted(rseinfo):
@@ -1152,22 +1181,25 @@ def list_qos_policies(args):
     List all QoS policies of an RSE.
     """
     client = get_client(args)
-    qos_policies = client.list_qos_policies(args.rse)
     if cli_config == 'rich':
-        qos_policies = [[qos_policy] for qos_policy in sorted(qos_policies)]
-        table = generate_table(RICH_TABLE_FMT, headers=['QOS POLICY'], rows=qos_policies, col_alignments=['left'])
-
-        if console.is_terminal:
-            if args.no_pager:
-                console.print(table)
+        status = Status('Fetching QoS policies', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            qos_policies = client.list_qos_policies(args.rse)
+            qos_policies = [[qos_policy] for qos_policy in sorted(qos_policies)]
+            table = generate_table(RICH_TABLE_FMT, headers=['QOS POLICY'], rows=qos_policies, col_alignments=['left'])
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table)
             else:
                 console.width = sys.maxsize
-                console.begin_capture()
                 console.print(table)
-        else:
-            console.width = sys.maxsize
-            console.print(table)
     else:
+        qos_policies = client.list_qos_policies(args.rse)
         for qos_policy in sorted(qos_policies):
             print(qos_policy)
     return SUCCESS
@@ -1230,25 +1262,31 @@ def list_scopes(args):
 
     """
     client = get_client(args)
-    if args.account:
-        scopes = client.list_scopes_for_account(args.account)
-    else:
-        scopes = client.list_scopes()
     if cli_config == 'rich':
-        scopes = [[scope] for scope in sorted(scopes) if 'mock' not in scope]
-        table = generate_table(RICH_TABLE_FMT, headers=['SCOPE'], rows=scopes, col_alignments=['left'])
-
-        if console.is_terminal:
-            if args.no_pager:
-                console.print(table)
+        status = Status('Fetching scopes', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            if args.account:
+                scopes = client.list_scopes_for_account(args.account)
+            else:
+                scopes = client.list_scopes()
+            scopes = [[scope] for scope in sorted(scopes) if 'mock' not in scope]
+            table = generate_table(RICH_TABLE_FMT, headers=['SCOPE'], rows=scopes, col_alignments=['left'])
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table)
             else:
                 console.width = sys.maxsize
-                console.begin_capture()
                 console.print(table)
-        else:
-            console.width = sys.maxsize
-            console.print(table)
     else:
+        if args.account:
+            scopes = client.list_scopes_for_account(args.account)
+        else:
+            scopes = client.list_scopes()
         for scope in scopes:
             if 'mock' not in scope:
                 print(scope)
@@ -1347,59 +1385,63 @@ def list_subscriptions(args):
         account = args.issuer
     else:
         account = client.account
-    subs = client.list_subscriptions(name=args.name, account=account)
 
     if cli_config == 'rich':
-        keyword_styles = {**RICH_SUBSCRIPTION_STATE, **RICH_BOOLEAN} if console.is_terminal else {}
-        for sub in subs:
-            table_data = []
-            if args.long:
-                for k, v in sorted(sub.items()):
-                    if k == 'filter':
-                        filter_tree = Tree('')
-                        for filter, values in json.loads(sub['filter']).items():
-                            values_str = ', '.join(values)
-                            filter_tree.add(f'[{RICH_JSON_STR}]{filter}[/]: {values_str}')
-                        table_data.append(('filter', filter_tree))
-                    elif k == 'replication_rules':
-                        rule_tree = Tree('')
-                        for i, rule in enumerate(json.loads(sub['replication_rules'])):
-                            branch = rule_tree.add(Text('rule:', style='default'))
-                            for k, v in rule.items():
-                                branch.add(f'[{RICH_JSON_STR}]{k}[/]: {v}')
-                        table_data.append(('replication_rules', rule_tree))
-                    else:
-                        table_data.append((str(k), Text(str(v), style=keyword_styles.get(str(v), 'default'))))
-            else:
-                table_data.append(('account', sub['account']))
-                table_data.append(('name', sub['name']))
-                table_data.append(('state', Text(str(sub['state']), keyword_styles.get(str(sub['state']), 'default'))))
-                table_data.append(('policyid', sub['policyid']))
-                filter_tree = Tree('')
-                for filter, values in json.loads(sub['filter']).items():
-                    values_str = ', '.join(values)
-                    filter_tree.add(f'[green]{filter}[/]: {values_str}')
-                table_data.append(('filter', filter_tree))
-                rule_tree = Tree('')
-                for i, rule in enumerate(json.loads(sub['replication_rules'])):
-                    branch = rule_tree.add(Text('rule:', style='default'))
-                    for k, v in rule.items():
-                        branch.add(f'[{RICH_JSON_STR}]{k}[/]: {v}')
-                table_data.append(('replication_rules', rule_tree))
-                table_data.append(('comments', sub.get('comments', '')))
+        status = Status('Fetching subscriptions', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            subs = client.list_subscriptions(name=args.name, account=account)
+            keyword_styles = {**RICH_SUBSCRIPTION_STATE, **RICH_BOOLEAN} if console.is_terminal else {}
+            for sub in subs:
+                table_data = []
+                if args.long:
+                    for k, v in sorted(sub.items()):
+                        if k == 'filter':
+                            filter_tree = Tree('')
+                            for filter, values in json.loads(sub['filter']).items():
+                                values_str = ', '.join(values)
+                                filter_tree.add(f'[{RICH_JSON_STR}]{filter}[/]: {values_str}')
+                            table_data.append(('filter', filter_tree))
+                        elif k == 'replication_rules':
+                            rule_tree = Tree('')
+                            for i, rule in enumerate(json.loads(sub['replication_rules'])):
+                                branch = rule_tree.add(Text('rule:', style='default'))
+                                for k, v in rule.items():
+                                    branch.add(f'[{RICH_JSON_STR}]{k}[/]: {v}')
+                            table_data.append(('replication_rules', rule_tree))
+                        else:
+                            table_data.append((str(k), Text(str(v), style=keyword_styles.get(str(v), 'default'))))
+                else:
+                    table_data.append(('account', sub['account']))
+                    table_data.append(('name', sub['name']))
+                    table_data.append(('state', Text(str(sub['state']), keyword_styles.get(str(sub['state']), 'default'))))
+                    table_data.append(('policyid', sub['policyid']))
+                    filter_tree = Tree('')
+                    for filter, values in json.loads(sub['filter']).items():
+                        values_str = ', '.join(values)
+                        filter_tree.add(f'[green]{filter}[/]: {values_str}')
+                    table_data.append(('filter', filter_tree))
+                    rule_tree = Tree('')
+                    for i, rule in enumerate(json.loads(sub['replication_rules'])):
+                        branch = rule_tree.add(Text('rule:', style='default'))
+                        for k, v in rule.items():
+                            branch.add(f'[{RICH_JSON_STR}]{k}[/]: {v}')
+                    table_data.append(('replication_rules', rule_tree))
+                    table_data.append(('comments', sub.get('comments', '')))
 
-            table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, show_header=False, row_styles=['none'], col_alignments=['left', 'left'])
-            if console.is_terminal:
-                if args.no_pager:
-                    console.print(table)
+                table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, show_header=False, row_styles=['none'], col_alignments=['left', 'left'])
+                status.stop()
+                if console.is_terminal:
+                    if args.no_pager:
+                        console.print(table)
+                    else:
+                        console.width = sys.maxsize
+                        console.begin_capture()
+                        console.print(table)
                 else:
                     console.width = sys.maxsize
-                    console.begin_capture()
                     console.print(table)
-            else:
-                console.width = sys.maxsize
-                console.print(table)
     else:
+        subs = client.list_subscriptions(name=args.name, account=account)
         for sub in subs:
             if args.long:
                 print('\n'.join('%s: %s' % (str(k), str(v)) for (k, v) in list(sub.items())))
@@ -1681,7 +1723,7 @@ def declare_temporary_unavailable_replicas(args):
         bad_files = args.listbadfiles
 
     assert args.duration is not None, "Duration should have been set, something went wrong!"
-    expiration_date = (datetime.datetime.utcnow() + datetime.timedelta(seconds=args.duration)).isoformat()
+    expiration_date = (datetime.utcnow() + timedelta(seconds=args.duration)).isoformat()
 
     chunk_size = 10000
     tot_files = len(bad_files)
@@ -1763,27 +1805,50 @@ def import_data(args):
     client = get_client(args)
     import_file_path = args.file_path
     data = None
-    print('Start reading file.')
-    try:
-        with open(import_file_path) as import_file:
-            data_string = import_file.read()
-            data = parse_response(data_string)
-    except ValueError as error:
-        print('There was problem with decoding your file.')
-        print(error)
-        return FAILURE
-    except OSError as error:
-        print('There was a problem with reading your file.')
-        print(error)
-        return FAILURE
+    if cli_config == 'rich':
+        with console.status('Reading file', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE):
+            try:
+                with open(import_file_path) as import_file:
+                    data_string = import_file.read()
+                    data = parse_response(data_string)
+            except ValueError as error:
+                console.print(f'{FAILURE_ICON} There was problem with decoding your file.')
+                logger.error(error)
+                return FAILURE
+            except OSError as error:
+                console.print(f'{FAILURE_ICON} There was a problem with reading your file.')
+                logger.error(error)
+                return FAILURE
 
-    if data:
-        client.import_data(data)
-        print('Data successfully imported.')
-        return SUCCESS
+            if data:
+                client.import_data(data)
+                console.print(f'{SUCCESS_ICON} Data successfully imported.')
+                return SUCCESS
+            else:
+                console.print('Nothing to import.')
+                return FAILURE
     else:
-        print('Nothing to import.')
-        return FAILURE
+        print('Start reading file.')
+        try:
+            with open(import_file_path) as import_file:
+                data_string = import_file.read()
+                data = parse_response(data_string)
+        except ValueError as error:
+            print('There was problem with decoding your file.')
+            print(error)
+            return FAILURE
+        except OSError as error:
+            print('There was a problem with reading your file.')
+            print(error)
+            return FAILURE
+
+        if data:
+            client.import_data(data)
+            print('Data successfully imported.')
+            return SUCCESS
+        else:
+            print('Nothing to import.')
+            return FAILURE
 
 
 @exception_handler
@@ -1795,19 +1860,33 @@ def export_data(args):
 
     """
     client = get_client(args)
-    destination_file_path = args.file_path
-    print('Start querying data.')
-    data = client.export_data()
-    try:
-        with open(destination_file_path, 'w+') as destination_file:
-            destination_file.write(render_json(**data))
-            print('File successfully written.')
-        print('Data successfully exported to %s' % args.file_path)
-        return SUCCESS
-    except OSError as error:
-        print('There was a problem with reading your file.')
-        print(error)
-        return FAILURE
+    if cli_config == 'rich':
+        destination_file_path = args.file_path
+        with console.status('Querying data', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE):
+            data = client.export_data()
+            try:
+                with open(destination_file_path, 'w+') as destination_file:
+                    destination_file.write(render_json(**data))
+                console.print(f'{SUCCESS_ICON} Data successfully exported to {args.file_path}')
+                return SUCCESS
+            except OSError as error:
+                console.print(f'{FAILURE_ICON} There was a problem with reading your file.')
+                logger.error(error)
+                return FAILURE
+    else:
+        destination_file_path = args.file_path
+        print('Start querying data.')
+        data = client.export_data()
+        try:
+            with open(destination_file_path, 'w+') as destination_file:
+                destination_file.write(render_json(**data))
+                print('File successfully written.')
+            print('Data successfully exported to %s' % args.file_path)
+            return SUCCESS
+        except OSError as error:
+            print('There was a problem with reading your file.')
+            print(error)
+            return FAILURE
 
 
 @exception_handler
