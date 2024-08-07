@@ -36,7 +36,7 @@ from sqlalchemy.sql.expression import and_, false, null, or_, true, tuple_
 import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get
 from rucio.common.constants import RseAttr
 from rucio.common.exception import (
@@ -87,7 +87,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-REGION = make_region_memcached(expiration_time=900)
+REGION = MemcacheRegion(expiration_time=900)
 METRICS = MetricManager(module=__name__)
 AutoApproveT = TypeVar('AutoApproveT', bound='AutoApprove')
 

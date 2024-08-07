@@ -31,7 +31,7 @@ from sqlalchemy.sql.ddl import DropSchema
 from sqlalchemy.sql.expression import select, text
 
 from rucio import alembicrevision
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_list
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, LoggerFunction
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     # TypeVar representing the DeclarativeObj class defined inside _create_temp_table
     DeclarativeObj = TypeVar('DeclarativeObj')
 
-REGION = make_region_memcached(expiration_time=600, memcached_expire_time=3660)
+REGION = MemcacheRegion(expiration_time=600, memcached_expire_time=3660)
 
 
 def build_database() -> None:

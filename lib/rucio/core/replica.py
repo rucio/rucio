@@ -39,7 +39,7 @@ from sqlalchemy.sql.expression import case, false, literal, literal_column, null
 import rucio.core.did
 import rucio.core.lock
 from rucio.common import exception
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import RseAttr, SuspiciousAvailability
 from rucio.common.types import InternalScope
@@ -65,7 +65,7 @@ if TYPE_CHECKING:
     from rucio.common.types import LoggerFunction
     from rucio.rse.protocols.protocol import RSEProtocol
 
-REGION = make_region_memcached(expiration_time=60)
+REGION = MemcacheRegion(expiration_time=60)
 METRICS = MetricManager(module=__name__)
 
 
