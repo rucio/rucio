@@ -84,6 +84,8 @@ click==8.1.7
     #   flask
     #   pip-tools
     #   pydoc-markdown
+coverage[toml]==7.6.1
+    # via pytest-cov
 cryptography==42.0.8
     # via
     #   -r requirements.server.txt
@@ -169,9 +171,7 @@ globus-sdk==3.41.0
 google-auth==2.32.0
     # via -r requirements.server.txt
 greenlet==3.0.3
-    # via
-    #   -r requirements.server.txt
-    #   sqlalchemy
+    # via -r requirements.server.txt
 gssapi==1.8.3
     # via
     #   -r requirements.server.txt
@@ -367,7 +367,10 @@ pyspnego[kerberos]==0.11.0
 pytest==7.4.3
     # via
     #   -r requirements.dev.in
+    #   pytest-cov
     #   pytest-xdist
+pytest-cov==5.0.0
+    # via -r requirements.dev.in
 pytest-xdist==3.5.0
     # via -r requirements.dev.in
 python-dateutil==2.9.0.post0
@@ -452,6 +455,7 @@ tomli==2.0.1
     # via
     #   black
     #   build
+    #   coverage
     #   pip-tools
     #   pydoc-markdown
     #   pylint
