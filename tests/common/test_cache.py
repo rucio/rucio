@@ -55,7 +55,7 @@ class TestCache:
                 (None, 20)
             ]
         )
-        def test_memcache_expired_time(self, input_memcached_expire_time, expected_memcached_expire_time):
+        def test_memcached_expired_time(self, input_memcached_expire_time, expected_memcached_expire_time):
             cache.ENABLE_CACHING = True
             expiration_time = 20
             expected_memcached_expire_time = input_memcached_expire_time or expiration_time + 60
