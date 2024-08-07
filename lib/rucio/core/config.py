@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Optional, TypeVar
 from dogpile.cache.api import NoValue
 from sqlalchemy import and_, delete, func, select, update
 
-from rucio.common.cache import CacheKey, make_region_memcached
+from rucio.common.cache import CacheKey, MemcacheRegion
 from rucio.common.exception import ConfigNotFound
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-REGION = make_region_memcached(expiration_time=900)
+REGION = MemcacheRegion(expiration_time=900)
 
 SECTIONS_CACHE_KEY = 'sections'
 
