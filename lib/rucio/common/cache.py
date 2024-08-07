@@ -72,3 +72,34 @@ def make_region_memcached(
         region.configure('dogpile.cache.null')
 
     return region
+
+
+class CacheKey:
+    """
+    Helper class to generate cache keys
+    based on sections and options.
+    """
+
+    @staticmethod
+    def _generate_key(*args: str) -> str:
+        return '_'.join(args)
+
+    @staticmethod
+    def has_section(section: str) -> str:
+        return CacheKey._generate_key('has_section', section)
+
+    @staticmethod
+    def options(section: str) -> str:
+        return CacheKey._generate_key('options', section)
+
+    @staticmethod
+    def has_option(section: str, option: str) -> str:
+        return CacheKey._generate_key('has_option', section, option)
+
+    @staticmethod
+    def items(section: str) -> str:
+        return CacheKey._generate_key('items', section)
+
+    @staticmethod
+    def value(section: str, option: str) -> str:
+        return CacheKey._generate_key('get', section, option)
