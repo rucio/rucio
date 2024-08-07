@@ -37,6 +37,7 @@ lib/rucio_clients.egg-info
 
 # build directories
 .coverage
+**coverage.xml
 build/
 covhtml
 dist/
@@ -67,3 +68,6 @@ tools/test.file.1G
 
 # JetBrains IDE
 .idea/
+
+# VSCode
+.vscode/
