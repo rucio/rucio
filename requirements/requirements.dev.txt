@@ -221,7 +221,7 @@ krb5==0.5.1
     # via
     #   -r requirements.server.txt
     #   pyspnego
-libtorrent==2.0.9
+# libtorrent==2.0.9 # Temporarily disabled: https://github.com/rucio/rucio/issues/6853
     # via -r requirements.server.txt
 lxml==5.2.2
     # via
