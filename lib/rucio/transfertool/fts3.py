@@ -316,6 +316,8 @@ def _pick_fts_checksum(
 def build_job_params(transfer_path, bring_online, default_lifetime, archive_timeout_override, max_time_in_queue, logger):
     """
     Prepare the job parameters which will be passed to FTS transfertool
+    Please refer to https://fts3-docs.web.cern.ch/fts3-docs/fts-rest/docs/bulk.html#parameters
+    for the list of parameters.
     """
 
     # The last hop is the main request (the one which triggered the whole transfer),
@@ -323,13 +325,46 @@ def build_job_params(transfer_path, bring_online, default_lifetime, archive_time
     last_hop = transfer_path[-1]
     first_hop = transfer_path[0]
 
-    overwrite, bring_online_local = True, None
+    # Overwriting by default is set to True for non TAPE RSEs.
+    # Tape RSEs can force overwrite by setting the "overwrite" attribute to True.
+    # There is yet another configuration option: transfers->overwrite_corrupted_files that when is set to True
+    # it will retry failed requests with overwrite flag set to True
+    overwrite, overwrite_when_only_on_disk, bring_online_local = True, False, None
+
     if first_hop.src.rse.is_tape_or_staging_required():
         # Activate bring_online if it was requested by first hop
         # We don't allow multihop via a tape, so bring_online should not be set on any other hop
         bring_online_local = bring_online
+
     if last_hop.dst.rse.is_tape():
-        overwrite = False
+        # FTS v3.12.12 introduced a new boolean parameter "overwrite_when_only_on_disk" that controls if the file can be overwritten
+        # in TAPE enabled RSEs ONLY IF the file is on the disk buffer and not yet committed to tape media.
+        # This functionality should reduce the number of stuck files in the disk buffer that are not migrated to tape media (for whatever reason).
+        # Please be aware that FTS does not guarantee an atomic operation from the time it checks for existence of the file on disk and tape and
+        # the moment the file is overwritten, so there is a race condition that could overwrite the file on the tape media
+
+        # Setting both flags is incompatible, so we opt in for the safest approach: "overwrite_when_only_on_disk"
+        # this is aligned with FTS implementation: see (internal access only): https://its.cern.ch/jira/browse/FTS-2007
+
+        overwrite_when_only_on_disk = last_hop.dst.rse.attributes.get('overwrite_when_only_on_disk', False)
+        overwrite = False if overwrite_when_only_on_disk else last_hop.dst.rse.attributes.get('overwrite', False)
+
+    # We still need to check for the
+    # "transfers -> overwrite_corrupted_files setting. The logic behind this flag is that
+    # it will update the rws (RequestWithSources) with the "overwrite" attribute set to True
+    # after finding an 'Destination file exists and overwrite is not enabled' error message
+    overwrite_corrupted_files = last_hop.rws.attributes.get('overwrite', False)
+    if overwrite_corrupted_files:
+        overwrite = True  # both for DISK and TAPE
+
+    logger(logging.DEBUG, 'RSE:%s Is it Tape? %s overwrite_when_only_on_disk:%s overwrite:%s overwrite_corrupted_files=%s' % (
+        last_hop.dst.rse.name,
+        last_hop.dst.rse.is_tape(),
+        overwrite_when_only_on_disk,
+        overwrite,
+        overwrite_corrupted_files))
+
+    logger(logging.DEBUG, 'RSE attributes are: %s' % (last_hop.dst.rse.attributes))
 
     # Get dest space token
     dest_protocol = last_hop.protocol_factory.protocol(last_hop.dst.rse, last_hop.dst.scheme, last_hop.operation_dest)
@@ -348,8 +383,10 @@ def build_job_params(transfer_path, bring_online, default_lifetime, archive_time
                   'job_metadata': {
                       'issuer': 'rucio',
                       'multi_sources': False,
+                      'overwrite_when_only_on_disk': overwrite_when_only_on_disk,
                   },
-                  'overwrite': last_hop.rws.attributes.get('overwrite', overwrite),
+                  'overwrite': overwrite,
+                  'overwrite_when_only_on_disk': overwrite_when_only_on_disk,
                   'priority': last_hop.rws.priority}
 
     if len(transfer_path) > 1:
@@ -393,16 +430,27 @@ def build_job_params(transfer_path, bring_online, default_lifetime, archive_time
         elif 'default' in max_time_in_queue:
             job_params['max_time_in_queue'] = max_time_in_queue['default']
 
-    overwrite_hop = True
-    for transfer_hop in transfer_path[:-1]:
-        # Only allow overwrite if all hops in multihop allow it
-        h_overwrite = transfer_hop.rws.attributes.get('overwrite', True)
-        job_params['overwrite'] = h_overwrite and job_params['overwrite']
-        # Allow overwrite_hop if all intermediate hops allow it (ignoring the last hop)
-        overwrite_hop = h_overwrite and overwrite_hop
+    # Refer to https://its.cern.ch/jira/browse/FTS-1749 for full details (login needed), extract below:
+    # Why the overwrite_hop parameter is needed?
+    # Rucio decides that a multihop transfer is needed DISK1 --> DISK2 --> TAPE1 in order to put the file on tape. For some reason, the file already exists on DISK2.
+    # Rucio doesn't know about this file on DISK2. It could be either a correct or corrupted file. This can be due to a previous issue on Rucio side, FTS side, network side, etc (many possible reasons).
+    # Normally, Rucio allows overwrite towards any disk destination, but denies overwrite towards a tape destination. However, in this case, because the destination of the multihop is a tape, DISK2 cannot be overwritten.
+    # Proposed solution
+    # Provide an --overwrite-hop submission option, which instructs FTS to overwrite all transfers except for the destination within a multihop submission.
+
+    # direct transfers, is not multihop
+    if len(transfer_path) == 1:
+        overwrite_hop = False
+
+    else:
+        # Set `overwrite_hop` to `True` only if all hops allow it
+        overwrite_hop = all(transfer_hop.rws.attributes.get('overwrite', True) for transfer_hop in transfer_path[:-1])
+        job_params['overwrite'] = overwrite_hop and job_params['overwrite']
+
     if not job_params['overwrite'] and overwrite_hop:
         job_params['overwrite_hop'] = overwrite_hop
 
+    logger(logging.DEBUG, 'Job parameters are : %s' % (job_params))
     return job_params
 
 
@@ -433,6 +481,7 @@ def bulk_group_transfers(transfer_paths, policy='rule', group_bulk=200, source_s
             max_time_in_queue=max_time_in_queue,
             logger=logger
         )
+        logger(logging.DEBUG, 'bulk_group_transfers: Job parameters are: %s' % (job_params))
         if job_params['job_metadata'].get('multi_sources') or job_params['job_metadata'].get('multihop'):
             # for multi-hop and multi-source transfers, no bulk submission.
             fts_jobs.append({'transfers': transfer_path[0:group_bulk], 'job_params': job_params})
@@ -478,6 +527,7 @@ def bulk_group_transfers(transfer_paths, policy='rule', group_bulk=200, source_s
     # split transfer groups to have at most group_bulk elements in each one
     for group in grouped_transfers.values():
         job_params = group['job_params']
+        logger(logging.DEBUG, 'bulk_group_transfers: grouped_transfers.values(): Job parameters are: %s' % (job_params))
         for transfer_paths in chunks(group['transfers'], group_bulk):
             fts_jobs.append({'transfers': transfer_paths, 'job_params': job_params})
 

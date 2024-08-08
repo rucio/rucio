@@ -4,7 +4,7 @@ Setting up a Rucio development environment
 Prerequisites
 --------------
 
-We provide a containerised version of the Rucio development environment for a quick start. Our containers are ready-made for Docker, but we provide best-effort support for Podman and podman-compose. If you use podman-compose, you need to add `-t cntnet` to the podman-compose commands. For simplicity all commands explained in this documentation are using docker-compose.
+We provide a containerised version of the Rucio development environment for a quick start. Our containers are ready-made for Docker, but we provide best-effort support for Podman and podman-compose. If you use podman-compose, you need to add `-t cntnet` to the podman-compose commands. For simplicity all commands explained in this documentation are using docker compose.
 
 To install Docker for your platform, please refer to the `Docker installation guide <https://docs.docker.com/install/>`_, for example, for CentOS `follow these instructions for the Docker Community Edition <https://docs.docker.com/install/linux/docker-ce/centos/>`_. Please make sure that you install this recent Docker version especially if you are on CentOS, i.e. its default version is ancient and does not support some features we rely on.
 
@@ -12,7 +12,7 @@ Start the Docker daemon with `systemctl start docker`. You can confirm that Dock
 
     docker run hello-world
 
-If successful, this will print an informational message telling you that you are ready to go.  Now, also install the `docker-compose` helper tool with `sudo yum install docker-compose` (might need `EPEL <https://fedoraproject.org/wiki/EPEL>`_ enabled). You are now ready to install the Rucio development environment.
+If successful, this will print an informational message telling you that you are ready to go.  Now, also install the `docker compose` helper tool with `sudo yum install docker compose` (might need `EPEL <https://fedoraproject.org/wiki/EPEL>`_ enabled). You are now ready to install the Rucio development environment.
 
 Preparing the environment
 -------------------------
@@ -26,16 +26,16 @@ First, fork the `main Rucio repository on GitHub <https://github.com/rucio/rucio
 
 Now, ensure that the `.git/config` is proper, i.e., mentioning your full name and email address, and create the `.githubtoken` file that contains a full access token from `Github Account Settings <https://github.com/settings/tokens>`_.
 
-Next, startup the Rucio development environment with docker-compose. There are three different types: a standard one to just run the unittests and do basic development, which includes just Rucio without any transfer capabilities. One slightly larger one, which includes the File Transfer Service (FTS) and three XrootD storage servers to develop upload/download and transfers capabilities. And a third large one, which adds the full monitoring stack with Logstash, Elasticsearch, Kibana and Grafana.
+Next, startup the Rucio development environment with docker compose. There are three different types: a standard one to just run the unittests and do basic development, which includes just Rucio without any transfer capabilities. One slightly larger one, which includes the File Transfer Service (FTS) and three XrootD storage servers to develop upload/download and transfers capabilities. And a third large one, which adds the full monitoring stack with Logstash, Elasticsearch, Kibana and Grafana.
 
 *Note: if you are running with SELinux enabled, you might run into problems. Check troubleshooting with SELinux on the help pages of your container runtime environment.*
 
 Using the standard environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Run the containers using docker-compose (again might need `sudo`)::
+Run the containers using docker compose (again might need `sudo`)::
 
-    docker-compose --file etc/docker/dev/docker-compose.yml up -d
+    docker compose --file etc/docker/dev/docker compose.yml up -d
 
 And verify that it is running properly::
 
@@ -61,9 +61,9 @@ Alternatively, you can bootstrap the test environment once with the `-i` option 
 Using the environment including storage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Again run the containers using docker-compose::
+Again run the containers using docker compose::
 
-    docker-compose --file etc/docker/dev/docker-compose.yml --profile storage up -d
+    docker compose --file etc/docker/dev/docker compose.yml --profile storage up -d
 
 This should show you a few more running containers: the Rucio server, the PostgreSQL database, FTS and its associated MySQL database, the Graphite monitoring, and three XrootD storage servers.
 
@@ -87,9 +87,9 @@ On the second display of the rule, its state has cleared to OK.
 Using the environment including monitoring
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Again run the containers using docker-compose::
+Again run the containers using docker compose::
 
-    docker-compose --file etc/docker/dev/docker-compose.yml --profile storage --profile monitoring up -d
+    docker compose --file etc/docker/dev/docker compose.yml --profile storage --profile monitoring up -d
 
 
 Now you will have the same containers as before plus a full monitoring stack with Logstash, Elasticsearch, Kibana and Grafana.
@@ -162,7 +162,7 @@ If you edit server-side files, e.g. in `lib/rucio/web`, and your changes are not
 Database access
 ~~~~~~~~~~~~~~~
 
-The default database is PostgreSQL, and `docker-compose` is configured to open its port to the host machine. Using your favourite SQL navigator, e.g., `DBeaver <https://dbeaver.io/>`_, you can connect to the database using the default access on `localhost:5432` to database name `rucio`, schema name `dev`, with username `rucio` and password `secret`.
+The default database is PostgreSQL, and `docker compose` is configured to open its port to the host machine. Using your favourite SQL navigator, e.g., `DBeaver <https://dbeaver.io/>`_, you can connect to the database using the default access on `localhost:5432` to database name `rucio`, schema name `dev`, with username `rucio` and password `secret`.
 
 Docker is eating my disk space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -198,10 +198,10 @@ Change anything you need, e.g. in the Dockerfile the code branch cloned to your 
     docker build -t rucio/rucio-dev .
 
 
-Compose as usual using docker-compose::
+Compose as usual using docker compose::
 
     cd /path/to/your/rucio/clone
-    docker-compose --file etc/docker/dev/docker-compose.yml up -d
+    docker compose --file etc/docker/dev/docker compose.yml up -d
 
 
 
