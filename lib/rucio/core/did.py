@@ -1853,6 +1853,7 @@ def list_content_history(
 def list_parent_dids(
     scope: "InternalScope",
     name: str,
+    order_by: Optional[list[str]] = None,
     *,
     session: "Session"
 ) -> "Iterator[dict[str, Any]]":
@@ -1861,19 +1862,29 @@ def list_parent_dids(
 
     :param scope:     The scope.
     :param name:      The name.
+    :param order_by:  List of parameters to order the query by. Possible values: ['scope', 'name', 'did_type', 'created_at'].
     :param session:   The database session.
     :returns:         List of dids.
     :rtype:           Generator.
     """
 
+    if order_by is None:
+        order_by = []
+
     stmt = select(
         models.DataIdentifierAssociation.scope,
         models.DataIdentifierAssociation.name,
-        models.DataIdentifierAssociation.did_type
+        models.DataIdentifierAssociation.did_type,
+        models.DataIdentifier.created_at
     ).where(
         and_(models.DataIdentifierAssociation.child_scope == scope,
-             models.DataIdentifierAssociation.child_name == name)
+             models.DataIdentifierAssociation.child_name == name,
+             models.DataIdentifier.scope == models.DataIdentifierAssociation.scope,
+             models.DataIdentifier.name == models.DataIdentifierAssociation.name)
+    ).order_by(
+        *order_by
     )
+
     for did in session.execute(stmt).yield_per(5):
         yield {'scope': did.scope, 'name': did.name, 'type': did.did_type}
 
