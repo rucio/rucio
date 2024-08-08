@@ -175,7 +175,7 @@ class JSONDidMeta(DidMetaPlugin):
         # instantiate fe and create sqla query, note that coercion to a model keyword
         # is not appropriate here as the filter words are stored in a single json column.
         fe = FilterEngine(filters, model_class=models.DidMeta, strict_coerce=False)
-        query = fe.create_sqla_query(
+        stmt = fe.create_sqla_query(
             additional_model_attributes=[
                 models.DidMeta.scope,
                 models.DidMeta.name
@@ -187,13 +187,15 @@ class JSONDidMeta(DidMetaPlugin):
         )
 
         if limit:
-            query = query.limit(limit)
+            stmt = stmt.limit(
+                limit
+            )
         if recursive:
             from rucio.core.did import list_content
 
             # Get attached DIDs and save in list because query has to be finished before starting a new one in the recursion
             collections_content = []
-            for did in query.yield_per(100):
+            for did in session.execute(stmt).yield_per(100):
                 if (did.did_type == DIDType.CONTAINER or did.did_type == DIDType.DATASET):
                     collections_content += [d for d in list_content(scope=did.scope, name=did.name)]
 
@@ -206,7 +208,7 @@ class JSONDidMeta(DidMetaPlugin):
                     yield result
 
         try:
-            for did in query.yield_per(5):                  # don't unpack this as it makes it dependent on query return order!
+            for did in session.execute(stmt).yield_per(5):                  # don't unpack this as it makes it dependent on query return order!
                 if long:
                     did_full = "{}:{}".format(did.scope, did.name)
                     if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
