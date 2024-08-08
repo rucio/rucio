@@ -8,6 +8,14 @@ pythonpath = [
   "lib",
 ]
 
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",  # Ignore code in TYPE_CHECKING blocks
+    "raise NotImplementedError",  # Ignore un-implemented methods
+    "@(abc\\.)?abstractmethod",  # Ignore abstract methods (they are not run directly)
+    "@overload",  # Ignore typing.overload decorated function (only used for type-checking)
+]
+
 [tool.ruff]
 line-length = 256
 
