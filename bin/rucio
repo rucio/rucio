@@ -19,6 +19,8 @@ import itertools
 import logging
 import math
 import os
+import pydoc
+import re
 import signal
 import subprocess
 import sys
@@ -32,6 +34,17 @@ from datetime import datetime
 from functools import wraps
 from typing import Optional
 
+from rich import box
+from rich.console import Console
+from rich.highlighter import ReprHighlighter
+from rich.logging import RichHandler
+from rich.padding import Padding
+from rich.status import Status
+from rich.table import Table
+from rich.text import Text
+from rich.theme import Theme
+from rich.traceback import install
+from rich.tree import Tree
 from tabulate import tabulate
 
 # rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
@@ -73,14 +86,178 @@ FAILURE = 1
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
 
+# rich dependencies
+MIN_CONSOLE_WIDTH = 80  # minimum number of characters
+MAX_TRACEBACK_WIDTH = 120  # slightly higher than default width of rich.traceback (100)
+
+# style mappings for highlighting keywords and logging
+LOG_THEMES = {
+    'logging.level.info': 'default',
+    'logging.level.warning': 'bold yellow',
+    'logging.level.debug': 'dim',
+    'logging.level.critical': 'default on red',
+    'repr.bool_true': 'green',
+    'repr.bool_false': 'red',
+    'log.time': 'turquoise4'
+}
+
+RICH_DID_TYPE = {
+    'DIDType.CONTAINER': 'bold dodger_blue1',
+    'DIDType.DATASET': 'bold orange3',
+    'DIDType.FILE': 'bold default',
+    'DIDType.COLLECTION': 'bold green',
+    'DIDType.ALL': 'bold magenta',
+    'DIDType.DERIVED': 'bold magenta',
+    'CONTAINER': 'bold dodger_blue1',
+    'DATASET': 'bold orange3',
+    'FILE': 'bold default',
+    'COLLECTION': 'bold green',
+    'ALL': 'bold magenta',
+    'DERIVED': 'bold magenta'
+}
+RICH_BOOLEAN = {
+    'True': 'green',
+    'False': 'red'
+}
+RICH_RULE_STATE = {
+    'OK': 'bold green',
+    'REPLICATING': 'bold default',
+    'STUCK': 'bold orange3',
+    'WAITING APPROVAL': 'bold dodger_blue1',
+    'INJECT': 'bold medium_purple3',
+    'SUSPENDED': 'bold red'
+}
+RICH_RSE_TYPE = {
+    'DISK': 'bold dodger_blue1',
+    'TAPE': 'bold orange3',
+    'UNKNOWN': 'bold'
+}
+RICH_SUBSCRIPTION_STATE = {
+    'ACTIVE': 'bold green',
+    'INACTIVE': 'bold',
+    'NEW': 'bold dodger_blue1',
+    'UPDATED': 'bold green',
+    'BROKEN': 'bold red',
+    'UNKNOWN': 'bold orange3'
+}
+RICH_AVAILABILITY = {
+    'AVAILABLE': 'bold green',
+    'DELETED': 'bold',
+    'LOST': 'bold red',
+    'UNKNOWN': 'bold orange3'
+}
+RICH_ACCOUNT_STATUS = {
+    'ACTIVE': 'bold green',
+    'SUSPENDED': 'bold red',
+    'DELETED': 'bold'
+}
+RICH_REPLICA_STATE = {
+    'A': 'bold green',
+    'U': 'bold red',
+    'C': 'bold default',
+    'B': 'bold dodger_blue1',
+    'D': 'bold red',
+    'T': 'bold orange3'
+}
+RICH_ACCOUNT_TYPE = {
+    'USER': 'default',
+    'GROUP': 'medium_purple3',
+    'SERVICE': 'yellow'
+}
+RICH_HIGHLIGHT_TEXT = 'grey50'  # used to highlight prints between tables, e.g. get_metadata or stat
+RICH_HIGHLIGHT_SUBHEADER = 'cyan'  # used to highlight prints between tables for a section, e.g. protocols or usage per account
+RICH_SPINNER = 'dots2'
+RICH_SPINNER_STYLE = 'green'
+RICH_TABLE_FMT = box.SQUARE
+
+# setting up rich console
+console = Console(theme=Theme(LOG_THEMES), soft_wrap=True)
+console.width = max(MIN_CONSOLE_WIDTH, console.width)
+
 logger = logging.log
 gfal2_logger = logging.getLogger("gfal2")
 tablefmt = 'psql'
+cli_config = 'tabulate'
 
 
 def setup_gfal2_logger(logger):
     logger.setLevel(logging.CRITICAL)
     logger.addHandler(logging.StreamHandler())
+
+
+def setup_pager():
+    default_pager = 'less'
+    try:
+        result = subprocess.run([default_pager], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        less_available = result.returncode == 0
+    except (FileNotFoundError, Exception):
+        less_available = False
+
+    if console.is_terminal and less_available:
+        pydoc.getpager = lambda: lambda text: pydoc.pipepager(text, f'{default_pager} -FRSX')
+    return
+
+
+# replace the rucio.common.utils.setup_logger with this one using RichHandler for rich cli
+def setup_rich_logger(module_name, logger_name, logger_level=logging.NOTSET, verbose=False, console=None):
+    '''
+    Factory method to set logger with handlers.
+    :param module_name: __name__ of the module that is calling this method
+    :param logger_name: name of the logger, typically name of the module.
+    :param logger_level: if not given, fetched from config.
+    :param verbose: verbose option set in bin/rucio
+    '''
+
+    # helper method for cfg check
+    def _force_cfg_log_level(cfg_option: str):
+        cfg_forced_modules = config_get('logging', cfg_option, raise_exception=False, default=None, clean_cached=True, check_config_table=False)
+        if cfg_forced_modules and module_name is not None:
+            if re.match(str(cfg_forced_modules), module_name):
+                return True
+        return False
+
+    # creating log
+    if not logger_name:
+        if not module_name:
+            logger_name = 'usr'
+        else:
+            logger_name = module_name.split('.')[-1]
+    logger = logging.getLogger(logger_name)
+
+    # extracting the log level
+    if not logger_level:
+        logger_level = logging.INFO
+        if verbose:
+            logger_level = logging.DEBUG
+
+        # overriding by the config
+        cfg_levels = (logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR)
+        for level in cfg_levels:
+            cfg_opt = 'forceloglevel' + logging.getLevelName(level)
+            if _force_cfg_log_level(cfg_opt):
+                logger_level = level
+
+    # setting the log level
+    logger.setLevel(logger_level)
+
+    # preferred logger handling
+    def add_handler(logger, console=None, verbose=False):
+        def time_formatter(timestamp: datetime) -> Text:
+            formatted_time = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            milliseconds = timestamp.microsecond // 1000
+            return Text(f"[{formatted_time},{milliseconds:03d}]")
+
+        console = console if console is not None else Console()
+        highlighter = ReprHighlighter()
+        handler = RichHandler(rich_tracebacks=True, markup=True, show_path=verbose, show_time=verbose, console=console, tracebacks_width=min(console.width, MAX_TRACEBACK_WIDTH),
+                              tracebacks_word_wrap=True, log_time_format=time_formatter, highlighter=highlighter)
+        logger.addHandler(handler)
+
+    # setting handler and formatter
+    if not logger.handlers:
+        add_handler(logger, console, verbose)
+
+    return logger
 
 
 setup_gfal2_logger(gfal2_logger)
@@ -110,6 +287,33 @@ def get_scope(did, client):
         scope, name = extract_scope(did, scopes)
         return scope, name
     return None, did
+
+
+def generate_table(table_format, headers, rows, col_alignments=None, show_header=True, row_styles=None):
+    table = Table(box=table_format, show_header=show_header)
+    rich_widgets = (Text, Tree, Table)
+    if row_styles is None:
+        row_styles = ['none', 'dim']
+    table.row_styles = row_styles
+
+    if not col_alignments and len(rows) > 0:
+        # auto-detect on first row, numerical values on the right
+        col_alignments = ['right' if str(value).isnumeric() else 'left' for value in rows[0]]
+    elif col_alignments and len(rows) > len(col_alignments):
+        while len(rows) > len(col_alignments):
+            col_alignments.append('left')
+
+    for i, header in enumerate(headers):
+        if col_alignments:
+            justify = col_alignments[i] if col_alignments[i] in ["left", "center", "right"] else "left"
+            table.add_column(header, overflow='fold', justify=justify)
+        else:
+            table.add_column(header, overflow='fold')
+
+    for row in rows:
+        row = [elem if isinstance(elem, rich_widgets) and str(elem) != 'None' else str(elem) if elem is not None and str(elem) != 'None' else '' for elem in row]
+        table.add_row(*row)
+    return table
 
 
 def exception_handler(function):
@@ -173,10 +377,13 @@ def exception_handler(function):
                     pass
                 logger.error('Specified account %s does not have an associated identity.' % used_account)
             else:
-                logger.debug(traceback.format_exc())
+                if logger.level == logging.DEBUG and cli_config == 'rich':
+                    logger.exception(error)
+                else:
+                    logger.debug(traceback.format_exc())
                 contact = config_get('policy', 'support', raise_exception=False)
                 support = ('Please follow up with all relevant information at: ' + contact) if contact else ''
-                logger.error('\nThe object is missing this property: %s\n'
+                logger.error('The object is missing this property: %s\n'
                              'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n'
                              '%s' % (str(error), support))
             return FAILURE
@@ -193,13 +400,20 @@ def exception_handler(function):
                 devnull = os.open(os.devnull, os.O_WRONLY)
                 os.dup2(devnull, sys.stdout.fileno())
                 return SUCCESS
-            logger.debug(traceback.format_exc())
-            logger.error(error)
+
+            if cli_config == 'rich':
+                if logger.level == logging.DEBUG:
+                    logger.exception(error)
+                else:
+                    logger.error(error)
+            else:
+                logger.debug(traceback.format_exc())
+                logger.error(error)
             contact = config_get('policy', 'support', raise_exception=False)
             support = ("If it's a problem concerning your experiment or if you're unsure what to do, please follow up at: %s\n" % contact) if contact else ''
             contact = config_get('policy', 'support_rucio', default='https://github.com/rucio/rucio/issues')
             support += "If you're sure there is a problem with Rucio itself, please follow up at: " + contact
-            logger.error('\nRucio exited with an unexpected/unknown error.\n'
+            logger.error('Rucio exited with an unexpected/unknown error.\n'
                          'Please rerun the last command with the "-v" option to gather more information.\n'
                          '%s' % support)
             return FAILURE
@@ -257,6 +471,16 @@ def get_client(args):
     return client
 
 
+def get_cli_config():
+    try:
+        cli_type = config_get('client', 'cli')
+        if cli_type not in ['rich', 'tabulate']:
+            cli_type = 'tabulate'
+    except (NoOptionError, NoSectionError, RucioException):
+        cli_type = 'tabulate'
+    return cli_type
+
+
 def __resolve_containers_to_datasets(scope, name, client):
     """
     Helper function to resolve a container into its dataset content.
@@ -293,8 +517,23 @@ def whoami_account(args):
     """
     client = get_client(args)
     info = client.whoami()
-    for k in info:
-        print(k.ljust(10) + ' : ' + str(info[k]))
+    if cli_config == 'rich':
+        keyword_styles = {**RICH_ACCOUNT_STATUS, **RICH_ACCOUNT_TYPE} if console.is_terminal else {}
+        table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(info.items())]
+        table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, col_alignments=['left', 'left'], show_header=False, row_styles=['none'])
+        if console.is_terminal:
+            if args.no_pager:
+                console.print(table)
+            else:
+                console.width = sys.maxsize
+                console.begin_capture()
+                console.print(table)
+        else:
+            console.width = sys.maxsize
+            console.print(table)
+    else:
+        for k in info:
+            print(k.ljust(10) + ' : ' + str(info[k]))
     return SUCCESS
 
 
@@ -329,34 +568,85 @@ def list_dataset_replicas(args):
             result[dsn] = {}
         result[dsn][replica['rse']] = [replica['rse'], replica['available_length'], replica['length']]
 
-    if len(args.dids) == 1:
-        scope, name = get_scope(args.dids[0], client)
-        dmeta = client.get_metadata(scope, name)
-        _fetch_datasets_for_meta(meta=dmeta)
+    if cli_config == 'rich':
+        status = Status('Fetching dataset replicas', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            if len(args.dids) == 1:
+                scope, name = get_scope(args.dids[0], client)
+                dmeta = client.get_metadata(scope, name)
+                _fetch_datasets_for_meta(meta=dmeta)
+            else:
+                extractdids = (get_scope(did, client) for did in args.dids)
+                splitdids = [{'scope': scope, 'name': name} for scope, name in extractdids]
+                for dmeta in client.get_metadata_bulk(dids=splitdids):
+                    _fetch_datasets_for_meta(meta=dmeta)
+
+            if args.deep or len(datasets) < 2:
+                for did in datasets:
+                    dsn = "%s:%s" % (did['scope'], did['name'])
+                    for rep in client.list_dataset_replicas(scope=did['scope'], name=did['name'], deep=args.deep):
+                        _append_result(dsn=dsn, replica=rep)
+            else:
+                for rep in client.list_dataset_replicas_bulk(dids=datasets):
+                    dsn = "%s:%s" % (rep['scope'], rep['name'])
+                    _append_result(dsn=dsn, replica=rep)
+
+            if args.csv:
+                for dsn in result:
+                    for rse in list(result[dsn].values()):
+                        print(rse[0], rse[1], rse[2], sep=',')
+            else:
+                if cli_config == 'rich':
+                    output = []
+                    for i, dsn in enumerate(result):
+                        if i > 0:
+                            output.append(Text('\nDATASET: %s' % dsn, style=RICH_HIGHLIGHT_TEXT))
+                        elif len(result) > 1:
+                            output.append(Text('DATASET: %s' % dsn, style=RICH_HIGHLIGHT_TEXT))
+
+                        table = generate_table(RICH_TABLE_FMT, headers=['RSE', 'FOUND', 'TOTAL'], rows=list(result[dsn].values()), col_alignments=['left', 'right', 'right'])
+                        output.append(table)
+
+                    status.stop()
+                    if console.is_terminal:
+                        if args.no_pager:
+                            console.print(*output)
+                        else:
+                            console.width = sys.maxsize
+                            console.begin_capture()
+                            console.print(*output)
+                    else:
+                        console.width = sys.maxsize
+                        console.print(*output)
     else:
-        extractdids = (get_scope(did, client) for did in args.dids)
-        splitdids = [{'scope': scope, 'name': name} for scope, name in extractdids]
-        for dmeta in client.get_metadata_bulk(dids=splitdids):
+        if len(args.dids) == 1:
+            scope, name = get_scope(args.dids[0], client)
+            dmeta = client.get_metadata(scope, name)
             _fetch_datasets_for_meta(meta=dmeta)
+        else:
+            extractdids = (get_scope(did, client) for did in args.dids)
+            splitdids = [{'scope': scope, 'name': name} for scope, name in extractdids]
+            for dmeta in client.get_metadata_bulk(dids=splitdids):
+                _fetch_datasets_for_meta(meta=dmeta)
 
-    if args.deep or len(datasets) < 2:
-        for did in datasets:
-            dsn = "%s:%s" % (did['scope'], did['name'])
-            for rep in client.list_dataset_replicas(scope=did['scope'], name=did['name'], deep=args.deep):
+        if args.deep or len(datasets) < 2:
+            for did in datasets:
+                dsn = "%s:%s" % (did['scope'], did['name'])
+                for rep in client.list_dataset_replicas(scope=did['scope'], name=did['name'], deep=args.deep):
+                    _append_result(dsn=dsn, replica=rep)
+        else:
+            for rep in client.list_dataset_replicas_bulk(dids=datasets):
+                dsn = "%s:%s" % (rep['scope'], rep['name'])
                 _append_result(dsn=dsn, replica=rep)
-    else:
-        for rep in client.list_dataset_replicas_bulk(dids=datasets):
-            dsn = "%s:%s" % (rep['scope'], rep['name'])
-            _append_result(dsn=dsn, replica=rep)
 
-    if args.csv:
-        for dsn in result:
-            for rse in list(result[dsn].values()):
-                print(rse[0], rse[1], rse[2], sep=',')
-    else:
-        for dsn in result:
-            print('\nDATASET: %s' % (dsn))
-            print(tabulate(list(result[dsn].values()), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL']))
+        if args.csv:
+            for dsn in result:
+                for rse in list(result[dsn].values()):
+                    print(rse[0], rse[1], rse[2], sep=',')
+        else:
+            for dsn in result:
+                print('\nDATASET: %s' % (dsn))
+                print(tabulate(list(result[dsn].values()), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL']))
     return SUCCESS
 
 
@@ -375,7 +665,7 @@ def list_file_replicas(args):
     if args.protocols:
         protocols = args.protocols.split(',')
 
-    table = []
+    table_data = []
     dids = []
     if args.missing and not args.rses:
         print('Cannot use --missing without specifying a RSE')
@@ -384,75 +674,193 @@ def list_file_replicas(args):
         print('The substitution parameter must equal --link="/pfn/dir:/dst/dir"')
         return FAILURE
 
-    for did in args.dids:
-        scope, name = get_scope(did, client)
-        client.get_metadata(scope=scope, name=name)  # break with Exception before streaming replicas if DID does not exist
-        dids.append({'scope': scope, 'name': name})
+    if cli_config == 'rich':
+        status = Status('Fetching file replicas', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            for did in args.dids:
+                scope, name = get_scope(did, client)
+                client.get_metadata(scope=scope, name=name)  # break with Exception before streaming replicas if DID does not exist
+                dids.append({'scope': scope, 'name': name})
 
-    replicas = client.list_replicas(dids, schemes=protocols,
-                                    ignore_availability=True,
-                                    all_states=args.all_states,
-                                    rse_expression=args.rses,
-                                    metalink=args.metalink,
-                                    client_location=detect_client_location(),
-                                    sort=args.sort, domain=args.domain,
-                                    resolve_archives=not args.no_resolve_archives)
-    rses = [rse["rse"] for rse in client.list_rses(rse_expression=args.rses)]
+            replicas = client.list_replicas(dids, schemes=protocols,
+                                            ignore_availability=True,
+                                            all_states=args.all_states,
+                                            rse_expression=args.rses,
+                                            metalink=args.metalink,
+                                            client_location=detect_client_location(),
+                                            sort=args.sort, domain=args.domain,
+                                            resolve_archives=not args.no_resolve_archives)
+            rses = [rse["rse"] for rse in client.list_rses(rse_expression=args.rses)]
 
-    if args.metalink:
-        print(replicas[:-1])  # last character is newline, no need to print that
-        return SUCCESS
+            if args.metalink:
+                console.print(replicas[:-1], highlight=False)  # last character is newline, no need to print that
+                return SUCCESS
 
-    if args.missing:
-        for replica, rse in itertools.product(replicas, rses):
-            if 'states' in replica and rse in replica['states'] and replica['states'].get(rse) != 'AVAILABLE':
-                table.append([replica['scope'], replica['name'], "({0}) {1}".format(ReplicaState[replica['states'].get(rse)].value, rse)])
-        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', '(STATE) RSE']))
-    elif args.link:
-        pfn_dir, dst_dir = args.link.split(':')
-        if args.rses:
+            if args.missing:
+                for replica, rse in itertools.product(replicas, rses):
+                    if 'states' in replica and rse in replica['states'] and replica['states'].get(rse) != 'AVAILABLE':
+                        replica_state = f"[{RICH_REPLICA_STATE.get(ReplicaState[replica['states'].get(rse)].value, 'default')}]{ReplicaState[replica['states'].get(rse)].value}[/]"
+                        table_data.append([replica['scope'], replica['name'], "({0}) {1}".format(replica_state, rse)])
+                table = generate_table(RICH_TABLE_FMT, headers=['SCOPE', 'NAME', '(STATE) RSE'], rows=table_data, col_alignments=['left', 'left', 'left'])
+                status.stop()
+                if console.is_terminal:
+                    if args.no_pager:
+                        console.print(table)
+                    else:
+                        console.width = sys.maxsize
+                        console.begin_capture()
+                        console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.print(table)
+
+            elif args.link:
+                pfn_dir, dst_dir = args.link.split(':')
+                if args.rses:
+                    for replica, rse in itertools.product(replicas, rses):
+                        if rse in list(replica['rses'].keys()) and replica['rses'][rse]:
+                            for pfn in replica['rses'][rse]:
+                                os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+                else:
+                    for replica in replicas:
+                        for rse in replica['rses']:
+                            if replica['rses'][rse]:
+                                for pfn in replica['rses'][rse]:
+                                    os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+            elif args.pfns:
+                if args.rses:
+                    for replica, rse in itertools.product(replicas, rses):
+                        if rse in list(replica['rses'].keys()) and replica['rses'][rse]:
+                            for pfn in replica['rses'][rse]:
+                                table_data.append([pfn])
+                else:
+                    for replica in replicas:
+                        for rse in replica['rses']:
+                            if replica['rses'][rse]:
+                                for pfn in replica['rses'][rse]:
+                                    table_data.append([pfn])
+                table = generate_table(RICH_TABLE_FMT, headers=['PFN'], rows=table_data, col_alignments=['left'])
+                status.stop()
+                if console.is_terminal:
+                    if args.no_pager:
+                        console.print(table)
+                    else:
+                        console.width = sys.maxsize
+                        console.begin_capture()
+                        console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.print(table)
+            else:
+                if args.all_states:
+                    header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', '(STATE) RSE: REPLICA']
+                else:
+                    header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA']
+                for replica in replicas:
+                    if 'bytes' in replica:
+                        for rse in replica['rses']:
+                            for pfn in replica['rses'][rse]:
+                                if args.all_states:
+                                    replica_state = f"[{RICH_REPLICA_STATE.get(ReplicaState[replica['states'][rse]].value, 'default')}]{ReplicaState[replica['states'][rse]].value}[/]"
+                                    # less does not display hyperlinks well if the table is very wide
+                                    if args.no_pager:
+                                        rse_string = f'({replica_state}) {rse}: [u bright_blue link={pfn}]{pfn}[/]'
+                                    else:
+                                        rse_string = f'({replica_state}) {rse}: [u bright_blue]{pfn}[/]'
+                                else:
+                                    # less does not display hyperlinks well if the table is very wide
+                                    if args.no_pager:
+                                        rse_string = f'{rse}: [u bright_blue link={pfn}]{pfn}[/]'
+                                    else:
+                                        rse_string = f'{rse}: [u bright_blue]{pfn}[/]'
+                                if args.rses:
+                                    for selected_rse in rses:
+                                        if rse == selected_rse:
+                                            table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
+                                else:
+                                    table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
+                table = generate_table(RICH_TABLE_FMT, headers=header, rows=table_data, col_alignments=['left', 'left', 'right', 'left', 'left'])
+                status.stop()
+                if console.is_terminal:
+                    if args.no_pager:
+                        console.print(table)
+                    else:
+                        console.width = sys.maxsize
+                        console.begin_capture()
+                        console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.print(table)
+    else:
+        for did in args.dids:
+            scope, name = get_scope(did, client)
+            client.get_metadata(scope=scope, name=name)  # break with Exception before streaming replicas if DID does not exist
+            dids.append({'scope': scope, 'name': name})
+
+        replicas = client.list_replicas(dids, schemes=protocols,
+                                        ignore_availability=True,
+                                        all_states=args.all_states,
+                                        rse_expression=args.rses,
+                                        metalink=args.metalink,
+                                        client_location=detect_client_location(),
+                                        sort=args.sort, domain=args.domain,
+                                        resolve_archives=not args.no_resolve_archives)
+        rses = [rse["rse"] for rse in client.list_rses(rse_expression=args.rses)]
+
+        if args.metalink:
+            print(replicas[:-1])  # last character is newline, no need to print that
+            return SUCCESS
+
+        if args.missing:
             for replica, rse in itertools.product(replicas, rses):
-                if rse in list(replica['rses'].keys()) and replica['rses'][rse]:
-                    for pfn in replica['rses'][rse]:
-                        os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
-        else:
-            for replica in replicas:
-                for rse in replica['rses']:
-                    if replica['rses'][rse]:
+                if 'states' in replica and rse in replica['states'] and replica['states'].get(rse) != 'AVAILABLE':
+                    table_data.append([replica['scope'], replica['name'], "({0}) {1}".format(ReplicaState[replica['states'].get(rse)].value, rse)])
+            print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE', 'NAME', '(STATE) RSE']))
+        elif args.link:
+            pfn_dir, dst_dir = args.link.split(':')
+            if args.rses:
+                for replica, rse in itertools.product(replicas, rses):
+                    if rse in list(replica['rses'].keys()) and replica['rses'][rse]:
                         for pfn in replica['rses'][rse]:
                             os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
-    elif args.pfns:
-        if args.rses:
-            for replica, rse in itertools.product(replicas, rses):
-                if rse in list(replica['rses'].keys()) and replica['rses'][rse]:
-                    for pfn in replica['rses'][rse]:
-                        print(pfn)
-        else:
-            for replica in replicas:
-                for rse in replica['rses']:
-                    if replica['rses'][rse]:
+            else:
+                for replica in replicas:
+                    for rse in replica['rses']:
+                        if replica['rses'][rse]:
+                            for pfn in replica['rses'][rse]:
+                                os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+        elif args.pfns:
+            if args.rses:
+                for replica, rse in itertools.product(replicas, rses):
+                    if rse in list(replica['rses'].keys()) and replica['rses'][rse]:
                         for pfn in replica['rses'][rse]:
                             print(pfn)
-    else:
-        if args.all_states:
-            header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', '(STATE) RSE: REPLICA']
+            else:
+                for replica in replicas:
+                    for rse in replica['rses']:
+                        if replica['rses'][rse]:
+                            for pfn in replica['rses'][rse]:
+                                print(pfn)
         else:
-            header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA']
-        for replica in replicas:
-            if 'bytes' in replica:
-                for rse in replica['rses']:
-                    for pfn in replica['rses'][rse]:
-                        if args.all_states:
-                            rse_string = '({2}) {0}: {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
-                        else:
-                            rse_string = '{0}: {1}'.format(rse, pfn)
-                        if args.rses:
-                            for selected_rse in rses:
-                                if rse == selected_rse:
-                                    table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
-                        else:
-                            table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
-        print(tabulate(table, tablefmt=tablefmt, headers=header, disable_numparse=True))
+            if args.all_states:
+                header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', '(STATE) RSE: REPLICA']
+            else:
+                header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA']
+            for replica in replicas:
+                if 'bytes' in replica:
+                    for rse in replica['rses']:
+                        for pfn in replica['rses'][rse]:
+                            if args.all_states:
+                                rse_string = '({2}) {0}: {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
+                            else:
+                                rse_string = '{0}: {1}'.format(rse, pfn)
+                            if args.rses:
+                                for selected_rse in rses:
+                                    if rse == selected_rse:
+                                        table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
+                            else:
+                                table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
+            print(tabulate(table_data, tablefmt=tablefmt, headers=header, disable_numparse=True))
     return SUCCESS
 
 
@@ -557,7 +965,7 @@ def list_dids(args):
     client = get_client(args)
     filters = {}
     type_ = 'collection'
-    table = []
+    table_data = []
 
     try:
         scope, name = get_scope(args.did[0], client)
@@ -568,16 +976,16 @@ def list_dids(args):
         name = '*'
 
     if scope not in client.list_scopes():
-        logger.error('Scope not found')
+        logger.error('Scope not found.')
         return FAILURE
 
     if args.recursive and '*' in name:
-        logger.error('Option recursive cannot be used with wildcards')
+        logger.error('Option recursive cannot be used with wildcards.')
         return FAILURE
     else:
         if filters:
             if ('name' in filters) and (name != '*'):
-                logger.error('Must have a wildcard in did name if filtering by name')
+                logger.error('Must have a wildcard in did name if filtering by name.')
                 return FAILURE
 
     try:
@@ -598,15 +1006,37 @@ def list_dids(args):
         logger.error(e)
         return FAILURE
 
-    for did in client.list_dids(scope, filters=filters, did_type=type_, long=True, recursive=args.recursive):
-        table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
+    if cli_config == 'rich':
+        status = Status('Fetching DIDs', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            for did in client.list_dids(scope, filters=filters, did_type=type_, long=True, recursive=args.recursive):
+                table_data.append(['%s:%s' % (did['scope'], did['name']), Text(did['did_type'].replace('DIDType.', ''), style=RICH_DID_TYPE.get(did['did_type'], 'default'))])
 
-    if args.short:
-        for did, _ in table:
-            print(did)
+            if args.short:
+                table = generate_table(RICH_TABLE_FMT, headers=['SCOPE:NAME'], rows=[[did] for did, _ in table_data], col_alignments=['left'])
+            else:
+                table = generate_table(RICH_TABLE_FMT, headers=['SCOPE:NAME', '[DID TYPE]'], rows=table_data, col_alignments=['left', 'left'])
+
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table)
+            else:
+                console.width = sys.maxsize
+                console.print(table)
     else:
-        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+        for did in client.list_dids(scope, filters=filters, did_type=type_, long=True, recursive=args.recursive):
+            table_data.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
 
+        if args.short:
+            for did, _ in table_data:
+                print(did)
+        else:
+            print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -617,7 +1047,7 @@ def list_dids_extended(args):
 
     List the data identifiers for a given scope (DEPRECATED).
     """
-    logger.error("This command has been deprecated. Please use list_dids instead.")
+    logger.error("This command has been deprecated. Please use list-dids instead.")
     return FAILURE
 
 
@@ -628,11 +1058,28 @@ def list_scopes(args):
 
     List scopes.
     """
-    # For the moment..
     client = get_client(args)
-    scopes = client.list_scopes()
-    for scope in scopes:
-        print(scope)
+    if cli_config == 'rich':
+        status = Status('Fetching scopes', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            scopes = client.list_scopes()
+            scopes = [[scope] for scope in sorted(scopes)]
+            table = generate_table(RICH_TABLE_FMT, headers=['SCOPE'], rows=scopes, col_alignments=['left'])
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table)
+            else:
+                console.width = sys.maxsize
+                console.print(table)
+    else:
+        scopes = client.list_scopes()
+        for scope in scopes:
+            print(scope)
     return SUCCESS
 
 
@@ -644,24 +1091,111 @@ def list_files(args):
     List data identifier contents.
     """
     client = get_client(args)
-    if args.csv:
-        for did in args.dids:
-            scope, name = get_scope(did, client)
-            for f in client.list_files(scope=scope, name=name):
-                guid = f['guid']
-                if guid:
-                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
-                else:
-                    guid = '(None)'
-                print('{}:{}'.format(f['scope'], f['name']), guid, f['adler32'], sizefmt(f['bytes'], args.human), f['events'], sep=',')
-        return SUCCESS
-    elif args.LOCALPATH:
+    if cli_config == 'rich':
+        status = Status('Fetching files', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            if args.csv:
+                for did in args.dids:
+                    scope, name = get_scope(did, client)
+                    for f in client.list_files(scope=scope, name=name):
+                        guid = f['guid']
+                        if guid:
+                            guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                        else:
+                            guid = '(None)'
+                        print('{}:{}'.format(f['scope'], f['name']), guid, f['adler32'], sizefmt(f['bytes'], args.human), f['events'], sep=',')
+                return SUCCESS
+            elif args.LOCALPATH:
+                status.stop()
+                if not args.no_pager:
+                    console.begin_capture()
 
-        print('''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+                header = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<!DOCTYPE POOLFILECATALOG SYSTEM "InMemory">
+<POOLFILECATALOG>'''
+
+                file_str = ''' <File ID="%s">
+  <physical>
+   <pfn filetype="ROOT_All" name="%s/%s"/>
+  </physical>
+  <logical>
+   <lfn name="%s"/>
+  </logical>
+ </File>'''
+                full_str = header
+
+                for did in args.dids:
+                    scope, name = get_scope(did, client)
+                    for f in client.list_files(scope=scope, name=name):
+                        guid = f['guid']
+                        if guid:
+                            guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                        else:
+                            guid = '(None)'
+                        full_str += '\n' + file_str % (guid, args.LOCALPATH, f['name'], f['name'])
+
+                console.print(full_str + '\n</POOLFILECATALOG>')
+                return SUCCESS
+            else:
+                table_data = []
+                for did in args.dids:
+                    totfiles = 0
+                    totsize = 0
+                    totevents = 0
+                    scope, name = get_scope(did, client)
+                    for file in client.list_files(scope=scope, name=name):
+                        totfiles += 1
+                        totsize += int(file['bytes'])
+                        if file['events']:
+                            totevents += int(file.get('events', 0))
+                        guid = file['guid']
+                        if guid:
+                            guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                        else:
+                            guid = '(None)'
+                        table_data.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], sizefmt(file['bytes'], args.human), str(file['events'])])
+
+                    table = generate_table(RICH_TABLE_FMT, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'], rows=table_data, col_alignments=['left', 'left', 'left', 'right', 'right'])
+                    summary_data = [['Total files', totfiles], ['Total size', sizefmt(totsize, args.human)]]
+                    if totevents:
+                        summary_data.append(['Total events', totevents])
+                    summary_table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=summary_data, col_alignments=['left', 'left'], show_header=False, row_styles=['none'])
+
+                    status.stop()
+                    if console.is_terminal:
+                        if args.no_pager:
+                            console.print(table)
+                            console.print(summary_table)
+                        else:
+                            console.width = sys.maxsize
+                            console.begin_capture()
+                            console.print(table)
+                            console.print(summary_table)
+                    else:
+                        console.width = sys.maxsize
+                        console.print(table)
+                        console.print(summary_table)
+
+            return SUCCESS
+    else:
+        if args.csv:
+            for did in args.dids:
+                scope, name = get_scope(did, client)
+                for f in client.list_files(scope=scope, name=name):
+                    guid = f['guid']
+                    if guid:
+                        guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                    else:
+                        guid = '(None)'
+                    print('{}:{}'.format(f['scope'], f['name']), guid, f['adler32'], sizefmt(f['bytes'], args.human),
+                          f['events'], sep=',')
+            return SUCCESS
+        elif args.LOCALPATH:
+            print('''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <!DOCTYPE POOLFILECATALOG SYSTEM "InMemory">
 <POOLFILECATALOG>''')
 
-        file_str = ''' <File ID="%s">
+            file_str = ''' <File ID="%s">
   <physical>
    <pfn filetype="ROOT_All" name="%s/%s"/>
   </physical>
@@ -670,42 +1204,43 @@ def list_files(args):
   </logical>
  </File>'''
 
-        for did in args.dids:
-            scope, name = get_scope(did, client)
-            for f in client.list_files(scope=scope, name=name):
-                guid = f['guid']
-                if guid:
-                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
-                else:
-                    guid = '(None)'
-                print(file_str % (guid, args.LOCALPATH, f['name'], f['name']))
+            for did in args.dids:
+                scope, name = get_scope(did, client)
+                for f in client.list_files(scope=scope, name=name):
+                    guid = f['guid']
+                    if guid:
+                        guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                    else:
+                        guid = '(None)'
+                    print(file_str % (guid, args.LOCALPATH, f['name'], f['name']))
 
-        print('</POOLFILECATALOG>')
-        return SUCCESS
-    else:
-        table = []
-        for did in args.dids:
-            totfiles = 0
-            totsize = 0
-            totevents = 0
-            scope, name = get_scope(did, client)
-            for file in client.list_files(scope=scope, name=name):
-                totfiles += 1
-                totsize += int(file['bytes'])
-                if file['events']:
-                    totevents += int(file.get('events', 0))
-                guid = file['guid']
-                if guid:
-                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
-                else:
-                    guid = '(None)'
-                table.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], sizefmt(file['bytes'], args.human), file['events']])
-            print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'], disable_numparse=True))
-            print('Total files : %s' % totfiles)
-            print('Total size : %s' % sizefmt(totsize, args.human))
-            if totevents:
-                print('Total events : %s' % totevents)
-        return SUCCESS
+            print('</POOLFILECATALOG>')
+            return SUCCESS
+        else:
+            table_data = []
+            for did in args.dids:
+                totfiles = 0
+                totsize = 0
+                totevents = 0
+                scope, name = get_scope(did, client)
+                for file in client.list_files(scope=scope, name=name):
+                    totfiles += 1
+                    totsize += int(file['bytes'])
+                    if file['events']:
+                        totevents += int(file.get('events', 0))
+                    guid = file['guid']
+                    if guid:
+                        guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                    else:
+                        guid = '(None)'
+                    table_data.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], sizefmt(file['bytes'], args.human), str(file['events'])])
+
+                print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'], disable_numparse=True))
+                print('Total files : %s' % totfiles)
+                print('Total size : %s' % sizefmt(totsize, args.human))
+                if totevents:
+                    print('Total events : %s' % totevents)
+            return SUCCESS
 
 
 @exception_handler
@@ -716,16 +1251,42 @@ def list_content(args):
     List data identifier contents.
     """
     client = get_client(args)
-    table = []
-    for did in args.dids:
-        scope, name = get_scope(did, client)
-        for content in client.list_content(scope=scope, name=name):
-            table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
-    if args.short:
-        for did, dummy in table:
-            print(did)
+    table_data = []
+    if cli_config == 'rich':
+        status = Status('Fetching dataset contents', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            keyword_styles = RICH_DID_TYPE if console.is_terminal else {}
+            for did in args.dids:
+                scope, name = get_scope(did, client)
+                for content in client.list_content(scope=scope, name=name):
+                    table_data.append(['%s:%s' % (content['scope'], content['name']), Text(content['type'].upper(), style=keyword_styles.get(content['type'].upper(), 'default'))])
+
+            if args.short:
+                table = generate_table(RICH_TABLE_FMT, headers=['SCOPE:NAME'], rows=[[did] for did, _ in table_data], col_alignments=['left'])
+            else:
+                table = generate_table(RICH_TABLE_FMT, headers=['SCOPE:NAME', '[DID TYPE]'], rows=table_data, col_alignments=['left', 'left'])
+
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table)
+            else:
+                console.width = sys.maxsize
+                console.print(table)
     else:
-        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+        for did in args.dids:
+            scope, name = get_scope(did, client)
+            for content in client.list_content(scope=scope, name=name):
+                table_data.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
+        if args.short:
+            for did, _ in table_data:
+                print(did)
+        else:
+            print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -737,12 +1298,34 @@ def list_content_history(args):
     List data identifier contents.
     """
     client = get_client(args)
-    table = []
-    for did in args.dids:
-        scope, name = get_scope(did, client)
-        for content in client.list_content_history(scope=scope, name=name):
-            table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
-    print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+    table_data = []
+    if cli_config == 'rich':
+        status = Status('Fetching content history', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            keyword_styles = RICH_DID_TYPE if console.is_terminal else {}
+            for did in args.dids:
+                scope, name = get_scope(did, client)
+                for content in client.list_content_history(scope=scope, name=name):
+                    table_data.append(['%s:%s' % (content['scope'], content['name']), Text(content['type'].upper(), style=keyword_styles.get(content['type'].upper(), 'default'))])
+            table = generate_table(RICH_TABLE_FMT, headers=['SCOPE:NAME', '[DID TYPE]'], rows=table_data, col_alignments=['left', 'left'])
+
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table)
+            else:
+                console.width = sys.maxsize
+                console.print(table)
+    else:
+        for did in args.dids:
+            scope, name = get_scope(did, client)
+            for content in client.list_content_history(scope=scope, name=name):
+                table_data.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
+        print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -754,45 +1337,137 @@ def list_parent_dids(args):
     List parent data identifier.
     """
     client = get_client(args)
-    if args.pfns:
-        dict_datasets = {}
-        for res in client.get_did_from_pfns(args.pfns):
-            for key in res:
-                if key not in dict_datasets:
-                    dict_datasets[key] = []
-                for rule in client.list_associated_rules_for_file(res[key]['scope'], res[key]['name']):
-                    if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[key]:
-                        dict_datasets[key].append('%s:%s' % (rule['scope'], rule['name']))
-        for pfn in dict_datasets:
-            print('PFN: ', pfn)
-            print('Parents: ', ','.join(dict_datasets[pfn]))
-    elif args.guids:
-        guids = []
-        for input_ in args.guids:
-            try:
-                uuid.UUID(input_)
-            except ValueError:
-                continue
-        dict_datasets = {}
-        for guid in guids:
-            for did in client.get_dataset_by_guid(guid):
-                if guid not in dict_datasets:
-                    dict_datasets[guid] = []
-                for rule in client.list_associated_rules_for_file(did['scope'], did['name']):
-                    if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[guid]:
-                        dict_datasets[guid].append('%s:%s' % (rule['scope'], rule['name']))
-        for guid in dict_datasets:
-            print('GUID: ', guid)
-            print('Parents : ', ','.join(dict_datasets[guid]))
-    elif args.did:
-        table = []
-        scope, name = get_scope(args.did, client)
-        for dataset in client.list_parent_dids(scope=scope, name=name):
-            table.append(['%s:%s' % (dataset['scope'], dataset['name']), dataset['type']])
-        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+
+    if cli_config == 'rich':
+        status = Status('Fetching parent DIDs', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            if args.pfns:
+                dict_datasets = {}
+                output = []
+                for res in client.get_did_from_pfns(args.pfns):
+                    for key in res:
+                        if key not in dict_datasets:
+                            dict_datasets[key] = []
+                        for rule in client.list_associated_rules_for_file(res[key]['scope'], res[key]['name']):
+                            if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[key]:
+                                dict_datasets[key].append('%s:%s' % (rule['scope'], rule['name']))
+                for i, pfn in enumerate(dict_datasets):
+                    parent_tree = Tree('')
+                    for parent in dict_datasets[pfn]:
+                        parent_tree.add(parent)
+                    table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=[['PFN', pfn], ['Parents', parent_tree]], show_header=False,
+                                           col_alignments=['left', 'left'], row_styles=['none'])
+                    output.append(table)
+                status.stop()
+                if console.is_terminal:
+                    if args.no_pager:
+                        console.print(*output)
+                    else:
+                        console.width = sys.maxsize
+                        console.begin_capture()
+                        console.print(*output)
+                else:
+                    console.width = sys.maxsize
+                    console.print(*output)
+
+            elif args.guids:
+                output = []
+                guids = []
+                for input_ in args.guids:
+                    try:
+                        uuid.UUID(input_)
+                    except ValueError:
+                        print(f'Ignoring invalid GUID: {input_}')
+                        continue
+
+                dict_datasets = {}
+                for guid in guids:
+                    for did in client.get_dataset_by_guid(guid):
+                        if guid not in dict_datasets:
+                            dict_datasets[guid] = []
+                        for rule in client.list_associated_rules_for_file(did['scope'], did['name']):
+                            if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[guid]:
+                                dict_datasets[guid].append('%s:%s' % (rule['scope'], rule['name']))
+                for i, guid in enumerate(dict_datasets):
+                    parent_tree = Tree('')
+                    for parent in dict_datasets[guid]:
+                        parent_tree.add(parent)
+                    table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=[['GUID', guid], ['Parents', parent_tree]], show_header=False,
+                                           col_alignments=['left', 'left'], row_styles=['none'])
+                    output.append(table)
+
+                status.stop()
+                if console.is_terminal:
+                    if args.no_pager:
+                        console.print(*output)
+                    else:
+                        console.width = sys.maxsize
+                        console.begin_capture()
+                        console.print(*output)
+                else:
+                    console.width = sys.maxsize
+                    console.print(*output)
+            elif args.did:
+                table_data = []
+                keyword_styles = RICH_DID_TYPE if console.is_terminal else {}
+                scope, name = get_scope(args.did, client)
+                for dataset in client.list_parent_dids(scope=scope, name=name):
+                    table_data.append(['%s:%s' % (dataset['scope'], dataset['name']), Text(dataset['type'], style=keyword_styles.get(dataset['type'], 'default'))])
+                table = generate_table(RICH_TABLE_FMT, headers=['SCOPE:NAME', '[DID TYPE]'], rows=table_data, col_alignments=['left', 'left'])
+                status.stop()
+                if console.is_terminal:
+                    if args.no_pager:
+                        console.print(table)
+                    else:
+                        console.width = sys.maxsize
+                        console.begin_capture()
+                        console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.print(table)
+            else:
+                print('At least one option has to be given. Use -h to list the options.')
+                return FAILURE
     else:
-        print('At least one option has to be given. Use -h to list the options.')
-        return FAILURE
+        if args.pfns:
+            dict_datasets = {}
+            for res in client.get_did_from_pfns(args.pfns):
+                for key in res:
+                    if key not in dict_datasets:
+                        dict_datasets[key] = []
+                    for rule in client.list_associated_rules_for_file(res[key]['scope'], res[key]['name']):
+                        if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[key]:
+                            dict_datasets[key].append('%s:%s' % (rule['scope'], rule['name']))
+            for pfn in dict_datasets:
+                print('PFN: ', pfn)
+                print('Parents: ', ','.join(dict_datasets[pfn]))
+        elif args.guids:
+            guids = []
+            for input_ in args.guids:
+                try:
+                    uuid.UUID(input_)
+                except ValueError:
+                    continue
+            dict_datasets = {}
+            for guid in guids:
+                for did in client.get_dataset_by_guid(guid):
+                    if guid not in dict_datasets:
+                        dict_datasets[guid] = []
+                    for rule in client.list_associated_rules_for_file(did['scope'], did['name']):
+                        if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[guid]:
+                            dict_datasets[guid].append('%s:%s' % (rule['scope'], rule['name']))
+            for guid in dict_datasets:
+                print('GUID: ', guid)
+                print('Parents : ', ','.join(dict_datasets[guid]))
+        elif args.did:
+            table = []
+            scope, name = get_scope(args.did, client)
+            for dataset in client.list_parent_dids(scope=scope, name=name):
+                table.append(['%s:%s' % (dataset['scope'], dataset['name']), dataset['type']])
+            print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+        else:
+            print('At least one option has to be given. Use -h to list the options.')
+            return FAILURE
     return SUCCESS
 
 
@@ -834,13 +1509,41 @@ def stat(args):
     List attributes and statuses about data identifiers..
     """
     client = get_client(args)
-    for i, did in enumerate(args.dids):
-        if i > 0:
-            print('------')
-        scope, name = get_scope(did, client)
-        info = client.get_did(scope=scope, name=name, dynamic_depth='DATASET')
-        table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
-        print(tabulate(table, tablefmt='plain', disable_numparse=True))
+    if cli_config == 'rich':
+        status = Status('Fetching DID stats', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            keyword_styles = {**RICH_BOOLEAN, **RICH_DID_TYPE} if console.is_terminal else {}
+            output = []
+            for i, did in enumerate(args.dids):
+                scope, name = get_scope(did, client)
+                info = client.get_did(scope=scope, name=name, dynamic_depth='DATASET')
+                if i > 0:
+                    output.append(Text(f'\nDID: {did}', style=RICH_HIGHLIGHT_TEXT))
+                elif len(args.dids) > 1:
+                    output.append(Text(f'DID: {did}', style=RICH_HIGHLIGHT_TEXT))
+                table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(info.items())]
+                table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, show_header=False, row_styles=['none'], col_alignments=['left', 'left'])
+                output.append(table)
+
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(*output)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(*output)
+            else:
+                console.width = sys.maxsize
+                console.print(*output)
+    else:
+        for i, did in enumerate(args.dids):
+            if i > 0:
+                print('------')
+            scope, name = get_scope(did, client)
+            info = client.get_did(scope=scope, name=name, dynamic_depth='DATASET')
+            table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
+            print(tabulate(table, tablefmt='plain', disable_numparse=True))
     return SUCCESS
 
 
@@ -873,8 +1576,7 @@ def erase(args):
             try:
                 # set lifetime to expire in 24 hours (value is in seconds).
                 client.set_metadata(scope=scope, name=name, key='lifetime', value=86400)
-                logger.info('CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:')
-                print("rucio erase --undo {0}:{1}".format(scope, name))
+                logger.info('CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:\n rucio erase --undo {0}:{1}'.format(scope, name))
             except RucioException as error:
                 logger.warning('Failed to erase DID: %s' % did)
                 logger.debug('Error: %s' % error)
@@ -1018,7 +1720,7 @@ def download(args):
     item_defaults['check_local_with_filesize_only'] = args.check_local_with_filesize_only
     archive_did = args.archive_did
     if archive_did:
-        logger.warning("Archives are treated transparently. --archive-did option is being obsoleted.")  # TODO
+        logger.warning("Archives are treated transparently. --archive-did option is being obsoleted.")
 
     # Get filters
     filters = {}
@@ -1135,7 +1837,6 @@ def download(args):
         print('{0:40} {1:6d}'.format('Downloaded files: ', downloaded_files))
         print('{0:40} {1:6d}'.format('Files already found locally: ', local_files))
         print('{0:40} {1:6d}'.format('Files that cannot be downloaded: ', not_downloaded_files))
-
     return SUCCESS
 
 
@@ -1166,14 +1867,41 @@ def get_metadata(args):
         plugin = args.plugin
     else:
         plugin = config_get('client', 'metadata_default_plugin', default='DID_COLUMN')
+    if cli_config == 'rich':
+        status = Status('Fetching metadata', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            keyword_styles = {**RICH_BOOLEAN, **RICH_DID_TYPE, **RICH_AVAILABILITY} if console.is_terminal else {}
+            output = []
+            for i, did in enumerate(args.dids):
+                scope, name = get_scope(did, client)
+                meta = client.get_metadata(scope=scope, name=name, plugin=plugin)
+                if i > 0:
+                    output.append(Text(f'\nDID: {did}', style=RICH_HIGHLIGHT_TEXT))
+                elif len(args.dids) > 1:
+                    output.append(Text(f'DID: {did}', style=RICH_HIGHLIGHT_TEXT))
+                table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(meta.items())]
+                table = generate_table(RICH_TABLE_FMT, ['', ''], table_data, col_alignments=['left', 'left'], show_header=False, row_styles=['none'])
+                output.append(table)
 
-    for i, did in enumerate(args.dids):
-        if i > 0:
-            print('------')
-        scope, name = get_scope(did, client)
-        meta = client.get_metadata(scope=scope, name=name, plugin=plugin)
-        table = [(k + ':', str(v)) for (k, v) in sorted(meta.items())]
-        print(tabulate(table, tablefmt='plain', disable_numparse=True))
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(*output)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(*output)
+            else:
+                console.width = sys.maxsize
+                console.print(*output)
+    else:
+        for i, did in enumerate(args.dids):
+            if i > 0:
+                print('------')
+            scope, name = get_scope(did, client)
+            meta = client.get_metadata(scope=scope, name=name, plugin=plugin)
+            table = [(k + ':', str(v)) for (k, v) in sorted(meta.items())]
+            print(tabulate(table, tablefmt='plain', disable_numparse=True))
     return SUCCESS
 
 
@@ -1196,7 +1924,7 @@ def set_metadata(args):
 @exception_handler
 def delete_metadata(args):
     """
-    %(prog)s set_metadata [options] <field1=value1 field2=value2 ...>
+    %(prog)s delete_metadata [options] <field1=value1 field2=value2 ...>
 
     Delete data identifier metadata
     """
@@ -1273,7 +2001,6 @@ def delete_rule(args):
     Delete a rule.
     """
     client = get_client(args)
-
     try:
         # Test if the rule_id is a real rule_id
         uuid.UUID(args.rule_id)
@@ -1383,47 +2110,97 @@ def info_rule(args):
     Retrieve information about a rule.
     """
     client = get_client(args)
-    if args.examine:
-        analysis = client.examine_replication_rule(rule_id=args.rule_id)
-        print('Status of the replication rule: %s' % analysis['rule_error'])
-        if analysis['transfers']:
-            print('STUCK Requests:')
-            for transfer in analysis['transfers']:
-                print('  %s:%s' % (transfer['scope'], transfer['name']))
-                print('    RSE:                  %s' % str(transfer['rse']))
-                print('    Attempts:             %s' % str(transfer['attempts']))
-                print('    Last Retry:           %s' % str(transfer['last_time']))
-                print('    Last error:           %s' % str(transfer['last_error']))
-                print('    Last source:          %s' % str(transfer['last_source']))
-                print('    Available sources:    %s' % ', '.join([source[0] for source in transfer['sources'] if source[1]]))
-                print('    Blocklisted sources:  %s' % ', '.join([source[0] for source in transfer['sources'] if not source[1]]))
+    if cli_config == 'rich':
+        status = Status('Fetching rule info', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            keyword_styles = {**RICH_BOOLEAN, **RICH_DID_TYPE, **RICH_RULE_STATE} if console.is_terminal else {}
+
+            if args.examine:
+                output = []
+                analysis = client.examine_replication_rule(rule_id=args.rule_id)
+                rule_status = " ".join([f'[{keyword_styles.get(word, "default")}]{word}[/]' for word in analysis['rule_error'].split()])
+                output.append('Status of the replication rule: %s' % rule_status)
+                if analysis['transfers']:
+                    output.append('[b]STUCK Requests:[/]')
+                    for transfer in analysis['transfers']:
+                        console.print(Padding.indent(Text(f"{transfer['scope']}:{transfer['name']}", style=RICH_HIGHLIGHT_SUBHEADER), 2))
+                        table_data = [['RSE:', transfer['rse']],
+                                      ['Attempts:', transfer['rse']],
+                                      ['Last retry:', transfer['last_time']],
+                                      ['Last error:', transfer['last_source']],
+                                      ['Available sources:', ', '.join([source[0] for source in transfer['sources'] if source[1]])],
+                                      ['Blocklisted sources:', ', '.join([source[0] for source in transfer['sources'] if not source[1]])]]
+                        table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, row_styles=['none'], col_alignments=['left', 'left'], show_header=False)
+                        output.append(Padding.indent(table, 2))
+
+                status.stop()
+                if console.is_terminal:
+                    if args.no_pager:
+                        console.print(*output)
+                    else:
+                        console.width = sys.maxsize
+                        console.begin_capture()
+                        console.print(*output)
+                else:
+                    console.width = sys.maxsize
+                    console.print(*output)
+            else:
+                rule = client.get_replication_rule(rule_id=args.rule_id)
+                table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for k, v in sorted(rule.items())]
+                table = generate_table(RICH_TABLE_FMT, ['', ''], table_data, col_alignments=['left', 'left'], show_header=False, row_styles=['none'])
+                status.stop()
+                if console.is_terminal:
+                    if args.no_pager:
+                        console.print(table)
+                    else:
+                        console.width = sys.maxsize
+                        console.begin_capture()
+                        console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.print(table)
     else:
-        rule = client.get_replication_rule(rule_id=args.rule_id)
-        print("Id:                         %s" % rule['id'])
-        print("Account:                    %s" % rule['account'])
-        print("Scope:                      %s" % rule['scope'])
-        print("Name:                       %s" % rule['name'])
-        print("RSE Expression:             %s" % rule['rse_expression'])
-        print("Copies:                     %s" % rule['copies'])
-        print("State:                      %s" % rule['state'])
-        print("Locks OK/REPLICATING/STUCK: %s/%s/%s" % (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']))
-        print("Grouping:                   %s" % rule['grouping'])
-        print("Expires at:                 %s" % rule['expires_at'])
-        print("Locked:                     %s" % rule['locked'])
-        print("Weight:                     %s" % rule['weight'])
-        print("Created at:                 %s" % rule['created_at'])
-        print("Updated at:                 %s" % rule['updated_at'])
-        print("Error:                      %s" % rule['error'])
-        print("Subscription Id:            %s" % rule['subscription_id'])
-        print("Source replica expression:  %s" % rule['source_replica_expression'])
-        print("Activity:                   %s" % rule['activity'])
-        print("Comment:                    %s" % rule['comments'])
-        print("Ignore Quota:               %s" % rule['ignore_account_limit'])
-        print("Ignore Availability:        %s" % rule['ignore_availability'])
-        print("Purge replicas:             %s" % rule['purge_replicas'])
-        print("Notification:               %s" % rule['notification'])
-        print("End of life:                %s" % rule['eol_at'])
-        print("Child Rule Id:              %s" % rule['child_rule_id'])
+        if args.examine:
+            analysis = client.examine_replication_rule(rule_id=args.rule_id)
+            print('Status of the replication rule: %s' % analysis['rule_error'])
+            if analysis['transfers']:
+                print('STUCK Requests:')
+                for transfer in analysis['transfers']:
+                    print('  %s:%s' % (transfer['scope'], transfer['name']))
+                    print('    RSE:                  %s' % str(transfer['rse']))
+                    print('    Attempts:             %s' % str(transfer['attempts']))
+                    print('    Last Retry:           %s' % str(transfer['last_time']))
+                    print('    Last error:           %s' % str(transfer['last_error']))
+                    print('    Last source:          %s' % str(transfer['last_source']))
+                    print('    Available sources:    %s' % ', '.join([source[0] for source in transfer['sources'] if source[1]]))
+                    print('    Blocklisted sources:  %s' % ', '.join([source[0] for source in transfer['sources'] if not source[1]]))
+        else:
+            rule = client.get_replication_rule(rule_id=args.rule_id)
+            print("Id:                         %s" % rule['id'])
+            print("Account:                    %s" % rule['account'])
+            print("Scope:                      %s" % rule['scope'])
+            print("Name:                       %s" % rule['name'])
+            print("RSE Expression:             %s" % rule['rse_expression'])
+            print("Copies:                     %s" % rule['copies'])
+            print("State:                      %s" % rule['state'])
+            print("Locks OK/REPLICATING/STUCK: %s/%s/%s" % (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']))
+            print("Grouping:                   %s" % rule['grouping'])
+            print("Expires at:                 %s" % rule['expires_at'])
+            print("Locked:                     %s" % rule['locked'])
+            print("Weight:                     %s" % rule['weight'])
+            print("Created at:                 %s" % rule['created_at'])
+            print("Updated at:                 %s" % rule['updated_at'])
+            print("Error:                      %s" % rule['error'])
+            print("Subscription Id:            %s" % rule['subscription_id'])
+            print("Source replica expression:  %s" % rule['source_replica_expression'])
+            print("Activity:                   %s" % rule['activity'])
+            print("Comment:                    %s" % rule['comments'])
+            print("Ignore Quota:               %s" % rule['ignore_account_limit'])
+            print("Ignore Availability:        %s" % rule['ignore_availability'])
+            print("Purge replicas:             %s" % rule['purge_replicas'])
+            print("Notification:               %s" % rule['notification'])
+            print("End of life:                %s" % rule['eol_at'])
+            print("Child Rule Id:              %s" % rule['child_rule_id'])
     return SUCCESS
 
 
@@ -1435,62 +2212,52 @@ def list_rules(args):
     List rules.
     """
     client = get_client(args)
-    if args.rule_id:
-        rules = [client.get_replication_rule(args.rule_id)]
-    elif args.file:
-        scope, name = get_scope(args.file, client)
-        rules = client.list_associated_rules_for_file(scope=scope, name=name)
-    elif args.traverse:
-        scope, name = get_scope(args.did, client)
-        locks = client.get_dataset_locks(scope=scope, name=name)
-        rules = []
-        for rule_id in list(set([lock['rule_id'] for lock in locks])):
-            rules.append(client.get_replication_rule(rule_id))
-    elif args.did:
-        scope, name = get_scope(args.did, client)
-        meta = client.get_metadata(scope=scope, name=name)
-        rules = client.list_did_rules(scope=scope, name=name)
-        try:
-            next(rules)
-            rules = client.list_did_rules(scope=scope, name=name)
-        except StopIteration:
-            rules = []
-            # looking for other rules
-            if meta['did_type'] == 'CONTAINER':
-                for dsn in client.list_content(scope, name):
-                    rules.extend(client.list_did_rules(scope=dsn['scope'], name=dsn['name']))
-                if rules:
-                    print('No rules found, listing rules for content')
-            if meta['did_type'] == 'DATASET':
-                for container in client.list_parent_dids(scope, name):
-                    rules.extend(client.list_did_rules(scope=container['scope'], name=container['name']))
-                if rules:
-                    print('No rules found, listing rules for parents')
-    elif args.rule_account:
-        rules = client.list_account_rules(account=args.rule_account)
-    elif args.subscription:
-        account = args.subscription[0]
-        name = args.subscription[1]
-        rules = client.list_subscription_rules(account=account, name=name)
-    else:
-        print('At least one option has to be given. Use -h to list the options.')
-        return FAILURE
-    if args.csv:
-        for rule in rules:
-            print(rule['id'],
-                  rule['account'],
-                  '%s:%s' % (rule['scope'], rule['name']),
-                  '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
-                  rule['rse_expression'],
-                  rule['copies'],
-                  sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
-                  rule['expires_at'],
-                  rule['created_at'],
-                  sep=',')
-    else:
-        table = []
-        for rule in rules:
-            table.append([rule['id'],
+    if cli_config == 'rich':
+        status = Status('Fetching rules', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            if args.rule_id:
+                rules = [client.get_replication_rule(args.rule_id)]
+            elif args.file:
+                scope, name = get_scope(args.file, client)
+                rules = client.list_associated_rules_for_file(scope=scope, name=name)
+            elif args.traverse:
+                scope, name = get_scope(args.did, client)
+                locks = client.get_dataset_locks(scope=scope, name=name)
+                rules = []
+                for rule_id in list(set([lock['rule_id'] for lock in locks])):
+                    rules.append(client.get_replication_rule(rule_id))
+            elif args.did:
+                scope, name = get_scope(args.did, client)
+                meta = client.get_metadata(scope=scope, name=name)
+                rules = client.list_did_rules(scope=scope, name=name)
+                try:
+                    next(rules)
+                    rules = client.list_did_rules(scope=scope, name=name)
+                except StopIteration:
+                    rules = []
+                    # looking for other rules
+                    if meta['did_type'] == 'CONTAINER':
+                        for dsn in client.list_content(scope, name):
+                            rules.extend(client.list_did_rules(scope=dsn['scope'], name=dsn['name']))
+                        if rules:
+                            print('No rules found, listing rules for content')
+                    if meta['did_type'] == 'DATASET':
+                        for container in client.list_parent_dids(scope, name):
+                            rules.extend(client.list_did_rules(scope=container['scope'], name=container['name']))
+                        if rules:
+                            print('No rules found, listing rules for parents')
+            elif args.rule_account:
+                rules = client.list_account_rules(account=args.rule_account)
+            elif args.subscription:
+                account = args.subscription[0]
+                name = args.subscription[1]
+                rules = client.list_subscription_rules(account=account, name=name)
+            else:
+                logger.error('Cannot get rules - at least one argument has to be given. Use -h to list the options.')
+                return FAILURE
+            if args.csv:
+                for rule in rules:
+                    print(rule['id'],
                           rule['account'],
                           '%s:%s' % (rule['scope'], rule['name']),
                           '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
@@ -1498,36 +2265,168 @@ def list_rules(args):
                           rule['copies'],
                           sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
                           rule['expires_at'],
-                          rule['created_at']])
-        print(tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'], disable_numparse=True))
+                          rule['created_at'],
+                          sep=',')
+            else:
+                table_data = []
+                if cli_config == 'rich':
+                    for rule in rules:
+                        table_data.append([rule['id'],
+                                           rule['account'],
+                                           '%s:%s' % (rule['scope'], rule['name']),
+                                           '%s[%d/%d/%d]' % (f"[{RICH_RULE_STATE.get(rule['state'], 'default')}]{rule['state']}[/]", rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+                                           rule['rse_expression'],
+                                           rule['copies'],
+                                           sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
+                                           rule['expires_at'],
+                                           rule['created_at']])
+                    table = generate_table(RICH_TABLE_FMT, headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'],
+                                           rows=table_data, col_alignments=['left', 'left', 'left', 'right', 'left', 'right', 'right', 'left', 'left'])
+                    status.stop()
+                    if console.is_terminal:
+                        if args.no_pager:
+                            console.print(table)
+                        else:
+                            console.width = sys.maxsize
+                            console.begin_capture()
+                            console.print(table)
+                    else:
+                        console.width = sys.maxsize
+                        console.print(table)
+                else:
+                    for rule in rules:
+                        table_data.append([rule['id'],
+                                           rule['account'],
+                                           '%s:%s' % (rule['scope'], rule['name']),
+                                           '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+                                           rule['rse_expression'],
+                                           rule['copies'],
+                                           sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
+                                           rule['expires_at'],
+                                           rule['created_at']])
+                    print(tabulate(table_data, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'], disable_numparse=True))
+
+    else:
+        if args.rule_id:
+            rules = [client.get_replication_rule(args.rule_id)]
+        elif args.file:
+            scope, name = get_scope(args.file, client)
+            rules = client.list_associated_rules_for_file(scope=scope, name=name)
+        elif args.traverse:
+            scope, name = get_scope(args.did, client)
+            locks = client.get_dataset_locks(scope=scope, name=name)
+            rules = []
+            for rule_id in list(set([lock['rule_id'] for lock in locks])):
+                rules.append(client.get_replication_rule(rule_id))
+        elif args.did:
+            scope, name = get_scope(args.did, client)
+            meta = client.get_metadata(scope=scope, name=name)
+            rules = client.list_did_rules(scope=scope, name=name)
+            try:
+                next(rules)
+                rules = client.list_did_rules(scope=scope, name=name)
+            except StopIteration:
+                rules = []
+                # looking for other rules
+                if meta['did_type'] == 'CONTAINER':
+                    for dsn in client.list_content(scope, name):
+                        rules.extend(client.list_did_rules(scope=dsn['scope'], name=dsn['name']))
+                    if rules:
+                        print('No rules found, listing rules for content')
+                if meta['did_type'] == 'DATASET':
+                    for container in client.list_parent_dids(scope, name):
+                        rules.extend(client.list_did_rules(scope=container['scope'], name=container['name']))
+                    if rules:
+                        print('No rules found, listing rules for parents')
+        elif args.rule_account:
+            rules = client.list_account_rules(account=args.rule_account)
+        elif args.subscription:
+            account = args.subscription[0]
+            name = args.subscription[1]
+            rules = client.list_subscription_rules(account=account, name=name)
+        else:
+            logger.error('Cannot get rules - at least one argument has to be given. Use -h to list the options.')
+            return FAILURE
+        if args.csv:
+            for rule in rules:
+                print(rule['id'],
+                      rule['account'],
+                      '%s:%s' % (rule['scope'], rule['name']),
+                      '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+                      rule['rse_expression'],
+                      rule['copies'],
+                      sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
+                      rule['expires_at'],
+                      rule['created_at'],
+                      sep=',')
+        else:
+            table_data = []
+            for rule in rules:
+                table_data.append([rule['id'],
+                                   rule['account'],
+                                   '%s:%s' % (rule['scope'], rule['name']),
+                                   '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+                                   rule['rse_expression'],
+                                   rule['copies'],
+                                   sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
+                                   rule['expires_at'],
+                                   rule['created_at']])
+            print(tabulate(table_data, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'], disable_numparse=True))
     return SUCCESS
 
 
 @exception_handler
 def list_rules_history(args):
     """
-    %(prog)s list-rules_history ...
+    %(prog)s list-rules-history ...
 
     List replication rules history for a DID.
     """
     rule_dict = []
     client = get_client(args)
     scope, name = get_scope(args.did, client)
-    for rule in client.list_replication_rule_full_history(scope, name):
-        if rule['rule_id'] not in rule_dict:
-            rule_dict.append(rule['rule_id'])
-            print('-' * 40)
-            print('Rule insertion')
-            print('Account : %s' % rule['account'])
-            print('RSE expression : %s' % (rule['rse_expression']))
-            print('Time : %s' % (rule['created_at']))
-        else:
-            rule_dict.remove(rule['rule_id'])
-            print('-' * 40)
-            print('Rule deletion')
-            print('Account : %s' % rule['account'])
-            print('RSE expression : %s' % (rule['rse_expression']))
-            print('Time : %s' % (rule['updated_at']))
+    header = ['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME']
+    table_data = []
+
+    if cli_config == 'rich':
+        status = Status('Fetching rules history', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            for rule in client.list_replication_rule_full_history(scope, name):
+                if rule['rule_id'] not in rule_dict:
+                    rule_dict.append(rule['rule_id'])
+                    table_data.append(['Insertion', rule['account'], rule['rse_expression'], rule['created_at']])
+                else:
+                    rule_dict.remove(rule['rule_id'])
+                    table_data.append(['Deletion', rule['account'], rule['rse_expression'], rule['updated_at']])
+            table_data = sorted(table_data, key=lambda entry: entry[-1], reverse=True)
+            table = generate_table(RICH_TABLE_FMT, headers=header, rows=table_data)
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table)
+            else:
+                console.width = sys.maxsize
+                console.print(table)
+    else:
+        for rule in client.list_replication_rule_full_history(scope, name):
+            if rule['rule_id'] not in rule_dict:
+                rule_dict.append(rule['rule_id'])
+                print('-' * 40)
+                print('Rule insertion')
+                print('Account : %s' % rule['account'])
+                print('RSE expression : %s' % (rule['rse_expression']))
+                print('Time : %s' % (rule['created_at']))
+            else:
+                rule_dict.remove(rule['rule_id'])
+                print('-' * 40)
+                print('Rule deletion')
+                print('Account : %s' % rule['account'])
+                print('RSE expression : %s' % (rule['rse_expression']))
+                print('Time : %s' % (rule['updated_at']))
     return SUCCESS
 
 
@@ -1540,10 +2439,27 @@ def list_rses(args):
 
     """
     client = get_client(args)
-
-    rses = client.list_rses(args.rses)
-    for rse in rses:
-        print('%(rse)s' % rse)
+    if cli_config == 'rich':
+        status = Status('Fetching RSEs', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            rses = list(client.list_rses(args.rses))
+            rses = [[rse['rse']] for rse in sorted(rses, key=lambda elem: elem['rse'])]
+            table = generate_table(RICH_TABLE_FMT, headers=['RSE'], rows=rses, col_alignments=['left'])
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table)
+            else:
+                console.width = sys.maxsize
+                console.print(table)
+    else:
+        rses = client.list_rses(args.rses)
+        for rse in rses:
+            print('%(rse)s' % rse)
     return SUCCESS
 
 
@@ -1565,14 +2481,38 @@ def list_suspicious_replicas(args):
         younger_than = args.younger_than
     if args.nattempts:
         nattempts = args.nattempts
-    # Generator is a list with one entry, which itself is a list of lists.
-    replicas_gen = client.list_suspicious_replicas(rse_expression, younger_than, nattempts)
-    for i in replicas_gen:
-        replicas = i
-    table = []
-    for rep in replicas:
-        table.append([rep['rse'], rep['scope'], rep['created_at'], rep['cnt'], rep['name']])
-    print(tabulate(table, headers=(['RSE Expression:', 'Scope:', 'Created at:', 'Nattempts:', 'File Name:'])))
+
+    if cli_config == 'rich':
+        status = Status('Fetching suspicious replicas', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            # Generator is a list with one entry, which itself is a list of lists.
+            replicas_gen = client.list_suspicious_replicas(rse_expression, younger_than, nattempts)
+            for i in replicas_gen:
+                replicas = i
+            table_data = []
+            for rep in replicas:
+                table_data.append([rep['rse'], rep['scope'], rep['created_at'], str(rep['cnt']), rep['name']])
+            table = generate_table(RICH_TABLE_FMT, headers=['RSE EXPRESSION', 'SCOPE', 'CREATED AT', 'N-ATTEMPTS', 'FILE NAME'], rows=table_data,
+                                   col_alignments=['left', 'left', 'left', 'right', 'left'])
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table)
+            else:
+                console.width = sys.maxsize
+                console.print(table)
+    else:
+        replicas_gen = client.list_suspicious_replicas(rse_expression, younger_than, nattempts)
+        for i in replicas_gen:
+            replicas = i
+        table = []
+        for rep in replicas:
+            table.append([rep['rse'], rep['scope'], rep['created_at'], rep['cnt'], rep['name']])
+        print(tabulate(table, headers=(['RSE Expression:', 'Scope:', 'Created at:', 'Nattempts:', 'File Name:'])))
     return SUCCESS
 
 
@@ -1586,8 +2526,24 @@ def list_rse_attributes(args):
     """
     client = get_client(args)
     attributes = client.list_rse_attributes(rse=args.rse)
-    table = [(k + ':', str(v)) for (k, v) in sorted(attributes.items())]  # columns have mixed datatypes
-    print(tabulate(table, tablefmt='plain', disable_numparse=True))  # disabling number parsing
+
+    if cli_config == 'rich':
+        keyword_styles = {**RICH_BOOLEAN, **RICH_RSE_TYPE} if console.is_terminal else {}
+        table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for k, v in sorted(attributes.items())]  # columns have mixed datatypes
+        table = generate_table(RICH_TABLE_FMT, headers=['', ''], rows=table_data, col_alignments=['left', 'left'], show_header=False, row_styles=['none'])
+        if console.is_terminal:
+            if args.no_pager:
+                console.print(table)
+            else:
+                console.width = sys.maxsize
+                console.begin_capture()
+                console.print(table)
+        else:
+            console.width = sys.maxsize
+            console.print(table)
+    else:
+        table = [(k + ':', str(v)) for (k, v) in sorted(attributes.items())]  # columns have mixed datatypes
+        print(tabulate(table, tablefmt='plain', disable_numparse=True))  # disabling number parsing
     return SUCCESS
 
 
@@ -1600,34 +2556,88 @@ def list_rse_usage(args):
 
     """
     client = get_client(args)
-    all_usages = client.get_rse_usage(rse=args.rse, filters={'per_account': args.show_accounts})
-    select_usages = [u for u in all_usages if u['source'] not in ('srm', 'gsiftp', 'webdav')]
-    print('USAGE:')
-    for usage in select_usages:
-        print('------')
-        for elem in usage:
-            if (elem in ['free', 'total'] and usage['source'] != 'storage' or elem == 'files' and usage['source'] != 'rucio'):
-                continue
-            elif elem in ['used', 'free', 'total']:
-                print('  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human)))
-            elif elem == 'account_usages':
-                account_usages_title = '  per account:'
-                if not usage[elem]:
-                    account_usages_title += ' no usage'
+    if cli_config == 'rich':
+        status = Status('Fetching RSE usage', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            all_usages = client.get_rse_usage(rse=args.rse, filters={'per_account': args.show_accounts})
+            select_usages = [u for u in all_usages if u['source'] not in ('srm', 'gsiftp', 'webdav')]
+
+            output = []
+            table_data = []
+            header = ['SOURCE', 'USED', 'FILES', 'FREE', 'TOTAL', 'UPDATED AT']
+            header_account_data = ['ACCOUNT', 'USED', 'PERCENTAGE %']
+            key2id = {header[i].lower().replace(' ', '_'): i for i in range(len(header))}
+            account_data = {}
+            for usage in select_usages:
+                row = [''] * len(header)
+                for elem in usage:
+                    if elem in ['free', 'total'] and usage['source'] != 'storage' or elem == 'files' and usage['source'] != 'rucio':
+                        continue
+                    elif elem in ['used', 'free', 'total']:
+                        row[key2id[elem]] = sizefmt(usage[elem], args.human)
+                    elif elem == 'account_usages':
+                        if usage[elem]:
+                            for account in usage[elem]:
+                                account_data[usage['source']].append([account['account'], sizefmt(account['used'], args.human), str(account['percentage'])])
+                    else:
+                        if elem in key2id:
+                            row[key2id[elem]] = str(usage[elem])
+                        if elem == 'source':
+                            account_data[usage[elem]] = []
+                table_data.append(row)
+            table = generate_table(RICH_TABLE_FMT, headers=header, rows=table_data, col_alignments=['left', 'right', 'right', 'right', 'right', 'left'])
+            output.append(table)
+
+            if args.show_accounts:
+                output.append('\n[b]USAGE PER ACCOUNT:')
+                for source in account_data:
+                    if len(account_data[source]) > 0:
+                        output.append(Padding.indent(Text(f'source: {source}', style=RICH_HIGHLIGHT_SUBHEADER), 2))
+                        account_table = generate_table(RICH_TABLE_FMT, headers=header_account_data, rows=account_data[source], col_alignments=['left', 'right', 'right'])
+                        output.append(Padding.indent(account_table, 2))
+
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(*output)
                 else:
-                    print(account_usages_title)
-                    print('  ------')
-                    col_width = max(len(str(entry[1])) for account in usage[elem] for entry in list(account.items())) + 16
-                    for account in usage[elem]:
-                        base_string = '    '
-                        used_string = 'used: {0}'.format(sizefmt(account['used'], args.human))
-                        account_string = 'account: {0}'.format(account['account'])
-                        percentage_string = 'percentage: {0}'.format(account['percentage'])
-                        print(base_string + account_string.ljust(col_width) + used_string.ljust(col_width) + percentage_string.ljust(col_width))
-                        print('  ------')
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(*output)
             else:
-                print('  {0}: {1}'.format(elem, usage[elem]))
-    print('------')
+                console.width = sys.maxsize
+                console.print(*output)
+
+    else:
+        all_usages = client.get_rse_usage(rse=args.rse, filters={'per_account': args.show_accounts})
+        select_usages = [u for u in all_usages if u['source'] not in ('srm', 'gsiftp', 'webdav')]
+
+        print('USAGE:')
+        for usage in select_usages:
+            print('------')
+            for elem in usage:
+                if elem in ['free', 'total'] and usage['source'] != 'storage' or elem == 'files' and usage['source'] != 'rucio':
+                    continue
+                elif elem in ['used', 'free', 'total']:
+                    print('  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human)))
+                elif elem == 'account_usages':
+                    account_usages_title = '  per account:'
+                    if not usage[elem]:
+                        account_usages_title += ' no usage'
+                    else:
+                        print(account_usages_title)
+                        print('  ------')
+                        col_width = max(len(str(entry[1])) for account in usage[elem] for entry in list(account.items())) + 16
+                        for account in usage[elem]:
+                            base_string = '    '
+                            used_string = 'used: {0}'.format(sizefmt(account['used'], args.human))
+                            account_string = 'account: {0}'.format(account['account'])
+                            percentage_string = 'percentage: {0}'.format(account['percentage'])
+                            print(base_string + account_string.ljust(col_width) + used_string.ljust(col_width) + percentage_string.ljust(col_width))
+                            print('  ------')
+                else:
+                    print('  {0}: {1}'.format(elem, usage[elem]))
+        print('------')
     return SUCCESS
 
 
@@ -1640,24 +2650,62 @@ def list_account_limits(args):
 
     """
     client = get_client(args)
-    table = []
-    if args.rse:
-        limits = client.get_local_account_limit(account=args.limit_account, rse=args.rse)
+
+    if cli_config == 'rich':
+        status = Status('Fetching account limits', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            if args.rse:
+                limits = client.get_local_account_limit(account=args.limit_account, rse=args.rse)
+            else:
+                limits = client.get_local_account_limits(account=args.limit_account)
+
+            table_data = []
+            for limit in list(limits.items()):
+                table_data.append([limit[0], sizefmt(limit[1], args.human)])
+            table_data.sort()
+            table1 = generate_table(RICH_TABLE_FMT, headers=['RSE', 'LIMIT'], rows=table_data, col_alignments=['left', 'right'])
+
+            table_data = []
+            limits = client.get_global_account_limits(account=args.limit_account)
+            for limit in list(limits.items()):
+                if (args.rse and args.rse in limit[1]['resolved_rses']) or not args.rse:
+                    table_data.append([limit[0], sizefmt(limit[1]['limit'], args.human)])
+            table_data.sort()
+            table2 = generate_table(RICH_TABLE_FMT, headers=['RSE EXPRESSION', 'LIMIT'], rows=table_data, col_alignments=['left', 'right'])
+
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table1)
+                    console.print(table2)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table1)
+                    console.print(table2)
+            else:
+                console.width = sys.maxsize
+                console.print(table1)
+                console.print(table2)
     else:
-        limits = client.get_local_account_limits(account=args.limit_account)
-    for limit in list(limits.items()):
-        table.append([limit[0], sizefmt(limit[1], args.human)])
-    table.sort()
-    print(tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT']))
+        if args.rse:
+            limits = client.get_local_account_limit(account=args.limit_account, rse=args.rse)
+        else:
+            limits = client.get_local_account_limits(account=args.limit_account)
 
-    table = []
-    limits = client.get_global_account_limits(account=args.limit_account)
-    for limit in list(limits.items()):
-        if (args.rse and args.rse in limit[1]['resolved_rses']) or not args.rse:
-            table.append([limit[0], sizefmt(limit[1]['limit'], args.human)])
-    table.sort()
-    print(tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'LIMIT']))
+        table = []
+        for limit in list(limits.items()):
+            table.append([limit[0], sizefmt(limit[1], args.human)])
+        table.sort()
+        print(tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT']))
 
+        table = []
+        limits = client.get_global_account_limits(account=args.limit_account)
+        for limit in list(limits.items()):
+            if (args.rse and args.rse in limit[1]['resolved_rses']) or not args.rse:
+                table.append([limit[0], sizefmt(limit[1]['limit'], args.human)])
+        table.sort()
+        print(tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'LIMIT']))
     return SUCCESS
 
 
@@ -1670,26 +2718,52 @@ def list_account_usage(args):
 
     """
     client = get_client(args)
-    table = []
     if args.rse:
         usage = client.get_local_account_usage(account=args.usage_account, rse=args.rse)
     else:
         usage = client.get_local_account_usage(account=args.usage_account)
-    for item in usage:
-        remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
-        table.append([item['rse'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
-    table.sort()
-    print(tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
 
-    table = []
-    usage = client.get_global_account_usage(account=args.usage_account)
-    for item in usage:
-        if (args.rse and args.rse in item['rse_expression']) or not args.rse:
+    if cli_config == 'rich':
+        if console.is_terminal and not args.no_pager:
+            console.width = sys.maxsize
+            console.begin_capture()
+        elif not console.is_terminal:
+            console.width = sys.maxsize
+
+        table_data = []
+        for item in usage:
             remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
-            table.append([item['rse_expression'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
-    table.sort()
-    print(tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+            table_data.append([item['rse'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
+        table_data.sort()
+        table = generate_table(RICH_TABLE_FMT, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT'], rows=table_data, col_alignments=['left', 'right', 'right', 'right'])
+        console.print(table)
 
+        table_data = []
+        usage = client.get_global_account_usage(account=args.usage_account)
+        for item in usage:
+            if (args.rse and args.rse in item['rse_expression']) or not args.rse:
+                remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
+                table_data.append([item['rse_expression'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
+        table_data.sort()
+        table = generate_table(RICH_TABLE_FMT, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT'], rows=table_data, col_alignments=['left', 'right', 'right', 'right'])
+        console.print(table)
+
+    else:
+        table = []
+        for item in usage:
+            remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
+            table.append([item['rse'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
+        table.sort()
+        print(tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
+        table = []
+        usage = client.get_global_account_usage(account=args.usage_account)
+        for item in usage:
+            if (args.rse and args.rse in item['rse_expression']) or not args.rse:
+                remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
+                table.append([item['rse_expression'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
+        table.sort()
+        print(tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
     return SUCCESS
 
 
@@ -1702,19 +2776,50 @@ def list_datasets_rse(args):
 
     """
     client = get_client(args)
-    if args.long:
-        table = []
-        for dsn in client.list_datasets_per_rse(args.rse):
-            table.append(['%s:%s' % (dsn['scope'], dsn['name']), '%s/%s' % (str(dsn['available_length']), str(dsn['length'])), '%s/%s' % (str(dsn['available_bytes']), str(dsn['bytes']))])
-        table.sort()
-        print(tabulate(table, tablefmt=tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES']))
+    if cli_config == 'rich':
+        status = Status('Fetching datasets at RSE', spinner=RICH_SPINNER, spinner_style=RICH_SPINNER_STYLE, console=console)
+        with status:
+            if args.long:
+                table_data = []
+                for dsn in client.list_datasets_per_rse(args.rse):
+                    table_data.append(['%s:%s' % (dsn['scope'], dsn['name']),
+                                       '%s/%s' % (str(dsn['available_length']), str(dsn['length'])),
+                                       '%s/%s' % (str(dsn['available_bytes']), str(dsn['bytes']))])
+                table_data.sort()
+                table = generate_table(RICH_TABLE_FMT, headers=['SCOPE:NAME', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES'], rows=table_data,
+                                       col_alignments=['left', 'right', 'right'])
+            else:
+                dsns = list(set(['%s:%s' % (dsn['scope'], dsn['name']) for dsn in client.list_datasets_per_rse(args.rse)]))
+                dsns.sort()
+                table = generate_table(RICH_TABLE_FMT, headers=['SCOPE:NAME'], rows=[[dsn] for dsn in dsns])
+
+            status.stop()
+            if console.is_terminal:
+                if args.no_pager:
+                    console.print(table)
+                else:
+                    console.width = sys.maxsize
+                    console.begin_capture()
+                    console.print(table)
+            else:
+                console.width = sys.maxsize
+                console.print(table)
     else:
-        dsns = list(set(['%s:%s' % (dsn['scope'], dsn['name']) for dsn in client.list_datasets_per_rse(args.rse)]))
-        dsns.sort()
-        print("SCOPE:NAME")
-        print('----------')
-        for dsn in dsns:
-            print(dsn)
+        if args.long:
+            table = []
+            for dsn in client.list_datasets_per_rse(args.rse):
+                table.append(['%s:%s' % (dsn['scope'], dsn['name']),
+                              '%s/%s' % (str(dsn['available_length']), str(dsn['length'])),
+                              '%s/%s' % (str(dsn['available_bytes']), str(dsn['bytes']))])
+            table.sort()
+            print(tabulate(table, tablefmt=tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES']))
+        else:
+            dsns = list(set(['%s:%s' % (dsn['scope'], dsn['name']) for dsn in client.list_datasets_per_rse(args.rse)]))
+            dsns.sort()
+            print("SCOPE:NAME")
+            print('----------')
+            for dsn in dsns:
+                print(dsn)
     return SUCCESS
 
 
@@ -1787,7 +2892,7 @@ def add_lifetime_exception(args):
     if containers:
         logger.warning('One or more DIDs are containers. They will be resolved into a list of datasets to request exception. Full list below')
         for container in containers:
-            logger.info('Resolving %s:%s into datasets :' % (container['scope'], container['name']))
+            logger.info('Resolving %s:%s into datasets:' % (container['scope'], container['name']))
             list_datasets = __resolve_containers_to_datasets(container['scope'], container['name'], client)
             for chunk in chunks(list_datasets, chunk_limit):
                 for meta in client.get_metadata_bulk(chunk):
@@ -1801,7 +2906,7 @@ def add_lifetime_exception(args):
                         datasets.append({'scope': scope, 'name': name})
 
     if not datasets:
-        logger.error('Nothing to submit')
+        logger.error('Nothing to submit.')
         return SUCCESS
     try:
         client.add_exception(dids=datasets, account=client.account, pattern='', comments=reason, expires_at=expiration)
@@ -1809,11 +2914,17 @@ def add_lifetime_exception(args):
         logger.error(err)
         return FAILURE
     except Exception:
-        logger.error('Failure to submit exception. Please retry')
-        logger.debug(traceback.format_exc())
+        if cli_config == 'rich':
+            if logger.level == logging.DEBUG:
+                logger.exception('Failure to submit exception. Please retry.')
+            else:
+                logger.error('Failure to submit exception. Please retry.')
+        else:
+            logger.error('Failure to submit exception. Please retry')
+            logger.debug(traceback.format_exc())
         return FAILURE
 
-    logger.info('Exception successfully submitted. Summary below')
+    logger.info('Exception successfully submitted. Summary below:')
     for cnt, error in enumerate(error_types):
         print('{0:100} {1:6d}'.format(error, summary[cnt]))
     return SUCCESS
@@ -1868,6 +2979,7 @@ def get_parser():
     oparser.add_argument('--robot', '-R', dest="human", default=True, action='store_false', help="All output in bytes and without the units. This output format is preferred by parsers and scripts.")
     oparser.add_argument('--user-agent', '-U', dest="user_agent", default='rucio-clients', action='store', help="Rucio User Agent")
     oparser.add_argument('--vo', dest="vo", metavar="VO", default=None, help="VO to authenticate at. Only used in multi-VO mode.")
+    oparser.add_argument("--no-pager", dest="no_pager", default=False, action='store_true', help="Do not pipe Rucio output into a pager.")
 
     # Options for the userpass or OIDC auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
@@ -2271,7 +3383,7 @@ You can filter by key/value, e.g.::
     list_content_history_parser.set_defaults(function=list_content_history)
     list_content_history_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
-# The upload subparser
+    # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method.')
     upload_parser.set_defaults(function=upload)
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True).completer = rse_completer
@@ -2531,11 +3643,24 @@ if __name__ == '__main__':
         sys.exit(FAILURE)
 
     args = oparser.parse_args(arguments)
+    setup_pager()
 
-    logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose)
+    cli_config = get_cli_config()
+    if cli_config == 'rich':
+        install(console=console, word_wrap=True, width=min(console.width, MAX_TRACEBACK_WIDTH))  # make rich exception tracebacks the default
+        logger = setup_rich_logger(module_name=__name__, logger_name='user', verbose=args.verbose, console=console)
+    else:
+        logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose)
+
     start_time = time.time()
     result = args.function(args)
     end_time = time.time()
-    if args.verbose:
-        print("Completed in %-0.4f sec." % (end_time - start_time))
+    if console.is_terminal and not args.no_pager:
+        command_output = console.end_capture()
+        if args.verbose:
+            command_output += "Completed in %-0.4f sec." % (end_time - start_time)
+        pydoc.pager(command_output)
+    else:
+        if args.verbose:
+            print("Completed in %-0.4f sec." % (end_time - start_time))
     sys.exit(result)
