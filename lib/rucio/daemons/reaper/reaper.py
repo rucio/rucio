@@ -31,7 +31,7 @@ from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.constants import RseAttr
 from rucio.common.exception import DatabaseException, ReplicaNotFound, ReplicaUnAvailable, ResourceTemporaryUnavailable, RSEAccessDenied, RSENotFound, RSEProtocolNotSupported, ServiceUnavailable, SourceNotFound, VONotFound
@@ -60,7 +60,7 @@ if TYPE_CHECKING:
 
 GRACEFUL_STOP = threading.Event()
 METRICS = MetricManager(module=__name__)
-REGION = make_region_memcached(expiration_time=600)
+REGION = MemcacheRegion(expiration_time=600)
 DAEMON_NAME = 'reaper'
 
 EXCLUDED_RSE_GAUGE = METRICS.gauge('excluded_rses.{rse}', documentation='Temporarly excluded RSEs')

@@ -77,7 +77,7 @@ if rsemanager.CLIENT_MODE:   # pylint:disable=no-member
 
 
 if rsemanager.SERVER_MODE:   # pylint:disable=no-member
-    from rucio.common.cache import make_region_memcached
+    from rucio.common.cache import MemcacheRegion
     from rucio.core.rse import get_rse_id, get_rse_protocols
     from rucio.core.vo import map_vo
 
@@ -92,5 +92,5 @@ if rsemanager.SERVER_MODE:   # pylint:disable=no-member
 
     setattr(rsemanager, '__request_rse_info', tmp_rse_info)
     setattr(rsemanager, '__get_signed_url', get_signed_url_server)
-    RSE_REGION = make_region_memcached(expiration_time=900)
+    RSE_REGION = MemcacheRegion(expiration_time=900)
     setattr(rsemanager, 'RSE_REGION', RSE_REGION)

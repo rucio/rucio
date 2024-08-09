@@ -29,13 +29,13 @@ import requests
 from dogpile.cache.api import NO_VALUE
 
 from rucio.common import utils
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.constants import SORTING_ALGORITHMS
 from rucio.common.exception import InvalidRSEExpression, SortingAlgorithmNotSupported
 from rucio.core.rse_expression_parser import parse_expression
 
-REGION = make_region_memcached(expiration_time=900, function_key_generator=utils.my_key_generator)
+REGION = MemcacheRegion(expiration_time=900, function_key_generator=utils.my_key_generator)
 
 # This product uses GeoLite data created by MaxMind,
 # available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>

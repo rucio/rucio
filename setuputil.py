@@ -47,6 +47,7 @@ clients_requirements_table = {
 dev_requirements = [
     'pytest',
     'pytest-xdist',
+    'pytest-cov',
     'pyflakes',
     'flake8',
     'pylint',

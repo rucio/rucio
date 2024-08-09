@@ -714,14 +714,8 @@ def get_config_dirs() -> list[str]:
     """
     configdirs = []
 
-    if 'RUCIO_HOME' in os.environ:
-        configdirs.append('%s/etc/' % os.environ['RUCIO_HOME'])
-
-    if 'VIRTUAL_ENV' in os.environ:
-        configdirs.append('%s/etc/' % os.environ['VIRTUAL_ENV'])
-
-    if 'CONDA_PREFIX' in os.environ:
-        configdirs.append('%s/etc/' % os.environ['CONDA_PREFIX'])
+    env_vars = ['RUCIO_HOME', 'VIRTUAL_ENV', 'CONDA_PREFIX']
+    configdirs.extend([os.path.join(os.environ[var], 'etc', '') for var in env_vars if var in os.environ])
 
     configdirs.append('/opt/rucio/etc/')
 

@@ -27,7 +27,7 @@ from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.sql.expression import and_, delete, desc, false, func, or_, select, true
 
 from rucio.common import exception, types, utils
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import get_lfn2pfn_algorithm_default
 from rucio.common.constants import RSE_SUPPORTED_PROTOCOL_OPERATIONS, RseAttr
 from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 T = TypeVar('T', bound="RseData")
 
 RSE_SETTINGS = ["continent", "city", "region_code", "country_name", "time_zone", "ISP", "ASN"]
-REGION = make_region_memcached(expiration_time=900)
+REGION = MemcacheRegion(expiration_time=900)
 
 
 class RseData:

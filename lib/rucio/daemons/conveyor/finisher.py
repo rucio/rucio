@@ -29,7 +29,7 @@ from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get_bool, config_get_list
 from rucio.common.exception import DatabaseException, ReplicaNotFound, RequestNotFound, RSEProtocolNotSupported, UnsupportedOperation
 from rucio.common.logging import setup_logging
@@ -55,7 +55,7 @@ if TYPE_CHECKING:
 
 GRACEFUL_STOP = threading.Event()
 
-REGION = make_region_memcached(expiration_time=900)
+REGION = MemcacheRegion(expiration_time=900)
 METRICS = MetricManager(module=__name__)
 DAEMON_NAME = 'conveyor-finisher'
 FAILED_DURING_SUBMISSION_DELAY = datetime.timedelta(minutes=120)

@@ -28,7 +28,7 @@ from dogpile.cache.api import NoValue
 from requests.adapters import ReadTimeout
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.constants import FTS_COMPLETE_STATE, FTS_JOB_TYPE, FTS_STATE, RseAttr
 from rucio.common.exception import DuplicateFileTransferSubmission, TransferToolTimeout, TransferToolWrongAnswer
@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 logging.getLogger("requests").setLevel(logging.CRITICAL)
 disable_warnings()
 
-REGION_SHORT = make_region_memcached(expiration_time=900)
+REGION_SHORT = MemcacheRegion(expiration_time=900)
 METRICS = MetricManager(module=__name__)
 
 SUBMISSION_COUNTER = METRICS.counter(name='{host}.submission.{state}',

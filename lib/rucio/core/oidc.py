@@ -37,7 +37,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.sql.expression import true
 
 from rucio.common import types
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import CannotAuthenticate, CannotAuthorize, RucioException
 from rucio.common.stopwatch import Stopwatch
@@ -57,7 +57,7 @@ if TYPE_CHECKING:
 TOKEN_MIN_LIFETIME: Final = config_get_int('oidc', 'token_min_lifetime', default=300)
 TOKEN_MAX_LIFETIME: Final = config_get_int('oidc', 'token_max_lifetime', default=21600)
 
-REGION: Final = make_region_memcached(expiration_time=TOKEN_MAX_LIFETIME)
+REGION: Final = MemcacheRegion(expiration_time=TOKEN_MAX_LIFETIME)
 METRICS = MetricManager(module=__name__)
 
 # worokaround for a bug in pyoidc (as of Dec 2019)

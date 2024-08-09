@@ -20,7 +20,7 @@ from dogpile.cache.api import NO_VALUE
 from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError
 
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.exception import Duplicate, InvalidObject, RucioException
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import KeyType
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
         scope: InternalScope
         regexp: str
 
-REGION = make_region_memcached(expiration_time=900)
+REGION = MemcacheRegion(expiration_time=900)
 
 
 @transactional_session

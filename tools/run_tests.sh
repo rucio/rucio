@@ -32,13 +32,14 @@ function usage {
   echo '  -a    Skip alembic downgrade/upgrade test'
   echo '  -u    Update pip dependencies only'
   echo '  -x    exit instantly on first error or failed test'
+  echo '  -c    Generate test coverage'
   exit
 }
 
 alembic="true"
 iterations=1
 
-while getopts h2cpkilrstaux opt
+while getopts h2cpkilrstauxc opt
 do
   case "$opt" in
     h) usage;;
@@ -53,6 +54,7 @@ do
     a) alembic="";;
     u) pip_only="true";;
     x) stop_on_failure="--exitfirst";;
+    c) coverage="true";;
     *) usage; exit 1;
   esac
 done
@@ -193,6 +195,11 @@ if test ${trace}; then
 else
     echo 'Running tests'
     PYTEST_SH_ARGS="-v --tb=short $PYTEST_SH_ARGS"
+fi
+
+if test ${coverage}; then
+    echo 'Generating coverage'
+    PYTEST_SH_ARGS="--cov-report term --cov-report xml:.coverage $PYTEST_SH_ARGS"
 fi
 
 for i in $iterations

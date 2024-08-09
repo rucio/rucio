@@ -25,7 +25,7 @@ from botocore.client import Config
 from dogpile.cache.api import NO_VALUE
 from google.oauth2.service_account import Credentials
 
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, get_rse_credentials
 from rucio.common.constants import RseAttr
 from rucio.common.exception import UnsupportedOperation
@@ -34,7 +34,7 @@ from rucio.core.rse import get_rse_attribute
 
 CREDS_GCS = None
 
-REGION = make_region_memcached(expiration_time=900)
+REGION = MemcacheRegion(expiration_time=900)
 METRICS = MetricManager(module=__name__)
 
 
