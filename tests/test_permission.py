@@ -31,8 +31,8 @@ class TestPermissionCoreGateway:
         """ PERMISSION(CORE): Check permission to add a did"""
         scope = scope_name_generator()
         add_scope(scope=InternalScope(scope, vo=vo), account=root_account)
-        assert has_permission(issuer='panda', action='add_did', kwargs={'scope': scope}, vo=vo)
-        assert not has_permission(issuer='spock', action='add_did', kwargs={'scope': scope}, vo=vo)
+        assert has_permission(issuer='panda', action='add_dids', kwargs={'dids': [{'scope': scope}]}, vo=vo)
+        assert not has_permission(issuer='spock', action='add_dids', kwargs={'dids': [{'scope': scope}]}, vo=vo)
 
     def test_permission_add_account(self, vo):
         """ PERMISSION(CORE): Check permission to add account """

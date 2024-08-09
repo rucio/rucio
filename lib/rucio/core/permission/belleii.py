@@ -75,7 +75,6 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict, *, sess
             'get_auth_token_x509': perm_get_auth_token_x509,
             'get_auth_token_saml': perm_get_auth_token_saml,
             'add_account_identity': perm_add_account_identity,
-            'add_did': perm_add_did,
             'add_dids': perm_add_dids,
             'attach_dids': perm_attach_dids,
             'detach_dids': perm_detach_dids,
@@ -397,36 +396,6 @@ def perm_del_identity(issuer: "InternalAccount", kwargs: dict, *, session: "Opti
         or has_account_attribute(account=issuer, key='account_admin', session=session)
 
 
-def perm_add_did(issuer: "InternalAccount", kwargs: dict, *, session: "Optional[Session]" = None) -> bool:
-    """
-    Checks if an account can add an data identifier to a scope.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :param session: The DB session to use
-    :returns: True if account is allowed, otherwise False
-    """
-    # Check the accounts of the issued rules
-    for rule in kwargs.get('rules', []):
-        kwargs_rule = rule
-        if 'scope' not in kwargs_rule:
-            if kwargs['scope'] and not isinstance(kwargs['scope'], str):
-                kwargs_rule['scope'] = kwargs['scope'].external
-            else:
-                kwargs_rule['scope'] = kwargs['scope']
-        if not perm_add_rule(issuer, kwargs=kwargs_rule, session=session):
-            return False
-
-    scope = kwargs['scope']
-    if isinstance(kwargs['scope'], str):
-        scope = InternalScope(kwargs['scope'])
-    return perm_default(issuer, kwargs, session=session)\
-        or has_account_attribute(account=issuer, key='did_admin', session=session)\
-        or has_account_attribute(account=issuer, key='production_account', session=session)\
-        or rucio.core.scope.is_scope_owner(scope=scope, account=issuer, session=session)\
-        or (kwargs.get('name', False) and kwargs['name'].startswith('/belle/scout'))
-
-
 def perm_add_dids(issuer: "InternalAccount", kwargs: dict, *, session: "Optional[Session]" = None) -> bool:
     """
     Checks if an account can bulk add data identifiers.
@@ -438,7 +407,26 @@ def perm_add_dids(issuer: "InternalAccount", kwargs: dict, *, session: "Optional
     """
     # Check the accounts of the issued rules
     for did in kwargs['dids']:
-        if not perm_add_did(issuer, kwargs=did, session=session):
+        # Check the accounts of the issued rules
+        for rule in did.get('rules', []):
+            did_rule = rule
+            if 'scope' not in did_rule:
+                if did['scope'] and not isinstance(did['scope'], str):
+                    did_rule['scope'] = did['scope'].external
+                else:
+                    did_rule['scope'] = did['scope']
+            if not perm_add_rule(issuer, kwargs=did_rule, session=session):
+                return False
+
+        scope = did['scope']
+        if isinstance(did['scope'], str):
+            scope = InternalScope(did['scope'])
+
+        if not perm_default(issuer, did, session=session)\
+                and not has_account_attribute(account=issuer, key='did_admin', session=session)\
+                and not has_account_attribute(account=issuer, key='production_account', session=session)\
+                and not rucio.core.scope.is_scope_owner(scope=scope, account=issuer, session=session)\
+                and not (did.get('name', False) and did['name'].startswith('/belle/scout')):
             return False
     return True
 

@@ -118,8 +118,8 @@ def add_did(
     validate_schema(name='did', obj=v_did, vo=vo)
     validate_schema(name='dids', obj=dids, vo=vo)
     validate_schema(name='rse', obj=rse, vo=vo)
-    kwargs = {'scope': scope, 'name': name, 'type': did_type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}
-    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_did', kwargs=kwargs, session=session):
+    kwargs = {'dids': [{'scope': scope, 'name': name, 'type': did_type, 'issuer': issuer, 'account': account, 'statuses': statuses, 'meta': meta, 'rules': rules, 'lifetime': lifetime}]}
+    if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_dids', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not add data identifier to scope %s' % (issuer, scope))
 
     owner_account = None if account is None else InternalAccount(account, vo=vo)
