@@ -59,7 +59,7 @@ from rucio.common.exception import (
     UnsupportedOperation,
 )
 from rucio.common.extra import import_extras
-from rucio.common.test_rucio_server import TestRucioServer
+from rucio.common.rucio_server_tests import TestRucioServer
 from rucio.common.utils import Color, StoreAndDeprecateWarningAction, chunks, detect_client_location, extract_scope, parse_did_filter_from_string, parse_did_filter_from_string_fe, setup_logger, sizefmt
 
 EXTRA_MODULES = import_extras(['argcomplete'])

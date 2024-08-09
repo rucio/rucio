@@ -1607,7 +1607,7 @@ class Validate(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint('auth', __name__, url_prefix='/auth')
+    bp = Blueprint('auth', __name__, url_prefix='/auth', template_folder='templates')
 
     user_pass_view = UserPass.as_view('user_pass')
     bp.add_url_rule('/userpass', view_func=user_pass_view, methods=['get', 'options'])

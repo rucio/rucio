@@ -29,7 +29,7 @@ pytest_plugins = ('tests.ruciopytest.artifacts_plugin', )
 
 def pytest_configure(config):
     config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
-    config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests' )
+    config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests')
 
     if config.pluginmanager.hasplugin("xdist"):
         from .ruciopytest import xdist_noparallel_scheduler
@@ -586,3 +586,31 @@ def metrics_mock():
             mock.patch('rucio.core.monitor.TIMINGS', new={}), \
             mock.patch('prometheus_client.values.ValueClass', new=values.MutexValue):
         yield registry
+
+
+@pytest.fixture
+def account_name_generator():
+    from rucio.common.utils import generate_uuid
+    return lambda: 'jdoe-' + str(generate_uuid()).lower()[:16]
+
+
+@pytest.fixture
+def scope_name_generator():
+    from rucio.common.utils import generate_uuid
+    return lambda: 'mock_' + str(generate_uuid()).lower()[:16]
+
+
+@pytest.fixture
+def rse_name_generator():
+    def generator(size=10):
+        return 'MOCK-' + ''.join(choice(ascii_uppercase) for _ in range(size))
+    return generator
+
+
+@pytest.fixture
+def client_rse_factory(rucio_client, vo, function_scope_prefix):
+    """ Makes an rse factory that does not require a new db session"""
+    from .temp_factories import ClientMockRSEFactory
+
+    with ClientMockRSEFactory(db_session=rucio_client.session, vo=vo, name_prefix=function_scope_prefix) as factory:
+        yield factory
