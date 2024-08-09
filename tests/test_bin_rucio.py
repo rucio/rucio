@@ -535,6 +535,10 @@ def test_add_files_to_dataset(file_factory, rse_name_generator, client_rse_facto
     assert re.search(tmp_file1.name, out) is not None
 
 
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
 def test_download_file(did_factory, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT(USER): Rucio download files"""
     mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
@@ -566,6 +570,10 @@ def test_download_file(did_factory, client_rse_factory, rse_client, rse_name_gen
     tmp_dir.cleanup()
 
 
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
 def test_download_pfn(did_factory, rucio_client, client_rse_factory, rse_client, rse_name_generator, mock_scope):
     """CLIENT(USER): Rucio download files"""
 
@@ -742,6 +750,10 @@ def test_download_filter(did_factory, client_rse_factory, rse_client, rse_name_g
     temp_dir.cleanup()
 
 
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
 def test_download_timeout_options_accepted(did_factory, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT(USER): Rucio download timeout options"""
 
@@ -899,6 +911,10 @@ def test_download_dataset(client_rse_factory, did_factory, rse_client, rse_name_
     tmp.cleanup()
 
 
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
 def test_download_file_check_by_size(did_factory, client_rse_factory, rse_client, rse_name_generator):
     """CLIENT(USER): Rucio download files"""
 
@@ -962,6 +978,10 @@ def test_list_blocklisted_replicas(client_rse_factory, rse_client, rse_name_gene
     assert tmp_rse in out
 
 
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
 def test_create_rule(rse_name_generator, client_rse_factory, rse_client, rucio_client, did_factory):
     """CLIENT(USER): Rucio add rule"""
 
@@ -1015,6 +1035,10 @@ def test_create_rule(rse_name_generator, client_rse_factory, rse_client, rucio_c
     assert re.search(rule, out) is not None
 
 
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
 def test_create_rule_delayed(client_rse_factory, rse_client, rse_name_generator, rucio_client, did_factory):
     """CLIENT(USER): Rucio add rule delayed"""
     mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
@@ -1055,6 +1079,10 @@ def test_create_rule_delayed(client_rse_factory, rse_client, rse_name_generator,
     assert datetime.now(timezone.utc) + timedelta(seconds=3550) < created_at < datetime.now(timezone.utc) + timedelta(seconds=3650)
 
 
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
 def test_delete_rule(did_factory, client_rse_factory, rse_client, rse_name_generator, rucio_client):
     """CLIENT(USER): rule deletion"""
     mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
@@ -1091,6 +1119,10 @@ def test_delete_rule(did_factory, client_rse_factory, rse_client, rse_name_gener
     assert 5 == len(out.splitlines())
 
 
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
 def test_move_rule(did_factory, client_rse_factory, rse_client, rse_name_generator, rucio_client):
     """CLIENT(USER): Rucio move rule"""
     # add files
@@ -1127,6 +1159,10 @@ def test_move_rule(did_factory, client_rse_factory, rse_client, rse_name_generat
     assert re.search(new_rule, out) is not None
 
 
+@pytest.mark.skipif(
+    "SUITE" in os.environ and os.environ["SUITE"] == "client",
+    reason="Requires DB session to create datasets",
+)
 def test_move_rule_with_arguments(did_factory, client_rse_factory, rse_client, rse_name_generator, rucio_client):
     """CLIENT(USER): Rucio move rule"""
     mock_rse, _ = client_rse_factory.make_posix_rse(rse_client, rse_name_generator)
