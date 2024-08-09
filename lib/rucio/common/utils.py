@@ -279,7 +279,6 @@ def adler32(file: "FileDescriptorOrPath") -> str:
     #        can_mmap = True
     # except:
     #    pass
-
     try:
         # use mmap if possible
         if can_mmap:
@@ -636,15 +635,21 @@ def render_json(*args, **kwargs) -> str:
     return json.dumps(data, cls=APIEncoder)
 
 
-def datetime_parser(dct: dict[Any, Any]) -> dict[Any, Any]:
+def render_json_list(list_) -> str:
+    """ JSON render function for list
+    """
+    return json.dumps(list_, cls=APIEncoder)
+
+
+def datetime_parser(dct: dict[Any, Any], logger: "LoggerFunction" = logging.log) -> dict[Any, Any]:
     """ datetime parser
     """
     for k, v in list(dct.items()):
         if isinstance(v, str) and re.search(" UTC", v):
             try:
                 dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
-            except Exception:
-                pass
+            except Exception as e:
+                logger(logging.DEBUG, "Failed to convert %s to datetime format %s: %s", v, DATE_FORMAT, e)
     return dct
 
 
@@ -1154,7 +1159,7 @@ def sizefmt(num: Union[int, float, None], human: bool = True) -> str:
         return 'Inf'
 
 
-def get_tmp_dir() -> str:
+def get_tmp_dir(logger: "LoggerFunction" = logging.log) -> str:
     """
     Get a path where to store temporary files.
 
@@ -1171,13 +1176,13 @@ def get_tmp_dir() -> str:
     base_dir = os.path.abspath(tempfile.gettempdir())
     try:
         return os.path.join(base_dir, getpass.getuser())
-    except Exception:
-        pass
+    except Exception as e:
+        logger(logging.DEBUG, "Failed to get path for temp dir at %s using a username: %s", base_dir, e)
 
     try:
         return os.path.join(base_dir, str(os.getuid()))
-    except Exception:
-        pass
+    except Exception as e:
+        logger(logging.DEBUG, "Failed to get a temp dir at %s using a uid: %s", base_dir, e)
 
     return base_dir
 
@@ -1228,7 +1233,7 @@ def resolve_ip(hostname: str) -> str:
     return hostname
 
 
-def detect_client_location() -> "IPDict":
+def detect_client_location(logger: "LoggerFunction" = logging.log) -> "IPDict":
     """
     Normally client IP will be set on the server side (request.remote_addr)
     Here setting ip on the one seen by the host itself. There is no connection
@@ -1240,25 +1245,17 @@ def detect_client_location() -> "IPDict":
     If environment variables sets location, it uses it.
     """
 
-    ip = None
-
     try:
         with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as s:
             s.connect(("2001:4860:4860:0:0:0:0:8888", 80))
             ip = s.getsockname()[0]
     except Exception:
-        pass
-
-    if not ip:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 s.connect(("8.8.8.8", 80))
                 ip = s.getsockname()[0]
         except Exception:
-            pass
-
-    if not ip:
-        ip = '0.0.0.0'  # noqa: S104
+            ip = '0.0.0.0'  # noqa: S104
 
     site = os.environ.get('SITE_NAME',
                           os.environ.get('ATLAS_SITE_NAME',
@@ -1273,9 +1270,9 @@ def detect_client_location() -> "IPDict":
             longitude = float(longitude)
         except ValueError:
             latitude = longitude = 0
-            print('Client set latitude and longitude are not valid.')
     else:
         latitude = longitude = None
+        logger(logging.DEBUG, 'Client set latitude and longitude are not valid.')
 
     return {'ip': ip,
             'fqdn': socket.getfqdn(),
@@ -1325,7 +1322,7 @@ def make_valid_did(lfn_dict: dict[str, Any]) -> dict[str, Any]:
     return lfn_copy
 
 
-def send_trace(trace: TraceDict, trace_endpoint: str, user_agent: str, retries: int = 5) -> int:
+def send_trace(trace: dict[str, Any], trace_endpoint: str, user_agent: str, retries: int = 5, logger: "LoggerFunction" = logging.log) -> int:
     """
     Send the given trace to the trace endpoint
 
@@ -1337,12 +1334,12 @@ def send_trace(trace: TraceDict, trace_endpoint: str, user_agent: str, retries: 
     """
     if user_agent.startswith('pilot'):
         return 0
-    for dummy in range(retries):
+    for _ in range(retries):
         try:
             requests.post(trace_endpoint + '/traces/', verify=False, data=json.dumps(trace))
             return 0
-        except Exception:
-            pass
+        except Exception as e:
+            logger(logging.DEBUG, "Could not send trace to trace endpoint at %s: %s", trace_endpoint + '/traces/', e)
     return 1
 
 

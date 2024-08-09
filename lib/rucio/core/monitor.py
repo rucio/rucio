@@ -430,7 +430,7 @@ class MetricManager:
             return _decorator(original_function)
         return _decorator
 
-    def push_metrics_to_gw(self, job: Optional[str] = None, grouping_key: Optional[dict[str, Any]] = None) -> None:
+    def push_metrics_to_gw(self, job: Optional[str] = None, grouping_key: Optional[dict[str, Any]] = None, logger: "LoggerFunction" = logging.log) -> None:
         """
         Push the metrics out to the prometheus push gateways. This is useful for short-running programs which don't
         live long enough to be reliably scraped in the prometheus pull model.
@@ -443,5 +443,5 @@ class MetricManager:
         for server in self.push_gateways:
             try:
                 push_to_gateway(server.strip(), job=job, registry=self.registry, grouping_key=grouping_key)
-            except:
-                continue
+            except Exception as e:
+                logger(logging.DEBUG, "Failed to push job %s to %s: %s", job, server.strip(), e)

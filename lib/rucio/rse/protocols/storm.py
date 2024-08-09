@@ -141,7 +141,6 @@ class Default(protocol.RSEProtocol):
                 target = None
         except:
             target = None
-            pass
 
         # if AGIS setting failed
         etag_meta = None
@@ -149,8 +148,8 @@ class Default(protocol.RSEProtocol):
             # requests preferable
             try:
                 rcode, etag_meta = requests_etag(pfn, 300)
-            except:
-                pass
+            except Exception as e:
+                self.logger(logging.DEBUG, e)
             # fallback to davix
             if rcode != 207:
                 rcode, etag_meta = davix_etag(pfn, 300)
