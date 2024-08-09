@@ -76,7 +76,6 @@ def has_permission(issuer, action, kwargs, *, session: "Optional[Session]" = Non
             'get_auth_token_x509': perm_get_auth_token_x509,
             'get_auth_token_saml': perm_get_auth_token_saml,
             'add_account_identity': perm_add_account_identity,
-            'add_did': perm_add_did,
             'add_dids': perm_add_dids,
             'attach_dids': perm_attach_dids,
             'detach_dids': perm_detach_dids,
@@ -404,27 +403,6 @@ def perm_del_identity(issuer, kwargs, *, session: "Optional[Session]" = None):
     return _is_root(issuer) or issuer.external in kwargs.get('accounts')
 
 
-def perm_add_did(issuer, kwargs, *, session: "Optional[Session]" = None):
-    """
-    Checks if an account can add an data identifier to a scope.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :param session: The DB session to use
-    :returns: True if account is allowed, otherwise False
-    """
-    # Check the accounts of the issued rules
-    if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin', session=session):
-        for rule in kwargs.get('rules', []):
-            if rule['account'] != issuer:
-                return False
-
-    return _is_root(issuer)\
-        or has_account_attribute(account=issuer, key='admin', session=session)\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)\
-        or kwargs['scope'].external == 'mock'
-
-
 def perm_add_dids(issuer, kwargs, *, session: "Optional[Session]" = None):
     """
     Checks if an account can bulk add data identifiers.
@@ -440,6 +418,8 @@ def perm_add_dids(issuer, kwargs, *, session: "Optional[Session]" = None):
             for rule in did.get('rules', []):
                 if rule['account'] != issuer:
                     return False
+            if not rucio.core.scope.is_scope_owner(scope=did['scope'], account=issuer, session=session) and did['scope'].external != 'mock':
+                return False
 
     return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
 
