@@ -17,7 +17,7 @@ from sqlalchemy import and_, select
 
 from rucio.client.replicaclient import ReplicaClient
 from rucio.common import exception
-from rucio.common.constants import RseAttr
+from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RseAttr
 from rucio.common.exception import Duplicate, InputValidationError, InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSENotFound, RSEOperationNotSupported, RSEProtocolNotSupported
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
@@ -995,7 +995,7 @@ class TestRSEClient:
             rucio_client.add_protocol(protocol_rse, p)
 
         rse_attr = mgr.get_rse_info(rse=protocol_rse, vo=vo)
-        for op in ['delete', 'read', 'write']:
+        for op in RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS:
             # resp = rucio_client.get_protocols(protocol_rse, operation=op, default=True, protocol_domain='lan')
             p = mgr.select_protocol(rse_attr, op, domain='lan')
             print(p['scheme'])
@@ -1005,7 +1005,7 @@ class TestRSEClient:
                     rucio_client.delete_protocols(protocol_rse, p['scheme'])
                 rucio_client.delete_rse(protocol_rse)
                 raise Exception('Unexpected protocols returned for %s: %s' % (op, p))
-        for op in ['delete', 'read', 'write']:
+        for op in RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS:
             # resp = rucio_client.get_protocols(protocol_rse, operation=op, default=True, protocol_domain='wan')
             p = mgr.select_protocol(rse_attr, op, domain='wan')
             if ((op == 'delete') and (p['port'] != 17)) or ((op == 'read') and (p['port'] != 42)) or ((op == 'write') and (p['port'] != 19)):

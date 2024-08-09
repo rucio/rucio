@@ -75,7 +75,7 @@ def set_status(
     :param rse_id: RSE ID.
     :param status: RSE decommissioning status.
     """
-    config = attr_to_config(get_rse_attribute(rse_id, RseAttr.DECOMMISSION))
+    config = attr_to_config(get_rse_attribute(rse_id, RseAttr.DECOMMISSION))  # type: ignore (get_rse_attribute could return None)
     config['status'] = status
     # add_rse_attribute can handle updating existing entries too
     add_rse_attribute(rse_id, RseAttr.DECOMMISSION, config_to_attr(config))

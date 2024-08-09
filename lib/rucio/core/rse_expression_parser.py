@@ -15,7 +15,7 @@
 import abc
 import re
 from hashlib import sha256
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from dogpile.cache.api import NoValue
 
@@ -286,7 +286,7 @@ class RSEAttributeSmallerCheck(BaseExpressionElement):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        rse_list = get_rses_with_attribute(key=self.key, session=session)
+        rse_list: list[dict[str, Any]] = get_rses_with_attribute(key=self.key, session=session)
         if not rse_list:
             return (set(), {})
 
@@ -294,7 +294,7 @@ class RSEAttributeSmallerCheck(BaseExpressionElement):
         rse_dict = {}
         for rse in rse_list:
             try:
-                if float(get_rse_attribute(rse['id'], self.key, session=session)) < float(self.value):
+                if float(get_rse_attribute(rse['id'], self.key, session=session)) < float(self.value):  # type: ignore (get_rse_attribute could return None)
                     rse_dict[rse['id']] = rse
                     output.append(rse['id'])
             except ValueError:
@@ -321,7 +321,7 @@ class RSEAttributeLargerCheck(BaseExpressionElement):
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        rse_list = get_rses_with_attribute(key=self.key, session=session)
+        rse_list: list[dict[str, Any]] = get_rses_with_attribute(key=self.key, session=session)
         if not rse_list:
             return (set(), {})
 
@@ -329,7 +329,7 @@ class RSEAttributeLargerCheck(BaseExpressionElement):
         rse_dict = {}
         for rse in rse_list:
             try:
-                if float(get_rse_attribute(rse['id'], self.key, session=session)) > float(self.value):
+                if float(get_rse_attribute(rse['id'], self.key, session=session)) > float(self.value):  # type: ignore (get_rse_attribute could return None)
                     rse_dict[rse['id']] = rse
                     output.append(rse['id'])
             except ValueError:
