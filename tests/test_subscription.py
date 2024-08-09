@@ -27,8 +27,8 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core import subscription as subscription_core
 from rucio.core.account import add_account
-from rucio.core.did import add_did, attach_dids, list_new_dids, set_new_dids, set_status
-from rucio.core.rse import add_rse_attribute
+from rucio.core.did import add_did, set_new_dids, list_new_dids, attach_dids, set_status
+from rucio.core.rse import add_rse_attribute, update_rse
 from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
 from rucio.daemons.transmogrifier.transmogrifier import get_subscriptions, run
@@ -570,10 +570,11 @@ class TestDaemon:
         activity = get_schema_value('ACTIVITY')['enum'][0]
         rse_attribute = uuid()[:8]
         rses = {'no_tag': [], rse_attribute: []}
-        for cnt in range(5):
+        nb_rses = 5
+        for cnt in range(nb_rses):
             rse, rse_id = rse_factory.make_mock_rse()
             rses['no_tag'].append(rse)
-        for cnt in range(5):
+        for cnt in range(nb_rses):
             rse, rse_id = rse_factory.make_mock_rse()
             add_rse_attribute(rse_id=rse_id, key=rse_attribute, value=True)
             rses[rse_attribute].append(rse)
@@ -581,7 +582,7 @@ class TestDaemon:
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
         add_scope(tmp_scope, root_account)
 
-        # Check without split rule
+        # Check with split rule
         subscription_name = uuid()
         dsn_prefix = did_name_generator('dataset')
         dsn = '%sdataset-%s' % (dsn_prefix, uuid())
@@ -602,8 +603,9 @@ class TestDaemon:
                                               priority=1)
         run(threads=1, bulk=1000000, once=True)
         rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
+        assert len(rules) == nb_rses
 
-        # Check with split rule
+        # Check without split rule
         subscription_name = uuid()
         dsn_prefix = did_name_generator('dataset')
         dsn = '%sdataset-%s' % (dsn_prefix, uuid())
@@ -625,7 +627,7 @@ class TestDaemon:
         run(threads=1, bulk=1000000, once=True)
         rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 1
-        assert rules[0]['copies'] == 5
+        assert rules[0]['copies'] == nb_rses
 
     def test_run_transmogrifier_delayed_subscription(self, rse_factory, vo, rucio_client, root_account, mock_scope):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with delayed subscription """
@@ -841,3 +843,46 @@ class TestDaemon:
             chained_rse_type = dict_rse[chained_rse]['rse_type']
             assert chained_rse_type == 'tape'
             assert chained_site != chosen_site
+
+    def test_run_transmogrifier_wildcard_copies_blocklisted_rse(self, rse_factory, vo, rucio_client, root_account):
+        """ SUBSCRIPTION (DAEMON): Test the transmogrifier with wildcard copies and blocklisted RSE"""
+        activity = get_schema_value('ACTIVITY')['enum'][0]
+        rse_attribute = uuid()[:8]
+        rses = {'no_tag': [], rse_attribute: []}
+        nb_rses = 5
+        for cnt in range(nb_rses):
+            rse, rse_id = rse_factory.make_mock_rse()
+            rses['no_tag'].append(rse)
+        for cnt in range(nb_rses):
+            rse, rse_id = rse_factory.make_mock_rse()
+            add_rse_attribute(rse_id=rse_id, key=rse_attribute, value=True)
+            rses[rse_attribute].append(rse)
+            if cnt in [0, 1]:
+                update_rse(rse_id, {'availability_write': False})
+        rse_expression = rse_attribute
+        tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
+        add_scope(tmp_scope, root_account)
+
+        # Check with split rule
+        subscription_name = uuid()
+        dsn_prefix = did_name_generator('dataset')
+        dsn = '%sdataset-%s' % (dsn_prefix, uuid())
+
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+        rule = {'rse_expression': rse_expression,
+                'copies': '*',
+                'activity': activity}
+
+        subid = rucio_client.add_subscription(name=subscription_name,
+                                              account=root_account.external,
+                                              filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
+                                              replication_rules=[rule],
+                                              lifetime=None,
+                                              retroactive=False,
+                                              dry_run=False,
+                                              comments='Ni ! Ni!',
+                                              priority=1)
+        run(threads=1, bulk=1000000, once=True)
+        rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
+
+        assert len(rules) == nb_rses - 2
