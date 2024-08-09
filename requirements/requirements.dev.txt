@@ -4,7 +4,11 @@
 #
 #    pip-compile requirements.dev.in
 #
-aiohttp==3.9.5
+aiohappyeyeballs==2.3.5
+    # via
+    #   -r requirements.server.txt
+    #   aiohttp
+aiohttp==3.10.2
     # via
     #   -r requirements.server.txt
     #   geoip2
