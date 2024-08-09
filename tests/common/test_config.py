@@ -11,9 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+
 import pytest
 
-from lib.rucio.common.config import _convert_to_boolean, convert_to_any_type
+from lib.rucio.common.config import _convert_to_boolean, convert_to_any_type, get_config_dirs
 
 
 class TestConversion:
@@ -66,3 +68,22 @@ class TestConversion:
     def test_convert_to_boolean_exception(self):
         with pytest.raises(ValueError, match="Not a boolean: invalid"):
             _convert_to_boolean("invalid")
+
+
+class TestConfig:
+    def test_get_config_dirs(self):
+        rucio_home = "test"
+        virtual_env = "test2"
+        conda_prefix = "test3"
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setenv('RUCIO_HOME', rucio_home)
+            mp.setenv('VIRTUAL_ENV', virtual_env)
+            mp.setenv('CONDA_PREFIX', conda_prefix)
+
+            expected_dirs = [
+                os.path.join(rucio_home, 'etc', ''),
+                os.path.join(virtual_env, 'etc', ''),
+                os.path.join(conda_prefix, 'etc', ''),
+                '/opt/rucio/etc/'
+            ]
+            assert get_config_dirs() == expected_dirs
