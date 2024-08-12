@@ -437,10 +437,7 @@ def perm_add_dids(issuer: "InternalAccount", kwargs: dict, *, session: "Optional
     :returns: True if account is allowed, otherwise False
     """
     # Check the accounts of the issued rules
-    for did in kwargs['dids']:
-        if not perm_add_did(issuer, kwargs=did, session=session):
-            return False
-    return True
+    return all(perm_add_did(issuer, kwargs=did, session=session) for did in kwargs['dids'])
 
 
 def perm_attach_dids(issuer: "InternalAccount", kwargs: dict, *, session: "Optional[Session]" = None) -> bool:
