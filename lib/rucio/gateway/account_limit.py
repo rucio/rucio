@@ -56,10 +56,10 @@ def get_local_account_limits(account, vo='def', *, session: "Session"):
     :returns: The account limits.
     """
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
     rse_instead_id = {}
-    for elem in account_limit_core.get_local_account_limits(account=account, session=session).items():
+    for elem in account_limit_core.get_local_account_limits(account=internal_account, session=session).items():
         rse_instead_id[get_rse_name(rse_id=elem[0], session=session)] = elem[1]
     return rse_instead_id
 
@@ -79,10 +79,10 @@ def get_local_account_limit(account, rse, vo='def', *, session: "Session"):
     :returns: The account limit.
     """
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
     rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-    return {rse: account_limit_core.get_local_account_limit(account=account, rse_id=rse_id, session=session)}
+    return {rse: account_limit_core.get_local_account_limit(account=internal_account, rse_id=rse_id, session=session)}
 
 
 @read_session
@@ -99,11 +99,11 @@ def get_global_account_limits(account, vo='def', *, session: "Session"):
     :returns: The account limits.
     """
     if account:
-        account = InternalAccount(account, vo=vo)
+        internal_account = InternalAccount(account, vo=vo)
     else:
-        account = InternalAccount('*', vo=vo)
+        internal_account = InternalAccount('*', vo=vo)
 
-    return account_limit_core.get_global_account_limits(account=account, session=session)
+    return account_limit_core.get_global_account_limits(account=internal_account, session=session)
 
 
 @read_session
@@ -121,9 +121,9 @@ def get_global_account_limit(account, rse_expression, vo='def', *, session: "Ses
     :returns: The account limit.
     """
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    return {rse_expression: account_limit_core.get_global_account_limit(account=account, rse_expression=rse_expression, session=session)}
+    return {rse_expression: account_limit_core.get_global_account_limit(account=internal_account, rse_expression=rse_expression, session=session)}
 
 
 @transactional_session
@@ -144,12 +144,12 @@ def set_local_account_limit(account, rse, bytes_, issuer, vo='def', *, session: 
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_local_account_limit', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not set account limits.' % (issuer))
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    if not account_exists(account=account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
+    if not account_exists(account=internal_account, session=session):
+        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-    account_limit_core.set_local_account_limit(account=account, rse_id=rse_id, bytes_=bytes_, session=session)
+    account_limit_core.set_local_account_limit(account=internal_account, rse_id=rse_id, bytes_=bytes_, session=session)
 
 
 @transactional_session
@@ -169,12 +169,12 @@ def set_global_account_limit(account, rse_expression, bytes_, issuer, vo='def', 
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_global_account_limit', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not set account limits.' % (issuer))
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    if not account_exists(account=account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
+    if not account_exists(account=internal_account, session=session):
+        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-    account_limit_core.set_global_account_limit(account=account, rse_expression=rse_expression, bytes_=bytes_, session=session)
+    account_limit_core.set_global_account_limit(account=internal_account, rse_expression=rse_expression, bytes_=bytes_, session=session)
 
 
 @transactional_session
@@ -196,12 +196,12 @@ def delete_local_account_limit(account, rse, issuer, vo='def', *, session: "Sess
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='delete_local_account_limit', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not delete account limits.' % (issuer))
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    if not account_exists(account=account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
+    if not account_exists(account=internal_account, session=session):
+        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-    return account_limit_core.delete_local_account_limit(account=account, rse_id=rse_id, session=session)
+    return account_limit_core.delete_local_account_limit(account=internal_account, rse_id=rse_id, session=session)
 
 
 @transactional_session
@@ -222,12 +222,12 @@ def delete_global_account_limit(account, rse_expression, issuer, vo='def', *, se
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='delete_global_account_limit', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not delete global account limits.' % (issuer))
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    if not account_exists(account=account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
+    if not account_exists(account=internal_account, session=session):
+        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-    return account_limit_core.delete_global_account_limit(account=account, rse_expression=rse_expression, session=session)
+    return account_limit_core.delete_global_account_limit(account=internal_account, rse_expression=rse_expression, session=session)
 
 
 @read_session
@@ -252,12 +252,12 @@ def get_local_account_usage(account, rse, issuer, vo='def', *, session: "Session
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='get_local_account_usage', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not list account usage.' % (issuer))
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    if not account_exists(account=account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
+    if not account_exists(account=internal_account, session=session):
+        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-    return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_local_account_usage(account=account, rse_id=rse_id, session=session)]
+    return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_local_account_usage(account=internal_account, rse_id=rse_id, session=session)]
 
 
 @read_session
@@ -278,9 +278,9 @@ def get_global_account_usage(account, rse_expression, issuer, vo='def', *, sessi
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='get_global_account_usage', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not list global account usage.' % (issuer))
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    if not account_exists(account=account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (account))
+    if not account_exists(account=internal_account, session=session):
+        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-    return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_global_account_usage(account=account, rse_expression=rse_expression, session=session)]
+    return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_global_account_usage(account=internal_account, rse_expression=rse_expression, session=session)]
