@@ -339,6 +339,10 @@ class RSEProtocol(ABC):
             :param rse_settting:   The RSE settings.
             :param logger:         Optional decorated logger that can be passed from the calling daemons or servers.
         """
+
+        if 'auth_token' not in protocol_attr:
+            raise exception.NoAuthInformation('No authentication token passed for the RSE protocol')
+
         self.auth_token = protocol_attr['auth_token']
         protocol_attr.pop('auth_token')
         self.attributes = protocol_attr
