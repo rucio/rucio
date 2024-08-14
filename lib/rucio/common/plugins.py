@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 from collections.abc import Callable
 from configparser import NoOptionError, NoSectionError
 from importlib import import_module
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from rucio.common import config
 from rucio.common.exception import InvalidAlgorithmName, PolicyPackageIsNotVersioned, PolicyPackageVersionError
@@ -24,8 +25,11 @@ from rucio.version import current_version
 
 PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPackageAlgorithms')
 
+if TYPE_CHECKING:
+    from rucio.common.types import LoggerFunction
 
-def check_policy_package_version(package: str) -> None:
+
+def check_policy_package_version(package: str, logger: 'LoggerFunction' = logging.log) -> None:
 
     '''
     Checks that the Rucio version supported by the policy package is compatible
@@ -35,10 +39,10 @@ def check_policy_package_version(package: str) -> None:
     try:
         supported_version = _get_supported_version_from_policy_package(package)
     except ImportError:
-        # package not found. Will be picked up elsewhere
+        logger(logging.DEBUG, 'Policy package %s not found' % package)
         return
     except PolicyPackageIsNotVersioned:
-        # package is not versioned
+        logger(logging.DEBUG, 'Policy package %s does not include information about which Rucio versions it supports' % package)
         return
 
     if current_version() not in supported_version:
