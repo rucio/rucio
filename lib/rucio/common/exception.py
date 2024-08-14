@@ -1114,3 +1114,12 @@ class TraceValidationSchemaNotFound(RucioException):
         super(TraceValidationSchemaNotFound, self).__init__(*args, **kwargs)
         self._message = 'Trace validation schema not found.'
         self.error_code = 108
+
+class PolicyPackageIsNotVersioned(RucioException):
+    """
+    Policy package does not contain version information.
+    """
+    def __init__(self, package, *args, **kwargs):
+        super(PolicyPackageIsNotVersioned, self).__init__(*args, **kwargs)
+        self._message = 'Policy package %s does not include information about which Rucio versions it supports.' % package
+        self.error_code = 109
