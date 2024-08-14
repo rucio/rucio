@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.rse.protocols.protocol import RSEDeterministicTranslation
+from rucio.rse.translation import RSEDeterministicTranslation
 
 
 def lfn2pfn_module_algorithm(scope, name, rse, rse_attributes, protocol_attributes):
