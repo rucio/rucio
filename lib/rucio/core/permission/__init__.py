@@ -18,7 +18,7 @@ from os import environ
 from typing import TYPE_CHECKING, Any
 
 from rucio.common import config, exception
-from rucio.common.utils import check_policy_package_version
+from rucio.common.plugins import check_policy_package_version
 
 if TYPE_CHECKING:
     from typing import Optional

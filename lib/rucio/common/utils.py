@@ -49,7 +49,7 @@ from xml.etree import ElementTree
 import requests
 
 from rucio.common.config import config_get, config_has_section
-from rucio.common.exception import ConfigNotFound, DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, PolicyPackageVersionError, RucioException
+from rucio.common.exception import ConfigNotFound, DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.types import InternalAccount, InternalScope, TraceDict
@@ -2093,30 +2093,6 @@ class PriorityQueue:
 
         self.container[self.heap[pos]].pos = pos
         return heap_changed
-
-
-def check_policy_package_version(package: str) -> None:
-    import importlib
-
-    from rucio.version import version_string
-    '''
-    Checks that the Rucio version supported by the policy package is compatible
-    with this version. Raises an exception if not.
-    :param package: the fully qualified name of the policy package
-    '''
-    try:
-        module = importlib.import_module(package)
-    except ImportError:
-        # package not found. Will be picked up elsewhere
-        return
-    if not hasattr(module, 'SUPPORTED_VERSION'):
-        # package is not versioned
-        return
-    supported_version = module.SUPPORTED_VERSION if isinstance(module.SUPPORTED_VERSION, list) else [module.SUPPORTED_VERSION]
-    components = 2 if version_string().startswith("1.") else 1
-    current_version = ".".join(version_string().split(".")[:components])
-    if current_version not in supported_version:
-        raise PolicyPackageVersionError(package)
 
 
 class Availability:
