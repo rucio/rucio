@@ -17,6 +17,7 @@ import os
 from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from lib.rucio.common.exception import PolicyPackageVersionError
 from rucio.common import config
 from rucio.common.exception import InvalidAlgorithmName
 
@@ -24,6 +25,30 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPackageAlgorithms')
+
+
+def check_policy_package_version(package: str) -> None:
+    import importlib
+
+    from rucio.version import version_string
+    '''
+    Checks that the Rucio version supported by the policy package is compatible
+    with this version. Raises an exception if not.
+    :param package: the fully qualified name of the policy package
+    '''
+    try:
+        module = importlib.import_module(package)
+    except ImportError:
+        # package not found. Will be picked up elsewhere
+        return
+    if not hasattr(module, 'SUPPORTED_VERSION'):
+        # package is not versioned
+        return
+    supported_version = module.SUPPORTED_VERSION if isinstance(module.SUPPORTED_VERSION, list) else [module.SUPPORTED_VERSION]
+    components = 2 if version_string().startswith("1.") else 1
+    current_version = ".".join(version_string().split(".")[:components])
+    if current_version not in supported_version:
+        raise PolicyPackageVersionError(package)
 
 
 class PolicyPackageAlgorithms:
@@ -123,7 +148,6 @@ class PolicyPackageAlgorithms:
     def _try_importing_policy(cls: type[PolicyPackageAlgorithmsT], vo: str = "") -> None:
         try:
             # import from utils here to avoid circular import
-            from rucio.common.utils import check_policy_package_version
 
             env_name = 'RUCIO_POLICY_PACKAGE' + ('' if not vo else '_' + vo.upper())
             package = getattr(os.environ, env_name, "")
