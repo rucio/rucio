@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from rucio.common import config
 from rucio.common.exception import InvalidAlgorithmName, PolicyPackageIsNotVersioned, PolicyPackageVersionError
+from rucio.version import current_version
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -27,7 +28,7 @@ PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPack
 
 
 def check_policy_package_version(package: str) -> None:
-    from rucio.version import version_string
+
     '''
     Checks that the Rucio version supported by the policy package is compatible
     with this version. Raises an exception if not.
@@ -42,9 +43,7 @@ def check_policy_package_version(package: str) -> None:
         # package is not versioned
         return
 
-    components = 2 if version_string().startswith("1.") else 1
-    current_version = ".".join(version_string().split(".")[:components])
-    if current_version not in supported_version:
+    if current_version() not in supported_version:
         raise PolicyPackageVersionError(package)
 
 
