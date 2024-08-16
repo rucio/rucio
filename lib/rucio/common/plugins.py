@@ -71,8 +71,9 @@ class PolicyPackageAlgorithms:
     """
     Base class for Rucio Policy Package Algorithms
 
-    ALGORITHMS is of type Dict[str, Dict[str. Callable[..., Any]]]
-    where the key is the algorithm type and the value is a dictionary of algorithm names and their callables
+    ALGORITHMS is a dict where:
+        - the key is the algorithm type
+        - the value is a dictionary of algorithm names and their callables
     """
     _ALGORITHMS: dict[str, dict[str, 'Callable[..., Any]']] = {}
     _loaded_policy_modules = False
