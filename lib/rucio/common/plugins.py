@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
 import logging
 import os
 from configparser import NoOptionError, NoSectionError
-from importlib import import_module
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from rucio.common import config
@@ -47,18 +47,19 @@ def check_policy_package_version(package: str, logger: 'LoggerFunction' = loggin
         logger(logging.DEBUG, 'Policy package %s does not include information about which Rucio versions it supports' % package)
         return
 
-    if current_version() not in supported_version:
-        raise PolicyPackageVersionError(package)
+    rucio_version = current_version()
+    if rucio_version not in supported_version:
+        raise PolicyPackageVersionError(rucio_version=rucio_version, supported_versions=supported_version, package=package)
 
 
 def _get_supported_version_from_policy_package(package: str) -> list[str]:
     try:
-        module = import_module(package)
+        module = importlib.import_module(package)
     except ImportError as e:
         raise e
 
     if not hasattr(module, 'SUPPORTED_VERSION'):
-        raise PolicyPackageIsNotVersioned(module)
+        raise PolicyPackageIsNotVersioned(package)
 
     if isinstance(module.SUPPORTED_VERSION, list):
         return module.SUPPORTED_VERSION
@@ -170,7 +171,7 @@ class PolicyPackageAlgorithms:
                 package = str(config.config_get('policy', 'package' + ('' if not vo else '-' + vo)))
 
             check_policy_package_version(package)
-            module = import_module(package)
+            module = importlib.import_module(package)
 
             if hasattr(module, 'get_algorithms'):
                 all_algorithms = module.get_algorithms()
