@@ -69,9 +69,9 @@ if not multivo:
     try:
         module = importlib.import_module(POLICY)
     except ModuleNotFoundError:
-        raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
+        raise exception.PolicyPackageNotFound(POLICY)
     except ImportError:
-        raise exception.ErrorLoadingPolicyPackage('An error occurred while loading module ' + POLICY)
+        raise exception.ErrorLoadingPolicyPackage(POLICY)
 
     permission_modules["def"] = module
 
@@ -100,9 +100,9 @@ def load_permission_for_vo(vo: str) -> None:
     try:
         module = importlib.import_module(POLICY)
     except ModuleNotFoundError:
-        raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
+        raise exception.PolicyPackageNotFound(POLICY)
     except ImportError:
-        raise exception.ErrorLoadingPolicyPackage('An error occurred while loading module ' + POLICY)
+        raise exception.ErrorLoadingPolicyPackage(POLICY)
 
     permission_modules[vo] = module
 
