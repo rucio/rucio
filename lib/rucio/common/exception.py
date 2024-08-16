@@ -1059,9 +1059,10 @@ class PolicyPackageVersionError(RucioException):
     """
     Policy package is not compatible with this version of Rucio.
     """
-    def __init__(self, package, *args):
+    def __init__(self, package: str, *args):
         super(PolicyPackageVersionError, self).__init__(*args)
-        self._message = 'Policy package %s is not compatible with this Rucio version' % package
+        self.package = package
+        self._message = 'Policy package %s is not compatible with this Rucio version' % self.package
         self.error_code = 103
 
 
@@ -1119,7 +1120,8 @@ class PolicyPackageIsNotVersioned(RucioException):
     """
     Policy package does not contain version information.
     """
-    def __init__(self, package, *args, **kwargs):
-        super(PolicyPackageIsNotVersioned, self).__init__(*args, **kwargs)
-        self._message = 'Policy package %s does not include information about which Rucio versions it supports.' % package
+    def __init__(self, package: str, *args):
+        super(PolicyPackageIsNotVersioned, self).__init__(*args)
+        self.package = package
+        self._message = 'Policy package %s does not include information about which Rucio versions it supports.' % self.package
         self.error_code = 109
