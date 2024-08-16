@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from rucio.common import config
 from rucio.common.exception import InvalidAlgorithmName, PolicyPackageIsNotVersioned, PolicyPackageVersionError
+from rucio.common.utils import is_client
 from rucio.version import current_version
 
 if TYPE_CHECKING:
@@ -134,17 +135,8 @@ class PolicyPackageAlgorithms:
             # single policy package
             cls._try_importing_policy()
         else:
-            # determine whether on client or server
-            client = False
-            if 'RUCIO_CLIENT_MODE' not in os.environ:
-                if not config.config_has_section('database') and config.config_has_section('client'):
-                    client = True
-            else:
-                if os.environ['RUCIO_CLIENT_MODE']:
-                    client = True
-
             # on client, only register algorithms for selected VO
-            if client:
+            if is_client():
                 if 'RUCIO_VO' in os.environ:
                     vo = os.environ['RUCIO_VO']
                 else:
