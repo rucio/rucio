@@ -2554,17 +2554,24 @@ def update_replicas_states(replicas, nowait=False, *, session: "Session"):
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
             stmt_bad_replicas = select(
+                func.count()
+            ).select_from(
                 models.BadReplicas
             ).where(
                 and_(models.BadReplicas.state == BadFilesStatus.BAD,
                      models.BadReplicas.rse_id == replica['rse_id'],
                      models.BadReplicas.scope == replica['scope'],
-                     models.BadReplicas.name == replica['name']))
-            if session.execute(stmt_bad_replicas).scalar_one_or_none():
+                     models.BadReplicas.name == replica['name'])
+            )
+
+            if session.execute(stmt_bad_replicas).scalar():
                 update_stmt = update(
                     models.BadReplicas
                 ).where(
-                    models.BadReplicas.rse_id == replica['rse_id']
+                    and_(models.BadReplicas.state == BadFilesStatus.BAD,
+                         models.BadReplicas.rse_id == replica['rse_id'],
+                         models.BadReplicas.scope == replica['scope'],
+                         models.BadReplicas.name == replica['name'])
                 ).values({
                     models.BadReplicas.state: BadFilesStatus.RECOVERED,
                     models.BadReplicas.updated_at: datetime.utcnow()
