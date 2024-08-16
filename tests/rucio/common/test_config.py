@@ -15,7 +15,7 @@ import os
 
 import pytest
 
-from lib.rucio.common.config import _convert_to_boolean, convert_to_any_type, get_config_dirs
+from rucio.common.config import _convert_to_boolean, convert_to_any_type, get_config_dirs
 
 
 class TestConversion:
