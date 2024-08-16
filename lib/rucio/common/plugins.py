@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from rucio.common import config
 from rucio.common.exception import InvalidAlgorithmName, PolicyPackageIsNotVersioned, PolicyPackageVersionError
-from rucio.common.utils import is_client
+from rucio.common.utils import get_client_vo, is_client
 from rucio.version import current_version
 
 if TYPE_CHECKING:
@@ -137,13 +137,7 @@ class PolicyPackageAlgorithms:
         else:
             # on client, only register algorithms for selected VO
             if is_client():
-                if 'RUCIO_VO' in os.environ:
-                    vo = os.environ['RUCIO_VO']
-                else:
-                    try:
-                        vo = str(config.config_get('client', 'vo'))
-                    except (NoOptionError, NoSectionError):
-                        vo = 'def'
+                vo = get_client_vo()
                 cls._try_importing_policy(vo)
             # on server, list all VOs and register their algorithms
             else:
