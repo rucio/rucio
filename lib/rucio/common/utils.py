@@ -37,6 +37,7 @@ import threading
 import time
 import zlib
 from collections import OrderedDict
+from configparser import NoOptionError, NoSectionError
 from enum import Enum
 from functools import partial, wraps
 from io import StringIO
@@ -1888,6 +1889,22 @@ def is_client() -> bool:
             client_mode = False
 
     return client_mode
+
+
+def get_client_vo() -> str:
+    """
+    Get the client VO from the environment or the configuration file.
+
+    :returns vo: The client VO as a string; default = 'def'.
+    """
+    if 'RUCIO_VO' in os.environ:
+        vo = os.environ['RUCIO_VO']
+    else:
+        try:
+            vo = str(config_get('client', 'vo'))
+        except (NoOptionError, NoSectionError):
+            vo = 'def'
+    return vo
 
 
 class retry:
