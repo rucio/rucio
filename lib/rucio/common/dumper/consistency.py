@@ -163,9 +163,9 @@ def _try_to_advance(it, default=None):
     return el.strip()
 
 
-def min3(*values):
+def min_value(*values):
     '''
-    Minimum between the 3 values ignoring None
+    Minimum between the input values, ignoring None
     '''
     values = [value for value in values if value is not None]
     if len(values) == 0:
@@ -201,7 +201,7 @@ def compare3(it0, it1, it2):
         path0, status0 = split_if_not_none(v0)
         path2, status2 = split_if_not_none(v2)
 
-        vmin = min3(path0, v1, path2)
+        vmin = min_value(path0, v1, path2)
         in0 = in1 = in2 = False
         in0_status = in2_status = None
 
