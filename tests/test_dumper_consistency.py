@@ -17,7 +17,7 @@ import os
 from datetime import datetime
 from unittest import mock
 
-from rucio.common.dumper.consistency import Consistency, _try_to_advance, compare3, gnu_sort, min3, parse_and_filter_file
+from rucio.common.dumper.consistency import Consistency, _try_to_advance, compare3, gnu_sort, min_value, parse_and_filter_file
 from rucio.tests.common import make_temp_file
 
 RSEPROTOCOL = {
@@ -282,17 +282,17 @@ class TestConsistency:
         ]
         assert value == expected
 
-    def test_min3_simple_strings(self, tmp_path):
+    def test_min_value_simple_strings(self, tmp_path):
         ''' DUMPER '''
-        assert min3('a', 'b', 'c') == 'a'
+        assert min_value('a', 'b', 'c') == 'a'
 
-    def test_min3_repeated_strings(self, tmp_path):
+    def test_min_value_repeated_strings(self, tmp_path):
         ''' DUMPER '''
-        assert min3('b', 'a', 'a') == 'a'
+        assert min_value('b', 'a', 'a') == 'a'
 
-    def test_min3_parsing_the_strings_is_not_a_responsability_of_this_function(self, tmp_path):
+    def test_min_value_parsing_the_strings_is_not_a_responsability_of_this_function(self, tmp_path):
         ''' DUMPER '''
-        assert min3('a,b', 'cab', 'b,a') == 'a,b'
+        assert min_value('a,b', 'cab', 'b,a') == 'a,b'
 
     def test_parse_and_filter_file_default_parameters(self, tmp_path):
         ''' DUMPER '''
