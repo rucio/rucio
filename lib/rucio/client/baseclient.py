@@ -137,6 +137,7 @@ class BaseClient:
             self.logger.debug('No trace_host passed. Using rucio_host instead')
 
         self.list_hosts = [self.host]
+        self.account = account
         self.ca_cert = ca_cert
         self.auth_token = ""
         self.headers = {}
@@ -171,9 +172,7 @@ class BaseClient:
                     self.logger.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
                     self.ca_cert = True
 
-        if account is not None:
-            self.account = account
-        else:
+        if account is None:
             self.logger.debug('No account passed. Trying to get it from the RUCIO_ACCOUNT environment variable or the config file.')
             try:
                 self.account = environ['RUCIO_ACCOUNT']
