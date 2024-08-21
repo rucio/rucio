@@ -267,7 +267,7 @@ class DidColumnMeta(DidMetaPlugin):
                     yield {
                         'scope': did.scope,
                         'name': did.name,
-                        'did_type': str(did.did_type),
+                        'did_type': did.did_type.name,
                         'bytes': did.bytes,
                         'length': did.length
                     }
