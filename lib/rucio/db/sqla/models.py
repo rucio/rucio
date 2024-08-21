@@ -1621,7 +1621,7 @@ class ConfigHistory(BASE, ModelBase):
     _table_args = ()
 
 
-class Heartbeats(BASE, ModelBase):
+class Heartbeat(BASE, ModelBase):
     """Represents the status and heartbeat of the running daemons and services"""
     __tablename__ = 'heartbeats'
     executable: Mapped[str] = mapped_column(String(64))  # SHA-2
