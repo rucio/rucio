@@ -2754,7 +2754,7 @@ def trigger_event(
     session: "Session"
 ) -> None:
     """
-    Records changes occurring in the did to the FollowEvents table
+    Records changes occurring in the did to the FollowEvent table
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -2771,8 +2771,8 @@ def trigger_event(
         )
         for did in session.execute(stmt).scalars().all():
             # Create a new event using the specified parameters.
-            new_event = models.FollowEvents(scope=scope, name=name, account=did.account,
-                                            did_type=did.did_type, event_type=event_type, payload=payload)
+            new_event = models.FollowEvent(scope=scope, name=name, account=did.account,
+                                           did_type=did.did_type, event_type=event_type, payload=payload)
             new_event.save(session=session, flush=False)
 
         session.flush()
@@ -2792,11 +2792,11 @@ def create_reports(
 
     :param session: The database session in use.
     """
-    # Query the FollowEvents table
+    # Query the FollowEvent table
     stmt = select(
-        models.FollowEvents
+        models.FollowEvent
     ).order_by(
-        models.FollowEvents.created_at
+        models.FollowEvent.created_at
     )
 
     # Use heartbeat mechanism to select a chunk of events based on the hashed account
@@ -2821,11 +2821,11 @@ def create_reports(
                 account = event.account
                 # Clean up the event after creating the report
                 stmt = delete(
-                    models.FollowEvents
+                    models.FollowEvent
                 ).where(
-                    and_(models.FollowEvents.scope == event.scope,
-                         models.FollowEvents.name == event.name,
-                         models.FollowEvents.account == event.account)
+                    and_(models.FollowEvent.scope == event.scope,
+                         models.FollowEvent.name == event.name,
+                         models.FollowEvent.account == event.account)
                 ).execution_options(
                     synchronize_session=False
                 )
