@@ -56,9 +56,9 @@ def list_exceptions(
 
     state_clause = []
     if states:
-        state_clause = [models.LifetimeExceptions.state == state for state in states]
+        state_clause = [models.LifetimeException.state == state for state in states]
 
-    query = select(models.LifetimeExceptions)
+    query = select(models.LifetimeException)
     if state_clause != []:
         query = query.where(or_(*state_clause))
     if exception_id:
@@ -201,8 +201,8 @@ def __add_exception(
                 did_type = DIDType[did['did_type']]
             else:
                 did_type = did['did_type']
-        new_exception = models.LifetimeExceptions(id=exception_id, scope=did['scope'], name=did['name'], did_type=did_type,
-                                                  account=account, pattern=pattern, comments=reason, state=LifetimeExceptionsState.WAITING, expires_at=lifetime)
+        new_exception = models.LifetimeException(id=exception_id, scope=did['scope'], name=did['name'], did_type=did_type,
+                                                 account=account, pattern=pattern, comments=reason, state=LifetimeExceptionsState.WAITING, expires_at=lifetime)
         if len(text) < 3000:
             text += '%s %s %s\n' % (str(did_type), did['scope'], did['name'])
         else:
@@ -250,9 +250,9 @@ def update_exception(
         raise UnsupportedOperation
 
     query = update(
-        models.LifetimeExceptions
+        models.LifetimeException
     ).where(
-        models.LifetimeExceptions.id == exception_id
+        models.LifetimeException.id == exception_id
     ).values(
         state=state,
         updated_at=datetime.utcnow()
