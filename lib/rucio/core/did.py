@@ -1085,13 +1085,13 @@ def delete_dids(
 
         with METRICS.timer('delete_dids.dids_followed'):
             stmt = delete(
-                models.DidsFollowed
+                models.DidFollowed
             ).where(
                 exists(
                     select(1)
                 ).where(
-                    and_(models.DidsFollowed.scope == temp_table.scope,
-                         models.DidsFollowed.name == temp_table.name)
+                    and_(models.DidFollowed.scope == temp_table.scope,
+                         models.DidFollowed.name == temp_table.name)
                 )
             ).execution_options(
                 synchronize_session=False
@@ -2655,8 +2655,8 @@ def add_dids_to_followed(
             )
             did = session.execute(stmt).scalar_one()
             # Add the queried to the followed table.
-            new_did_followed = models.DidsFollowed(scope=did.scope, name=did.name, account=account,
-                                                   did_type=did.did_type)
+            new_did_followed = models.DidFollowed(scope=did.scope, name=did.name, account=account,
+                                                  did_type=did.did_type)
 
             new_did_followed.save(session=session, flush=False)
 
@@ -2681,10 +2681,10 @@ def get_users_following_did(
     """
     try:
         stmt = select(
-            models.DidsFollowed
+            models.DidFollowed
         ).where(
-            and_(models.DidsFollowed.scope == scope,
-                 models.DidsFollowed.name == name)
+            and_(models.DidFollowed.scope == scope,
+                 models.DidFollowed.name == name)
         )
         for user in session.execute(stmt).scalars().all():
             # Return a dictionary of users to be rendered as json.
@@ -2731,11 +2731,11 @@ def remove_dids_from_followed(
     try:
         for did in dids:
             stmt = delete(
-                models.DidsFollowed
+                models.DidFollowed
             ).where(
-                and_(models.DidsFollowed.scope == did['scope'],
-                     models.DidsFollowed.name == did['name'],
-                     models.DidsFollowed.account == account)
+                and_(models.DidFollowed.scope == did['scope'],
+                     models.DidFollowed.name == did['name'],
+                     models.DidFollowed.account == account)
             ).execution_options(
                 synchronize_session=False
             )
@@ -2764,10 +2764,10 @@ def trigger_event(
     """
     try:
         stmt = select(
-            models.DidsFollowed
+            models.DidFollowed
         ).where(
-            and_(models.DidsFollowed.scope == scope,
-                 models.DidsFollowed.name == name)
+            and_(models.DidFollowed.scope == scope,
+                 models.DidFollowed.name == name)
         )
         for did in session.execute(stmt).scalars().all():
             # Create a new event using the specified parameters.

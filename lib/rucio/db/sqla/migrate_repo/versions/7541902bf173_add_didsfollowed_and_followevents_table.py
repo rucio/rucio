@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add DidsFollowed and FollowEvents table '''
+''' add DidFollowed and FollowEvent table '''
 
 import datetime
 
