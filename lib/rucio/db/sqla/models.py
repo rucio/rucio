@@ -1696,7 +1696,7 @@ class DidsFollowed(BASE, ModelBase):
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DIDS_FOLLOWED_SCOPE_NAME_FK'))
 
 
-class FollowEvents(BASE, ModelBase):
+class FollowEvent(BASE, ModelBase):
     """Represents the events affecting the datasets which are followed"""
     __tablename__ = 'dids_followed_events'
     scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
