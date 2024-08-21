@@ -20,7 +20,7 @@ import pytest
 from sqlalchemy import delete, update
 
 from rucio.core.heartbeat import cardiac_arrest, die, list_heartbeats, list_payload_counts, live, sanity_check
-from rucio.db.sqla.models import Heartbeats
+from rucio.db.sqla.models import Heartbeat
 from rucio.db.sqla.session import transactional_session
 
 
@@ -36,9 +36,9 @@ def executable_factory(function_scope_prefix, db_session):
     yield _create_executable
 
     stmt = delete(
-        Heartbeats
+        Heartbeat
     ).where(
-        Heartbeats.executable.in_(executables)
+        Heartbeat.executable.in_(executables)
     )
     db_session.execute(stmt)
 
@@ -165,19 +165,19 @@ class TestHeartbeat:
             two_days_ago = datetime.utcnow() - timedelta(days=2)
             a_dozen_hours_ago = datetime.utcnow() - timedelta(hours=12)
             stmt = update(
-                Heartbeats
+                Heartbeat
             ).where(
-                Heartbeats.hostname == 'host1'
+                Heartbeat.hostname == 'host1'
             ).values({
-                Heartbeats.updated_at: two_days_ago
+                Heartbeat.updated_at: two_days_ago
             })
             session.execute(stmt)
             stmt = update(
-                Heartbeats
+                Heartbeat
             ).where(
-                Heartbeats.hostname == 'host2'
+                Heartbeat.hostname == 'host2'
             ).values({
-                Heartbeats.updated_at: a_dozen_hours_ago
+                Heartbeat.updated_at: a_dozen_hours_ago
             })
             session.execute(stmt)
 
