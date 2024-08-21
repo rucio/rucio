@@ -1678,8 +1678,8 @@ class VO(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('vo', name='VOS_PK'), )
 
 
-class DidsFollowed(BASE, ModelBase):
-    """Represents the datasets followed by an user"""
+class DidFollowed(BASE, ModelBase):
+    """Represents the datasets followed by a user"""
     __tablename__ = 'dids_followed'
     scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
