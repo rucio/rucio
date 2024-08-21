@@ -88,38 +88,38 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
     rse_clause = []
     if rse_expression:
         for rse in parse_expression(expression=rse_expression, filter_=filter_, session=session):
-            rse_clause.append(models.BadReplicas.rse_id == rse['id'])
+            rse_clause.append(models.BadReplica.rse_id == rse['id'])
     elif filter_:
         # Ensure we limit results to current VO even if we don't specify an RSE expression
         for rse in list_rses(filters=filter_, session=session):
-            rse_clause.append(models.BadReplicas.rse_id == rse['id'])
+            rse_clause.append(models.BadReplica.rse_id == rse['id'])
 
     if session.bind.dialect.name == 'oracle':
-        to_days = func.trunc(models.BadReplicas.created_at, 'DD')
+        to_days = func.trunc(models.BadReplica.created_at, 'DD')
     elif session.bind.dialect.name == 'mysql':
-        to_days = func.date(models.BadReplicas.created_at)
+        to_days = func.date(models.BadReplica.created_at)
     elif session.bind.dialect.name == 'postgresql':
-        to_days = func.date_trunc('day', models.BadReplicas.created_at)
+        to_days = func.date_trunc('day', models.BadReplica.created_at)
     else:
-        to_days = func.strftime(models.BadReplicas.created_at, '%Y-%m-%d')
+        to_days = func.strftime(models.BadReplica.created_at, '%Y-%m-%d')
 
     stmt = select(
         func.count(),
         to_days,
-        models.BadReplicas.rse_id,
-        models.BadReplicas.state,
-        models.BadReplicas.reason
+        models.BadReplica.rse_id,
+        models.BadReplica.state,
+        models.BadReplica.reason
     ).select_from(
-        models.BadReplicas
+        models.BadReplica
     )
     # To be added : HINTS
     if rse_clause != []:
         stmt = stmt.where(or_(*rse_clause))
     if from_date:
-        stmt = stmt.where(models.BadReplicas.created_at > from_date)
+        stmt = stmt.where(models.BadReplica.created_at > from_date)
     if to_date:
-        stmt = stmt.where(models.BadReplicas.created_at < to_date)
-    stmt = stmt.group_by(to_days, models.BadReplicas.rse_id, models.BadReplicas.reason, models.BadReplicas.state)
+        stmt = stmt.where(models.BadReplica.created_at < to_date)
+    stmt = stmt.group_by(to_days, models.BadReplica.rse_id, models.BadReplica.reason, models.BadReplica.state)
     for count, to_days, rse_id, state, reason in session.execute(stmt):
         if (rse_id, to_days, reason) not in incidents:
             incidents[(rse_id, to_days, reason)] = {}
@@ -177,18 +177,18 @@ def __exist_replicas(rse_id, replicas, *, session: "Session"):
                     models.RSEFileAssociation.bytes,
                     func.max(
                         case(
-                            (models.BadReplicas.state == BadFilesStatus.SUSPICIOUS, 0),
-                            (models.BadReplicas.state == BadFilesStatus.BAD, 1),
+                            (models.BadReplica.state == BadFilesStatus.SUSPICIOUS, 0),
+                            (models.BadReplica.state == BadFilesStatus.BAD, 1),
                             else_=0))
                 ).with_hint(
                     models.RSEFileAssociation,
                     'INDEX(REPLICAS REPLICAS_PATH_IDX',
                     'oracle'
                 ).outerjoin(
-                    models.BadReplicas,
-                    and_(models.RSEFileAssociation.scope == models.BadReplicas.scope,
-                         models.RSEFileAssociation.name == models.BadReplicas.name,
-                         models.RSEFileAssociation.rse_id == models.BadReplicas.rse_id)
+                    models.BadReplica,
+                    and_(models.RSEFileAssociation.scope == models.BadReplica.scope,
+                         models.RSEFileAssociation.name == models.BadReplica.name,
+                         models.RSEFileAssociation.rse_id == models.BadReplica.rse_id)
                 ).where(
                     and_(models.RSEFileAssociation.rse_id == rse_id,
                          or_(*chunk))
@@ -232,21 +232,21 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
     """
     result = []
     stmt = select(
-        models.BadReplicas.scope,
-        models.BadReplicas.name,
-        models.BadReplicas.rse_id,
-        models.BadReplicas.state,
-        models.BadReplicas.created_at,
-        models.BadReplicas.updated_at
+        models.BadReplica.scope,
+        models.BadReplica.name,
+        models.BadReplica.rse_id,
+        models.BadReplica.state,
+        models.BadReplica.created_at,
+        models.BadReplica.updated_at
     )
     if state:
-        stmt = stmt.where(models.BadReplicas.state == state)
+        stmt = stmt.where(models.BadReplica.state == state)
     if rse_id:
-        stmt = stmt.where(models.BadReplicas.rse_id == rse_id)
+        stmt = stmt.where(models.BadReplica.rse_id == rse_id)
     if younger_than:
-        stmt = stmt.where(models.BadReplicas.created_at >= younger_than)
+        stmt = stmt.where(models.BadReplica.created_at >= younger_than)
     if older_than:
-        stmt = stmt.where(models.BadReplicas.created_at <= older_than)
+        stmt = stmt.where(models.BadReplica.created_at <= older_than)
     if limit:
         stmt = stmt.limit(limit)
 
@@ -339,7 +339,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                 declared = True
 
             if status == BadFilesStatus.SUSPICIOUS or status == BadFilesStatus.BAD and not already_declared:
-                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
+                new_bad_replica = models.BadReplica(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
                 new_bad_replica.save(session=session, flush=False)
                 declared = True
 
@@ -404,8 +404,8 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, *, sess
     for scope, name, _, __exists, already_declared, size in __exist_replicas(rse_id=rse_id, replicas=replicas_list, session=session):
         if __exists and not already_declared:
             replicas_for_update.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
-            new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=state,
-                                                 account=issuer, bytes=size)
+            new_bad_replica = models.BadReplica(scope=scope, name=name, rse_id=rse_id, reason=reason, state=state,
+                                                account=issuer, bytes=size)
             new_bad_replica.save(session=session, flush=False)
             stmt = delete(
                 models.Source
@@ -1819,18 +1819,18 @@ def delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sessio
 
     # Update bad replicas
     stmt = update(
-        models.BadReplicas,
+        models.BadReplica,
     ).where(
         exists(select(1)
                .where(
-                   and_(models.BadReplicas.scope == scope_name_temp_table.scope,
-                        models.BadReplicas.name == scope_name_temp_table.name,
-                        models.BadReplicas.rse_id == rse_id)))
+                   and_(models.BadReplica.scope == scope_name_temp_table.scope,
+                        models.BadReplica.name == scope_name_temp_table.name,
+                        models.BadReplica.rse_id == rse_id)))
     ).where(
-        models.BadReplicas.state == BadFilesStatus.BAD
+        models.BadReplica.state == BadFilesStatus.BAD
     ).values({
-        models.BadReplicas.state: BadFilesStatus.DELETED,
-        models.BadReplicas.updated_at: datetime.utcnow()
+        models.BadReplica.state: BadFilesStatus.DELETED,
+        models.BadReplica.updated_at: datetime.utcnow()
     }).execution_options(
         synchronize_session=False
     )
@@ -2556,25 +2556,25 @@ def update_replicas_states(replicas, nowait=False, *, session: "Session"):
             stmt_bad_replicas = select(
                 func.count()
             ).select_from(
-                models.BadReplicas
+                models.BadReplica
             ).where(
-                and_(models.BadReplicas.state == BadFilesStatus.BAD,
-                     models.BadReplicas.rse_id == replica['rse_id'],
-                     models.BadReplicas.scope == replica['scope'],
-                     models.BadReplicas.name == replica['name'])
+                and_(models.BadReplica.state == BadFilesStatus.BAD,
+                     models.BadReplica.rse_id == replica['rse_id'],
+                     models.BadReplica.scope == replica['scope'],
+                     models.BadReplica.name == replica['name'])
             )
 
             if session.execute(stmt_bad_replicas).scalar():
                 update_stmt = update(
-                    models.BadReplicas
+                    models.BadReplica
                 ).where(
-                    and_(models.BadReplicas.state == BadFilesStatus.BAD,
-                         models.BadReplicas.rse_id == replica['rse_id'],
-                         models.BadReplicas.scope == replica['scope'],
-                         models.BadReplicas.name == replica['name'])
+                    and_(models.BadReplica.state == BadFilesStatus.BAD,
+                         models.BadReplica.rse_id == replica['rse_id'],
+                         models.BadReplica.scope == replica['scope'],
+                         models.BadReplica.name == replica['name'])
                 ).values({
-                    models.BadReplicas.state: BadFilesStatus.RECOVERED,
-                    models.BadReplicas.updated_at: datetime.utcnow()
+                    models.BadReplica.state: BadFilesStatus.RECOVERED,
+                    models.BadReplica.updated_at: datetime.utcnow()
                 }).execution_options(
                     synchronize_session=False
                 )
@@ -3665,28 +3665,28 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
     :returns: True is successful.
     """
     for replica in replicas:
-        scope_name_rse_state = and_(models.BadReplicas.scope == replica['scope'],
-                                    models.BadReplicas.name == replica['name'],
-                                    models.BadReplicas.rse_id == replica['rse_id'],
-                                    models.BadReplicas.state == state)
+        scope_name_rse_state = and_(models.BadReplica.scope == replica['scope'],
+                                    models.BadReplica.name == replica['name'],
+                                    models.BadReplica.rse_id == replica['rse_id'],
+                                    models.BadReplica.state == state)
         insert_new_row = True
         if state == BadFilesStatus.TEMPORARY_UNAVAILABLE:
             stmt = select(
-                models.BadReplicas
+                models.BadReplica
             ).where(
                 scope_name_rse_state
             )
             if session.execute(stmt).scalar_one_or_none():
                 stmt = update(
-                    models.BadReplicas
+                    models.BadReplica
                 ).where(
                     scope_name_rse_state
                 ).values({
-                    models.BadReplicas.state: BadFilesStatus.TEMPORARY_UNAVAILABLE,
-                    models.BadReplicas.updated_at: datetime.utcnow(),
-                    models.BadReplicas.account: account,
-                    models.BadReplicas.reason: reason,
-                    models.BadReplicas.expires_at: expires_at
+                    models.BadReplica.state: BadFilesStatus.TEMPORARY_UNAVAILABLE,
+                    models.BadReplica.updated_at: datetime.utcnow(),
+                    models.BadReplica.account: account,
+                    models.BadReplica.reason: reason,
+                    models.BadReplica.expires_at: expires_at
                 }).execution_options(
                     synchronize_session=False
                 )
@@ -3694,8 +3694,8 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
 
                 insert_new_row = False
         if insert_new_row:
-            new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason,
-                                                 state=state, account=account, bytes=None, expires_at=expires_at)
+            new_bad_replica = models.BadReplica(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason,
+                                                state=state, account=account, bytes=None, expires_at=expires_at)
             new_bad_replica.save(session=session, flush=False)
     try:
         session.flush()
@@ -3749,14 +3749,14 @@ def bulk_delete_bad_replicas(bad_replicas, *, session: "Session"):
     """
     replica_clause = []
     for replica in bad_replicas:
-        replica_clause.append(and_(models.BadReplicas.scope == replica['scope'],
-                                   models.BadReplicas.name == replica['name'],
-                                   models.BadReplicas.rse_id == replica['rse_id'],
-                                   models.BadReplicas.state == replica['state']))
+        replica_clause.append(and_(models.BadReplica.scope == replica['scope'],
+                                   models.BadReplica.name == replica['name'],
+                                   models.BadReplica.rse_id == replica['rse_id'],
+                                   models.BadReplica.state == replica['state']))
 
     for chunk in chunks(replica_clause, 100):
         stmt = delete(
-            models.BadReplicas
+            models.BadReplica
         ).where(
             or_(*chunk)
         ).execution_options(
@@ -3822,18 +3822,18 @@ def list_expired_temporary_unavailable_replicas(total_workers, worker_number, li
     """
 
     stmt = select(
-        models.BadReplicas.scope,
-        models.BadReplicas.name,
-        models.BadReplicas.rse_id,
+        models.BadReplica.scope,
+        models.BadReplica.name,
+        models.BadReplica.rse_id,
     ).with_hint(
         models.ReplicationRule,
         'INDEX(bad_replicas BAD_REPLICAS_EXPIRES_AT_IDX)',
         'oracle'
     ).where(
-        and_(models.BadReplicas.state == BadFilesStatus.TEMPORARY_UNAVAILABLE,
-             models.BadReplicas.expires_at < datetime.utcnow())
+        and_(models.BadReplica.state == BadFilesStatus.TEMPORARY_UNAVAILABLE,
+             models.BadReplica.expires_at < datetime.utcnow())
     ).order_by(
-        models.BadReplicas.expires_at
+        models.BadReplica.expires_at
     )
 
     stmt = filter_thread_work(session=session, query=stmt, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
@@ -3931,7 +3931,7 @@ def get_suspicious_files(
         exclude_states_clause.append(BadFilesStatus(state))
 
     # making aliases for bad_replicas and replicas tables
-    bad_replicas_alias = aliased(models.BadReplicas, name='bad_replicas_alias')
+    bad_replicas_alias = aliased(models.BadReplica, name='bad_replicas_alias')
     replicas_alias = aliased(models.RSEFileAssociation, name='replicas_alias')
 
     # assembling the selection rse_clause
@@ -3982,11 +3982,11 @@ def get_suspicious_files(
     # do not occur as BAD/DELETED/LOST/RECOVERED/...
     # in the bad_replicas table during the same time window.
     other_states_present = exists(select(1)
-                                  .where(and_(models.BadReplicas.scope == bad_replicas_alias.scope,
-                                              models.BadReplicas.name == bad_replicas_alias.name,
-                                              models.BadReplicas.created_at >= younger_than,
-                                              models.BadReplicas.rse_id == bad_replicas_alias.rse_id,
-                                              models.BadReplicas.state.in_(exclude_states_clause))))
+                                  .where(and_(models.BadReplica.scope == bad_replicas_alias.scope,
+                                              models.BadReplica.name == bad_replicas_alias.name,
+                                              models.BadReplica.created_at >= younger_than,
+                                              models.BadReplica.rse_id == bad_replicas_alias.rse_id,
+                                              models.BadReplica.state.in_(exclude_states_clause))))
     stmt = stmt.where(not_(other_states_present))
 
     # finally, the results are grouped by RSE, scope, name and required to have
@@ -4035,7 +4035,7 @@ def get_suspicious_reason(rse_id, scope, name, nattempts=0, logger=logging.log, 
     :param session: The database session in use. Default value = None.
     """
     # Alias for bad replicas
-    bad_replicas_alias = aliased(models.BadReplicas, name='bad_replicas_alias')
+    bad_replicas_alias = aliased(models.BadReplica, name='bad_replicas_alias')
 
     stmt = select(
         bad_replicas_alias.scope,

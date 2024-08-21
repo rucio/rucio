@@ -574,7 +574,7 @@ class UpdatedDID(BASE, ModelBase):
                    Index('UPDATED_DIDS_SCOPERULENAME_IDX', 'scope', 'rule_evaluation_action', 'name'))
 
 
-class BadReplicas(BASE, ModelBase):
+class BadReplica(BASE, ModelBase):
     """Represents the suspicious or bad replicas"""
     __tablename__ = 'bad_replicas'
     scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
@@ -599,7 +599,7 @@ class BadReplicas(BASE, ModelBase):
 
 
 class BadPFNs(BASE, ModelBase):
-    """Represents bad, suspicious or temporary unavailable PFNs which have to be processed and added to BadReplicas Table"""
+    """Represents bad, suspicious or temporary unavailable PFNs which have to be processed and added to BadReplica Table"""
     __tablename__ = 'bad_pfns'
     path: Mapped[str] = mapped_column(String(2048))  # PREFIX + PFN
     state: Mapped[BadPFNStatus] = mapped_column(Enum(BadPFNStatus, name='BAD_PFNS_STATE_CHK',
