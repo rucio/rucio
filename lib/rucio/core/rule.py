@@ -2488,15 +2488,15 @@ def update_rules_for_lost_replica(
     session.execute(stmt)
 
     stmt = update(
-        models.BadReplicas
+        models.BadReplica
     ).where(
-        and_(models.BadReplicas.scope == scope,
-             models.BadReplicas.name == name,
-             models.BadReplicas.rse_id == rse_id,
-             models.BadReplicas.state == BadFilesStatus.BAD)
+        and_(models.BadReplica.scope == scope,
+             models.BadReplica.name == name,
+             models.BadReplica.rse_id == rse_id,
+             models.BadReplica.state == BadFilesStatus.BAD)
     ).values({
-        models.BadReplicas.state: BadFilesStatus.LOST,
-        models.BadReplicas.updated_at: datetime.utcnow()
+        models.BadReplica.state: BadFilesStatus.LOST,
+        models.BadReplica.updated_at: datetime.utcnow()
     })
     session.execute(stmt)
     for dts in datasets:

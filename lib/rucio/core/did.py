@@ -927,12 +927,12 @@ def delete_dids(
 
     # Prepare the common part of the query for updating bad replicas if they exist
     bad_replica_stmt = update(
-        models.BadReplicas
+        models.BadReplica
     ).where(
-        models.BadReplicas.state == BadFilesStatus.BAD
+        models.BadReplica.state == BadFilesStatus.BAD
     ).values({
-        models.BadReplicas.state: BadFilesStatus.DELETED,
-        models.BadReplicas.updated_at: datetime.utcnow(),
+        models.BadReplica.state: BadFilesStatus.DELETED,
+        models.BadReplica.updated_at: datetime.utcnow(),
     }).execution_options(
         synchronize_session=False
     )
@@ -956,8 +956,8 @@ def delete_dids(
             exists(
                 select(1)
             ).where(
-                and_(models.BadReplicas.scope == temp_table.scope,
-                     models.BadReplicas.name == temp_table.name)
+                and_(models.BadReplica.scope == temp_table.scope,
+                     models.BadReplica.name == temp_table.name)
             )
         )
         session.execute(stmt)
@@ -1002,8 +1002,8 @@ def delete_dids(
             exists(
                 select(1)
             ).where(
-                and_(models.BadReplicas.scope == resolved_files_temp_table.scope,
-                     models.BadReplicas.name == resolved_files_temp_table.name)
+                and_(models.BadReplica.scope == resolved_files_temp_table.scope,
+                     models.BadReplica.name == resolved_files_temp_table.name)
             )
         )
         session.execute(stmt)

@@ -99,9 +99,9 @@ def declare_bad_file_replicas(
                         already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
             replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id,
                              'state': ReplicaState.BAD})
-            new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id,
-                                                 reason=reason, state=status, account=issuer,
-                                                 bytes=size)
+            new_bad_replica = models.BadReplica(scope=scope, name=name, rse_id=rse_id,
+                                                reason=reason, state=status, account=issuer,
+                                                bytes=size)
             new_bad_replica.save(session=session, flush=False)
             stmt = delete(
                 models.Source
