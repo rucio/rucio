@@ -598,7 +598,7 @@ class BadReplica(BASE, ModelBase):
                    Index('BAD_REPLICAS_ACCOUNT_IDX', 'account'))
 
 
-class BadPFNs(BASE, ModelBase):
+class BadPFN(BASE, ModelBase):
     """Represents bad, suspicious or temporary unavailable PFNs which have to be processed and added to BadReplica Table"""
     __tablename__ = 'bad_pfns'
     path: Mapped[str] = mapped_column(String(2048))  # PREFIX + PFN
