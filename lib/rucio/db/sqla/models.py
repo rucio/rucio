@@ -1646,7 +1646,7 @@ class NamingConvention(BASE, ModelBase):
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='NAMING_CONVENTIONS_SCOPE_FK'))
 
 
-class LifetimeExceptions(BASE, ModelBase):
+class LifetimeException(BASE, ModelBase):
     """Represents the exceptions to the lifetime model"""
     __tablename__ = 'lifetime_except'
     id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
