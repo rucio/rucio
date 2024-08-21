@@ -121,7 +121,7 @@ def add_value(key: str, value: str, *, session: "Session") -> None:
     :raises KeyNotFound: Key not in metadata conventions table
     :raises InvalidValueForKey: Value conflicts with rse expression for key values or does not have the correct type
     """
-    new_value = models.DIDMetaConventionsConstraints(key=key, value=value)
+    new_value = models.DIDMetaConventionsConstraint(key=key, value=value)
     try:
         new_value.save(session=session)
     except IntegrityError as error:
@@ -170,9 +170,9 @@ def list_values(key: str, *, session: "Session") -> list[str]:
     :returns: A list containing all values.
     """
     statement = select(
-        models.DIDMetaConventionsConstraints.value
+        models.DIDMetaConventionsConstraint.value
     ).where(
-        models.DIDMetaConventionsConstraints.key == key
+        models.DIDMetaConventionsConstraint.key == key
     )
     return list(session.execute(statement).scalars().all())
 
@@ -193,10 +193,10 @@ def validate_meta(meta: dict, did_type: DIDType, *, session: "Session") -> None:
     if did_type == DIDType.DATASET and key in meta:
         try:
             statement = select(
-                models.DIDMetaConventionsConstraints.value
+                models.DIDMetaConventionsConstraint.value
             ).where(
-                and_(models.DIDMetaConventionsConstraints.value == meta[key],
-                     models.DIDMetaConventionsConstraints.key == key)
+                and_(models.DIDMetaConventionsConstraint.value == meta[key],
+                     models.DIDMetaConventionsConstraint.key == key)
             )
             session.execute(statement).one()
         except NoResultFound:
