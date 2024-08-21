@@ -661,7 +661,7 @@ class DIDMetaConventionsKey(BASE, ModelBase):
                    CheckConstraint('is_enum IS NOT NULL', name='DID_KEYS_IS_ENUM_NN'))
 
 
-class DIDMetaConventionsConstraints(BASE, ModelBase):
+class DIDMetaConventionsConstraint(BASE, ModelBase):
     """Represents a map for constraint values a DID metadata key must follow """
     __tablename__ = 'did_key_map'
     key: Mapped[str] = mapped_column(String(255))
