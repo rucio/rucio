@@ -3634,15 +3634,15 @@ def get_bad_pfns(limit=10000, thread=None, total_threads=None, *, session: "Sess
     result = []
 
     stmt = select(
-        models.BadPFNs.path,
-        models.BadPFNs.state,
-        models.BadPFNs.reason,
-        models.BadPFNs.account,
-        models.BadPFNs.expires_at
+        models.BadPFN.path,
+        models.BadPFN.state,
+        models.BadPFN.reason,
+        models.BadPFN.account,
+        models.BadPFN.expires_at
     )
     stmt = filter_thread_work(session=session, query=stmt, total_threads=total_threads, thread_id=thread, hash_variable='path')
     stmt = stmt.order_by(
-        models.BadPFNs.created_at
+        models.BadPFN.created_at
     ).limit(
         limit
     )
@@ -3722,11 +3722,11 @@ def bulk_delete_bad_pfns(pfns, *, session: "Session"):
     """
     pfn_clause = []
     for pfn in pfns:
-        pfn_clause.append(models.BadPFNs.path == pfn)
+        pfn_clause.append(models.BadPFN.path == pfn)
 
     for chunk in chunks(pfn_clause, 100):
         stmt = delete(
-            models.BadPFNs
+            models.BadPFN
         ).where(
             or_(*chunk)
         ).execution_options(
@@ -3793,7 +3793,7 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, *, session:
 
     pfns = clean_pfns(pfns)
     for pfn in pfns:
-        new_pfn = models.BadPFNs(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
+        new_pfn = models.BadPFN(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
         new_pfn = session.merge(new_pfn)
         new_pfn.save(session=session, flush=False)
 
