@@ -46,28 +46,28 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
 
     def __init__(self, vo: str = 'def'):
         super().__init__()
-        self.register("def", RSEDeterministicScopeTranslation._default)
-        self.register("atlas", RSEDeterministicScopeTranslation._atlas)
-        policy_module = vo
+
+        self.register(RSEDeterministicScopeTranslation._default, "def")
+        self.register(RSEDeterministicScopeTranslation._atlas, "atlas")
+
         logger = logging.getLogger(__name__)
+
         try:
             # Use the function defined in the policy package if it's configured so
-            algo_type = self._algorithm_type
             algorithm_name = config.config_get('policy', self._algorithm_type)
         except (NoOptionError, NoSectionError, RuntimeError):
             # Don't use a function from the policy package. Use one defined in this class according to vo
             logger.debug("PFN2LFN function will not be fetched from the policy package")
-            algo_type = self.__class__.__name__
-            if super()._supports(algo_type, policy_module):
-                algorithm_name = policy_module
+            if super()._supports(self._algorithm_type, vo):
+                algorithm_name = vo
             else:
                 algorithm_name = "def"
 
-        self.parser = self.get_parser(algo_type, algorithm_name)
+        self.parser = self.get_parser(algorithm_name)
 
     @classmethod
-    def get_parser(cls, algorithm_type: str, algorithm_name: str) -> Callable[..., Any]:
-        return super()._get_one_algorithm(algorithm_type, algorithm_name)
+    def get_parser(cls, algorithm_name: str) -> Callable[..., Any]:
+        return super()._get_one_algorithm(cls._algorithm_type, algorithm_name)
 
     @classmethod
     def register(
@@ -85,7 +85,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         if name is None:
             name = pfn2lfn_callable.__name__
         algorithm_dict = {name: pfn2lfn_callable}
-        super()._register(cls.__name__, algorithm_dict)
+        super()._register(cls._algorithm_type, algorithm_dict)
 
     @staticmethod
     def _default(parsed_pfn: Mapping[str, str]) -> tuple[str, str]:
