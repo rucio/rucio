@@ -500,19 +500,19 @@ def get_pfn_to_rse(pfns, vo='def', *, session: "Session"):
 
         if storage_element not in storage_elements:
             storage_elements.append(storage_element)
-            se_condition.append(models.RSEProtocols.hostname == storage_element)
+            se_condition.append(models.RSEProtocol.hostname == storage_element)
     stmt = select(
-        models.RSEProtocols.rse_id,
-        models.RSEProtocols.scheme,
-        models.RSEProtocols.hostname,
-        models.RSEProtocols.port,
-        models.RSEProtocols.prefix
+        models.RSEProtocol.rse_id,
+        models.RSEProtocol.scheme,
+        models.RSEProtocol.hostname,
+        models.RSEProtocol.port,
+        models.RSEProtocol.prefix
     ).join(
         models.RSE,
-        models.RSEProtocols.rse_id == models.RSE.id
+        models.RSEProtocol.rse_id == models.RSE.id
     ).where(
         and_(or_(*se_condition),
-             models.RSEProtocols.scheme == scheme,
+             models.RSEProtocol.scheme == scheme,
              models.RSE.deleted == false(),
              models.RSE.staging_area == false())
     )

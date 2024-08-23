@@ -242,11 +242,11 @@ class RseData:
         if load_info:
             stmt = select(
                 temp_table.id,
-                models.RSEProtocols
+                models.RSEProtocol
             ).outerjoin_from(
                 temp_table,
-                models.RSEProtocols,
-                models.RSEProtocols.rse_id == temp_table.id
+                models.RSEProtocol,
+                models.RSEProtocol.rse_id == temp_table.id
             ).order_by(
                 temp_table.id,
             )
@@ -1255,7 +1255,7 @@ def add_protocol(
     parameter: dict[str, Any],
     *,
     session: "Session"
-) -> models.RSEProtocols:
+) -> models.RSEProtocol:
     """
     Add a protocol to an existing RSE.
 
@@ -1309,7 +1309,7 @@ def add_protocol(
             raise exception.InvalidObject('Missing values! For SRM, extended_attributes and web_service_path must be specified')
 
     try:
-        new_protocol = models.RSEProtocols()
+        new_protocol = models.RSEProtocol()
         new_protocol.update(parameter)
         new_protocol.save(session=session)
     except (IntegrityError, FlushError, OperationalError) as error:
@@ -1351,14 +1351,14 @@ def get_rse_protocols(rse_id, schemes=None, *, session: "Session") -> types.RSES
     if not _rse:
         raise exception.RSENotFound('RSE with id \'%s\' not found' % rse_id)
 
-    terms = [models.RSEProtocols.rse_id == rse_id]
+    terms = [models.RSEProtocol.rse_id == rse_id]
     if schemes:
         if not type(schemes) is list:
             schemes = [schemes]
-        terms.extend([models.RSEProtocols.scheme.in_(schemes)])
+        terms.extend([models.RSEProtocol.scheme.in_(schemes)])
 
     stmt = select(
-        models.RSEProtocols
+        models.RSEProtocol
     ).where(
         *terms
     )
@@ -1369,7 +1369,7 @@ def get_rse_protocols(rse_id, schemes=None, *, session: "Session") -> types.RSES
 
 def _format_get_rse_protocols(
         rse: "models.RSE | dict[str, Any]",
-        db_protocols: Iterable[models.RSEProtocols],
+        db_protocols: Iterable[models.RSEProtocol],
         rse_attributes: Optional[dict[str, Any]] = None,
         *,
         session: "Session"
@@ -1520,14 +1520,14 @@ def update_protocols(
     except exception.RSENotFound:
         raise exception.RSENotFound('RSE with id \'%s\' not found' % rse_id)
 
-    terms = [models.RSEProtocols.rse_id == rse_id,
-             models.RSEProtocols.scheme == scheme,
-             models.RSEProtocols.hostname == hostname,
-             models.RSEProtocols.port == port]
+    terms = [models.RSEProtocol.rse_id == rse_id,
+             models.RSEProtocol.scheme == scheme,
+             models.RSEProtocol.hostname == hostname,
+             models.RSEProtocol.port == port]
 
     try:
         stmt = select(
-            models.RSEProtocols
+            models.RSEProtocol
         ).where(
             *terms
         )
@@ -1575,13 +1575,13 @@ def del_protocols(
         rse_name = get_rse_name(rse_id=rse_id, session=session, include_deleted=False)
     except exception.RSENotFound:
         raise exception.RSENotFound('RSE \'%s\' not found' % rse_id)
-    terms = [models.RSEProtocols.rse_id == rse_id, models.RSEProtocols.scheme == scheme]
+    terms = [models.RSEProtocol.rse_id == rse_id, models.RSEProtocol.scheme == scheme]
     if hostname is not None:
-        terms.append(models.RSEProtocols.hostname == hostname)
+        terms.append(models.RSEProtocol.hostname == hostname)
         if port is not None:
-            terms.append(models.RSEProtocols.port == port)
+            terms.append(models.RSEProtocol.port == port)
     stmt = select(
-        models.RSEProtocols
+        models.RSEProtocol
     ).where(
         *terms
     )

@@ -894,7 +894,7 @@ class RSEAttrAssociation(BASE, ModelBase):
                    Index('RSE_ATTR_MAP_KEY_VALUE_IDX', 'key', 'value'))
 
 
-class RSEProtocols(BASE, ModelBase):
+class RSEProtocol(BASE, ModelBase):
     """Represents supported protocols of RSEs (Rucio Storage Elements)"""
     __tablename__ = 'rse_protocols'
     rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
