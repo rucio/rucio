@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Optional, TypeVar
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any, Literal, NewType, Optional, TypeVar, Union, overload
 
 from dogpile.cache.api import NoValue
 from sqlalchemy import and_, delete, func, select, update
+from sqlalchemy.engine import Row
 
 from rucio.common.cache import make_region_memcached
 from rucio.common.exception import ConfigNotFound
@@ -24,6 +25,11 @@ from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
 
 T = TypeVar('T')
+
+HasKey = NewType('HasKey', str)
+ItemsKey = NewType('ItemsKey', str)
+ValueKey = NewType('ValueKey', str)
+OptionsKey = NewType('OptionsKey', str)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -34,24 +40,24 @@ REGION = make_region_memcached(expiration_time=900)
 SECTIONS_CACHE_KEY = 'sections'
 
 
-def _has_section_cache_key(section: str) -> str:
-    return 'has_section_%s' % section
+def _has_section_cache_key(section: str) -> HasKey:
+    return HasKey('has_section_%s' % section)
 
 
-def _options_cache_key(section: str) -> str:
-    return 'options_%s' % section
+def _options_cache_key(section: str) -> OptionsKey:
+    return OptionsKey('options_%s' % section)
 
 
-def _has_option_cache_key(section: str, option: str) -> str:
-    return 'has_option_%s_%s' % (section, option)
+def _has_option_cache_key(section: str, option: str) -> HasKey:
+    return HasKey('has_option_%s_%s' % (section, option))
 
 
-def _items_cache_key(section: str) -> str:
-    return 'items_%s' % section
+def _items_cache_key(section: str) -> ItemsKey:
+    return ItemsKey('items_%s' % section)
 
 
-def _value_cache_key(section: str, option: str) -> str:
-    return 'get_%s_%s' % (section, option)
+def _value_cache_key(section: str, option: str) -> ValueKey:
+    return ValueKey('get_%s_%s' % (section, option))
 
 
 @read_session
@@ -112,7 +118,7 @@ def has_section(
     :param session: The database session in use.
     :returns: True/False
     """
-    has_section_key = 'has_section_%s' % section
+    has_section_key = _has_section_cache_key(section)
     has_section = NoValue()
     if use_cache:
         has_section = read_from_cache(has_section_key, expiration_time)
@@ -423,7 +429,32 @@ def remove_option(section: str, option: str, *, session: "Session") -> bool:
         return True
 
 
-def read_from_cache(key: str, expiration_time: int = 900) -> Any:
+@overload
+def read_from_cache(key: Literal['sections'], expiration_time: int = 900) -> Union[list[str], NoValue]:
+    ...
+
+
+@overload
+def read_from_cache(key: OptionsKey, expiration_time: int = 900) -> Union[list[str], NoValue]:
+    ...
+
+
+@overload
+def read_from_cache(key: HasKey, expiration_time: int = 900) -> Union[bool, NoValue]:
+    ...
+
+
+@overload
+def read_from_cache(key: ItemsKey, expiration_time: int = 900) -> Union[Sequence[Row], NoValue]:
+    ...
+
+
+@overload
+def read_from_cache(key: ValueKey, expiration_time: int = 900) -> Union[Any, NoValue]:
+    ...
+
+
+def read_from_cache(key: str, expiration_time: int = 900) -> Union[list[str], bool, Sequence[Row], NoValue, Any]:
     """
     Try to read a value from a cache.
 
@@ -433,6 +464,31 @@ def read_from_cache(key: str, expiration_time: int = 900) -> Any:
     key = key.replace(' ', '')
     value = REGION.get(key, expiration_time=expiration_time)
     return value
+
+
+@overload
+def write_to_cache(key: Literal['sections'], value: list[str]) -> None:
+    ...
+
+
+@overload
+def write_to_cache(key: OptionsKey, value: list[str]) -> None:
+    ...
+
+
+@overload
+def write_to_cache(key: HasKey, value: bool) -> None:
+    ...
+
+
+@overload
+def write_to_cache(key: ItemsKey, value: Sequence[Row]) -> None:
+    ...
+
+
+@overload
+def write_to_cache(key: ValueKey, value: Any) -> None:
+    ...
 
 
 def write_to_cache(key: str, value: Any) -> None:
