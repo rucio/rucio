@@ -20,7 +20,7 @@ import hashlib
 import logging
 from collections.abc import Callable, Mapping
 from configparser import NoOptionError, NoSectionError
-from typing import Any, TypeVar
+from typing import Any, Optional, TypeVar
 from urllib.parse import urlparse
 
 from rucio.common import config, exception
@@ -70,8 +70,22 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         return super()._get_one_algorithm(algorithm_type, algorithm_name)
 
     @classmethod
-    def register(cls, name: str, func: Callable) -> None:
-        super()._register(cls.__name__, {name: func})
+    def register(
+        cls,
+        pfn2lfn_callable: Callable,
+        name: Optional[str] = None
+    ) -> None:
+        """
+        Provided a callable function, register it as one of the valid PFN2LFN algorithms.
+
+
+        :param pfn2lfn_callable: Callable function to use.
+        :param name: Algorithm name used for registration.
+        """
+        if name is None:
+            name = pfn2lfn_callable.__name__
+        algorithm_dict = {name: pfn2lfn_callable}
+        super()._register(cls.__name__, algorithm_dict)
 
     @staticmethod
     def _default(parsed_pfn: Mapping[str, str]) -> tuple[str, str]:
