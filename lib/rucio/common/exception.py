@@ -962,11 +962,11 @@ class NoDistance(RucioException):
 
 class PolicyPackageNotFound(RucioException):
     """
-    The policy package specified in the config file cannot be loaded.
+    The policy package specified in the config file was not found
     """
     def __init__(self, *args, **kwargs):
         super(PolicyPackageNotFound, self).__init__(*args, **kwargs)
-        self._message = 'The specified policy package cannot be loaded'
+        self._message = 'The specified policy package was not found'
         self.error_code = 93
 
 
@@ -1099,3 +1099,13 @@ class SortingAlgorithmNotSupported(RucioException):
         super(SortingAlgorithmNotSupported, self).__init__(*args, **kwargs)
         self._message = 'Sorting algorithm is not supported.'
         self.error_code = 106
+
+
+class ErrorLoadingPolicyPackage(RucioException):
+    """
+    An error occurred while loading the policy package.
+    """
+    def __init__(self, *args, **kwargs):
+        super(ErrorLoadingPolicyPackage, self).__init__(*args, **kwargs)
+        self._message = 'An error occurred while loading the specified policy package'
+        self.error_code = 107
