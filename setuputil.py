@@ -83,7 +83,7 @@ server_requirements_table = {
     ],
     'oracle': ['cx_oracle'],
     'mongo': ['pymongo'],
-    'postgresql': ['psycopg'],
+    'postgresql': ['psycopg[binary]'],
     'mysql': ['PyMySQL'],
     'kerberos': [
         'kerberos',
