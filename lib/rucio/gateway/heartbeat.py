@@ -37,8 +37,9 @@ def list_heartbeats(issuer: Optional[str] = None, vo: str = 'def', *, session: "
     """
 
     kwargs = {'issuer': issuer}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='list_heartbeats', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%s cannot list heartbeats' % issuer)
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='list_heartbeats', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('%s cannot list heartbeats. %s' % (issuer, auth_result.message))
     return heartbeat.list_heartbeats(session=session)
 
 
@@ -69,6 +70,7 @@ def create_heartbeat(
 
     """
     kwargs = {'issuer': issuer}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='send_heartbeats', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%s cannot send heartbeats' % issuer)
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='send_heartbeats', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('%s cannot send heartbeats. %s' % (issuer, auth_result.message))
     heartbeat.live(executable=executable, hostname=hostname, pid=pid, thread=thread, older_than=older_than, payload=payload, session=session)
