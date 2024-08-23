@@ -35,8 +35,9 @@ def export_data(issuer: str, distance: bool = True, vo: str = 'def', *, session:
     :param session: The database session in use.
     """
     kwargs = {'issuer': issuer}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='export', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not export data' % issuer)
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='export', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not export data. %s' % (issuer, auth_result.message))
 
     data = exporter.export_data(distance=distance, vo=vo, session=session)
     rses = {}

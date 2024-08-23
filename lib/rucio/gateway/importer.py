@@ -37,8 +37,9 @@ def import_data(data: dict[str, Any], issuer: str, vo: str = 'def', *, session: 
     """
     kwargs = {'issuer': issuer}
     validate_schema(name='import', obj=data, vo=vo)
-    if not permission.has_permission(issuer=issuer, vo=vo, action='import', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not import data' % issuer)
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='import', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not import data. %s' % (issuer, auth_result.message))
 
     for account in data.get('accounts', []):
         account['account'] = InternalAccount(account['account'], vo=vo)

@@ -57,13 +57,10 @@ def get_signed_url(
     """
 
     kwargs = {'account': account}
-    if not permission.has_permission(issuer=account, vo=vo, action='get_signed_url', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not get signed URL for rse=%s, service=%s, operation=%s, url=%s, lifetime=%s' % (account,
-                                                                                                                                      rse,
-                                                                                                                                      service,
-                                                                                                                                      operation,
-                                                                                                                                      url,
-                                                                                                                                      lifetime))
+    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_signed_url', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not get signed URL for rse=%s, service=%s, operation=%s, url=%s, lifetime=%s. %s' %
+                                     (account, rse, service, operation, url, lifetime, auth_result.message))
 
     # look up RSE ID for name
     rse_id = get_rse_id(rse, vo=vo, session=session)
