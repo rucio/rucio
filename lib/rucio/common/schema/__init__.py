@@ -60,8 +60,10 @@ if not multivo:
 
     try:
         module = importlib.import_module(POLICY)
-    except ImportError:
+    except ModuleNotFoundError:
         raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
+    except ImportError:
+        raise exception.ErrorLoadingPolicyPackage('An error occurred while loading module ' + POLICY)
 
     schema_modules["def"] = module
     scope_name_regexps.append(module.SCOPE_NAME_REGEXP)
@@ -90,8 +92,10 @@ def load_schema_for_vo(vo: str) -> None:
 
     try:
         module = importlib.import_module(POLICY)
-    except ImportError:
+    except ModuleNotFoundError:
         raise exception.PolicyPackageNotFound('Module ' + POLICY + ' not found')
+    except ImportError:
+        raise exception.ErrorLoadingPolicyPackage('An error occurred while loading module ' + POLICY)
 
     schema_modules[vo] = module
 
