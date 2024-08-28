@@ -27,7 +27,7 @@ else:
 
 if TYPE_CHECKING:
     from rucio.common.constants import SUPPORTED_PROTOCOLS_LITERAL
-    from rucio.db.sqla.constants import AccountType, IdentityType, RequestState, RequestType
+    from rucio.db.sqla.constants import AccountType, IdentityType, ReplicaState, RequestState, RequestType, RSEType
 
 
 class InternalType:
@@ -197,6 +197,20 @@ class RuleDict(TypedDict):
     purge_replicas: bool
 
 
+class ReplicaDict(TypedDict):
+    scope: InternalScope
+    name: str
+    path: Optional[str]
+    state: "ReplicaState"
+    bytes: int
+    md5: Optional[str]
+    adler32: Optional[str]
+    rse_id: str
+    rse_name: str
+    rse_type: "RSEType"
+    volatile: bool
+
+
 class DIDDict(TypedDict):
     name: str
     scope: InternalScope
@@ -238,6 +252,12 @@ class TokenValidationDict(TypedDict):
 
 
 class IPDict(TypedDict):
+    ip: Optional[str]
+    fqdn: Optional[str]
+    site: Optional[str]
+
+
+class IPWithLocationDict(TypedDict):
     ip: str
     fqdn: str
     site: str

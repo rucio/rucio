@@ -68,7 +68,7 @@ if TYPE_CHECKING:
     from _typeshed import FileDescriptorOrPath
     from sqlalchemy.orm import Session
 
-    from rucio.common.types import IPDict, LoggerFunction
+    from rucio.common.types import IPWithLocationDict, LoggerFunction
 
 
 # HTTP code dictionary. Not complete. Can be extended if needed.
@@ -1228,7 +1228,7 @@ def resolve_ip(hostname: str) -> str:
     return hostname
 
 
-def detect_client_location() -> "IPDict":
+def detect_client_location() -> "IPWithLocationDict":
     """
     Normally client IP will be set on the server side (request.remote_addr)
     Here setting ip on the one seen by the host itself. There is no connection
