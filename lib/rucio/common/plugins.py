@@ -19,8 +19,8 @@ from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from rucio.common import config
+from rucio.common.client import get_client_vo, is_client
 from rucio.common.exception import InvalidAlgorithmName, PolicyPackageIsNotVersioned, PolicyPackageVersionError
-from rucio.common.utils import get_client_vo, is_client
 from rucio.version import current_version
 
 if TYPE_CHECKING:
