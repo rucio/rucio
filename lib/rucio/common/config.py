@@ -197,7 +197,7 @@ def config_get(
         except ConfigNotFound:
             pass
 
-        from rucio.common.utils import is_client
+        from rucio.common.client import is_client
         client_mode = is_client()
 
         if not client_mode and check_config_table:
