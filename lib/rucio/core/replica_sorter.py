@@ -38,7 +38,7 @@ from rucio.core.rse_expression_parser import parse_expression
 if TYPE_CHECKING:
     from _typeshed import StrPath
 
-    from rucio.common.types import IPDict
+    from rucio.common.types import IPDict, ReplicaDict
 
 REGION = MemcacheRegion(expiration_time=900, function_key_generator=utils.my_key_generator)
 
@@ -246,7 +246,7 @@ def __get_distance_custom(rse: Union[tuple, str], client_location: 'IPDict') -> 
 
 
 def site_selector(
-        replicas: dict[str, str],
+        replicas: dict[str, 'ReplicaDict'],
         site: str,
         vo: str
 ) -> list[str]:
