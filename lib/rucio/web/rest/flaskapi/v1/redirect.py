@@ -26,7 +26,7 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_acc
 if TYPE_CHECKING:
     from typing import Optional
 
-    from rucio.common.types import IPDict
+    from rucio.common.types import IPDict, ReplicaDict
     from rucio.web.rest.flaskapi.v1.types import HeadersType
 
 
@@ -307,7 +307,7 @@ class HeaderRedirector(ErrorHandlingMethodView):
             selected_url = None
             for r in replicas:
                 if r['rses']:
-                    dictreplica = {}
+                    dictreplica: dict[str, 'ReplicaDict'] = {}
 
                     if rse:
                         if rse in r['rses'] and r['rses'][rse]:
