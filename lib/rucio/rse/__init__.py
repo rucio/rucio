@@ -14,7 +14,7 @@
 
 from dogpile.cache import make_region
 
-from rucio.common.utils import is_client
+from rucio.common.client import is_client
 from rucio.rse import rsemanager
 
 if is_client():

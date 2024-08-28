@@ -1135,6 +1135,7 @@ class TraceValidationSchemaNotFound(RucioException):
         self._message = 'Trace validation schema not found.'
         self.error_code = 108
 
+
 class PolicyPackageIsNotVersioned(PolicyPackageBaseException):
     """
     Policy package does not contain version information.
