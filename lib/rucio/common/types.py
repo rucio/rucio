@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from rucio.common.constants import SUPPORTED_PROTOCOLS_LITERAL
-    from rucio.db.sqla.constants import AccountType, IdentityType, RequestState, RequestType
+    from rucio.db.sqla.constants import AccountType, IdentityType, ReplicaState, RequestState, RequestType, RSEType
 
 
 class InternalType:
@@ -228,6 +228,20 @@ class RuleDict(TypedDict):
     activity: str
     notify: Optional[Literal['Y', 'N', 'C', 'P']]
     purge_replicas: bool
+
+
+class ReplicaDict(TypedDict):
+    scope: InternalScope
+    name: str
+    path: Optional[str]
+    state: "ReplicaState"
+    bytes: int
+    md5: Optional[str]
+    adler32: Optional[str]
+    rse_id: str
+    rse_name: str
+    rse_type: "RSEType"
+    volatile: bool
 
 
 class DIDDict(TypedDict):
