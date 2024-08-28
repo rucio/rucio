@@ -37,6 +37,7 @@ from tabulate import tabulate
 # rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
 from rucio import version
 from rucio.client import Client
+from rucio.common.client import detect_client_location
 from rucio.common.config import config_get, config_get_float
 from rucio.common.constants import ReplicaState
 from rucio.common.exception import (
@@ -60,7 +61,7 @@ from rucio.common.exception import (
 )
 from rucio.common.extra import import_extras
 from rucio.common.test_rucio_server import TestRucioServer
-from rucio.common.utils import Color, StoreAndDeprecateWarningAction, chunks, detect_client_location, extract_scope, parse_did_filter_from_string, parse_did_filter_from_string_fe, setup_logger, sizefmt
+from rucio.common.utils import Color, StoreAndDeprecateWarningAction, chunks, extract_scope, parse_did_filter_from_string, parse_did_filter_from_string_fe, setup_logger, sizefmt
 
 EXTRA_MODULES = import_extras(['argcomplete'])
 
