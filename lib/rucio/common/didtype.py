@@ -58,6 +58,22 @@ class DID:
         self.scope: str = ''
         self.name: str = ''
 
+        did = self._parse_did_from_args(*args, **kwargs)
+
+        self._construct_did(did)
+
+        if not self.is_valid_format():
+            raise DIDError('Object has invalid format after construction: {}'.format(str(self)))
+
+    def _parse_did_from_args(
+            self,
+            *args,
+            **kwargs
+    ) -> Union["DID", str, tuple[str, str], list[str], dict[str, str]]:
+        """
+        Parse the DID object from the given arguments
+        :return: DID object
+        """
         num_args = len(args)
         num_kwargs = len(kwargs)
         if (num_args + num_kwargs) > 2:
@@ -83,11 +99,7 @@ class DID:
             did = kwargs.get('did', kwargs)
         else:
             did = args
-
-        self._construct_did(did)
-
-        if not self.is_valid_format():
-            raise DIDError('Object has invalid format after construction: {}'.format(str(self)))
+        return did
 
     def _construct_did(self, did: Any) -> None:
         """
