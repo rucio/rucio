@@ -16,7 +16,7 @@
 DID type to represent a did and to simplify operations on it
 """
 
-from typing import Union
+from typing import Any, Union
 
 from rucio.common.exception import DIDError
 
@@ -84,6 +84,17 @@ class DID:
         else:
             did = args
 
+        self._construct_did(did)
+
+        if not self.is_valid_format():
+            raise DIDError('Object has invalid format after construction: {}'.format(str(self)))
+
+    def _construct_did(self, did: Any) -> None:
+        """
+        Construct the DID object from the given input.
+
+        :param did: input to construct the DID object from
+        """
         if isinstance(did, dict):
             self._did_from_dict(did)
         elif isinstance(did, tuple) or isinstance(did, list):
@@ -97,9 +108,6 @@ class DID:
 
         if self.name.endswith('/'):
             self.name = self.name[:-1]
-
-        if not self.is_valid_format():
-            raise DIDError('Object has invalid format after construction: {}'.format(str(self)))
 
     def _did_from_str(self, did: str) -> None:
         """
