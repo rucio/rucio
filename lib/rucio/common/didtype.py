@@ -85,10 +85,7 @@ class DID:
             did = args
 
         if isinstance(did, dict):
-            self.scope = did.get('scope', '')
-            self.name = did.get('name', '')
-            if not self.has_scope():
-                self._update_implicit_scope()
+            self._parse_did_from_dict(did)
         elif isinstance(did, tuple) or isinstance(did, list):
             if len(did) != 2:
                 raise DIDError('Construction from tuple or list requires exactly 2 elements')
@@ -115,6 +112,16 @@ class DID:
 
         if not self.is_valid_format():
             raise DIDError('Object has invalid format after construction: {}'.format(str(self)))
+
+    def _parse_did_from_dict(self, did: dict[str, str]) -> None:
+        """
+        Parse the DID from a dictionary.
+        :param did: dictionary optionally containing the keys 'scope' and 'name'
+        """
+        self.scope = did.get('scope', '')
+        self.name = did.get('name', '')
+        if not self.has_scope():
+            self._update_implicit_scope()
 
     def _update_implicit_scope(self) -> None:
         """
