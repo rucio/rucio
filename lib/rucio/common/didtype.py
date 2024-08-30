@@ -152,7 +152,7 @@ class DID:
         :param did: list or tuple with expected length of 2
         """
         if len(did) != 2:
-            raise DIDError('Construction from tuple or list requires exactly 2 elements')
+            raise DIDError('Construction from tuple or list requires exactly 2 elements. Number of elements passed: %i' % len(did))
         self.scope = did[0]
         self.name = did[1]
 
