@@ -38,6 +38,7 @@ class TestDIDType:
             (DID(did={'scope': 'test.scope', 'name': 'test.name'}), 'test.scope', 'test.name'),
             (DID('test.scope', name='test.name'), 'test.scope', 'test.name'),
             (DID('test.name', scope='test.scope'), 'test.scope', 'test.name'),
+            (DID('test.scope', 'test.name/'), 'test.scope', 'test.name'),
         ],
         ids=[
             'empty_did',
@@ -55,7 +56,8 @@ class TestDIDType:
             'kwarg_tuple',
             'kwarg_dict',
             'arg_scope_kwarg_name',
-            'arg_name_kwarg_scope'
+            'arg_name_kwarg_scope',
+            'slash_at_end_gets_stripped'
         ])
     def test_did_type_success(self, input_did, expected_scope, expected_name):
         assert input_did.scope == expected_scope
@@ -95,6 +97,29 @@ class TestDIDType:
     def test_too_many_args(self):
         with pytest.raises(DIDError, match='Constructor takes at most 2 arguments. Given number: 3'):
             DID('arg1', 'arg2', 'arg3')
+
+    def test_unexpected_kwarg_when_string_arg(self):
+        with pytest.raises(DIDError, match='Constructor got unexpected keyword argument: invalid'):
+            DID('arg', invalid='kwarg')
+
+    def test_invalid_arg_type(self):
+        with pytest.raises(DIDError, match='Error using DID type\nDetails: First argument of constructor is expected to be string type when keyword argument is given. Given type: <class \'dict\'>'):
+            DID({'scope': 'test.scope', 'name': 'test.name'}, scope='test.scope')
+
+    def test_invalid_kwarg_type(self):
+        with pytest.raises(DIDError, match='Error using DID type\nDetails: Cannot build object from: <class \'int\'>'):
+            DID(did=5)
+
+    @pytest.mark.parametrize(
+        'did_params',
+        [
+            ['test.scope', 'test.name', 'extra_element'],
+            ('test.scope', 'test.name', 'extra_element'),
+        ]
+    )
+    def test_too_many_list_tuple_elements(self, did_params):
+        with pytest.raises(DIDError, match='Error using DID type\nDetails: Construction from tuple or list requires exactly 2 elements'):
+            DID(did=did_params)
 
     def test_has_scope(self):
         x = DID(scope='test.scope')
