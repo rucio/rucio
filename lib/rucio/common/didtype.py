@@ -91,8 +91,7 @@ class DID:
         elif isinstance(did, str):
             self._parse_did_from_str(did)
         elif isinstance(did, DID):
-            self.scope = did.scope
-            self.name = did.name
+            self._parse_did_from_did_object(did)
         else:
             raise DIDError('Cannot build object from: {}'.format(type(did)))
 
@@ -136,6 +135,14 @@ class DID:
             raise DIDError('Construction from tuple or list requires exactly 2 elements')
         self.scope = did[0]
         self.name = did[1]
+
+    def _parse_did_from_did_object(self, did: "DID") -> None:
+        """
+        Parse the DID from another DID object.
+        :param did: DID object
+        """
+        self.scope = did.scope
+        self.name = did.name
 
     def _update_implicit_scope(self) -> None:
         """
