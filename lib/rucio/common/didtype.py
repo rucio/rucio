@@ -85,13 +85,13 @@ class DID:
             did = args
 
         if isinstance(did, dict):
-            self._parse_did_from_dict(did)
+            self._did_from_dict(did)
         elif isinstance(did, tuple) or isinstance(did, list):
-            self._parse_did_from_list_or_dict(did)
+            self._did_from_list_or_dict(did)
         elif isinstance(did, str):
-            self._parse_did_from_str(did)
+            self._did_from_str(did)
         elif isinstance(did, DID):
-            self._parse_did_from_did_object(did)
+            self._did_from_did_object(did)
         else:
             raise DIDError('Cannot build object from: {}'.format(type(did)))
 
@@ -101,9 +101,9 @@ class DID:
         if not self.is_valid_format():
             raise DIDError('Object has invalid format after construction: {}'.format(str(self)))
 
-    def _parse_did_from_str(self, did: str) -> None:
+    def _did_from_str(self, did: str) -> None:
         """
-        Parse the DID from a string.
+        Construct the DID from a string.
         :param did: string containing the DID information
         """
         did_parts = did.split(DID.SCOPE_SEPARATOR, 1)
@@ -116,9 +116,9 @@ class DID:
             self.scope = did_parts[0]
             self.name = did_parts[1]
 
-    def _parse_did_from_dict(self, did: dict[str, str]) -> None:
+    def _did_from_dict(self, did: dict[str, str]) -> None:
         """
-        Parse the DID from a dictionary.
+        Construct the DID from a dictionary.
         :param did: dictionary optionally containing the keys 'scope' and 'name'
         """
         self.scope = did.get('scope', '')
@@ -126,9 +126,9 @@ class DID:
         if not self.has_scope():
             self._update_implicit_scope()
 
-    def _parse_did_from_list_or_dict(self, did: Union[list[str], tuple[str, str]]) -> None:
+    def _did_from_list_or_dict(self, did: Union[list[str], tuple[str, str]]) -> None:
         """
-        Parse the DID from a list or tuple.
+        Construct the DID from a list or tuple.
         :param did: list or tuple with expected length of 2
         """
         if len(did) != 2:
@@ -136,9 +136,9 @@ class DID:
         self.scope = did[0]
         self.name = did[1]
 
-    def _parse_did_from_did_object(self, did: "DID") -> None:
+    def _did_from_did_object(self, did: "DID") -> None:
         """
-        Parse the DID from another DID object.
+        Construct the DID from another DID object.
         :param did: DID object
         """
         self.scope = did.scope
