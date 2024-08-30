@@ -95,3 +95,48 @@ class TestDIDType:
     def test_too_many_args(self):
         with pytest.raises(DIDError, match='Constructor takes at most 2 arguments. Given number: 3'):
             DID('arg1', 'arg2', 'arg3')
+
+    def test_has_scope(self):
+        x = DID(scope='test.scope')
+        assert x.has_scope()
+
+    def test_has_name(self):
+        x = DID(name='test.name')
+        assert x.has_name()
+
+    @pytest.mark.parametrize(
+        'scope,name,expected_str',
+        [
+            ('test.scope', 'test.name', 'test.scope:test.name'),
+            ('test.scope', '', 'test.scope'),
+            ('', 'test.name', 'test.name'),
+            ('', '', '')
+        ]
+    )
+    def test_str(self, scope, name, expected_str):
+        x = DID(scope=scope, name=name)
+        assert str(x) == expected_str
+
+    def test_hash(self):
+        x = DID('test.scope:test.name')
+        assert hash(x) == hash('test.scope:test.name')
+
+    def test_eq_str(self):
+        did_as_str = 'test.scope:test.name'
+        x = DID(did_as_str)
+        assert x == did_as_str
+
+    def test_eq_non_str_valid_format(self):
+        did = {'scope': 'test.scope', 'name': 'test.name'}
+        x = DID(did)
+        assert x == did
+
+    def test_eq_non_str_invalid_format(self):
+        invalid_did = ('invalid', 'user.implicit:user:invalid')
+        x = DID('test.scope:test.name')
+        assert x != invalid_did
+
+    def test_ne(self):
+        x = DID('test.scope:test.name')
+        y = DID('test.scope:test.name2')
+        assert x != y
