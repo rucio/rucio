@@ -89,15 +89,7 @@ class DID:
         elif isinstance(did, tuple) or isinstance(did, list):
             self._parse_did_from_list_or_dict(did)
         elif isinstance(did, str):
-            did_parts = did.split(DID.SCOPE_SEPARATOR, 1)
-            if len(did_parts) == 1:
-                self.name = did
-                self._update_implicit_scope()
-                if not self.has_scope():
-                    raise DIDError('Object construction from non-splitable string is ambigious')
-            else:
-                self.scope = did_parts[0]
-                self.name = did_parts[1]
+            self._parse_did_from_str(did)
         elif isinstance(did, DID):
             self.scope = did.scope
             self.name = did.name
@@ -109,6 +101,21 @@ class DID:
 
         if not self.is_valid_format():
             raise DIDError('Object has invalid format after construction: {}'.format(str(self)))
+
+    def _parse_did_from_str(self, did: str) -> None:
+        """
+        Parse the DID from a string.
+        :param did: string containing the DID information
+        """
+        did_parts = did.split(DID.SCOPE_SEPARATOR, 1)
+        if len(did_parts) == 1:
+            self.name = did
+            self._update_implicit_scope()
+            if not self.has_scope():
+                raise DIDError('Object construction from non-splitable string is ambigious')
+        else:
+            self.scope = did_parts[0]
+            self.name = did_parts[1]
 
     def _parse_did_from_dict(self, did: dict[str, str]) -> None:
         """
