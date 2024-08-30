@@ -88,7 +88,7 @@ class DID:
             self.scope = did.get('scope', '')
             self.name = did.get('name', '')
             if not self.has_scope():
-                self.update_implicit_scope()
+                self._update_implicit_scope()
         elif isinstance(did, tuple) or isinstance(did, list):
             if len(did) != 2:
                 raise DIDError('Construction from tuple or list requires exactly 2 elements')
@@ -98,7 +98,7 @@ class DID:
             did_parts = did.split(DID.SCOPE_SEPARATOR, 1)
             if len(did_parts) == 1:
                 self.name = did
-                self.update_implicit_scope()
+                self._update_implicit_scope()
                 if not self.has_scope():
                     raise DIDError('Object construction from non-splitable string is ambigious')
             else:
@@ -116,7 +116,7 @@ class DID:
         if not self.is_valid_format():
             raise DIDError('Object has invalid format after construction: {}'.format(str(self)))
 
-    def update_implicit_scope(self) -> None:
+    def _update_implicit_scope(self) -> None:
         """
         This method sets the scope if it is implicitly given in self.name
         """
