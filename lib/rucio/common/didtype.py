@@ -87,7 +87,7 @@ class DID:
         if isinstance(did, dict):
             self._did_from_dict(did)
         elif isinstance(did, tuple) or isinstance(did, list):
-            self._did_from_list_or_dict(did)
+            self._did_from_list_or_tuple(did)
         elif isinstance(did, str):
             self._did_from_str(did)
         elif isinstance(did, DID):
@@ -126,7 +126,7 @@ class DID:
         if not self.has_scope():
             self._update_implicit_scope()
 
-    def _did_from_list_or_dict(self, did: Union[list[str], tuple[str, str]]) -> None:
+    def _did_from_list_or_tuple(self, did: Union[list[str], tuple[str, str]]) -> None:
         """
         Construct the DID from a list or tuple.
         :param did: list or tuple with expected length of 2
