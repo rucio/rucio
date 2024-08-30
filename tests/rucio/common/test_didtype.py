@@ -73,3 +73,25 @@ class TestDIDType:
     def test_invalid_format_during_construction(self):
         with pytest.raises(DIDError, match='Error using DID type\nDetails: Object has invalid format after construction: invalid:user.implicit:user:invalid'):
             DID('invalid', 'user.implicit:user:invalid')
+
+    @pytest.mark.parametrize(
+        'scope,name,is_valid',
+        [
+            ('valid.scope', 'valid.name', True),
+            ('valid_scope', 'valid_name', True),
+            ('', 'valid.name', True),
+            ('valid.scope', '', True),
+            ('valid.scope', 'invalid:name', False),
+            ('invalid:scope', 'valid.name', False),
+            ('invalid:scope', 'invalid:name', False),
+        ]
+    )
+    def test_is_valid_format(self, scope, name, is_valid):
+        did = DID()
+        did.scope = scope
+        did.name = name
+        assert did.is_valid_format() == is_valid
+
+    def test_too_many_args(self):
+        with pytest.raises(DIDError, match='Constructor takes at most 2 arguments. Given number: 3'):
+            DID('arg1', 'arg2', 'arg3')
