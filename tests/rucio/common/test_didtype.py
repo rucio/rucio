@@ -118,7 +118,7 @@ class TestDIDType:
         ]
     )
     def test_too_many_list_tuple_elements(self, did_params):
-        with pytest.raises(DIDError, match='Error using DID type\nDetails: Construction from tuple or list requires exactly 2 elements'):
+        with pytest.raises(DIDError, match='Error using DID type\nDetails: Construction from tuple or list requires exactly 2 elements. Number of elements passed: 3'):
             DID(did=did_params)
 
     def test_has_scope(self):
