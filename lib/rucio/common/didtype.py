@@ -87,10 +87,7 @@ class DID:
         if isinstance(did, dict):
             self._parse_did_from_dict(did)
         elif isinstance(did, tuple) or isinstance(did, list):
-            if len(did) != 2:
-                raise DIDError('Construction from tuple or list requires exactly 2 elements')
-            self.scope = did[0]
-            self.name = did[1]
+            self._parse_did_from_list_or_dict(did)
         elif isinstance(did, str):
             did_parts = did.split(DID.SCOPE_SEPARATOR, 1)
             if len(did_parts) == 1:
@@ -122,6 +119,16 @@ class DID:
         self.name = did.get('name', '')
         if not self.has_scope():
             self._update_implicit_scope()
+
+    def _parse_did_from_list_or_dict(self, did: Union[list[str], tuple[str, str]]) -> None:
+        """
+        Parse the DID from a list or tuple.
+        :param did: list or tuple with expected length of 2
+        """
+        if len(did) != 2:
+            raise DIDError('Construction from tuple or list requires exactly 2 elements')
+        self.scope = did[0]
+        self.name = did[1]
 
     def _update_implicit_scope(self) -> None:
         """
