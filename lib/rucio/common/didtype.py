@@ -77,7 +77,7 @@ class DID:
                     else:
                         raise DIDError('Constructor got unexpected keyword argument: {}'.format(k))
                 else:
-                    raise DIDError('First argument of constructor is expected to be string type'
+                    raise DIDError('First argument of constructor is expected to be string type '
                                    'when keyword argument is given. Given type: {}'.format(type(did)))
         elif num_args == 0:
             did = kwargs.get('did', kwargs)
