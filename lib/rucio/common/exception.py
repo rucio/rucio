@@ -31,7 +31,7 @@ class RucioException(Exception):
     """
 
     def __init__(self, *args, **kwargs):
-        super(RucioException, self).__init__(*args, **kwargs)
+        super(RucioException, self).__init__(*args)
         self._message = "An unknown exception occurred."
         self.args = args
         self.kwargs = kwargs
