@@ -17,14 +17,20 @@ import logging
 import random
 from collections.abc import Callable
 from time import sleep
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
 from urllib.parse import urlparse
 
 from rucio.common import constants, exception, types, utils
 from rucio.common.config import config_get_int
-from rucio.common.constants import RSE_SUPPORTED_PROTOCOL_OPERATIONS
+from rucio.common.constants import RSE_SUPPORTED_PROTOCOL_OPERATIONS, RSE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL
 from rucio.common.constraints import STRING_TYPES
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, make_valid_did
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from rucio.rse.protocols.protocol import RSEProtocol
 
 
 def get_scope_protocol(vo: str = 'def') -> Callable:
@@ -39,7 +45,12 @@ def get_scope_protocol(vo: str = 'def') -> Callable:
     return translation.parser
 
 
-def get_rse_info(rse=None, vo='def', rse_id=None, session=None) -> types.RSESettingsDict:
+def get_rse_info(
+        rse: Optional[str] = None,
+        vo: str = 'def',
+        rse_id: Optional[str] = None,
+        session: Optional["Session"] = None
+) -> types.RSESettingsDict:
     """
         Returns all protocol related RSE attributes.
         Call with either rse and vo, or (in server mode) rse_id
@@ -79,7 +90,13 @@ def get_rse_info(rse=None, vo='def', rse_id=None, session=None) -> types.RSESett
     return rse_info
 
 
-def _get_possible_protocols(rse_settings: types.RSESettingsDict, operation, scheme=None, domain=None, impl=None):
+def _get_possible_protocols(
+        rse_settings: types.RSESettingsDict,
+        operation: str,
+        scheme: Optional[Union[list[str], str]] = None,
+        domain: Optional[str] = None,
+        impl: Optional[str] = None
+) -> list[types.RSEProtocolDict]:
     """
     Filter the list of available protocols or provided by the supported ones.
 
@@ -129,7 +146,13 @@ def _get_possible_protocols(rse_settings: types.RSESettingsDict, operation, sche
     return [c for c in candidates if c not in tbr]
 
 
-def get_protocols_ordered(rse_settings: types.RSESettingsDict, operation, scheme=None, domain='wan', impl=None):
+def get_protocols_ordered(
+        rse_settings: types.RSESettingsDict,
+        operation: RSE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL,
+        scheme: Optional[Union[list[str], str]] = None,
+        domain: str = 'wan',
+        impl: Optional[str] = None
+) -> list[types.RSEProtocolDict]:
     if operation not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
         raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
 
@@ -141,7 +164,12 @@ def get_protocols_ordered(rse_settings: types.RSESettingsDict, operation, scheme
     return candidates
 
 
-def select_protocol(rse_settings: types.RSESettingsDict, operation, scheme=None, domain='wan'):
+def select_protocol(
+        rse_settings: types.RSESettingsDict,
+        operation: RSE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL,
+        scheme: Optional[str] = None,
+        domain: str = 'wan'
+) -> types.RSEProtocolDict:
     if operation not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
         raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
 
@@ -154,7 +182,16 @@ def select_protocol(rse_settings: types.RSESettingsDict, operation, scheme=None,
     return min(candidates, key=lambda k: k['domains'][domain][operation])
 
 
-def create_protocol(rse_settings: types.RSESettingsDict, operation, scheme=None, domain='wan', auth_token=None, protocol_attr=None, logger=logging.log, impl=None):
+def create_protocol(
+        rse_settings: types.RSESettingsDict,
+        operation: str,
+        scheme: Optional[str] = None,
+        domain: str = 'wan',
+        auth_token: Optional[str] = None,
+        protocol_attr: Optional[types.RSEProtocolDict] = None,
+        logger: types.LoggerFunction = logging.log,
+        impl: Optional[str] = None
+) -> "RSEProtocol":
     """
     Instantiates the protocol defined for the given operation.
 
@@ -172,6 +209,8 @@ def create_protocol(rse_settings: types.RSESettingsDict, operation, scheme=None,
     operation = operation.lower()
     if operation not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
         raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
+
+    operation = cast(RSE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, operation)
 
     if domain and domain not in utils.rse_supported_protocol_domains():
         raise exception.RSEProtocolDomainNotSupported('Domain %s not supported' % domain)
@@ -204,7 +243,16 @@ def create_protocol(rse_settings: types.RSESettingsDict, operation, scheme=None,
     return protocol
 
 
-def lfns2pfns(rse_settings: types.RSESettingsDict, lfns, operation='write', scheme=None, domain='wan', auth_token=None, logger=logging.log, impl=None):
+def lfns2pfns(
+        rse_settings: types.RSESettingsDict,
+        lfns: Union[list[types.LFNDict], types.LFNDict],
+        operation: str = 'write',
+        scheme: Optional[str] = None,
+        domain: str = 'wan',
+        auth_token: Optional[str] = None,
+        logger: types.LoggerFunction = logging.log,
+        impl: Optional[str] = None
+) -> dict[str, str]:
     """
         Convert the lfn to a pfn
 
@@ -222,7 +270,13 @@ def lfns2pfns(rse_settings: types.RSESettingsDict, lfns, operation='write', sche
     return create_protocol(rse_settings, operation, scheme, domain, auth_token=auth_token, logger=logger, impl=impl).lfns2pfns(lfns)
 
 
-def parse_pfns(rse_settings: types.RSESettingsDict, pfns, operation='read', domain='wan', auth_token=None):
+def parse_pfns(
+        rse_settings: types.RSESettingsDict,
+        pfns: list[str],
+        operation: str = 'read',
+        domain: str = 'wan',
+        auth_token: Optional[str] = None
+) -> dict[str, dict[str, str]]:
     """
         Checks if a PFN is feasible for a given RSE. If so it splits the pfn in its various components.
 
@@ -244,7 +298,16 @@ def parse_pfns(rse_settings: types.RSESettingsDict, pfns, operation='read', doma
     return create_protocol(rse_settings, operation, urlparse(pfns[0]).scheme, domain, auth_token=auth_token).parse_pfns(pfns)
 
 
-def exists(rse_settings: types.RSESettingsDict, files, domain='wan', scheme=None, impl=None, auth_token=None, vo='def', logger=logging.log):
+def exists(
+        rse_settings: types.RSESettingsDict,
+        files: Union[list[dict[str, str]], dict[str, str]],
+        domain: str = 'wan',
+        scheme: Optional[str] = None,
+        impl: Optional[str] = None,
+        auth_token: Optional[str] = None,
+        vo: str = 'def',
+        logger: types.LoggerFunction = logging.log
+) -> Union[bool, list[Union[bool, dict[dict[str, str], bool]]]]:
     """
         Checks if a file is present at the connected storage.
         Providing a list indicates the bulk mode.
@@ -276,13 +339,15 @@ def exists(rse_settings: types.RSESettingsDict, files, domain='wan', scheme=None
     except:
         pass
 
-    files = [files] if not type(files) is list else files
+    if not isinstance(files, list):
+        files = [files]
     for f in files:
         exists = None
         if isinstance(f, STRING_TYPES):
             exists = protocol.exists(f)
             ret[f] = exists
         elif 'scope' in f:  # a LFN is provided
+            f = cast(types.LFNDict, f)
             pfn = list(protocol.lfns2pfns(f).values())[0]
             if isinstance(pfn, exception.RucioException):
                 raise pfn
@@ -300,12 +365,25 @@ def exists(rse_settings: types.RSESettingsDict, files, domain='wan', scheme=None
 
     protocol.close()
     if len(ret) == 1:
-        for x in ret:
-            return ret[x]
+        return next(iter(ret.values()))
     return [gs, ret]
 
 
-def upload(rse_settings: types.RSESettingsDict, lfns, domain='wan', source_dir=None, force_pfn=None, force_scheme=None, transfer_timeout=None, delete_existing=False, sign_service=None, auth_token=None, vo='def', logger=logging.log, impl=None):
+def upload(
+        rse_settings: types.RSESettingsDict,
+        lfns: Union[list[types.LFNDict], types.LFNDict],
+        domain: str = 'wan',
+        source_dir: Optional[str] = None,
+        force_pfn: Optional[str] = None,
+        force_scheme: Optional[str] = None,
+        transfer_timeout: Optional[int] = None,
+        delete_existing: bool = False,
+        sign_service: Optional[str] = None,
+        auth_token: Optional[str] = None,
+        vo: str = 'def',
+        logger: types.LoggerFunction = logging.log,
+        impl: Optional[str] = None
+) -> dict[Union[int, str], Union[bool, str, dict[str, Union[Literal[True], Exception]]]]:
     """
         Uploads a file to the connected storage.
         Providing a list indicates the bulk mode.
@@ -343,7 +421,9 @@ def upload(rse_settings: types.RSESettingsDict, lfns, domain='wan', source_dir=N
     protocol.connect()
     protocol_delete = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol_delete.connect()
-    lfns = [lfns] if not type(lfns) is list else lfns
+
+    if not isinstance(lfns, list):
+        lfns = [lfns]
     for lfn in lfns:
         base_name = lfn.get('filename', lfn['name'])
         name = lfn.get('name', base_name)
@@ -398,7 +478,7 @@ def upload(rse_settings: types.RSESettingsDict, lfns, domain='wan', source_dir=N
 
                 try:  # Try uploading file
                     logger(logging.DEBUG, 'Uploading to %s.rucio.upload', pfn)
-                    protocol.put(base_name, '%s.rucio.upload' % pfn, source_dir, transfer_timeout=transfer_timeout)
+                    protocol.put(base_name, '%s.rucio.upload' % pfn, source_dir, transfer_timeout=transfer_timeout)  # type: ignore (source_dir could be None)
                 except Exception as e:
                     gs = False
                     ret['%s:%s' % (scope, name)] = e
@@ -496,15 +576,22 @@ def upload(rse_settings: types.RSESettingsDict, lfns, domain='wan', source_dir=N
     protocol.close()
     protocol_delete.close()
     if len(ret) == 1:
-        for x in ret:
-            if isinstance(ret[x], Exception):
-                raise ret[x]
-            else:
-                return {0: ret[x], 1: ret, 'success': ret[x], 'pfn': pfn}
+        ret_value = next(iter(ret.values()))
+        if isinstance(ret_value, Exception):
+            raise ret_value
+        else:
+            return {0: ret_value, 1: ret, 'success': ret_value, 'pfn': pfn}
     return {0: gs, 1: ret, 'success': gs, 'pfn': pfn}
 
 
-def delete(rse_settings: types.RSESettingsDict, lfns, domain='wan', auth_token=None, logger=logging.log, impl=None):
+def delete(
+        rse_settings: types.RSESettingsDict,
+        lfns: Union[list[types.LFNDict], types.LFNDict],
+        domain: str = 'wan',
+        auth_token: Optional[str] = None,
+        logger: types.LoggerFunction = logging.log,
+        impl: Optional[str] = None
+) -> Union[bool, list[Union[bool, dict[str, Union[Literal[True], Exception]]]]]:
     """
         Delete a file from the connected storage.
         Providing a list indicates the bulk mode.
@@ -527,7 +614,8 @@ def delete(rse_settings: types.RSESettingsDict, lfns, domain='wan', auth_token=N
     protocol = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol.connect()
 
-    lfns = [lfns] if not type(lfns) is list else lfns
+    if not isinstance(lfns, list):
+        lfns = [lfns]
     for lfn in lfns:
         pfn = list(protocol.lfns2pfns(lfn).values())[0]
         try:
@@ -539,15 +627,22 @@ def delete(rse_settings: types.RSESettingsDict, lfns, domain='wan', auth_token=N
 
     protocol.close()
     if len(ret) == 1:
-        for x in ret:
-            if isinstance(ret[x], Exception):
-                raise ret[x]
-            else:
-                return ret[x]
+        ret_value = next(iter(ret.values()))
+        if isinstance(ret_value, Exception):
+            raise ret_value
+        else:
+            return ret_value
     return [gs, ret]
 
 
-def rename(rse_settings: types.RSESettingsDict, files, domain='wan', auth_token=None, logger=logging.log, impl=None):
+def rename(
+        rse_settings: types.RSESettingsDict,
+        files: Union[list[dict[str, str]], dict[str, str]],
+        domain: str = 'wan',
+        auth_token: Optional[str] = None,
+        logger: types.LoggerFunction = logging.log,
+        impl: Optional[str] = None
+) -> Union[bool, list[Union[bool, dict[str, Union[Literal[True], Exception]]]]]:
     """
         Rename files stored on the connected storage.
         Providing a list indicates the bulk mode.
@@ -578,7 +673,8 @@ def rename(rse_settings: types.RSESettingsDict, files, domain='wan', auth_token=
     protocol = create_protocol(rse_settings, 'write', domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol.connect()
 
-    files = [files] if not type(files) is list else files
+    if not isinstance(files, list):
+        files = [files]
     for f in files:
         pfn = None
         new_pfn = None
@@ -615,15 +711,22 @@ def rename(rse_settings: types.RSESettingsDict, files, domain='wan', auth_token=
 
     protocol.close()
     if len(ret) == 1:
-        for x in ret:
-            if isinstance(ret[x], Exception):
-                raise ret[x]
-            else:
-                return ret[x]
+        ret_value = next(iter(ret.values()))
+        if isinstance(ret_value, Exception):
+            raise ret_value
+        else:
+            return ret_value
     return [gs, ret]
 
 
-def get_space_usage(rse_settings: types.RSESettingsDict, scheme=None, domain='wan', auth_token=None, logger=logging.log, impl=None):
+def get_space_usage(
+        rse_settings: types.RSESettingsDict,
+        scheme: Optional[str] = None,
+        domain: str = 'wan',
+        auth_token: Optional[str] = None,
+        logger: types.LoggerFunction = logging.log,
+        impl: Optional[str] = None
+) -> list[Union[bool, Union[dict[str, int], Exception]]]:
     """
         Get RSE space usage information.
 
@@ -655,7 +758,14 @@ def get_space_usage(rse_settings: types.RSESettingsDict, scheme=None, domain='wa
     return [gs, ret]
 
 
-def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, operation_dest, domain='wan', scheme=None):
+def find_matching_scheme(
+        rse_settings_dest: types.RSESettingsDict,
+        rse_settings_src: types.RSESettingsDict,
+        operation_src: str,
+        operation_dest: str,
+        domain: str = 'wan',
+        scheme: Optional[Union[str, list[str]]] = None
+) -> tuple[str, str, int, int]:
     """
     Find the best matching scheme between two RSEs
 
@@ -724,7 +834,10 @@ def find_matching_scheme(rse_settings_dest, rse_settings_src, operation_src, ope
     raise exception.RSEProtocolNotSupported('No protocol for provided settings found : %s.' % str(rse_settings_dest))
 
 
-def _retry_protocol_stat(protocol, pfn):
+def _retry_protocol_stat(
+        protocol: "RSEProtocol",
+        pfn: str
+) -> dict[str, Any]:
     """
     try to stat file, on fail try again 1s, 2s, 4s, 8s, 16s, 32s later. Fail is all fail
 
@@ -746,7 +859,10 @@ def _retry_protocol_stat(protocol, pfn):
     return protocol.stat(pfn)
 
 
-def __check_compatible_scheme(dest_scheme, src_scheme):
+def __check_compatible_scheme(
+        dest_scheme: str,
+        src_scheme: str
+) -> bool:
     """
     Check if two schemes are compatible, such as srm and gsiftp
 
