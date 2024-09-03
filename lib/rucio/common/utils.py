@@ -37,7 +37,7 @@ import threading
 import time
 import zlib
 from collections import OrderedDict
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from enum import Enum
 from functools import partial, wraps
 from io import StringIO
@@ -65,6 +65,7 @@ if EXTRA_MODULES['paramiko']:
 
 if TYPE_CHECKING:
     T = TypeVar('T')
+    Q = TypeVar('Q')
     from _typeshed import FileDescriptorOrPath
     from sqlalchemy.orm import Session
 
@@ -101,7 +102,7 @@ codes = {
 DATE_FORMAT = '%a, %d %b %Y %H:%M:%S UTC'
 
 
-def invert_dict(d: dict[Any, Any]) -> dict[Any, Any]:
+def invert_dict(d: Mapping['T', 'Q']) -> Mapping['Q', 'T']:
     """
     Invert the dictionary.
     CAUTION: this function is not deterministic unless the input dictionary is one-to-one mapping.
