@@ -114,26 +114,6 @@ def invert_dict(d: "Mapping[HashableKT, HashableVT]") -> "Mapping[HashableVT, Ha
     return {value: key for key, value in d.items()}
 
 
-def dids_as_dicts(did_list: 'Iterable[Union[str, dict[str, str]]]') -> list[dict[str, str]]:
-    """
-    Converts list of DIDs to list of dictionaries
-    :param did_list: list of DIDs as either "scope:name" or {"scope":"scope", "name":"name"}
-    :returns: list of dictionaries {"scope":"scope", "name":"name"}
-    """
-    out = []
-    for did in did_list:
-        if isinstance(did, str):
-            scope, name = did.split(":", 1)
-            did = dict(scope=scope, name=name)
-        if isinstance(did, dict):
-            if not ("name" in did and "scope" in did):
-                raise ValueError("Scope or name missing in: %s" % (did,))
-        else:
-            raise ValueError("Can not convert item %s (%s) to a DID" % (did, type(did)))
-        out.append(did)
-    return out
-
-
 def build_url(
         url: str,
         path: Optional[str] = None,
