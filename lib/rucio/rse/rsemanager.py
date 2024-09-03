@@ -20,11 +20,12 @@ from time import sleep
 from urllib.parse import urlparse
 
 from rucio.common import constants, exception, types, utils
+from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.common.config import config_get_int
 from rucio.common.constants import RSE_SUPPORTED_PROTOCOL_OPERATIONS
 from rucio.common.constraints import STRING_TYPES
 from rucio.common.logging import formatted_logger
-from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, make_valid_did
+from rucio.common.utils import make_valid_did
 
 
 def get_scope_protocol(vo: str = 'def') -> Callable:

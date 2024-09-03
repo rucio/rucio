@@ -19,9 +19,11 @@ from re import match
 
 import pytest
 
+from rucio.common.bittorrent import bittorrent_v2_merkle_sha256
+from rucio.common.checksum import adler32, md5
 from rucio.common.exception import InvalidType
 from rucio.common.logging import formatted_logger
-from rucio.common.utils import Availability, adler32, bittorrent_v2_merkle_sha256, md5, parse_did_filter_from_string, retrying
+from rucio.common.utils import Availability, parse_did_filter_from_string, retrying
 
 
 class TestUtils:

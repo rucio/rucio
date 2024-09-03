@@ -29,11 +29,12 @@ from requests.adapters import ReadTimeout
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 
 from rucio.common.cache import MemcacheRegion
+from rucio.common.checksum import PREFERRED_CHECKSUM
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.constants import FTS_COMPLETE_STATE, FTS_JOB_TYPE, FTS_STATE, RseAttr
 from rucio.common.exception import DuplicateFileTransferSubmission, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.utils import PREFERRED_CHECKSUM, APIEncoder, chunks, deep_merge_dict
+from rucio.common.utils import APIEncoder, chunks, deep_merge_dict
 from rucio.core.monitor import MetricManager
 from rucio.core.oidc import request_token
 from rucio.core.request import get_source_rse, get_transfer_error
