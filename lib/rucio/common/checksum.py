@@ -19,6 +19,7 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from rucio.common.bittorrent import merkle_sha256
+from rucio.common.exception import ChecksumCalculationError
 
 if TYPE_CHECKING:
     from _typeshed import FileDescriptorOrPath
@@ -88,7 +89,7 @@ def adler32(file: "FileDescriptorOrPath") -> str:
                     adler = zlib.adler32(block, adler)
 
     except Exception as e:
-        raise Exception('FATAL - could not get Adler-32 checksum of file %s: %s' % (file, e))
+        raise ChecksumCalculationError('adler32', str(file), e)
 
     # backflip on 32bit -- can be removed once everything is fully migrated to 64bit
     if adler < 0:
@@ -109,7 +110,7 @@ def md5(file: "FileDescriptorOrPath") -> str:
         with open(file, "rb") as f:
             list(map(hash_md5.update, iter(lambda: f.read(4096), b"")))
     except Exception as e:
-        raise Exception('FATAL - could not get MD5 checksum of file %s - %s' % (file, e))
+        raise ChecksumCalculationError('md5', str(file), e)
 
     return hash_md5.hexdigest()
 
