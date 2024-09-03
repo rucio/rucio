@@ -19,7 +19,7 @@ import shutil
 from subprocess import call
 
 from rucio.common import exception
-from rucio.common.utils import adler32
+from rucio.common.checksum import adler32
 from rucio.rse.protocols import protocol
 
 
