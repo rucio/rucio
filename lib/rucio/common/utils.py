@@ -63,8 +63,10 @@ if EXTRA_MODULES['paramiko']:
         EXTRA_MODULES['paramiko'] = False
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, Sequence
+    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
     T = TypeVar('T')
+    HashableKT = TypeVar('HashableKT')
+    HashableVT = TypeVar('HashableVT')
     from _typeshed import FileDescriptorOrPath
     from sqlalchemy.orm import Session
 
@@ -101,7 +103,7 @@ codes = {
 DATE_FORMAT = '%a, %d %b %Y %H:%M:%S UTC'
 
 
-def invert_dict(d: dict[Any, Any]) -> dict[Any, Any]:
+def invert_dict(d: "Mapping[HashableKT, HashableVT]") -> "Mapping[HashableVT, HashableKT]":
     """
     Invert the dictionary.
     CAUTION: this function is not deterministic unless the input dictionary is one-to-one mapping.
