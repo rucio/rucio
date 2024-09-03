@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, Final, Optional, Union, cast
 
 from rucio import version
 from rucio.client.client import Client
+from rucio.common.bittorrent import bittorrent_v2_merkle_sha256
 from rucio.common.client import detect_client_location
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.constants import RseAttr
