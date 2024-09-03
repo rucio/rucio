@@ -130,11 +130,27 @@ def build_url(
     if path is not None:
         complete_url += "/" + path
     if params is not None:
-        complete_url += "?"
-        if isinstance(params, str):
-            complete_url += quote(params)
-        else:
-            complete_url += urlencode(params, doseq=doseq)
+        complete_url += _encode_params_as_url_query_string(params, doseq)
+    return complete_url
+
+
+def _encode_params_as_url_query_string(
+        params: Union[str, dict[Any, Any], list[tuple[Any, Any]]],
+        doseq: bool
+) -> str:
+    """
+    Encode params into a URL query string.
+
+    :param params: the parameters to encode
+    :param doseq: if True, individual key=value pairs separated by '&' are generated for each element of the value sequence for the key
+
+    :returns: params as a URL query string
+    """
+    complete_url = "?"
+    if isinstance(params, str):
+        complete_url += quote(params)
+    else:
+        complete_url += urlencode(params, doseq=doseq)
     return complete_url
 
 
