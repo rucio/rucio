@@ -19,10 +19,10 @@ from os import path
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import types
+from rucio.common.bittorrent import construct_torrent
 from rucio.common.config import config_get
 from rucio.common.constants import RseAttr
 from rucio.common.extra import import_extras
-from rucio.common.utils import construct_torrent
 from rucio.core.did_meta_plugins import get_metadata
 from rucio.transfertool.transfertool import TransferStatusReport, Transfertool, TransferToolBuilder
 

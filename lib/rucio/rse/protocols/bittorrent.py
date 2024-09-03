@@ -19,8 +19,9 @@ import time
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from rucio.common import exception
+from rucio.common.bittorrent import construct_torrent
 from rucio.common.extra import import_extras
-from rucio.common.utils import construct_torrent, resolve_ip
+from rucio.common.utils import resolve_ip
 from rucio.rse import rsemanager
 from rucio.rse.protocols.protocol import RSEProtocol
 
