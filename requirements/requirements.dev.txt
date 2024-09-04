@@ -92,7 +92,7 @@ click==8.1.7
     #   pydoc-markdown
 coverage[toml]==7.6.1
     # via pytest-cov
-cryptography==42.0.8
+cryptography==43.0.1
     # via
     #   -r requirements.server.txt
     #   globus-sdk
@@ -177,7 +177,9 @@ globus-sdk==3.41.0
 google-auth==2.32.0
     # via -r requirements.server.txt
 greenlet==3.0.3
-    # via -r requirements.server.txt
+    # via
+    #   -r requirements.server.txt
+    #   sqlalchemy
 gssapi==1.8.3
     # via
     #   -r requirements.server.txt
@@ -278,7 +280,7 @@ packaging==24.1
     #   build
     #   pytest
     #   qbittorrent-api
-paramiko==3.4.0
+paramiko==3.4.1
     # via -r requirements.server.txt
 pathspec==0.12.1
     # via black
