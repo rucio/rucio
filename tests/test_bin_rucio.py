@@ -29,9 +29,10 @@ from rucio.client.lifetimeclient import LifetimeClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
+from rucio.common.checksum import md5
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid, get_tmp_dir, md5, render_json
+from rucio.common.utils import generate_uuid, get_tmp_dir, render_json
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import account_name_generator, execute, file_generator, get_long_vo, rse_name_generator, scope_name_generator
 

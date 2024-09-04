@@ -22,8 +22,8 @@ import urllib.parse as urlparse
 from threading import Timer
 
 from rucio.common import config, exception
+from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM
 from rucio.common.constraints import STRING_TYPES
-from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM
 from rucio.rse.protocols import protocol
 
 try:

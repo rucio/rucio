@@ -1109,3 +1109,21 @@ class ErrorLoadingPolicyPackage(RucioException):
         super(ErrorLoadingPolicyPackage, self).__init__(*args, **kwargs)
         self._message = 'An error occurred while loading the specified policy package'
         self.error_code = 107
+
+
+class ChecksumCalculationError(RucioException):
+    """
+    An error occurred while calculating the checksum.
+    """
+    def __init__(
+            self,
+            algorithm_name: str,
+            filepath: str,
+            *args,
+            **kwargs
+    ):
+        super(ChecksumCalculationError, self).__init__(*args, **kwargs)
+        self.algorithm_name = algorithm_name
+        self.filepath = filepath
+        self._message = 'An error occurred while calculating the %s checksum of file %s.' % (self.algorithm_name, self.filepath)
+        self.error_code = 108

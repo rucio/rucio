@@ -15,39 +15,17 @@
 import datetime
 import logging
 import os
-from re import match
 
 import pytest
 
+from rucio.common.bittorrent import bittorrent_v2_merkle_sha256
 from rucio.common.exception import InvalidType
 from rucio.common.logging import formatted_logger
-from rucio.common.utils import Availability, adler32, bittorrent_v2_merkle_sha256, md5, parse_did_filter_from_string, retrying
+from rucio.common.utils import Availability, parse_did_filter_from_string, retrying
 
 
 class TestUtils:
     """UTILS (COMMON): test utilisty functions"""
-
-    def test_utils_md5(self, file_factory):
-        """(COMMON/UTILS): test calculating MD5 of a file"""
-        temp_file_1 = file_factory.file_generator(data='hello test\n')
-        ret = md5(temp_file_1)
-        assert isinstance(ret, str), "Object returned by utils.md5 is not a string"
-        assert match('[a-fA-F0-9]{32}', ret) is not None, "String returned by utils.md5 is not a md5 hex digest"
-        assert ret == '31d50dd6285b9ff9f8611d0762265d04', "Hex digest returned by utils.md5 is the MD5 checksum"
-
-        with pytest.raises(Exception, match='FATAL - could not get MD5 checksum of file no_file - \\[Errno 2\\] No such file or directory: \'no_file\''):
-            md5('no_file')
-
-    def test_utils_adler32(self, file_factory):
-        """(COMMON/UTILS): test calculating Adler32 of a file"""
-        temp_file_1 = file_factory.file_generator(data='hello test\n')
-        ret = adler32(temp_file_1)
-        assert isinstance(ret, str)
-        assert match('[a-fA-F0-9]', ret) is not None
-        assert ret == '198d03ff'
-
-        with pytest.raises(Exception, match='FATAL - could not get Adler-32 checksum of file no_file: \\[Errno 2\\] No such file or directory: \'no_file\''):
-            adler32('no_file')
 
     def test_parse_did_filter_string(self):
         """(COMMON/UTILS): test parsing of did filter string"""
