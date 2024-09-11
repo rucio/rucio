@@ -1286,7 +1286,7 @@ def delete_rule(args):
         scope, name = get_scope(args.rule_id, client)
         rules = client.list_did_rules(scope=scope, name=name)
         if args.rule_account is None:
-            account = client.account
+            account = client.authenticated_account
         else:
             account = args.rule_account
         deletion_success = False
@@ -1804,7 +1804,7 @@ def add_lifetime_exception(args):
         logger.error('Nothing to submit')
         return SUCCESS
     try:
-        client.add_exception(dids=datasets, account=client.account, pattern='', comments=reason, expires_at=expiration)
+        client.add_exception(dids=datasets, account=client.authenticated_account, pattern='', comments=reason, expires_at=expiration)
     except UnsupportedOperation as err:
         logger.error(err)
         return FAILURE

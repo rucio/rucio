@@ -137,7 +137,7 @@ class BaseClient:
             self.logger.debug('No trace_host passed. Using rucio_host instead')
 
         self.list_hosts = [self.host]
-        self.account = account
+        self.authenticated_account = account
         self.ca_cert = ca_cert
         self.auth_token = ""
         self.headers = {}
@@ -178,10 +178,10 @@ class BaseClient:
         if account is None:
             self.logger.debug('No account passed. Trying to get it from the RUCIO_ACCOUNT environment variable or the config file.')
             try:
-                self.account = environ['RUCIO_ACCOUNT']
+                self.authenticated_account = environ['RUCIO_ACCOUNT']
             except KeyError:
                 try:
-                    self.account = config_get('client', 'account')
+                    self.authenticated_account = config_get('client', 'account')
                 except (NoOptionError, NoSectionError):
                     pass
 
@@ -215,7 +215,7 @@ class BaseClient:
     def _get_auth_tokens(self) -> tuple[Optional[str], str, str, str]:
         # if token file path is defined in the rucio.cfg file, use that file. Currently this prevents authenticating as another user or VO.
         auth_token_file_path = config_get('client', 'auth_token_file_path', False, None)
-        token_filename_suffix = "for_default_account" if self.account is None else "for_account_" + self.account
+        token_filename_suffix = "for_default_account" if self.authenticated_account is None else "for_account_" + self.authenticated_account
 
         if auth_token_file_path:
             token_file = auth_token_file_path
@@ -417,8 +417,8 @@ class BaseClient:
                'Connection': 'Keep-Alive', 'User-Agent': self.user_agent,
                'X-Rucio-Script': self.script_id}
 
-        if self.account is not None:
-            hds['X-Rucio-Account'] = self.account
+        if self.authenticated_account is not None:
+            hds['X-Rucio-Account'] = self.authenticated_account
 
         if headers is not None:
             hds.update(headers)
@@ -861,27 +861,27 @@ class BaseClient:
         for retry in range(self.AUTH_RETRIES + 1):
             if self.auth_type == 'userpass':
                 if not self.__get_token_userpass():
-                    raise CannotAuthenticate('userpass authentication failed for account=%s with identity=%s' % (self.account,
+                    raise CannotAuthenticate('userpass authentication failed for account=%s with identity=%s' % (self.authenticated_account,
                                                                                                                  self.creds['username']))
             elif self.auth_type == 'x509' or self.auth_type == 'x509_proxy':
                 if not self.__get_token_x509():
-                    raise CannotAuthenticate('x509 authentication failed for account=%s with identity=%s' % (self.account,
+                    raise CannotAuthenticate('x509 authentication failed for account=%s with identity=%s' % (self.authenticated_account,
                                                                                                              self.creds))
             elif self.auth_type == 'oidc':
                 if not self.__get_token_OIDC():
-                    raise CannotAuthenticate('OIDC authentication failed for account=%s' % self.account)
+                    raise CannotAuthenticate('OIDC authentication failed for account=%s' % self.authenticated_account)
 
             elif self.auth_type == 'gss':
                 if not self.__get_token_gss():
-                    raise CannotAuthenticate('kerberos authentication failed for account=%s with identity=%s' % (self.account,
+                    raise CannotAuthenticate('kerberos authentication failed for account=%s with identity=%s' % (self.authenticated_account,
                                                                                                                  self.creds))
             elif self.auth_type == 'ssh':
                 if not self.__get_token_ssh():
-                    raise CannotAuthenticate('ssh authentication failed for account=%s with identity=%s' % (self.account,
+                    raise CannotAuthenticate('ssh authentication failed for account=%s with identity=%s' % (self.authenticated_account,
                                                                                                             self.creds))
             elif self.auth_type == 'saml':
                 if not self.__get_token_saml():
-                    raise CannotAuthenticate('saml authentication failed for account=%s with identity=%s' % (self.account,
+                    raise CannotAuthenticate('saml authentication failed for account=%s with identity=%s' % (self.authenticated_account,
                                                                                                              self.creds))
             else:
                 raise CannotAuthenticate('auth type \'%s\' not supported' % self.auth_type)

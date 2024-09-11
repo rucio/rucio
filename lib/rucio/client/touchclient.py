@@ -53,7 +53,7 @@ class TouchClient(BaseClient):
 
         trace['eventType'] = 'touch'
         trace['clientState'] = 'DONE'
-        trace['account'] = self.account
+        trace['account'] = self.authenticated_account
         if self.vo != 'def':
             trace['vo'] = self.vo
 
