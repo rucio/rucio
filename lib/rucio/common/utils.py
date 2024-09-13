@@ -629,7 +629,7 @@ def render_json(*args, **kwargs) -> str:
     """ Render a list or a dict as a JSON-formatted string. """
     if args and isinstance(args[0], list):
         data = args[0]
-    elif kwargs:
+    elif isinstance(kwargs, dict):
         data = kwargs
     else:
         raise ValueError("Error while serializing object to JSON-formatted string: supported input types are list or dict.")
