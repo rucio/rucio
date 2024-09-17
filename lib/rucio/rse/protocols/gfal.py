@@ -197,14 +197,16 @@ class Default(protocol.RSEProtocol):
                 self.__ctx.get_opt_string("X509", "CERT")
                 self.__ctx.get_opt_string("X509", "KEY")
                 auth_configured = True
-            except gfal2.GError:  # pylint: disable=no-member
-                pass
+            except gfal2.GError as e:  # pylint: disable=no-member
+                self.logger(logging.INFO, e)
+
         if not auth_configured:
             try:
                 self.__ctx.get_opt_string("BEARER", "TOKEN")
                 auth_configured = True
-            except gfal2.GError:  # pylint: disable=no-member
-                pass
+            except gfal2.GError as e:  # pylint: disable=no-member
+                self.logger(logging.INFO, e)
+
         if not auth_configured:
             proxy = config.config_get('client', 'client_x509_proxy', default=None, raise_exception=False)
             if proxy:
@@ -539,7 +541,7 @@ class Default(protocol.RSEProtocol):
             try:
                 ctx.mkdir_rec(str(dir_name), 0o775)
             except Exception:
-                pass
+                self.logger(logging.DEBUG, "Failed to make dir recursively at %s", dir_name)
             ret = ctx.rename(str(path), str(new_path))
             return ret
         except gfal2.GError as error:  # pylint: disable=no-member

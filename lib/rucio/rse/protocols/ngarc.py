@@ -13,15 +13,20 @@
 # limitations under the License.
 
 import errno
+import logging
 import os
+from typing import TYPE_CHECKING
 
 from rucio.common.exception import FileAlreadyExists, ServiceUnavailable, SourceNotFound
 from rucio.rse.protocols import protocol
 
 try:
     import arc  # pylint: disable=import-error
-except:
+except ImportError:
     pass
+
+if TYPE_CHECKING:
+    from rucio.common.types import LoggerFunction
 
 
 class DataPoint:
@@ -42,7 +47,7 @@ class DataPoint:
 class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using ARC client."""
 
-    def __init__(self, protocol_attr, rse_settings, logger=None):
+    def __init__(self, protocol_attr, rse_settings, logger: "LoggerFunction" = logging.log):
         """
         Set up UserConfig object.
         """
@@ -59,8 +64,8 @@ class Default(protocol.RSEProtocol):
         self.cfg = arc.UserConfig()
         try:
             self.cfg.ProxyPath(os.environ['X509_USER_PROXY'])
-        except:
-            pass
+        except Exception as e:
+            logger(logging.INFO, e)
 
     def path2pfn(self, path):
         """
