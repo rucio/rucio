@@ -14,7 +14,7 @@
 import hashlib
 import logging
 from configparser import NoOptionError, NoSectionError
-from typing import TYPE_CHECKING, Any, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import config
 from rucio.common.constants import RseAttr
@@ -22,6 +22,7 @@ from rucio.common.plugins import PolicyPackageAlgorithms
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
+
 
 class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
     """
@@ -107,9 +108,6 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
 
 
 RSEDeterministicScopeTranslation()
-
-
-RSEDeterministicTranslationT = TypeVar('RSEDeterministicTranslationT', bound='RSEDeterministicTranslation')
 
 
 class RSEDeterministicTranslation(PolicyPackageAlgorithms):
