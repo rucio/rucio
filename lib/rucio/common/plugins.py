@@ -26,10 +26,9 @@ from rucio.version import current_version
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPackageAlgorithms')
-
-if TYPE_CHECKING:
     from rucio.common.types import LoggerFunction
+
+PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPackageAlgorithms')
 
 
 def check_policy_package_version(package: str, logger: 'LoggerFunction' = logging.log) -> None:
