@@ -20,7 +20,7 @@ import sys
 import time
 import traceback
 from collections import defaultdict
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
@@ -31,6 +31,7 @@ from rucio.common import constants
 from rucio.common.config import config_get, config_get_list
 from rucio.common.constants import SUPPORTED_PROTOCOLS, RseAttr
 from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RSEProtocolNotSupported, RucioException, UnsupportedOperation
+from rucio.common.types import InternalAccount, InternalScope, LoggerFunction, RequestDict
 from rucio.common.utils import construct_non_deterministic_pfn
 from rucio.core import did
 from rucio.core import message as message_core
@@ -51,16 +52,13 @@ from rucio.transfertool.mock import MockTransfertool
 from rucio.transfertool.transfertool import TransferStatusReport, Transfertool
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-    from typing import Any, Optional
+    from collections.abc import Iterable, Iterator, Sequence
 
     from sqlalchemy.orm import Session
 
-    from rucio.common.types import InternalAccount
     from rucio.core.topology import Topology
     from rucio.rse.protocols.protocol import RSEProtocol
 
-    LoggerFunction = Callable[..., Any]
 
 """
 The core transfer.py is specifically for handling transfer-requests, thus requests
@@ -75,22 +73,24 @@ WEBDAV_TRANSFER_MODE = config_get('conveyor', 'webdav_transfer_mode', False, Non
 
 DEFAULT_MULTIHOP_TOMBSTONE_DELAY = int(datetime.timedelta(hours=2).total_seconds())
 
-TRANSFERTOOL_CLASSES_BY_NAME: "dict[str, type[Transfertool]]" = {
+TRANSFERTOOL_CLASSES_BY_NAME: dict[str, type[Transfertool]] = {
     FTS3Transfertool.external_name: FTS3Transfertool,
     GlobusTransferTool.external_name: GlobusTransferTool,
     MockTransfertool.external_name: MockTransfertool,
     BittorrentTransfertool.external_name: BittorrentTransfertool,
 }
 
+DirectTransferImplementationT = TypeVar("DirectTransferImplementationT", bound="DirectTransferImplementation")
+
 
 class ProtocolFactory:
     """
     Creates and caches protocol objects. Allowing to reuse them.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.protocols = {}
 
-    def protocol(self, rse: RseData, scheme: "Optional[str]", operation: str):
+    def protocol(self, rse: RseData, scheme: Optional[str], operation: str) -> "RSEProtocol":
         protocol_key = '%s_%s_%s' % (operation, rse.id, scheme)
         protocol = self.protocols.get(protocol_key)
         if not protocol:
@@ -107,7 +107,7 @@ class DirectTransferImplementation(DirectTransfer):
     during the migration.
     """
     def __init__(self, source: RequestSource, destination: TransferDestination, rws: RequestWithSources,
-                 protocol_factory: ProtocolFactory, operation_src: str, operation_dest: str):
+                 protocol_factory: ProtocolFactory, operation_src: str, operation_dest: str) -> None:
         super().__init__(sources=[source], rws=rws)
         self.destination = destination
 
@@ -118,7 +118,7 @@ class DirectTransferImplementation(DirectTransfer):
         self._dest_url = None
         self._source_urls = {}
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '{sources}--{request_id}->{destination}'.format(
             sources=','.join([str(s.rse) for s in self.sources]),
             request_id=self.rws.request_id or '',
@@ -158,7 +158,7 @@ class DirectTransferImplementation(DirectTransfer):
         return self.protocol_factory.protocol(source.rse, source.scheme, self.operation_src)
 
     @staticmethod
-    def __rewrite_source_url(source_url, source_sign_url, dest_sign_url, source_scheme):
+    def __rewrite_source_url(source_url: str, source_sign_url: str, dest_sign_url: str, source_scheme: str) -> str:
         """
         Parametrize source url for some special cases of source and destination schemes
         """
@@ -184,7 +184,7 @@ class DirectTransferImplementation(DirectTransfer):
         return source_url
 
     @staticmethod
-    def __rewrite_dest_url(dest_url, dest_sign_url):
+    def __rewrite_dest_url(dest_url: str, dest_sign_url: str) -> str:
         """
         Parametrize destination url for some special cases of destination schemes
         """
@@ -200,7 +200,7 @@ class DirectTransferImplementation(DirectTransfer):
         return dest_url
 
     @classmethod
-    def _generate_source_url(cls, src: RequestSource, dst: TransferDestination, rws: RequestWithSources, protocol_factory: ProtocolFactory, operation: str):
+    def _generate_source_url(cls: type[DirectTransferImplementationT], src: RequestSource, dst: TransferDestination, rws: RequestWithSources, protocol_factory: ProtocolFactory, operation: str) -> str:
         """
         Generate the source url which will be used as origin to copy the file from request rws towards the given dst endpoint
         """
@@ -215,7 +215,7 @@ class DirectTransferImplementation(DirectTransfer):
         return source_url
 
     @classmethod
-    def _generate_dest_url(cls, dst: TransferDestination, rws: RequestWithSources, protocol_factory: ProtocolFactory, operation: str):
+    def _generate_dest_url(cls: type[DirectTransferImplementationT], dst: TransferDestination, rws: RequestWithSources, protocol_factory: ProtocolFactory, operation: str) -> str:
         """
         Generate the destination url for copying the file of request rws
         """
@@ -258,7 +258,7 @@ class StageinTransferImplementation(DirectTransferImplementation):
             protocol_factory: ProtocolFactory,
             operation_src: str,
             operation_dest: str
-    ):
+    ) -> None:
         if not source.rse.is_tape() or destination.rse.is_tape():
             # allow staging_required QoS RSE to be TAPE to TAPE for pin
             if not destination.rse.attributes.get(RseAttr.STAGING_REQUIRED, None):
@@ -280,7 +280,7 @@ class StageinTransferImplementation(DirectTransferImplementation):
         return self.dest_url
 
 
-def transfer_path_str(transfer_path: "list[DirectTransfer]") -> str:
+def transfer_path_str(transfer_path: list[DirectTransfer]) -> str:
     """
     an implementation of __str__ for a transfer path, which is a list of direct transfers, so not really an object
     """
@@ -307,12 +307,12 @@ def transfer_path_str(transfer_path: "list[DirectTransfer]") -> str:
 
 @transactional_session
 def mark_submitting(
-        transfer: "DirectTransfer",
+        transfer: DirectTransfer,
         external_host: str,
         *,
-        logger: "Callable",
+        logger: LoggerFunction = logging.log,
         session: "Session",
-):
+) -> None:
     """
     Mark a transfer as submitting
 
@@ -353,11 +353,11 @@ def mark_submitting(
 
 @transactional_session
 def ensure_db_sources(
-        transfer_path: "list[DirectTransfer]",
+        transfer_path: list[DirectTransfer],
         *,
-        logger: "Callable",
+        logger: LoggerFunction = logging.log,
         session: "Session",
-):
+) -> None:
     """
     Ensure the needed DB source objects exist
     """
@@ -400,16 +400,16 @@ def ensure_db_sources(
 
 @transactional_session
 def set_transfers_state(
-        transfers,
-        state: "RequestState",
+        transfers: "Sequence[DirectTransfer]",
+        state: RequestState,
         submitted_at: datetime.datetime,
         external_host: str,
         external_id: str,
         transfertool: str,
         *,
         session: "Session",
-        logger
-):
+        logger: LoggerFunction = logging.log,
+) -> None:
     """
     Update the transfer info of a request.
     :param transfers:  Dictionary containing request transfer info.
@@ -417,7 +417,7 @@ def set_transfers_state(
     """
 
     logger(logging.INFO, 'Setting state(%s), transfertool(%s), external_host(%s) and eid(%s) for transfers: %s',
-           state.name, transfertool, external_host, external_id, ', '.join(t.rws.request_id for t in transfers))
+           state.name, transfertool, external_host, external_id, ', '.join(str(t.rws.request_id) for t in transfers))
     try:
         for transfer in transfers:
             rws = transfer.rws
@@ -502,8 +502,8 @@ def update_transfer_state(
         stats_manager: request_core.TransferStatsManager,
         *,
         session: "Session",
-        logger=logging.log
-):
+        logger: LoggerFunction = logging.log
+) -> int:
     """
     Used by poller and consumer to update the internal state of requests,
     after the response by the external transfertool.
@@ -520,7 +520,7 @@ def update_transfer_state(
         fields_to_update = tt_status_report.get_db_fields_to_update(session=session, logger=logger)
         if not fields_to_update:
             request_core.update_request(request_id, raise_on_missing=True, session=session)
-            return False
+            return 0
         else:
             logger(logging.INFO, 'UPDATING REQUEST %s FOR %s with changes: %s' % (str(request_id), tt_status_report, fields_to_update))
 
@@ -556,13 +556,13 @@ def update_transfer_state(
             return nb_updated
     except UnsupportedOperation as error:
         logger(logging.WARNING, "Request %s doesn't exist - Error: %s" % (request_id, str(error).replace('\n', '')))
-        return 0
     except Exception:
         logger(logging.CRITICAL, "Exception", exc_info=True)
+    return 0
 
 
 @transactional_session
-def mark_transfer_lost(request, *, session: "Session", logger=logging.log):
+def mark_transfer_lost(request: RequestDict, *, session: "Session", logger: LoggerFunction = logging.log) -> None:
     new_state = RequestState.LOST
     reason = "The FTS job lost"
 
@@ -574,7 +574,7 @@ def mark_transfer_lost(request, *, session: "Session", logger=logging.log):
 
 @METRICS.count_it
 @transactional_session
-def touch_transfer(external_host, transfer_id, *, session: "Session"):
+def touch_transfer(external_host: str, transfer_id: str, *, session: "Session") -> None:
     """
     Update the timestamp of requests in a transfer. Fails silently if the transfer_id does not exist.
     :param request_host:   Name of the external host.
@@ -614,7 +614,7 @@ def _create_transfer_definitions(
         domain: str,
         *,
         session: "Session",
-) -> "dict[RseData, list[DirectTransfer]]":
+) -> dict[RseData, list[DirectTransfer]]:
     """
     Find the all paths from sources towards the destination of the given transfer request.
     Create the transfer definitions for each point-to-point transfer (multi-source, when possible)
@@ -627,7 +627,7 @@ def _create_transfer_definitions(
     sources_by_rse = {s.rse: s for s in sources}
     paths_by_source = {sources_by_rse[rse]: path for rse, path in shortest_paths.items()}
     for source, list_hops in paths_by_source.items():
-        transfer_path = []
+        transfer_path: list[DirectTransferImplementation] = []
         for hop in list_hops:
             hop_src_rse = hop['source_rse']
             hop_dst_rse = hop['dest_rse']
@@ -738,7 +738,7 @@ def _create_stagein_definitions(
         operation_src: str,
         operation_dest: str,
         protocol_factory: ProtocolFactory,
-) -> "dict[RseData, list[DirectTransfer]]":
+) -> dict[RseData, list[DirectTransfer]]:
     """
     for each source, create a single-hop transfer path with a one stageing definition inside
     """
@@ -767,7 +767,7 @@ def _create_stagein_definitions(
     return transfers_by_source
 
 
-def get_dsn(scope, name, dsn):
+def get_dsn(scope: InternalScope, name: str, dsn: str) -> str:
     if dsn:
         return dsn
     # select a containing dataset
@@ -806,10 +806,10 @@ class TransferPathBuilder:
             protocol_factory: ProtocolFactory,
             max_sources: int,
             preparer_mode: bool = False,
-            schemes: "Optional[list[str]]" = None,
-            failover_schemes: "Optional[list[str]]" = None,
+            schemes: Optional[list[str]] = None,
+            failover_schemes: Optional[list[str]] = None,
             requested_source_only: bool = False,
-    ):
+    ) -> None:
         self.failover_schemes = failover_schemes if failover_schemes is not None else []
         self.schemes = schemes if schemes is not None else []
         self.topology = topology
@@ -825,9 +825,9 @@ class TransferPathBuilder:
             rws: RequestWithSources,
             sources: "Iterable[RequestSource]",
             *,
-            logger: "LoggerFunction" = logging.log,
+            logger: LoggerFunction = logging.log,
             session: "Session"
-    ) -> "Mapping[RseData, Sequence[DirectTransfer]]":
+    ) -> dict[RseData, list[DirectTransfer]]:
         """
         Warning: The function currently caches the result for the given request and returns it for later calls
         with the same request id. As a result: it can return more (or less) sources than what is provided in the
@@ -886,11 +886,11 @@ class RequestRankingContext:
     context data and access it when handling a specific source of the given request.
     """
 
-    def __init__(self, strategy: "SourceRankingStrategy", rws: "RequestWithSources"):
+    def __init__(self, strategy: "SourceRankingStrategy", rws: RequestWithSources) -> None:
         self.strategy = strategy
         self.rws = rws
 
-    def apply(self, source: RequestSource) -> "int | _SkipSource":
+    def apply(self, source: RequestSource) -> Union[int, _SkipSource]:
         verdict = self.strategy.apply(self, source)
         if verdict is None:
             verdict = sys.maxsize
@@ -911,12 +911,12 @@ class SourceRankingStrategy:
             rws: RequestWithSources,
             sources: "Iterable[RequestSource]",
             *,
-            logger: "LoggerFunction" = logging.log,
+            logger: LoggerFunction = logging.log,
             session: "Session"
-    ) -> "RequestRankingContext":
+    ) -> RequestRankingContext:
         return RequestRankingContext(self, rws)
 
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         """
         Normally, this function will be called indirectly, via self.for_request(...).apply(source).
 
@@ -932,7 +932,7 @@ class SourceRankingStrategy:
         """
         Automatically set the external_name of the strategy to the class name.
         """
-        def __get__(self, obj, objtype=None):
+        def __get__(self, obj: object, objtype: Optional[Any] = None) -> str:
             if objtype is not None:
                 return objtype.__name__
             return type(obj).__name__
@@ -947,7 +947,7 @@ class SourceFilterStrategy(SourceRankingStrategy):
 class EnforceSourceRSEExpression(SourceFilterStrategy):
 
     class _RankingContext(RequestRankingContext):
-        def __init__(self, strategy: "SourceRankingStrategy", rws: "RequestWithSources", allowed_source_rses: "Optional[set[str]]"):
+        def __init__(self, strategy: SourceRankingStrategy, rws: RequestWithSources, allowed_source_rses: Optional[set[str]]) -> None:
             super().__init__(strategy, rws)
             self.allowed_source_rses = allowed_source_rses
 
@@ -956,9 +956,9 @@ class EnforceSourceRSEExpression(SourceFilterStrategy):
             rws: RequestWithSources,
             sources: "Iterable[RequestSource]",
             *,
-            logger: "LoggerFunction" = logging.log,
+            logger: LoggerFunction = logging.log,
             session: "Session"
-    ) -> "RequestRankingContext":
+    ) -> RequestRankingContext:
         # parse source expression
         allowed_source_rses = None
         source_replica_expression = rws.attributes.get('source_replica_expression', None)
@@ -972,7 +972,7 @@ class EnforceSourceRSEExpression(SourceFilterStrategy):
                 allowed_source_rses = {x['id'] for x in parsed_rses}
         return self._RankingContext(self, rws, allowed_source_rses)
 
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         ctx = cast(EnforceSourceRSEExpression._RankingContext, ctx)
         if ctx.allowed_source_rses is not None and source.rse.id not in ctx.allowed_source_rses:
             return SKIP_SOURCE
@@ -980,60 +980,60 @@ class EnforceSourceRSEExpression(SourceFilterStrategy):
 
 class SkipRestrictedRSEs(SourceFilterStrategy):
 
-    def __init__(self, admin_accounts: "Optional[set[InternalAccount]]" = None):
+    def __init__(self, admin_accounts: Optional[set[InternalAccount]] = None) -> None:
         super().__init__()
         self.admin_accounts = admin_accounts if admin_accounts is not None else []
 
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         if source.rse.attributes.get(RseAttr.RESTRICTED_READ) and ctx.rws.account not in self.admin_accounts:
             return SKIP_SOURCE
 
 
 class SkipBlocklistedRSEs(SourceFilterStrategy):
 
-    def __init__(self, topology: "Topology"):
+    def __init__(self, topology: "Topology") -> None:
         super().__init__()
         self.topology = topology
 
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         # Ignore blocklisted RSEs
         if not source.rse.columns['availability_read'] and not self.topology.ignore_availability:
             return SKIP_SOURCE
 
 
 class EnforceStagingBuffer(SourceFilterStrategy):
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         # For staging requests, the staging_buffer attribute must be correctly set
         if ctx.rws.request_type == RequestType.STAGEIN and source.rse.attributes.get(RseAttr.STAGING_BUFFER) != ctx.rws.dest_rse.name:
             return SKIP_SOURCE
 
 
 class RestrictTapeSources(SourceFilterStrategy):
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         # Ignore tape sources if they are not desired
         if source.rse.is_tape_or_staging_required() and not ctx.rws.attributes.get("allow_tape_source", True):
             return SKIP_SOURCE
 
 
 class HighestAdjustedRankingFirst(SourceRankingStrategy):
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         source_ranking_penalty = 1 if source.rse.is_tape_or_staging_required() else 0
         return - source.ranking + source_ranking_penalty
 
 
 class PreferDiskOverTape(SourceRankingStrategy):
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         return int(source.rse.is_tape_or_staging_required())  # rely on the fact that False < True
 
 
 class PathDistance(SourceRankingStrategy):
 
     class _RankingContext(RequestRankingContext):
-        def __init__(self, strategy: "SourceRankingStrategy", rws: "RequestWithSources", paths_for_rws: "Mapping[RseData, Sequence[DirectTransfer]]"):
+        def __init__(self, strategy: SourceRankingStrategy, rws: RequestWithSources, paths_for_rws: dict[RseData, list[DirectTransfer]]) -> None:
             super().__init__(strategy, rws)
             self.paths_for_rws = paths_for_rws
 
-    def __init__(self, transfer_path_builder: TransferPathBuilder):
+    def __init__(self, transfer_path_builder: TransferPathBuilder) -> None:
         super().__init__()
         self.transfer_path_builder = transfer_path_builder
 
@@ -1042,13 +1042,13 @@ class PathDistance(SourceRankingStrategy):
             rws: RequestWithSources,
             sources: "Iterable[RequestSource]",
             *,
-            logger: "LoggerFunction" = logging.log,
+            logger: LoggerFunction = logging.log,
             session: "Session"
-    ) -> "RequestRankingContext":
+    ) -> RequestRankingContext:
         paths_for_rws = self.transfer_path_builder.build_or_return_cached(rws, sources, logger=logger, session=session)
         return PathDistance._RankingContext(self, rws, paths_for_rws)
 
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         path = cast(PathDistance._RankingContext, ctx).paths_for_rws.get(source.rse)
         if not path:
             return SKIP_SOURCE
@@ -1056,7 +1056,7 @@ class PathDistance(SourceRankingStrategy):
 
 
 class PreferSingleHop(PathDistance):
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         path = cast(PathDistance._RankingContext, ctx).paths_for_rws.get(source.rse)
         if not path:
             return SKIP_SOURCE
@@ -1073,7 +1073,7 @@ class FailureRate(SourceRankingStrategy):
             self.files_done = 0
             self.files_failed = 0
 
-        def incorporate_stat(self, stat: "Mapping[str, int]") -> None:
+        def incorporate_stat(self, stat: dict[str, int]) -> None:
             self.files_done += stat['files_done']
             self.files_failed += stat['files_failed']
 
@@ -1096,7 +1096,7 @@ class FailureRate(SourceRankingStrategy):
         ):
             self.source_stats.setdefault(stat['src_rse_id'], self._FailureRateStat()).incorporate_stat(stat)
 
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         failure_rate = cast(FailureRate, ctx.strategy).source_stats.get(source.rse.id, self._FailureRateStat()).get_failure_rate()
         return failure_rate
 
@@ -1104,7 +1104,7 @@ class FailureRate(SourceRankingStrategy):
 class SkipSchemeMissmatch(PathDistance):
     filter_only = True
 
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         path = cast(PathDistance._RankingContext, ctx).paths_for_rws.get(source.rse)
         # path == None means that there is no path;
         # path == [] means that a path exists (according to distances) but cannot be used (scheme mismatch)
@@ -1115,7 +1115,7 @@ class SkipSchemeMissmatch(PathDistance):
 class SkipIntermediateTape(PathDistance):
     filter_only = True
 
-    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
+    def apply(self, ctx: RequestRankingContext, source: RequestSource) -> Optional[Union[int, _SkipSource]]:
         # Discard multihop transfers which contain a tape source as an intermediate hop
         path = cast(PathDistance._RankingContext, ctx).paths_for_rws.get(source.rse)
         if path and any(transfer.src.rse.is_tape_or_staging_required() for transfer in path[1:]):
@@ -1125,19 +1125,19 @@ class SkipIntermediateTape(PathDistance):
 @transactional_session
 def build_transfer_paths(
         topology: "Topology",
-        protocol_factory: "ProtocolFactory",
+        protocol_factory: ProtocolFactory,
         requests_with_sources: "Iterable[RequestWithSources]",
-        admin_accounts: "Optional[set[InternalAccount]]" = None,
-        schemes: "Optional[list[str]]" = None,
-        failover_schemes: "Optional[list[str]]" = None,
+        admin_accounts: Optional[set[InternalAccount]] = None,
+        schemes: Optional[list[str]] = None,
+        failover_schemes: Optional[list[str]] = None,
         max_sources: int = 4,
-        transfertools: "Optional[list[str]]" = None,
+        transfertools: Optional[list[str]] = None,
         requested_source_only: bool = False,
         preparer_mode: bool = False,
         *,
         session: "Session",
-        logger: "Callable" = logging.log,
-):
+        logger: LoggerFunction = logging.log,
+) -> "tuple[dict[str, Sequence[DirectTransfer]], set[str], set[str], set[str], set[str]]":
     """
     For each request, find all possible transfer paths from its sources, which respect the
     constraints enforced by the request (attributes, type, etc) and the arguments of this function
@@ -1305,7 +1305,7 @@ def build_transfer_paths(
     return candidate_paths_by_request_id, reqs_no_source, reqs_scheme_mismatch, reqs_only_tape_source, reqs_unsupported_transfertool
 
 
-def __add_compatible_schemes(schemes, allowed_schemes):
+def __add_compatible_schemes(schemes: list[str], allowed_schemes: list[str]) -> list[str]:
     """
     Add the compatible schemes to a list of schemes
     :param schemes:           Schemes as input.
@@ -1326,7 +1326,7 @@ def __add_compatible_schemes(schemes, allowed_schemes):
 
 
 @read_session
-def list_transfer_admin_accounts(*, session: "Session") -> "set[InternalAccount]":
+def list_transfer_admin_accounts(*, session: "Session") -> set[InternalAccount]:
     """
     List admin accounts and cache the result in memory
     """
@@ -1338,7 +1338,7 @@ def list_transfer_admin_accounts(*, session: "Session") -> "set[InternalAccount]
     return set(result)
 
 
-def update_transfer_priority(transfers_to_update, logger=logging.log):
+def update_transfer_priority(transfers_to_update: dict[str, dict[str, int]], logger: LoggerFunction = logging.log) -> None:
     """
     Update transfer priority in fts
 
@@ -1353,7 +1353,7 @@ def update_transfer_priority(transfers_to_update, logger=logging.log):
             logger(logging.DEBUG, "Updated transfer %s priority in transfertool to %s: %s" % (transfer_id, priority, res['http_message']))
 
 
-def cancel_transfers(transfers_to_cancel, logger=logging.log):
+def cancel_transfers(transfers_to_cancel: dict[str, dict[str, int]], logger: LoggerFunction = logging.log) -> None:
     """
     Cancel transfers in fts
 
@@ -1372,7 +1372,7 @@ def cancel_transfers(transfers_to_cancel, logger=logging.log):
 
 
 @METRICS.count_it
-def cancel_transfer(transfertool_obj, transfer_id):
+def cancel_transfer(transfertool_obj: Transfertool, transfer_id: str) -> None:
     """
     Cancel a transfer based on external transfer id.
 
@@ -1388,9 +1388,9 @@ def cancel_transfer(transfertool_obj, transfer_id):
 
 @transactional_session
 def prepare_transfers(
-        candidate_paths_by_request_id: "dict[str, list[list[DirectTransfer]]]",
-        logger: "LoggerFunction" = logging.log,
-        transfertools: "Optional[list[str]]" = None,
+        candidate_paths_by_request_id: dict[str, list[list[DirectTransfer]]],
+        logger: LoggerFunction = logging.log,
+        transfertools: Optional[list[str]] = None,
         *,
         session: "Session",
 ) -> tuple[list[str], list[str]]:
@@ -1426,7 +1426,7 @@ def prepare_transfers(
             logger(logging.WARNING, '%s: all available sources were filtered', rws)
             continue
 
-        update_dict: "dict[Any, Any]" = {
+        update_dict: dict[Any, Any] = {
             models.Request.state.name: _throttler_request_state(
                 activity=rws.activity,
                 source_rse=selected_source.rse,
@@ -1446,12 +1446,12 @@ def prepare_transfers(
 
 @stream_session
 def applicable_rse_transfer_limits(
-        source_rse: "Optional[RseData]" = None,
-        dest_rse: "Optional[RseData]" = None,
-        activity: "Optional[str]" = None,
+        source_rse: Optional[RseData] = None,
+        dest_rse: Optional[RseData] = None,
+        activity: Optional[str] = None,
         *,
         session: "Session",
-):
+) -> "Iterator[dict[str, Any]]":
     """
     Find all RseTransferLimits which must be enforced for transfers between source and destination RSEs for the given activity.
     """
@@ -1481,7 +1481,7 @@ def applicable_rse_transfer_limits(
         yield limit
 
 
-def _throttler_request_state(activity, source_rse, dest_rse, *, session: "Session") -> RequestState:
+def _throttler_request_state(activity: str, source_rse: RseData, dest_rse: RseData, *, session: "Session") -> RequestState:
     """
     Takes request attributes to return a new state for the request
     based on throttler settings. Always returns QUEUED,
@@ -1496,9 +1496,9 @@ def _throttler_request_state(activity, source_rse, dest_rse, *, session: "Sessio
 
 @read_session
 def get_supported_transfertools(
-        source_rse: "RseData",
-        dest_rse: "RseData",
-        transfertools: "Optional[list[str]]" = None,
+        source_rse: RseData,
+        dest_rse: RseData,
+        transfertools: Optional[list[str]] = None,
         *,
         session: "Session",
 ) -> set[str]:
