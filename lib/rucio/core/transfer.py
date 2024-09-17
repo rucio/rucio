@@ -211,7 +211,7 @@ class DirectTransferImplementation(DirectTransfer):
         source_sign_url = src.rse.attributes.get(RseAttr.SIGN_URL, None)
         dest_sign_url = dst.rse.attributes.get(RseAttr.SIGN_URL, None)
         source_url = list(protocol.lfns2pfns(lfns={'scope': rws.scope.external, 'name': rws.name, 'path': src.file_path}).values())[0]
-        source_url = cls.__rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=src.scheme)
+        source_url = cls.__rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=str(src.scheme))
         return source_url
 
     @classmethod
@@ -788,7 +788,7 @@ def __compress_multihops(
     for source, path in paths_by_source:
         if len(path) > 1:
             # find the index of the first hop starting from the end which is also a source. Path[0] will always be a source.
-            last_source_idx = next((idx for idx, hop in reversed(list(enumerate(path))) if hop.src.rse.id in source_rses), (0, None))
+            last_source_idx = next((idx for idx, hop in reversed(list(enumerate(path))) if hop.src.rse.id in source_rses), (0))
             if last_source_idx > 0:
                 path = path[last_source_idx:]
 
