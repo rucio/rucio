@@ -960,13 +960,22 @@ class NoDistance(RucioException):
         self.error_code = 92
 
 
-class PolicyPackageNotFound(RucioException):
+class PolicyPackageBaseException(RucioException):
+    """
+    Base exception for policy package errors.
+    """
+    def __init__(self, package: str, *args, **kwargs):
+        super(PolicyPackageBaseException, self).__init__(*args, **kwargs)
+        self.package = package
+
+
+class PolicyPackageNotFound(PolicyPackageBaseException):
     """
     The policy package specified in the config file was not found
     """
     def __init__(self, *args, **kwargs):
         super(PolicyPackageNotFound, self).__init__(*args, **kwargs)
-        self._message = 'The specified policy package was not found'
+        self._message = 'The specified policy package %s was not found' % self.package
         self.error_code = 93
 
 
@@ -1060,13 +1069,19 @@ class MetadataSchemaMismatchError(RucioException):
         self.error_code = 102
 
 
-class PolicyPackageVersionError(RucioException):
+class PolicyPackageVersionError(PolicyPackageBaseException):
     """
     Policy package is not compatible with this version of Rucio.
     """
-    def __init__(self, package, *args, **kwargs):
+    def __init__(self, rucio_version: str, supported_versions: list[str], *args, **kwargs):
         super(PolicyPackageVersionError, self).__init__(*args, **kwargs)
-        self._message = 'Policy package %s is not compatible with this Rucio version' % package
+        self.rucio_version = rucio_version
+        self.supported_versions = supported_versions
+        self._message = 'Policy package %s is not compatible with this Rucio version.\nRucio version: %s\nVersions supported by the package: %s' % (
+            self.package,
+            self.rucio_version,
+            self.supported_versions
+        )
         self.error_code = 103
 
 
@@ -1101,13 +1116,13 @@ class SortingAlgorithmNotSupported(RucioException):
         self.error_code = 106
 
 
-class ErrorLoadingPolicyPackage(RucioException):
+class ErrorLoadingPolicyPackage(PolicyPackageBaseException):
     """
     An error occurred while loading the policy package.
     """
     def __init__(self, *args, **kwargs):
         super(ErrorLoadingPolicyPackage, self).__init__(*args, **kwargs)
-        self._message = 'An error occurred while loading the specified policy package'
+        self._message = 'An error occurred while loading the policy package %s' % self.package
         self.error_code = 107
 
 
@@ -1119,3 +1134,13 @@ class TraceValidationSchemaNotFound(RucioException):
         super(TraceValidationSchemaNotFound, self).__init__(*args, **kwargs)
         self._message = 'Trace validation schema not found.'
         self.error_code = 108
+
+
+class PolicyPackageIsNotVersioned(PolicyPackageBaseException):
+    """
+    Policy package does not contain version information.
+    """
+    def __init__(self, *args, **kwargs):
+        super(PolicyPackageIsNotVersioned, self).__init__(*args, **kwargs)
+        self._message = 'Policy package %s does not include information about which Rucio versions it supports.' % self.package
+        self.error_code = 109

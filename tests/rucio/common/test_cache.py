@@ -18,8 +18,8 @@ from dogpile.cache.backends.memcached import PyMemcacheBackend
 from dogpile.cache.backends.null import NullBackend
 from dogpile.cache.util import function_key_generator
 
-import lib.rucio.common.cache as cache
-from lib.rucio.common.cache import CacheKey, MemcacheRegion
+import rucio.common.cache as cache
+from rucio.common.cache import CacheKey, MemcacheRegion
 
 
 class TestCache:
