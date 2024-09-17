@@ -190,6 +190,8 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
     logger(logging.DEBUG, "Probabilities %s", probabilities)
 
     cycle_stopwatch = Stopwatch()
+    successes = []
+    failures = []
     for rse in rses:
         stopwatch = Stopwatch()
         _, _, logger = heartbeat_handler.live()
@@ -239,24 +241,37 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
                     file_["dataset_meta"]["lifetime"] = dataset_lifetime
             files.append(file_)
         logger(logging.INFO, "Upload %s:%s to %s", scope, dsn, rse)
-        upload_client = UploadClient(client)
-        ret = upload_client.upload(files)
-        if ret == 0:
-            logger(logging.INFO, "%s successfully registered" % dsn)
-            METRICS.counter(name="addnewdataset.done").inc()
-            METRICS.counter(name="addnewfile.done").inc(nbfiles)
-            METRICS.timer(name='datasetinjection').observe(stopwatch.elapsed)
-        else:
-            logger(logging.INFO, "Error uploading files")
-        for physical_fname in physical_fnames:
-            remove(physical_fname)
-        rmdir(tmpdir)
+        try:
+            upload_client = UploadClient(client)
+            ret = upload_client.upload(files)
+            if ret == 0:
+                logger(logging.INFO, "%s successfully registered on %s", dsn, rse)
+                METRICS.counter(name="addnewdataset.done").inc()
+                METRICS.counter(name="addnewfile.done").inc(nbfiles)
+                METRICS.timer(name='datasetinjection').observe(stopwatch.elapsed)
+                successes.append(rse)
+            else:
+                logger(logging.INFO, "Error uploading files")
+                failures.append(rse)
+        except Exception as error:
+            logger(logging.ERROR, "Error uploading files on %s: %s", rse, str(error))
+            failures.append(rse)
+        finally:
+            for physical_fname in physical_fnames:
+                remove(physical_fname)
+            rmdir(tmpdir)
     logger(
         logging.INFO,
-        "It took %f seconds to upload one dataset on %s",
+        "It took %f seconds to upload datasets on %s RSEs: %s",
         cycle_stopwatch.elapsed,
-        str(rses),
+        len(successes),
+        str(successes),
     )
+    if failures:
+        logger(
+            logging.WARNING,
+            "Datasets could not be uploaded on %s RSEs: %s", len(failures), str(failures),
+        )
     return True
 
 
