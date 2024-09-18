@@ -14,10 +14,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    ReportDict = dict[str, Any]
+from typing import Any
 
 
 class Severity(Enum):
@@ -92,7 +89,7 @@ class Report:
     diagnostics: list[ReportDiagnostic]
 
     @classmethod
-    def from_dict(cls, obj: 'ReportDict'):
+    def from_dict(cls, obj: dict[str, Any]):
         return cls(
             summary=ReportSummary.from_dict(obj['summary']),
             diagnostics=list(map(ReportDiagnostic.from_dict, obj['generalDiagnostics'])),

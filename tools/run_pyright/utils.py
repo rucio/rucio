@@ -19,7 +19,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
     from pathlib import Path
 
-    from .models import ReportDict
 
 _T = TypeVar('_T')
 _K = TypeVar('_K')
@@ -33,7 +32,7 @@ def group_by(iterable: 'Iterable[_T]', key: 'Callable[[_T], _K]') -> dict[_K, li
     return result
 
 
-def load_json(path: 'Path') -> 'ReportDict':
+def load_json(path: 'Path') -> dict[str, Any]:
     with open(path, 'r') as f:
         return json.load(f)
 

@@ -16,9 +16,9 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .models import Report, ReportDict
+from .models import Report
 from .utils import save_json
 
 if TYPE_CHECKING:
@@ -55,7 +55,7 @@ def generate(args: 'Namespace') -> int:
     return 0
 
 
-def _run_pyright() -> ReportDict:
+def _run_pyright() -> dict[str, Any]:
     """Runs the pyright type-checker and returns its output as json."""
     cmdline = ['pyright', '--outputjson', *PATHS]
     try:
