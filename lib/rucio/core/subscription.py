@@ -17,7 +17,7 @@ import logging
 import re
 from configparser import NoOptionError, NoSectionError
 from json import dumps
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.exc import IntegrityError, NoResultFound, StatementError
@@ -30,8 +30,7 @@ from rucio.db.sqla.constants import RuleState, SubscriptionState
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator
-    from typing import Any
+    from collections.abc import Callable, Iterator
 
     from sqlalchemy.orm import Session
 
@@ -151,7 +150,7 @@ def update_subscription(name: str,
         keep_history = config_get_bool('subscriptions', 'keep_history')
     except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
-    values = {'state': SubscriptionState.UPDATED}
+    values: dict[str, Any] = {'state': SubscriptionState.UPDATED}
     if 'filter' in metadata and metadata['filter']:
         values['filter'] = dumps(metadata['filter'])
     if 'replication_rules' in metadata and metadata['replication_rules']:
@@ -288,7 +287,7 @@ def list_subscription_rule_states(
     *,
     session: "Session",
     logger: "LoggerFunction" = logging.log
-) -> "Iterable[tuple[InternalAccount, str, RuleState, int]]":
+) -> "Iterator[tuple[InternalAccount, str, RuleState, int]]":
     """Returns a list of with the number of rules per state for a subscription.
 
     :param name:               Name of the subscription
@@ -317,7 +316,7 @@ def list_subscription_rule_states(
             )
 
         if account:
-            if '*' in account.internal:
+            if account.internal and '*' in account.internal:
                 account_str = account.internal.replace('*', '%')
                 stmt = stmt.where(
                     subscription.account.like(account_str)
@@ -338,7 +337,7 @@ def list_subscription_rule_states(
     )
 
     for row in session.execute(stmt).all():
-        yield row
+        yield row._tuple()
 
 
 @read_session
