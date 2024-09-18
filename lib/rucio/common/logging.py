@@ -303,7 +303,7 @@ class RucioFormatter(logging.Formatter):
             fmt: Optional[str] = None,
             validate: Optional[bool] = None,
             output_json: bool = False,
-            additional_fields: Optional['Mapping[str, str]'] = None
+            additional_fields: Optional['Mapping[ECS_FIELDS, str]'] = None
     ):
         _kwargs = {}
         if validate is not None:
@@ -384,7 +384,7 @@ class RucioFormatter(logging.Formatter):
 def rucio_log_formatter(process_name: Optional[str] = None) -> RucioFormatter:
     config_logformat = config_get('common', 'logformat', raise_exception=False, default='%(asctime)s\t%(name)s\t%(process)d\t%(levelname)s\t%(message)s')
     output_json = config_get_bool('common', 'logjson', default=False)
-    additional_fields = {}
+    additional_fields: 'Mapping[ECS_FIELDS, str]' = {}
     if process_name:
         additional_fields['process.name'] = process_name
     return RucioFormatter(fmt=config_logformat, output_json=output_json, additional_fields=additional_fields)
