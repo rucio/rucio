@@ -63,7 +63,7 @@ INF = float('inf')
 
 
 class Node(RseData):
-    def __init__(self, rse_id: str):
+    def __init__(self, rse_id: str) -> None:
         super().__init__(rse_id)
 
         self.in_edges = weakref.WeakKeyDictionary()
@@ -75,7 +75,7 @@ class Node(RseData):
 
 
 class Edge(Generic[TN]):
-    def __init__(self, src_node: TN, dst_node: TN):
+    def __init__(self, src_node: TN, dst_node: TN) -> None:
         self._src_node = weakref.ref(src_node)
         self._dst_node = weakref.ref(dst_node)
 
@@ -127,7 +127,7 @@ class Topology(RseCollection, Generic[TN, TE]):
             ignore_availability: bool = False,
             node_cls: type[TN] = Node,
             edge_cls: type[TE] = Edge,
-    ):
+    ) -> None:
         super().__init__(rse_ids=rse_ids, rse_data_cls=node_cls)
         self._edge_cls = edge_cls
         self._edges: dict[tuple[TN, TN], TE] = {}
@@ -310,7 +310,7 @@ class Topology(RseCollection, Generic[TN, TE]):
         class _NodeStateProvider:
             _hop_penalty = self._hop_penalty
 
-            def __init__(self, node: TN):
+            def __init__(self, node: TN) -> None:
                 self.enabled: bool = True
                 self.cost: _Number = 0
                 if node != dst_node:
@@ -322,7 +322,7 @@ class Topology(RseCollection, Generic[TN, TE]):
         scheme_missmatch_found = {}
 
         class _EdgeStateProvider:
-            def __init__(self, edge: TE):
+            def __init__(self, edge: TE) -> None:
                 self.edge = edge
                 self.chosen_scheme = {}
 
@@ -434,7 +434,7 @@ class ExpiringObjectCache(Generic[ExpiringObjectCacheNewObject]):
             self,
             ttl: int,
             new_obj_fnc: "Callable[[], ExpiringObjectCacheNewObject]"
-    ):
+    ) -> None:
         self._lock = threading.Lock()
         self._object: Optional[ExpiringObjectCacheNewObject] = None
         self._creation_time: Optional[datetime.datetime] = None
