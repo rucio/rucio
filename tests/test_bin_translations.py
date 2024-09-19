@@ -376,6 +376,7 @@ def test_lifetime_exception(rucio_client, mock_scope):
         assert "Nothing to submit" in err
 
 
+@pytest.mark.dirty
 def test_replica(mock_scope, rucio_client):
     mock_did = tempfile.NamedTemporaryFile()
     mock_rse = "MOCK-POSIX"
@@ -410,31 +411,33 @@ def test_replica(mock_scope, rucio_client):
     assert "ERROR" not in err
 
 
+@pytest.mark.dirty
 def test_replica_state(mock_scope, rucio_client):
     mock_rse = "MOCK3"
     scope = mock_scope.external
 
-    name = generate_uuid()
-    rucio_client.add_replica(mock_rse, mock_scope.external, name, 4, "aaaaaaaa")
+    name1 = generate_uuid()
+    rucio_client.add_replica(mock_rse, mock_scope.external, name1, 4, "deadbeef")
 
-    cmd = f"rucio replica state bad --files {scope}:{name} --rse {mock_rse}"
+    cmd = f"rucio replica state bad --files {scope}:{name1} --rse {mock_rse}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     if "ERROR" in err:
         assert "Details: ERROR, multiple matches" in err  # The test rses are strange. I don't know why this happens.
 
-    name = generate_uuid()
-    rucio_client.add_replica(mock_rse, mock_scope.external, name, 4, "aaaaaaaa")
+    # Commented because it cannot run in the same suite as test_bad_replica::test_client_add_temporary_unavailable_pfns
+    # name2 = generate_uuid()
+    # rucio_client.add_replica(mock_rse, mock_scope.external, name2, 4, "deadbeef")
 
-    cmd = f"rucio replica state temp-unavailable --files {scope}:{name} --rse {mock_rse} --duration 12"
-    exitcode, _, err = execute(cmd)
-    print(err)
-    assert exitcode == 0
-    assert "ERROR" not in err
+    # cmd = f"rucio replica state temp-unavailable --files {scope}:{name2} --rse {mock_rse} --duration 12"
+    # exitcode, _, err = execute(cmd)
+    # print(err)
+    # assert exitcode == 0
+    # assert "ERROR" not in err
 
-    name = generate_uuid()
-    rucio_client.add_replica(mock_rse, mock_scope.external, name, 4, "aaaaaaaa")
-    cmd = f"rucio replica state quarantine --files {mock_scope}:{name} --rse {mock_rse}"
+    name3 = generate_uuid()
+    rucio_client.add_replica(mock_rse, mock_scope.external, name3, 4, "deadbeef")
+    cmd = f"rucio replica state quarantine --files {mock_scope}:{name3} --rse {mock_rse}"
     exitcode, _, err = execute(cmd)
     print(err)
     assert exitcode == 0
@@ -590,13 +593,14 @@ def test_rse_qos_policy(rucio_client):
     assert policy not in rucio_client.list_qos_policies(mock_rse)
 
 
+@pytest.mark.dirty
 def test_rule(rucio_client, mock_scope):
     mock_rse = "MOCK-POSIX"
     rule_rse = "MOCK"
 
     scope = mock_scope.external
     name = generate_uuid()
-    rucio_client.add_replica(rse=mock_rse, scope=scope, name=name, bytes_=4, adler32="aaaaaaaa")
+    rucio_client.add_replica(rse=mock_rse, scope=scope, name=name, bytes_=4, adler32="deadbeef")
 
     cmd = f"rucio rule add --did {scope}:{name} --copies 1 --rse {rule_rse}"
     exitcode, out, err = execute(cmd)
@@ -631,7 +635,7 @@ def test_rule(rucio_client, mock_scope):
 
     # Do one without a child rule so i can delete it
     new_name = generate_uuid()
-    rucio_client.add_replica(mock_rse, scope, new_name, 4, "aaaaaaaa")
+    rucio_client.add_replica(mock_rse, scope, new_name, 4, "deadbeef")
     cmd = f"rucio rule add --did {scope}:{new_name} --copies 1 --rse {mock_rse}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
