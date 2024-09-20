@@ -57,17 +57,17 @@ class InternalType:
         return self.external
 
     def __eq__(self, other):
-        if isinstance(other, self.__class__):
+        if type(self) is type(other):
             return self.internal == other.internal
         return NotImplemented
 
     def __le__(self, other):
-        if isinstance(other, self.__class__) and self.external and other.external:
+        if type(self) is type(other) and self.external is not None and other.external is not None:
             return self.external <= other.external
         return NotImplemented
 
     def __lt__(self, other):
-        if isinstance(other, self.__class__) and self.external and other.external:
+        if type(self) is type(other) and self.external is not None and other.external is not None:
             return self.external < other.external
         return NotImplemented
 
