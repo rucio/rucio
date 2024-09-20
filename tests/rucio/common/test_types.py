@@ -135,3 +135,16 @@ class TestInternalAccount:
         internal_account = InternalAccount(account=input_account, from_external=input_from_external)
         assert internal_account.external == expected_external
         assert internal_account.internal == expected_internal
+
+
+class TestInternalScope:
+    @pytest.mark.parametrize('input_scope,input_from_external,expected_external,expected_internal', [
+        (None, False, None, None),
+        (None, True, None, None),
+        ('test', False, 'test', 'test'),
+        ('test', True, 'test', 'test'),
+    ])
+    def test_init(self, input_scope, input_from_external, expected_external, expected_internal):
+        internal_scope = InternalScope(scope=input_scope, from_external=input_from_external)
+        assert internal_scope.external == expected_external
+        assert internal_scope.internal == expected_internal
