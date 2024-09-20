@@ -133,7 +133,7 @@ class SubscriptionClient(BaseClient):
         :raises: exception.NotFound if subscription is not found
         """
         if not account:
-            account = self.account
+            account = self.authenticated_account
         if retroactive:
             raise NotImplementedError('Retroactive mode is not implemented')
         path = self.SUB_BASEURL + '/' + account + '/' + name  # type: ignore

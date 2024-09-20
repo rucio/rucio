@@ -78,13 +78,13 @@ class UploadClient:
         self.tracing = tracing
         if not self.tracing:
             logger(logging.DEBUG, 'Tracing is turned off.')
-        self.default_file_scope: Final[str] = 'user.' + self.client.account
+        self.default_file_scope: Final[str] = 'user.' + self.client.authenticated_account
         self.rses = {}
         self.rse_expressions = {}
 
         self.trace: "TraceBaseDict" = {
             'hostname': socket.getfqdn(),
-            'account': self.client.account,
+            'account': self.client.authenticated_account,
             'eventType': 'upload',
             'eventVersion': version.RUCIO_VERSION[0],
             'vo': self.client.vo if self.client.vo != 'def' else None
@@ -408,11 +408,11 @@ class UploadClient:
         # verification whether the scope exists
         account_scopes = []
         try:
-            account_scopes = self.client.list_scopes_for_account(self.client.account)
+            account_scopes = self.client.list_scopes_for_account(self.client.authenticated_account)
         except ScopeNotFound:
             pass
         if account_scopes and file['did_scope'] not in account_scopes:
-            logger(logging.WARNING, 'Scope {} not found for the account {}.'.format(file['did_scope'], self.client.account))
+            logger(logging.WARNING, 'Scope {} not found for the account {}.'.format(file['did_scope'], self.client.authenticated_account))
 
         rse = file['rse']
         dataset_did_str = file.get('dataset_did_str')
@@ -424,7 +424,7 @@ class UploadClient:
                 self.client.add_dataset(scope=file['dataset_scope'],
                                         name=file['dataset_name'],
                                         meta=file.get('dataset_meta'),
-                                        rules=[{'account': self.client.account,
+                                        rules=[{'account': self.client.authenticated_account,
                                                 'copies': 1,
                                                 'rse_expression': rse,
                                                 'grouping': 'DATASET',

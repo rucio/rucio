@@ -176,7 +176,7 @@ class DownloadClient:
         self.is_tape_excluded = True
         self.is_admin = False
         if check_admin:
-            account_attributes = list(self.client.list_account_attributes(self.client.account))
+            account_attributes = list(self.client.list_account_attributes(self.client.authenticated_account))
             for attr in account_attributes[0]:
                 if attr['key'] == 'admin':
                     self.is_admin = attr['value'] is True
@@ -188,7 +188,7 @@ class DownloadClient:
         self.trace_tpl = {}
         self.trace_tpl['hostname'] = self.client_location['fqdn']
         self.trace_tpl['localSite'] = self.client_location['site']
-        self.trace_tpl['account'] = self.client.account
+        self.trace_tpl['account'] = self.client.authenticated_account
         if self.client.vo != 'def':
             self.trace_tpl['vo'] = self.client.vo
         self.trace_tpl['eventType'] = 'download'
