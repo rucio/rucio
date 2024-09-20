@@ -42,10 +42,10 @@ class InternalType:
         elif fromExternal:
             self.external = value
             self.vo = vo
-            self.internal = self._calc_internal()
+            self.internal = self._calc_internal(self.external, self.vo)
         else:
             self.internal = value
-            vo, external = self._calc_external()
+            vo, external = self._calc_external(self.internal)
             self.external = external
             self.vo = vo
 
@@ -81,24 +81,37 @@ class InternalType:
     def __hash__(self):
         return hash(self.internal)
 
-    def _calc_external(self) -> tuple[str, str]:
-        ''' Utility to convert between internal and external representations'''
-        if isinstance(self.internal, str):
-            split = self.internal.split('@', 1)
-            if len(split) == 1:  # if cannot convert, vo is '' and this is single vo
-                vo = 'def'
-                external = split[0]
-            else:
-                vo = split[1]
-                external = split[0]
-            return vo, external
-        return '', ''
+    @staticmethod
+    def _calc_external(internal: str) -> tuple[str, str]:
+        """
+        Calculate external representation from internal representation
 
-    def _calc_internal(self) -> str:
-        ''' Utility to convert between internal and external representations'''
-        if self.vo == 'def' and self.external is not None:
-            return self.external
-        internal = '{}@{}'.format(self.external, self.vo)
+        :param internal: internal representation
+
+        :returns: tuple of VO and external representation
+        """
+        split = internal.split('@', 1)
+        if len(split) == 1:  # if cannot convert, vo is '' and this is single vo
+            vo = 'def'
+            external = split[0]
+        else:
+            vo = split[1]
+            external = split[0]
+        return vo, external
+
+    @staticmethod
+    def _calc_internal(external: str, vo: str) -> str:
+        """
+        Calculate internal representation from external representation and VO
+
+        :param external: external representation
+        :param vo: VO name
+
+        :returns: internal representation
+        """
+        if vo == 'def':
+            return external
+        internal = '{}@{}'.format(external, vo)
         return internal
 
 
