@@ -458,7 +458,7 @@ def run_once_kronos_dataset(dataset_queue: Queue, return_values: dict, heartbeat
     total, failed, start = 0, 0, time()
     for did, accessed_at in datasets.items():
         scope, name = did.split(':')
-        scope = InternalScope(scope, fromExternal=False)
+        scope = InternalScope(scope, from_external=False)
         update_did = {'scope': scope, 'name': name, 'type': DIDType.DATASET, 'accessed_at': accessed_at}
         # if update fails, put back in queue and retry next time
         if not touch_dids((update_did,)):
@@ -471,7 +471,7 @@ def run_once_kronos_dataset(dataset_queue: Queue, return_values: dict, heartbeat
     total, failed, start = 0, 0, time()
     for did, rses in dslocks.items():
         scope, name = did.split(':')
-        scope = InternalScope(scope, fromExternal=False)
+        scope = InternalScope(scope, from_external=False)
         for rse, accessed_at in rses.items():
             update_dslock = {'scope': scope, 'name': name, 'rse_id': rse, 'accessed_at': accessed_at}
             # if update fails, put back in queue and retry next time
@@ -484,7 +484,7 @@ def run_once_kronos_dataset(dataset_queue: Queue, return_values: dict, heartbeat
     total, failed, start = 0, 0, time()
     for did, rses in dslocks.items():
         scope, name = did.split(':')
-        scope = InternalScope(scope, fromExternal=False)
+        scope = InternalScope(scope, from_external=False)
         for rse, accessed_at in rses.items():
             update_dslock = {'scope': scope, 'name': name, 'rse_id': rse, 'accessed_at': accessed_at}
             # if update fails, put back in queue and retry next time
