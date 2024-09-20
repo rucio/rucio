@@ -43,10 +43,10 @@ class InternalType:
         elif fromExternal:
             self.external = value
             self.vo = vo
-            self.internal = self._calc_internal(self.external, self.vo)
+            self.internal = _RepresentationCalculator.calc_internal(self.external, self.vo)
         else:
             self.internal = value
-            vo, external = self._calc_external(self.internal)
+            vo, external = _RepresentationCalculator.calc_external(self.internal)
             self.external = external
             self.vo = vo
 
@@ -82,8 +82,10 @@ class InternalType:
     def __hash__(self):
         return hash(self.internal)
 
+
+class _RepresentationCalculator:
     @staticmethod
-    def _calc_external(internal: str) -> tuple[str, str]:
+    def calc_external(internal: str) -> tuple[str, str]:
         """
         Calculate external representation from internal representation
 
@@ -101,7 +103,7 @@ class InternalType:
         return vo, external
 
     @staticmethod
-    def _calc_internal(external: str, vo: str) -> str:
+    def calc_internal(external: str, vo: str) -> str:
         """
         Calculate internal representation from external representation and VO
 
