@@ -40,8 +40,6 @@ class InternalType:
             self.external = None
             self.internal = None
             self.vo = vo
-        elif not isinstance(value, str):
-            raise TypeError('Expected value to be string type, got %s' % type(value))
         elif fromExternal:
             self.external = value
             self.vo = vo
