@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import copy
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import and_, delete, exists, select
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import Session, aliased
 
 from rucio.core import config as core_config
 from rucio.core.vo import map_vo
@@ -23,15 +24,26 @@ from rucio.db.sqla.session import get_session, transactional_session
 
 from .common import get_long_vo
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from sqlalchemy.sql.elements import ColumnElement
+    from sqlalchemy.sql.schema import ForeignKeyConstraint
+    from sqlalchemy.sql.selectable import FromClause
+
 # Functions containing server-only includes that can't be included in client tests
 # For each table, get the foreign key constraints from all other tables towards this table.
-INBOUND_FOREIGN_KEYS = {}
+INBOUND_FOREIGN_KEYS: "dict[FromClause, set[ForeignKeyConstraint]]" = {}
 for __table in models.BASE.metadata.tables.values():
     for __fk in __table.foreign_key_constraints:
         INBOUND_FOREIGN_KEYS.setdefault(__fk.referred_table, set()).add(__fk)
 
 
-def _dependency_paths(stack, nb_times_in_stack, cur_table):
+def _dependency_paths(
+        stack: list["ForeignKeyConstraint"],
+        nb_times_in_stack: dict["FromClause", int],
+        cur_table: "FromClause"
+) -> "Iterator":
     """
     Generates lists of foreign keys: paths starting at cur_table and
     navigating the table graph via foreign key constraints.
@@ -61,7 +73,12 @@ def _dependency_paths(stack, nb_times_in_stack, cur_table):
 
 
 @transactional_session
-def cleanup_db_deps(model, select_rows_stmt, *, session=None):
+def cleanup_db_deps(
+    model: models.BASE,
+    select_rows_stmt: "ColumnElement",
+    *,
+    session: Optional["Session"] = None
+) -> None:
     """
     Removes rows which have foreign key constraints pointing to rows
     selected by `select_rows_stmt` in `model`. The deletion is transitive.
@@ -81,10 +98,10 @@ def cleanup_db_deps(model, select_rows_stmt, *, session=None):
             else:
                 seen_tables.add(current_table)
 
-            filters.append(and_(current_table.columns.get(e.parent.name) == referred_table.columns.get(e.column.name) for e in fk.elements))
+            filters.append(and_(current_table.columns.get(e.parent.name) == referred_table.columns.get(e.column.name) for e in fk.elements))  # type: ignore
             referred_table = current_table
 
-        if session.bind.dialect.name == 'mysql':
+        if session.bind.dialect.name == 'mysql':  # type: ignore (bind could be None)
             stmt = delete(
                 current_table
             ).where(
@@ -111,10 +128,10 @@ def cleanup_db_deps(model, select_rows_stmt, *, session=None):
             synchronize_session=False
         )
 
-        session.execute(stmt)
+        session.execute(stmt)  # type: ignore (Session could be None)
 
 
-def reset_config_table():
+def reset_config_table() -> None:
     """ Clear the config table and install any default entries needed for the tests.
     """
     db_session = get_session()
@@ -124,7 +141,7 @@ def reset_config_table():
     core_config.set("vo-map", "testvo2", "ts2")
 
 
-def get_vo():
+def get_vo() -> str:
     """ Gets the current short/mapped VO name for testing.
     Maps the vo name to the short name, if configured.
     :returns: VO name string.

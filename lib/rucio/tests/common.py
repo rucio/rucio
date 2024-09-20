@@ -22,7 +22,7 @@ from functools import wraps
 from os import rename
 from random import choice, choices
 from string import ascii_letters, ascii_uppercase, digits
-from typing import TYPE_CHECKING, Any, Optional
+from typing import IO, TYPE_CHECKING, Any, Literal, Optional
 
 import pytest
 import requests
@@ -32,7 +32,10 @@ from rucio.common.utils import execute
 from rucio.common.utils import generate_uuid as uuid
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable, Iterable, Iterator
+    from types import ModuleType
+
+    from werkzeug.test import TestResponse
 
 skip_rse_tests_with_accounts = pytest.mark.skipif(not any(os.path.exists(os.path.join(d, 'rse-accounts.cfg')) for d in get_config_dirs()),
                                                   reason='fails if no rse-accounts.cfg found')
@@ -169,10 +172,13 @@ def make_temp_file(dir_: str, data: str) -> str:
 
 
 @contextlib.contextmanager
-def mock_open(module, file_like_object):
+def mock_open(module: "ModuleType", file_like_object: IO):
     call_info = {}
 
-    def mocked_open(filename, mode='r'):
+    def mocked_open(
+            filename: str,
+            mode: str = 'r'
+    ) -> contextlib.closing[IO]:
         call_info['filename'] = filename
         call_info['mode'] = mode
         file_like_object.close = lambda: None
@@ -186,7 +192,7 @@ def mock_open(module, file_like_object):
         delattr(module, 'open')
 
 
-def print_response(rest_response):
+def print_response(rest_response: "TestResponse") -> None:
     print('Status:', rest_response.status)
     print()
     nohdrs = True
@@ -204,31 +210,31 @@ def print_response(rest_response):
     print(text if text else '<no content>')
 
 
-def headers(*iterables: 'Iterable'):
+def headers(*iterables: "Iterable") -> list[itertools.chain]:
     return list(itertools.chain(*iterables))
 
 
-def loginhdr(account: str, username: str, password: str):
+def loginhdr(account: str, username: str, password: str) -> "Iterator[tuple[Literal['X-Rucio-Account', 'X-Rucio-Username', 'X-Rucio-Password'], str]]":
     yield 'X-Rucio-Account', str(account)
     yield 'X-Rucio-Username', str(username)
     yield 'X-Rucio-Password', str(password)
 
 
-def auth(token):
+def auth(token) -> "Iterator[tuple[Literal['X-Rucio-Auth-Token'], str]]":
     yield 'X-Rucio-Auth-Token', str(token)
 
 
-def vohdr(vo: str):
+def vohdr(vo: str) -> "Iterator[tuple[Literal['X-Rucio-VO'], str]]":
     if vo:
         yield 'X-Rucio-VO', str(vo)
 
 
-def hdrdict(dictionary: dict):
+def hdrdict(dictionary: dict[str, Any]) -> "Iterator[tuple[str, str]]":
     for key in dictionary:
         yield str(key), str(dictionary[key])
 
 
-def accept(mimetype):
+def accept(mimetype: "Mime") -> "Iterator[tuple[Literal['Accept'], Mime]]":
     yield 'Accept', mimetype
 
 
@@ -246,9 +252,9 @@ def load_test_conf_file(file_name: str) -> dict[str, Any]:
         return json.load(f)
 
 
-def remove_config(func: 'Callable') -> 'Callable':
+def remove_config(func: "Callable") -> "Callable":
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> None:
         for configfile in get_config_dirs():
             # Rename the config to <config>.tmp
             try:
