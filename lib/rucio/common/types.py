@@ -16,7 +16,7 @@ import sys
 from collections.abc import Callable
 from os import PathLike
 
-if sys.version_info < (3, 11):
+if sys.version_info < (3, 11):  # pragma: no cover
     from typing_extensions import TYPE_CHECKING, Any, Literal, NotRequired, Optional, TypedDict, Union  # noqa: UP035
     PathTypeAlias = Union[PathLike, str]
 else:
