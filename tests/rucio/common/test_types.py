@@ -14,7 +14,7 @@
 
 import pytest
 
-from rucio.common.types import InternalAccount, InternalScope, InternalType
+from rucio.common.types import InternalAccount, InternalScope, InternalType, _RepresentationCalculator
 
 
 class TestInternalType:
@@ -103,6 +103,25 @@ class TestInternalType:
 
     def test_hash(self):
         assert hash(self.base) == hash(self.base.internal)
+
+
+class TestRepresentationCalculator:
+    @pytest.mark.parametrize('input_internal,expected_vo,expected_external', [
+        ('test_name', 'def', 'test_name'),
+        ('test_name@test_vo', 'test_vo', 'test_name'),
+        ('test_name@test_vo@extra_string', 'test_vo@extra_string', 'test_name'),
+    ])
+    def test_calc_external(self, input_internal, expected_vo, expected_external):
+        vo, external = _RepresentationCalculator.calc_external(input_internal)
+        assert vo == expected_vo
+        assert external == expected_external
+
+    @pytest.mark.parametrize('input_external,input_vo,expected_internal', [
+        ('test_name', 'def', 'test_name'),
+        ('test_name', 'test_vo', 'test_name@test_vo'),
+    ])
+    def test_calc_internal(self, input_external, input_vo, expected_internal):
+        assert _RepresentationCalculator.calc_internal(input_external, input_vo) == expected_internal
 
 
 class TestInternalAccount:
