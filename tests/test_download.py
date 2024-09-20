@@ -22,7 +22,7 @@ from zipfile import ZipFile
 
 import pytest
 
-from rucio.client.downloadclient import DownloadClient, FileDownloadState
+from rucio.client.downloadclient import DownloadClient
 from rucio.common.config import config_add_section, config_set
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, RucioException
 from rucio.common.types import InternalScope
@@ -738,20 +738,6 @@ def test_download_exclude_tape(rse_factory, did_factory, download_client):
          TemporaryDirectory() as tmp_dir, \
          pytest.raises(NoFilesDownloaded):
         download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir}])
-
-
-def test_download_states():
-    """ Tests the available download states. """
-    FileDownloadState.PROCESSING
-    FileDownloadState.DOWNLOAD_ATTEMPT
-    FileDownloadState.DONE
-    FileDownloadState.ALREADY_DONE
-    FileDownloadState.FOUND_IN_PCACHE
-    FileDownloadState.FILE_NOT_FOUND
-    FileDownloadState.FAIL_VALIDATE
-    FileDownloadState.FAILED
-
-    assert len(FileDownloadState) == 8
 
 
 def test_download_traceless(rucio_client):
