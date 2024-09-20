@@ -12,39 +12,107 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+
 from rucio.common.types import InternalAccount, InternalScope, InternalType
 
 
 class TestInternalType:
-    """ Test the base InternalType class """
+    base = InternalType('test')
 
-    def test_equality(self, vo):
-        """ INTERNAL TYPES: Equality """
-        base = InternalType('test', vo=vo)
-        same = InternalType('test', vo=vo)
-        diff = InternalType('different', vo=vo)
+    @pytest.mark.parametrize(
+        'input_value,input_vo,input_from_external,expected_external,expected_internal,expected_vo',
+        [
+            (None, 'test_vo', False, None, None, 'test_vo'),
+            (None, 'test_vo', True, None, None, 'test_vo'),
+            ('test_value', 'test_vo', True, 'test_value', 'test_value@test_vo', 'test_vo'),
+            ('test_value', 'test_vo', False, 'test_value', 'test_value', 'def'),
+        ],
+        ids=[
+            'empty',
+            'empty_from_external',
+            'from_external',
+            'from_internal',
+        ]
+    )
+    def test_init(self, input_value, input_vo, input_from_external, expected_external, expected_internal, expected_vo):
+        internal_type = InternalType(value=input_value, vo=input_vo, from_external=input_from_external)
+        assert internal_type.external == expected_external
+        assert internal_type.internal == expected_internal
+        assert internal_type.vo == expected_vo
 
-        base_account = InternalAccount('test', vo=vo)
-        base_scope = InternalScope('test', vo=vo)
+    def test_eq(self):
+        same = InternalType('test')
+        assert self.base == same
 
-        assert base == same
-        assert base is not same
-        assert base != diff
-        assert (base.internal == same.internal) \
-               & (base.external == same.external)
-        assert (base.internal != diff.internal) \
-               & (base.external != diff.external)
-        assert base_account != base_scope
+    def test_eq_not_implemented(self):
+        assert self.base != 5
 
-    def test_conversion(self, vo):
-        """ INTERNAL TYPES: Conversion """
-        base = InternalType('test', vo=vo)
-        internal = base.internal
-        from_internal = InternalType(internal, fromExternal=False)
-        assert base == from_internal
+    def test_ne(self):
+        different = InternalType('different')
+        assert self.base != different
 
-    def test_str_rep(self, vo):
-        """ INTERNAL TYPES: Representation """
-        base = InternalType('test', vo=vo)
-        base_str = '%s' % base
-        assert base_str == base.external
+    @pytest.mark.parametrize(
+        'input_value_less',
+        ['test', 'test2', ]
+    )
+    def test_le(self, input_value_less):
+        less = InternalType(input_value_less)
+        assert self.base <= less
+
+    def test_lt(self):
+        less = InternalType('test2')
+        assert self.base < less
+
+    @pytest.mark.parametrize(
+        'in_base,in_other',
+        [
+            (InternalType(None), InternalType(None)),
+            (InternalType('test'), InternalType(None)),
+            (InternalType(None), InternalType('test')),
+            (InternalType('test'), InternalAccount('test')),
+        ]
+    )
+    def test_le_not_implemented(self, in_base, in_other):
+        with pytest.raises(TypeError):
+            assert in_base <= in_other
+
+    @pytest.mark.parametrize(
+        'in_base,in_other',
+        [
+            (InternalType(None), InternalType(None)),
+            (InternalType('test'), InternalType(None)),
+            (InternalType(None), InternalType('test')),
+            (InternalType('test'), InternalAccount('test')),
+        ]
+    )
+    def test_lt_not_implemented(self, in_base, in_other):
+        with pytest.raises(TypeError):
+            assert in_base < in_other
+
+    def test_conversion(self):
+        internal = self.base.internal
+        from_internal = InternalType(internal, from_external=False)
+        assert self.base == from_internal
+
+    def test_repr(self):
+        assert repr(self.base) == self.base.internal
+
+    def test_str(self):
+        assert str(self.base) == self.base.external
+
+    def test_hash(self):
+        assert hash(self.base) == hash(self.base.internal)
+
+
+class TestInternalAccount:
+    @pytest.mark.parametrize('input_account,input_from_external,expected_external,expected_internal', [
+        (None, False, None, None),
+        (None, True, None, None),
+        ('test', False, 'test', 'test'),
+        ('test', True, 'test', 'test'),
+    ])
+    def test_init(self, input_account, input_from_external, expected_external, expected_internal):
+        internal_account = InternalAccount(account=input_account, from_external=input_from_external)
+        assert internal_account.external == expected_external
+        assert internal_account.internal == expected_internal
