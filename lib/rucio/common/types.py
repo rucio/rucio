@@ -60,12 +60,6 @@ class InternalType:
             return self.internal == other.internal
         return NotImplemented
 
-    def __ne__(self, other):
-        val = self == other
-        if val is NotImplemented:
-            return NotImplemented
-        return not val
-
     def __le__(self, other):
         val = self.external <= other.external
         if val is NotImplemented:
