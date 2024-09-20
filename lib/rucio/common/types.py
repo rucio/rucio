@@ -61,16 +61,14 @@ class InternalType:
         return NotImplemented
 
     def __le__(self, other):
-        val = self.external <= other.external
-        if val is NotImplemented:
-            return NotImplemented
-        return val
+        if isinstance(other, self.__class__) and self.external and other.external:
+            return self.external <= other.external
+        return NotImplemented
 
     def __lt__(self, other):
-        val = self.external < other.external
-        if val is NotImplemented:
-            return NotImplemented
-        return val
+        if isinstance(other, self.__class__) and self.external and other.external:
+            return self.external < other.external
+        return NotImplemented
 
     def __hash__(self):
         return hash(self.internal)
