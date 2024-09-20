@@ -34,12 +34,12 @@ class InternalType:
     '''
     Base for Internal representations of string types
     '''
-    def __init__(self, value: Optional[str], vo: str = 'def', fromExternal: bool = True):
+    def __init__(self, value: Optional[str], vo: str = 'def', from_external: bool = True):
         if value is None:
             self.external = None
             self.internal = None
             self.vo = vo
-        elif fromExternal:
+        elif from_external:
             self.external = value
             self.vo = vo
             self.internal = _RepresentationCalculator.calc_internal(self.external, self.vo)
@@ -121,16 +121,16 @@ class InternalAccount(InternalType):
     '''
     Internal representation of an account
     '''
-    def __init__(self, account: Optional[str], vo: str = 'def', fromExternal: bool = True):
-        super(InternalAccount, self).__init__(value=account, vo=vo, fromExternal=fromExternal)
+    def __init__(self, account: Optional[str], vo: str = 'def', from_external: bool = True):
+        super(InternalAccount, self).__init__(value=account, vo=vo, from_external=from_external)
 
 
 class InternalScope(InternalType):
     '''
     Internal representation of a scope
     '''
-    def __init__(self, scope: Optional[str], vo: str = 'def', fromExternal: bool = True):
-        super(InternalScope, self).__init__(value=scope, vo=vo, fromExternal=fromExternal)
+    def __init__(self, scope: Optional[str], vo: str = 'def', from_external: bool = True):
+        super(InternalScope, self).__init__(value=scope, vo=vo, from_external=from_external)
 
 
 LoggerFunction = Callable[..., Any]
