@@ -90,3 +90,18 @@ class Default(protocol.RSEProtocol):
         except Exception as error:
             print(error)
             raise exception.ServiceUnavailable(error)
+
+    def delete(self, path):
+        raise NotImplementedError
+
+    def exists(self, path):
+        raise NotImplementedError
+
+    def put(self, source, target, source_dir, transfer_timeout=None):
+        raise NotImplementedError
+
+    def get(self, path, dest, transfer_timeout=None):
+        raise NotImplementedError
+
+    def rename(self, path, new_path):
+        raise NotImplementedError

@@ -18,6 +18,7 @@ along with some of the default methods for LFN2PFN translations.
 """
 import hashlib
 import logging
+from abc import ABC, abstractmethod
 from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
 from urllib.parse import urlparse
@@ -328,8 +329,8 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
 RSEDeterministicTranslation._module_init_()  # pylint: disable=protected-access
 
 
-class RSEProtocol:
-    """ This class is virtual and acts as a base to inherit new protocols from. It further provides some common functionality which applies for the amjority of the protocols."""
+class RSEProtocol(ABC):
+    """ This class is virtual and acts as a base to inherit new protocols from. It further provides some common functionality which applies for the majority of the protocols."""
 
     def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.
@@ -496,6 +497,7 @@ class RSEProtocol:
 
         return ret
 
+    @abstractmethod
     def exists(self, path):
         """
             Checks if the requested file is known by the referred RSE.
@@ -508,6 +510,7 @@ class RSEProtocol:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def connect(self):
         """
             Establishes the actual connection to the referred RSE.
@@ -516,10 +519,12 @@ class RSEProtocol:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def close(self):
         """ Closes the connection to RSE."""
         raise NotImplementedError
 
+    @abstractmethod
     def get(self, path, dest, transfer_timeout=None):
         """
             Provides access to files stored inside connected the RSE.
@@ -534,6 +539,7 @@ class RSEProtocol:
          """
         raise NotImplementedError
 
+    @abstractmethod
     def put(self, source, target, source_dir, transfer_timeout=None):
         """
             Allows to store files inside the referred RSE.
@@ -549,6 +555,7 @@ class RSEProtocol:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def delete(self, path):
         """
             Deletes a file from the connected RSE.
@@ -560,6 +567,7 @@ class RSEProtocol:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def rename(self, path, new_path):
         """ Allows to rename a file stored inside the connected RSE.
 

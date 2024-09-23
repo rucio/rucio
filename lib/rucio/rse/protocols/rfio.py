@@ -134,3 +134,12 @@ class Default(protocol.RSEProtocol):
         ret['path'] = ret['path'].partition(ret['name'])[0]
 
         return ret
+
+    def delete(self, path):
+        raise NotImplementedError
+
+    def get(self, path, dest, transfer_timeout=None):
+        raise NotImplementedError
+
+    def rename(self, path, new_path):
+        raise NotImplementedError
