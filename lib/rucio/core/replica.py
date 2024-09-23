@@ -948,7 +948,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
         pfns = {}
         for scope, name, archive_scope, archive_name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_group:
             if isinstance(archive_scope, str):
-                archive_scope = InternalScope(archive_scope, fromExternal=False)
+                archive_scope = InternalScope(archive_scope, from_external=False)
 
             is_archive = bool(archive_scope and archive_name)
 

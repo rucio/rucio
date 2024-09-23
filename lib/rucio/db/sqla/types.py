@@ -164,7 +164,7 @@ class InternalAccountString(TypeDecorator):
     def process_result_value(self, value, dialect):
         if value is None:
             return value
-        return InternalAccount(value, fromExternal=False)
+        return InternalAccount(value, from_external=False)
 
     def coerce_compared_value(self, op, value):
         if op in (operators.like_op, operators.notlike_op):
@@ -197,7 +197,7 @@ class InternalScopeString(TypeDecorator):
     def process_result_value(self, value, dialect):
         if value is None:
             return value
-        return InternalScope(value, fromExternal=False)
+        return InternalScope(value, from_external=False)
 
     def coerce_compared_value(self, op, value):
         if op in (operators.like_op, operators.notlike_op):
