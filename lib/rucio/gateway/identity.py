@@ -72,8 +72,9 @@ def del_identity(
     """
     converted_id_type = IdentityType[id_type.upper()]
     kwargs = {'accounts': identity.list_accounts_for_identity(identity_key, converted_id_type, session=session)}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='del_identity', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not delete identity' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='del_identity', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not delete identity. %s' % (issuer, auth_result.message))
 
     return identity.del_identity(identity_key, converted_id_type, session=session)
 
@@ -105,8 +106,9 @@ def add_account_identity(
     :param session: The database session in use.
     """
     kwargs = {'identity': identity_key, 'type': id_type, 'account': account}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='add_account_identity', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not add account identity' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='add_account_identity', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not add account identity. %s' % (issuer, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
@@ -147,8 +149,9 @@ def del_account_identity(
     :param session: The database session in use.
     """
     kwargs = {'account': account}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='del_account_identity', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not delete account identity' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='del_account_identity', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not delete account identity. %s' % (issuer, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 

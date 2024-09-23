@@ -120,11 +120,12 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False, *
     rse_id_to_name = invert_dict(rse_map)   # RSE id -> RSE name
 
     for rse_id in rse_ids_to_check:
-        if not permission.has_permission(issuer=issuer, vo=vo, action='declare_bad_file_replicas',
-                                         kwargs={"rse_id": rse_id},
-                                         session=session):
-            raise exception.AccessDenied('Account %s can not declare bad replicas in RSE %s' %
-                                         (issuer, rse_id_to_name.get(rse_id, rse_id)))
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='declare_bad_file_replicas',
+                                                kwargs={"rse_id": rse_id},
+                                                session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('Account %s can not declare bad replicas in RSE %s. %s' %
+                                         (issuer, rse_id_to_name.get(rse_id, rse_id), auth_result.message))
 
     undeclared = replica.declare_bad_file_replicas(replicas_lst, reason=reason,
                                                    issuer=InternalAccount(issuer, vo=vo),
@@ -160,8 +161,9 @@ def declare_suspicious_file_replicas(pfns, reason, issuer, vo='def', *, session:
     :param session: The database session in use.
     """
     kwargs = {}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='declare_suspicious_file_replicas', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not declare suspicious replicas' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='declare_suspicious_file_replicas', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not declare suspicious replicas. %s' % (issuer, auth_result.message))
 
     issuer = InternalAccount(issuer, vo=vo)
 
@@ -277,8 +279,9 @@ def add_replicas(rse, files, issuer, ignore_availability=False, vo='def', *, ses
     rse_id = get_rse_id(rse=rse, vo=vo, session=session)
 
     kwargs = {'rse': rse, 'rse_id': rse_id}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='add_replicas', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not add file replicas on %s' % (issuer, rse))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='add_replicas', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not add file replicas on %s. %s' % (issuer, rse, auth_result.message))
     if not permission.has_permission(issuer=issuer, vo=vo, action='skip_availability_check', kwargs=kwargs, session=session):
         ignore_availability = False
 
@@ -310,8 +313,9 @@ def delete_replicas(rse, files, issuer, ignore_availability=False, vo='def', *, 
     rse_id = get_rse_id(rse=rse, vo=vo, session=session)
 
     kwargs = {'rse': rse, 'rse_id': rse_id}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='delete_replicas', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not delete file replicas on %s' % (issuer, rse))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='delete_replicas', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not delete file replicas on %s. %s' % (issuer, rse, auth_result.message))
     if not permission.has_permission(issuer=issuer, vo=vo, action='skip_availability_check', kwargs=kwargs, session=session):
         ignore_availability = False
 
@@ -339,8 +343,9 @@ def update_replicas_states(rse, files, issuer, vo='def', *, session: "Session"):
     rse_id = get_rse_id(rse=rse, vo=vo, session=session)
 
     kwargs = {'rse': rse, 'rse_id': rse_id}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='update_replicas_states', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not update file replicas state on %s' % (issuer, rse))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='update_replicas_states', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not update file replicas state on %s. %s' % (issuer, rse, auth_result.message))
     replicas = []
     for file in files:
         rep = file
@@ -456,8 +461,9 @@ def add_bad_pfns(pfns, issuer, state, reason=None, expires_at=None, vo='def', *,
     :returns: True is successful.
     """
     kwargs = {'state': state}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='add_bad_pfns', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not declare bad PFNs' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='add_bad_pfns', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not declare bad PFNs. %s' % (issuer, auth_result.message))
 
     if expires_at and datetime.datetime.utcnow() <= expires_at and expires_at > datetime.datetime.utcnow() + datetime.timedelta(days=30):
         raise exception.InputValidationError('The given duration of %s days exceeds the maximum duration of 30 days.' % (expires_at - datetime.datetime.utcnow()).days)
@@ -484,8 +490,9 @@ def add_bad_dids(dids, rse, issuer, state, reason=None, expires_at=None, vo='def
     :returns: The list of replicas not declared bad
     """
     kwargs = {'state': state}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='add_bad_pfns', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not declare bad PFN or DIDs' % issuer)
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='add_bad_pfns', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not declare bad PFN or DIDs. %s' % (issuer, auth_result.message))
 
     issuer = InternalAccount(issuer, vo=vo)
     rse_id = get_rse_id(rse=rse, session=session)
@@ -523,8 +530,9 @@ def set_tombstone(rse, scope, name, issuer, vo='def', *, session: "Session"):
 
     rse_id = get_rse_id(rse, vo=vo, session=session)
 
-    if not permission.has_permission(issuer=issuer, vo=vo, action='set_tombstone', kwargs={}, session=session):
-        raise exception.AccessDenied('Account %s can not set tombstones' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='set_tombstone', kwargs={}, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not set tombstones. %s' % (issuer, auth_result.message))
 
     scope = InternalScope(scope, vo=vo)
     replica.set_tombstone(rse_id, scope, name, session=session)

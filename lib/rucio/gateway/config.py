@@ -43,8 +43,9 @@ def sections(issuer: Optional[str] = None, vo: str = 'def', *, session: "Session
     """
 
     kwargs = {'issuer': issuer}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='config_sections', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%s cannot retrieve sections' % issuer)
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_sections', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('%s cannot retrieve sections. %s' % (issuer, auth_result.message))
     return config.sections(session=session)
 
 
@@ -60,8 +61,9 @@ def add_section(section: str, issuer: Optional[str] = None, vo: str = 'def', *, 
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='config_add_section', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%s cannot add section %s' % (issuer, section))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_add_section', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('%s cannot add section %s. %s' % (issuer, section, auth_result.message))
     return config.add_section(section, session=session)
 
 
@@ -78,8 +80,9 @@ def has_section(section: str, issuer: Optional[str] = None, vo: str = 'def', *, 
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='config_has_section', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%s cannot check existence of section %s' % (issuer, section))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_has_section', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('%s cannot check existence of section %s. %s' % (issuer, section, auth_result.message))
     return config.has_section(section, session=session)
 
 
@@ -96,8 +99,9 @@ def options(section: str, issuer: Optional[str] = None, vo: str = 'def', *, sess
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='config_options', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%s cannot retrieve options from section %s' % (issuer, section))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_options', kwargs=kwargs, session=session)
+    if auth_result.allowed:
+        raise exception.AccessDenied('%s cannot retrieve options from section %s. %s' % (issuer, section, auth_result.message))
     return config.options(section, session=session)
 
 
@@ -115,8 +119,9 @@ def has_option(section: str, option: str, issuer: Optional[str] = None, vo: str 
     """
 
     kwargs = {'issuer': issuer, 'section': section, 'option': option}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='config_has_option', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%s cannot check existence of option %s from section %s' % (issuer, option, section))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_has_option', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('%s cannot check existence of option %s from section %s. %s' % (issuer, option, section, auth_result.message))
     return config.has_option(section, option, session=session)
 
 
@@ -137,8 +142,9 @@ def get(section: str, option: str, issuer: Optional[str] = None, vo: str = 'def'
     """
 
     kwargs = {'issuer': issuer, 'section': section, 'option': option}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='config_get', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%s cannot retrieve option %s from section %s' % (issuer, option, section))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_get', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('%s cannot retrieve option %s from section %s. %s' % (issuer, option, section, auth_result.message))
     return config.get(section, option, session=session, convert_type_fnc=convert_to_any_type)
 
 
@@ -156,8 +162,9 @@ def items(section: str, issuer: Optional[str] = None, vo: str = 'def', *, sessio
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='config_items', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%s cannot retrieve options and values from section %s' % (issuer, section))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_items', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('%s cannot retrieve options and values from section %s. %s' % (issuer, section, auth_result.message))
     return config.items(section, session=session, convert_type_fnc=convert_to_any_type)
 
 
@@ -175,8 +182,9 @@ def set(section: str, option: str, value: Any, issuer: Optional[str] = None, vo:
     """
 
     kwargs = {'issuer': issuer, 'section': section, 'option': option, 'value': value}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='config_set', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%s cannot set option %s to %s in section %s' % (issuer, option, value, section))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_set', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('%s cannot set option %s to %s in section %s. %s' % (issuer, option, value, section, auth_result.message))
     return config.set(section, option, value, session=session)
 
 
@@ -193,8 +201,9 @@ def remove_section(section: str, issuer: Optional[str] = None, vo: str = 'def', 
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='config_remove_section', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%s cannot remove section %s' % (issuer, section))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_remove_section', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('%s cannot remove section %s. %s' % (issuer, section, auth_result.message))
     return config.remove_section(section, session=session)
 
 
@@ -212,6 +221,7 @@ def remove_option(section: str, option: str, issuer: Optional[str] = None, vo: s
     """
 
     kwargs = {'issuer': issuer, 'section': section, 'option': option}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='config_remove_option', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('%s cannot remove option %s from section %s' % (issuer, option, section))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_remove_option', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('%s cannot remove option %s from section %s. %s' % (issuer, option, section, auth_result.message))
     return config.remove_option(section, option, session=session)

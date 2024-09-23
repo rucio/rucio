@@ -170,8 +170,9 @@ def get_auth_token_user_pass(
     """
 
     kwargs = {'account': account, 'username': username, 'password': password}
-    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_user_pass', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('User with identity %s can not log to account %s' % (username, account))
+    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_user_pass', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (username, account, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
@@ -204,8 +205,9 @@ def get_auth_token_gss(
     """
 
     kwargs = {'account': account, 'gsscred': gsscred}
-    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_gss', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('User with identity %s can not log to account %s' % (gsscred, account))
+    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_gss', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (gsscred, account, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
@@ -241,8 +243,9 @@ def get_auth_token_x509(
         account = identity.get_default_account(dn, IdentityType.X509).external
 
     kwargs = {'account': account, 'dn': dn}
-    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_x509', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('User with identity %s can not log to account %s' % (dn, account))
+    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_x509', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (dn, account, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
@@ -275,8 +278,9 @@ def get_auth_token_ssh(
     """
 
     kwargs = {'account': account, 'signature': signature}
-    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('User with provided signature can not log to account %s' % account)
+    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('User with provided signature can not log to account %s. %s' % (account, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
@@ -307,8 +311,9 @@ def get_ssh_challenge_token(
     """
 
     kwargs = {'account': account}
-    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('User can not get challenge token for account %s' % account)
+    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('User can not get challenge token for account %s. %s' % (account, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
@@ -340,8 +345,9 @@ def get_auth_token_saml(
     """
 
     kwargs = {'account': account, 'saml_nameid': saml_nameid}
-    if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_saml', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('User with identity %s can not log to account %s' % (saml_nameid, account))
+    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_saml', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (saml_nameid, account, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
