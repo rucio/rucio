@@ -92,7 +92,7 @@ class DIDClient(BaseClient):
             self,
             scope: str,
             name: str,
-            did_type: Literal['FILE', 'DATASET', 'CONTAINER'],
+            did_type: Literal['DATASET', 'CONTAINER'],
             statuses: Optional["Mapping[str, Any]"] = None,
             meta: Optional["Mapping[str, Any]"] = None,
             rules: Optional["Sequence[Mapping[str, Any]]"] = None,
@@ -105,7 +105,7 @@ class DIDClient(BaseClient):
 
         :param scope: The scope name.
         :param name: The data identifier name.
-        :param did_type: The data identifier type (file|dataset|container).
+        :param did_type: The data identifier type (dataset|container).
         :param statuses: Dictionary with statuses, e.g. {'monotonic':True}.
         :param meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
         :param rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
