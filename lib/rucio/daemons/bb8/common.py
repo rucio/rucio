@@ -34,6 +34,7 @@ from rucio.core.rse import get_rse_name, get_rse_vo, list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule import add_rule, get_rule, update_rule
+from rucio.core.did import list_content
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, LockState, RuleGrouping, RuleState
 from rucio.db.sqla.session import read_session, transactional_session
@@ -422,59 +423,76 @@ def list_rebalance_rule_candidates(
     ).scalar_subquery()
 
     stmt = select(
-        models.DatasetLock.scope,
-        models.DatasetLock.name,
-        models.ReplicationRule.id,
-        models.ReplicationRule.rse_expression,
-        models.ReplicationRule.subscription_id,
-        models.DataIdentifier.bytes,
-        models.DataIdentifier.length,
-        case(
-            (
-                or_(models.DatasetLock.length < 1,
-                    models.DatasetLock.length.is_(None)),
-                0
-            ),
-            else_=cast(
-                models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
+            models.ReplicationRule.scope,
+            models.ReplicationRule.name,
+            models.ReplicationRule.id,
+            models.ReplicationRule.rse_expression,
+            models.ReplicationRule.subscription_id,
+            func.sum(models.DataIdentifier.bytes).label('total_bytes'),
+            func.sum(models.DataIdentifier.length).label('total_length'),
+            func.avg(
+                    case(
+                (
+                    or_(models.DatasetLock.length < 1,
+                        models.DatasetLock.length.is_(None)),
+                    0
+                ),
+                else_=cast(
+                    models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
+                )
             )
+            ).label('avg_file_size'),
+            func.max(models.DatasetLock.accessed_at).label('accessed_at'),
+        ).join(
+            models.DatasetLock, models.ReplicationRule.id == models.DatasetLock.rule_id
+        ).join(
+            models.DataIdentifier,
+            and_(
+                models.DatasetLock.scope == models.DataIdentifier.scope,
+                models.DatasetLock.name == models.DataIdentifier.name,
+            ),
+        ).where(
+            and_(models.DatasetLock.rse_id == rse_id,
+                *rule_clause,
+                *did_clause)
+        ).group_by(
+            models.ReplicationRule.scope,
+            models.ReplicationRule.name,
+            models.ReplicationRule.id,
+            models.ReplicationRule.rse_expression,
+            models.ReplicationRule.subscription_id
+        ).having(
+            and_(
+                func.avg(
+                    case(
+                        (
+                            or_(
+                                models.DatasetLock.length < 1,
+                                models.DatasetLock.length.is_(None),
+                            ),
+                            0,
+                        ),
+                        else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, BigInteger),
+                    )
+                ) > 1000000000,
+                func.max(count_locks) == 1  # Add this line to filter max_count_locks
+            )
+        ).order_by(
+            func.avg(
+                case(
+                    (
+                        or_(
+                            models.DatasetLock.length < 1,
+                            models.DatasetLock.length.is_(None),
+                        ),
+                        0,
+                    ),
+                    else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, BigInteger),
+                )
+            ).asc(),
+            func.max(models.DatasetLock.accessed_at).asc(),
         )
-    ).join(
-        models.ReplicationRule,
-        models.ReplicationRule.id == models.DatasetLock.rule_id
-    ).join(
-        models.DataIdentifier,
-        and_(models.DatasetLock.scope == models.DataIdentifier.scope,
-             models.DatasetLock.name == models.DataIdentifier.name)
-    ).where(
-        and_(models.DatasetLock.rse_id == rse_id,
-             *rule_clause,
-             *did_clause,
-             case(
-                 (
-                     or_(models.DatasetLock.length < 1,
-                         models.DatasetLock.length.is_(None)),
-                     0
-                 ),
-                 else_=cast(
-                     models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
-                 )
-             ) > 1000000000,
-             count_locks == 1)
-    ).order_by(
-        case(
-            (
-                or_(models.DatasetLock.length < 1,
-                    models.DatasetLock.length.is_(None)),
-                0
-            ),
-            else_=cast(
-                models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
-            )
-        ),
-        models.DatasetLock.accessed_at
-    )
-    return list(session.execute(stmt).all())  # type: ignore (session could be None)
+    return list(session.execute(stmt).all())
 
 
 @read_session
@@ -630,6 +648,7 @@ def rebalance_rse(
         bytes_,
         length,
         fsize,
+        accessed_at
     ) in list_rebalance_rule_candidates(rse_id=rse_id, mode=mode):
         if force_expression is not None and subscription_id is not None:
             continue
@@ -642,9 +661,12 @@ def rebalance_rse(
 
         try:
             rule = get_rule(rule_id=rule_id)
-            other_rses = [
-                r["rse_id"] for r in get_dataset_locks(scope, name, session=session)
-            ]
+            # My implementation of the rule rebalancing
+            other_rses = []
+            for did in list_content(scope, name):
+                other_rses += [
+                    r["rse_id"] for r in get_dataset_locks(did['scope'], did['name'], session=session)
+                ]
             # Select the target RSE for this rule
             try:
                 target_rse_exp = select_target_rse(
