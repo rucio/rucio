@@ -18,7 +18,7 @@ from string import Template
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from requests import get
-from sqlalchemy import BigInteger, and_, case, cast, false, func, or_, select
+from sqlalchemy import BigInteger, Row, and_, case, cast, false, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
@@ -29,6 +29,7 @@ from rucio.common.exception import (
     RuleNotFound,
 )
 from rucio.common.types import InternalAccount, InternalScope
+from rucio.core.did import list_content
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
@@ -40,8 +41,6 @@ from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
-
-    from sqlalchemy.engine import Row
 
     from rucio.common.types import LoggerFunction
 
@@ -263,13 +262,25 @@ def _list_rebalance_rule_candidates_dump(
     return candidates
 
 
+def structure_list_rebalance_rule_candidates_result(row: Row) -> tuple:
+    """ Structure the query result in an object composed by the replication rule and the aggregated information
+
+    :param row: query result
+    :return: dictionary composed by the replication rule and the aggregated information
+    """
+    rule_dict = {column.name: getattr(row.ReplicationRule, column.name)
+                 for column in models.ReplicationRule.__table__.columns}
+
+    return rule_dict, row.total_bytes, row.total_length
+
+
 @transactional_session
 def list_rebalance_rule_candidates(
     rse_id: str,
     mode: Optional[str] = None,
     *,
     session: Optional[Session] = None
-) -> Union[list[tuple], list["Row[tuple]"]]:
+) -> list[tuple]:
     """
     List the rebalance rule candidates based on the agreed on specification
     :param rse_id:       RSE of the source.
@@ -433,59 +444,70 @@ def list_rebalance_rule_candidates(
     ).scalar_subquery()
 
     stmt = select(
-        models.DatasetLock.scope,
-        models.DatasetLock.name,
-        models.ReplicationRule.id,
-        models.ReplicationRule.rse_expression,
-        models.ReplicationRule.subscription_id,
-        models.DataIdentifier.bytes,
-        models.DataIdentifier.length,
-        case(
-            (
-                or_(models.DatasetLock.length < 1,
-                    models.DatasetLock.length.is_(None)),
-                0
-            ),
-            else_=cast(
-                models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
-            )
-        )
-    ).join(
         models.ReplicationRule,
-        models.ReplicationRule.id == models.DatasetLock.rule_id
+        func.sum(models.DataIdentifier.bytes).label('total_bytes'),
+        func.sum(models.DataIdentifier.length).label('total_length'),
+        func.max(count_locks).label('max_locks'),
+        func.avg(
+            case(
+                (
+                    or_(
+                        models.DatasetLock.length < 1,
+                        models.DatasetLock.length.is_(None),
+                    ),
+                    0,
+                ),
+                else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, BigInteger),
+            )
+        ).label('avg_file_size'),
+        func.max(models.DatasetLock.accessed_at).label('accessed_at'),
+    ).join(
+        models.DatasetLock, models.ReplicationRule.id == models.DatasetLock.rule_id
     ).join(
         models.DataIdentifier,
-        and_(models.DatasetLock.scope == models.DataIdentifier.scope,
-             models.DatasetLock.name == models.DataIdentifier.name)
+        and_(
+            models.DatasetLock.scope == models.DataIdentifier.scope,
+            models.DatasetLock.name == models.DataIdentifier.name,
+        ),
     ).where(
         and_(models.DatasetLock.rse_id == rse_id,
              *rule_clause,
-             *did_clause,
-             case(
-                 (
-                     or_(models.DatasetLock.length < 1,
-                         models.DatasetLock.length.is_(None)),
-                     0
-                 ),
-                 else_=cast(
-                     models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
-                 )
-             ) > 1000000000,
-             count_locks == 1)
+             *did_clause)
+    ).group_by(
+        *[column for column in models.ReplicationRule.__table__.columns]
+    ).having(
+        and_(
+            func.avg(
+                case(
+                    (
+                        or_(
+                            models.DatasetLock.length < 1,
+                            models.DatasetLock.length.is_(None),
+                        ),
+                        0,
+                    ),
+                    else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, BigInteger),
+                )
+            ) > 1000000000,
+            func.max(count_locks) == 1  # Add this line to filter max_count_locks
+        )
     ).order_by(
-        case(
-            (
-                or_(models.DatasetLock.length < 1,
-                    models.DatasetLock.length.is_(None)),
-                0
-            ),
-            else_=cast(
-                models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
+        func.avg(
+            case(
+                (
+                    or_(
+                        models.DatasetLock.length < 1,
+                        models.DatasetLock.length.is_(None),
+                    ),
+                    0,
+                ),
+                else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, BigInteger),
             )
-        ),
-        models.DatasetLock.accessed_at
+        ).asc(),
+        func.max(models.DatasetLock.accessed_at).asc(),
     )
-    return list(session.execute(stmt).all())  # type: ignore (session could be None)
+    result = list(session.execute(stmt).all())      # type: ignore (session could be None)
+    return [structure_list_rebalance_rule_candidates_result(row) for row in result]
 
 
 @read_session
@@ -631,16 +653,14 @@ def rebalance_rse(
     logger(logging.INFO, "Dry Run: %s" % (dry_run))
     logger(logging.INFO, "***************************")
 
-    for (
-        scope,
-        name,
-        rule_id,
-        rse_expression,
-        subscription_id,
-        bytes_,
-        length,
-        fsize,
-    ) in list_rebalance_rule_candidates(rse_id=rse_id, mode=mode):
+    for rule_info in list_rebalance_rule_candidates(rse_id=rse_id, mode=mode):
+        # Handle dump scenario
+        if not isinstance(rule_info[0], dict):
+            _, _, rule_id, _, subscription_id, bytes_, length, _ = rule_info
+        else:
+            rule, bytes_, length = rule_info
+            subscription_id = rule["subscription_id"]
+
         if force_expression is not None and subscription_id is not None:
             continue
 
@@ -650,18 +670,29 @@ def rebalance_rse(
             if rebalanced_files + length > max_files:
                 continue
 
+        # Get rule info for dump scenario
+        if rule is None:
+            rule = get_rule(rule_id=rule_id, session=session)
+
         try:
-            rule = get_rule(rule_id=rule_id)
-            other_rses = [
-                r["rse_id"] for r in get_dataset_locks(scope, name, session=session)
-            ]
+            other_rses = []
+            if rule["did_type"] == DIDType.CONTAINER:
+                for did in list_content(rule["scope"], rule["name"]):
+                    if did["type"] == DIDType.DATASET:
+                        other_rses += [
+                            r["rse_id"] for r in get_dataset_locks(did['scope'], did['name'], session=session)
+                        ]
+            else:
+                other_rses = [
+                    r["rse_id"] for r in get_dataset_locks(scope=rule["scope"], name=rule["name"], session=session)
+                ]
             # Select the target RSE for this rule
             try:
                 target_rse_exp = select_target_rse(
                     parent_rule=rule,
                     current_rse_id=rse_id,
-                    rse_expression=rse_expression,
-                    subscription_id=subscription_id,
+                    rse_expression=rule["rse_expression"],
+                    subscription_id=rule["subscription_id"],
                     rse_attributes=rse_attributes,
                     other_rses=other_rses,
                     exclude_expression=exclude_expression,
@@ -692,17 +723,17 @@ def rebalance_rse(
                 logger(
                     logging.WARNING,
                     "A rule for %s:%s already exists on %s. It cannot be rebalanced",
-                    scope,
-                    name,
+                    rule["scope"],
+                    rule["name"],
                     target_rse_exp,
                 )
                 continue
             logger(
                 logging.INFO,
                 "Rebalancing %s:%s rule %s (%f GB) from %s to %s. New rule %s",
-                scope,
-                name,
-                str(rule_id),
+                rule["scope"],
+                rule["name"],
+                str(rule["id"]),
                 bytes_ / 1e9,
                 rule["rse_expression"],
                 target_rse_exp,
@@ -711,16 +742,16 @@ def rebalance_rse(
             rebalanced_bytes += bytes_
             rebalanced_files += length
             rebalanced_datasets.append(
-                (scope, name, bytes_, length, target_rse_exp, rule_id, child_rule_id)
+                (rule["scope"], rule["name"], bytes_, length, target_rse_exp, rule["id"], child_rule_id)
             )
         except Exception as error:
             logger(
                 logging.ERROR,
                 "Exception %s occurred while rebalancing %s:%s, rule_id: %s!",
                 str(error),
-                scope,
-                name,
-                str(rule_id),
+                rule["scope"],
+                rule["name"],
+                str(rule["id"]),
             )
 
     logger(
