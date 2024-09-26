@@ -227,11 +227,11 @@ Note that attempting the use the ``--vos`` argument when in single-VO mode will 
   $ rucio-replica-recoverer --run-once --vos abc xyz
   2020-07-28 15:21:33,349 5488    WARNING Ignoring argument vos, this is only applicable in a multi-VO setup.
 ''', formatter_class=argparse.RawDescriptionHelpFormatter)  # NOQA: E501
-    parser.add_argument("--nattempts", action="store", default=5, help='Minimum count of suspicious file replica appearance in bad_replicas table. Default value is 5.')
-    parser.add_argument("--younger-than", action="store", default=5, help='Consider all file replicas logged in bad_replicas table since specified number of younger-than days. Default value is 5.')
+    parser.add_argument("--nattempts", action="store", default=5, type=int, help='Minimum count of suspicious file replica appearance in bad_replicas table. Default value is 5.')
+    parser.add_argument("--younger-than", action="store", default=5, type=int, help='Consider all file replicas logged in bad_replicas table since specified number of younger-than days. Default value is 5.')
     parser.add_argument('--vos', nargs='+', type=str, help='Optional list of VOs to consider. Only used in multi-VO mode.')
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only.')
-    parser.add_argument("--limit-suspicious-files-on-rse", action="store", default=5, help='Maximum number of suspicious replicas on an RSE before that RSE is considered problematic and the suspicious replicas on that RSE are declared "TEMPORARY_UNAVAILABLE". Default value is 5.')
+    parser.add_argument("--limit-suspicious-files-on-rse", action="store", default=5, type=int, help='Maximum number of suspicious replicas on an RSE before that RSE is considered problematic and the suspicious replicas on that RSE are declared "TEMPORARY_UNAVAILABLE". Default value is 5.')
     parser.add_argument('--json-file-name', action="store", default="/opt/rucio/etc/suspicious_replica_recoverer.json", type=str, help='Name of the json file that that contains the policies which will be used by the suspicious replica recoverer.')
     parser.add_argument('--sleep-time', action="store", default=3600, type=int, help='Concurrency control: Thread sleep time after each chunk of work.')
     parser.add_argument('--active-mode', action="store_true", default=False, help='If NOT specified, the daemon will run without taking any actions on any files. In either case, the log file will be produced normally.')
