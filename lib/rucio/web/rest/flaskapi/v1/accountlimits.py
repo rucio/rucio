@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from flask import Flask, request
 
 from rucio.common.exception import AccessDenied, AccountNotFound, RSENotFound
@@ -19,9 +21,12 @@ from rucio.gateway.account_limit import delete_global_account_limit, delete_loca
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, generate_http_error_flask, json_parameters, param_get, response_headers
 
+if TYPE_CHECKING:
+    from flask.typing import ResponseReturnValue
+
 
 class LocalAccountLimit(ErrorHandlingMethodView):
-    def post(self, account, rse):
+    def post(self, account: str, rse: str) -> 'ResponseReturnValue':
         """
         ---
         summary: Create or update a local account limit
@@ -75,7 +80,7 @@ class LocalAccountLimit(ErrorHandlingMethodView):
 
         return 'Created', 201
 
-    def delete(self, account, rse):
+    def delete(self, account: str, rse: str) -> 'ResponseReturnValue':
         """
         ---
         summary: Delete a local account limit
@@ -113,7 +118,7 @@ class LocalAccountLimit(ErrorHandlingMethodView):
 
 
 class GlobalAccountLimit(ErrorHandlingMethodView):
-    def post(self, account, rse_expression):
+    def post(self, account: str, rse_expression: str) -> 'ResponseReturnValue':
         """
         ---
         summary: Create or update a global account limit
@@ -173,7 +178,7 @@ class GlobalAccountLimit(ErrorHandlingMethodView):
 
         return 'Created', 201
 
-    def delete(self, account, rse_expression):
+    def delete(self, account: str, rse_expression: str) -> 'ResponseReturnValue':
         """
         ---
         summary: Delete a global account limit
@@ -210,7 +215,7 @@ class GlobalAccountLimit(ErrorHandlingMethodView):
         return '', 200
 
 
-def blueprint(with_doc=False):
+def blueprint(with_doc: bool = False) -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('accountlimits', __name__, url_prefix='/accountlimits')
 
     local_account_limit_view = LocalAccountLimit.as_view('local_account_limit')
@@ -224,7 +229,7 @@ def blueprint(with_doc=False):
     return bp
 
 
-def make_doc():
+def make_doc() -> Flask:
     """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
     doc_app.register_blueprint(blueprint(with_doc=True))

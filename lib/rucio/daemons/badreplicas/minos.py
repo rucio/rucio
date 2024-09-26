@@ -17,9 +17,8 @@ import logging
 import math
 import re
 import threading
-from collections.abc import Callable
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy.exc import DatabaseError
 
@@ -36,17 +35,22 @@ from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEA
 from rucio.db.sqla.session import get_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
     from types import FrameType
-    from typing import Optional
 
-    from rucio.common.types import InternalAccount
+    from rucio.common.types import InternalAccount, LoggerFunction
     from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
 DAEMON_NAME = 'minos'
 
 
-def __classify_bad_pfns(pfns: list) -> tuple[dict, dict]:
+def __classify_bad_pfns(
+        pfns: "Iterable[Mapping[str, Any]]"
+) -> tuple[
+    dict[tuple["InternalAccount", str, str], list[str]],
+    dict[tuple["InternalAccount", str, datetime], list[str]]
+]:
     """
     Function that takes a list of PFNs and classify them in 2 dictionaries : bad_replicas and temporary_unvailables
     :param pfns: List of PFNs
@@ -74,7 +78,11 @@ def __classify_bad_pfns(pfns: list) -> tuple[dict, dict]:
     return bad_replicas, temporary_unvailables
 
 
-def __clean_unknown_replicas(pfns: list, vo: str, logger: "Callable") -> dict:
+def __clean_unknown_replicas(
+        pfns: "Iterable[str]",
+        vo: str,
+        logger: "LoggerFunction"
+) -> dict[str, dict[str, list[str]]]:
     """
     Identify from the list of PFNs the one that are unknown and remove them from the bad_pfns table
     :param pfns: List of PFNs
@@ -108,7 +116,13 @@ def __clean_unknown_replicas(pfns: list, vo: str, logger: "Callable") -> dict:
     return dict_rse
 
 
-def __update_temporary_unavailable(chunk: list, reason: str, expires_at: datetime, account: "InternalAccount", logger: "Callable") -> None:
+def __update_temporary_unavailable(
+        chunk: "Iterable[dict[str, Any]]",
+        reason: str,
+        expires_at: datetime,
+        account: "InternalAccount",
+        logger: "LoggerFunction"
+) -> None:
     """
     Update temporary unavailable replicas one by one
     :param chunk: List of unavailable replicas to update
@@ -301,7 +315,7 @@ def run(threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int =
             thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.is_alive()]
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """

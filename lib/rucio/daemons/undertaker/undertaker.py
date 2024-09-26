@@ -49,7 +49,7 @@ graceful_stop = threading.Event()
 DAEMON_NAME = 'undertaker'
 
 
-def undertaker(once: bool = False, sleep_time: int = 60, chunk_size: int = 10):
+def undertaker(once: bool = False, sleep_time: int = 60, chunk_size: int = 10) -> None:
     """
     Main loop to select and delete dids.
     """
@@ -68,7 +68,7 @@ def undertaker(once: bool = False, sleep_time: int = 60, chunk_size: int = 10):
     )
 
 
-def run_once(paused_dids: dict[tuple, datetime], chunk_size: int, heartbeat_handler: HeartbeatHandler, **_kwargs):
+def run_once(paused_dids: dict[tuple, datetime], chunk_size: int, heartbeat_handler: HeartbeatHandler, **_kwargs) -> None:
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     try:
@@ -114,7 +114,7 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     graceful_stop.set()
 
 
-def run(once: bool = False, total_workers: int = 1, chunk_size: int = 10, sleep_time: int = 60):
+def run(once: bool = False, total_workers: int = 1, chunk_size: int = 10, sleep_time: int = 60) -> None:
     """
     Starts up the undertaker threads.
     """

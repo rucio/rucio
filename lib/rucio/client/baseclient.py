@@ -22,13 +22,11 @@ import os
 import secrets
 import sys
 import time
-from collections.abc import Generator
 from configparser import NoOptionError, NoSectionError
-from logging import Logger
 from os import environ, fdopen, geteuid, makedirs, path
 from shutil import move
 from tempfile import mkstemp
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -43,6 +41,10 @@ from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, ConfigNotFound, MissingClientParameter, MissingModuleException, NoAuthInformation, ServerConnectionException
 from rucio.common.extra import import_extras
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, setup_logger, ssh_sign
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from logging import Logger
 
 EXTRA_MODULES = import_extras(['requests_kerberos'])
 
@@ -90,7 +92,7 @@ class BaseClient:
                  timeout: Optional[int] = 600,
                  user_agent: Optional[str] = 'rucio-clients',
                  vo: Optional[str] = None,
-                 logger: Logger = LOG) -> None:
+                 logger: 'Logger' = LOG) -> None:
         """
         Constructor of the BaseClient.
         :param rucio_host: The address of the rucio server, if None it is read from the config file.
@@ -107,8 +109,6 @@ class BaseClient:
         :param logger: Logger object to use. If None, use the default LOG created by the module
         """
 
-        self.host = rucio_host
-        self.auth_host = auth_host
         self.logger = logger
         self.session = Session()
         self.user_agent = "%s/%s" % (user_agent, version.version_string())  # e.g. "rucio-clients/0.2.13"
@@ -117,9 +117,17 @@ class BaseClient:
         if self.script_id == '':  # Python interpreter used
             self.script_id = 'python'
         try:
-            if self.host is None:
+            if rucio_host is not None:
+                self.host = rucio_host
+            else:
                 self.host = config_get('client', 'rucio_host')
-            if self.auth_host is None:
+        except (NoOptionError, NoSectionError) as error:
+            raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % error.args[0])
+
+        try:
+            if auth_host is not None:
+                self.auth_host = auth_host
+            else:
                 self.auth_host = config_get('client', 'auth_host')
         except (NoOptionError, NoSectionError) as error:
             raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % error.args[0])
@@ -132,7 +140,6 @@ class BaseClient:
 
         self.list_hosts = [self.host]
         self.account = account
-        self.vo = vo
         self.ca_cert = ca_cert
         self.auth_token = ""
         self.headers = {}
@@ -166,6 +173,9 @@ class BaseClient:
                 except (NoOptionError, NoSectionError):
                     self.logger.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
                     self.ca_cert = True
+                except ConfigNotFound:
+                    self.logger.debug('No configuration found. Falling back to Mozilla default CA bundle (certifi).')
+                    self.ca_cert = True
 
         if account is None:
             self.logger.debug('No account passed. Trying to get it from the RUCIO_ACCOUNT environment variable or the config file.')
@@ -177,7 +187,9 @@ class BaseClient:
                 except (NoOptionError, NoSectionError):
                     pass
 
-        if vo is None:
+        if vo is not None:
+            self.vo = vo
+        else:
             self.logger.debug('No VO passed. Trying to get it from environment variable RUCIO_VO.')
             try:
                 self.vo = environ['RUCIO_VO']
@@ -187,6 +199,9 @@ class BaseClient:
                     self.vo = config_get('client', 'vo')
                 except (NoOptionError, NoSectionError):
                     self.logger.debug('No VO found. Using default VO.')
+                    self.vo = 'def'
+                except ConfigNotFound:
+                    self.logger.debug('No configuration found. Using default VO.')
                     self.vo = 'def'
 
         self.auth_token_file_path, self.token_exp_epoch_file, self.token_file, self.token_path = self._get_auth_tokens()
@@ -233,57 +248,62 @@ class BaseClient:
         return auth_type
 
     def _get_creds(self, creds: Optional[dict[str, Any]]) -> dict[str, Any]:
-        if self.auth_type == 'oidc':
-            if not creds:
-                creds = {}
-            # if there are default values, check if rucio.cfg does not specify them, otherwise put default
-            if 'oidc_refresh_lifetime' not in creds or creds['oidc_refresh_lifetime'] is None:
-                creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime', False, None)
-            if 'oidc_issuer' not in creds or creds['oidc_issuer'] is None:
-                creds['oidc_issuer'] = config_get('client', 'oidc_issuer', False, None)
-            if 'oidc_audience' not in creds or creds['oidc_audience'] is None:
-                creds['oidc_audience'] = config_get('client', 'oidc_audience', False, None)
-            if 'oidc_auto' not in creds or creds['oidc_auto'] is False:
-                creds['oidc_auto'] = config_get_bool('client', 'oidc_auto', False, False)
-            if creds['oidc_auto']:
-                if 'oidc_username' not in creds or creds['oidc_username'] is None:
-                    creds['oidc_username'] = config_get('client', 'oidc_username', False, None)
-                if 'oidc_password' not in creds or creds['oidc_password'] is None:
-                    creds['oidc_password'] = config_get('client', 'oidc_password', False, None)
-            if 'oidc_scope' not in creds or creds['oidc_scope'] == 'openid profile':
-                creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
-            if 'oidc_polling' not in creds or creds['oidc_polling'] is False:
-                creds['oidc_polling'] = config_get_bool('client', 'oidc_polling', False, False)
-
-        if creds is None:
+        if not creds:
             self.logger.debug('No creds passed. Trying to get it from the config file.')
             creds = {}
-            try:
-                if self.auth_type in ['userpass', 'saml']:
+
+        try:
+            if self.auth_type == 'oidc':
+                # if there are default values, check if rucio.cfg does not specify them, otherwise put default
+                if 'oidc_refresh_lifetime' not in creds or creds['oidc_refresh_lifetime'] is None:
+                    creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime', False, None)
+                if 'oidc_issuer' not in creds or creds['oidc_issuer'] is None:
+                    creds['oidc_issuer'] = config_get('client', 'oidc_issuer', False, None)
+                if 'oidc_audience' not in creds or creds['oidc_audience'] is None:
+                    creds['oidc_audience'] = config_get('client', 'oidc_audience', False, None)
+                if 'oidc_auto' not in creds or creds['oidc_auto'] is False:
+                    creds['oidc_auto'] = config_get_bool('client', 'oidc_auto', False, False)
+                if creds['oidc_auto']:
+                    if 'oidc_username' not in creds or creds['oidc_username'] is None:
+                        creds['oidc_username'] = config_get('client', 'oidc_username', False, None)
+                    if 'oidc_password' not in creds or creds['oidc_password'] is None:
+                        creds['oidc_password'] = config_get('client', 'oidc_password', False, None)
+                if 'oidc_scope' not in creds or creds['oidc_scope'] == 'openid profile':
+                    creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
+                if 'oidc_polling' not in creds or creds['oidc_polling'] is False:
+                    creds['oidc_polling'] = config_get_bool('client', 'oidc_polling', False, False)
+
+            elif self.auth_type in ['userpass', 'saml']:
+                if 'username' not in creds or creds['username'] is None:
                     creds['username'] = config_get('client', 'username')
+                if 'password' not in creds or creds['password'] is None:
                     creds['password'] = config_get('client', 'password')
-                elif self.auth_type == 'x509':
+
+            elif self.auth_type == 'x509':
+                if 'client_cert' not in creds or creds['client_cert'] is None:
                     if "RUCIO_CLIENT_CERT" in environ:
-                        client_cert = environ["RUCIO_CLIENT_CERT"]
+                        creds['client_cert'] = environ["RUCIO_CLIENT_CERT"]
                     else:
-                        client_cert = config_get('client', 'client_cert')
-                    creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(client_cert)))
-                    if not path.exists(creds['client_cert']):
-                        raise MissingClientParameter('X.509 client certificate not found: %s' % creds['client_cert'])
+                        creds['client_cert'] = config_get('client', 'client_cert')
+                creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(creds['client_cert'])))
+                if not path.exists(creds['client_cert']):
+                    raise MissingClientParameter('X.509 client certificate not found: %s' % creds['client_cert'])
 
+                if 'client_key' not in creds or creds['client_key'] is None:
                     if "RUCIO_CLIENT_KEY" in environ:
-                        client_key = environ["RUCIO_CLIENT_KEY"]
+                        creds['client_key'] = environ["RUCIO_CLIENT_KEY"]
                     else:
-                        client_key = config_get('client', 'client_key')
-                    creds['client_key'] = path.abspath(path.expanduser(path.expandvars(client_key)))
-                    if not path.exists(creds['client_key']):
-                        raise MissingClientParameter('X.509 client key not found: %s' % creds['client_key'])
-                    else:
-                        perms = oct(os.stat(creds['client_key']).st_mode)[-3:]
-                        if perms not in ['400', '600']:
-                            raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (required: 400 or 600, found: %s)' % (creds['client_key'], perms))
+                        creds['client_key'] = config_get('client', 'client_key')
+                creds['client_key'] = path.abspath(path.expanduser(path.expandvars(creds['client_key'])))
+                if not path.exists(creds['client_key']):
+                    raise MissingClientParameter('X.509 client key not found: %s' % creds['client_key'])
+                else:
+                    perms = oct(os.stat(creds['client_key']).st_mode)[-3:]
+                    if perms not in ['400', '600']:
+                        raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (required: 400 or 600, found: %s)' % (creds['client_key'], perms))
 
-                elif self.auth_type == 'x509_proxy':
+            elif self.auth_type == 'x509_proxy':
+                if 'client_proxy' not in creds or creds['client_proxy'] is None:
                     try:
                         creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
                     except NoOptionError:
@@ -301,11 +321,15 @@ class BaseClient:
                                 raise MissingClientParameter(
                                     'Cannot find a valid X509 proxy; not in %s, $X509_USER_PROXY not set, and '
                                     '\'x509_proxy\' not set in the configuration file.' % fname)
-                elif self.auth_type == 'ssh':
+
+            elif self.auth_type == 'ssh':
+                if 'ssh_private_key' not in creds or creds['ssh_private_key'] is None:
                     creds['ssh_private_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'ssh_private_key'))))
-            except (NoOptionError, NoSectionError) as error:
-                if error.args[0] != 'client_key':
-                    raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
+
+        except (NoOptionError, NoSectionError) as error:
+            if error.args[0] != 'client_key':
+                raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
+
         return creds
 
     def _get_exception(self, headers: dict[str, str], status_code: Optional[int] = None, data=None) -> tuple[type[exception.RucioException], str]:
@@ -318,9 +342,12 @@ class BaseClient:
 
         :return: A rucio exception class and an error string.
         """
-        try:
-            data = parse_response(data)
-        except ValueError:
+        if data is not None:
+            try:
+                data = parse_response(data)
+            except ValueError:
+                data = {}
+        else:
             data = {}
 
         exc_cls = 'RucioException'
@@ -339,7 +366,7 @@ class BaseClient:
         else:
             return exception.RucioException, "%s: %s" % (exc_cls, exc_msg)
 
-    def _load_json_data(self, response: requests.Response) -> Generator[Any, Any, Any]:
+    def _load_json_data(self, response: requests.Response) -> 'Generator[Any, Any, Any]':
         """
         Helper method to correctly load json data based on the content type of the http response.
 
@@ -879,8 +906,8 @@ class BaseClient:
             return False
 
         try:
-            token_file_handler = open(self.token_file, 'r')
-            self.auth_token = token_file_handler.readline()
+            with open(self.token_file, 'r') as token_file_handler:
+                self.auth_token = token_file_handler.readline()
             self.headers['X-Rucio-Auth-Token'] = self.auth_token
         except OSError as error:
             print("I/O error({0}): {1}".format(error.errno, error.strerror))

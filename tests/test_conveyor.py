@@ -20,7 +20,7 @@ from unittest.mock import patch
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import and_, delete, select, update
 
 import rucio.daemons.reaper.reaper
 from rucio.common.constants import RseAttr
@@ -60,7 +60,16 @@ TEST_FTS_HOST = 'https://fts:8446'
 
 @transactional_session
 def __update_request(request_id, *, session=None, **kwargs):
-    session.query(models.Request).filter_by(id=request_id).update(kwargs, synchronize_session=False)
+    stmt = update(
+        models.Request
+    ).where(
+        models.Request.id == request_id
+    ).execution_options(
+        synchronize_session=False
+    ).values(
+        kwargs
+    )
+    session.execute(stmt)
 
 
 def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=MAX_POLL_WAIT_SECONDS, transfertool=None):
@@ -119,12 +128,15 @@ def set_query_parameters(url, params):
 
 @read_session
 def __get_source(request_id, src_rse_id, scope, name, *, session=None):
-    return session.query(models.Source) \
-        .filter(models.Source.request_id == request_id) \
-        .filter(models.Source.scope == scope) \
-        .filter(models.Source.name == name) \
-        .filter(models.Source.rse_id == src_rse_id) \
-        .first()
+    stmt = select(
+        models.Source
+    ).where(
+        and_(models.Source.request_id == request_id,
+             models.Source.scope == scope,
+             models.Source.name == name,
+             models.Source.rse_id == src_rse_id)
+    )
+    return session.execute(stmt).scalar()
 
 
 @pytest.fixture
@@ -254,8 +266,19 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
 
         @transactional_session
         def _cleanup_all_usage_and_limits(rse_id, *, session=None):
-            session.query(models.RSELimit).filter_by(rse_id=rse_id).delete()
-            session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='storage').delete()
+            stmt = delete(
+                models.RSELimit
+            ).where(
+                models.RSELimit.rse_id == rse_id
+            )
+            session.execute(stmt)
+            stmt = delete(
+                models.RSEUsage
+            ).where(
+                and_(models.RSEUsage.rse_id == rse_id,
+                     models.RSEUsage.source == 'storage')
+            )
+            session.execute(stmt)
 
         _cleanup_all_usage_and_limits(rse_id=jump_rse_id)
 
@@ -387,11 +410,14 @@ def test_multisource(vo, did_factory, root_account, replica_client, caches_mock,
 
     @read_session
     def __source_exists(src_rse_id, scope, name, *, session=None):
-        return session.query(models.Source) \
-            .filter(models.Source.rse_id == src_rse_id) \
-            .filter(models.Source.scope == scope) \
-            .filter(models.Source.name == name) \
-            .count() != 0
+        stmt = select(
+            models.Source
+        ).where(
+            and_(models.Source.rse_id == src_rse_id,
+                 models.Source.scope == scope,
+                 models.Source.name == name)
+        )
+        return session.execute(stmt).scalar_one_or_none() is not None
 
     # Entries in the source table must be created for both sources of the multi-source transfer
     assert __source_exists(src_rse_id=src_rse1_id, **did)
@@ -780,11 +806,9 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
             models.Request
         ).where(
             models.Request.id.in_(request_ids)
-        ).values(
-            {
-                models.Request.last_processed_at: timestamp
-            }
-        )
+        ).values({
+            models.Request.last_processed_at: timestamp
+        })
         session.execute(stmt)
 
     __set_process_timestamp([request['id'] for request in [request3, request4]], datetime.utcnow() - timedelta(days=2))

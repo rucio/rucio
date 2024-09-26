@@ -17,7 +17,6 @@ import itertools
 import logging
 import threading
 import weakref
-from collections.abc import Callable, Iterable, Iterator
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union, cast
 
@@ -35,8 +34,10 @@ from rucio.rse import rsemanager as rsemgr
 _Number = Union[int, Decimal]
 TN = TypeVar("TN", bound="Node")
 TE = TypeVar("TE", bound="Edge")
+ExpiringObjectCacheNewObject = TypeVar("ExpiringObjectCacheNewObject")
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Iterator
     from typing import Protocol
 
     from sqlalchemy.orm import Session
@@ -122,7 +123,7 @@ class Topology(RseCollection, Generic[TN, TE]):
     """
     def __init__(
             self,
-            rse_ids: Optional[Iterable[str]] = None,
+            rse_ids: Optional["Iterable[str]"] = None,
             ignore_availability: bool = False,
             node_cls: type[TN] = Node,
             edge_cls: type[TE] = Edge,
@@ -283,7 +284,7 @@ class Topology(RseCollection, Generic[TN, TE]):
     @read_session
     def search_shortest_paths(
             self,
-            src_nodes: Iterable[TN],
+            src_nodes: "Iterable[TN]",
             dst_node: TN,
             operation_src: str,
             operation_dest: str,
@@ -423,20 +424,24 @@ class Topology(RseCollection, Generic[TN, TE]):
                             priority_q[adjacent_node] = new_adjacent_dist
 
 
-class ExpiringObjectCache:
+class ExpiringObjectCache(Generic[ExpiringObjectCacheNewObject]):
     """
     Thread-safe container which builds and object with the function passed in parameter and
     caches it for the TTL duration.
     """
 
-    def __init__(self, ttl, new_obj_fnc):
+    def __init__(
+            self,
+            ttl: int,
+            new_obj_fnc: "Callable[[], ExpiringObjectCacheNewObject]"
+    ):
         self._lock = threading.Lock()
-        self._object = None
-        self._creation_time = None
+        self._object: Optional[ExpiringObjectCacheNewObject] = None
+        self._creation_time: Optional[datetime.datetime] = None
         self._new_obj_fnc = new_obj_fnc
         self._ttl = ttl
 
-    def get(self, logger: "LoggerFunction" = logging.log) -> object:
+    def get(self, logger: "LoggerFunction" = logging.log) -> ExpiringObjectCacheNewObject:
         with self._lock:
             if not self._object \
                     or not self._creation_time \

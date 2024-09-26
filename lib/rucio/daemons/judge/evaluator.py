@@ -24,7 +24,7 @@ import traceback
 from datetime import datetime, timedelta
 from random import randint
 from re import match
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm.exc import FlushError
@@ -35,19 +35,22 @@ from rucio.common.logging import setup_logging
 from rucio.common.types import InternalScope
 from rucio.core.monitor import MetricManager
 from rucio.core.rule import delete_updated_did, get_updated_dids, re_evaluate_did
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import HeartbeatHandler, run_daemon
 from rucio.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX, ORACLE_UNIQUE_CONSTRAINT_VIOLATED_REGEX
 
 if TYPE_CHECKING:
     from types import FrameType
-    from typing import Optional
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 DAEMON_NAME = 'judge-evaluator'
 
 
-def re_evaluator(once=False, sleep_time=30, did_limit=100):
+def re_evaluator(
+        once: bool = False,
+        sleep_time: int = 30,
+        did_limit: int = 100
+) -> None:
     """
     Main loop to check the re-evaluation of dids.
     """
@@ -67,7 +70,12 @@ def re_evaluator(once=False, sleep_time=30, did_limit=100):
     )
 
 
-def run_once(paused_dids, did_limit, heartbeat_handler, **_kwargs):
+def run_once(
+        paused_dids: dict[tuple[str, str], datetime],
+        did_limit: int,
+        heartbeat_handler: HeartbeatHandler,
+        **_kwargs
+) -> None:
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     # heartbeat
@@ -142,7 +150,7 @@ def run_once(paused_dids, did_limit, heartbeat_handler, **_kwargs):
             logger(logging.WARNING, 'Flush error for %s:%s', did.scope, did.name)
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
@@ -150,7 +158,12 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     graceful_stop.set()
 
 
-def run(once=False, threads=1, sleep_time=30, did_limit=100):
+def run(
+        once: bool = False,
+        threads: int = 1,
+        sleep_time: int = 30,
+        did_limit: int = 100
+) -> None:
     """
     Starts up the Judge-Eval threads.
     """
@@ -163,10 +176,10 @@ def run(once=False, threads=1, sleep_time=30, did_limit=100):
         re_evaluator(once=once, did_limit=did_limit)
     else:
         logging.info('Evaluator starting %s threads' % str(threads))
-        threads = [threading.Thread(target=re_evaluator, kwargs={'once': once,
-                                                                 'sleep_time': sleep_time,
-                                                                 'did_limit': did_limit}) for i in range(0, threads)]
-        [t.start() for t in threads]
+        thread_list = [threading.Thread(target=re_evaluator, kwargs={'once': once,
+                                                                     'sleep_time': sleep_time,
+                                                                     'did_limit': did_limit}) for i in range(0, threads)]
+        [t.start() for t in thread_list]
         # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+        while thread_list[0].is_alive():
+            [t.join(timeout=3.14) for t in thread_list]

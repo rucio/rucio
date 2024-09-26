@@ -22,7 +22,7 @@ from configparser import NoOptionError, NoSectionError
 from datetime import datetime
 from json import load
 from os import remove, rmdir
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.db.sqla.util
 from rucio.client import Client
@@ -31,25 +31,26 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.types import InternalScope
+from rucio.common.types import InternalScope, LoggerFunction
 from rucio.common.utils import execute, generate_uuid
 from rucio.core.monitor import MetricManager
 from rucio.core.scope import list_scopes
 from rucio.core.vo import map_vo
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from types import FrameType
-    from typing import Optional
 
-    from rucio.daemons.common import HeartbeatHandler
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 DAEMON_NAME = "automatix"
 
 
-def get_data_distribution(inputfile: str):
+def get_data_distribution(
+        inputfile: str
+) -> tuple[dict[str, int], dict[str, Any]]:
     with open(inputfile) as data_file:
         data = load(data_file)
     probabilities = {}
@@ -62,7 +63,10 @@ def get_data_distribution(inputfile: str):
     return probabilities, data
 
 
-def choose_element(probabilities: dict, data: str) -> float:
+def choose_element(
+        probabilities: "Mapping[str, int]",
+        data: "Mapping[str, Any]"
+) -> dict[str, Any]:
     rnd = random.uniform(0, 1)  # noqa: S311
     prob = 0
     for key in probabilities:
@@ -72,7 +76,11 @@ def choose_element(probabilities: dict, data: str) -> float:
     return data[key]
 
 
-def generate_file(fname: str, size: int, logger=logging.log) -> int:
+def generate_file(
+        fname: str,
+        size: int,
+        logger: LoggerFunction = logging.log
+) -> int:
     cmd = "/bin/dd if=/dev/urandom of=%s bs=%s count=1" % (fname, size)
     exitcode, out, err = execute(cmd)
     logger(logging.DEBUG, out)
@@ -80,7 +88,11 @@ def generate_file(fname: str, size: int, logger=logging.log) -> int:
     return exitcode
 
 
-def generate_didname(metadata: dict, dsn: str, did_type: str) -> str:
+def generate_didname(
+        metadata: "Mapping[str, str]",
+        dsn: Optional[str],
+        did_type: str
+) -> str:
     try:
         did_prefix = config_get("automatix", "did_prefix")
     except (NoOptionError, NoSectionError, RuntimeError):
@@ -133,7 +145,7 @@ def automatix(inputfile: str, sleep_time: int, once: bool = False) -> None:
     )
 
 
-def run_once(heartbeat_handler: "HeartbeatHandler", inputfile: str, **_kwargs) -> bool:
+def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> bool:
 
     _, _, logger = heartbeat_handler.live()
     try:
@@ -274,7 +286,7 @@ def run(
         [thread.join(timeout=3.14) for thread in threads]
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """

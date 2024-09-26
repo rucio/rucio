@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from rucio.common.config import config_get_bool
 from rucio.common.exception import AccessDenied
@@ -25,11 +24,13 @@ from rucio.db.sqla.session import read_session, stream_session, transactional_se
 from rucio.gateway.permission import has_permission
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator, Sequence
+
     from sqlalchemy.orm import Session
 
 
 @read_session
-def is_multi_vo(*, session: "Session"):
+def is_multi_vo(*, session: "Session") -> bool:
     """
     Check whether this instance is configured for multi-VO
     returns: Boolean True if running in multi-VO
@@ -38,9 +39,33 @@ def is_multi_vo(*, session: "Session"):
 
 
 @transactional_session
-def add_replication_rule(dids, copies, rse_expression, weight, lifetime, grouping, account, locked, subscription_id, source_replica_expression,
-                         activity, notify, purge_replicas, ignore_availability, comment, ask_approval, asynchronous, delay_injection, priority,
-                         split_container, meta, issuer, vo='def', *, session: "Session"):
+def add_replication_rule(
+    dids: "Sequence[dict[str, str]]",
+    copies: int,
+    rse_expression: str,
+    weight: Optional[str],
+    lifetime: Optional[int],
+    grouping: Literal['ALL', 'DATASET', 'NONE'],
+    account: str,
+    locked: bool,
+    subscription_id: Optional[str],
+    source_replica_expression: Optional[str],
+    activity: Optional[str],
+    notify: Optional[Literal['Y', 'N', 'C', 'P']],
+    purge_replicas: bool,
+    ignore_availability: bool,
+    comment: Optional[str],
+    ask_approval: bool,
+    asynchronous: bool,
+    delay_injection: Optional[int],
+    priority: int,
+    split_container: bool,
+    meta: Optional[dict[str, Any]],
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> list[str]:
     """
     Adds a replication rule.
 
@@ -89,12 +114,11 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
     if not has_permission(issuer=issuer, vo=vo, action='add_rule', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not add replication rule' % (issuer))
 
-    account = InternalAccount(account, vo=vo)
-    for d in dids:
-        d['scope'] = InternalScope(d['scope'], vo=vo)
+    account_internal = InternalAccount(account, vo=vo)
+    dids_with_internal_scope = [{'name': d['name'], 'scope': InternalScope(d['scope'], vo=vo)} for d in dids]
 
-    return rule.add_rule(account=account,
-                         dids=dids,
+    return rule.add_rule(account=account_internal,
+                         dids=dids_with_internal_scope,
                          copies=copies,
                          rse_expression=rse_expression,
                          grouping=grouping,
@@ -118,7 +142,7 @@ def add_replication_rule(dids, copies, rse_expression, weight, lifetime, groupin
 
 
 @read_session
-def get_replication_rule(rule_id, issuer, vo='def', *, session: "Session"):
+def get_replication_rule(rule_id: str, issuer: str, vo: str = 'def', *, session: "Session") -> dict[str, Any]:
     """
     Get replication rule by it's id.
 
@@ -135,7 +159,12 @@ def get_replication_rule(rule_id, issuer, vo='def', *, session: "Session"):
 
 
 @stream_session
-def list_replication_rules(filters: Optional[dict[str, Any]] = None, vo: str = 'def', *, session: "Session") -> Iterator[dict[str, Any]]:
+def list_replication_rules(
+    filters: Optional[dict[str, Any]] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> "Iterator[dict[str, Any]]":
     """
     Lists replication rules based on a filter.
 
@@ -164,7 +193,13 @@ def list_replication_rules(filters: Optional[dict[str, Any]] = None, vo: str = '
 
 
 @read_session
-def list_replication_rule_history(rule_id, issuer, vo='def', *, session: "Session"):
+def list_replication_rule_history(
+    rule_id: str,
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> "Iterator[dict[str, Any]]":
     """
     Lists replication rule history..
 
@@ -180,7 +215,13 @@ def list_replication_rule_history(rule_id, issuer, vo='def', *, session: "Sessio
 
 
 @stream_session
-def list_replication_rule_full_history(scope, name, vo='def', *, session: "Session"):
+def list_replication_rule_full_history(
+    scope: str,
+    name: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> "Iterator[dict[str, Any]]":
     """
     List the rule history of a DID.
 
@@ -189,14 +230,20 @@ def list_replication_rule_full_history(scope, name, vo='def', *, session: "Sessi
     :param vo: The VO to act on.
     :param session: The database session in use.
     """
-    scope = InternalScope(scope, vo=vo)
-    rules = rule.list_rule_full_history(scope, name, session=session)
+    scope_internal = InternalScope(scope, vo=vo)
+    rules = rule.list_rule_full_history(scope_internal, name, session=session)
     for r in rules:
         yield gateway_update_return_dict(r, session=session)
 
 
 @stream_session
-def list_associated_replication_rules_for_file(scope, name, vo='def', *, session: "Session"):
+def list_associated_replication_rules_for_file(
+    scope: str,
+    name: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> "Iterator[dict[str, Any]]":
     """
     Lists associated replication rules by file.
 
@@ -205,14 +252,21 @@ def list_associated_replication_rules_for_file(scope, name, vo='def', *, session
     :param vo: The VO to act on.
     :param session: The database session in use.
     """
-    scope = InternalScope(scope, vo=vo)
-    rules = rule.list_associated_rules_for_file(scope=scope, name=name, session=session)
+    scope_internal = InternalScope(scope, vo=vo)
+    rules = rule.list_associated_rules_for_file(scope=scope_internal, name=name, session=session)
     for r in rules:
         yield gateway_update_return_dict(r, session=session)
 
 
 @transactional_session
-def delete_replication_rule(rule_id, purge_replicas, issuer, vo='def', *, session: "Session"):
+def delete_replication_rule(
+    rule_id: str,
+    purge_replicas: Optional[bool],
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Deletes a replication rule and all associated locks.
 
@@ -232,7 +286,14 @@ def delete_replication_rule(rule_id, purge_replicas, issuer, vo='def', *, sessio
 
 
 @transactional_session
-def update_replication_rule(rule_id: str, options: dict[str, Any], issuer: str, vo: str = 'def', *, session: "Session"):
+def update_replication_rule(
+    rule_id: str,
+    options: dict[str, Any],
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Update lock state of a replication rule.
 
@@ -264,7 +325,15 @@ def update_replication_rule(rule_id: str, options: dict[str, Any], issuer: str, 
 
 
 @transactional_session
-def reduce_replication_rule(rule_id, copies, exclude_expression, issuer, vo='def', *, session: "Session"):
+def reduce_replication_rule(
+    rule_id: str,
+    copies: int,
+    exclude_expression: Optional[str],
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> str:
     """
     Reduce the number of copies for a rule by atomically replacing the rule.
 
@@ -286,7 +355,13 @@ def reduce_replication_rule(rule_id, copies, exclude_expression, issuer, vo='def
 
 
 @read_session
-def examine_replication_rule(rule_id, issuer, vo='def', *, session: "Session"):
+def examine_replication_rule(
+    rule_id: str,
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Examine a replication rule.
 
@@ -306,7 +381,15 @@ def examine_replication_rule(rule_id, issuer, vo='def', *, session: "Session"):
 
 
 @transactional_session
-def move_replication_rule(rule_id, rse_expression, override, issuer, vo='def', *, session: "Session"):
+def move_replication_rule(
+    rule_id: str,
+    rse_expression: str,
+    override: dict[str, Any],
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> str:
     """
     Move a replication rule to another RSE and, once done, delete the original one.
 

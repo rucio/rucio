@@ -14,14 +14,17 @@
 
 from datetime import datetime
 from json import dumps
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.exception import DeprecationError
-from rucio.common.utils import build_url, date_to_str, render_json, render_json_list
+from rucio.common.utils import build_url, date_to_str, render_json
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
 
 
 class DIDClient(BaseClient):
@@ -31,7 +34,14 @@ class DIDClient(BaseClient):
     DIDS_BASEURL = 'dids'
     ARCHIVES_BASEURL = 'archives'
 
-    def list_dids(self, scope, filters, did_type='collection', long=False, recursive=False):
+    def list_dids(
+            self,
+            scope: str,
+            filters: "Sequence[dict[str, Any]]",
+            did_type: Literal['all', 'collection', 'dataset', 'container', 'file'] = 'collection',
+            long: bool = False,
+            recursive: bool = False
+    ) -> "Iterator[dict[str, Any]]":
         """
         List all data identifiers in a scope which match a given pattern.
 
@@ -78,14 +88,25 @@ class DIDClient(BaseClient):
         """
         raise DeprecationError("Command or function has been deprecated. Please use list_dids instead.")
 
-    def add_did(self, scope, name, did_type, statuses=None, meta=None, rules=None, lifetime=None, dids=None, rse=None):
+    def add_did(
+            self,
+            scope: str,
+            name: str,
+            did_type: Literal['FILE', 'DATASET', 'CONTAINER'],
+            statuses: Optional["Mapping[str, Any]"] = None,
+            meta: Optional["Mapping[str, Any]"] = None,
+            rules: Optional["Sequence[Mapping[str, Any]]"] = None,
+            lifetime: Optional[int] = None,
+            dids: Optional["Sequence[Mapping[str, Any]]"] = None,
+            rse: Optional[str] = None
+    ) -> bool:
         """
         Add data identifier for a dataset or container.
 
         :param scope: The scope name.
         :param name: The data identifier name.
         :param did_type: The data identifier type (file|dataset|container).
-        :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
+        :param statuses: Dictionary with statuses, e.g. {'monotonic':True}.
         :param meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
         :param rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
         :param lifetime: DID's lifetime (in seconds).
@@ -95,7 +116,7 @@ class DIDClient(BaseClient):
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
         # Build json
-        data = {'type': did_type}
+        data: dict[str, Any] = {'type': did_type}
         if statuses:
             data['statuses'] = statuses
         if meta:
@@ -115,20 +136,30 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def add_dids(self, dids):
+    def add_dids(self, dids: "Sequence[Mapping[str, Any]]") -> bool:
         """
         Bulk add datasets/containers.
         """
         path = '/'.join([self.DIDS_BASEURL])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='POST', data=render_json_list(dids))
+        r = self._send_request(url, type_='POST', data=render_json(dids))
         if r.status_code == codes.created:
             return True
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def add_dataset(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None, files=None, rse=None):
+    def add_dataset(
+            self,
+            scope: str,
+            name: str,
+            statuses: Optional["Mapping[str, Any]"] = None,
+            meta: Optional["Mapping[str, Any]"] = None,
+            rules: Optional["Sequence[Mapping[str, Any]]"] = None,
+            lifetime: Optional[int] = None,
+            files: Optional["Sequence[Mapping[str, Any]]"] = None,
+            rse: Optional[str] = None
+    ) -> bool:
         """
         Add data identifier for a dataset.
 
@@ -145,7 +176,7 @@ class DIDClient(BaseClient):
                             statuses=statuses, meta=meta, rules=rules,
                             lifetime=lifetime, dids=files, rse=rse)
 
-    def add_datasets(self, dsns):
+    def add_datasets(self, dsns: "Iterable[dict[str, Any]]") -> bool:
         """
         Bulk add datasets.
 
@@ -153,7 +184,15 @@ class DIDClient(BaseClient):
         """
         return self.add_dids(dids=[dict(list(dsn.items()) + [('type', 'DATASET')]) for dsn in dsns])
 
-    def add_container(self, scope, name, statuses=None, meta=None, rules=None, lifetime=None):
+    def add_container(
+            self,
+            scope: str,
+            name: str,
+            statuses: Optional["Mapping[str, Any]"] = None,
+            meta: Optional["Mapping[str, Any]"] = None,
+            rules: Optional["Sequence[Mapping[str, Any]]"] = None,
+            lifetime: Optional[int] = None
+    ) -> bool:
         """
         Add data identifier for a container.
 
@@ -166,15 +205,21 @@ class DIDClient(BaseClient):
         """
         return self.add_did(scope=scope, name=name, did_type='CONTAINER', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
 
-    def add_containers(self, cnts):
+    def add_containers(self, cnts: "Sequence[dict[str, Any]]") -> bool:
         """
         Bulk add containers.
 
         :param cnts: A list of containers.
         """
-        return self.add_dids(dids=[dict(list(cnts.items()) + [('type', 'CONTAINER')]) for cnt in cnts])
+        return self.add_dids(dids=[dict(list(cnt.items()) + [('type', 'CONTAINER')]) for cnt in cnts])
 
-    def attach_dids(self, scope, name, dids, rse=None):
+    def attach_dids(
+            self,
+            scope: str,
+            name: str,
+            dids: "Sequence[Mapping[str, Any]]",
+            rse: Optional[str] = None
+    ) -> bool:
         """
         Attach data identifier.
 
@@ -185,7 +230,7 @@ class DIDClient(BaseClient):
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids'])
         url = build_url(choice(self.list_hosts), path=path)
-        data = {'dids': dids}
+        data: dict[str, Any] = {'dids': dids}
         if rse:
             data['rse'] = rse
         r = self._send_request(url, type_='POST', data=render_json(**data))
@@ -195,7 +240,12 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def detach_dids(self, scope, name, dids):
+    def detach_dids(
+            self,
+            scope: str,
+            name: str,
+            dids: Optional["Sequence[Mapping[str, Any]]"] = None
+    ) -> bool:
         """
         Detach data identifier
 
@@ -213,7 +263,11 @@ class DIDClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def attach_dids_to_dids(self, attachments, ignore_duplicate=False):
+    def attach_dids_to_dids(
+            self,
+            attachments: "Sequence[dict[str, Union[str, Sequence[dict[str, Any]]]]]",
+            ignore_duplicate: bool = False
+    ) -> bool:
         """
         Add dids to dids.
 
@@ -233,7 +287,11 @@ class DIDClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def add_files_to_datasets(self, attachments, ignore_duplicate=False):
+    def add_files_to_datasets(
+            self,
+            attachments: "Sequence[dict[str, Union[str, Sequence[dict[str, Any]]]]]",
+            ignore_duplicate: bool = False
+    ) -> bool:
         """
         Add files to datasets.
 
@@ -246,7 +304,10 @@ class DIDClient(BaseClient):
         return self.attach_dids_to_dids(attachments=attachments,
                                         ignore_duplicate=ignore_duplicate)
 
-    def add_datasets_to_containers(self, attachments):
+    def add_datasets_to_containers(
+            self,
+            attachments: "Sequence[dict[str, Union[str, Sequence[dict[str, Any]]]]]"
+    ) -> bool:
         """
         Add datasets_to_containers.
 
@@ -257,7 +318,10 @@ class DIDClient(BaseClient):
         """
         return self.attach_dids_to_dids(attachments=attachments)
 
-    def add_containers_to_containers(self, attachments):
+    def add_containers_to_containers(
+            self,
+            attachments: "Sequence[dict[str, Union[str, Sequence[dict[str, Any]]]]]"
+    ) -> bool:
         """
         Add containers_to_containers.
 
@@ -268,7 +332,13 @@ class DIDClient(BaseClient):
         """
         return self.attach_dids_to_dids(attachments=attachments)
 
-    def add_files_to_dataset(self, scope, name, files, rse=None):
+    def add_files_to_dataset(
+            self,
+            scope: str,
+            name: str,
+            files: "Sequence[Mapping[str, Any]]",
+            rse: Optional[str] = None
+    ) -> bool:
         """
         Add files to datasets.
 
@@ -279,7 +349,12 @@ class DIDClient(BaseClient):
         """
         return self.attach_dids(scope=scope, name=name, dids=files, rse=rse)
 
-    def add_files_to_archive(self, scope, name, files):
+    def add_files_to_archive(
+            self,
+            scope: str,
+            name: str,
+            files: "Sequence[Mapping[str, Any]]"
+    ) -> bool:
         """
         Add files to archive.
 
@@ -289,7 +364,12 @@ class DIDClient(BaseClient):
         """
         return self.attach_dids(scope=scope, name=name, dids=files)
 
-    def add_datasets_to_container(self, scope, name, dsns):
+    def add_datasets_to_container(
+            self,
+            scope: str,
+            name: str,
+            dsns: "Sequence[Mapping[str, Any]]"
+    ) -> bool:
         """
         Add datasets to container.
 
@@ -299,7 +379,12 @@ class DIDClient(BaseClient):
         """
         return self.attach_dids(scope=scope, name=name, dids=dsns)
 
-    def add_containers_to_container(self, scope, name, cnts):
+    def add_containers_to_container(
+            self,
+            scope: str,
+            name: str,
+            cnts: "Sequence[Mapping[str, Any]]"
+    ) -> bool:
         """
         Add containers to container.
 
@@ -309,7 +394,11 @@ class DIDClient(BaseClient):
         """
         return self.attach_dids(scope=scope, name=name, dids=cnts)
 
-    def list_content(self, scope, name):
+    def list_content(
+        self,
+        scope: str,
+        name: str
+    ) -> "Iterator[dict[str, Any]]":
         """
         List data identifier contents.
 
@@ -325,7 +414,11 @@ class DIDClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_content_history(self, scope, name):
+    def list_content_history(
+            self,
+            scope: str,
+            name: str
+    ) -> "Iterator[dict[str, Any]]":
         """
         List data identifier contents history.
 
@@ -341,7 +434,12 @@ class DIDClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def list_files(self, scope: str, name: str, long: Optional[bool] = None):
+    def list_files(
+            self,
+            scope: str,
+            name: str,
+            long: Optional[bool] = None
+    ) -> "Iterator[dict[str, Any]]":
         """
         List data identifier file contents.
 
@@ -363,7 +461,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def bulk_list_files(self, dids: list[dict[str, Any]]):
+    def bulk_list_files(self, dids: list[dict[str, Any]]) -> "Iterator[dict[str, Any]]":
         """
         List data identifier file contents.
 
@@ -381,7 +479,13 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def get_did(self, scope, name, dynamic=False, dynamic_depth=None):
+    def get_did(
+            self,
+            scope: str,
+            name: str,
+            dynamic: bool = False,
+            dynamic_depth: Optional[str] = None
+    ) -> dict[str, Any]:
         """
         Retrieve a single data identifier.
 
@@ -406,7 +510,12 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def get_metadata(self, scope, name, plugin='DID_COLUMN'):
+    def get_metadata(
+            self,
+            scope: str,
+            name: str,
+            plugin: str = 'DID_COLUMN'
+    ) -> dict[str, Any]:
         """
         Get data identifier metadata
 
@@ -426,7 +535,11 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def get_metadata_bulk(self, dids, inherit=False):
+    def get_metadata_bulk(
+            self,
+            dids: "Sequence[Mapping[str, Any]]",
+            inherit: bool = False
+    ) -> "Iterator[dict[str, Any]]":
         """
         Bulk get data identifier metadata
         :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
@@ -441,7 +554,14 @@ class DIDClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def set_metadata(self, scope, name, key, value, recursive=False):
+    def set_metadata(
+            self,
+            scope: str,
+            name: str,
+            key: str,
+            value: Any,
+            recursive: bool = False
+    ) -> bool:
         """
         Set data identifier metadata
 
@@ -461,14 +581,19 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def set_metadata_bulk(self, scope, name, meta, recursive=False):
+    def set_metadata_bulk(
+            self,
+            scope: str,
+            name: str,
+            meta: "Mapping[str, Any]",
+            recursive: bool = False
+    ) -> bool:
         """
         Set data identifier metadata in bulk.
 
         :param scope: The scope name.
         :param name: The data identifier name.
         :param meta: the metadata key-values.
-        :type meta: dict
         :param recursive: Option to propagate the metadata change to content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
@@ -481,11 +606,15 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def set_dids_metadata_bulk(self, dids, recursive=False):
+    def set_dids_metadata_bulk(
+            self,
+            dids: "Sequence[Mapping[str, Any]]",
+            recursive: bool = False
+    ) -> bool:
         """
         Set metadata to a list of data identifiers.
 
-        :param dids: A list of dids including metadata, i.e. [['scope': scope1, 'name': name1, 'meta': {key1: value1, key2: value2}] .
+        :param dids: A list of dids including metadata, i.e. [{'scope': scope1, 'name': name1, 'meta': {key1: value1, key2: value2}] .
         :param recursive: Option to propagate the metadata update to content.
         """
         path = '/'.join([self.DIDS_BASEURL, 'bulkdidsmeta'])
@@ -498,7 +627,12 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def set_status(self, scope, name, **kwargs):
+    def set_status(
+            self,
+            scope: str,
+            name: str,
+            **kwargs
+    ) -> bool:
         """
         Set data identifier status
 
@@ -516,7 +650,11 @@ class DIDClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def close(self, scope, name):
+    def close(
+            self,
+            scope: str,
+            name: str
+    ) -> bool:
         """
         close dataset/container
 
@@ -525,7 +663,12 @@ class DIDClient(BaseClient):
         """
         return self.set_status(scope=scope, name=name, open=False)
 
-    def delete_metadata(self, scope, name, key):
+    def delete_metadata(
+            self,
+            scope: str,
+            name: str,
+            key: str
+    ) -> bool:
         """
         Delete data identifier metadata
 
@@ -543,7 +686,11 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_did_rules(self, scope, name):
+    def list_did_rules(
+            self,
+            scope: str,
+            name: str
+    ) -> "Iterator[dict[str, Any]]":
         """
         List the associated rules of a data identifier.
 
@@ -560,7 +707,11 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_associated_rules_for_file(self, scope, name):
+    def list_associated_rules_for_file(
+            self,
+            scope: str,
+            name: str
+    ) -> "Iterator[dict[str, Any]]":
         """
         List the associated rules a file is affected from..
 
@@ -577,7 +728,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def get_dataset_by_guid(self, guid):
+    def get_dataset_by_guid(self, guid: str) -> "Iterator[dict[str, Any]]":
         """
         Get the parent datasets for a given GUID.
         :param guid: The GUID.
@@ -594,7 +745,12 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def scope_list(self, scope, name=None, recursive=False):
+    def scope_list(
+            self,
+            scope: str,
+            name: Optional[str] = None,
+            recursive: bool = False
+    ) -> "Iterator[dict[str, Any]]":
         """
         List data identifiers in a scope.
 
@@ -618,7 +774,11 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_parent_dids(self, scope, name):
+    def list_parent_dids(
+            self,
+            scope: str,
+            name: str
+    ) -> "Iterator[dict[str, Any]]":
         """
         List parent dataset/containers of a did.
 
@@ -636,7 +796,14 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def create_did_sample(self, input_scope, input_name, output_scope, output_name, nbfiles):
+    def create_did_sample(
+            self,
+            input_scope: str,
+            input_name: str,
+            output_scope: str,
+            output_name: str,
+            nbfiles: int
+    ) -> bool:
         """
         Create a sample from an input collection.
 
@@ -663,7 +830,7 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def resurrect(self, dids):
+    def resurrect(self, dids: "Sequence[Mapping[str, Any]]") -> bool:
         """
         Resurrect a list of dids.
 
@@ -678,7 +845,11 @@ class DIDClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_archive_content(self, scope, name):
+    def list_archive_content(
+            self,
+            scope: str,
+            name: str
+    ) -> "Iterator[dict[str, Any]]":
         """
         List archive contents.
 

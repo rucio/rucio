@@ -20,8 +20,7 @@ import math
 import threading
 import traceback
 from collections import defaultdict
-from types import FrameType
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, TypedDict, Union
 
 from sqlalchemy import null
 
@@ -30,13 +29,53 @@ from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.request import get_request_stats, re_sync_all_transfer_limits, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo, reset_stale_waiting_requests, set_transfer_limit_stats
-from rucio.core.rse import RseCollection
+from rucio.core.rse import RseCollection, RseData
 from rucio.core.transfer import applicable_rse_transfer_limits
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
 from rucio.db.sqla.constants import RequestState, TransferLimitDirection
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from types import FrameType
+
+    from rucio.common.types import InternalAccount, LoggerFunction
     from rucio.daemons.common import HeartbeatHandler
+
+    class LimitDict(TypedDict):
+        activity: Optional[str]
+        direction: TransferLimitDirection
+        waitings: int
+        transfers: int
+        max_transfers: int
+        rse_expression: str
+        strategy: str
+        volume: int
+        deadline: int
+
+    class AccountStatDict(TypedDict):
+        waiting: int
+        active: int
+        residual_capacity: float
+
+    class StatDict(TypedDict):
+        accounts: AccountStatDict
+        residual_capacity: float
+        waiting: int
+        active: int
+
+    class LimitStatDict(TypedDict):
+        limit: LimitDict
+        stat: StatDict
+
+    ReleaseGroupsDict = dict[
+        tuple[
+            RseData,         # source_rse
+            RseData,         # dest_rse
+            str,             # activity
+        ],
+        list[LimitStatDict]  # applicable_limits
+    ]
+
 
 GRACEFUL_STOP = threading.Event()
 METRICS = MetricManager(module=__name__)
@@ -44,10 +83,10 @@ DAEMON_NAME = 'conveyor-throttler'
 
 
 def throttler(
-        once=False,
-        sleep_time=600,
-        partition_wait_time=10
-):
+        once: bool = False,
+        sleep_time: int = 600,
+        partition_wait_time: int = 10
+) -> None:
     """
     Main loop to check rse transfer limits.
     """
@@ -60,7 +99,11 @@ def throttler(
         executable=DAEMON_NAME,
         partition_wait_time=partition_wait_time,
         sleep_time=sleep_time)
-    def _db_producer(*, activity: str, heartbeat_handler: "HeartbeatHandler"):
+    def _db_producer(
+            *,
+            activity: str,
+            heartbeat_handler: "HeartbeatHandler"
+    ) -> tuple[bool, Optional["ReleaseGroupsDict"]]:
         worker_number, total_workers, logger = heartbeat_handler.live()
         if worker_number != 0:
             logger(logging.INFO, 'Throttler thread id is not 0, will sleep. Only thread 0 will work')
@@ -71,7 +114,7 @@ def throttler(
         release_groups = _get_request_stats(rse_collection, logger=logger)
         return True, release_groups
 
-    def _consumer(release_groups):
+    def _consumer(release_groups: Optional["ReleaseGroupsDict"]) -> None:
         if release_groups is None:
             return
         logger = logging.log
@@ -89,7 +132,7 @@ def throttler(
     ).run()
 
 
-def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
@@ -97,7 +140,10 @@ def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> Non
     GRACEFUL_STOP.set()
 
 
-def run(once=False, sleep_time=600):
+def run(
+        once: bool = False,
+        sleep_time: int = 600
+) -> None:
     """
     Starts up the conveyor threads.
     """
@@ -113,19 +159,25 @@ class RequestGrouper:
 
     class RseStatistic:
         def __init__(self):
-            self.sources_with_limits = set()
-            self.destinations_with_limits = set()
-            self.unavailable_sources = set()
-            self.unavailable_destinations = set()
+            self.sources_with_limits: set[RseData] = set()
+            self.destinations_with_limits: set[RseData] = set()
+            self.unavailable_sources: set[RseData] = set()
+            self.unavailable_destinations: set[RseData] = set()
             self.has_any_per_activity_limit = False
             self.any_source_has_per_activity_limit = False
             self.any_destination_has_per_activity_limit = False
 
     def __init__(self):
-        self.waiting_transfer_groups = {}
+        self.waiting_transfer_groups: 'ReleaseGroupsDict' = {}
         self.rse_stats = defaultdict(self.RseStatistic)
 
-    def record_waiting_request_group(self, source_rse, dest_rse, activity, applicable_limits):
+    def record_waiting_request_group(
+            self,
+            source_rse: RseData,
+            dest_rse: RseData,
+            activity: str,
+            applicable_limits: list['LimitStatDict']
+    ) -> None:
         """
         Record a group of requests in waiting state, while computing some statistics about them.
         """
@@ -151,12 +203,12 @@ class RequestGrouper:
 
         self.waiting_transfer_groups[source_rse, dest_rse, activity] = applicable_limits
 
-    def merged_groups(self):
+    def merged_groups(self) -> "ReleaseGroupsDict":
         """
         Merge groups which can be handled together
         """
 
-        merged_groups = {}
+        merged_groups: "ReleaseGroupsDict" = {}
         for (source_rse, dest_rse, activity), applicable_limits in self.waiting_transfer_groups.items():
 
             src_info = self.rse_stats[source_rse]
@@ -186,12 +238,16 @@ class RequestGrouper:
                 if not src_info.has_any_per_activity_limit and not src_info.any_destination_has_per_activity_limit:
                     activity = None
 
-            merged_groups.setdefault((source_rse, dest_rse, activity), applicable_limits)
+            merged_groups.setdefault((source_rse, dest_rse, activity), applicable_limits)  # type: ignore
 
         return merged_groups
 
 
-def _get_request_stats(rse_collection: RseCollection, *, logger=logging.log):
+def _get_request_stats(
+        rse_collection: RseCollection,
+        *,
+        logger: "LoggerFunction" = logging.log
+) -> "ReleaseGroupsDict":
     """
     Group waiting requests into arbitrary groups for bulk handling.
     The current grouping (source rse + dest rse + activity) was dictated
@@ -208,7 +264,7 @@ def _get_request_stats(rse_collection: RseCollection, *, logger=logging.log):
     """
     logging.info("Throttler retrieve requests statistics")
 
-    db_stats = get_request_stats(
+    db_stats = get_request_stats(  # type: ignore (Session parameter is missing)
         state=[RequestState.QUEUED,
                RequestState.SUBMITTING,
                RequestState.SUBMITTED,
@@ -277,7 +333,7 @@ def _get_request_stats(rse_collection: RseCollection, *, logger=logging.log):
 
             if state == RequestState.WAITING:
                 grouper.record_waiting_request_group(
-                    source_rse=source_rse,
+                    source_rse=source_rse,  # type: ignore
                     dest_rse=dest_rse,
                     activity=activity,
                     applicable_limits=applicable_limits,
@@ -321,14 +377,17 @@ def _get_request_stats(rse_collection: RseCollection, *, logger=logging.log):
         if waiting != limit['waitings'] or active != limit['transfers']:
             set_transfer_limit_stats(limit['id'], waitings=waiting, transfers=active)
 
-        for account, to_release_for_account in _split_threshold_per_account(stat['accounts'], total_to_release=residual_capacity):
+        for account, to_release_for_account in _split_threshold_per_account(stat['accounts'], total_to_release=residual_capacity):  # type: ignore (stat['accounts'] is not None)
             stat['accounts'][account]['residual_capacity'] = to_release_for_account
 
     release_groups = grouper.merged_groups()
     return release_groups
 
 
-def _split_threshold_per_account(per_account_stats, total_to_release):
+def _split_threshold_per_account(
+        per_account_stats: dict["InternalAccount", dict[str, float]],
+        total_to_release: float
+) -> Union[tuple[None, int], "Iterator[tuple[InternalAccount, float]]"]:
     """
     Compute how many requests to release for each account. Try to achieve a fair share of transfers between accounts.
     :param per_account_stats: a dict with how many active and waiting transfers each account has
@@ -354,7 +413,9 @@ def _split_threshold_per_account(per_account_stats, total_to_release):
         remaining_to_release -= to_release_for_account
 
 
-def _combine_limits(applicable_limits):
+def _combine_limits(
+        applicable_limits: list['LimitStatDict']
+) -> tuple[float, str, Optional[int], Optional[int]]:
     """
     Take multiple limits and combines them into one single (strictest) limit which
     respects the constraints of each initial limits. This is to handle cases like:
@@ -390,7 +451,10 @@ def _combine_limits(applicable_limits):
     return to_release, strategy, volume, deadline
 
 
-def _handle_requests(release_groups, logger):
+def _handle_requests(
+        release_groups: "ReleaseGroupsDict",
+        logger: "LoggerFunction"
+) -> None:
     """
     Release (set to queued state) waiting requests in groups defined by release_groups.
 
@@ -439,8 +503,9 @@ def _handle_requests(release_groups, logger):
             to_release_for_account = {}
             limits_by_account = {}
             for limit_stat in applicable_limits:
-                for account, account_limit in limit_stat['stat']['accounts'].items():
-                    to_release_for_account[account] = min(to_release_for_account.get(account, to_release), account_limit['residual_capacity'])
+                acc_dict = limit_stat['stat']['accounts']
+                for account, account_limit in acc_dict.items():
+                    to_release_for_account[account] = min(to_release_for_account.get(account, to_release), account_limit['residual_capacity'])  # type: ignore (Issue with TypedDict.__getitem__)
                     limits_by_account.setdefault(account, []).append(account_limit)
 
             for account, to_release_account in to_release_for_account.items():

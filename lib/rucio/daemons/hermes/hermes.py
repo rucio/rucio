@@ -30,7 +30,7 @@ import threading
 import time
 from configparser import NoOptionError, NoSectionError
 from email.mime.text import MIMEText
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import requests
 import stomp
@@ -50,10 +50,12 @@ from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Iterable, Sequence
     from types import FrameType
-    from typing import Optional
 
+    from stomp.utils import Frame
+
+    from rucio.common.types import LoggerFunction
     from rucio.daemons.common import HeartbeatHandler
 
 logging.getLogger("requests").setLevel(logging.CRITICAL)
@@ -69,7 +71,7 @@ RECONNECT_COUNTER = METRICS.counter(
 )
 
 
-def default(datetype):
+def default(datetype: Union[datetime.date, datetime.datetime]) -> str:
     if isinstance(datetype, (datetime.date, datetime.datetime)):
         return datetype.isoformat()
 
@@ -79,20 +81,28 @@ class HermesListener(stomp.ConnectionListener):
     Hermes Listener
     """
 
-    def __init__(self, broker):
+    def __init__(self, broker: str):
         """
         __init__
         """
         self.__broker = broker
 
-    def on_error(self, frame):
+    def on_error(self, frame: "Frame") -> None:
         """
         Error handler
         """
         logging.error("[broker] [%s]: %s", self.__broker, frame.body)
 
 
-def setup_activemq(logger: "Callable"):
+def setup_activemq(
+        logger: "LoggerFunction"
+) -> tuple[
+    Optional[list[stomp.Connection12]],
+    Optional[str],
+    Optional[str],
+    Optional[str],
+    Optional[bool]
+]:
     """
     Deliver messages to ActiveMQ
 
@@ -193,8 +203,14 @@ def setup_activemq(logger: "Callable"):
 
 
 def deliver_to_activemq(
-    messages, conns, destination, username, password, use_ssl, logger
-):
+    messages: "Iterable[dict[str, Any]]",
+    conns: "Sequence[stomp.Connection12]",
+    destination: str,
+    username: str,
+    password: str,
+    use_ssl: bool,
+    logger: "LoggerFunction"
+) -> list[str]:
     """
     Deliver messages to ActiveMQ
 
@@ -317,7 +333,10 @@ def deliver_to_activemq(
     return to_delete
 
 
-def deliver_emails(messages: list[dict], logger: "Callable") -> list:
+def deliver_emails(
+        messages: "Iterable[dict[str, Any]]",
+        logger: "LoggerFunction"
+) -> list[str]:
     """
     Sends emails
 
@@ -356,7 +375,11 @@ def deliver_emails(messages: list[dict], logger: "Callable") -> list:
     return to_delete
 
 
-def submit_to_elastic(messages: list[dict], endpoint: str, logger: "Callable") -> int:
+def submit_to_elastic(
+        messages: "Iterable[dict[str, Any]]",
+        endpoint: str,
+        logger: "LoggerFunction"
+) -> int:
     """
     Aggregate a list of message to ElasticSearch
 
@@ -384,7 +407,10 @@ def submit_to_elastic(messages: list[dict], endpoint: str, logger: "Callable") -
 
 
 def aggregate_to_influx(
-    messages: list[dict], bin_size: int, endpoint: str, logger: "Callable"
+    messages: "Iterable[dict[str, Any]]",
+    bin_size: int,
+    endpoint: str,
+    logger: "LoggerFunction"
 ) -> int:
     """
     Aggregate a list of message using a certain bin_size
@@ -631,14 +657,24 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     len(message_dict["influx"]),
                     time.time() - t_time,
                 )
-                for message in message_dict["influx"]:
-                    to_delete.append(message)
-            else:
-                logger(
-                    logging.ERROR,
-                    "Failure to submit %s messages to influxDB. Returned status: %s",
-                    len(message_dict["influx"]),
-                    state,
+                for message in message_dict["email"]:
+                    if message["id"] in messages_sent:
+                        to_delete.append(message)
+            except Exception as error:
+                logger(logging.ERROR, "Error sending email : %s", str(error))
+
+        if "activemq" in message_dict and conns:
+            t_time = time.time()
+            try:
+                messages_sent = deliver_to_activemq(
+                    messages=message_dict["activemq"],
+                    conns=conns,
+                    destination=destination,  # type: ignore (argument could be None)
+                    username=username,  # type: ignore (argument could be None)
+                    password=password,  # type: ignore (argument could be None)
+                    use_ssl=use_ssl,  # type: ignore (argument could be None)
+                    logger=logger,
+
                 )
         except Exception as error:
             logger(logging.ERROR, "Error sending to InfluxDB : %s", str(error))
@@ -729,7 +765,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     return must_sleep
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """

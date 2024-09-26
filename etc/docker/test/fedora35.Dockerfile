@@ -36,9 +36,9 @@ RUN test "x${PYTHON}" = "x3.10" && \
 WORKDIR /usr/local/src/rucio
 
 # pre-install requirements
-COPY requirements.txt requirements.txt
+COPY requirements requirements
 RUN python -m pip --no-cache-dir install --upgrade pip && \
-    python -m pip --no-cache-dir install --upgrade -r requirements.txt
+    python -m pip --no-cache-dir install --upgrade -r requirements/requirements.server.txt -r requirements/requirements.dev.txt
 
 COPY etc etc
 
@@ -52,8 +52,8 @@ RUN mkdir -p /var/log/rucio/trace && \
     rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/zgridsite.conf && \
     cp etc/certs/rucio_ca.pem etc/rucio_ca.pem && \
     cp etc/certs/ruciouser.pem etc/ruciouser.pem && \
-    cp etc/certs/ruciouser.key.pem etc/ruciouser.key.pem && \
-    chmod 0400 etc/ruciouser.key.pem
+    chmod 0400 etc/certs/ruciouser.key.pem && \
+    cp etc/certs/ruciouser.key.pem etc/ruciouser.key.pem
 
 # copy everything else except the git-dir (anything above is cache-friendly)
 COPY .flake8 .pep8 .pycodestyle pylintrc setuputil.py setup.py setup_rucio.py setup_rucio_client.py setup_webui.py ./

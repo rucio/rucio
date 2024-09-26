@@ -31,7 +31,7 @@ from sqlalchemy.sql.ddl import DropSchema
 from sqlalchemy.sql.expression import select, text
 
 from rucio import alembicrevision
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_list
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, LoggerFunction
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     # TypeVar representing the DeclarativeObj class defined inside _create_temp_table
     DeclarativeObj = TypeVar('DeclarativeObj')
 
-REGION = make_region_memcached(expiration_time=600, memcached_expire_time=3660)
+REGION = MemcacheRegion(expiration_time=600, memcached_expire_time=3660)
 
 
 def build_database() -> None:
@@ -125,7 +125,8 @@ def drop_everything() -> None:
             conn.execute(DropSchema(schema, cascade=True))
 
         if engine.dialect.name == 'postgresql':
-            assert isinstance(inspector, PGInspector), 'expected a PGInspector'
+            if not isinstance(inspector, PGInspector):
+                raise ValueError('expected a PGInspector')
             for enum in inspector.get_enums(schema='*'):
                 sqlalchemy.Enum(**enum).drop(bind=conn)
 
@@ -148,33 +149,21 @@ def create_root_account() -> None:
 
     multi_vo = bool(config_get('common', 'multi_vo', False, False))
 
-    up_id = 'ddmlab'
-    up_pwd = 'secret'
-    up_email = 'ph-adp-ddm-lab@cern.ch'
-    x509_id = 'emailAddress=ph-adp-ddm-lab@cern.ch,CN=DDMLAB Client Certificate,OU=PH-ADP-CO,O=CERN,ST=Geneva,C=CH'
-    x509_email = 'ph-adp-ddm-lab@cern.ch'
-    gss_id = 'ddmlab@CERN.CH'
-    gss_email = 'ph-adp-ddm-lab@cern.ch'
-    ssh_id = 'ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL614sulXQ7wnIr1aGhGtl8b+HCB/'\
-             '0FhMSMTHwSjX78UbfqEorZV16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXUh6ydn'\
-             'Vy89zGzX1FJFFDZ+AgiZ3ytp55tg1bjqqhK1OSC0pJxdNe878TRVVo5MLI0S/rZY2UovCSGFaQG2'\
-             'iLj14wz/YqI7NFMUuJFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKExlnvFLTlDI5'\
-             'Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== ddmlab'
-    ssh_email = 'ph-adp-ddm-lab@cern.ch'
-
-    try:
-        up_id = config_get('bootstrap', 'userpass_identity')
-        up_pwd = config_get('bootstrap', 'userpass_pwd')
-        up_email = config_get('bootstrap', 'userpass_email')
-        x509_id = config_get('bootstrap', 'x509_identity')
-        x509_email = config_get('bootstrap', 'x509_email')
-        gss_id = config_get('bootstrap', 'gss_identity')
-        gss_email = config_get('bootstrap', 'gss_email')
-        ssh_id = config_get('bootstrap', 'ssh_identity')
-        ssh_email = config_get('bootstrap', 'ssh_email')
-    except:
-        pass
-        # print 'Config values are missing (check rucio.cfg{.template}). Using hardcoded defaults.'
+    up_id = config_get('bootstrap', 'userpass_identity', default='ddmlab')
+    up_pwd = config_get('bootstrap', 'userpass_pwd', default='secret')
+    up_email = config_get('bootstrap', 'userpass_email', default='ph-adp-ddm-lab@cern.ch')
+    x509_id = config_get('bootstrap', 'x509_identity', default='emailAddress=ph-adp-ddm-lab@cern.ch,CN=DDMLAB Client Certificate,OU=PH-ADP-CO,O=CERN,ST=Geneva,C=CH')
+    x509_email = config_get('bootstrap', 'x509_email', default='ph-adp-ddm-lab@cern.ch')
+    gss_id = config_get('bootstrap', 'gss_identity', default='ddmlab@CERN.CH')
+    gss_email = config_get('bootstrap', 'gss_email', default='ph-adp-ddm-lab@cern.ch')
+    ssh_id = config_get('bootstrap', 'ssh_identity',
+                        default='ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL614sulXQ7wnIr1aGhGtl8b+HCB/'
+                        '0FhMSMTHwSjX78UbfqEorZV16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXUh6ydn'
+                        'Vy89zGzX1FJFFDZ+AgiZ3ytp55tg1bjqqhK1OSC0pJxdNe878TRVVo5MLI0S/rZY2UovCSGFaQG2'
+                        'iLj14wz/YqI7NFMUuJFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKExlnvFLTlDI5'
+                        'Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== ddmlab'
+                        )
+    ssh_email = config_get('bootstrap', 'ssh_email', default='ph-adp-ddm-lab@cern.ch')
 
     session_scoped = get_session()
 
@@ -188,25 +177,41 @@ def create_root_account() -> None:
     salt = urandom(255)
     salted_password = salt + up_pwd.encode()
     hashed_password = sha256(salted_password).hexdigest()
-    identity1 = models.Identity(identity=up_id, identity_type=IdentityType.USERPASS, password=hashed_password, salt=salt, email=up_email)
-    iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, identity_type=identity1.identity_type, account=account.account, is_default=True)
+
+    identities = []
+    associations = []
+
+    if up_id and up_pwd:
+        identity1 = models.Identity(identity=up_id, identity_type=IdentityType.USERPASS, password=hashed_password, salt=salt, email=up_email)
+        iaa1 = models.IdentityAccountAssociation(identity=identity1.identity, identity_type=identity1.identity_type, account=account.account, is_default=True)
+        identities.append(identity1)
+        associations.append(iaa1)
 
     # X509 authentication
-    identity2 = models.Identity(identity=x509_id, identity_type=IdentityType.X509, email=x509_email)
-    iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, identity_type=identity2.identity_type, account=account.account, is_default=True)
+    if x509_id and x509_email:
+        identity2 = models.Identity(identity=x509_id, identity_type=IdentityType.X509, email=x509_email)
+        iaa2 = models.IdentityAccountAssociation(identity=identity2.identity, identity_type=identity2.identity_type, account=account.account, is_default=True)
+        identities.append(identity2)
+        associations.append(iaa2)
 
     # GSS authentication
-    identity3 = models.Identity(identity=gss_id, identity_type=IdentityType.GSS, email=gss_email)
-    iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, identity_type=identity3.identity_type, account=account.account, is_default=True)
+    if gss_id and gss_email:
+        identity3 = models.Identity(identity=gss_id, identity_type=IdentityType.GSS, email=gss_email)
+        iaa3 = models.IdentityAccountAssociation(identity=identity3.identity, identity_type=identity3.identity_type, account=account.account, is_default=True)
+        identities.append(identity3)
+        associations.append(iaa3)
 
     # SSH authentication
-    identity4 = models.Identity(identity=ssh_id, identity_type=IdentityType.SSH, email=ssh_email)
-    iaa4 = models.IdentityAccountAssociation(identity=identity4.identity, identity_type=identity4.identity_type, account=account.account, is_default=True)
+    if ssh_id and ssh_email:
+        identity4 = models.Identity(identity=ssh_id, identity_type=IdentityType.SSH, email=ssh_email)
+        iaa4 = models.IdentityAccountAssociation(identity=identity4.identity, identity_type=identity4.identity_type, account=account.account, is_default=True)
+        identities.append(identity4)
+        associations.append(iaa4)
 
     with session_scoped() as s:
         s.begin()
         # Apply
-        for identity in [identity1, identity2, identity3, identity4]:
+        for identity in identities:
             try:
                 s.add(identity)
                 s.commit()
@@ -215,7 +220,7 @@ def create_root_account() -> None:
                 s.rollback()
         s.add(account)
         s.flush()
-        s.add_all([iaa1, iaa2, iaa3, iaa4])
+        s.add_all(associations)
         s.commit()
 
 
@@ -309,7 +314,8 @@ def try_drop_constraint(constraint_name: str, table_name: str) -> None:
     try:
         op.drop_constraint(constraint_name, table_name)
     except DatabaseError as e:
-        assert 'nonexistent constraint' in str(e)
+        if 'nonexistent constraint' not in str(e):
+            raise RuntimeError(e)
 
 
 def list_oracle_global_temp_tables(session: "Session") -> list[str]:

@@ -62,7 +62,7 @@ FROM python as gfal2
             ./bootstrap.sh --with-libraries=python --with-python=/usr/bin/python3.10 --prefix=/usr/ --libdir=/usr/local/lib && \
             ./b2 --with-python --libdir=/usr/local/lib --link=shared && \
             cp /usr/local/src/boost_1_80_0/stage/lib/lib* /usr/lib64/ && \
-            dnf install -y git dnf-plugins-core git rpm-build tree which cmake make gcc gcc-c++ && \ 
+            dnf install -y git dnf-plugins-core git rpm-build tree which cmake make gcc gcc-c++ && \
             git clone --depth 1 --branch v1.12.0 https://github.com/cern-fts/gfal2-python.git && \
             cd gfal2-python && \
             cd ./packaging && \
@@ -97,8 +97,9 @@ FROM python as rucio-runtime
     COPY lib lib
     COPY etc etc
     COPY tests tests
-    COPY .flake8 .pep8 .pycodestyle pylintrc setup.py setup_rucio.py setup_rucio_client.py setup_webui.py requirements.txt setuputil.py ./
-    
+    COPY requirements requirements
+    COPY .flake8 .pep8 .pycodestyle pylintrc setup.py setup_rucio.py setup_rucio_client.py setup_webui.py setuputil.py ./
+
     RUN dnf install -y epel-release.noarch && \
         dnf install -y 'dnf-command(config-manager)' && \
         dnf config-manager --enable crb && \
@@ -125,16 +126,16 @@ FROM python as rucio-runtime
         rm /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/zgridsite.conf && \
         cp etc/certs/rucio_ca.pem etc/rucio_ca.pem && \
         cp etc/certs/ruciouser.pem etc/ruciouser.pem && \
-        cp etc/certs/ruciouser.key.pem etc/ruciouser.key.pem && \
-        chmod 0400 etc/ruciouser.key.pem
+        chmod 0400 etc/certs/ruciouser.key.pem && \
+        cp etc/certs/ruciouser.key.pem etc/ruciouser.key.pem
 
 FROM rucio-runtime as requirements
-    RUN dnf -y update --nobest && \ 
+    RUN dnf -y update --nobest && \
         dnf -y --skip-broken install make gcc krb5-devel xmlsec1-devel xmlsec1-openssl-devel pkg-config libtool-ltdl-devel git && \
         python3 -m pip --no-cache-dir install --upgrade pip && \
         python3 -m pip --no-cache-dir install --upgrade setuptools wheel && \
-        python3 -m pip --no-cache-dir install --upgrade -r requirements.txt   
-    
+        python3 -m pip --no-cache-dir install --upgrade -r requirements/requirements.server.txt -r requirements/requirements.dev.txt
+
     COPY .flake8 .pep8 .pycodestyle pylintrc setup.py setup_rucio.py setup_rucio_client.py setup_webui.py ./
     RUN python3 -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,saml,dev] && \
         python3 -m pip list
@@ -147,18 +148,18 @@ FROM rucio-runtime as final
     COPY --from=gfal2 /usr/lib64/gfal2.so /usr/lib64/gfal2.so
 
     RUN mv /usr/lib64/gfal2.so ${PYTHON_VENV}/lib/python${PYTHON}/site-packages/gfal2.so;
-   
+
     COPY --from=oracle-client /usr/share/oracle /usr/share/oracle
     COPY --from=oracle-client /usr/lib/oracle /usr/lib/oracle/
     COPY --from=oracle-client /etc/ld.so.conf.d/oracle-instantclient.conf /etc/ld.so.conf.d/oracle-instantclient.conf
-    
+
     COPY --from=requirements ${PYTHON_VENV} ${PYTHON_VENV}
     COPY --from=mod_wsgi /usr/lib64/httpd/modules /usr/lib64/httpd/modules
-    COPY --from=mod_wsgi /etc/httpd/conf.modules.d/05-wsgi-python.conf  /etc/httpd/conf.modules.d/05-wsgi-python.conf 
+    COPY --from=mod_wsgi /etc/httpd/conf.modules.d/05-wsgi-python.conf  /etc/httpd/conf.modules.d/05-wsgi-python.conf
 
     WORKDIR /opt/rucio
     RUN cp -r /usr/local/src/rucio/{lib,bin,tools,etc,tests} ./
 
     RUN ldconfig
-   
+
     CMD ["httpd","-D","FOREGROUND"]

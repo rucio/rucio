@@ -14,7 +14,7 @@
 
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Float, Integer, SmallInteger, String, Text, UniqueConstraint, event
 from sqlalchemy.engine import Engine
@@ -27,7 +27,7 @@ from sqlalchemy.types import LargeBinary
 
 from rucio.common import utils
 from rucio.common.schema import get_schema_value
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalAccount, InternalScope  # noqa: TCH001 (types are needed by SQLAlchemy)
 from rucio.db.sqla.constants import (
     AccountStatus,
     AccountType,
@@ -54,6 +54,12 @@ from rucio.db.sqla.constants import (
 from rucio.db.sqla.session import BASE
 from rucio.db.sqla.types import GUID, JSON, BooleanString, InternalAccountString, InternalScopeString
 
+if TYPE_CHECKING:
+    from sqlalchemy.engine.base import Connection
+    from sqlalchemy.orm import Session
+    from sqlalchemy.sql import Insert, Update
+
+
 # SQLAlchemy defines the corresponding code behind TYPE_CHECKING
 # https://github.com/sqlalchemy/sqlalchemy/blob/d9acd6223299c118464d30abfa483e26a536239d/lib/sqlalchemy/orm/base.py#L814
 # And pylint/astroid don't have an option to evaluate this code
@@ -64,24 +70,24 @@ from rucio.db.sqla.types import GUID, JSON, BooleanString, InternalAccountString
 
 
 @compiles(Boolean, "oracle")
-def compile_binary_oracle(type_, compiler, **kw):
+def compile_binary_oracle(type_, compiler, **kw) -> str:
     return "NUMBER(1)"
 
 
 @event.listens_for(Table, "before_create")
-def _mysql_rename_type(target, connection, **kw):
+def _mysql_rename_type(target: Table, connection: "Connection", **kw) -> None:
     if connection.dialect.name == 'mysql' and target.name == 'quarantined_replicas':
         target.columns.path.type = String(255)
 
 
 @event.listens_for(Table, "before_create")
-def _psql_rename_type(target, connection, **kw):
+def _psql_rename_type(target: Table, connection: "Connection", **kw) -> None:
     if connection.dialect.name == 'postgresql' and target.name == 'account_map':
         target.columns.identity_type.type.name = 'IDENTITIES_TYPE_CHK'
 
 
 @event.listens_for(Table, "before_create")
-def _oracle_json_constraint(target, connection, **kw):
+def _oracle_json_constraint(target: Table, connection: "Connection", **kw) -> None:
     if connection.dialect.name == 'oracle':
         try:
             oracle_version = int(connection.connection.version.split('.')[0])
@@ -90,12 +96,20 @@ def _oracle_json_constraint(target, connection, **kw):
         if oracle_version >= 12:
             if target.name == 'did_meta':
                 target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_META_JSON_CHK'))
+            if target.name == 'deleted_did_meta':
+                target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_DELETE_META_JSON_CHK'))
             if target.name == 'virtual_placements':
                 target.append_constraint(CheckConstraint('PLACEMENTS IS JSON', 'ORACLE_PLACEMENTS_JSON_CHK'))
 
 
 @event.listens_for(Engine, "before_execute", retval=True)
-def _add_hint(conn, element, multiparams, params, execution_options):
+def _add_hint(
+    conn: "Connection",
+    element: Union[Delete, "Insert", "Update"],
+    multiparams,
+    params,
+    execution_options
+) -> tuple[Union[Delete, "Insert", "Update"], list, dict]:
     if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'locks':
         element = element.prefix_with("/*+ INDEX(LOCKS LOCKS_PK) */")
     if conn.dialect.name == 'oracle' and isinstance(element, Delete) and element.table.name == 'replicas':
@@ -110,7 +124,7 @@ def _add_hint(conn, element, multiparams, params, execution_options):
 
 
 @event.listens_for(PrimaryKeyConstraint, "after_parent_attach")
-def _pk_constraint_name(const, table):
+def _pk_constraint_name(const: PrimaryKeyConstraint, table: Table) -> None:
     if table.name.upper() == 'QUARANTINED_REPLICAS_HISTORY':
         const.name = "QRD_REPLICAS_HISTORY_PK"
     else:
@@ -118,7 +132,7 @@ def _pk_constraint_name(const, table):
 
 
 @event.listens_for(ForeignKeyConstraint, "after_parent_attach")
-def _fk_constraint_name(const, table):
+def _fk_constraint_name(const: ForeignKeyConstraint, table: Table) -> None:
     if const.name:
         return
     fk = const.elements[0]
@@ -129,14 +143,14 @@ def _fk_constraint_name(const, table):
 
 
 @event.listens_for(UniqueConstraint, "after_parent_attach")
-def _unique_constraint_name(const, table):
+def _unique_constraint_name(const: UniqueConstraint, table: Table) -> None:
     if const.name:
         return
     const.name = "uq_%s_%s" % (table.name, list(const.columns)[0].name)
 
 
 @event.listens_for(CheckConstraint, "after_parent_attach")
-def _ck_constraint_name(const, table):
+def _ck_constraint_name(const: CheckConstraint, table: Table) -> None:
 
     if const.name is None:
         if 'DELETED' in str(const.sqltext).upper():
@@ -219,23 +233,23 @@ class ModelBase:
     def updated_at(cls):  # pylint: disable=no-self-argument
         return mapped_column("updated_at", DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    def save(self, flush=True, session=None):
+    def save(self, flush: bool = True, session: Optional["Session"] = None) -> None:
         """Save this object"""
-        # Sessions created with autoflush=True be default since sqlAlchemy 1.4.
-        # So explicatly calling session.flush is not necessary.
+        # Sessions created with autoflush: bool = True be default since sqlAlchemy 1.4.
+        # So explicitly calling session.flush is not necessary.
         # However, when autogenerated primary keys involved, calling
         # session.flush to get the id from DB.
         session.add(self)
         if flush:
             session.flush()
 
-    def delete(self, flush=True, session=None):
+    def delete(self, flush: bool = True, session: Optional["Session"] = None) -> None:
         """Delete this object"""
         session.delete(self)
         if flush:
             session.flush()
 
-    def update(self, values, flush=True, session=None):
+    def update(self, values: dict[str, Any], flush: bool = True, session: Optional["Session"] = None) -> None:
         """dict.update() behaviour."""
         for k, v in values.items():
             self[k] = v
@@ -293,7 +307,7 @@ class SoftModelBase(ModelBase):
     def deleted_at(cls):  # pylint: disable=no-self-argument
         return mapped_column("deleted_at", DateTime)
 
-    def delete(self, flush=True, session=None):
+    def delete(self, flush: bool = True, session: Optional["Session"] = None) -> None:
         """Delete this object"""
         self.deleted = True
         self.deleted_at = datetime.utcnow()
@@ -476,6 +490,19 @@ class DidMeta(BASE, ModelBase):
                    Index('DID_META_DID_TYPE_IDX', 'did_type'))
 
 
+class DeletedDidMeta(BASE, ModelBase):
+    __tablename__ = 'deleted_did_meta'
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    did_type: Mapped[Optional[DIDType]] = mapped_column(Enum(DIDType, name='DEL_DID_META_DID_TYPE_CHK',
+                                                             create_constraint=True,
+                                                             values_callable=lambda obj: [e.value for e in obj]))
+    meta: Mapped[Optional[Union[str, dict[str, Any]]]] = mapped_column(JSON())
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='DEL_DID_META_PK'),
+                   Index('DEL_DID_META_DID_TYPE_IDX', 'did_type'))
+
+
 class DeletedDataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
     __tablename__ = 'deleted_dids'
@@ -548,7 +575,7 @@ class UpdatedDID(BASE, ModelBase):
                    Index('UPDATED_DIDS_SCOPERULENAME_IDX', 'scope', 'rule_evaluation_action', 'name'))
 
 
-class BadReplicas(BASE, ModelBase):
+class BadReplica(BASE, ModelBase):
     """Represents the suspicious or bad replicas"""
     __tablename__ = 'bad_replicas'
     scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
@@ -572,8 +599,8 @@ class BadReplicas(BASE, ModelBase):
                    Index('BAD_REPLICAS_ACCOUNT_IDX', 'account'))
 
 
-class BadPFNs(BASE, ModelBase):
-    """Represents bad, suspicious or temporary unavailable PFNs which have to be processed and added to BadReplicas Table"""
+class BadPFN(BASE, ModelBase):
+    """Represents bad, suspicious or temporary unavailable PFNs which have to be processed and added to BadReplica Table"""
     __tablename__ = 'bad_pfns'
     path: Mapped[str] = mapped_column(String(2048))  # PREFIX + PFN
     state: Mapped[BadPFNStatus] = mapped_column(Enum(BadPFNStatus, name='BAD_PFNS_STATE_CHK',
@@ -635,7 +662,7 @@ class DIDMetaConventionsKey(BASE, ModelBase):
                    CheckConstraint('is_enum IS NOT NULL', name='DID_KEYS_IS_ENUM_NN'))
 
 
-class DIDMetaConventionsConstraints(BASE, ModelBase):
+class DIDMetaConventionsConstraint(BASE, ModelBase):
     """Represents a map for constraint values a DID metadata key must follow """
     __tablename__ = 'did_key_map'
     key: Mapped[str] = mapped_column(String(255))
@@ -868,7 +895,7 @@ class RSEAttrAssociation(BASE, ModelBase):
                    Index('RSE_ATTR_MAP_KEY_VALUE_IDX', 'key', 'value'))
 
 
-class RSEProtocols(BASE, ModelBase):
+class RSEProtocol(BASE, ModelBase):
     """Represents supported protocols of RSEs (Rucio Storage Elements)"""
     __tablename__ = 'rse_protocols'
     rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
@@ -1498,7 +1525,7 @@ class SubscriptionHistory(BASE, ModelBase):
     retroactive: Mapped[bool] = mapped_column(Boolean(name='SUBS_HISTORY_RETROACTIVE_CHK', create_constraint=True),
                                               default=False)
     expired_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    _table_args = (PrimaryKeyConstraint('id', 'updated_at', name='SUBSCRIPTIONS_PK'),)
+    _table_args = (PrimaryKeyConstraint('id', 'updated_at', name='SUBSCRIPTIONS_HISTORY_PK'),)
 
 
 class Token(BASE, ModelBase):
@@ -1595,7 +1622,7 @@ class ConfigHistory(BASE, ModelBase):
     _table_args = ()
 
 
-class Heartbeats(BASE, ModelBase):
+class Heartbeat(BASE, ModelBase):
     """Represents the status and heartbeat of the running daemons and services"""
     __tablename__ = 'heartbeats'
     executable: Mapped[str] = mapped_column(String(64))  # SHA-2
@@ -1620,7 +1647,7 @@ class NamingConvention(BASE, ModelBase):
                    ForeignKeyConstraint(['scope'], ['scopes.scope'], name='NAMING_CONVENTIONS_SCOPE_FK'))
 
 
-class LifetimeExceptions(BASE, ModelBase):
+class LifetimeException(BASE, ModelBase):
     """Represents the exceptions to the lifetime model"""
     __tablename__ = 'lifetime_except'
     id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
@@ -1652,8 +1679,8 @@ class VO(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('vo', name='VOS_PK'), )
 
 
-class DidsFollowed(BASE, ModelBase):
-    """Represents the datasets followed by an user"""
+class DidFollowed(BASE, ModelBase):
+    """Represents the datasets followed by a user"""
     __tablename__ = 'dids_followed'
     scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
     name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
@@ -1670,7 +1697,7 @@ class DidsFollowed(BASE, ModelBase):
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='DIDS_FOLLOWED_SCOPE_NAME_FK'))
 
 
-class FollowEvents(BASE, ModelBase):
+class FollowEvent(BASE, ModelBase):
     """Represents the events affecting the datasets which are followed"""
     __tablename__ = 'dids_followed_events'
     scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))

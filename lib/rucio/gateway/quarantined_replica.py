@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
 from rucio.common.types import InternalScope
@@ -22,11 +22,21 @@ from rucio.db.sqla.session import transactional_session
 from rucio.gateway import permission
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from sqlalchemy.orm import Session
 
 
 @transactional_session
-def quarantine_file_replicas(replicas, issuer, rse=None, rse_id=None, vo='def', *, session: "Session"):
+def quarantine_file_replicas(
+    replicas: "Iterable[dict[str, Any]]",
+    issuer: str,
+    rse: Optional[str] = None,
+    rse_id: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Quarantine replicas.
 

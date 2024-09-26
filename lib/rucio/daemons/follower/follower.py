@@ -34,7 +34,9 @@ graceful_stop = threading.Event()
 DAEMON_NAME = 'rucio-follower'
 
 
-def aggregate_events(once=False):
+def aggregate_events(
+        once: bool = False
+) -> None:
     """
     Collect all the events affecting the dids followed by the corresponding account.
     """
@@ -69,7 +71,10 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     graceful_stop.set()
 
 
-def run(once=False, threads=1):
+def run(
+        once: bool = False,
+        threads: int = 1
+) -> None:
     """
     Starts up the follower threads
     """
@@ -87,10 +92,10 @@ def run(once=False, threads=1):
     else:
         logging.info("starting follower threads")
         # Run the follower daemon thrice a day
-        threads = [get_thread_with_periodic_running_function(28800, aggregate_events, graceful_stop) for i in range(threads)]
-        [t.start() for t in threads]
+        thread_list = [get_thread_with_periodic_running_function(28800, aggregate_events, graceful_stop) for i in range(threads)]
+        [t.start() for t in thread_list]
 
         logging.info("waiting for interrupts")
         # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+        while thread_list[0].is_alive():
+            [t.join(timeout=3.14) for t in thread_list]

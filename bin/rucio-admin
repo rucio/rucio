@@ -54,7 +54,7 @@ from rucio.common.exception import (
     ScopeNotFound,
 )
 from rucio.common.extra import import_extras
-from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_surls, construct_surl, extract_scope, get_bytes_value_from_string, parse_response, render_json, sizefmt
+from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_pfns, construct_non_deterministic_pfn, extract_scope, get_bytes_value_from_string, parse_response, render_json, sizefmt
 from rucio.rse import rsemanager as rsemgr
 
 EXTRA_MODULES = import_extras(['argcomplete'])
@@ -1148,21 +1148,21 @@ def declare_bad_file_replicas(args):
             list_bad_pfns = []
             cnt += 1
             previous_pattern = None
-            for surl in clean_surls(chunk):
+            for pfn in clean_pfns(chunk):
                 unknown = True
                 if previous_pattern:
-                    if previous_pattern in surl:
-                        list_bad_pfns.append(surl)
+                    if previous_pattern in pfn:
+                        list_bad_pfns.append(pfn)
                         unknown = False
                         continue
                 for pattern in prot_dict:
-                    if pattern in surl:
+                    if pattern in pfn:
                         previous_pattern = prot_dict[pattern]
-                        list_bad_pfns.append(surl)
+                        list_bad_pfns.append(pfn)
                         unknown = False
                         break
                 if unknown:
-                    print('Cannot find any RSE associated to %s' % surl)
+                    print('Cannot find any RSE associated to %s' % pfn)
             client.add_bad_pfns(pfns=list_bad_pfns, reason=args.reason, state='BAD', expires_at=None)
             ndeclared = len(list_bad_pfns)
             tot_file_declared += ndeclared
@@ -1196,7 +1196,9 @@ def declare_temporary_unavailable_replicas(args):
     else:
         bad_files = args.listbadfiles
 
-    assert args.duration is not None, "Duration should have been set, something went wrong!"
+    if args.duration is None:
+        raise ValueError("Duration should have been set, something went wrong!")
+
     expiration_date = (datetime.datetime.utcnow() + datetime.timedelta(seconds=args.duration)).isoformat()
 
     chunk_size = 10000
@@ -1251,7 +1253,7 @@ def list_pfns(args):
                         logger.warning('The file has multiple parents')
                     for did in parents:
                         if did['type'] == 'DATASET':
-                            path = construct_surl(did['name'], scope, name, naming_convention=naming_convention)
+                            path = construct_non_deterministic_pfn(did['name'], scope, name, naming_convention=naming_convention)
                             pfn = ''.join([proto.attributes['scheme'],
                                            '://',
                                            proto.attributes['hostname'],

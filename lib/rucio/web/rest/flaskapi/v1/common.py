@@ -19,7 +19,7 @@ import re
 from configparser import NoOptionError, NoSectionError
 from functools import wraps
 from time import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, Union
 
 import flask
 from flask.views import MethodView
@@ -36,10 +36,15 @@ from rucio.gateway.authentication import validate_auth_token
 from rucio.gateway.identity import get_default_account, list_accounts_for_identity, verify_identity
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Sequence
-    from typing import Any, Literal, Optional, Union
+    from collections.abc import Callable, Iterable
 
-    HeadersType = Union[Headers, dict[str, str], Sequence[tuple[str, str]]]
+    from _typeshed import SupportsIter
+    from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
+    from flask.typing import ResponseReturnValue
+
+    from rucio.web.rest.flaskapi.v1.types import HeadersType
+
+ResponseTypeVar = TypeVar('ResponseTypeVar', bound=flask.wrappers.Response)
 
 
 class CORSMiddleware:
@@ -48,10 +53,10 @@ class CORSMiddleware:
     This middleware intercepts the preflight OPTIONS requests and returns a 200 OK response.
     """
 
-    def __init__(self, app: flask.Flask) -> None:
+    def __init__(self, app: 'WSGIApplication') -> None:
         self.app = app
 
-    def __call__(self, environ: dict, start_response: 'Callable') -> 'Union[Response, Iterable[bytes]]':
+    def __call__(self, environ: 'WSGIEnvironment', start_response: 'StartResponse') -> 'Iterable[bytes]':
         request: Request = Request(environ)
 
         if request.environ.get('REQUEST_METHOD') == 'OPTIONS':
@@ -59,7 +64,7 @@ class CORSMiddleware:
                 webui_urls = config.config_get_list('webui', 'urls')
             except (NoOptionError, NoSectionError, RuntimeError) as error:
                 logging.exception('Could not get webui urls from config file')
-                return str(error), 500
+                return str(error), 500  # type: ignore (return type incompatible with Flask middleware)
             if request.origin in webui_urls:
                 response: Response = Response(status=200)
                 response.headers['Access-Control-Allow-Origin'] = request.origin
@@ -80,11 +85,11 @@ class ErrorHandlingMethodView(MethodView):
     Exceptions for all defined methods automatically.
     """
 
-    def get_headers(self) -> "Optional[HeadersType]":
+    def get_headers(self) -> Optional['HeadersType']:
         """Can be overridden to add headers to generic error responses."""
         return None
 
-    def dispatch_request(self, *args, **kwargs):
+    def dispatch_request(self, *args, **kwargs) -> Union['ResponseReturnValue', flask.wrappers.Response]:
         headers = self.get_headers() or None
         try:
             return super(ErrorHandlingMethodView, self).dispatch_request(*args, **kwargs)
@@ -132,7 +137,7 @@ class ErrorHandlingMethodView(MethodView):
                 return str(error), 500
 
 
-def request_auth_env():
+def request_auth_env() -> Optional['ResponseReturnValue']:
     if flask.request.environ.get('REQUEST_METHOD') == 'OPTIONS':
         return '', 200
 
@@ -155,9 +160,9 @@ def request_auth_env():
     flask.request.environ['start_time'] = time()
 
 
-def response_headers(response):
-    response.headers['Access-Control-Allow-Origin'] = flask.request.environ.get('HTTP_ORIGIN')
-    response.headers['Access-Control-Allow-Headers'] = flask.request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')
+def response_headers(response: ResponseTypeVar) -> ResponseTypeVar:
+    response.headers['Access-Control-Allow-Origin'] = flask.request.environ.get('HTTP_ORIGIN')  # type: ignore (value could be None)
+    response.headers['Access-Control-Allow-Headers'] = flask.request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')  # type: ignore (value could be None)
     response.headers['Access-Control-Allow-Methods'] = '*'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
 
@@ -169,7 +174,7 @@ def response_headers(response):
     return response
 
 
-def check_accept_header_wrapper_flask(supported_content_types):
+def check_accept_header_wrapper_flask(supported_content_types: 'Iterable[str]'):
     """ Decorator to check if an endpoint supports the requested content type. """
 
     def wrapper(f):
@@ -195,7 +200,7 @@ def check_accept_header_wrapper_flask(supported_content_types):
     return wrapper
 
 
-def parse_scope_name(scope_name, vo):
+def parse_scope_name(scope_name: str, vo: Optional[str]) -> tuple[str, ...]:
     """
     Parses the given scope_name according to the schema's
     SCOPE_NAME_REGEXP and returns a (scope, name) tuple.
@@ -205,14 +210,20 @@ def parse_scope_name(scope_name, vo):
     :raises ValueError: when scope_name could not be parsed.
     :returns: a (scope, name) tuple.
     """
+    if not vo:
+        vo = 'def'
+
     # why again does that regex start with a slash?
-    scope_name = re.match(get_schema_value('SCOPE_NAME_REGEXP', vo), '/' + scope_name)
-    if scope_name is None:
+    scope_regex = re.match(get_schema_value('SCOPE_NAME_REGEXP', vo), '/' + scope_name)
+    if scope_regex is None:
         raise ValueError('cannot parse scope and name')
-    return scope_name.group(1, 2)
+    return scope_regex.group(1, 2)
 
 
-def try_stream(generator, content_type=None) -> "flask.Response":
+def try_stream(
+        generator: 'SupportsIter',
+        content_type: Optional[str] = None
+) -> flask.Response:
     """
     Peeks at the first element of the passed generator and raises
     an error, if yielding raises. Otherwise returns
@@ -234,15 +245,12 @@ def try_stream(generator, content_type=None) -> "flask.Response":
         return flask.Response('', content_type=content_type)
 
 
-def error_headers(exc_cls: str, exc_msg):
-    def strip_newlines(msg):
-        if msg is None:
-            return None
-
+def error_headers(exc_cls: str, exc_msg: str) -> dict[str, str]:
+    def strip_newlines(msg: str) -> str:
         return msg.replace('\n', ' ').replace('\r', ' ')
 
-    exc_msg = strip_newlines(exc_msg)
     if exc_msg:
+        exc_msg = strip_newlines(exc_msg)
         # Truncate too long exc_msg
         oldlen = len(exc_msg)
         exc_msg = exc_msg[:min(oldlen, 125)]
@@ -254,7 +262,7 @@ def error_headers(exc_cls: str, exc_msg):
     }
 
 
-def _error_response(exc_cls, exc_msg):
+def _error_response(exc_cls: str, exc_msg: str) -> tuple[dict[str, str], dict[str, str]]:
     data = {'ExceptionClass': exc_cls,
             'ExceptionMessage': exc_msg}
     headers = {'Content-Type': 'application/octet-stream'}
@@ -263,10 +271,10 @@ def _error_response(exc_cls, exc_msg):
 
 
 def generate_http_error_flask(
-        status_code: "int",
-        exc: "Union[str, BaseException]",
-        exc_msg: "Optional[str]" = None,
-        headers: "Optional[HeadersType]" = None,
+        status_code: int,
+        exc: Union[str, BaseException],
+        exc_msg: Optional[str] = None,
+        headers: Optional['HeadersType'] = None,
 ) -> "flask.Response":
     """Utitily function to generate a complete HTTP error response.
 
@@ -322,13 +330,13 @@ def json_list(json_loads: "Callable[[str], Any]" = json.loads, optional: bool = 
 
 
 def json_parse(types: tuple, json_loads: "Callable[[str], Any]" = json.loads, **kwargs):
-    def clstostr(cls):
+    def clstostr(cls) -> str:
         if cls.__name__ == "dict":
             return "dictionary"
         else:
             return cls.__name__
 
-    def typestostr(_types: tuple):
+    def typestostr(_types: tuple) -> str:
         return " or ".join(map(clstostr, _types))
 
     data = flask.request.get_data(as_text=True)
@@ -355,7 +363,7 @@ def json_parse(types: tuple, json_loads: "Callable[[str], Any]" = json.loads, **
         )
 
 
-def param_get(parameters: dict, name: str, **kwargs):
+def param_get(parameters: dict[str, Any], name: str, **kwargs) -> Any:
     if 'default' in kwargs:
         return parameters.get(name, kwargs['default'])
     else:
@@ -370,7 +378,7 @@ def param_get(parameters: dict, name: str, **kwargs):
         return parameters[name]
 
 
-def extract_vo(headers: "HeadersType") -> "str":
+def extract_vo(headers: Headers) -> str:
     """ Extract the VO name from the given request.headers object and
         does any name mapping. Returns the short VO name or raise a
         flask.abort if the VO name doesn't meet the name specification.
@@ -385,7 +393,11 @@ def extract_vo(headers: "HeadersType") -> "str":
         flask.abort(generate_http_error_flask(status_code=400, exc=err))
 
 
-def get_account_from_verified_identity(identity_key, id_type: 'Literal["USERPASS", "X509"]', password: 'Union[str, None]' = None) -> list:
+def get_account_from_verified_identity(
+        identity_key: str,
+        id_type: Literal["USERPASS", "X509"],
+        password: Optional[str] = None
+) -> list[str]:
     """ Verifies the provided identity and tries to return a matching account.
         If no account is found, raises an IdentityError after trying to verify the identity.
         If multiple accounts are found, returns the default account if available, otherwise all accounts.

@@ -14,14 +14,18 @@
 
 import subprocess
 import sys
+from typing import TYPE_CHECKING, Union
 
 from pkg_resources import parse_requirements, safe_name
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 clients_requirements_table = {
     'install_requires': [
         'requests',
         'urllib3',
-        'dogpile.cache',
+        'dogpile-cache',
         'tabulate',
         'jsonschema',
         'dataclasses',
@@ -43,6 +47,7 @@ clients_requirements_table = {
 dev_requirements = [
     'pytest',
     'pytest-xdist',
+    'pytest-cov',
     'pyflakes',
     'flake8',
     'pylint',
@@ -68,7 +73,7 @@ server_requirements_table = {
         'alembic',
         'pymemcache',
         'python-dateutil',
-        'stomp.py',
+        'stomp-py',
         'statsd',
         'geoip2',
         'google-auth',
@@ -95,7 +100,7 @@ server_requirements_table = {
 }
 
 
-def run_shell_command(cmd):
+def run_shell_command(cmd: str) -> Union[str, bytearray, memoryview]:
     """
     Run a shell command in path and return output"
 
@@ -109,7 +114,7 @@ def run_shell_command(cmd):
     return stdout
 
 
-def get_rucio_version():
+def get_rucio_version() -> str:
     python_executable = "'" + sys.executable + "'"
     ver = run_shell_command(
         "PYTHONPATH=lib " + python_executable + " -c "
@@ -117,12 +122,12 @@ def get_rucio_version():
     )
     if not ver:
         raise RuntimeError("Could not fetch Rucio version")
-    return ver
+    return str(ver)
 
 
-def _build_requirements_table_by_key(requirements_table):
-    extras_require = {}
-    req_table_by_key = {}
+def _build_requirements_table_by_key(requirements_table: "Mapping[str, Iterable[str]]") -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    extras_require: dict[str, list[str]] = {}
+    req_table_by_key: dict[str, list[str]] = {}
     for group in requirements_table.keys():
         if group != 'install_requires' and group not in extras_require:
             extras_require[group] = []
@@ -134,11 +139,12 @@ def _build_requirements_table_by_key(requirements_table):
     return req_table_by_key, extras_require
 
 
-def match_define_requirements(requirements_table):
+def match_define_requirements(app_type: str, requirements_table: "Mapping[str, Iterable[str]]") -> tuple[list[str], dict[str, list[str]]]:
     install_requires = []
     req_table_by_key, extras_require = _build_requirements_table_by_key(requirements_table)
+    req_file_name = "requirements/requirements.{}.txt".format(app_type)
 
-    with open('requirements.txt', 'r') as fhandle:
+    with open(req_file_name, 'r') as fhandle:
         for req in parse_requirements(fhandle.readlines()):
             if req.key in req_table_by_key:
                 for group in req_table_by_key[req.key]:
@@ -158,9 +164,11 @@ def match_define_requirements(requirements_table):
     return install_requires, extras_require
 
 
-def list_all_requirements(requirements_table):
+def list_all_requirements(app_type: str, requirements_table: "Mapping[str, Iterable[str]]") -> None:
     req_table_by_key, _ = _build_requirements_table_by_key(requirements_table)
-    with open('requirements.txt', 'r') as fhandle:
+    req_file_name = "requirements/requirements.{}.txt".format(app_type)
+
+    with open(req_file_name, 'r') as fhandle:
         for req in parse_requirements(fhandle.readlines()):
             if req.key in req_table_by_key:
                 print(str(req))

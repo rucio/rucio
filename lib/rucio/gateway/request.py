@@ -16,10 +16,10 @@
 Interface for the requests abstraction layer
 """
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalAccount, InternalScope, RequestGatewayDict
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import request
 from rucio.core.rse import get_rse_id
@@ -27,11 +27,21 @@ from rucio.db.sqla.session import read_session, stream_session, transactional_se
 from rucio.gateway import permission
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator, Sequence
+
     from sqlalchemy.orm import Session
+
+    from rucio.db.sqla.constants import RequestState, RequestType
 
 
 @transactional_session
-def queue_requests(requests, issuer, vo='def', *, session: "Session"):
+def queue_requests(
+    requests: "Iterable[RequestGatewayDict]",
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> list[dict[str, Any]]:
     """
     Submit transfer or deletion requests on destination RSEs for data identifiers.
 
@@ -47,16 +57,23 @@ def queue_requests(requests, issuer, vo='def', *, session: "Session"):
         raise exception.AccessDenied(f'{issuer} can not queue request')
 
     for req in requests:
-        req['scope'] = InternalScope(req['scope'], vo=vo)
+        req['scope'] = InternalScope(req['scope'], vo=vo)  # type: ignore (type reassignment)
         if 'account' in req:
-            req['account'] = InternalAccount(req['account'], vo=vo)
+            req['account'] = InternalAccount(req['account'], vo=vo)  # type: ignore (type reassignment)
 
     new_requests = request.queue_requests(requests, session=session)
     return [gateway_update_return_dict(r, session=session) for r in new_requests]
 
 
 @transactional_session
-def cancel_request(request_id, issuer, account, vo='def', *, session: "Session"):
+def cancel_request(
+    request_id: str,
+    issuer: str,
+    account: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Cancel a request.
 
@@ -75,7 +92,17 @@ def cancel_request(request_id, issuer, account, vo='def', *, session: "Session")
 
 
 @transactional_session
-def cancel_request_did(scope, name, dest_rse, request_type, issuer, account, vo='def', *, session: "Session"):
+def cancel_request_did(
+    scope: str,
+    name: str,
+    dest_rse: str,
+    request_type: str,
+    issuer: str,
+    account: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Cancel a request based on a DID and request type.
 
@@ -95,12 +122,20 @@ def cancel_request_did(scope, name, dest_rse, request_type, issuer, account, vo=
     if not permission.has_permission(issuer=issuer, vo=vo, action='cancel_request_did', kwargs=kwargs, session=session):
         raise exception.AccessDenied(f'{account} cannot cancel {request_type} request for {scope}:{name}')
 
-    scope = InternalScope(scope, vo=vo)
-    return request.cancel_request_did(scope, name, dest_rse_id, request_type, session=session)
+    internal_scope = InternalScope(scope, vo=vo)
+    return request.cancel_request_did(internal_scope, name, dest_rse_id, request_type, session=session)
 
 
 @transactional_session
-def get_next(request_type, state, issuer, account, vo='def', *, session: "Session"):
+def get_next(
+    request_type: "RequestType",
+    state: "RequestState",
+    issuer: str,
+    account: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> list[dict[str, Any]]:
     """
     Retrieve the next request matching the request type and state.
 
@@ -122,7 +157,15 @@ def get_next(request_type, state, issuer, account, vo='def', *, session: "Sessio
 
 
 @read_session
-def get_request_by_did(scope, name, rse, issuer, vo='def', *, session: "Session"):
+def get_request_by_did(
+    scope: str,
+    name: str,
+    rse: str,
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Retrieve a request by its DID for a destination RSE.
 
@@ -140,14 +183,22 @@ def get_request_by_did(scope, name, rse, issuer, vo='def', *, session: "Session"
     if not permission.has_permission(issuer=issuer, vo=vo, action='get_request_by_did', kwargs=kwargs, session=session):
         raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}')
 
-    scope = InternalScope(scope, vo=vo)
-    req = request.get_request_by_did(scope, name, rse_id, session=session)
+    internal_scope = InternalScope(scope, vo=vo)
+    req = request.get_request_by_did(internal_scope, name, rse_id, session=session)
 
     return gateway_update_return_dict(req, session=session)
 
 
 @read_session
-def get_request_history_by_did(scope, name, rse, issuer, vo='def', *, session: "Session"):
+def get_request_history_by_did(
+    scope: str,
+    name: str,
+    rse: str,
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Retrieve a historical request by its DID for a destination RSE.
 
@@ -165,14 +216,22 @@ def get_request_history_by_did(scope, name, rse, issuer, vo='def', *, session: "
     if not permission.has_permission(issuer=issuer, vo=vo, action='get_request_history_by_did', kwargs=kwargs, session=session):
         raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}')
 
-    scope = InternalScope(scope, vo=vo)
-    req = request.get_request_history_by_did(scope, name, rse_id, session=session)
+    internal_scope = InternalScope(scope, vo=vo)
+    req = request.get_request_history_by_did(internal_scope, name, rse_id, session=session)
 
     return gateway_update_return_dict(req, session=session)
 
 
 @stream_session
-def list_requests(src_rses, dst_rses, states, issuer, vo='def', *, session: "Session"):
+def list_requests(
+    src_rses: "Iterable[str]",
+    dst_rses: "Iterable[str]",
+    states: "Sequence[RequestState]",
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> "Iterator[dict[str, Any]]":
     """
     List all requests in a specific state from a source RSE to a destination RSE.
 
@@ -195,7 +254,17 @@ def list_requests(src_rses, dst_rses, states, issuer, vo='def', *, session: "Ses
 
 
 @stream_session
-def list_requests_history(src_rses, dst_rses, states, issuer, vo='def', offset=None, limit=None, *, session: "Session"):
+def list_requests_history(
+    src_rses: "Iterable[str]",
+    dst_rses: "Iterable[str]",
+    states: "Sequence[RequestState]",
+    issuer: str,
+    vo: str = 'def',
+    offset: Optional[int] = None,
+    limit: Optional[int] = None,
+    *,
+    session: "Session"
+) -> "Iterator[dict[str, Any]]":
     """
     List all historical requests in a specific state from a source RSE to a destination RSE.
     :param src_rses: source RSEs.
@@ -219,13 +288,23 @@ def list_requests_history(src_rses, dst_rses, states, issuer, vo='def', offset=N
 
 
 @read_session
-def get_request_metrics(src_rse: Optional[str], dst_rse: Optional[str], activity: Optional[str], issuer, vo='def', *, session: "Session"):
+def get_request_metrics(
+    src_rse: Optional[str],
+    dst_rse: Optional[str],
+    activity: Optional[str],
+    group_by_rse_attribute: Optional[str],
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Get statistics of requests in a specific state grouped by source RSE, destination RSE, and activity.
 
     :param src_rse: source RSE.
     :param dst_rse: destination RSE.
     :param activity: activity
+    :param group_by_rse_attribute: The parameter to group the RSEs by.
     :param issuer: Issuing account as a string.
     :param session: The database session in use.
     """
@@ -239,4 +318,4 @@ def get_request_metrics(src_rse: Optional[str], dst_rse: Optional[str], activity
     if not permission.has_permission(issuer=issuer, vo=vo, action='get_request_metrics', kwargs=kwargs, session=session):
         raise exception.AccessDenied(f'{issuer} cannot get request statistics')
 
-    return request.get_request_metrics(dest_rse_id=dst_rse_id, src_rse_id=src_rse_id, activity=activity, session=session)
+    return request.get_request_metrics(dest_rse_id=dst_rse_id, src_rse_id=src_rse_id, activity=activity, group_by_rse_attribute=group_by_rse_attribute, session=session)

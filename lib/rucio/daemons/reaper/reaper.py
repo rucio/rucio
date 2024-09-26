@@ -25,13 +25,13 @@ import traceback
 from configparser import NoOptionError, NoSectionError
 from datetime import datetime, timedelta
 from math import log2
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.constants import RseAttr
 from rucio.common.exception import DatabaseException, ReplicaNotFound, ReplicaUnAvailable, ResourceTemporaryUnavailable, RSEAccessDenied, RSENotFound, RSEProtocolNotSupported, ServiceUnavailable, SourceNotFound, VONotFound
@@ -52,21 +52,26 @@ from rucio.daemons.common import run_daemon
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Iterable, Sequence
     from types import FrameType
-    from typing import Any, Optional
 
+    from rucio.common.types import LoggerFunction
     from rucio.daemons.common import HeartbeatHandler
 
 GRACEFUL_STOP = threading.Event()
 METRICS = MetricManager(module=__name__)
-REGION = make_region_memcached(expiration_time=600)
+REGION = MemcacheRegion(expiration_time=600)
 DAEMON_NAME = 'reaper'
 
 EXCLUDED_RSE_GAUGE = METRICS.gauge('excluded_rses.{rse}', documentation='Temporarly excluded RSEs')
 
 
-def get_rses_to_process(rses, include_rses, exclude_rses, vos):
+def get_rses_to_process(
+        rses: Optional["Iterable[str]"],
+        include_rses: Optional[str],
+        exclude_rses: Optional[str],
+        vos: Optional["Sequence[str]"]
+) -> Optional[list[dict[str, Any]]]:
     """
     Return the list of RSEs to process based on rses, include_rses and exclude_rses
 
@@ -101,7 +106,7 @@ def get_rses_to_process(rses, include_rses, exclude_rses, vos):
     if not isinstance(result, NoValue):
         return result
 
-    all_rses = []
+    all_rses: list[dict[str, Any]] = []
     for vo in vos:
         all_rses.extend(list_rses(filters={'vo': vo}))
 
@@ -111,21 +116,21 @@ def get_rses_to_process(rses, include_rses, exclude_rses, vos):
             msg = 'RSE{} {} cannot be found'.format('s' if len(invalid) > 1 else '',
                                                     ', '.join([repr(rse) for rse in invalid]))
             raise RSENotFound(msg)
-        rses = [rse for rse in all_rses if rse['rse'] in rses]
+        rses_to_process = [rse for rse in all_rses if rse['rse'] in rses]
     else:
-        rses = all_rses
+        rses_to_process = all_rses
 
     if include_rses:
         included_rses = parse_expression(include_rses)
-        rses = [rse for rse in rses if rse in included_rses]
+        rses_to_process = [rse for rse in rses_to_process if rse in included_rses]
 
     if exclude_rses:
         excluded_rses = parse_expression(exclude_rses)
-        rses = [rse for rse in rses if rse not in excluded_rses]
+        rses_to_process = [rse for rse in rses_to_process if rse not in excluded_rses]
 
-    REGION.set(cache_key, rses)
-    logging.log(logging.INFO, 'Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses]))
-    return rses
+    REGION.set(cache_key, rses_to_process)
+    logging.log(logging.INFO, 'Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses_to_process]))
+    return rses_to_process
 
 
 def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info, is_staging, auto_exclude_threshold, logger=logging.log):
@@ -236,7 +241,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
     return deleted_files
 
 
-def _rse_deletion_hostname(rse: RseData, scheme: "Optional[str]") -> "Optional[str]":
+def _rse_deletion_hostname(rse: RseData, scheme: Optional[str]) -> Optional[str]:
     """
     Retrieves the hostname of the default deletion protocol
     """
@@ -273,7 +278,7 @@ def get_max_deletion_threads_by_hostname(hostname: str) -> int:
     return result
 
 
-def __try_reserve_worker_slot(heartbeat_handler: "HeartbeatHandler", rse: RseData, hostname: str, logger: "Callable[..., Any]") -> "Optional[str]":
+def __try_reserve_worker_slot(heartbeat_handler: "HeartbeatHandler", rse: RseData, hostname: str, logger: "LoggerFunction") -> Optional[str]:
     """
     The maximum number of concurrent workers is limited per hostname and per RSE due to storage performance reasons.
     This function tries to reserve a slot to run the deletion worker for the given RSE and hostname.
@@ -286,7 +291,7 @@ def __try_reserve_worker_slot(heartbeat_handler: "HeartbeatHandler", rse: RseDat
     """
 
     rse_hostname_key = '%s,%s' % (rse.id, hostname)
-    payload_cnt = list_payload_counts(heartbeat_handler.executable, older_than=heartbeat_handler.older_than)
+    payload_cnt = list_payload_counts(heartbeat_handler.executable, older_than=heartbeat_handler.older_than)  # type: ignore (argument missing: session)
     tot_threads_for_hostname = 0
     tot_threads_for_rse = 0
     for key in payload_cnt:
@@ -305,7 +310,7 @@ def __try_reserve_worker_slot(heartbeat_handler: "HeartbeatHandler", rse: RseDat
     return rse_hostname_key
 
 
-def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> tuple[int, bool]:
+def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: "LoggerFunction" = logging.log) -> tuple[int, bool]:
     """
     Wrapper around __check_rse_usage which manages the cache entry.
     """
@@ -317,7 +322,7 @@ def __check_rse_usage_cached(rse: RseData, greedy: bool = False, logger: "Callab
     return result
 
 
-def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "Callable[..., Any]" = logging.log) -> tuple[int, bool]:
+def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "LoggerFunction" = logging.log) -> tuple[int, bool]:
     """
     Internal method to check RSE usage and limits.
 
@@ -372,8 +377,20 @@ def __check_rse_usage(rse: RseData, greedy: bool = False, logger: "Callable[...,
     return 0, True
 
 
-def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=False, greedy=False,
-           scheme=None, delay_seconds=0, sleep_time=60, auto_exclude_threshold=100, auto_exclude_timeout=600):
+def reaper(
+        rses: "Sequence[str]",
+        include_rses: Optional[str],
+        exclude_rses: Optional[str],
+        vos: Optional["Sequence[str]"] = None,
+        chunk_size: int = 100,
+        once: bool = False,
+        greedy: bool = False,
+        scheme: Optional[str] = None,
+        delay_seconds: int = 0,
+        sleep_time: int = 60,
+        auto_exclude_threshold: int = 100,
+        auto_exclude_timeout: int = 600
+) -> None:
     """
     Main loop to select and delete files.
 
@@ -413,9 +430,20 @@ def reaper(rses, include_rses, exclude_rses, vos=None, chunk_size=100, once=Fals
     )
 
 
-def run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
-             delay_seconds, auto_exclude_threshold, auto_exclude_timeout,
-             heartbeat_handler, **_kwargs):
+def run_once(
+        rses: "Sequence[str]",
+        include_rses: Optional[str],
+        exclude_rses: Optional[str],
+        vos: Optional["Sequence[str]"],
+        chunk_size: int,
+        greedy: bool,
+        scheme: Optional[str],
+        delay_seconds: int,
+        auto_exclude_threshold: int,
+        auto_exclude_timeout: int,
+        heartbeat_handler: "HeartbeatHandler",
+        **_kwargs
+) -> bool:
 
     must_sleep = True
 
@@ -443,10 +471,11 @@ def run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
             return must_sleep
 
     rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
-    rses_to_process = [RseData(id_=rse['id'], name=rse['rse'], columns=rse) for rse in rses_to_process]
     if not rses_to_process:
         logger(logging.ERROR, 'Reaper: No RSEs found. Will sleep for 30 seconds')
         return must_sleep
+    else:
+        rses_to_process = [RseData(id_=rse['id'], name=rse['rse'], columns=rse) for rse in rses_to_process]
 
     # On big deletion campaigns, we desire to re-iterate fast on RSEs which have a lot of data to delete.
     # The called function will return the RSEs which have more work remaining.
@@ -477,9 +506,17 @@ def run_once(rses, include_rses, exclude_rses, vos, chunk_size, greedy, scheme,
     return must_sleep
 
 
-def _run_once(rses_to_process, chunk_size, greedy, scheme,
-              delay_seconds, auto_exclude_threshold, auto_exclude_timeout,
-              heartbeat_handler, **_kwargs):
+def _run_once(
+        rses_to_process: "Iterable[RseData]",
+        chunk_size: int,
+        greedy: bool,
+        scheme: Optional[str],
+        delay_seconds: int,
+        auto_exclude_threshold: int,
+        auto_exclude_timeout: int,
+        heartbeat_handler: "HeartbeatHandler",
+        **_kwargs
+) -> list[RseData]:
 
     dict_rses = {}
     _, total_workers, logger = heartbeat_handler.live()
@@ -557,7 +594,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
                                                            rse_id=rse.id,
                                                            delay_seconds=delay_seconds,
                                                            only_delete_obsolete=only_delete_obsolete,
-                                                           session=None)
+                                                           session=None)  # type: ignore (argument missing: session)
             logger(logging.DEBUG, 'list_and_mark_unlocked_replicas on %s for %s bytes in %s seconds: %s replicas', rse.name, needed_free_space, time.time() - del_start_time, len(replicas))
             if (len(replicas) == 0 and enable_greedy) or (len(replicas) < chunk_size and not enable_greedy):
                 logger(logging.DEBUG, 'Not enough replicas to delete on %s (%s requested vs %s returned). Will skip any new attempts on this RSE until next cycle', rse.name, chunk_size, len(replicas))
@@ -609,7 +646,7 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
 
                 # Then finally delete the replicas
                 del_start = time.time()
-                delete_replicas(rse_id=rse.id, files=deleted_files)
+                delete_replicas(rse_id=rse.id, files=deleted_files)  # type: ignore (argument missing: session)
                 logger(logging.DEBUG, 'delete_replicas succeeded on %s : %s replicas in %s seconds', rse.name, len(deleted_files), time.time() - del_start)
                 METRICS.counter('deletion.done').inc(len(deleted_files))
         except RSEProtocolNotSupported:
@@ -624,14 +661,28 @@ def _run_once(rses_to_process, chunk_size, greedy, scheme,
     return rses_with_more_work
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
     GRACEFUL_STOP.set()
 
 
-def run(threads=1, chunk_size=100, once=False, greedy=False, rses=None, scheme=None, exclude_rses=None, include_rses=None, vos=None, delay_seconds=0, sleep_time=60, auto_exclude_threshold=100, auto_exclude_timeout=600):
+def run(
+        threads: int = 1,
+        chunk_size: int = 100,
+        once: bool = False,
+        greedy: bool = False,
+        rses: Optional["Sequence[str]"] = None,
+        scheme: Optional[str] = None,
+        exclude_rses: Optional[str] = None,
+        include_rses: Optional[str] = None,
+        vos: Optional["Sequence[str]"] = None,
+        delay_seconds: int = 0,
+        sleep_time: int = 60,
+        auto_exclude_threshold: int = 100,
+        auto_exclude_timeout: int = 600
+) -> None:
     """
     Starts up the reaper threads.
 

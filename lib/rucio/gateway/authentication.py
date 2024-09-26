@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from rucio.common import exception
-from rucio.common.types import InternalAccount
+from rucio.common.types import InternalAccount, TokenDict
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import authentication, identity, oidc
 from rucio.db.sqla.constants import IdentityType
@@ -27,7 +27,13 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def refresh_cli_auth_token(token_string, account, vo='def', *, session: "Session"):
+def refresh_cli_auth_token(
+    token_string: str,
+    account: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> Optional[tuple[str, int]]:
     """
     Checks if there is active refresh token and if so returns
     either active token with expiration timestamp or requests a new
@@ -38,12 +44,17 @@ def refresh_cli_auth_token(token_string, account, vo='def', *, session: "Session
 
     :return: tuple of (access token, expiration epoch), None otherswise
     """
-    account = InternalAccount(account, vo=vo)
-    return oidc.refresh_cli_auth_token(token_string, account, session=session)
+    internal_account = InternalAccount(account, vo=vo)
+    return oidc.refresh_cli_auth_token(token_string, internal_account, session=session)
 
 
 @transactional_session
-def redirect_auth_oidc(authn_code, fetchtoken=False, *, session: "Session"):
+def redirect_auth_oidc(
+    authn_code: str,
+    fetchtoken: bool = False,
+    *,
+    session: "Session"
+) -> Optional[str]:
     """
     Finds the Authentication URL in the Rucio DB oauth_requests table
     and redirects user's browser to this URL.
@@ -62,7 +73,13 @@ def redirect_auth_oidc(authn_code, fetchtoken=False, *, session: "Session"):
 
 
 @transactional_session
-def get_auth_oidc(account, vo='def', *, session: "Session", **kwargs):
+def get_auth_oidc(
+    account: str,
+    vo: str = 'def',
+    *,
+    session: "Session",
+    **kwargs
+) -> str:
     """
     Assembles the authorization request of the Rucio Client tailored to the Rucio user
     & Identity Provider. Saves authentication session parameters in the oauth_requests
@@ -97,12 +114,17 @@ def get_auth_oidc(account, vo='def', *, session: "Session", **kwargs):
     """
     # no permission layer for the moment !
 
-    account = InternalAccount(account, vo=vo)
-    return oidc.get_auth_oidc(account, session=session, **kwargs)
+    internal_account = InternalAccount(account, vo=vo)
+    return oidc.get_auth_oidc(internal_account, session=session, **kwargs)
 
 
 @transactional_session
-def get_token_oidc(auth_query_string, ip=None, *, session: "Session"):
+def get_token_oidc(
+    auth_query_string: str,
+    ip: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional[dict[str, Optional[Union[str, bool]]]]:
     """
     After Rucio User got redirected to Rucio /auth/oidc_token (or /auth/oidc_code)
     REST endpoints with authz code and session state encoded within the URL.
@@ -121,7 +143,16 @@ def get_token_oidc(auth_query_string, ip=None, *, session: "Session"):
 
 
 @transactional_session
-def get_auth_token_user_pass(account, username, password, appid, ip=None, vo='def', *, session: "Session"):
+def get_auth_token_user_pass(
+    account: str,
+    username: str,
+    password: str,
+    appid: str,
+    ip: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via username and password.
 
@@ -142,13 +173,21 @@ def get_auth_token_user_pass(account, username, password, appid, ip=None, vo='de
     if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_user_pass', kwargs=kwargs, session=session):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (username, account))
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    return authentication.get_auth_token_user_pass(account, username, password, appid, ip, session=session)
+    return authentication.get_auth_token_user_pass(internal_account, username, password, appid, ip, session=session)
 
 
 @transactional_session
-def get_auth_token_gss(account, gsscred, appid, ip=None, vo='def', *, session: "Session"):
+def get_auth_token_gss(
+    account: str,
+    gsscred: str,
+    appid: str,
+    ip: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via a GSS token.
 
@@ -168,13 +207,21 @@ def get_auth_token_gss(account, gsscred, appid, ip=None, vo='def', *, session: "
     if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_gss', kwargs=kwargs, session=session):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (gsscred, account))
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    return authentication.get_auth_token_gss(account, gsscred, appid, ip, session=session)
+    return authentication.get_auth_token_gss(internal_account, gsscred, appid, ip, session=session)
 
 
 @transactional_session
-def get_auth_token_x509(account, dn, appid, ip=None, vo='def', *, session: "Session"):
+def get_auth_token_x509(
+    account: Optional[str],
+    dn: str,
+    appid: str,
+    ip: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via an x509 certificate.
 
@@ -197,13 +244,21 @@ def get_auth_token_x509(account, dn, appid, ip=None, vo='def', *, session: "Sess
     if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_x509', kwargs=kwargs, session=session):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (dn, account))
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    return authentication.get_auth_token_x509(account, dn, appid, ip, session=session)
+    return authentication.get_auth_token_x509(internal_account, dn, appid, ip, session=session)
 
 
 @transactional_session
-def get_auth_token_ssh(account, signature, appid, ip=None, vo='def', *, session: "Session"):
+def get_auth_token_ssh(
+    account: str,
+    signature: str,
+    appid: str,
+    ip: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via SSH key exchange.
 
@@ -223,13 +278,20 @@ def get_auth_token_ssh(account, signature, appid, ip=None, vo='def', *, session:
     if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs, session=session):
         raise exception.AccessDenied('User with provided signature can not log to account %s' % account)
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    return authentication.get_auth_token_ssh(account, signature, appid, ip, session=session)
+    return authentication.get_auth_token_ssh(internal_account, signature, appid, ip, session=session)
 
 
 @transactional_session
-def get_ssh_challenge_token(account, appid, ip=None, vo='def', *, session: "Session"):
+def get_ssh_challenge_token(
+    account: str,
+    appid: str,
+    ip: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> Optional[TokenDict]:
     """
     Get a challenge token for subsequent SSH public key authentication.
 
@@ -248,13 +310,21 @@ def get_ssh_challenge_token(account, appid, ip=None, vo='def', *, session: "Sess
     if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs, session=session):
         raise exception.AccessDenied('User can not get challenge token for account %s' % account)
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    return authentication.get_ssh_challenge_token(account, appid, ip, session=session)
+    return authentication.get_ssh_challenge_token(internal_account, appid, ip, session=session)
 
 
 @transactional_session
-def get_auth_token_saml(account, saml_nameid, appid, ip=None, vo='def', *, session: "Session"):
+def get_auth_token_saml(
+    account: str,
+    saml_nameid: str,
+    appid: str,
+    ip: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via SSO.
 
@@ -273,13 +343,17 @@ def get_auth_token_saml(account, saml_nameid, appid, ip=None, vo='def', *, sessi
     if not permission.has_permission(issuer=account, vo=vo, action='get_auth_token_saml', kwargs=kwargs, session=session):
         raise exception.AccessDenied('User with identity %s can not log to account %s' % (saml_nameid, account))
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    return authentication.get_auth_token_saml(account, saml_nameid, appid, ip, session=session)
+    return authentication.get_auth_token_saml(internal_account, saml_nameid, appid, ip, session=session)
 
 
 @transactional_session
-def validate_auth_token(token, *, session: "Session"):
+def validate_auth_token(
+    token: str,
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Validate an authentication token.
 

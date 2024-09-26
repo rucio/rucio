@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Optional, Union
 
 from rucio.common.exception import AccessDenied
 from rucio.core import meta_conventions
-from rucio.db.sqla.constants import KeyType
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.gateway.permission import has_permission
 
@@ -24,6 +23,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from rucio.common.types import InternalAccount
+    from rucio.db.sqla.constants import KeyType
 
 
 @read_session
@@ -53,7 +53,16 @@ def list_values(key: str, *, session: "Session") -> list[str]:
 
 
 @transactional_session
-def add_key(key: str, key_type: Union[KeyType, str], issuer: "InternalAccount", value_type: Optional[str] = None, value_regexp: Optional[str] = None, vo: str = 'def', *, session: "Session") -> None:
+def add_key(
+    key: str,
+    key_type: Union["KeyType", str],
+    issuer: "InternalAccount",
+    value_type: Optional[str] = None,
+    value_regexp: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Add an allowed key for DID metadata (update the DID Metadata Conventions table with a new key).
 

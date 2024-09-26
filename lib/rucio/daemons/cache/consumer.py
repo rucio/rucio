@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,21 +21,23 @@ import logging
 import threading
 import time
 from traceback import format_exc
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_int, config_get_bool, config_get_list
-from rucio.common.logging import setup_logging, formatted_logger
+from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.stomp_utils import StompConnectionManager
-from rucio.common.types import InternalScope
+from rucio.common.types import InternalScope, LoggerFunction
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_id
 from rucio.core.volatile_replica import add_volatile_replicas, delete_volatile_replicas
 
 if TYPE_CHECKING:
     from types import FrameType
-    from typing import Optional
+
+    from stomp import Connection
+    from stomp.utils import Frame
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
@@ -45,12 +46,17 @@ GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'cache-consumer'
 
 
-class AMQConsumer(object):
+class AMQConsumer:
     """
     class Consumer
     """
 
-    def __init__(self, broker, conn, logger):
+    def __init__(
+            self,
+            broker: str,
+            conn: "Connection",
+            logger: "LoggerFunction"
+    ):
         """
         __init__
         """
@@ -59,23 +65,23 @@ class AMQConsumer(object):
         self.__logger = logger
 
     @METRICS.count_it
-    def on_heartbeat_timeout(self):
+    def on_heartbeat_timeout(self) -> None:
         self.__conn.disconnect()
 
     @METRICS.count_it
-    def on_error(self, frame):
+    def on_error(self, frame: "Frame") -> None:
         """
         on_error
         """
         self.__logger(logging.ERROR, 'Message receive error: [%s] %s' % (self.__broker, frame.body))
 
     @METRICS.count_it
-    def on_message(self, frame):
+    def on_message(self, frame: "Frame") -> None:
         """
         on_message
         """
         try:
-            msg = json.loads(frame.body)
+            msg = json.loads(frame.body)  # type: ignore
             self.__logger(logging.DEBUG, 'Message received: %s ' % msg)
             if isinstance(msg, dict) and 'operation' in msg.keys():
                 for f in msg['files']:
@@ -101,7 +107,7 @@ class AMQConsumer(object):
             self.__logger(logging.ERROR, str(format_exc()))
 
 
-def consumer(id_, num_thread=1):
+def consumer(id_: int, num_thread: int = 1) -> None:
     """
     Main loop to consume messages from the Rucio Cache producer.
     """
@@ -161,7 +167,7 @@ def consumer(id_, num_thread=1):
     logger(logging.INFO, 'graceful stop done')
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
@@ -169,7 +175,7 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     GRACEFUL_STOP.set()
 
 
-def run(num_thread=1):
+def run(num_thread: int = 1) -> None:
     """
     Starts up the rucio cache consumer thread
     """

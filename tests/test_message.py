@@ -17,6 +17,7 @@ import random
 import string
 
 import pytest
+from sqlalchemy import select
 
 from rucio.common.constants import MAX_MESSAGE_LENGTH
 from rucio.common.exception import InvalidObject, RucioException
@@ -115,16 +116,16 @@ def test_large_payload(core_config_mock, caches_mock):
     add_message(event_type=event_type, payload=dict_long_payload)
 
     session = get_session()
-    msg = session.query(Message.id,   # pylint: disable=no-member
-                        Message.created_at,
-                        Message.event_type,
-                        Message.payload,
-                        Message.payload_nolimit,
-                        Message.services)\
-        .filter_by(event_type=event_type)\
-        .first()
-    assert msg.payload == 'nolimit'
-    assert msg.payload_nolimit == json.dumps(dict_long_payload)
+    stmt = select(
+        Message.payload,
+        Message.payload_nolimit
+    ).where(
+        Message.event_type == event_type
+    )
+    result = session.execute(stmt).first()
+    assert result is not None
+    assert result.payload == 'nolimit'
+    assert result.payload_nolimit == json.dumps(dict_long_payload)
     messages = retrieve_messages(40)
     assert messages[0]['payload'] == dict_long_payload
 

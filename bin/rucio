@@ -30,6 +30,7 @@ from configparser import NoOptionError, NoSectionError
 from copy import deepcopy
 from datetime import datetime
 from functools import wraps
+from typing import Optional
 
 from tabulate import tabulate
 
@@ -234,6 +235,8 @@ def get_client(args):
                  'oidc_issuer': args.oidc_issuer,
                  'oidc_username': args.oidc_username,
                  'oidc_password': args.oidc_password}
+    elif auth_type == "x509":
+        creds = {'client_cert': args.certificate, "client_key": args.client_key}
     else:
         creds = None
 
@@ -1077,6 +1080,24 @@ def download(args):
             logger.debug(args.dids)
         item_defaults['pfn'] = args.pfn
         item_defaults['did'] = did_str
+        if args.rses is None:
+            logger.warning("No RSE was given, selecting one.")
+            client = get_client(args)
+            replicas = client.list_replicas(
+                [{"scope": did_str.split(':')[0], "name": did_str.split(':')[-1]}],
+                schemes=args.protocol,
+                ignore_availability=False,
+                client_location=detect_client_location(),
+                resolve_archives=not args.no_resolve_archives
+            )
+
+            download_rse = _get_rse_for_pfn(replicas, args.pfn)
+            if download_rse is None:
+                logger.error("Could not find RSE for pfn %s", args.pfn)
+                return FAILURE
+            else:
+                item_defaults['rse'] = download_rse
+
         result = download_client.download_pfns([item_defaults], 1, trace_pattern, deactivate_file_download_exceptions=deactivate_file_download_exceptions)
 
     if not result:
@@ -1116,6 +1137,21 @@ def download(args):
         print('{0:40} {1:6d}'.format('Files that cannot be downloaded: ', not_downloaded_files))
 
     return SUCCESS
+
+
+def _get_rse_for_pfn(replicas, pfn) -> Optional[str]:
+    # Check each rse in the replica list for the pfn. If no pfn is found, returns None.
+    # If it is found, stop the generator and return the item.
+    for replica in replicas:
+        try:
+            download_rse = next(
+                rse for rse in replica['rses']
+                if pfn in replica['rses'][rse]
+            )
+        except StopIteration:
+            continue
+        else:
+            return download_rse
 
 
 @exception_handler
@@ -1854,7 +1890,8 @@ def get_parser():
                          + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')  # NOQA: W503
 
     # Options for the x509  auth_strategy
-    oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file.')
+    oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file for x509 Authentication.')
+    oparser.add_argument('--client_key', dest='client_key', default=None, help='Client key for x509 Authentication.')
     oparser.add_argument('--ca-certificate', dest='ca_certificate', default=None, help='CA certificate to verify peer against (SSL).')
 
     # Ping command
@@ -1926,7 +1963,7 @@ To list the missing replica of a dataset of a given RSE-expression::
     list_file_replicas_parser.add_argument('--no-resolve-archives', dest='no_resolve_archives', default=False, action='store_true', help='Do not resolve archives which may contain the files.', required=False)
     list_file_replicas_parser.add_argument('--sort', dest='sort', default=None, action='store', help='Replica sort algorithm. Available options: geoip (default), random', required=False)
     list_file_replicas_parser.add_argument('--rses', dest='rses', default=None, action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
-            can be found in ' + Color.BOLD + 'http://rucio.cern.ch/documentation/rse_expressions/' + Color.END)
+            can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/concepts/rse_expressions' + Color.END)
 
     # The list-dataset-replicas command
     list_dataset_replicas_parser = subparsers.add_parser('list-dataset-replicas', help='List the dataset replicas.',
@@ -2428,13 +2465,13 @@ You can filter by account::
     list_rses_parser = subparsers.add_parser('list-rses', help='Show the list of all the registered Rucio Storage Elements (RSEs).')
     list_rses_parser.set_defaults(function=list_rses)
     list_rses_parser.add_argument('--rses', dest='rses', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
-can be found in ' + Color.BOLD + 'http://rucio.cern.ch/documentation/rse_expressions/' + Color.END)
+can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/concepts/rse_expressions' + Color.END)
 
     # The list-suspicious-replicas command
     list_suspicious_replicas_parser = subparsers.add_parser('list-suspicious-replicas', help='Show the list of all replicas marked "suspicious".')
     list_suspicious_replicas_parser.set_defaults(function=list_suspicious_replicas)
     list_suspicious_replicas_parser.add_argument('--expression', dest='rse_expression', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
-can be found in ' + Color.BOLD + 'http://rucio.cern.ch/documentation/rse_expressions/' + Color.END)
+can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/concepts/rse_expressions' + Color.END)
     list_suspicious_replicas_parser.add_argument('--younger_than', '--younger-than', new_option_string='--younger-than', dest='younger_than', action=StoreAndDeprecateWarningAction, help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00.')  # NOQA: E501
     list_suspicious_replicas_parser.add_argument('--nattempts', dest='nattempts', action='store', help='Minimum number of failed attempts to access a suspicious file.')
 

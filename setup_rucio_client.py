@@ -28,7 +28,7 @@ except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__)))
     from setuputil import clients_requirements_table, get_rucio_version, match_define_requirements
 
-install_requires, extras_require = match_define_requirements(clients_requirements_table)
+install_requires, extras_require = match_define_requirements('client', clients_requirements_table)
 
 # Arguments to the setup script to build Basic/Lite distributions
 name = 'rucio-clients'
@@ -36,7 +36,7 @@ packages = ['rucio', 'rucio.client', 'rucio.common', 'rucio.common.schema',
             'rucio.rse.protocols', 'rucio.rse']
 description = "Rucio Client Lite Package"
 data_files = [
-    ('', ['requirements.txt']),
+    ('', ['requirements/requirements.client.txt']),
     ('etc/', ['etc/rse-accounts.cfg.template', 'etc/rucio.cfg.template', 'etc/rucio.cfg.atlas.client.template']),
     ('rucio_client/', ['tools/merge_rucio_configs.py']),
 ]

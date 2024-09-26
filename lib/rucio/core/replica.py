@@ -34,17 +34,16 @@ from sqlalchemy import and_, delete, exists, func, insert, not_, or_, union, upd
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
-from sqlalchemy.sql import label
 from sqlalchemy.sql.expression import case, false, literal, literal_column, null, select, text, true
 
 import rucio.core.did
 import rucio.core.lock
 from rucio.common import exception
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import RseAttr, SuspiciousAvailability
 from rucio.common.types import InternalScope
-from rucio.common.utils import add_url_query, chunks, clean_surls, str_to_date
+from rucio.common.utils import add_url_query, chunks, clean_pfns, str_to_date
 from rucio.core.credential import get_signed_url
 from rucio.core.message import add_messages
 from rucio.core.monitor import MetricManager
@@ -66,7 +65,7 @@ if TYPE_CHECKING:
     from rucio.common.types import LoggerFunction
     from rucio.rse.protocols.protocol import RSEProtocol
 
-REGION = make_region_memcached(expiration_time=60)
+REGION = MemcacheRegion(expiration_time=60)
 METRICS = MetricManager(module=__name__)
 
 
@@ -89,33 +88,42 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
     rse_clause = []
     if rse_expression:
         for rse in parse_expression(expression=rse_expression, filter_=filter_, session=session):
-            rse_clause.append(models.BadReplicas.rse_id == rse['id'])
+            rse_clause.append(models.BadReplica.rse_id == rse['id'])
     elif filter_:
         # Ensure we limit results to current VO even if we don't specify an RSE expression
         for rse in list_rses(filters=filter_, session=session):
-            rse_clause.append(models.BadReplicas.rse_id == rse['id'])
+            rse_clause.append(models.BadReplica.rse_id == rse['id'])
 
     if session.bind.dialect.name == 'oracle':
-        to_days = func.trunc(models.BadReplicas.created_at, 'DD')
+        to_days = func.trunc(models.BadReplica.created_at, 'DD')
     elif session.bind.dialect.name == 'mysql':
-        to_days = func.date(models.BadReplicas.created_at)
+        to_days = func.date(models.BadReplica.created_at)
     elif session.bind.dialect.name == 'postgresql':
-        to_days = func.date_trunc('day', models.BadReplicas.created_at)
+        to_days = func.date_trunc('day', models.BadReplica.created_at)
     else:
-        to_days = func.strftime(models.BadReplicas.created_at, '%Y-%m-%d')
-    query = session.query(func.count(), to_days, models.BadReplicas.rse_id, models.BadReplicas.state, models.BadReplicas.reason)
+        to_days = func.strftime(models.BadReplica.created_at, '%Y-%m-%d')
+
+    stmt = select(
+        func.count(),
+        to_days,
+        models.BadReplica.rse_id,
+        models.BadReplica.state,
+        models.BadReplica.reason
+    ).select_from(
+        models.BadReplica
+    )
     # To be added : HINTS
     if rse_clause != []:
-        query = query.filter(or_(*rse_clause))
+        stmt = stmt.where(or_(*rse_clause))
     if from_date:
-        query = query.filter(models.BadReplicas.created_at > from_date)
+        stmt = stmt.where(models.BadReplica.created_at > from_date)
     if to_date:
-        query = query.filter(models.BadReplicas.created_at < to_date)
-    summary = query.group_by(to_days, models.BadReplicas.rse_id, models.BadReplicas.reason, models.BadReplicas.state).all()
-    for row in summary:
-        if (row[2], row[1], row[4]) not in incidents:
-            incidents[(row[2], row[1], row[4])] = {}
-        incidents[(row[2], row[1], row[4])][str(row[3].name)] = row[0]
+        stmt = stmt.where(models.BadReplica.created_at < to_date)
+    stmt = stmt.group_by(to_days, models.BadReplica.rse_id, models.BadReplica.reason, models.BadReplica.state)
+    for count, to_days, rse_id, state, reason in session.execute(stmt):
+        if (rse_id, to_days, reason) not in incidents:
+            incidents[(rse_id, to_days, reason)] = {}
+        incidents[(rse_id, to_days, reason)][str(state.name)] = count
 
     for incident in incidents:
         res = incidents[incident]
@@ -161,27 +169,38 @@ def __exist_replicas(rse_id, replicas, *, session: "Session"):
     for clause in [path_clause, did_clause]:
         if clause:
             for chunk in chunks(clause, 10):
-                query = session.query(models.RSEFileAssociation.path,
-                                      models.RSEFileAssociation.scope,
-                                      models.RSEFileAssociation.name,
-                                      models.RSEFileAssociation.rse_id,
-                                      models.RSEFileAssociation.bytes,
-                                      func.max(case((models.BadReplicas.state == BadFilesStatus.SUSPICIOUS, 0),
-                                                    (models.BadReplicas.state == BadFilesStatus.BAD, 1),
-                                                    else_=0))).\
-                    with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PATH_IDX", 'oracle').\
-                    outerjoin(models.BadReplicas,
-                              and_(models.RSEFileAssociation.scope == models.BadReplicas.scope,
-                                   models.RSEFileAssociation.name == models.BadReplicas.name,
-                                   models.RSEFileAssociation.rse_id == models.BadReplicas.rse_id)).\
-                    filter(models.RSEFileAssociation.rse_id == rse_id).filter(or_(*chunk)).\
-                    group_by(models.RSEFileAssociation.path,
-                             models.RSEFileAssociation.scope,
-                             models.RSEFileAssociation.name,
-                             models.RSEFileAssociation.rse_id,
-                             models.RSEFileAssociation.bytes)
+                stmt = select(
+                    models.RSEFileAssociation.path,
+                    models.RSEFileAssociation.scope,
+                    models.RSEFileAssociation.name,
+                    models.RSEFileAssociation.rse_id,
+                    models.RSEFileAssociation.bytes,
+                    func.max(
+                        case(
+                            (models.BadReplica.state == BadFilesStatus.SUSPICIOUS, 0),
+                            (models.BadReplica.state == BadFilesStatus.BAD, 1),
+                            else_=0))
+                ).with_hint(
+                    models.RSEFileAssociation,
+                    'INDEX(REPLICAS REPLICAS_PATH_IDX',
+                    'oracle'
+                ).outerjoin(
+                    models.BadReplica,
+                    and_(models.RSEFileAssociation.scope == models.BadReplica.scope,
+                         models.RSEFileAssociation.name == models.BadReplica.name,
+                         models.RSEFileAssociation.rse_id == models.BadReplica.rse_id)
+                ).where(
+                    and_(models.RSEFileAssociation.rse_id == rse_id,
+                         or_(*chunk))
+                ).group_by(
+                    models.RSEFileAssociation.path,
+                    models.RSEFileAssociation.scope,
+                    models.RSEFileAssociation.name,
+                    models.RSEFileAssociation.rse_id,
+                    models.RSEFileAssociation.bytes
+                )
 
-                for path, scope, name, rse_id, size, state in query.all():
+                for path, scope, name, rse_id, size, state in session.execute(stmt).all():
                     if (scope, name, path) in replicas:
                         replicas.remove((scope, name, path))
                     if (None, None, path) in replicas:
@@ -212,19 +231,26 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
     :param session: The database session in use.
     """
     result = []
-    query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id, models.BadReplicas.state, models.BadReplicas.created_at, models.BadReplicas.updated_at)
+    stmt = select(
+        models.BadReplica.scope,
+        models.BadReplica.name,
+        models.BadReplica.rse_id,
+        models.BadReplica.state,
+        models.BadReplica.created_at,
+        models.BadReplica.updated_at
+    )
     if state:
-        query = query.filter(models.BadReplicas.state == state)
+        stmt = stmt.where(models.BadReplica.state == state)
     if rse_id:
-        query = query.filter(models.BadReplicas.rse_id == rse_id)
+        stmt = stmt.where(models.BadReplica.rse_id == rse_id)
     if younger_than:
-        query = query.filter(models.BadReplicas.created_at >= younger_than)
+        stmt = stmt.where(models.BadReplica.created_at >= younger_than)
     if older_than:
-        query = query.filter(models.BadReplicas.created_at <= older_than)
+        stmt = stmt.where(models.BadReplica.created_at <= older_than)
     if limit:
-        query = query.limit(limit)
+        stmt = stmt.limit(limit)
 
-    for badfile in query.yield_per(1000):
+    for badfile in session.execute(stmt).yield_per(1000):
         if badfile.scope.vo == vo:
             if list_pfns:
                 result.append({'scope': badfile.scope, 'name': badfile.name, 'type': DIDType.FILE})
@@ -246,7 +272,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
 
 
 @transactional_session
-def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', force=False, *, session: "Session"):
+def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', force=False, logger: "LoggerFunction" = logging.log, *, session: "Session"):
     """
     Declare a list of bad replicas.
 
@@ -278,6 +304,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                 replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': status})
                 path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
                 path_pfn_dict[path] = pfn
+                logger(logging.DEBUG, f"Declaring replica {scope}:{name} {status} at {rse_id} with path {path}")
 
         else:
             # For non-deterministic RSEs use the path + rse_id to extract the scope
@@ -287,10 +314,13 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                 replicas.append({'scope': None, 'name': None, 'rse_id': rse_id, 'path': path, 'state': status})
                 path_pfn_dict[path] = pfn
 
+                logger(logging.DEBUG, f"Declaring replica with pfn: {pfn} {status} at {rse_id} with path {path}")
+
     else:
         # If pfns is a list of replicas, just use scope, name and rse_id
         for pfn in pfns:
             replicas.append({'scope': pfn['scope'], 'name': pfn['name'], 'rse_id': rse_id, 'state': status})
+            logger(logging.DEBUG, f"Declaring replica {pfn['scope']}:{pfn['name']} {status} at {rse_id} without path")
 
     replicas_list = []
     for replica in replicas:
@@ -300,7 +330,6 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
     bad_replicas_to_update = []
 
     for scope, name, path, __exists, already_declared, size in __exist_replicas(rse_id=rse_id, replicas=replicas_list, session=session):
-
         declared = False
 
         if __exists:
@@ -310,7 +339,7 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                 declared = True
 
             if status == BadFilesStatus.SUSPICIOUS or status == BadFilesStatus.BAD and not already_declared:
-                new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
+                new_bad_replica = models.BadReplica(scope=scope, name=name, rse_id=rse_id, reason=reason, state=status, account=issuer, bytes=size)
                 new_bad_replica.save(session=session, flush=False)
                 declared = True
 
@@ -325,7 +354,11 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
                         no_hidden_char = False
                         break
                 if no_hidden_char:
-                    unknown_replicas.append('%s %s' % (path_pfn_dict[path], 'Unknown replica'))
+                    pfn = path_pfn_dict[path]
+                    if f"{pfn} Unknown replica" not in unknown_replicas:
+                        unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
+            elif scope or name:
+                unknown_replicas.append(f"{(scope,name)} Unknown replica")
 
     if status == BadFilesStatus.BAD:
         # For BAD file, we modify the replica state, not for suspicious
@@ -371,11 +404,19 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, *, sess
     for scope, name, _, __exists, already_declared, size in __exist_replicas(rse_id=rse_id, replicas=replicas_list, session=session):
         if __exists and not already_declared:
             replicas_for_update.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'state': ReplicaState.BAD})
-            new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id, reason=reason, state=state,
-                                                 account=issuer, bytes=size)
+            new_bad_replica = models.BadReplica(scope=scope, name=name, rse_id=rse_id, reason=reason, state=state,
+                                                account=issuer, bytes=size)
             new_bad_replica.save(session=session, flush=False)
-            session.query(models.Source).filter_by(scope=scope, name=name,
-                                                   rse_id=rse_id).delete(synchronize_session=False)
+            stmt = delete(
+                models.Source
+            ).where(
+                and_(models.Source.scope == scope,
+                     models.Source.name == name,
+                     models.Source.rse_id == rse_id)
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
         else:
             if already_declared:
                 unknown_replicas.append('%s:%s %s' % (did['scope'], name, 'Already declared'))
@@ -448,58 +489,65 @@ def get_pfn_to_rse(pfns, vo='def', *, session: "Session"):
     storage_elements = []
     se_condition = []
     dict_rse = {}
-    surls = clean_surls(pfns)
-    scheme = surls[0].split(':')[0] if surls else None
-    for surl in surls:
-        if surl.split(':')[0] != scheme:
+    cleaned_pfns = clean_pfns(pfns)
+    scheme = cleaned_pfns[0].split(':')[0] if cleaned_pfns else None
+    for pfn in cleaned_pfns:
+        if pfn.split(':')[0] != scheme:
             raise exception.InvalidType('The PFNs specified must have the same protocol')
 
-        split_se = surl.split('/')[2].split(':')
+        split_se = pfn.split('/')[2].split(':')
         storage_element = split_se[0]
 
         if storage_element not in storage_elements:
             storage_elements.append(storage_element)
-            se_condition.append(models.RSEProtocols.hostname == storage_element)
-    query = session.query(models.RSEProtocols.rse_id,
-                          models.RSEProtocols.scheme,
-                          models.RSEProtocols.hostname,
-                          models.RSEProtocols.port,
-                          models.RSEProtocols.prefix).\
-        join(models.RSE, models.RSE.id == models.RSEProtocols.rse_id).\
-        filter(and_(or_(*se_condition), models.RSEProtocols.scheme == scheme)).\
-        filter(models.RSE.deleted == false()).\
-        filter(models.RSE.staging_area == false())
+            se_condition.append(models.RSEProtocol.hostname == storage_element)
+    stmt = select(
+        models.RSEProtocol.rse_id,
+        models.RSEProtocol.scheme,
+        models.RSEProtocol.hostname,
+        models.RSEProtocol.port,
+        models.RSEProtocol.prefix
+    ).join(
+        models.RSE,
+        models.RSEProtocol.rse_id == models.RSE.id
+    ).where(
+        and_(or_(*se_condition),
+             models.RSEProtocol.scheme == scheme,
+             models.RSE.deleted == false(),
+             models.RSE.staging_area == false())
+    )
+
     protocols = {}
 
-    for rse_id, protocol, hostname, port, prefix in query.yield_per(10000):
+    for rse_id, protocol, hostname, port, prefix in session.execute(stmt).yield_per(10000):
         if rse_id not in protocols:
             protocols[rse_id] = []
         protocols[rse_id].append('%s://%s:%s%s' % (protocol, hostname, port, prefix))
         if '%s://%s%s' % (protocol, hostname, prefix) not in protocols[rse_id]:
             protocols[rse_id].append('%s://%s%s' % (protocol, hostname, prefix))
     hint = None
-    for surl in surls:
+    for pfn in cleaned_pfns:
         if hint:
             for pattern in protocols[hint]:
-                if surl.find(pattern) > -1:
-                    dict_rse[hint].append(surl)
+                if pfn.find(pattern) > -1:
+                    dict_rse[hint].append(pfn)
         else:
             mult_rse_match = 0
             for rse_id in protocols:
                 for pattern in protocols[rse_id]:
-                    if surl.find(pattern) > -1 and get_rse_vo(rse_id=rse_id, session=session) == vo:
+                    if pfn.find(pattern) > -1 and get_rse_vo(rse_id=rse_id, session=session) == vo:
                         mult_rse_match += 1
                         if mult_rse_match > 1:
-                            print('ERROR, multiple matches : %s at %s' % (surl, rse_id))
-                            raise exception.RucioException('ERROR, multiple matches : %s at %s' % (surl, get_rse_name(rse_id=rse_id, session=session)))
+                            print('ERROR, multiple matches : %s at %s' % (pfn, rse_id))
+                            raise exception.RucioException('ERROR, multiple matches : %s at %s' % (pfn, get_rse_name(rse_id=rse_id, session=session)))
                         hint = rse_id
                         if hint not in dict_rse:
                             dict_rse[hint] = []
-                        dict_rse[hint].append(surl)
+                        dict_rse[hint].append(pfn)
             if mult_rse_match == 0:
                 if 'unknown' not in unknown_replicas:
                     unknown_replicas['unknown'] = []
-                unknown_replicas['unknown'].append(surl)
+                unknown_replicas['unknown'].append(pfn)
     return scheme, dict_rse, unknown_replicas
 
 
@@ -512,18 +560,28 @@ def get_bad_replicas_backlog(*, session: "Session"):
 
     :returns: a list of dictionary {'rse_id': cnt_bad_replicas}.
     """
-    query = session.query(func.count(models.RSEFileAssociation.rse_id), models.RSEFileAssociation.rse_id). \
-        with_hint(models.RSEFileAssociation, 'INDEX(DIDS DIDS_PK) USE_NL(DIDS) INDEX_RS_ASC(REPLICAS ("REPLICAS"."STATE"))', 'oracle'). \
-        filter(models.RSEFileAssociation.state == ReplicaState.BAD)
-
-    query = query.join(models.DataIdentifier,
-                       and_(models.DataIdentifier.scope == models.RSEFileAssociation.scope,
-                            models.DataIdentifier.name == models.RSEFileAssociation.name)).\
-        filter(models.DataIdentifier.availability != DIDAvailability.LOST).\
-        group_by(models.RSEFileAssociation.rse_id)
+    stmt = select(
+        func.count(),
+        models.RSEFileAssociation.rse_id
+    ).select_from(
+        models.RSEFileAssociation
+    ).with_hint(
+        models.RSEFileAssociation,
+        'INDEX(DIDS DIDS_PK) USE_NL(DIDS) INDEX_RS_ASC(REPLICAS ("REPLICAS"."STATE"))',
+        'oracle'
+    ).join(
+        models.DataIdentifier,
+        and_(models.RSEFileAssociation.scope == models.DataIdentifier.scope,
+             models.RSEFileAssociation.name == models.DataIdentifier.name)
+    ).where(
+        and_(models.DataIdentifier.availability != DIDAvailability.LOST,
+             models.RSEFileAssociation.state == ReplicaState.BAD)
+    ).group_by(
+        models.RSEFileAssociation.rse_id
+    )
 
     result = dict()
-    for cnt, rse_id in query.all():
+    for cnt, rse_id in session.execute(stmt).all():
         result[rse_id] = cnt
     return result
 
@@ -541,27 +599,36 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, rses=None, *
     :returns: a list of dictionary {'scope' scope, 'name': name, 'rse_id': rse_id, 'rse': rse}.
     """
     schema_dot = '%s.' % DEFAULT_SCHEMA_NAME if DEFAULT_SCHEMA_NAME else ''
-    query = session.query(models.RSEFileAssociation.scope,
-                          models.RSEFileAssociation.name,
-                          models.RSEFileAssociation.rse_id). \
-        with_hint(models.RSEFileAssociation, 'INDEX(DIDS DIDS_PK) USE_NL(DIDS) INDEX_RS_ASC(REPLICAS ("REPLICAS"."STATE"))', 'oracle'). \
-        filter(models.RSEFileAssociation.state == ReplicaState.BAD)
 
-    query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='%sreplicas.name' % (schema_dot))
-    query = query.join(models.DataIdentifier,
-                       and_(models.DataIdentifier.scope == models.RSEFileAssociation.scope,
-                            models.DataIdentifier.name == models.RSEFileAssociation.name)).\
-        filter(models.DataIdentifier.availability != DIDAvailability.LOST)
+    stmt = select(
+        models.RSEFileAssociation.scope,
+        models.RSEFileAssociation.name,
+        models.RSEFileAssociation.rse_id
+    ).with_hint(
+        models.RSEFileAssociation,
+        'INDEX(DIDS DIDS_PK) USE_NL(DIDS) INDEX_RS_ASC(REPLICAS ("REPLICAS"."STATE"))',
+        'oracle'
+    ).where(
+        models.RSEFileAssociation.state == ReplicaState.BAD
+    )
+
+    stmt = filter_thread_work(session=session, query=stmt, total_threads=total_threads, thread_id=thread, hash_variable='%sreplicas.name' % (schema_dot))
+
+    stmt = stmt.join(
+        models.DataIdentifier,
+        and_(models.RSEFileAssociation.scope == models.DataIdentifier.scope,
+             models.RSEFileAssociation.name == models.DataIdentifier.name)
+    ).where(
+        models.DataIdentifier.availability != DIDAvailability.LOST
+    )
 
     if rses:
-        rse_clause = list()
-        for rse in rses:
-            rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
-        query = query.filter(or_(*rse_clause))
+        rse_clause = [models.RSEFileAssociation.rse_id == rse['id'] for rse in rses]
+        stmt = stmt.where(or_(*rse_clause))
 
-    query = query.limit(limit)
+    stmt = stmt.limit(limit)
     rows = []
-    for scope, name, rse_id in query.yield_per(1000):
+    for scope, name, rse_id in session.execute(stmt).yield_per(1000):
         rows.append({'scope': scope, 'name': name, 'rse_id': rse_id, 'rse': get_rse_name(rse_id=rse_id, session=session)})
     return rows
 
@@ -605,8 +672,16 @@ def get_did_from_pfns(pfns, rse_id=None, vo='def', *, session: "Session"):
             for pfn in parsed_pfn:
                 path = '%s%s' % (parsed_pfn[pfn]['path'], parsed_pfn[pfn]['name'])
                 pfndict[path] = pfn
-                condition.append(and_(models.RSEFileAssociation.path == path, models.RSEFileAssociation.rse_id == rse_id))
-            for scope, name, pfn in session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.path).filter(or_(*condition)):
+                condition.append(and_(models.RSEFileAssociation.path == path,
+                                      models.RSEFileAssociation.rse_id == rse_id))
+            stmt = select(
+                models.RSEFileAssociation.scope,
+                models.RSEFileAssociation.name,
+                models.RSEFileAssociation.path
+            ).where(
+                or_(*condition)
+            )
+            for scope, name, pfn in session.execute(stmt).all():
                 yield {pfndict[pfn]: {'scope': scope, 'name': name}}
 
 
@@ -651,15 +726,21 @@ def _list_files_wo_replicas(files_wo_replica, *, session: "Session"):
         for file in sorted(files_wo_replica, key=lambda f: (f['scope'], f['name'])):
             file_wo_clause.append(and_(models.DataIdentifier.scope == file['scope'],
                                        models.DataIdentifier.name == file['name']))
-        files_wo_replicas_query = session.query(models.DataIdentifier.scope,
-                                                models.DataIdentifier.name,
-                                                models.DataIdentifier.bytes,
-                                                models.DataIdentifier.md5,
-                                                models.DataIdentifier.adler32).\
-            filter_by(did_type=DIDType.FILE).filter(or_(*file_wo_clause)).\
-            with_hint(models.DataIdentifier, text="INDEX(DIDS DIDS_PK)", dialect_name='oracle')
-
-        for scope, name, bytes_, md5, adler32 in files_wo_replicas_query:
+        stmt = select(
+            models.DataIdentifier.scope,
+            models.DataIdentifier.name,
+            models.DataIdentifier.bytes,
+            models.DataIdentifier.md5,
+            models.DataIdentifier.adler32
+        ).with_hint(
+            models.DataIdentifier,
+            'INDEX(DIDS DIDS_PK)',
+            'oracle'
+        ).where(
+            and_(models.DataIdentifier.did_type == DIDType.FILE,
+                 or_(*file_wo_clause))
+        )
+        for scope, name, bytes_, md5, adler32 in session.execute(stmt):
             yield scope, name, bytes_, md5, adler32
 
 
@@ -1065,7 +1146,7 @@ def list_replicas(
             models.RSE.volatile,
         ).join(
             models.RSE,
-            and_(models.RSE.id == models.RSEFileAssociation.rse_id,
+            and_(models.RSEFileAssociation.rse_id == models.RSE.id,
                  models.RSE.deleted == false())
         )
 
@@ -1084,7 +1165,11 @@ def list_replicas(
                 stmt = stmt.where(models.RSE.id.in_([rse['id'] for rse in rses]))
             else:
                 rses_temp_table = temp_table_mngr(session).create_id_table()
-                session.execute(insert(rses_temp_table), [{'id': rse['id']} for rse in rses])
+                values = [{'id': rse['id']} for rse in rses]
+                insert_stmt = insert(
+                    rses_temp_table
+                )
+                session.execute(insert_stmt, values)
                 stmt = stmt.join(rses_temp_table, models.RSE.id == rses_temp_table.id)
 
         if not all_states:
@@ -1106,16 +1191,16 @@ def list_replicas(
         created temporary table.
         """
         resolved_files_temp_table = temp_table_mngr(session).create_scope_name_table()
+        selectable = rucio.core.did.list_child_dids_stmt(temp_table, did_type=DIDType.FILE)
 
         stmt = insert(
             resolved_files_temp_table
         ).from_select(
             ['scope', 'name'],
-            rucio.core.did.list_child_dids_stmt(temp_table, did_type=DIDType.FILE)
+            selectable
         )
-        result = session.execute(stmt)
 
-        return result.rowcount, resolved_files_temp_table
+        return session.execute(stmt).rowcount, resolved_files_temp_table
 
     def _list_replicas_for_collection_files_stmt(temp_table, replicas_subquery):
         """
@@ -1248,7 +1333,11 @@ def list_replicas(
         return
 
     input_dids_temp_table = temp_table_mngr(session).create_scope_name_table()
-    session.execute(insert(input_dids_temp_table), [{'scope': s, 'name': n} for s, n in dids])
+    values = [{'scope': scope, 'name': name} for scope, name in dids]
+    stmt = insert(
+        input_dids_temp_table
+    )
+    session.execute(stmt, values)
 
     num_files, num_collections, num_constituents = _inspect_dids(input_dids_temp_table, session=session)
 
@@ -1312,7 +1401,13 @@ def list_replicas(
         # Reuse input temp table. We don't need its content anymore
         random_dids_temp_table = input_dids_temp_table
         session.execute(delete(random_dids_temp_table))
-        session.execute(insert(random_dids_temp_table).from_select(['scope', 'name'], stmt))
+        stmt = insert(
+            random_dids_temp_table
+        ).from_select(
+            ['scope', 'name'],
+            stmt
+        )
+        session.execute(stmt)
 
         # Fetch all replicas for randomly selected dids and apply filters on python side
         stmt = _list_replicas_for_collection_files_stmt(random_dids_temp_table, replicas_subquery)
@@ -1414,14 +1509,24 @@ def __bulk_add_file_dids(files, account, dataset_meta=None, *, session: "Session
     """
     condition = []
     for f in files:
-        condition.append(and_(models.DataIdentifier.scope == f['scope'], models.DataIdentifier.name == f['name'], models.DataIdentifier.did_type == DIDType.FILE))
+        condition.append(and_(models.DataIdentifier.scope == f['scope'],
+                              models.DataIdentifier.name == f['name'],
+                              models.DataIdentifier.did_type == DIDType.FILE))
 
-    q = session.query(models.DataIdentifier.scope,
-                      models.DataIdentifier.name,
-                      models.DataIdentifier.bytes,
-                      models.DataIdentifier.adler32,
-                      models.DataIdentifier.md5).with_hint(models.DataIdentifier, "INDEX(dids DIDS_PK)", 'oracle').filter(or_(*condition))
-    available_files = [dict([(column, getattr(row, column)) for column in row._fields]) for row in q]
+    stmt = select(
+        models.DataIdentifier.scope,
+        models.DataIdentifier.name,
+        models.DataIdentifier.bytes,
+        models.DataIdentifier.md5,
+        models.DataIdentifier.adler32,
+    ).with_hint(
+        models.DataIdentifier,
+        'INDEX(DIDS DIDS_PK)',
+        'oracle'
+    ).where(
+        or_(*condition)
+    )
+    available_files = [res._asdict() for res in session.execute(stmt).all()]
     new_files = list()
     for file in files:
         found = False
@@ -1468,12 +1573,23 @@ def __bulk_add_replicas(rse_id, files, account, *, session: "Session"):
     # Check for the replicas already available
     condition = []
     for f in files:
-        condition.append(and_(models.RSEFileAssociation.scope == f['scope'], models.RSEFileAssociation.name == f['name'], models.RSEFileAssociation.rse_id == rse_id))
+        condition.append(and_(models.RSEFileAssociation.scope == f['scope'],
+                              models.RSEFileAssociation.name == f['name'],
+                              models.RSEFileAssociation.rse_id == rse_id))
 
-    query = session.query(models.RSEFileAssociation.scope, models.RSEFileAssociation.name, models.RSEFileAssociation.rse_id).\
-        with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').\
-        filter(or_(*condition))
-    available_replicas = [dict([(column, getattr(row, column)) for column in row._fields]) for row in query]
+    stmt = select(
+        models.RSEFileAssociation.scope,
+        models.RSEFileAssociation.name,
+        models.RSEFileAssociation.rse_id,
+    ).with_hint(
+        models.RSEFileAssociation,
+        'INDEX(REPLICAS REPLICAS_PK)',
+        'oracle'
+    ).where(
+        or_(*condition)
+    )
+
+    available_replicas = [res._asdict() for res in session.execute(stmt).all()]
 
     default_tombstone_delay = get_rse_attribute(rse_id, RseAttr.TOMBSTONE_DELAY, session=session)
     default_tombstone = tombstone_from_delay(default_tombstone_delay)
@@ -1496,7 +1612,10 @@ def __bulk_add_replicas(rse_id, files, account, *, session: "Session"):
                                  'lock_cnt': file.get('lock_cnt', 0),
                                  'tombstone': file.get('tombstone') or default_tombstone})
     try:
-        new_replicas and session.execute(insert(models.RSEFileAssociation), new_replicas)
+        stmt = insert(
+            models.RSEFileAssociation
+        )
+        new_replicas and session.execute(stmt, new_replicas)
         session.flush()
         return nbfiles, bytes_
     except IntegrityError as error:
@@ -1528,7 +1647,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     def _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan', protocol_attr=None):
         p = rsemgr.create_protocol(rse_settings=rse_settings, operation='write', scheme=scheme, domain=domain, protocol_attr=protocol_attr)
         expected_pfns = p.lfns2pfns(lfns)
-        return clean_surls(expected_pfns.values())
+        return clean_pfns(expected_pfns.values())
 
     replica_rse = get_rse(rse_id=rse_id, session=session)
 
@@ -1543,9 +1662,9 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
             if not replica_rse['deterministic']:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %s ' % (replica_rse['rse']))
 
-    replicas = __bulk_add_file_dids(files=files, account=account,
-                                    dataset_meta=dataset_meta,
-                                    session=session)
+    __bulk_add_file_dids(files=files, account=account,
+                         dataset_meta=dataset_meta,
+                         session=session)
 
     pfns = {}  # dict[str, list[str]], {scheme: [pfns], scheme: [pfns]}
     for file in files:
@@ -1566,7 +1685,7 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
             else:
                 # Check that the pfns match to the expected pfns
                 lfns = [{'scope': i['scope'].external, 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
-                pfns[scheme] = clean_surls(pfns[scheme])
+                pfns[scheme] = clean_pfns(pfns[scheme])
 
                 for protocol_attr in rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=scheme, domain='wan'):
                     pfns[scheme] = list(set(pfns[scheme]) - set(_expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan', protocol_attr=protocol_attr)))
@@ -1581,7 +1700,6 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
 
     nbfiles, bytes_ = __bulk_add_replicas(rse_id=rse_id, files=files, account=account, session=session)
     increase(rse_id=rse_id, files=nbfiles, bytes_=bytes_, session=session)
-    return replicas
 
 
 @transactional_session
@@ -1652,7 +1770,11 @@ def delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sessio
     scope_name_temp_table2 = tt_mngr.create_scope_name_table()
     association_temp_table = tt_mngr.create_association_table()
 
-    session.execute(insert(scope_name_temp_table), [{'scope': file['scope'], 'name': file['name']} for file in files])
+    values = [{'scope': file['scope'], 'name': file['name']} for file in files]
+    stmt = insert(
+        scope_name_temp_table
+    )
+    session.execute(stmt, values)
 
     # WARNING : This should not be necessary since that would mean the replica is used as a source.
     stmt = delete(
@@ -1684,9 +1806,10 @@ def delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sessio
         models.RSEFileAssociation,
     ).where(
         exists(select(1)
-               .where(and_(models.RSEFileAssociation.scope == scope_name_temp_table.scope,
-                           models.RSEFileAssociation.name == scope_name_temp_table.name,
-                           models.RSEFileAssociation.rse_id == rse_id)))
+               .where(
+                   and_(models.RSEFileAssociation.scope == scope_name_temp_table.scope,
+                        models.RSEFileAssociation.name == scope_name_temp_table.name,
+                        models.RSEFileAssociation.rse_id == rse_id)))
     ).execution_options(
         synchronize_session=False
     )
@@ -1696,20 +1819,22 @@ def delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sessio
 
     # Update bad replicas
     stmt = update(
-        models.BadReplicas,
+        models.BadReplica,
     ).where(
         exists(select(1)
-               .where(and_(models.BadReplicas.scope == scope_name_temp_table.scope,
-                           models.BadReplicas.name == scope_name_temp_table.name,
-                           models.BadReplicas.rse_id == rse_id)))
+               .where(
+                   and_(models.BadReplica.scope == scope_name_temp_table.scope,
+                        models.BadReplica.name == scope_name_temp_table.name,
+                        models.BadReplica.rse_id == rse_id)))
     ).where(
-        models.BadReplicas.state == BadFilesStatus.BAD
-    ).execution_options(
+        models.BadReplica.state == BadFilesStatus.BAD
+    ).values({
+        models.BadReplica.state: BadFilesStatus.DELETED,
+        models.BadReplica.updated_at: datetime.utcnow()
+    }).execution_options(
         synchronize_session=False
-    ).values(
-        state=BadFilesStatus.DELETED,
-        updated_at=datetime.utcnow()
     )
+
     res = session.execute(stmt)
 
     __cleanup_after_replica_deletion(scope_name_temp_table=scope_name_temp_table,
@@ -1761,8 +1886,11 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
 
     if clt_to_update:
         # Get all collection_replicas at RSE, insert them into UpdatedCollectionReplica
-        session.query(scope_name_temp_table).delete()
-        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in clt_to_update])
+        stmt = delete(scope_name_temp_table)
+        session.execute(stmt)
+        values = [sn._asdict() for sn in clt_to_update]
+        stmt = insert(scope_name_temp_table)
+        session.execute(stmt, values)
         stmt = select(
             models.DataIdentifierAssociation.scope,
             models.DataIdentifierAssociation.name,
@@ -1789,8 +1917,11 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
     while parents_to_analyze:
         did_associations_to_remove = set()
 
-        session.query(scope_name_temp_table).delete()
-        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in parents_to_analyze])
+        stmt = delete(scope_name_temp_table)
+        session.execute(stmt)
+        values = [sn._asdict() for sn in parents_to_analyze]
+        stmt = insert(scope_name_temp_table)
+        session.execute(stmt, values)
         parents_to_analyze.clear()
 
         stmt = select(
@@ -1861,7 +1992,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                 did_condition.append(
                     and_(models.DataIdentifier.scope == parent_scope,
                          models.DataIdentifier.name == parent_name,
-                         models.DataIdentifier.is_open == False,  # NOQA
+                         models.DataIdentifier.is_open == false(),
                          ~exists(1).where(
                              and_(models.DataIdentifierAssociation.child_scope == parent_scope,
                                   models.DataIdentifierAssociation.child_name == parent_name)),
@@ -1870,8 +2001,11 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                                   models.DataIdentifierAssociation.name == parent_name))))
 
         if did_associations_to_remove:
-            session.query(association_temp_table).delete()
-            session.execute(insert(association_temp_table), [a._asdict() for a in did_associations_to_remove])
+            stmt = delete(association_temp_table)
+            session.execute(stmt)
+            values = [a._asdict() for a in did_associations_to_remove]
+            stmt = insert(association_temp_table)
+            session.execute(stmt, values)
 
             # get the list of modified parent scope, name
             stmt = select(
@@ -1886,7 +2020,7 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                      association_temp_table.name == models.DataIdentifier.name)
             ).where(
                 or_(models.DataIdentifier.complete == true(),
-                    models.DataIdentifier.complete is None),
+                    models.DataIdentifier.complete.is_(None)),
             )
             for parent_scope, parent_name, parent_did_type in session.execute(stmt):
                 message = {'scope': parent_scope,
@@ -1916,9 +2050,13 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
 
     # Get collection replicas of collections which became empty
     if clt_replicas_to_delete:
-        session.query(scope_name_temp_table).delete()
-        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in clt_replicas_to_delete])
-        session.query(scope_name_temp_table2).delete()
+        stmt = delete(scope_name_temp_table)
+        session.execute(stmt)
+        values = [sn._asdict() for sn in clt_replicas_to_delete]
+        stmt = insert(scope_name_temp_table)
+        session.execute(stmt, values)
+        stmt = delete(scope_name_temp_table2)
+        session.execute(stmt)
         stmt = select(
             models.CollectionReplica.scope,
             models.CollectionReplica.name,
@@ -1939,9 +2077,13 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         ).where(
             models.DataIdentifierAssociation.scope == null()
         )
-        session.execute(
-            insert(scope_name_temp_table2).from_select(['scope', 'name'], stmt)
+        stmt = insert(
+            scope_name_temp_table2
+        ).from_select(
+            ['scope', 'name'],
+            stmt
         )
+        session.execute(stmt)
         # Delete the retrieved collection replicas of empty collections
         stmt = delete(
             models.CollectionReplica,
@@ -1957,8 +2099,11 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
     # Update incomplete state
     messages, dids_to_delete = [], set()
     if incomplete_dids:
-        session.query(scope_name_temp_table).delete()
-        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in incomplete_dids])
+        stmt = delete(scope_name_temp_table)
+        session.execute(stmt)
+        values = [sn._asdict() for sn in incomplete_dids]
+        stmt = insert(scope_name_temp_table)
+        session.execute(stmt, values)
         stmt = update(
             models.DataIdentifier
         ).where(
@@ -1967,22 +2112,29 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                                models.DataIdentifier.name == scope_name_temp_table.name)))
         ).where(
             models.DataIdentifier.complete != false(),
-        ).execution_options(
+        ).values({
+            models.DataIdentifier.complete: False
+        }).execution_options(
             synchronize_session=False
-        ).values(
-            complete=False
         )
+
         session.execute(stmt)
 
     # delete empty dids
     if did_condition:
         for chunk in chunks(did_condition, 10):
-            query = session.query(models.DataIdentifier.scope,
-                                  models.DataIdentifier.name,
-                                  models.DataIdentifier.did_type). \
-                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle'). \
-                filter(or_(*chunk))
-            for scope, name, did_type in query:
+            stmt = select(
+                models.DataIdentifier.scope,
+                models.DataIdentifier.name,
+                models.DataIdentifier.did_type,
+            ).with_hint(
+                models.DataIdentifier,
+                'INDEX(DIDS DIDS_PK)',
+                'oracle'
+            ).where(
+                or_(*chunk)
+            )
+            for scope, name, did_type in session.execute(stmt):
                 if did_type == DIDType.DATASET:
                     messages.append({'event_type': 'ERASE',
                                      'payload': dumps({'scope': scope.external,
@@ -1993,8 +2145,11 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
     # Remove Archive Constituents
     constituent_associations_to_delete = set()
     if affected_archives:
-        session.query(scope_name_temp_table).delete()
-        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in affected_archives])
+        stmt = delete(scope_name_temp_table)
+        session.execute(stmt)
+        values = [sn._asdict() for sn in affected_archives]
+        stmt = insert(scope_name_temp_table)
+        session.execute(stmt, values)
 
         stmt = select(
             models.ConstituentAssociation
@@ -2037,8 +2192,11 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
             ).save(session=session, flush=False)
 
     if constituent_associations_to_delete:
-        session.query(association_temp_table).delete()
-        session.execute(insert(association_temp_table), [a._asdict() for a in constituent_associations_to_delete])
+        stmt = delete(association_temp_table)
+        session.execute(stmt)
+        values = [a._asdict() for a in constituent_associations_to_delete]
+        stmt = insert(association_temp_table)
+        session.execute(stmt, values)
         stmt = delete(
             models.ConstituentAssociation
         ).where(
@@ -2060,8 +2218,11 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
                                              rse_id=rse_id, files=[sn._asdict() for sn in chunk], session=session)
 
     if dids_to_delete:
-        session.query(scope_name_temp_table).delete()
-        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in dids_to_delete])
+        stmt = delete(scope_name_temp_table)
+        session.execute(stmt)
+        values = [sn._asdict() for sn in dids_to_delete]
+        stmt = insert(scope_name_temp_table)
+        session.execute(stmt, values)
 
         # Remove rules in Waiting for approval or Suspended
         stmt = delete(
@@ -2119,9 +2280,13 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         to_update = clt_to_set_not_archive.pop(0)
         if not to_update:
             continue
-        session.query(scope_name_temp_table).delete()
-        session.execute(insert(scope_name_temp_table), [sn._asdict() for sn in to_update])
-        session.query(scope_name_temp_table2).delete()
+        stmt = delete(scope_name_temp_table)
+        session.execute(stmt)
+        values = [sn._asdict() for sn in to_update]
+        stmt = insert(scope_name_temp_table)
+        session.execute(stmt, values)
+        stmt = delete(scope_name_temp_table2)
+        session.execute(stmt)
 
         data_identifier_alias = aliased(models.DataIdentifier, name='did_alias')
         # Fetch rows to be updated
@@ -2148,7 +2313,13 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
         ).where(
             data_identifier_alias.scope == null()
         )
-        session.execute(insert(scope_name_temp_table2).from_select(['scope', 'name'], stmt))
+        stmt = insert(
+            scope_name_temp_table2
+        ).from_select(
+            ['scope', 'name'],
+            stmt
+        )
+        session.execute(stmt)
         # update the fetched rows
         stmt = update(
             models.DataIdentifier,
@@ -2156,10 +2327,10 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
             exists(select(1)
                    .where(and_(models.DataIdentifier.scope == scope_name_temp_table2.scope,
                                models.DataIdentifier.name == scope_name_temp_table2.name)))
-        ).execution_options(
+        ).values({
+            models.DataIdentifier.is_archive: False
+        }).execution_options(
             synchronize_session=False
-        ).values(
-            is_archive=False,
         )
         session.execute(stmt)
 
@@ -2177,8 +2348,14 @@ def get_replica(rse_id, scope, name, *, session: "Session"):
     :returns: A dictionary with the list of replica attributes.
     """
     try:
-        row = session.query(models.RSEFileAssociation).filter_by(rse_id=rse_id, scope=scope, name=name).one()
-        return row.to_dict()
+        stmt = select(
+            models.RSEFileAssociation
+        ).where(
+            and_(models.RSEFileAssociation.scope == scope,
+                 models.RSEFileAssociation.name == name,
+                 models.RSEFileAssociation.rse_id == rse_id)
+        )
+        return session.execute(stmt).scalar_one().to_dict()
     except NoResultFound:
         raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
 
@@ -2235,8 +2412,11 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
     )
 
     for chunk in chunks(session.execute(stmt).yield_per(2 * limit), math.ceil(1.25 * limit)):
-        session.query(temp_table_cls).delete()
-        session.execute(insert(temp_table_cls), [{'scope': scope, 'name': name} for scope, name in chunk])
+        stmt = delete(temp_table_cls)
+        session.execute(stmt)
+        values = [{'scope': scope, 'name': name} for scope, name in chunk]
+        stmt = insert(temp_table_cls)
+        session.execute(stmt, values)
 
         stmt = select(
             models.RSEFileAssociation.scope,
@@ -2253,7 +2433,9 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
                  models.RSEFileAssociation.name == temp_table_cls.name,
                  models.RSEFileAssociation.rse_id == rse_id)
         ).with_hint(
-            replicas_alias, "index(%(name)s REPLICAS_PK)", 'oracle'
+            replicas_alias,
+            'INDEX(%(name)s REPLICAS_PK)',
+            'oracle'
         ).outerjoin(
             replicas_alias,
             and_(models.RSEFileAssociation.scope == replicas_alias.scope,
@@ -2261,7 +2443,9 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
                  models.RSEFileAssociation.rse_id != replicas_alias.rse_id,
                  replicas_alias.state == ReplicaState.AVAILABLE)
         ).with_hint(
-            models.Request, "INDEX(requests REQUESTS_SCOPE_NAME_RSE_IDX)", 'oracle'
+            models.Request,
+            'INDEX(requests REQUESTS_SCOPE_NAME_RSE_IDX)',
+            'oracle'
         ).outerjoin(
             models.Request,
             and_(models.RSEFileAssociation.scope == models.Request.scope,
@@ -2303,8 +2487,11 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             break
 
     if rows:
-        session.query(temp_table_cls).delete()
-        session.execute(insert(temp_table_cls), [{'scope': r['scope'], 'name': r['name']} for r in rows])
+        stmt = delete(temp_table_cls)
+        session.execute(stmt)
+        values = [{'scope': row['scope'], 'name': row['name']} for row in rows]
+        stmt = insert(temp_table_cls)
+        session.execute(stmt, values)
         stmt = update(
             models.RSEFileAssociation
         ).where(
@@ -2312,13 +2499,14 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
                    .where(and_(models.RSEFileAssociation.scope == temp_table_cls.scope,
                                models.RSEFileAssociation.name == temp_table_cls.name,
                                models.RSEFileAssociation.rse_id == rse_id)))
-        ).execution_options(
+        ).values({
+            models.RSEFileAssociation.updated_at: datetime.utcnow(),
+            models.RSEFileAssociation.state: ReplicaState.BEING_DELETED,
+            models.RSEFileAssociation.tombstone: OBSOLETE
+        }).execution_options(
             synchronize_session=False
-        ).values(
-            updated_at=datetime.utcnow(),
-            state=ReplicaState.BEING_DELETED,
-            tombstone=OBSOLETE,
         )
+
         session.execute(stmt)
 
     return rows
@@ -2335,11 +2523,17 @@ def update_replicas_states(replicas, nowait=False, *, session: "Session"):
     """
 
     for replica in replicas:
-        query = session.query(models.RSEFileAssociation).filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
-        try:
-            if nowait:
-                query.with_for_update(nowait=True).one()
-        except NoResultFound:
+        stmt = select(
+            models.RSEFileAssociation
+        ).where(
+            models.RSEFileAssociation.rse_id == replica['rse_id'],
+            models.RSEFileAssociation.scope == replica['scope'],
+            models.RSEFileAssociation.name == replica['name']
+        ).with_for_update(
+            nowait=nowait
+        )
+
+        if session.execute(stmt).scalar_one_or_none() is None:
             # remember scope, name and rse
             raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (replica['scope'], replica['name'], get_rse_name(replica['rse_id'], session=session)))
 
@@ -2348,18 +2542,43 @@ def update_replicas_states(replicas, nowait=False, *, session: "Session"):
 
         values = {'state': replica['state']}
         if replica['state'] == ReplicaState.BEING_DELETED:
-            query = query.filter_by(lock_cnt=0)
             # Exclude replicas use as sources
-            stmt = exists(1).where(and_(models.RSEFileAssociation.scope == models.Source.scope,
-                                        models.RSEFileAssociation.name == models.Source.name,
-                                        models.RSEFileAssociation.rse_id == models.Source.rse_id))
-            query = query.filter(not_(stmt))
+            stmt = stmt.where(
+                and_(models.RSEFileAssociation.lock_cnt == 0,
+                     not_(exists(select(1)
+                                 .where(and_(models.RSEFileAssociation.scope == models.Source.scope,
+                                             models.RSEFileAssociation.name == models.Source.name,
+                                             models.RSEFileAssociation.rse_id == models.Source.rse_id)))))
+            )
             values['tombstone'] = OBSOLETE
         elif replica['state'] == ReplicaState.AVAILABLE:
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
-            query1 = session.query(models.BadReplicas).filter_by(state=BadFilesStatus.BAD, rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name'])
-            if query1.count():
-                query1.update({'state': BadFilesStatus.RECOVERED, 'updated_at': datetime.utcnow()}, synchronize_session=False)
+            stmt_bad_replicas = select(
+                func.count()
+            ).select_from(
+                models.BadReplica
+            ).where(
+                and_(models.BadReplica.state == BadFilesStatus.BAD,
+                     models.BadReplica.rse_id == replica['rse_id'],
+                     models.BadReplica.scope == replica['scope'],
+                     models.BadReplica.name == replica['name'])
+            )
+
+            if session.execute(stmt_bad_replicas).scalar():
+                update_stmt = update(
+                    models.BadReplica
+                ).where(
+                    and_(models.BadReplica.state == BadFilesStatus.BAD,
+                         models.BadReplica.rse_id == replica['rse_id'],
+                         models.BadReplica.scope == replica['scope'],
+                         models.BadReplica.name == replica['name'])
+                ).values({
+                    models.BadReplica.state: BadFilesStatus.RECOVERED,
+                    models.BadReplica.updated_at: datetime.utcnow()
+                }).execution_options(
+                    synchronize_session=False
+                )
+                session.execute(update_stmt)
         elif replica['state'] == ReplicaState.UNAVAILABLE:
             rucio.core.lock.failed_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'],
                                             error_message=replica.get('error_message', None),
@@ -2367,12 +2586,27 @@ def update_replicas_states(replicas, nowait=False, *, session: "Session"):
                                             broken_message=replica.get('broken_message', None),
                                             nowait=nowait, session=session)
         elif replica['state'] == ReplicaState.TEMPORARY_UNAVAILABLE:
-            query = query.filter(or_(models.RSEFileAssociation.state == ReplicaState.AVAILABLE, models.RSEFileAssociation.state == ReplicaState.TEMPORARY_UNAVAILABLE))
+            stmt = stmt.where(
+                models.RSEFileAssociation.state.in_([ReplicaState.AVAILABLE,
+                                                     ReplicaState.TEMPORARY_UNAVAILABLE])
+            )
 
         if 'path' in replica and replica['path']:
             values['path'] = replica['path']
 
-        if not query.update(values, synchronize_session=False):
+        update_stmt = update(
+            models.RSEFileAssociation
+        ).where(
+            and_(models.RSEFileAssociation.rse_id == replica['rse_id'],
+                 models.RSEFileAssociation.scope == replica['scope'],
+                 models.RSEFileAssociation.name == replica['name'])
+        ).values(
+            values
+        ).execution_options(
+            synchronize_session=False
+        )
+
+        if not session.execute(update_stmt).rowcount:
             if 'rse' not in replica:
                 replica['rse'] = get_rse_name(rse_id=replica['rse_id'], session=session)
             raise exception.UnsupportedOperation('State %(state)s for replica %(scope)s:%(name)s on %(rse)s cannot be updated' % replica)
@@ -2392,32 +2626,68 @@ def touch_replica(replica, *, session: "Session"):
     try:
         accessed_at, none_value = replica.get('accessed_at') or datetime.utcnow(), None
 
-        session.query(models.RSEFileAssociation).\
-            filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
-            with_hint(models.RSEFileAssociation, "index(REPLICAS REPLICAS_PK)", 'oracle').\
-            with_for_update(nowait=True).one()
+        stmt = select(
+            models.RSEFileAssociation
+        ).with_hint(
+            models.RSEFileAssociation,
+            'INDEX(REPLICAS REPLICAS_PK)',
+            'oracle'
+        ).where(
+            and_(models.RSEFileAssociation.rse_id == replica['rse_id'],
+                 models.RSEFileAssociation.scope == replica['scope'],
+                 models.RSEFileAssociation.name == replica['name'])
+        ).with_for_update(
+            nowait=True
+        )
+        session.execute(stmt).one()
 
-        stmt = update(models.RSEFileAssociation).\
-            filter_by(rse_id=replica['rse_id'], scope=replica['scope'], name=replica['name']).\
-            prefix_with("/*+ index(REPLICAS REPLICAS_PK) */", dialect='oracle').\
-            execution_options(synchronize_session=False).\
-            values(accessed_at=accessed_at,
-                   tombstone=case((and_(models.RSEFileAssociation.tombstone != none_value,
-                                        models.RSEFileAssociation.tombstone != OBSOLETE),
-                                   accessed_at),
-                                  else_=models.RSEFileAssociation.tombstone))
+        stmt = update(
+            models.RSEFileAssociation
+        ).where(
+            and_(models.RSEFileAssociation.rse_id == replica['rse_id'],
+                 models.RSEFileAssociation.scope == replica['scope'],
+                 models.RSEFileAssociation.name == replica['name'])
+        ).prefix_with(
+            '/*+ INDEX(REPLICAS REPLICAS_PK) */', dialect='oracle'
+        ).values({
+            models.RSEFileAssociation.accessed_at: accessed_at,
+            models.RSEFileAssociation.tombstone: case(
+                (models.RSEFileAssociation.tombstone.not_in([OBSOLETE, none_value]),
+                 accessed_at),
+                else_=models.RSEFileAssociation.tombstone)
+        }).execution_options(
+            synchronize_session=False
+        )
         session.execute(stmt)
 
-        session.query(models.DataIdentifier).\
-            filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').\
-            with_for_update(nowait=True).one()
+        stmt = select(
+            models.DataIdentifier
+        ).with_hint(
+            models.DataIdentifier,
+            'INDEX(DIDS DIDS_PK)',
+            'oracle'
+        ).where(
+            and_(models.DataIdentifier.scope == replica['scope'],
+                 models.DataIdentifier.name == replica['name'],
+                 models.DataIdentifier.did_type == DIDType.FILE)
+        ).with_for_update(
+            nowait=True
+        )
+        session.execute(stmt).one()
 
-        stmt = update(models.DataIdentifier).\
-            filter_by(scope=replica['scope'], name=replica['name'], did_type=DIDType.FILE).\
-            prefix_with("/*+ INDEX(DIDS DIDS_PK) */", dialect='oracle').\
-            execution_options(synchronize_session=False).\
-            values(accessed_at=accessed_at)
+        stmt = update(
+            models.DataIdentifier
+        ).where(
+            and_(models.DataIdentifier.scope == replica['scope'],
+                 models.DataIdentifier.name == replica['name'],
+                 models.DataIdentifier.did_type == DIDType.FILE)
+        ).prefix_with(
+            '/*+ INDEX(DIDS DIDS_PK) */', dialect='oracle'
+        ).values({
+            models.DataIdentifier.accessed_at: accessed_at
+        }).execution_options(
+            synchronize_session=False
+        )
         session.execute(stmt)
 
     except DatabaseError:
@@ -2455,15 +2725,21 @@ def get_and_lock_file_replicas(scope, name, nowait=False, restrict_rses=None, *,
     :returns:              List of SQLAlchemy Replica Objects
     """
 
-    query = session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name).filter(models.RSEFileAssociation.state != ReplicaState.BEING_DELETED)
-    if restrict_rses is not None:
-        if len(restrict_rses) < 10:
-            rse_clause = []
-            for rse_id in restrict_rses:
-                rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
-            if rse_clause:
-                query = query.filter(or_(*rse_clause))
-    return query.with_for_update(nowait=nowait).all()
+    stmt = select(
+        models.RSEFileAssociation
+    ).where(
+        and_(models.RSEFileAssociation.scope == scope,
+             models.RSEFileAssociation.name == name,
+             models.RSEFileAssociation.state != ReplicaState.BEING_DELETED)
+    ).with_for_update(
+        nowait=nowait
+    )
+    if restrict_rses is not None and len(restrict_rses) < 10:
+        rse_clause = [models.RSEFileAssociation.rse_id == rse_id for rse_id in restrict_rses]
+        if rse_clause:
+            stmt = stmt.where(or_(*rse_clause))
+
+    return session.execute(stmt).scalars().all()
 
 
 @transactional_session
@@ -2478,15 +2754,21 @@ def get_source_replicas(scope, name, source_rses=None, *, session: "Session"):
     :returns:              List of SQLAlchemy Replica Objects
     """
 
-    query = session.query(models.RSEFileAssociation.rse_id).filter_by(scope=scope, name=name).filter(models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+    stmt = select(
+        models.RSEFileAssociation.rse_id
+    ).where(
+        and_(models.RSEFileAssociation.scope == scope,
+             models.RSEFileAssociation.name == name,
+             models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+    )
     if source_rses:
         if len(source_rses) < 10:
             rse_clause = []
             for rse_id in source_rses:
                 rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
             if rse_clause:
-                query = query.filter(or_(*rse_clause))
-    return [a[0] for a in query.all()]
+                stmt = stmt.where(or_(*rse_clause))
+    return session.execute(stmt).scalars().all()
 
 
 @transactional_session
@@ -2506,24 +2788,39 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
     :returns:              (files in dataset, replicas in dataset)
     """
     files, replicas = {}, {}
+
+    base_stmt = select(
+        models.DataIdentifierAssociation.child_scope,
+        models.DataIdentifierAssociation.child_name,
+        models.DataIdentifierAssociation.bytes,
+        models.DataIdentifierAssociation.md5,
+        models.DataIdentifierAssociation.adler32,
+    ).where(
+        and_(models.DataIdentifierAssociation.scope == scope,
+             models.DataIdentifierAssociation.name == name)
+    )
+
+    stmt = base_stmt.add_columns(
+        models.RSEFileAssociation
+    ).where(
+        and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+             models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+             models.RSEFileAssociation.state != ReplicaState.BEING_DELETED)
+    )
+
+    rse_clause = [true()]
+    if restrict_rses is not None and len(restrict_rses) < 10:
+        rse_clause = [models.RSEFileAssociation.rse_id == rse_id for rse_id in restrict_rses]
+
     if session.bind.dialect.name == 'postgresql':
-        # Get content
-        content_query = session.query(models.DataIdentifierAssociation.child_scope,
-                                      models.DataIdentifierAssociation.child_name,
-                                      models.DataIdentifierAssociation.bytes,
-                                      models.DataIdentifierAssociation.md5,
-                                      models.DataIdentifierAssociation.adler32).\
-            with_hint(models.DataIdentifierAssociation,
-                      "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                      'oracle').\
-            filter(models.DataIdentifierAssociation.scope == scope,
-                   models.DataIdentifierAssociation.name == name)
-
         if total_threads and total_threads > 1:
-            content_query = filter_thread_work(session=session, query=content_query, total_threads=total_threads,
-                                               thread_id=thread_id, hash_variable='child_name')
+            base_stmt = filter_thread_work(session=session,
+                                           query=base_stmt,
+                                           total_threads=total_threads,
+                                           thread_id=thread_id,
+                                           hash_variable='child_name')
 
-        for child_scope, child_name, bytes_, md5, adler32 in content_query.yield_per(1000):
+        for child_scope, child_name, bytes_, md5, adler32 in session.execute(base_stmt).yield_per(1000):
             files[(child_scope, child_name)] = {'scope': child_scope,
                                                 'name': child_name,
                                                 'bytes': bytes_,
@@ -2531,92 +2828,35 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                                 'adler32': adler32}
             replicas[(child_scope, child_name)] = []
 
-        # Get replicas and lock them
-        query = session.query(models.DataIdentifierAssociation.child_scope,
-                              models.DataIdentifierAssociation.child_name,
-                              models.DataIdentifierAssociation.bytes,
-                              models.DataIdentifierAssociation.md5,
-                              models.DataIdentifierAssociation.adler32,
-                              models.RSEFileAssociation)\
-            .with_hint(models.DataIdentifierAssociation,
-                       "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                       'oracle')\
-            .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                         models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                         models.RSEFileAssociation.state != ReplicaState.BEING_DELETED))\
-            .filter(models.DataIdentifierAssociation.scope == scope,
-                    models.DataIdentifierAssociation.name == name)
-
-        if restrict_rses is not None:
-            if len(restrict_rses) < 10:
-                rse_clause = []
-                for rse_id in restrict_rses:
-                    rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
-                if rse_clause:
-                    query = session.query(models.DataIdentifierAssociation.child_scope,
-                                          models.DataIdentifierAssociation.child_name,
-                                          models.DataIdentifierAssociation.bytes,
-                                          models.DataIdentifierAssociation.md5,
-                                          models.DataIdentifierAssociation.adler32,
-                                          models.RSEFileAssociation)\
-                                   .with_hint(models.DataIdentifierAssociation,
-                                              "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                                              'oracle')\
-                                   .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                                models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                                models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
-                                                or_(*rse_clause)))\
-                                   .filter(models.DataIdentifierAssociation.scope == scope,
-                                           models.DataIdentifierAssociation.name == name)
-
+        stmt = stmt.where(or_(*rse_clause))
     else:
-        query = session.query(models.DataIdentifierAssociation.child_scope,
-                              models.DataIdentifierAssociation.child_name,
-                              models.DataIdentifierAssociation.bytes,
-                              models.DataIdentifierAssociation.md5,
-                              models.DataIdentifierAssociation.adler32,
-                              models.RSEFileAssociation)\
-            .with_hint(models.DataIdentifierAssociation,
-                       "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                       'oracle') \
-            .with_hint(models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle')\
-            .outerjoin(models.RSEFileAssociation,
-                       and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                            models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                            models.RSEFileAssociation.state != ReplicaState.BEING_DELETED)).\
-            filter(models.DataIdentifierAssociation.scope == scope,
-                   models.DataIdentifierAssociation.name == name)
-
-        if restrict_rses is not None:
-            if len(restrict_rses) < 10:
-                rse_clause = []
-                for rse_id in restrict_rses:
-                    rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
-                if rse_clause:
-                    query = session.query(models.DataIdentifierAssociation.child_scope,
-                                          models.DataIdentifierAssociation.child_name,
-                                          models.DataIdentifierAssociation.bytes,
-                                          models.DataIdentifierAssociation.md5,
-                                          models.DataIdentifierAssociation.adler32,
-                                          models.RSEFileAssociation)\
-                                   .with_hint(models.DataIdentifierAssociation,
-                                              "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                                              'oracle')\
-                                   .outerjoin(models.RSEFileAssociation,
-                                              and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                                   models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                                   models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
-                                                   or_(*rse_clause)))\
-                                   .filter(models.DataIdentifierAssociation.scope == scope,
-                                           models.DataIdentifierAssociation.name == name)
+        stmt = base_stmt.add_columns(
+            models.RSEFileAssociation
+        ).with_hint(
+            models.DataIdentifierAssociation,
+            'INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)',
+            'oracle'
+        ).outerjoin(
+            models.RSEFileAssociation,
+            and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                 models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                 models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
+                 or_(*rse_clause))
+        )
 
     if total_threads and total_threads > 1:
-        query = filter_thread_work(session=session, query=query, total_threads=total_threads,
-                                   thread_id=thread_id, hash_variable='child_name')
+        stmt = filter_thread_work(session=session,
+                                  query=stmt,
+                                  total_threads=total_threads,
+                                  thread_id=thread_id,
+                                  hash_variable='child_name')
 
-    query = query.with_for_update(nowait=nowait, of=models.RSEFileAssociation.lock_cnt)
+    stmt = stmt.with_for_update(
+        nowait=nowait,
+        of=models.RSEFileAssociation.lock_cnt
+    )
 
-    for child_scope, child_name, bytes_, md5, adler32, replica in query.yield_per(1000):
+    for child_scope, child_name, bytes_, md5, adler32, replica in session.execute(stmt).yield_per(1000):
         if (child_scope, child_name) not in files:
             files[(child_scope, child_name)] = {'scope': child_scope,
                                                 'name': child_name,
@@ -2650,15 +2890,23 @@ def get_source_replicas_for_dataset(scope, name, source_rses=None,
     :param session:        The db session in use.
     :returns:              (files in dataset, replicas in dataset)
     """
-    query = session.query(models.DataIdentifierAssociation.child_scope,
-                          models.DataIdentifierAssociation.child_name,
-                          models.RSEFileAssociation.rse_id)\
-        .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
-        .outerjoin(models.RSEFileAssociation,
-                   and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                        models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                        models.RSEFileAssociation.state == ReplicaState.AVAILABLE)).\
-        filter(models.DataIdentifierAssociation.scope == scope, models.DataIdentifierAssociation.name == name)
+    stmt = select(
+        models.DataIdentifierAssociation.child_scope,
+        models.DataIdentifierAssociation.child_name,
+        models.RSEFileAssociation.rse_id
+    ).with_hint(
+        models.DataIdentifierAssociation,
+        'INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)',
+        'oracle'
+    ).outerjoin(
+        models.RSEFileAssociation,
+        and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+             models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+             models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+    ).where(
+        and_(models.DataIdentifierAssociation.scope == scope,
+             models.DataIdentifierAssociation.name == name)
+    )
 
     if source_rses:
         if len(source_rses) < 10:
@@ -2666,25 +2914,34 @@ def get_source_replicas_for_dataset(scope, name, source_rses=None,
             for rse_id in source_rses:
                 rse_clause.append(models.RSEFileAssociation.rse_id == rse_id)
             if rse_clause:
-                query = session.query(models.DataIdentifierAssociation.child_scope,
-                                      models.DataIdentifierAssociation.child_name,
-                                      models.RSEFileAssociation.rse_id)\
-                               .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
-                               .outerjoin(models.RSEFileAssociation,
-                                          and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                                               models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                                               models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                               or_(*rse_clause)))\
-                               .filter(models.DataIdentifierAssociation.scope == scope,
-                                       models.DataIdentifierAssociation.name == name)
-
+                stmt = select(
+                    models.DataIdentifierAssociation.child_scope,
+                    models.DataIdentifierAssociation.child_name,
+                    models.RSEFileAssociation.rse_id
+                ).with_hint(
+                    models.DataIdentifierAssociation,
+                    'INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)',
+                    'oracle'
+                ).outerjoin(
+                    models.RSEFileAssociation,
+                    and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                         models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                         models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                         or_(*rse_clause))
+                ).where(
+                    and_(models.DataIdentifierAssociation.scope == scope,
+                         models.DataIdentifierAssociation.name == name)
+                )
     if total_threads and total_threads > 1:
-        query = filter_thread_work(session=session, query=query, total_threads=total_threads,
-                                   thread_id=thread_id, hash_variable='child_name')
+        stmt = filter_thread_work(session=session,
+                                  query=stmt,
+                                  total_threads=total_threads,
+                                  thread_id=thread_id,
+                                  hash_variable='child_name')
 
     replicas = {}
 
-    for child_scope, child_name, rse_id in query:
+    for child_scope, child_name, rse_id in session.execute(stmt):
 
         if (child_scope, child_name) in replicas:
             if rse_id:
@@ -2706,8 +2963,18 @@ def get_replica_atime(replica, *, session: "Session"):
 
     :returns: A datetime timestamp with the last access time.
     """
-    return session.query(models.RSEFileAssociation.accessed_at).filter_by(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id']).\
-        with_hint(models.RSEFileAssociation, text="INDEX(REPLICAS REPLICAS_PK)", dialect_name='oracle').one()[0]
+    stmt = select(
+        models.RSEFileAssociation.accessed_at
+    ).with_hint(
+        models.RSEFileAssociation,
+        'INDEX(REPLICAS REPLICAS_PK)',
+        'oracle'
+    ).where(
+        and_(models.RSEFileAssociation.scope == replica['scope'],
+             models.RSEFileAssociation.name == replica['name'],
+             models.RSEFileAssociation.rse_id == replica['rse_id'])
+    )
+    return session.execute(stmt).scalar_one()
 
 
 @transactional_session
@@ -2724,8 +2991,18 @@ def touch_collection_replicas(collection_replicas, *, session: "Session"):
     now = datetime.utcnow()
     for collection_replica in collection_replicas:
         try:
-            session.query(models.CollectionReplica).filter_by(scope=collection_replica['scope'], name=collection_replica['name'], rse_id=collection_replica['rse_id']).\
-                update({'accessed_at': collection_replica.get('accessed_at') or now}, synchronize_session=False)
+            stmt = update(
+                models.CollectionReplica
+            ).where(
+                and_(models.CollectionReplica.scope == collection_replica['scope'],
+                     models.CollectionReplica.name == collection_replica['name'],
+                     models.CollectionReplica.rse_id == collection_replica['rse_id'])
+            ).values({
+                models.CollectionReplica.accessed_at: collection_replica.get('accessed_at') or now
+            }).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
         except DatabaseError:
             return False
 
@@ -2745,138 +3022,158 @@ def list_dataset_replicas(scope, name, deep=False, *, session: "Session"):
     """
 
     if not deep:
-        query = session.query(models.CollectionReplica.scope,
-                              models.CollectionReplica.name,
-                              models.RSE.rse,
-                              models.CollectionReplica.rse_id,
-                              models.CollectionReplica.bytes,
-                              models.CollectionReplica.length,
-                              models.CollectionReplica.available_bytes,
-                              models.CollectionReplica.available_replicas_cnt.label("available_length"),
-                              models.CollectionReplica.state,
-                              models.CollectionReplica.created_at,
-                              models.CollectionReplica.updated_at,
-                              models.CollectionReplica.accessed_at)\
-            .filter_by(scope=scope, name=name, did_type=DIDType.DATASET)\
-            .filter(models.CollectionReplica.rse_id == models.RSE.id)\
-            .filter(models.RSE.deleted == false())
+        stmt = select(
+            models.CollectionReplica.scope,
+            models.CollectionReplica.name,
+            models.RSE.rse,
+            models.CollectionReplica.rse_id,
+            models.CollectionReplica.bytes,
+            models.CollectionReplica.length,
+            models.CollectionReplica.available_bytes,
+            models.CollectionReplica.available_replicas_cnt.label("available_length"),
+            models.CollectionReplica.state,
+            models.CollectionReplica.created_at,
+            models.CollectionReplica.updated_at,
+            models.CollectionReplica.accessed_at
+        ).where(
+            and_(models.CollectionReplica.scope == scope,
+                 models.CollectionReplica.name == name,
+                 models.CollectionReplica.did_type == DIDType.DATASET,
+                 models.CollectionReplica.rse_id == models.RSE.id,
+                 models.RSE.deleted == false())
+        )
 
-        for row in query:
+        for row in session.execute(stmt).all():
             yield row._asdict()
 
     else:
+        # Find maximum values
+        stmt = select(
+            func.sum(models.DataIdentifierAssociation.bytes).label("bytes"),
+            func.count().label("length")
+        ).select_from(
+            models.DataIdentifierAssociation
+        ).with_hint(
+            models.DataIdentifierAssociation,
+            'INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)',
+            'oracle'
+        ).where(
+            and_(models.DataIdentifierAssociation.scope == scope,
+                 models.DataIdentifierAssociation.name == name)
+        )
 
-        # find maximum values
-        content_query = session\
-            .query(func.sum(models.DataIdentifierAssociation.bytes).label("bytes"),
-                   func.count().label("length"))\
-            .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
-            .filter(models.DataIdentifierAssociation.scope == scope)\
-            .filter(models.DataIdentifierAssociation.name == name)
+        bytes_, length = session.execute(stmt).one()
+        bytes_ = bytes_ or 0
 
-        bytes_, length = 0, 0
-        for row in content_query:
-            bytes_, length = row.bytes, row.length
+        # Find archives that contain files of the requested dataset
+        sub_query_stmt = select(
+            models.DataIdentifierAssociation.scope.label('dataset_scope'),
+            models.DataIdentifierAssociation.name.label('dataset_name'),
+            models.DataIdentifierAssociation.bytes.label('file_bytes'),
+            models.ConstituentAssociation.child_scope.label('file_scope'),
+            models.ConstituentAssociation.child_name.label('file_name'),
+            models.RSEFileAssociation.scope.label('replica_scope'),
+            models.RSEFileAssociation.name.label('replica_name'),
+            models.RSE.rse,
+            models.RSE.id.label('rse_id'),
+            models.RSEFileAssociation.created_at,
+            models.RSEFileAssociation.accessed_at,
+            models.RSEFileAssociation.updated_at
+        ).where(
+            and_(models.DataIdentifierAssociation.scope == scope,
+                 models.DataIdentifierAssociation.name == name,
+                 models.ConstituentAssociation.child_scope == models.DataIdentifierAssociation.child_scope,
+                 models.ConstituentAssociation.child_name == models.DataIdentifierAssociation.child_name,
+                 models.ConstituentAssociation.scope == models.RSEFileAssociation.scope,
+                 models.ConstituentAssociation.name == models.RSEFileAssociation.name,
+                 models.RSEFileAssociation.rse_id == models.RSE.id,
+                 models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                 models.RSE.deleted == false())
+        ).subquery()
 
-        # find archives that contain files of the requested dataset
-        sub_query_archives = session\
-            .query(models.DataIdentifierAssociation.scope.label('dataset_scope'),
-                   models.DataIdentifierAssociation.name.label('dataset_name'),
-                   models.DataIdentifierAssociation.bytes.label('file_bytes'),
-                   models.ConstituentAssociation.child_scope.label('file_scope'),
-                   models.ConstituentAssociation.child_name.label('file_name'),
-                   models.RSEFileAssociation.scope.label('replica_scope'),
-                   models.RSEFileAssociation.name.label('replica_name'),
-                   models.RSE.rse,
-                   models.RSE.id.label('rse_id'),
-                   models.RSEFileAssociation.created_at,
-                   models.RSEFileAssociation.accessed_at,
-                   models.RSEFileAssociation.updated_at)\
-            .filter(models.DataIdentifierAssociation.scope == scope)\
-            .filter(models.DataIdentifierAssociation.name == name)\
-            .filter(models.ConstituentAssociation.child_scope == models.DataIdentifierAssociation.child_scope)\
-            .filter(models.ConstituentAssociation.child_name == models.DataIdentifierAssociation.child_name)\
-            .filter(models.ConstituentAssociation.scope == models.RSEFileAssociation.scope)\
-            .filter(models.ConstituentAssociation.name == models.RSEFileAssociation.name)\
-            .filter(models.RSEFileAssociation.rse_id == models.RSE.id)\
-            .filter(models.RSEFileAssociation.state == ReplicaState.AVAILABLE)\
-            .filter(models.RSE.deleted == false())\
-            .subquery()
+        # Count the metrics
+        group_query_stmt = select(
+            sub_query_stmt.c.dataset_scope,
+            sub_query_stmt.c.dataset_name,
+            sub_query_stmt.c.file_scope,
+            sub_query_stmt.c.file_name,
+            sub_query_stmt.c.rse_id,
+            sub_query_stmt.c.rse,
+            func.sum(sub_query_stmt.c.file_bytes).label('file_bytes'),
+            func.min(sub_query_stmt.c.created_at).label('created_at'),
+            func.max(sub_query_stmt.c.updated_at).label('updated_at'),
+            func.max(sub_query_stmt.c.accessed_at).label('accessed_at')
+        ).group_by(
+            sub_query_stmt.c.dataset_scope,
+            sub_query_stmt.c.dataset_name,
+            sub_query_stmt.c.file_scope,
+            sub_query_stmt.c.file_name,
+            sub_query_stmt.c.rse_id,
+            sub_query_stmt.c.rse
+        ).subquery()
 
-        # count the metrics
-        group_query_archives = session\
-            .query(sub_query_archives.c.dataset_scope,
-                   sub_query_archives.c.dataset_name,
-                   sub_query_archives.c.file_scope,
-                   sub_query_archives.c.file_name,
-                   sub_query_archives.c.rse_id,
-                   sub_query_archives.c.rse,
-                   func.sum(sub_query_archives.c.file_bytes).label('file_bytes'),
-                   func.min(sub_query_archives.c.created_at).label('created_at'),
-                   func.max(sub_query_archives.c.updated_at).label('updated_at'),
-                   func.max(sub_query_archives.c.accessed_at).label('accessed_at'))\
-            .group_by(sub_query_archives.c.dataset_scope,
-                      sub_query_archives.c.dataset_name,
-                      sub_query_archives.c.file_scope,
-                      sub_query_archives.c.file_name,
-                      sub_query_archives.c.rse_id,
-                      sub_query_archives.c.rse)\
-            .subquery()
+        # Bring it in the same column state as the non-archive query
+        full_query_stmt = select(
+            group_query_stmt.c.dataset_scope.label('scope'),
+            group_query_stmt.c.dataset_name.label('name'),
+            group_query_stmt.c.rse_id,
+            group_query_stmt.c.rse,
+            func.sum(group_query_stmt.c.file_bytes).label('available_bytes'),
+            func.count().label('available_length'),
+            func.min(group_query_stmt.c.created_at).label('created_at'),
+            func.max(group_query_stmt.c.updated_at).label('updated_at'),
+            func.max(group_query_stmt.c.accessed_at).label('accessed_at')
+        ).group_by(
+            group_query_stmt.c.dataset_scope,
+            group_query_stmt.c.dataset_name,
+            group_query_stmt.c.rse_id,
+            group_query_stmt.c.rse
+        )
 
-        # bring it in the same column state as the non-archive query
-        full_query_archives = session\
-            .query(group_query_archives.c.dataset_scope.label('scope'),
-                   group_query_archives.c.dataset_name.label('name'),
-                   group_query_archives.c.rse_id,
-                   group_query_archives.c.rse,
-                   func.sum(group_query_archives.c.file_bytes).label('available_bytes'),
-                   func.count().label('available_length'),
-                   func.min(group_query_archives.c.created_at).label('created_at'),
-                   func.max(group_query_archives.c.updated_at).label('updated_at'),
-                   func.max(group_query_archives.c.accessed_at).label('accessed_at'))\
-            .group_by(group_query_archives.c.dataset_scope,
-                      group_query_archives.c.dataset_name,
-                      group_query_archives.c.rse_id,
-                      group_query_archives.c.rse)
+        # Find the non-archive dataset replicas
+        sub_query_stmt = select(
+            models.DataIdentifierAssociation.scope,
+            models.DataIdentifierAssociation.name,
+            models.RSEFileAssociation.rse_id,
+            func.sum(models.RSEFileAssociation.bytes).label("available_bytes"),
+            func.count().label("available_length"),
+            func.min(models.RSEFileAssociation.created_at).label("created_at"),
+            func.max(models.RSEFileAssociation.updated_at).label("updated_at"),
+            func.max(models.RSEFileAssociation.accessed_at).label("accessed_at")
+        ).with_hint(
+            models.DataIdentifierAssociation,
+            'INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)',
+            'oracle'
+        ).where(
+            and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                 models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                 models.DataIdentifierAssociation.scope == scope,
+                 models.DataIdentifierAssociation.name == name,
+                 models.RSEFileAssociation.state == ReplicaState.AVAILABLE)
+        ).group_by(
+            models.DataIdentifierAssociation.scope,
+            models.DataIdentifierAssociation.name,
+            models.RSEFileAssociation.rse_id
+        ).subquery()
 
-        # find the non-archive dataset replicas
-        sub_query = session\
-            .query(models.DataIdentifierAssociation.scope,
-                   models.DataIdentifierAssociation.name,
-                   models.RSEFileAssociation.rse_id,
-                   func.sum(models.RSEFileAssociation.bytes).label("available_bytes"),
-                   func.count().label("available_length"),
-                   func.min(models.RSEFileAssociation.created_at).label("created_at"),
-                   func.max(models.RSEFileAssociation.updated_at).label("updated_at"),
-                   func.max(models.RSEFileAssociation.accessed_at).label("accessed_at"))\
-            .with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) INDEX_RS_ASC(REPLICAS REPLICAS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle')\
-            .filter(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope)\
-            .filter(models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name)\
-            .filter(models.DataIdentifierAssociation.scope == scope)\
-            .filter(models.DataIdentifierAssociation.name == name)\
-            .filter(models.RSEFileAssociation.state == ReplicaState.AVAILABLE)\
-            .group_by(models.DataIdentifierAssociation.scope,
-                      models.DataIdentifierAssociation.name,
-                      models.RSEFileAssociation.rse_id)\
-            .subquery()
+        stmt = select(
+            sub_query_stmt.c.scope,
+            sub_query_stmt.c.name,
+            sub_query_stmt.c.rse_id,
+            models.RSE.rse,
+            sub_query_stmt.c.available_bytes,
+            sub_query_stmt.c.available_length,
+            sub_query_stmt.c.created_at,
+            sub_query_stmt.c.updated_at,
+            sub_query_stmt.c.accessed_at
+        ).where(
+            and_(sub_query_stmt.c.rse_id == models.RSE.id,
+                 models.RSE.deleted == false())
+        )
 
-        query = session\
-            .query(sub_query.c.scope,
-                   sub_query.c.name,
-                   sub_query.c.rse_id,
-                   models.RSE.rse,
-                   sub_query.c.available_bytes,
-                   sub_query.c.available_length,
-                   sub_query.c.created_at,
-                   sub_query.c.updated_at,
-                   sub_query.c.accessed_at)\
-            .filter(models.RSE.id == sub_query.c.rse_id)\
-            .filter(models.RSE.deleted == false())
-
-        # join everything together
-        final_query = query.union_all(full_query_archives)
-
-        for row in final_query.all():
+        # Join everything together
+        final_stmt = stmt.union_all(full_query_stmt)
+        for row in session.execute(final_stmt).all():
             replica = row._asdict()
             replica['length'], replica['bytes'] = length, bytes_
             if replica['length'] == row.available_length:
@@ -2904,23 +3201,27 @@ def list_dataset_replicas_bulk(names_by_intscope, *, session: "Session"):
     try:
         # chunk size refers to the number of different scopes, see above
         for chunk in chunks(condition, 10):
-            query = session.query(models.CollectionReplica.scope,
-                                  models.CollectionReplica.name,
-                                  models.RSE.rse,
-                                  models.CollectionReplica.rse_id,
-                                  models.CollectionReplica.bytes,
-                                  models.CollectionReplica.length,
-                                  models.CollectionReplica.available_bytes,
-                                  models.CollectionReplica.available_replicas_cnt.label("available_length"),
-                                  models.CollectionReplica.state,
-                                  models.CollectionReplica.created_at,
-                                  models.CollectionReplica.updated_at,
-                                  models.CollectionReplica.accessed_at) \
-                .filter(models.CollectionReplica.did_type == DIDType.DATASET) \
-                .filter(models.CollectionReplica.rse_id == models.RSE.id) \
-                .filter(or_(*chunk)) \
-                .filter(models.RSE.deleted == false())
-            for row in query:
+            stmt = select(
+                models.CollectionReplica.scope,
+                models.CollectionReplica.name,
+                models.RSE.rse,
+                models.CollectionReplica.rse_id,
+                models.CollectionReplica.bytes,
+                models.CollectionReplica.length,
+                models.CollectionReplica.available_bytes,
+                models.CollectionReplica.available_replicas_cnt.label("available_length"),
+                models.CollectionReplica.state,
+                models.CollectionReplica.created_at,
+                models.CollectionReplica.updated_at,
+                models.CollectionReplica.accessed_at
+            ).where(
+                and_(models.CollectionReplica.did_type == DIDType.DATASET,
+                     models.CollectionReplica.rse_id == models.RSE.id,
+                     models.RSE.deleted == false(),
+                     or_(*chunk))
+            )
+
+            for row in session.execute(stmt).all():
                 yield row._asdict()
     except NoResultFound:
         raise exception.DataIdentifierNotFound('No Data Identifiers found')
@@ -2994,47 +3295,50 @@ def list_datasets_per_rse(rse_id, filters=None, limit=None, *, session: "Session
 
     :returns: A list of dict dataset replicas
     """
-    query = session.query(models.CollectionReplica.scope,
-                          models.CollectionReplica.name,
-                          models.RSE.id.label('rse_id'),
-                          models.RSE.rse,
-                          models.CollectionReplica.bytes,
-                          models.CollectionReplica.length,
-                          models.CollectionReplica.available_bytes,
-                          models.CollectionReplica.available_replicas_cnt.label("available_length"),
-                          models.CollectionReplica.state,
-                          models.CollectionReplica.created_at,
-                          models.CollectionReplica.updated_at,
-                          models.CollectionReplica.accessed_at)\
-        .filter_by(did_type=DIDType.DATASET)\
-        .filter(models.CollectionReplica.rse_id == models.RSE.id)\
-        .filter(models.RSE.id == rse_id)\
-        .filter(models.RSE.deleted == false())
+    stmt = select(
+        models.CollectionReplica.scope,
+        models.CollectionReplica.name,
+        models.RSE.id.label('rse_id'),
+        models.RSE.rse,
+        models.CollectionReplica.bytes,
+        models.CollectionReplica.length,
+        models.CollectionReplica.available_bytes,
+        models.CollectionReplica.available_replicas_cnt.label("available_length"),
+        models.CollectionReplica.state,
+        models.CollectionReplica.created_at,
+        models.CollectionReplica.updated_at,
+        models.CollectionReplica.accessed_at
+    ).where(
+        and_(models.CollectionReplica.did_type == DIDType.DATASET,
+             models.CollectionReplica.rse_id == models.RSE.id,
+             models.RSE.deleted == false(),
+             models.RSE.id == rse_id)
+    )
 
     for (k, v) in filters and filters.items() or []:
         if k == 'name' or k == 'scope':
             v_str = v if k != 'scope' else v.internal
             if '*' in v_str or '%' in v_str:
                 if session.bind.dialect.name == 'postgresql':  # PostgreSQL escapes automatically
-                    query = query.filter(getattr(models.CollectionReplica, k).like(v_str.replace('*', '%')))
+                    stmt = stmt.where(getattr(models.CollectionReplica, k).like(v_str.replace('*', '%')))
                 else:
-                    query = query.filter(getattr(models.CollectionReplica, k).like(v_str.replace('*', '%'), escape='\\'))
+                    stmt = stmt.where(getattr(models.CollectionReplica, k).like(v_str.replace('*', '%'), escape='\\'))
             else:
-                query = query.filter(getattr(models.CollectionReplica, k) == v)
+                stmt = stmt.where(getattr(models.CollectionReplica, k) == v)
                 # hints ?
         elif k == 'created_before':
             created_before = str_to_date(v)
-            query = query.filter(models.CollectionReplica.created_at <= created_before)
+            stmt = stmt.where(models.CollectionReplica.created_at <= created_before)
         elif k == 'created_after':
             created_after = str_to_date(v)
-            query = query.filter(models.CollectionReplica.created_at >= created_after)
+            stmt = stmt.where(models.CollectionReplica.created_at >= created_after)
         else:
-            query = query.filter(getattr(models.CollectionReplica, k) == v)
+            stmt = stmt.where(getattr(models.CollectionReplica, k) == v)
 
     if limit:
-        query = query.limit(limit)
+        stmt = stmt.limit(limit)
 
-    for row in query:
+    for row in session.execute(stmt).all():
         yield row._asdict()
 
 
@@ -3070,14 +3374,31 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
     :returns:                  List of update requests for collection replicas.
     """
 
+    stmt = delete(
+        models.UpdatedCollectionReplica
+    ).where(
+        and_(models.UpdatedCollectionReplica.rse_id.is_(None),
+             ~exists().where(
+                 and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,
+                      models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope)))
+    ).execution_options(
+        synchronize_session=False
+    )
+    session.execute(stmt)
+
     # Delete update requests which do not have collection_replicas
-    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.is_(None)
-                                                          & ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,  # NOQA: W503
-                                                                                 models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope))).delete(synchronize_session=False)
-    session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.rse_id.isnot(None)
-                                                          & ~exists().where(and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,  # NOQA: W503
-                                                                                 models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope,
-                                                                                 models.CollectionReplica.rse_id == models.UpdatedCollectionReplica.rse_id))).delete(synchronize_session=False)
+    stmt = delete(
+        models.UpdatedCollectionReplica
+    ).where(
+        and_(models.UpdatedCollectionReplica.rse_id.isnot(None),
+             ~exists().where(
+                 and_(models.CollectionReplica.name == models.UpdatedCollectionReplica.name,
+                      models.CollectionReplica.scope == models.UpdatedCollectionReplica.scope,
+                      models.CollectionReplica.rse_id == models.UpdatedCollectionReplica.rse_id)))
+    ).execution_options(
+        synchronize_session=False
+    )
+    session.execute(stmt)
 
     # Delete duplicates
     if session.bind.dialect.name == 'oracle':
@@ -3086,18 +3407,32 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
             schema = BASE.metadata.schema + '.'
         session.execute(text('DELETE FROM {schema}updated_col_rep A WHERE A.rowid > ANY (SELECT B.rowid FROM {schema}updated_col_rep B WHERE A.scope = B.scope AND A.name=B.name AND A.did_type=B.did_type AND (A.rse_id=B.rse_id OR (A.rse_id IS NULL and B.rse_id IS NULL)))'.format(schema=schema)))  # NOQA: E501
     elif session.bind.dialect.name == 'mysql':
-        subquery1 = session.query(func.max(models.UpdatedCollectionReplica.id).label('max_id')).\
-            group_by(models.UpdatedCollectionReplica.scope,
-                     models.UpdatedCollectionReplica.name,
-                     models.UpdatedCollectionReplica.rse_id).subquery()
-        subquery2 = session.query(subquery1.c.max_id).subquery()
-        session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.notin_(subquery2)).delete(synchronize_session=False)
+        subquery1 = select(
+            func.max(models.UpdatedCollectionReplica.id).label('max_id')
+        ).group_by(
+            models.UpdatedCollectionReplica.scope,
+            models.UpdatedCollectionReplica.name,
+            models.UpdatedCollectionReplica.rse_id
+        ).subquery()
+
+        subquery2 = select(
+            subquery1.c.max_id
+        )
+
+        stmt_del = delete(
+            models.UpdatedCollectionReplica
+        ).where(
+            models.UpdatedCollectionReplica.id.not_in(subquery2)
+        ).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt_del)
     else:
-        replica_update_requests = session.query(models.UpdatedCollectionReplica)
+        stmt = select(models.UpdatedCollectionReplica)
         update_requests_with_rse_id = []
         update_requests_without_rse_id = []
         duplicate_request_ids = []
-        for update_request in replica_update_requests.all():
+        for update_request in session.execute(stmt).scalars().all():
             if update_request.rse_id is not None:
                 small_request = {'name': update_request.name, 'scope': update_request.scope, 'rse_id': update_request.rse_id}
                 if small_request not in update_requests_with_rse_id:
@@ -3113,12 +3448,19 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
                     duplicate_request_ids.append(update_request.id)
                     continue
         for chunk in chunks(duplicate_request_ids, 100):
-            session.query(models.UpdatedCollectionReplica).filter(models.UpdatedCollectionReplica.id.in_(chunk)).delete(synchronize_session=False)
+            stmt = delete(
+                models.UpdatedCollectionReplica
+            ).where(
+                models.UpdatedCollectionReplica.id.in_(chunk)
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
 
-    query = session.query(models.UpdatedCollectionReplica)
+    stmt = select(models.UpdatedCollectionReplica)
     if limit:
-        query = query.limit(limit)
-    return [update_request.to_dict() for update_request in query.all()]
+        stmt = stmt.limit(limit)
+    return [update_request.to_dict() for update_request in session.execute(stmt).scalars().all()]
 
 
 @transactional_session
@@ -3137,11 +3479,14 @@ def update_collection_replica(update_request, *, session: "Session"):
         available_replicas = 0
 
         try:
-            collection_replica = session.query(models.CollectionReplica)\
-                                        .filter_by(scope=update_request['scope'],
-                                                   name=update_request['name'],
-                                                   rse_id=update_request['rse_id'])\
-                                        .one()
+            stmt = select(
+                models.CollectionReplica
+            ).where(
+                and_(models.CollectionReplica.scope == update_request['scope'],
+                     models.CollectionReplica.name == update_request['name'],
+                     models.CollectionReplica.rse_id == update_request['rse_id'])
+            )
+            collection_replica = session.execute(stmt).scalar_one()
             ds_length = collection_replica.length
             old_available_replicas = collection_replica.available_replicas_cnt
             ds_bytes = collection_replica.bytes
@@ -3149,16 +3494,21 @@ def update_collection_replica(update_request, *, session: "Session"):
             pass
 
         try:
-            file_replica = session.query(models.RSEFileAssociation, models.DataIdentifierAssociation)\
-                                  .filter(models.RSEFileAssociation.scope == models.DataIdentifierAssociation.child_scope,
-                                          models.RSEFileAssociation.name == models.DataIdentifierAssociation.child_name,
-                                          models.DataIdentifierAssociation.name == update_request['name'],
-                                          models.RSEFileAssociation.rse_id == update_request['rse_id'],
-                                          models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                          update_request['scope'] == models.DataIdentifierAssociation.scope)\
-                                  .with_entities(label('ds_available_bytes', func.sum(models.RSEFileAssociation.bytes)),
-                                                 label('available_replicas', func.count()))\
-                                  .one()
+            stmt = select(
+                func.sum(models.RSEFileAssociation.bytes).label('ds_available_bytes'),
+                func.count().label('available_replicas')
+            ).select_from(
+                models.RSEFileAssociation
+            ).where(
+                and_(models.RSEFileAssociation.scope == models.DataIdentifierAssociation.child_scope,
+                     models.RSEFileAssociation.name == models.DataIdentifierAssociation.child_name,
+                     models.RSEFileAssociation.rse_id == update_request['rse_id'],
+                     models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                     models.DataIdentifierAssociation.name == update_request['name'],
+                     models.DataIdentifierAssociation.scope == update_request['scope'])
+            )
+            file_replica = session.execute(stmt).one()
+
             available_replicas = file_replica.available_replicas
             ds_available_bytes = file_replica.ds_available_bytes
         except NoResultFound:
@@ -3170,36 +3520,53 @@ def update_collection_replica(update_request, *, session: "Session"):
             ds_replica_state = ReplicaState.UNAVAILABLE
 
         if old_available_replicas is not None and old_available_replicas > 0 and available_replicas == 0:
-            session.query(models.CollectionReplica).filter_by(scope=update_request['scope'],
-                                                              name=update_request['name'],
-                                                              rse_id=update_request['rse_id'])\
-                                                   .delete()
+            stmt = delete(
+                models.CollectionReplica
+            ).where(
+                and_(models.CollectionReplica.scope == update_request['scope'],
+                     models.CollectionReplica.name == update_request['name'],
+                     models.CollectionReplica.rse_id == update_request['rse_id'])
+            )
+            session.execute(stmt)
         else:
-            updated_replica = session.query(models.CollectionReplica).filter_by(scope=update_request['scope'],
-                                                                                name=update_request['name'],
-                                                                                rse_id=update_request['rse_id'])\
-                                                                     .one()
+            stmt = select(
+                models.CollectionReplica
+            ).where(
+                and_(models.CollectionReplica.scope == update_request['scope'],
+                     models.CollectionReplica.name == update_request['name'],
+                     models.CollectionReplica.rse_id == update_request['rse_id'])
+            )
+            updated_replica = session.execute(stmt).scalar_one()
+
             updated_replica.state = ds_replica_state
             updated_replica.available_replicas_cnt = available_replicas
             updated_replica.length = ds_length
             updated_replica.bytes = ds_bytes
             updated_replica.available_bytes = ds_available_bytes
     else:
+        stmt = select(
+            func.count().label('ds_length'),
+            func.sum(models.DataIdentifierAssociation.bytes).label('ds_bytes')
+        ).select_from(
+            models.DataIdentifierAssociation
+        ).where(
+            and_(models.DataIdentifierAssociation.scope == update_request['scope'],
+                 models.DataIdentifierAssociation.name == update_request['name'])
+        )
+        association = session.execute(stmt).one()
+
         # Check all dataset replicas
-        association = session.query(models.DataIdentifierAssociation)\
-                             .filter_by(scope=update_request['scope'],
-                                        name=update_request['name'])\
-                             .with_entities(label('ds_length', func.count()),
-                                            label('ds_bytes', func.sum(models.DataIdentifierAssociation.bytes)))\
-                             .one()
         ds_length = association.ds_length
         ds_bytes = association.ds_bytes
         ds_replica_state = None
 
-        collection_replicas = session.query(models.CollectionReplica)\
-                                     .filter_by(scope=update_request['scope'], name=update_request['name'])\
-                                     .all()
-        for collection_replica in collection_replicas:
+        stmt = select(
+            models.CollectionReplica
+        ).where(
+            and_(models.CollectionReplica.scope == update_request['scope'],
+                 models.CollectionReplica.name == update_request['name'])
+        )
+        for collection_replica in session.execute(stmt).scalars().all():
             if ds_length:
                 collection_replica.length = ds_length
             else:
@@ -3209,31 +3576,47 @@ def update_collection_replica(update_request, *, session: "Session"):
             else:
                 collection_replica.bytes = 0
 
-        file_replicas = session.query(models.RSEFileAssociation, models.DataIdentifierAssociation)\
-                               .filter(models.RSEFileAssociation.scope == models.DataIdentifierAssociation.child_scope,
-                                       models.RSEFileAssociation.name == models.DataIdentifierAssociation.child_name,
-                                       models.DataIdentifierAssociation.name == update_request['name'],
-                                       models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
-                                       update_request['scope'] == models.DataIdentifierAssociation.scope)\
-                               .with_entities(models.RSEFileAssociation.rse_id,
-                                              label('ds_available_bytes', func.sum(models.RSEFileAssociation.bytes)),
-                                              label('available_replicas', func.count()))\
-                               .group_by(models.RSEFileAssociation.rse_id)\
-                               .all()
-        for file_replica in file_replicas:
+        stmt = select(
+            func.sum(models.RSEFileAssociation.bytes).label('ds_available_bytes'),
+            func.count().label('available_replicas'),
+            models.RSEFileAssociation.rse_id
+        ).select_from(
+            models.RSEFileAssociation
+        ).where(
+            and_(models.RSEFileAssociation.scope == models.DataIdentifierAssociation.child_scope,
+                 models.RSEFileAssociation.name == models.DataIdentifierAssociation.child_name,
+                 models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
+                 models.DataIdentifierAssociation.name == update_request['name'],
+                 models.DataIdentifierAssociation.scope == update_request['scope'])
+        ).group_by(
+            models.RSEFileAssociation.rse_id
+        )
+
+        for file_replica in session.execute(stmt).all():
             if file_replica.available_replicas >= ds_length:
                 ds_replica_state = ReplicaState.AVAILABLE
             else:
                 ds_replica_state = ReplicaState.UNAVAILABLE
 
-            collection_replica = session.query(models.CollectionReplica)\
-                                        .filter_by(scope=update_request['scope'], name=update_request['name'], rse_id=file_replica.rse_id)\
-                                        .first()
+            stmt = select(
+                models.CollectionReplica
+            ).where(
+                and_(models.CollectionReplica.scope == update_request['scope'],
+                     models.CollectionReplica.name == update_request['name'],
+                     models.CollectionReplica.rse_id == file_replica.rse_id)
+            )
+            collection_replica = session.execute(stmt).scalars().first()
             if collection_replica:
                 collection_replica.state = ds_replica_state
                 collection_replica.available_replicas_cnt = file_replica.available_replicas
                 collection_replica.available_bytes = file_replica.ds_available_bytes
-    session.query(models.UpdatedCollectionReplica).filter_by(id=update_request['id']).delete()
+
+    stmt = delete(
+        models.UpdatedCollectionReplica
+    ).where(
+        models.UpdatedCollectionReplica.id == update_request['id']
+    )
+    session.execute(stmt)
 
 
 @read_session
@@ -3249,12 +3632,23 @@ def get_bad_pfns(limit=10000, thread=None, total_threads=None, *, session: "Sess
     returns: list of PFNs {'pfn': pfn, 'state': state, 'reason': reason, 'account': account, 'expires_at': expires_at}
     """
     result = []
-    query = session.query(models.BadPFNs.path, models.BadPFNs.state, models.BadPFNs.reason, models.BadPFNs.account, models.BadPFNs.expires_at)
-    query = filter_thread_work(session=session, query=query, total_threads=total_threads, thread_id=thread, hash_variable='path')
-    query.order_by(models.BadPFNs.created_at)
-    query = query.limit(limit)
-    for path, state, reason, account, expires_at in query.yield_per(1000):
-        result.append({'pfn': clean_surls([str(path)])[0], 'state': state, 'reason': reason, 'account': account, 'expires_at': expires_at})
+
+    stmt = select(
+        models.BadPFN.path,
+        models.BadPFN.state,
+        models.BadPFN.reason,
+        models.BadPFN.account,
+        models.BadPFN.expires_at
+    )
+    stmt = filter_thread_work(session=session, query=stmt, total_threads=total_threads, thread_id=thread, hash_variable='path')
+    stmt = stmt.order_by(
+        models.BadPFN.created_at
+    ).limit(
+        limit
+    )
+
+    for path, state, reason, account, expires_at in session.execute(stmt).yield_per(1000):
+        result.append({'pfn': clean_pfns([str(path)])[0], 'state': state, 'reason': reason, 'account': account, 'expires_at': expires_at})
     return result
 
 
@@ -3271,15 +3665,37 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
     :returns: True is successful.
     """
     for replica in replicas:
+        scope_name_rse_state = and_(models.BadReplica.scope == replica['scope'],
+                                    models.BadReplica.name == replica['name'],
+                                    models.BadReplica.rse_id == replica['rse_id'],
+                                    models.BadReplica.state == state)
         insert_new_row = True
         if state == BadFilesStatus.TEMPORARY_UNAVAILABLE:
-            query = session.query(models.BadReplicas).filter_by(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], state=state)
-            if query.count():
-                query.update({'state': BadFilesStatus.TEMPORARY_UNAVAILABLE, 'updated_at': datetime.utcnow(), 'account': account, 'reason': reason, 'expires_at': expires_at}, synchronize_session=False)
+            stmt = select(
+                models.BadReplica
+            ).where(
+                scope_name_rse_state
+            )
+            if session.execute(stmt).scalar_one_or_none():
+                stmt = update(
+                    models.BadReplica
+                ).where(
+                    scope_name_rse_state
+                ).values({
+                    models.BadReplica.state: BadFilesStatus.TEMPORARY_UNAVAILABLE,
+                    models.BadReplica.updated_at: datetime.utcnow(),
+                    models.BadReplica.account: account,
+                    models.BadReplica.reason: reason,
+                    models.BadReplica.expires_at: expires_at
+                }).execution_options(
+                    synchronize_session=False
+                )
+                session.execute(stmt)
+
                 insert_new_row = False
         if insert_new_row:
-            new_bad_replica = models.BadReplicas(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason,
-                                                 state=state, account=account, bytes=None, expires_at=expires_at)
+            new_bad_replica = models.BadReplica(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], reason=reason,
+                                                state=state, account=account, bytes=None, expires_at=expires_at)
             new_bad_replica.save(session=session, flush=False)
     try:
         session.flush()
@@ -3306,11 +3722,17 @@ def bulk_delete_bad_pfns(pfns, *, session: "Session"):
     """
     pfn_clause = []
     for pfn in pfns:
-        pfn_clause.append(models.BadPFNs.path == pfn)
+        pfn_clause.append(models.BadPFN.path == pfn)
 
     for chunk in chunks(pfn_clause, 100):
-        query = session.query(models.BadPFNs).filter(or_(*chunk))
-        query.delete(synchronize_session=False)
+        stmt = delete(
+            models.BadPFN
+        ).where(
+            or_(*chunk)
+        ).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt)
 
     return True
 
@@ -3327,14 +3749,20 @@ def bulk_delete_bad_replicas(bad_replicas, *, session: "Session"):
     """
     replica_clause = []
     for replica in bad_replicas:
-        replica_clause.append(and_(models.BadReplicas.scope == replica['scope'],
-                                   models.BadReplicas.name == replica['name'],
-                                   models.BadReplicas.rse_id == replica['rse_id'],
-                                   models.BadReplicas.state == replica['state']))
+        replica_clause.append(and_(models.BadReplica.scope == replica['scope'],
+                                   models.BadReplica.name == replica['name'],
+                                   models.BadReplica.rse_id == replica['rse_id'],
+                                   models.BadReplica.state == replica['state']))
 
     for chunk in chunks(replica_clause, 100):
-        session.query(models.BadReplicas).filter(or_(*chunk)).\
-            delete(synchronize_session=False)
+        stmt = delete(
+            models.BadReplica
+        ).where(
+            or_(*chunk)
+        ).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt)
     return True
 
 
@@ -3363,9 +3791,9 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, *, session:
     elif rep_state == BadPFNStatus.BAD and expires_at is not None:
         raise exception.InputValidationError("When adding a BAD pfn the expires_at value shouldn't be set.")
 
-    pfns = clean_surls(pfns)
+    pfns = clean_pfns(pfns)
     for pfn in pfns:
-        new_pfn = models.BadPFNs(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
+        new_pfn = models.BadPFN(path=str(pfn), account=account, state=rep_state, reason=reason, expires_at=expires_at)
         new_pfn = session.merge(new_pfn)
         new_pfn.save(session=session, flush=False)
 
@@ -3393,15 +3821,25 @@ def list_expired_temporary_unavailable_replicas(total_workers, worker_number, li
     :param session:         The database session in use.
     """
 
-    query = session.query(models.BadReplicas.scope, models.BadReplicas.name, models.BadReplicas.rse_id).\
-        filter(models.BadReplicas.state == BadFilesStatus.TEMPORARY_UNAVAILABLE).\
-        filter(models.BadReplicas.expires_at < datetime.utcnow()).\
-        with_hint(models.ReplicationRule, "index(bad_replicas BAD_REPLICAS_EXPIRES_AT_IDX)", 'oracle').\
-        order_by(models.BadReplicas.expires_at)
+    stmt = select(
+        models.BadReplica.scope,
+        models.BadReplica.name,
+        models.BadReplica.rse_id,
+    ).with_hint(
+        models.ReplicationRule,
+        'INDEX(bad_replicas BAD_REPLICAS_EXPIRES_AT_IDX)',
+        'oracle'
+    ).where(
+        and_(models.BadReplica.state == BadFilesStatus.TEMPORARY_UNAVAILABLE,
+             models.BadReplica.expires_at < datetime.utcnow())
+    ).order_by(
+        models.BadReplica.expires_at
+    )
 
-    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
-    query = query.limit(limit)
-    return query.all()
+    stmt = filter_thread_work(session=session, query=stmt, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
+    stmt = stmt.limit(limit)
+
+    return session.execute(stmt).all()
 
 
 @read_session
@@ -3415,9 +3853,15 @@ def get_replicas_state(scope=None, name=None, *, session: "Session"):
     :returns: A dictionary with the list of states as keys and the rse_ids as value
     """
 
-    query = session.query(models.RSEFileAssociation.rse_id, models.RSEFileAssociation.state).filter_by(scope=scope, name=name)
+    stmt = select(
+        models.RSEFileAssociation.rse_id,
+        models.RSEFileAssociation.state
+    ).where(
+        and_(models.RSEFileAssociation.scope == scope,
+             models.RSEFileAssociation.name == name)
+    )
     states = {}
-    for res in query.all():
+    for res in session.execute(stmt).all():
         rse_id, state = res
         if state not in states:
             states[state] = []
@@ -3487,7 +3931,7 @@ def get_suspicious_files(
         exclude_states_clause.append(BadFilesStatus(state))
 
     # making aliases for bad_replicas and replicas tables
-    bad_replicas_alias = aliased(models.BadReplicas, name='bad_replicas_alias')
+    bad_replicas_alias = aliased(models.BadReplica, name='bad_replicas_alias')
     replicas_alias = aliased(models.RSEFileAssociation, name='replicas_alias')
 
     # assembling the selection rse_clause
@@ -3497,51 +3941,76 @@ def get_suspicious_files(
         for rse in parsedexp:
             rse_clause.append(models.RSEFileAssociation.rse_id == rse['id'])
 
-    # query base
-    query = session.query(func.count(), bad_replicas_alias.scope, bad_replicas_alias.name, models.RSEFileAssociation.rse_id, func.min(models.RSEFileAssociation.created_at))\
-                   .filter(models.RSEFileAssociation.rse_id == bad_replicas_alias.rse_id,
-                           models.RSEFileAssociation.scope == bad_replicas_alias.scope,
-                           models.RSEFileAssociation.name == bad_replicas_alias.name,
-                           bad_replicas_alias.created_at >= younger_than)
+    stmt = select(
+        func.count(),
+        bad_replicas_alias.scope,
+        bad_replicas_alias.name,
+        models.RSEFileAssociation.rse_id,
+        func.min(models.RSEFileAssociation.created_at)
+    ).select_from(
+        bad_replicas_alias
+    ).where(
+        models.RSEFileAssociation.rse_id == bad_replicas_alias.rse_id,
+        models.RSEFileAssociation.scope == bad_replicas_alias.scope,
+        models.RSEFileAssociation.name == bad_replicas_alias.name,
+        bad_replicas_alias.created_at >= younger_than
+    )
     if is_suspicious:
-        query.filter(bad_replicas_alias.state == BadFilesStatus.SUSPICIOUS)
+        stmt = stmt.where(bad_replicas_alias.state == BadFilesStatus.SUSPICIOUS)
     if rse_clause:
-        query = query.filter(or_(*rse_clause))
+        stmt = stmt.where(or_(*rse_clause))
 
     # Only return replicas that have at least one copy on another RSE
     if available_elsewhere == SuspiciousAvailability["EXIST_COPIES"].value:
-        available_replica = exists(select(1).where(and_(replicas_alias.state == ReplicaState.AVAILABLE,
-                                                        replicas_alias.scope == bad_replicas_alias.scope,
-                                                        replicas_alias.name == bad_replicas_alias.name,
-                                                        replicas_alias.rse_id != bad_replicas_alias.rse_id)))
-        query = query.filter(available_replica)
+        available_replica = exists(select(1)
+                                   .where(and_(replicas_alias.state == ReplicaState.AVAILABLE,
+                                               replicas_alias.scope == bad_replicas_alias.scope,
+                                               replicas_alias.name == bad_replicas_alias.name,
+                                               replicas_alias.rse_id != bad_replicas_alias.rse_id)))
+        stmt = stmt.where(available_replica)
 
     # Only return replicas that are the last remaining copy
     if available_elsewhere == SuspiciousAvailability["LAST_COPY"].value:
-        last_replica = ~exists(select(1).where(and_(replicas_alias.state == ReplicaState.AVAILABLE,
-                                                    replicas_alias.scope == bad_replicas_alias.scope,
-                                                    replicas_alias.name == bad_replicas_alias.name,
-                                                    replicas_alias.rse_id != bad_replicas_alias.rse_id)))
-        query = query.filter(last_replica)
+        last_replica = ~exists(select(1)
+                               .where(and_(replicas_alias.state == ReplicaState.AVAILABLE,
+                                           replicas_alias.scope == bad_replicas_alias.scope,
+                                           replicas_alias.name == bad_replicas_alias.name,
+                                           replicas_alias.rse_id != bad_replicas_alias.rse_id)))
+        stmt = stmt.where(last_replica)
 
     # it is required that the selected replicas
     # do not occur as BAD/DELETED/LOST/RECOVERED/...
     # in the bad_replicas table during the same time window.
-    other_states_present = exists(select(1).where(and_(models.BadReplicas.scope == bad_replicas_alias.scope,
-                                                       models.BadReplicas.name == bad_replicas_alias.name,
-                                                       models.BadReplicas.created_at >= younger_than,
-                                                       models.BadReplicas.rse_id == bad_replicas_alias.rse_id,
-                                                       models.BadReplicas.state.in_(exclude_states_clause))))
-    query = query.filter(not_(other_states_present))
+    other_states_present = exists(select(1)
+                                  .where(and_(models.BadReplica.scope == bad_replicas_alias.scope,
+                                              models.BadReplica.name == bad_replicas_alias.name,
+                                              models.BadReplica.created_at >= younger_than,
+                                              models.BadReplica.rse_id == bad_replicas_alias.rse_id,
+                                              models.BadReplica.state.in_(exclude_states_clause))))
+    stmt = stmt.where(not_(other_states_present))
 
     # finally, the results are grouped by RSE, scope, name and required to have
     # at least 'nattempts' occurrences in the result of the query per replica.
     # If nattempts_exact, then only replicas are required to have exactly
     # 'nattempts' occurrences.
     if nattempts_exact:
-        query_result = query.group_by(models.RSEFileAssociation.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name).having(func.count() == nattempts).all()
+        stmt = stmt.group_by(
+            models.RSEFileAssociation.rse_id,
+            bad_replicas_alias.scope,
+            bad_replicas_alias.name
+        ).having(
+            func.count() == nattempts
+        )
+        query_result = session.execute(stmt).all()
     else:
-        query_result = query.group_by(models.RSEFileAssociation.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name).having(func.count() > nattempts).all()
+        stmt = stmt.group_by(
+            models.RSEFileAssociation.rse_id,
+            bad_replicas_alias.scope,
+            bad_replicas_alias.name
+        ).having(
+            func.count() > nattempts
+        )
+        query_result = session.execute(stmt).all()
 
     # translating the rse_id to RSE name and assembling the return list of dictionaries
     result = []
@@ -3566,25 +4035,44 @@ def get_suspicious_reason(rse_id, scope, name, nattempts=0, logger=logging.log, 
     :param session: The database session in use. Default value = None.
     """
     # Alias for bad replicas
-    bad_replicas_alias = aliased(models.BadReplicas, name='bad_replicas_alias')
+    bad_replicas_alias = aliased(models.BadReplica, name='bad_replicas_alias')
 
-    # query base
-    query = session.query(bad_replicas_alias.scope, bad_replicas_alias.name, bad_replicas_alias.reason, bad_replicas_alias.rse_id)\
-                   .filter(bad_replicas_alias.rse_id == rse_id,
-                           bad_replicas_alias.scope == scope,
-                           bad_replicas_alias.name == name,
-                           bad_replicas_alias.state == 'S',
-                           ~exists(select(1).where(and_(bad_replicas_alias.rse_id == rse_id,
-                                                        bad_replicas_alias.scope == scope,
-                                                        bad_replicas_alias.name == name,
-                                                        bad_replicas_alias.state != 'S',))))
-    count = query.count()
+    stmt = select(
+        bad_replicas_alias.scope,
+        bad_replicas_alias.name,
+        bad_replicas_alias.reason,
+        bad_replicas_alias.rse_id
+    ).where(
+        and_(bad_replicas_alias.rse_id == rse_id,
+             bad_replicas_alias.scope == scope,
+             bad_replicas_alias.state == 'S',
+             bad_replicas_alias.name == name,
+             ~exists(select(1).where(
+                 and_(bad_replicas_alias.rse_id == rse_id,
+                      bad_replicas_alias.name == name,
+                      bad_replicas_alias.scope == scope,
+                      bad_replicas_alias.state != 'S'))))
+    )
 
-    query_result = query.group_by(bad_replicas_alias.rse_id, bad_replicas_alias.scope, bad_replicas_alias.name, bad_replicas_alias.reason).having(func.count() > nattempts).all()
+    count_query = select(
+        func.count()
+    ).select_from(
+        stmt.subquery()
+    )
+    count = session.execute(count_query).scalar_one()
+
+    grouped_stmt = stmt.group_by(
+        bad_replicas_alias.rse_id,
+        bad_replicas_alias.scope,
+        bad_replicas_alias.name,
+        bad_replicas_alias.reason
+    ).having(
+        func.count() > nattempts
+    )
 
     result = []
     rses = {}
-    for scope_, name_, reason, rse_id_ in query_result:
+    for scope_, name_, reason, rse_id_ in session.execute(grouped_stmt).all():
         if rse_id_ not in rses:
             rse = get_rse_name(rse_id=rse_id_, session=session)
             rses[rse_id_] = rse
@@ -3608,27 +4096,31 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, *, session: "Session"
     :param session: database session in use.
     """
     stmt = update(models.RSEFileAssociation).where(
-        and_(
-            models.RSEFileAssociation.rse_id == rse_id,
-            models.RSEFileAssociation.name == name,
-            models.RSEFileAssociation.scope == scope,
-            ~exists().where(
-                and_(
-                    models.ReplicaLock.rse_id == rse_id,
-                    models.ReplicaLock.name == name,
-                    models.ReplicaLock.scope == scope,
-                )
-            )
-        )
-    )\
-        .prefix_with("/*+ index(REPLICAS REPLICAS_PK) */", dialect='oracle')\
-        .execution_options(synchronize_session=False)\
-        .values(tombstone=tombstone)
-    result = session.execute(stmt)
+        and_(models.RSEFileAssociation.rse_id == rse_id,
+             models.RSEFileAssociation.name == name,
+             models.RSEFileAssociation.scope == scope,
+             ~exists().where(
+                 and_(models.ReplicaLock.rse_id == rse_id,
+                      models.ReplicaLock.name == name,
+                      models.ReplicaLock.scope == scope)))
+    ).prefix_with(
+        '/*+ INDEX(REPLICAS REPLICAS_PK) */', dialect='oracle'
+    ).values({
+        models.RSEFileAssociation.tombstone: tombstone
+    }).execution_options(
+        synchronize_session=False
+    )
 
-    if result.rowcount == 0:
+    if session.execute(stmt).rowcount == 0:
         try:
-            session.query(models.RSEFileAssociation).filter_by(scope=scope, name=name, rse_id=rse_id).one()
+            stmt = select(
+                models.RSEFileAssociation.tombstone
+            ).where(
+                and_(models.RSEFileAssociation.rse_id == rse_id,
+                     models.RSEFileAssociation.name == name,
+                     models.RSEFileAssociation.scope == scope)
+            )
+            session.execute(stmt).scalar_one()
             raise exception.ReplicaIsLocked('Replica %s:%s on RSE %s is locked.' % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
         except NoResultFound:
             raise exception.ReplicaNotFound('Replica %s:%s on RSE %s could not be found.' % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
@@ -3645,20 +4137,21 @@ def get_RSEcoverage_of_dataset(scope, name, *, session: "Session"):
     :return:                  Dictionary { rse_id : <total bytes present at rse_id> }
     """
 
-    query = session.query(models.RSEFileAssociation.rse_id, func.sum(models.DataIdentifierAssociation.bytes))
-
-    query = query.filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                              models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                              models.DataIdentifierAssociation.scope == scope,
-                              models.DataIdentifierAssociation.name == name,
-                              models.RSEFileAssociation.state != ReplicaState.BEING_DELETED,
-                              ))
-
-    query = query.group_by(models.RSEFileAssociation.rse_id)
+    stmt = select(
+        models.RSEFileAssociation.rse_id,
+        func.sum(models.DataIdentifierAssociation.bytes)
+    ).where(
+        and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+             models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+             models.DataIdentifierAssociation.scope == scope,
+             models.DataIdentifierAssociation.name == name,
+             models.RSEFileAssociation.state != ReplicaState.BEING_DELETED)
+    ).group_by(
+        models.RSEFileAssociation.rse_id
+    )
 
     result = {}
-
-    for rse_id, total in query:
+    for rse_id, total in session.execute(stmt):
         if total:
             result[rse_id] = total
 

@@ -16,7 +16,7 @@
 This script is to be used to background rebalance ATLAS t2 datadisks
 """
 
-from sqlalchemy import or_
+from sqlalchemy import and_, or_, select
 
 from rucio.common.constants import RseAttr
 from rucio.core.rse import get_rse_attribute, get_rse_usage
@@ -34,7 +34,7 @@ total_rebalance_volume = 0
 
 
 # groupdisks
-def group_space(site):
+def group_space(site: str) -> int:
     """
     groupdisks of given site
     contributing to primaries
@@ -81,12 +81,18 @@ rses_over_ratio = sorted([rse for rse in rses if rse['ratio'] > global_ratio + g
 rses_under_ratio = sorted([rse for rse in rses if rse['ratio'] < global_ratio - global_ratio * tolerance], key=lambda k: k['ratio'], reverse=False)
 
 session = get_session()
-active_rses = session.query(models.ReplicationRule.rse_expression).filter(or_(models.ReplicationRule.state == RuleState.REPLICATING, models.ReplicationRule.state == RuleState.STUCK),
-                                                                          models.ReplicationRule.comments == 'T2 Background rebalancing').group_by(models.ReplicationRule.rse_expression).all()
-
+stmt = select(
+    models.ReplicationRule.rse_expression
+).where(
+    and_(or_(models.ReplicationRule.state == RuleState.REPLICATING,
+             models.ReplicationRule.state == RuleState.STUCK),
+         models.ReplicationRule.comments == 'T2 Background rebalancing')
+).group_by(
+    models.ReplicationRule.rse_expression
+)
 # Excluding RSEs
 print('Excluding RSEs as destination which have active Background Rebalancing rules:')
-for rse in active_rses:
+for rse in session.execute(stmt).all():
     print('  %s' % (rse[0]))
     for des in rses_under_ratio:
         des_as_expr = des['rse']

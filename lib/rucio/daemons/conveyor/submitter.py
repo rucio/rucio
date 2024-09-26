@@ -17,9 +17,7 @@ Conveyor transfer submitter is a daemon to manage non-tape file transfers.
 """
 import logging
 import threading
-from collections.abc import Mapping
-from types import FrameType
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 import rucio.db.sqla.util
 from rucio.common import exception
@@ -28,7 +26,7 @@ from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
 from rucio.common.stopwatch import Stopwatch
 from rucio.core.monitor import MetricManager
-from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas
+from rucio.core.request import RequestWithSources, list_and_mark_transfer_requests_and_source_replicas
 from rucio.core.topology import ExpiringObjectCache, Topology
 from rucio.core.transfer import DEFAULT_MULTIHOP_TOMBSTONE_DELAY, TRANSFERTOOL_CLASSES_BY_NAME, ProtocolFactory, list_transfer_admin_accounts, transfer_path_str
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
@@ -38,6 +36,10 @@ from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from types import FrameType
+
+    from rucio.common.types import LoggerFunction, RSESettingsDict
     from rucio.daemons.common import HeartbeatHandler
 
 METRICS = MetricManager(module=__name__)
@@ -58,16 +60,16 @@ def _fetch_requests(
         ignore_availability: bool,
         filter_transfertool: Optional[str],
         metrics: MetricManager,
-        cached_topology,
+        cached_topology: Optional[ExpiringObjectCache],
         set_last_processed_by: bool,
         heartbeat_handler: "HeartbeatHandler",
-):
+) -> tuple[bool, tuple[Topology, dict[str, RequestWithSources]]]:
     """
     Fetches requests to be handled from the database
     """
     worker_number, total_workers, logger = heartbeat_handler.live()
 
-    topology = cached_topology.get() if cached_topology else Topology(ignore_availability=ignore_availability)
+    topology: Topology = cached_topology.get() if cached_topology else Topology(ignore_availability=ignore_availability)
     topology.configure_multihop(logger=logger)
     stopwatch = Stopwatch()
 
@@ -112,17 +114,17 @@ def _fetch_requests(
 
 
 def _handle_requests(
-        batch,
+        batch: tuple[Topology, 'Mapping[str, RequestWithSources]'],
         *,
         transfertools: list[str],
         schemes: Optional[list[str]],
         failover_schemes: Optional[list[str]],
         max_sources: int,
         timeout: Optional[float],
-        transfertool_kwargs,
+        transfertool_kwargs: dict,
         metrics: MetricManager,
-        logger=logging.log,
-):
+        logger: "LoggerFunction" = logging.log,
+) -> None:
     topology, requests_with_sources = batch
 
     protocol_factory = ProtocolFactory()
@@ -166,7 +168,7 @@ def _handle_requests(
         for job in grouped_jobs:
             logger(logging.DEBUG, 'submitjob: transfers=%s, job_params=%s' % ([str(t) for t in job['transfers']], job['job_params']))
             submit_transfer(transfertool_obj=transfertool_obj, transfers=job['transfers'], job_params=job['job_params'],
-                            timeout=timeout, logger=logger)
+                            timeout=timeout, logger=logger)  # type: ignore (unclear whether timeout is supposed to be float or int)
 
 
 def _get_max_time_in_queue_conf() -> dict[str, int]:
@@ -187,7 +189,7 @@ def _get_max_time_in_queue_conf() -> dict[str, int]:
 
 def submitter(
         once: bool = False,
-        rses: Optional[list[Mapping[str, Any]]] = None,
+        rses: Optional[list["RSESettingsDict"]] = None,
         partition_wait_time: int = 10,
         bulk: int = 100,
         group_bulk: int = 1,
@@ -205,9 +207,9 @@ def submitter(
         request_type: Optional[list[RequestType]] = None,
         default_lifetime: int = 172800,
         metrics: MetricManager = METRICS,
-        cached_topology=None,
+        cached_topology: Optional[ExpiringObjectCache] = None,
         total_threads: int = 1,
-):
+) -> None:
     """
     Main loop to submit a new transfer primitive to a transfertool.
     """
@@ -280,7 +282,11 @@ def submitter(
         partition_wait_time=partition_wait_time,
         sleep_time=sleep_time,
         activities=activities)
-    def _db_producer(*, activity, heartbeat_handler):
+    def _db_producer(
+        *,
+        activity: str,
+        heartbeat_handler: "HeartbeatHandler"
+    ) -> tuple[bool, tuple[Topology, dict[str, RequestWithSources]]]:
         return _fetch_requests(
             bulk=bulk,
             filter_transfertool=filter_transfertool,
@@ -295,7 +301,7 @@ def submitter(
             heartbeat_handler=heartbeat_handler,
         )
 
-    def _consumer(batch):
+    def _consumer(batch: tuple[Topology, 'Mapping[str, RequestWithSources]']) -> None:
         return _handle_requests(
             batch,
             transfertools=transfertools,
@@ -314,7 +320,7 @@ def submitter(
     ).run()
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
@@ -322,24 +328,24 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
 
 
 def run(
-        once=False,
-        group_bulk=1,
-        group_policy='rule',
-        rses=None,
-        include_rses=None,
-        exclude_rses=None,
-        vos=None,
-        bulk=100,
-        source_strategy=None,
-        activities=None,
-        exclude_activities=None,
-        ignore_availability=False,
-        sleep_time=600,
-        max_sources=4,
-        archive_timeout_override=None,
-        total_threads=1,
+        once: bool = False,
+        group_bulk: int = 1,
+        group_policy: str = 'rule',
+        rses: Optional[list["RSESettingsDict"]] = None,
+        include_rses: Optional[str] = None,
+        exclude_rses: Optional[str] = None,
+        vos: Optional[list[str]] = None,
+        bulk: int = 100,
+        source_strategy: Optional[str] = None,
+        activities: Optional[list[str]] = None,
+        exclude_activities: Optional[list[str]] = None,
+        ignore_availability: bool = False,
+        sleep_time: int = 600,
+        max_sources: int = 4,
+        archive_timeout_override: Optional[int] = None,
+        total_threads: int = 1,
         **_kwargs
-):
+) -> None:
     """
     Starts up the conveyor threads.
     """

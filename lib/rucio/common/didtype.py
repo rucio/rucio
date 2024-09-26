@@ -16,7 +16,7 @@
 DID type to represent a did and to simplify operations on it
 """
 
-from typing import Union
+from typing import Any, Union
 
 from rucio.common.exception import DIDError
 
@@ -58,6 +58,22 @@ class DID:
         self.scope: str = ''
         self.name: str = ''
 
+        did = self._parse_did_from_args(*args, **kwargs)
+
+        self._construct_did(did)
+
+        if not self.is_valid_format():
+            raise DIDError('Object has invalid format after construction: {}'.format(str(self)))
+
+    def _parse_did_from_args(
+            self,
+            *args,
+            **kwargs
+    ) -> Union["DID", str, tuple[str, str], list[str], dict[str, str]]:
+        """
+        Parse the DID object from the given arguments
+        :return: DID object
+        """
         num_args = len(args)
         num_kwargs = len(kwargs)
         if (num_args + num_kwargs) > 2:
@@ -77,46 +93,78 @@ class DID:
                     else:
                         raise DIDError('Constructor got unexpected keyword argument: {}'.format(k))
                 else:
-                    raise DIDError('First argument of constructor is expected to be string type'
+                    raise DIDError('First argument of constructor is expected to be string type '
                                    'when keyword argument is given. Given type: {}'.format(type(did)))
         elif num_args == 0:
             did = kwargs.get('did', kwargs)
         else:
             did = args
+        return did
 
+    def _construct_did(self, did: Any) -> None:
+        """
+        Construct the DID object from the given input.
+
+        :param did: input to construct the DID object from
+        """
         if isinstance(did, dict):
-            self.scope = did.get('scope', '')
-            self.name = did.get('name', '')
-            if not self.has_scope():
-                self.update_implicit_scope()
+            self._did_from_dict(did)
         elif isinstance(did, tuple) or isinstance(did, list):
-            if len(did) != 2:
-                raise DIDError('Construction from tuple or list requires exactly 2 elements')
-            self.scope = did[0]
-            self.name = did[1]
+            self._did_from_list_or_tuple(did)
         elif isinstance(did, str):
-            did_parts = did.split(DID.SCOPE_SEPARATOR, 1)
-            if len(did_parts) == 1:
-                self.name = did
-                self.update_implicit_scope()
-                if not self.has_scope():
-                    raise DIDError('Object construction from non-splitable string is ambigious')
-            else:
-                self.scope = did_parts[0]
-                self.name = did_parts[1]
+            self._did_from_str(did)
         elif isinstance(did, DID):
-            self.scope = did.scope
-            self.name = did.name
+            self._did_from_did_object(did)
         else:
             raise DIDError('Cannot build object from: {}'.format(type(did)))
 
         if self.name.endswith('/'):
             self.name = self.name[:-1]
 
-        if not self.is_valid_format():
-            raise DIDError('Object has invalid format after construction: {}'.format(str(self)))
+    def _did_from_str(self, did: str) -> None:
+        """
+        Construct the DID from a string.
+        :param did: string containing the DID information
+        """
+        did_parts = did.split(DID.SCOPE_SEPARATOR, 1)
+        if len(did_parts) == 1:
+            self.name = did
+            self._update_implicit_scope()
+            if not self.has_scope():
+                raise DIDError('Object construction from non-splitable string is ambigious')
+        else:
+            self.scope = did_parts[0]
+            self.name = did_parts[1]
 
-    def update_implicit_scope(self) -> None:
+    def _did_from_dict(self, did: dict[str, str]) -> None:
+        """
+        Construct the DID from a dictionary.
+        :param did: dictionary optionally containing the keys 'scope' and 'name'
+        """
+        self.scope = did.get('scope', '')
+        self.name = did.get('name', '')
+        if not self.has_scope():
+            self._update_implicit_scope()
+
+    def _did_from_list_or_tuple(self, did: Union[list[str], tuple[str, str]]) -> None:
+        """
+        Construct the DID from a list or tuple.
+        :param did: list or tuple with expected length of 2
+        """
+        if len(did) != 2:
+            raise DIDError('Construction from tuple or list requires exactly 2 elements. Number of elements passed: %i' % len(did))
+        self.scope = did[0]
+        self.name = did[1]
+
+    def _did_from_did_object(self, did: "DID") -> None:
+        """
+        Construct the DID from another DID object.
+        :param did: DID object
+        """
+        self.scope = did.scope
+        self.name = did.name
+
+    def _update_implicit_scope(self) -> None:
         """
         This method sets the scope if it is implicitly given in self.name
         """

@@ -24,18 +24,30 @@ class ExpiringDatasetCache:
     """
     Cache with expiring values to keep track of recently created replicas.
     """
-    def __init__(self, redis_host, redis_port, timeout=1, prefix='expiring_did_cache'):
+    def __init__(
+            self,
+            redis_host: str,
+            redis_port: int,
+            timeout: int = 1,
+            prefix: str = 'expiring_did_cache'
+    ):
         self._redis = StrictRedis(host=redis_host, port=redis_port)
         self._prefix = prefix + '_' + str(uuid4()).split('-')[0]
         self._timeout = timeout
 
-    def add_dataset(self, dataset):
+    def add_dataset(
+            self,
+            dataset: str
+    ) -> None:
         """ Adds a datasets to cache with lifetime """
         key = ':'.join((self._prefix, dataset))
         self._redis.set(key, 1)
         self._redis.expire(key, self._timeout)
 
-    def check_dataset(self, dataset):
+    def check_dataset(
+            self,
+            dataset: str
+    ) -> bool:
         """ Checks if dataset is still in cache """
         key = ':'.join((self._prefix, dataset))
         if self._redis.get(key) is None:

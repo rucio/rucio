@@ -37,6 +37,7 @@ lib/rucio_clients.egg-info
 
 # build directories
 .coverage
+**coverage.xml
 build/
 covhtml
 dist/
@@ -49,7 +50,6 @@ docs/
 # Backup and temp files
 *.log
 *.pyc
-*.swp
 *.swp
 *~
 .venv
@@ -65,3 +65,9 @@ tools/test.file.1G
 
 # autotest logs/data
 /.autotest
+
+# JetBrains IDE
+.idea/
+
+# VSCode
+.vscode/

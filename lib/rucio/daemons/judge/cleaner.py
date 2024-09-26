@@ -23,7 +23,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from random import randint
 from re import match
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.exc import DatabaseError
 
@@ -33,20 +33,22 @@ from rucio.common.exception import DatabaseException, RuleNotFound, UnsupportedO
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.rule import delete_rule, get_expired_rules
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import HeartbeatHandler, run_daemon
 from rucio.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX
 from rucio.db.sqla.util import get_db_time
 
 if TYPE_CHECKING:
     from types import FrameType
-    from typing import Optional
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 DAEMON_NAME = 'judge-cleaner'
 
 
-def rule_cleaner(once=False, sleep_time=60):
+def rule_cleaner(
+        once: bool = False,
+        sleep_time: int = 60
+) -> None:
     """
     Main loop to check for expired replication rules
     """
@@ -64,7 +66,11 @@ def rule_cleaner(once=False, sleep_time=60):
     )
 
 
-def run_once(paused_rules, heartbeat_handler, **_kwargs):
+def run_once(
+        paused_rules: dict[str, datetime],
+        heartbeat_handler: HeartbeatHandler,
+        **_kwargs
+) -> None:
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     start = time.time()
@@ -114,14 +120,18 @@ def run_once(paused_rules, heartbeat_handler, **_kwargs):
             pass
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
     graceful_stop.set()
 
 
-def run(once=False, threads=1, sleep_time=60):
+def run(
+        once: bool = False,
+        threads: int = 1,
+        sleep_time: int = 60
+) -> None:
     """
     Starts up the Judge-Clean threads.
     """
@@ -141,9 +151,9 @@ def run(once=False, threads=1, sleep_time=60):
         rule_cleaner(once)
     else:
         logging.info('Cleaner starting %s threads' % str(threads))
-        threads = [threading.Thread(target=rule_cleaner, kwargs={'once': once,
-                                                                 'sleep_time': sleep_time}) for i in range(0, threads)]
-        [t.start() for t in threads]
+        thread_list = [threading.Thread(target=rule_cleaner, kwargs={'once': once,
+                                                                     'sleep_time': sleep_time}) for i in range(0, threads)]
+        [t.start() for t in thread_list]
         # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+        while thread_list[0].is_alive():
+            [t.join(timeout=3.14) for t in thread_list]

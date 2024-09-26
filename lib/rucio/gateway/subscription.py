@@ -14,7 +14,7 @@
 
 from collections import namedtuple
 from json import dumps, loads
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from rucio.common.exception import AccessDenied, InvalidObject
 from rucio.common.schema import validate_schema
@@ -24,6 +24,8 @@ from rucio.db.sqla.session import read_session, stream_session, transactional_se
 from rucio.gateway.permission import has_permission
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from sqlalchemy.orm import Session
 
 
@@ -31,36 +33,38 @@ SubscriptionRuleState = namedtuple('SubscriptionRuleState', ['account', 'name', 
 
 
 @transactional_session
-def add_subscription(name, account, filter_, replication_rules, comments, lifetime, retroactive, dry_run, priority=None, issuer=None, vo='def', *, session: "Session"):
+def add_subscription(
+    name: str,
+    account: str,
+    filter_: dict[str, Any],
+    replication_rules: list[dict[str, Any]],
+    comments: str,
+    lifetime: Union[int, Literal[False]],
+    retroactive: bool,
+    dry_run: bool,
+    priority: Optional[int] = None,
+    issuer: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> str:
     """
     Adds a new subscription which will be verified against every new added file and dataset
 
     :param account: Account identifier
-    :type account:  String
     :param name: Name of the subscription
-    :type:  String
     :param filter_: Dictionary of attributes by which the input data should be filtered
                    **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
-    :type filter_:  Dict
     :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
-    :type replication_rules:  Dict
     :param comments: Comments for the subscription
-    :type comments:  String
     :param lifetime: Subscription's lifetime (seconds); False if subscription has no lifetime
-    :type lifetime:  Integer or False
     :param retroactive: Flag to know if the subscription should be applied on previous data
-    :type retroactive:  Boolean
     :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
-    :type dry_run:  Boolean
     :param priority: The priority of the subscription
-    :type priority: Integer
     :param issuer:  The account issuing this operation.
-    :type issuer:  String
     :param vo: The VO to act on.
-    :type vo: String
     :param session: The database session in use.
     :returns: subscription_id
-    :rtype:   String
     """
     if not has_permission(issuer=issuer, vo=vo, action='add_subscription', kwargs={'account': account}, session=session):
         raise AccessDenied('Account %s can not add subscription' % (issuer))
@@ -80,7 +84,7 @@ def add_subscription(name, account, filter_, replication_rules, comments, lifeti
     except ValueError as error:
         raise TypeError(error)
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
     keys = ['scope', 'account']
     types = [InternalScope, InternalAccount]
@@ -91,26 +95,29 @@ def add_subscription(name, account, filter_, replication_rules, comments, lifeti
             else:
                 filter_[_key] = _type(filter_[_key], vo=vo).internal
 
-    return subscription.add_subscription(name=name, account=account, filter_=dumps(filter_), replication_rules=dumps(replication_rules),
+    return subscription.add_subscription(name=name, account=internal_account, filter_=dumps(filter_), replication_rules=dumps(replication_rules),
                                          comments=comments, lifetime=lifetime, retroactive=retroactive, dry_run=dry_run, priority=priority,
                                          session=session)
 
 
 @transactional_session
-def update_subscription(name, account, metadata=None, issuer=None, vo='def', *, session: "Session"):
+def update_subscription(
+    name: str,
+    account: str,
+    metadata: Optional[dict[str, Any]] = None,
+    issuer: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Updates a subscription
 
     :param name: Name of the subscription
-    :type:  String
     :param account: Account identifier
-    :type account:  String
     :param metadata: Dictionary of metadata to update. Supported keys : filter, replication_rules, comments, lifetime, retroactive, dry_run, priority, last_processed
-    :type metadata:  Dict
     :param issuer: The account issuing this operation.
-    :type issuer: String
     :param vo: The VO to act on.
-    :type vo: String
     :param session: The database session in use.
     :raises: SubscriptionNotFound if subscription is not found
     """
@@ -132,7 +139,7 @@ def update_subscription(name, account, metadata=None, issuer=None, vo='def', *, 
     except ValueError as error:
         raise TypeError(error)
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
     if 'filter' in metadata and metadata['filter'] is not None:
         filter_ = metadata['filter']
@@ -146,35 +153,37 @@ def update_subscription(name, account, metadata=None, issuer=None, vo='def', *, 
                 else:
                     filter_[_key] = _type(filter_[_key], vo=vo).internal
 
-    return subscription.update_subscription(name=name, account=account, metadata=metadata, session=session)
+    return subscription.update_subscription(name=name, account=internal_account, metadata=metadata, session=session)
 
 
 @stream_session
-def list_subscriptions(name=None, account=None, state=None, vo='def', *, session: "Session"):
+def list_subscriptions(
+    name: Optional[str] = None,
+    account: Optional[str] = None,
+    state: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     Returns a dictionary with the subscription information :
     Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
 
     :param name: Name of the subscription
-    :type:  String
     :param account: Account identifier
-    :type account:  String
     :param state: Filter for subscription state
-    :type state: String
     :param vo: The VO to act on.
-    :type vo: String
     :param session: The database session in use.
     :returns: Dictionary containing subscription parameter
-    :rtype:   Dict
     :raises: exception.NotFound if subscription is not found
     """
 
     if account:
-        account = InternalAccount(account, vo=vo)
+        internal_account = InternalAccount(account, vo=vo)
     else:
-        account = InternalAccount('*', vo=vo)
+        internal_account = InternalAccount('*', vo=vo)
 
-    subs = subscription.list_subscriptions(name, account, state, session=session)
+    subs = subscription.list_subscriptions(name, internal_account, state, session=session)
 
     for sub in subs:
         sub['account'] = sub['account'].external
@@ -191,7 +200,13 @@ def list_subscriptions(name=None, account=None, state=None, vo='def', *, session
 
 
 @stream_session
-def list_subscription_rule_states(name=None, account=None, vo='def', *, session: "Session"):
+def list_subscription_rule_states(
+    name: Optional[str] = None,
+    account: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[SubscriptionRuleState]':
     """Returns a list of with the number of rules per state for a subscription.
 
     :param name: Name of the subscription
@@ -201,10 +216,10 @@ def list_subscription_rule_states(name=None, account=None, vo='def', *, session:
     :returns: Sequence with SubscriptionRuleState named tuples (account, name, state, count)
     """
     if account is not None:
-        account = InternalAccount(account, vo=vo)
+        internal_account = InternalAccount(account, vo=vo)
     else:
-        account = InternalAccount('*', vo=vo)
-    subs = subscription.list_subscription_rule_states(name, account, session=session)
+        internal_account = InternalAccount('*', vo=vo)
+    subs = subscription.list_subscription_rule_states(name, internal_account, session=session)
     for sub in subs:
         # sub is an immutable Row so return new named tuple with edited entries
         d = sub._asdict()
@@ -213,21 +228,30 @@ def list_subscription_rule_states(name=None, account=None, vo='def', *, session:
 
 
 @transactional_session
-def delete_subscription(subscription_id, vo='def', *, session: "Session"):
+def delete_subscription(
+    subscription_id: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Deletes a subscription
 
     :param subscription_id: Subscription identifier
     :param vo: The VO of the user issuing command
     :param session: The database session in use.
-    :type subscription_id:  String
     """
 
     raise NotImplementedError
 
 
 @read_session
-def get_subscription_by_id(subscription_id, vo='def', *, session: "Session"):
+def get_subscription_by_id(
+    subscription_id: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Get a specific subscription by id.
 

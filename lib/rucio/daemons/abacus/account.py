@@ -26,7 +26,7 @@ from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.account_counter import fill_account_counter_history_table, get_updated_account_counters, update_account_counter
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -36,7 +36,10 @@ graceful_stop = threading.Event()
 DAEMON_NAME = 'abacus-account'
 
 
-def account_update(once=False, sleep_time=10):
+def account_update(
+        once: bool = False,
+        sleep_time: int = 10
+) -> None:
     """
     Main loop to check and update the Account Counters.
     """
@@ -50,26 +53,29 @@ def account_update(once=False, sleep_time=10):
     )
 
 
-def run_once(heartbeat_handler, **_kwargs):
+def run_once(
+        heartbeat_handler: HeartbeatHandler,
+        **_kwargs
+) -> None:
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     start = time.time()  # NOQA
-    account_rse_ids = get_updated_account_counters(total_workers=total_workers,
-                                                   worker_number=worker_number)
-    logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(account_rse_ids)))
+    updated_account_counters = get_updated_account_counters(total_workers=total_workers,
+                                                            worker_number=worker_number)
+    logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(updated_account_counters)))
 
     # If the list is empty, sent the worker to sleep
-    if not account_rse_ids:
+    if not updated_account_counters:
         logger(logging.INFO, 'did not get any work')
         return
 
-    for account_rse_id in account_rse_ids:
+    for account_counter in updated_account_counters:
         worker_number, total_workers, logger = heartbeat_handler.live()
         if graceful_stop.is_set():
             break
         start_time = time.time()
-        update_account_counter(account=account_rse_id[0], rse_id=account_rse_id[1])
-        logger(logging.DEBUG, 'update of account-rse counter "%s-%s" took %f' % (account_rse_id[0], account_rse_id[1], time.time() - start_time))
+        update_account_counter(account=account_counter['account'], rse_id=account_counter['rse_id'])
+        logger(logging.DEBUG, 'update of account-rse counter "%s-%s" took %f' % (account_counter['account'], account_counter['rse_id'], time.time() - start_time))
 
 
 def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
@@ -80,7 +86,12 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     graceful_stop.set()
 
 
-def run(once=False, threads=1, fill_history_table=False, sleep_time=10):
+def run(
+        once: bool = False,
+        threads: int = 1,
+        fill_history_table: bool = False,
+        sleep_time: int = 10
+) -> None:
     """
     Starts up the Abacus-Account threads.
     """
@@ -94,12 +105,12 @@ def run(once=False, threads=1, fill_history_table=False, sleep_time=10):
         account_update(once)
     else:
         logging.info('main: starting threads')
-        threads = [threading.Thread(target=account_update, kwargs={'once': once, 'sleep_time': sleep_time}) for i in
-                   range(0, threads)]
+        thread_list = [threading.Thread(target=account_update, kwargs={'once': once, 'sleep_time': sleep_time}) for i in
+                       range(0, threads)]
         if fill_history_table:
-            threads.append(get_thread_with_periodic_running_function(3600, fill_account_counter_history_table, graceful_stop))
-        [t.start() for t in threads]
+            thread_list.append(get_thread_with_periodic_running_function(3600, fill_account_counter_history_table, graceful_stop))
+        [t.start() for t in thread_list]
         logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+        while thread_list[0].is_alive():
+            [t.join(timeout=3.14) for t in thread_list]

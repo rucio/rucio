@@ -12,14 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-try:
-    from rucio.vcsversion import VERSION_INFO
-except ImportError:
-    VERSION_INFO = {'branch_nick': 'LOCALBRANCH',     # NOQA
-                    'revision_id': 'LOCALREVISION',
-                    'version': 'VERSION',
-                    'final': False,
-                    'revno': 0}
+from rucio.vcsversion import VERSION_INFO
 
 RUCIO_VERSION = [VERSION_INFO['version'], ]
 FINAL = VERSION_INFO['final']   # This becomes true at Release Candidate time

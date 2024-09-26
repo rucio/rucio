@@ -134,7 +134,7 @@ def declare_suspicious_replicas_bad(
     Main loop to check for available replicas which are labeled as suspicious.
 
     Gets a list of suspicious replicas that are listed as AVAILABLE in 'replicas' table
-    and available on other RSE. Finds surls of these replicas and declares them as bad.
+    and available on other RSE. Finds pfns of these replicas and declares them as bad.
     Replicas that are the last remaining copy of a file have additional checks (checksum
     comparison, etc.) before being declared bad.
 
@@ -248,8 +248,8 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
         for rse in rse_list:
             time_start_rse = time.time()
             rse_expr = rse['rse']
-            cnt_surl_not_found = 0
-            cnt_surl_not_found_nattempts_1 = 0
+            cnt_pfn_not_found = 0
+            cnt_pfn_not_found_nattempts_1 = 0
             if rse_expr not in recoverable_replicas[vo]:
                 recoverable_replicas[vo][rse_expr] = {}
             if rse_expr not in replicas_nattempts_1[vo]:
@@ -283,16 +283,16 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
                         scope = replica['scope']
                         rep_name = replica['name']
                         rse_id = replica['rse_id']
-                        surl_not_found = True
+                        pfn_not_found = True
                         for rep in list_replicas([{'scope': scope, 'name': rep_name}]):
                             for rse_ in rep['rses']:
                                 if rse_ == rse_id:
-                                    recoverable_replicas[vo][rse_expr][rep_name] = {'name': rep_name, 'rse_id': rse_id, 'scope': scope, 'surl': rep['rses'][rse_][0], 'available_elsewhere': True}
-                                    surl_not_found = False
+                                    recoverable_replicas[vo][rse_expr][rep_name] = {'name': rep_name, 'rse_id': rse_id, 'scope': scope, 'pfn': rep['rses'][rse_][0], 'available_elsewhere': True}
+                                    pfn_not_found = False
 
-                        if surl_not_found:
-                            cnt_surl_not_found += 1
-                            logger(logging.WARNING, 'Skipping suspicious replica %s on %s, no surls were found.', rep_name, rse_expr)
+                        if pfn_not_found:
+                            cnt_pfn_not_found += 1
+                            logger(logging.WARNING, 'Skipping suspicious replica %s on %s, no pfns were found.', rep_name, rse_expr)
 
             if suspicious_replicas_last_copy:
                 for replica in suspicious_replicas_last_copy:
@@ -300,14 +300,14 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
                         scope = replica['scope']
                         rep_name = replica['name']
                         rse_id = replica['rse_id']
-                        surl_not_found = True
+                        pfn_not_found = True
                         # Should only return one rse, as there is only one replica remaining
                         for rep in list_replicas([{'scope': scope, 'name': rep_name}]):
-                            recoverable_replicas[vo][rse_expr][rep_name] = {'name': rep_name, 'rse_id': rse_id, 'scope': scope, 'surl': rep['rses'][rse_id][0], 'available_elsewhere': False}
-                            surl_not_found = False
-                        if surl_not_found:
-                            cnt_surl_not_found += 1
-                            logger(logging.WARNING, 'Skipping suspicious replica %s on %s, no surls were found.', rep_name, rse_expr)
+                            recoverable_replicas[vo][rse_expr][rep_name] = {'name': rep_name, 'rse_id': rse_id, 'scope': scope, 'pfn': rep['rses'][rse_id][0], 'available_elsewhere': False}
+                            pfn_not_found = False
+                        if pfn_not_found:
+                            cnt_pfn_not_found += 1
+                            logger(logging.WARNING, 'Skipping suspicious replica %s on %s, no pfns were found.', rep_name, rse_expr)
 
             if suspicious_replicas_nattempts_1:
                 for replica in suspicious_replicas_nattempts_1:
@@ -315,27 +315,27 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
                         scope = replica['scope']
                         rep_name = replica['name']
                         rse_id = replica['rse_id']
-                        surl_not_found = True
+                        pfn_not_found = True
                         for rep in list_replicas([{'scope': scope, 'name': rep_name}]):
                             for rse_ in rep['rses']:
                                 if rse_ == rse_id:
-                                    replicas_nattempts_1[vo][rse_expr][rep_name] = {'name': rep_name, 'rse_id': rse_id, 'scope': scope, 'surl': rep['rses'][rse_][0], 'available_elsewhere': True}
-                                    surl_not_found = False
-                        if surl_not_found:
-                            cnt_surl_not_found_nattempts_1 += 1
-                            logger(logging.WARNING, 'Skipping suspicious replica %s on %s, no surls were found.', rep_name, rse_expr)
+                                    replicas_nattempts_1[vo][rse_expr][rep_name] = {'name': rep_name, 'rse_id': rse_id, 'scope': scope, 'pfn': rep['rses'][rse_][0], 'available_elsewhere': True}
+                                    pfn_not_found = False
+                        if pfn_not_found:
+                            cnt_pfn_not_found_nattempts_1 += 1
+                            logger(logging.WARNING, 'Skipping suspicious replica %s on %s, no pfns were found.', rep_name, rse_expr)
 
             logger(logging.INFO, 'Suspicious replica query took %s seconds on %s and found %i suspicious replica(s) with a minimum of nattempts=%i. The pfns for %s/%s replicas were found.',
                    time.time() - time_start_rse,
                    rse_expr,
                    len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy),
                    nattempts,
-                   len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy) - cnt_surl_not_found,
+                   len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy) - cnt_pfn_not_found,
                    len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy))
 
             logger(logging.INFO, 'A total of %i replicas with exactly nattempts=1 were found. The pfns for %s/%s replicas were found.',
                    len(suspicious_replicas_nattempts_1),
-                   len(suspicious_replicas_nattempts_1) - cnt_surl_not_found_nattempts_1,
+                   len(suspicious_replicas_nattempts_1) - cnt_pfn_not_found_nattempts_1,
                    len(suspicious_replicas_nattempts_1))
 
             if len(suspicious_replicas_avail_elsewhere) + len(suspicious_replicas_last_copy) != 0:
@@ -390,8 +390,8 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
                     else:
                         # Deal with replicas based on their metadata.
                         if (file_metadata["datatype"] is None) and (use_file_metadata):  # "None" type has no function "split()"
-                            logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Replica does not have a data type associated with it. No action will be taken.",
-                                   rse_key, replica_key, replicas_nattempts_1[vo][rse_key][replica_key]['surl'])
+                            logger(logging.WARNING, "RSE: %s, replica name %s, pfn %s: Replica does not have a data type associated with it. No action will be taken.",
+                                   rse_key, replica_key, replicas_nattempts_1[vo][rse_key][replica_key]['pfn'])
                             continue
                         file_metadata_datatype = str(file_metadata["datatype"])
                         if not use_file_metadata:
@@ -435,17 +435,17 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
         for rse_key in list(recoverable_replicas[vo].keys()):
             if len(recoverable_replicas[vo][rse_key].values()) > limit_suspicious_files_on_rse:
                 list_problematic_rses.append(rse_key)
-                surls_list = []
+                pfns_list = []
                 for replica_value in recoverable_replicas[vo][rse_key].values():
-                    surls_list.append(replica_value['surl'])
+                    pfns_list.append(replica_value['pfn'])
 
                 if active_mode:
-                    add_bad_pfns(pfns=surls_list, account=InternalAccount('root', vo=vo), state='TEMPORARY_UNAVAILABLE', expires_at=datetime.utcnow() + timedelta(days=3))
+                    add_bad_pfns(pfns=pfns_list, account=InternalAccount('root', vo=vo), state='TEMPORARY_UNAVAILABLE', expires_at=datetime.utcnow() + timedelta(days=3))
 
                 logger(logging.INFO, "%s is problematic (more than %s suspicious replicas). Send a Jira ticket for the RSE (to be implemented).", rse_key, limit_suspicious_files_on_rse)
                 logger(logging.INFO, "The following files on %s have been marked as TEMPORARILY UNAVAILABLE:", rse_key)
                 for replica_values in recoverable_replicas[vo][rse_key].values():
-                    logger(logging.INFO, 'Temporarily unavailable: RSE: %s    Scope: %s    Name: %s    PFN: %s', rse_key, replica_values['scope'], replica_values['name'], replica_values['surl'])
+                    logger(logging.INFO, 'Temporarily unavailable: RSE: %s    Scope: %s    Name: %s    PFN: %s', rse_key, replica_values['scope'], replica_values['name'], replica_values['pfn'])
                 # Remove the RSE from the dictionary as it has been dealt with.
                 del recoverable_replicas[vo][rse_key]
 
@@ -504,8 +504,8 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
                             # Deal with replicas based on their metadata.
                             if (file_metadata["datatype"] is None) and use_file_metadata:  # "None" type has no function "split()"
                                 files_to_be_ignored.append(recoverable_replicas[vo][rse_key][replica_key])
-                                logger(logging.WARNING, "RSE: %s, replica name %s, surl %s: Replica does not have a data type associated with it. No action will be taken.",
-                                       rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['surl'])
+                                logger(logging.WARNING, "RSE: %s, replica name %s, pfn %s: Replica does not have a data type associated with it. No action will be taken.",
+                                       rse_key, replica_key, recoverable_replicas[vo][rse_key][replica_key]['pfn'])
                                 continue
 
                             file_metadata_datatype = str(file_metadata["datatype"])
@@ -547,12 +547,12 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
 
             logger(logging.INFO, '(%s) Remaining replicas (pfns) that will be ignored:', rse_key)
             for i in files_to_be_ignored:
-                logger(logging.INFO, 'Ignore: RSE: %s    Scope: %s    Name: %s    Datatype: %s    PFN: %s', rse_key, i["scope"], i["name"], i["datatype"], i["surl"])
+                logger(logging.INFO, 'Ignore: RSE: %s    Scope: %s    Name: %s    Datatype: %s    PFN: %s', rse_key, i["scope"], i["name"], i["datatype"], i["pfn"])
             logger(logging.INFO, '(%s) Remaining replica (pfns) that will be declared BAD:', rse_key)
             for i in files_to_be_declared_bad:
-                logger(logging.INFO, 'Declare bad: RSE: %s    Scope: %s    Name: %s    Datatype: %s    PFN: %s', rse_key, i["scope"], i["name"], i["datatype"], i["surl"])
+                logger(logging.INFO, 'Declare bad: RSE: %s    Scope: %s    Name: %s    Datatype: %s    PFN: %s', rse_key, i["scope"], i["name"], i["datatype"], i["pfn"])
             for i in files_dry_run_monitoring:
-                logger(logging.INFO, 'Declare bad (dry run): RSE: %s    Scope: %s    Name: %s    Datatype: %s    PFN: %s', rse_key, i["scope"], i["name"], i["datatype"], i["surl"])
+                logger(logging.INFO, 'Declare bad (dry run): RSE: %s    Scope: %s    Name: %s    Datatype: %s    PFN: %s', rse_key, i["scope"], i["name"], i["datatype"], i["pfn"])
 
             if files_to_be_declared_bad:
                 logger(logging.INFO, 'Ready to declare %s bad replica(s) on %s (RSE id: %s).', len(files_to_be_declared_bad), rse_key, str(rse_id))

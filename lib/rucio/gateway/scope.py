@@ -47,7 +47,14 @@ def list_scopes(filter_: Optional[dict[str, Any]] = None, vo: str = 'def', *, se
 
 
 @transactional_session
-def add_scope(scope, account, issuer, vo='def', *, session: "Session"):
+def add_scope(
+    scope: str,
+    account: str,
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Creates a scope for an account.
 
@@ -64,14 +71,19 @@ def add_scope(scope, account, issuer, vo='def', *, session: "Session"):
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_scope', kwargs=kwargs, session=session):
         raise rucio.common.exception.AccessDenied('Account %s can not add scope' % (issuer))
 
-    scope = InternalScope(scope, vo=vo)
-    account = InternalAccount(account, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    core_scope.add_scope(scope, account, session=session)
+    core_scope.add_scope(internal_scope, internal_account, session=session)
 
 
 @read_session
-def get_scopes(account, vo='def', *, session: "Session"):
+def get_scopes(
+    account: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> list[str]:
     """
     Gets a list of all scopes for an account.
 
@@ -82,6 +94,6 @@ def get_scopes(account, vo='def', *, session: "Session"):
     :returns: A list containing the names of all scopes for this account.
     """
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
 
-    return [scope.external for scope in core_scope.get_scopes(account, session=session)]
+    return [scope.external for scope in core_scope.get_scopes(internal_account, session=session)]

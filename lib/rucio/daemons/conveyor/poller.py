@@ -23,9 +23,7 @@ import logging
 import re
 import threading
 import time
-from collections.abc import Mapping, Sequence
 from itertools import groupby
-from types import FrameType
 from typing import TYPE_CHECKING, Any, Optional
 
 from requests.exceptions import RequestException
@@ -36,7 +34,7 @@ from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.types import InternalAccount
+from rucio.common.types import InternalAccount, LoggerFunction
 from rucio.common.utils import dict_chunks
 from rucio.core import request as request_core
 from rucio.core import transfer as transfer_core
@@ -45,10 +43,13 @@ from rucio.core.topology import ExpiringObjectCache, Topology
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
 from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, RequestState, RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
-from rucio.transfertool.transfertool import Transfertool
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+    from types import FrameType
+
     from rucio.daemons.common import HeartbeatHandler
+    from rucio.transfertool.transfertool import Transfertool
 
 GRACEFUL_STOP = threading.Event()
 METRICS = MetricManager(module=__name__)
@@ -59,16 +60,16 @@ FILTER_TRANSFERTOOL = config_get('conveyor', 'filter_transfertool', False, None)
 
 
 def _fetch_requests(
-        db_bulk,
-        older_than,
-        activity_shares,
-        transfertool,
-        filter_transfertool,
-        cached_topology,
-        activity,
+        db_bulk: int,
+        older_than: int,
+        activity_shares: Optional['Mapping[str, float]'],
+        transfertool: Optional[str],
+        filter_transfertool: Optional[str],
+        cached_topology: Optional[ExpiringObjectCache],
+        activity: str,
         set_last_processed_by: bool,
-        heartbeat_handler
-):
+        heartbeat_handler: "HeartbeatHandler"
+) -> tuple[bool, list[dict[str, Any]]]:
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     logger(logging.DEBUG, 'Start to poll transfers older than %i seconds for activity %s using transfer tool: %s' % (older_than, activity, filter_transfertool))
@@ -109,16 +110,16 @@ def _fetch_requests(
 
 
 def _handle_requests(
-        transfs,
-        fts_bulk,
-        multi_vo,
-        timeout,
-        transfertool,
+        transfs: list[dict[str, Any]],
+        fts_bulk: int,
+        multi_vo: Optional[bool],
+        timeout: Optional[int],
+        transfertool: str,
         transfer_stats_manager: request_core.TransferStatsManager,
         oidc_account: Optional[str],
         *,
-        logger=logging.log,
-):
+        logger: LoggerFunction = logging.log,
+) -> None:
     transfs.sort(key=lambda t: (t['external_host'] or '',
                                 t['scope'].vo if multi_vo else '',
                                 t['external_id'] or '',
@@ -160,18 +161,18 @@ def _handle_requests(
 
 def poller(
         once: bool = False,
-        activities: Optional[Sequence[str]] = None,
+        activities: Optional['Sequence[str]'] = None,
         sleep_time: int = 60,
         fts_bulk: int = 100,
         db_bulk: int = 1000,
         older_than: int = 60,
-        activity_shares: Optional[Mapping[str, float]] = None,
+        activity_shares: Optional['Mapping[str, float]'] = None,
         partition_wait_time: int = 10,
         transfertool: Optional[str] = TRANSFER_TOOL,
         filter_transfertool: Optional[str] = FILTER_TRANSFERTOOL,
-        cached_topology=None,
+        cached_topology: Optional[ExpiringObjectCache] = None,
         total_threads: int = 1,
-):
+) -> None:
     """
     Main loop to check the status of a transfer primitive with a transfertool.
     """
@@ -203,7 +204,11 @@ def poller(
         sleep_time=sleep_time,
         activities=activities,
     )
-    def _db_producer(*, activity: str, heartbeat_handler: "HeartbeatHandler"):
+    def _db_producer(
+        *,
+        activity: str,
+        heartbeat_handler: "HeartbeatHandler"
+    ) -> tuple[bool, list[dict[str, Any]]]:
         return _fetch_requests(
             db_bulk=db_bulk,
             older_than=older_than,
@@ -216,14 +221,14 @@ def poller(
             heartbeat_handler=heartbeat_handler,
         )
 
-    def _consumer(transfs):
+    def _consumer(transfs: list[dict[str, Any]]) -> None:
         return _handle_requests(
             transfs=transfs,
             fts_bulk=fts_bulk,
             multi_vo=multi_vo,
-            timeout=timeout,
+            timeout=timeout,  # type: ignore (unclear if timeout is meant to be int or float)
             oidc_account=oidc_account,
-            transfertool=transfertool,
+            transfertool=transfertool,  # type: ignore (transfertool is not None)
             transfer_stats_manager=transfer_stats_manager,
         )
 
@@ -235,7 +240,7 @@ def poller(
         ).run()
 
 
-def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
@@ -244,15 +249,15 @@ def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> Non
 
 
 def run(
-        once=False,
-        sleep_time=60,
-        activities=None,
-        fts_bulk=100,
-        db_bulk=1000,
-        older_than=60,
+        once: bool = False,
+        sleep_time: int = 60,
+        activities: Optional['Sequence[str]'] = None,
+        fts_bulk: int = 100,
+        db_bulk: int = 1000,
+        older_than: int = 60,
         activity_shares: Optional[str] = None,
-        total_threads=1
-):
+        total_threads: int = 1
+) -> None:
     """
     Starts up the conveyor threads.
     """
@@ -296,12 +301,12 @@ def run(
 
 
 def poll_transfers(
-        transfertool_obj: Transfertool,
-        transfers_by_eid: Mapping[str, Mapping[str, Any]],
+        transfertool_obj: 'Transfertool',
+        transfers_by_eid: 'Mapping[str, Mapping[str, Any]]',
         transfer_stats_manager: request_core.TransferStatsManager,
         timeout: "Optional[int]" = None,
-        logger=logging.log
-):
+        logger: "LoggerFunction" = logging.log
+) -> None:
     """
     Poll a list of transfers from an FTS server
     """
@@ -323,12 +328,12 @@ def poll_transfers(
 
 
 def _poll_transfers(
-        transfertool_obj: Transfertool,
-        transfers_by_eid: Mapping[str, Mapping[str, Any]],
+        transfertool_obj: 'Transfertool',
+        transfers_by_eid: 'Mapping[str, Mapping[str, Any]]',
         transfer_stats_manager: request_core.TransferStatsManager,
         timeout: "Optional[int]" = None,
-        logger=logging.log
-):
+        logger: "LoggerFunction" = logging.log
+) -> None:
     """
     Helper function for poll_transfers which performs the actual polling and database update.
     """

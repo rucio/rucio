@@ -17,9 +17,10 @@ import threading
 from datetime import datetime, timedelta
 
 import pytest
+from sqlalchemy import delete, update
 
 from rucio.core.heartbeat import cardiac_arrest, die, list_heartbeats, list_payload_counts, live, sanity_check
-from rucio.db.sqla.models import Heartbeats
+from rucio.db.sqla.models import Heartbeat
 from rucio.db.sqla.session import transactional_session
 
 
@@ -34,7 +35,12 @@ def executable_factory(function_scope_prefix, db_session):
 
     yield _create_executable
 
-    db_session.query(Heartbeats).where(Heartbeats.executable.in_(executables)).delete()
+    stmt = delete(
+        Heartbeat
+    ).where(
+        Heartbeat.executable.in_(executables)
+    )
+    db_session.execute(stmt)
 
 
 @pytest.fixture
@@ -158,8 +164,22 @@ class TestHeartbeat:
         def __forge_updated_at(*, session=None):
             two_days_ago = datetime.utcnow() - timedelta(days=2)
             a_dozen_hours_ago = datetime.utcnow() - timedelta(hours=12)
-            session.query(Heartbeats).filter_by(hostname='host1').update({'updated_at': two_days_ago})
-            session.query(Heartbeats).filter_by(hostname='host2').update({'updated_at': a_dozen_hours_ago})
+            stmt = update(
+                Heartbeat
+            ).where(
+                Heartbeat.hostname == 'host1'
+            ).values({
+                Heartbeat.updated_at: two_days_ago
+            })
+            session.execute(stmt)
+            stmt = update(
+                Heartbeat
+            ).where(
+                Heartbeat.hostname == 'host2'
+            ).values({
+                Heartbeat.updated_at: a_dozen_hours_ago
+            })
+            session.execute(stmt)
 
         __forge_updated_at()
 

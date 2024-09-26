@@ -13,11 +13,15 @@
 # limitations under the License.
 
 from json import dumps
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.utils import build_url
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 
 class DiracClient(BaseClient):
@@ -26,7 +30,12 @@ class DiracClient(BaseClient):
 
     DIRAC_BASEURL = 'dirac'
 
-    def add_files(self, lfns, ignore_availability=False, parents_metadata=None):
+    def add_files(
+            self,
+            lfns: "Iterable[Mapping[str, Any]]",
+            ignore_availability: bool = False,
+            parents_metadata: Optional["Mapping[str, Mapping[str, Any]]"] = None
+    ) -> Literal[True]:
         """
         Bulk add files :
         - Create the file and replica.

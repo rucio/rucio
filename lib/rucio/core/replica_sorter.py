@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 from tempfile import TemporaryDirectory, TemporaryFile
-from typing import TYPE_CHECKING, Union
+from typing import Optional, Union
 from urllib.parse import urlparse
 
 import geoip2.database
@@ -29,15 +29,13 @@ import requests
 from dogpile.cache.api import NO_VALUE
 
 from rucio.common import utils
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool, config_get_int
-from rucio.common.exception import InvalidRSEExpression
+from rucio.common.constants import SORTING_ALGORITHMS
+from rucio.common.exception import InvalidRSEExpression, SortingAlgorithmNotSupported
 from rucio.core.rse_expression_parser import parse_expression
 
-if TYPE_CHECKING:
-    from typing import Optional
-
-REGION = make_region_memcached(expiration_time=900, function_key_generator=utils.my_key_generator)
+REGION = MemcacheRegion(expiration_time=900, function_key_generator=utils.my_key_generator)
 
 # This product uses GeoLite data created by MaxMind,
 # available from <a href="http://www.maxmind.com">http://www.maxmind.com</a>
@@ -251,7 +249,7 @@ def site_selector(replicas, site, vo):
     return result
 
 
-def sort_replicas(dictreplica: dict, client_location: dict, selection: "Optional[str]" = None) -> list:
+def sort_replicas(dictreplica: dict, client_location: dict, selection: Optional[str] = None) -> list:
     """
     General sorting method for a dictionary of replicas. Returns the List of replicas.
 
@@ -263,8 +261,11 @@ def sort_replicas(dictreplica: dict, client_location: dict, selection: "Optional
     """
     if len(dictreplica) == 0:
         return []
+
     if not selection:
         selection = 'geoip'
+    elif selection not in SORTING_ALGORITHMS:
+        raise SortingAlgorithmNotSupported('Sorting algorithm: %s is not supported. Supported protocols: %s' % (selection, SORTING_ALGORITHMS))
 
     items = [(key, value) for key, value in dictreplica.items()]
     # safety check, TODO: remove if all dictreplica values are 4-tuple with priority as second item
@@ -286,8 +287,6 @@ def sort_replicas(dictreplica: dict, client_location: dict, selection: "Optional
         replicas = sort_ranking(dictreplica, client_location)
     elif selection == 'random':
         replicas = sort_random(dictreplica)
-    else:
-        replicas = list(dictreplica.keys())
 
     return replicas
 

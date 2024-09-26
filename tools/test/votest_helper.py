@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 def validate(func):
     """
-    A decorator to validate vo-specific sections contained in matrix_policy_package_testss.yaml
+    A decorator to validate vo-specific sections contained in matrix_policy_package_tests.yaml
     """
     @functools.wraps(func)
     def wrapper(*args, **kwargs):

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from json import dumps
+from typing import Literal
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
@@ -27,7 +28,13 @@ class AccountLimitClient(BaseClient):
 
     ACCOUNTLIMIT_BASEURL = 'accountlimits'
 
-    def set_account_limit(self, account, rse, bytes_, locality):
+    def set_account_limit(
+            self,
+            account: str,
+            rse: str,
+            bytes_: int,
+            locality: Literal['local', 'global']
+    ) -> bool:
         """
         Sets an account limit for a given limit scope.
 
@@ -46,7 +53,12 @@ class AccountLimitClient(BaseClient):
             from rucio.common.exception import UnsupportedOperation
             raise UnsupportedOperation('The provided scope (%s) for the account limit was invalid' % locality)
 
-    def delete_account_limit(self, account, rse, locality):
+    def delete_account_limit(
+            self,
+            account: str,
+            rse: str,
+            locality: Literal['local', 'global']
+    ) -> bool:
         """
         Deletes an account limit for a given limit scope.
 
@@ -64,7 +76,12 @@ class AccountLimitClient(BaseClient):
             from rucio.common.exception import UnsupportedOperation
             raise UnsupportedOperation('The provided scope (%s) for the account limit was invalid' % locality)
 
-    def set_local_account_limit(self, account, rse, bytes_):
+    def set_local_account_limit(
+            self,
+            account: str,
+            rse: str,
+            bytes_: int
+    ) -> bool:
         """
         Sends the request to set an account limit for an account.
 
@@ -86,7 +103,11 @@ class AccountLimitClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def delete_local_account_limit(self, account, rse):
+    def delete_local_account_limit(
+            self,
+            account: str,
+            rse: str
+    ) -> bool:
         """
         Sends the request to remove an account limit.
 
@@ -108,7 +129,12 @@ class AccountLimitClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def set_global_account_limit(self, account, rse_expression, bytes_):
+    def set_global_account_limit(
+            self,
+            account: str,
+            rse_expression: str,
+            bytes_: int
+    ) -> bool:
         """
         Sends the request to set a global account limit for an account.
 
@@ -130,7 +156,11 @@ class AccountLimitClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def delete_global_account_limit(self, account, rse_expression):
+    def delete_global_account_limit(
+            self,
+            account: str,
+            rse_expression: str
+    ) -> bool:
         """
         Sends the request to remove a global account limit.
 

@@ -18,15 +18,17 @@ along with some of the default methods for LFN2PFN translations.
 """
 import hashlib
 import logging
-from collections.abc import Callable, Mapping
 from configparser import NoOptionError, NoSectionError
-from typing import TypeVar
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
 from urllib.parse import urlparse
 
 from rucio.common import config, exception
 from rucio.common.constants import RseAttr
 from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.rse import rsemanager
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 if getattr(rsemanager, 'CLIENT_MODE', None):
     from rucio.client.rseclient import RSEClient
@@ -41,23 +43,54 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
     """
         Translates a pfn dictionary into a scope and name
     """
+
+    _algorithm_type = "pfn2lfn"
+
     def __init__(self, vo: str = 'def'):
         super().__init__()
-        self.register("def", RSEDeterministicScopeTranslation._default)
-        self.register("atlas", RSEDeterministicScopeTranslation._atlas)
-        policy_module = vo
-        # Uses the same policy as the DeterministicTranslation
-        if super()._supports(self.__class__.__name__, policy_module):
-            self.parser = self._get_one_algorithm(self.__class__.__name__, policy_module)
-        else:
-            self.parser = self._get_one_algorithm(self.__class__.__name__, "def")
+
+        self.register(RSEDeterministicScopeTranslation._default, "def")
+        self.register(RSEDeterministicScopeTranslation._atlas, "atlas")
+
+        logger = logging.getLogger(__name__)
+
+        try:
+            # Use the function defined in the policy package if it's configured so
+            algorithm_name = config.config_get('policy', self._algorithm_type)
+        except (NoOptionError, NoSectionError, RuntimeError):
+            # Don't use a function from the policy package. Use one defined in this class according to vo
+            logger.debug("PFN2LFN function will not be fetched from the policy package")
+            if super()._supports(self._algorithm_type, vo):
+                algorithm_name = vo
+            else:
+                algorithm_name = "def"
+
+        self.parser = self.get_parser(algorithm_name)
 
     @classmethod
-    def register(cls, name: str, func: Callable) -> None:
-        super()._register(cls.__name__, {name: func})
+    def get_parser(cls, algorithm_name: str) -> 'Callable[..., Any]':
+        return super()._get_one_algorithm(cls._algorithm_type, algorithm_name)
+
+    @classmethod
+    def register(
+        cls,
+        pfn2lfn_callable: 'Callable',
+        name: Optional[str] = None
+    ) -> None:
+        """
+        Provided a callable function, register it as one of the valid PFN2LFN algorithms.
+
+
+        :param pfn2lfn_callable: Callable function to use.
+        :param name: Algorithm name used for registration.
+        """
+        if name is None:
+            name = pfn2lfn_callable.__name__
+        algorithm_dict = {name: pfn2lfn_callable}
+        super()._register(cls._algorithm_type, algorithm_dict)
 
     @staticmethod
-    def _default(parsed_pfn: Mapping[str, str]) -> tuple[str, str]:
+    def _default(parsed_pfn: 'Mapping[str, str]') -> tuple[str, str]:
         """ Translate pfn to name/scope pair
 
         :param parsed_pfn: dictionary representing pfn containing:
@@ -71,7 +104,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         return name, scope
 
     @staticmethod
-    def _atlas(parsed_pfn: Mapping[str, str]) -> tuple[str, str]:
+    def _atlas(parsed_pfn: 'Mapping[str, str]') -> tuple[str, str]:
         """ Translate pfn to name/scope pair
 
         :param parsed_pfn: dictionary representing pfn containing:

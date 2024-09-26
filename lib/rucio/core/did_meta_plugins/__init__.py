@@ -61,8 +61,10 @@ for meta_module_path in METADATA_PLUGIN_MODULE_PATHS:
         base_class = meta_module_path.split(".")[-1]
         metadata_plugin_module = getattr(importlib.import_module(base_module), base_class)()
         METADATA_PLUGIN_MODULES.append(metadata_plugin_module)
-    except ImportError:
+    except ModuleNotFoundError:
         raise exception.PolicyPackageNotFound('Module ' + meta_module_path + ' not found')
+    except ImportError:
+        raise exception.ErrorLoadingPolicyPackage('An error occurred while loading module ' + meta_module_path)
 
 # Set restricted character set for metadata in form character: reason
 #

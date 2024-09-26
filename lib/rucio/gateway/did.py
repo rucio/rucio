@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterator, Sequence
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.gateway.permission
 from rucio.common.constants import RESERVED_KEYS
@@ -29,13 +28,25 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
 
     from sqlalchemy.orm import Session
 
 
 @stream_session
-def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=None, offset=None, long=False, recursive=False, vo='def', *, session: "Session"):
+def list_dids(
+    scope: str,
+    filters: 'Mapping[Any, Any]',
+    did_type: str = 'collection',
+    ignore_case: bool = False,
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
+    long: bool = False,
+    recursive: bool = False,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     List dids in a scope.
 
@@ -50,7 +61,7 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
     :param vo: The VO to act on.
     :param session: The database session in use.
     """
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
 
     # replace account and scope in filters with internal representation
     for or_group in filters:
@@ -59,7 +70,7 @@ def list_dids(scope, filters, did_type='collection', ignore_case=False, limit=No
         if 'scope' in or_group:
             or_group['account'] = InternalScope(or_group['scope'], vo=vo)
 
-    result = did.list_dids(scope=scope, filters=filters, did_type=did_type, ignore_case=ignore_case,
+    result = did.list_dids(scope=internal_scope, filters=filters, did_type=did_type, ignore_case=ignore_case,
                            limit=limit, offset=offset, long=long, recursive=recursive, session=session)
 
     for d in result:
@@ -72,13 +83,13 @@ def add_did(
     name: str,
     did_type: str,
     issuer: str,
-    account: "Optional[str]" = None,
-    statuses: "Optional[dict[str, str]]" = None,
-    meta: "Optional[dict[str, str]]" = None,
-    rules: "Optional[Sequence[dict[str, Any]]]" = None,
-    lifetime: "Optional[str]" = None,
-    dids: "Optional[Sequence[dict[str, Any]]]" = None,
-    rse: "Optional[str]" = None,
+    account: Optional[str] = None,
+    statuses: Optional[dict[str, str]] = None,
+    meta: Optional[dict[str, str]] = None,
+    rules: Optional['Sequence[dict[str, Any]]'] = None,
+    lifetime: Optional[str] = None,
+    dids: Optional['Sequence[dict[str, Any]]'] = None,
+    rse: Optional[str] = None,
     vo: str = 'def',
     *,
     session: "Session"
@@ -145,7 +156,13 @@ def add_did(
 
 
 @transactional_session
-def add_dids(dids, issuer, vo='def', *, session: "Session"):
+def add_dids(
+    dids: 'Sequence[dict[str, Any]]',
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Bulk Add did.
 
@@ -165,7 +182,7 @@ def add_dids(dids, issuer, vo='def', *, session: "Session"):
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_dids', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not bulk add data identifier' % (issuer))
 
-    issuer = InternalAccount(issuer, vo=vo)
+    issuer_account = InternalAccount(issuer, vo=vo)
     for d in dids:
         d['scope'] = InternalScope(d['scope'], vo=vo)
         if 'account' in d.keys():
@@ -173,11 +190,19 @@ def add_dids(dids, issuer, vo='def', *, session: "Session"):
         if 'dids' in d.keys():
             for child in d['dids']:
                 child['scope'] = InternalScope(child['scope'], vo=vo)
-    return did.add_dids(dids, account=issuer, session=session)
+    return did.add_dids(dids, account=issuer_account, session=session)
 
 
 @transactional_session
-def attach_dids(scope, name, attachment, issuer, vo='def', *, session: "Session"):
+def attach_dids(
+    scope: str,
+    name: str,
+    attachment: dict[str, Any],
+    issuer: str,
+    vo='def',
+    *,
+    session: "Session"
+) -> None:
     """
     Append content to data did.
 
@@ -198,8 +223,8 @@ def attach_dids(scope, name, attachment, issuer, vo='def', *, session: "Session"
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='attach_dids', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not add data identifiers to %s:%s' % (issuer, scope, name))
 
-    scope = InternalScope(scope, vo=vo)
-    issuer = InternalAccount(issuer, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
+    issuer_account = InternalAccount(issuer, vo=vo)
     if 'account' in attachment.keys():
         attachment['account'] = InternalAccount(attachment['account'], vo=vo)
     for d in attachment['dids']:
@@ -208,17 +233,24 @@ def attach_dids(scope, name, attachment, issuer, vo='def', *, session: "Session"
             d['account'] = InternalAccount(d['account'], vo=vo)
 
     if rse_id is not None:
-        dids = did.attach_dids(scope=scope, name=name, dids=attachment['dids'],
-                               account=attachment.get('account', issuer), rse_id=rse_id, session=session)
+        dids = did.attach_dids(scope=internal_scope, name=name, dids=attachment['dids'],
+                               account=attachment.get('account', issuer_account), rse_id=rse_id, session=session)
     else:
-        dids = did.attach_dids(scope=scope, name=name, dids=attachment['dids'],
-                               account=attachment.get('account', issuer), session=session)
+        dids = did.attach_dids(scope=internal_scope, name=name, dids=attachment['dids'],
+                               account=attachment.get('account', issuer_account), session=session)
 
     return dids
 
 
 @transactional_session
-def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def', *, session: "Session"):
+def attach_dids_to_dids(
+    attachments: 'Sequence[dict[str, Any]]',
+    issuer: str,
+    ignore_duplicate: bool = False,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Append content to dids.
 
@@ -240,7 +272,7 @@ def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def', *
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='attach_dids_to_dids', kwargs={'attachments': attachments}, session=session):
         raise AccessDenied('Account %s can not add data identifiers' % (issuer))
 
-    issuer = InternalAccount(issuer, vo=vo)
+    issuer_account = InternalAccount(issuer, vo=vo)
     for attachment in attachments:
         attachment['scope'] = InternalScope(attachment['scope'], vo=vo)
         for d in attachment['dids']:
@@ -248,12 +280,20 @@ def attach_dids_to_dids(attachments, issuer, ignore_duplicate=False, vo='def', *
             if 'account' in d.keys():
                 d['account'] = InternalAccount(d['account'], vo=vo)
 
-    return did.attach_dids_to_dids(attachments=attachments, account=issuer,
+    return did.attach_dids_to_dids(attachments=attachments, account=issuer_account,
                                    ignore_duplicate=ignore_duplicate, session=session)
 
 
 @transactional_session
-def detach_dids(scope, name, dids, issuer, vo='def', *, session: "Session"):
+def detach_dids(
+    scope: str,
+    name: str,
+    dids: 'Sequence[dict[str, Any]]',
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Detach data identifier
 
@@ -268,15 +308,23 @@ def detach_dids(scope, name, dids, issuer, vo='def', *, session: "Session"):
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='detach_dids', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not detach data identifiers from %s:%s' % (issuer, scope, name))
 
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
     for d in dids:
         d['scope'] = InternalScope(d['scope'], vo=vo)
 
-    return did.detach_dids(scope=scope, name=name, dids=dids, session=session)
+    return did.detach_dids(scope=internal_scope, name=name, dids=dids, session=session)
 
 
 @stream_session
-def list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=1000, vo='def', *, session: "Session"):
+def list_new_dids(
+    did_type: Optional[str] = None,
+    thread: Optional[int] = None,
+    total_threads: Optional[int] = None,
+    chunk_size: int = 1000,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     List recent identifiers.
 
@@ -294,7 +342,13 @@ def list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100
 
 
 @transactional_session
-def set_new_dids(dids, new_flag=True, vo='def', *, session: "Session"):
+def set_new_dids(
+    dids: 'Sequence[dict[str, Any]]',
+    new_flag: bool = True,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> bool:
     """
     Set/reset the flag new
 
@@ -311,7 +365,13 @@ def set_new_dids(dids, new_flag=True, vo='def', *, session: "Session"):
 
 
 @stream_session
-def list_content(scope, name, vo='def', *, session: "Session"):
+def list_content(
+    scope: str,
+    name: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     List data identifier contents.
 
@@ -321,15 +381,21 @@ def list_content(scope, name, vo='def', *, session: "Session"):
     :param session: The database session in use.
     """
 
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
 
-    dids = did.list_content(scope=scope, name=name, session=session)
+    dids = did.list_content(scope=internal_scope, name=name, session=session)
     for d in dids:
         yield gateway_update_return_dict(d, session=session)
 
 
 @stream_session
-def list_content_history(scope, name, vo='def', *, session: "Session"):
+def list_content_history(
+    scope: str,
+    name: str,
+    vo='def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     List data identifier contents history.
 
@@ -339,16 +405,22 @@ def list_content_history(scope, name, vo='def', *, session: "Session"):
     :param session: The database session in use.
     """
 
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
 
-    dids = did.list_content_history(scope=scope, name=name, session=session)
+    dids = did.list_content_history(scope=internal_scope, name=name, session=session)
 
     for d in dids:
         yield gateway_update_return_dict(d, session=session)
 
 
 @stream_session
-def bulk_list_files(dids: list[dict[str, Any]], long: bool = False, vo: str = 'def', *, session: "Session") -> Iterator[dict[str, Any]]:
+def bulk_list_files(
+    dids: 'Iterable[dict[str, Any]]',
+    long: bool = False,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     List file contents of a list of data identifiers.
 
@@ -366,7 +438,14 @@ def bulk_list_files(dids: list[dict[str, Any]], long: bool = False, vo: str = 'd
 
 
 @stream_session
-def list_files(scope, name, long, vo='def', *, session: "Session"):
+def list_files(
+    scope: str,
+    name: str,
+    long: bool,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     List data identifier file contents.
 
@@ -377,16 +456,23 @@ def list_files(scope, name, long, vo='def', *, session: "Session"):
     :param session: The database session in use.
     """
 
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
 
-    dids = did.list_files(scope=scope, name=name, long=long, session=session)
+    dids = did.list_files(scope=internal_scope, name=name, long=long, session=session)
 
     for d in dids:
         yield gateway_update_return_dict(d, session=session)
 
 
 @stream_session
-def scope_list(scope, name=None, recursive=False, vo='def', *, session: "Session"):
+def scope_list(
+    scope: str,
+    name: Optional[str] = None,
+    recursive: bool = False,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     List data identifiers in a scope.
 
@@ -397,9 +483,9 @@ def scope_list(scope, name=None, recursive=False, vo='def', *, session: "Session
     :param session: The database session in use.
     """
 
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
 
-    dids = did.scope_list(scope, name=name, recursive=recursive, session=session)
+    dids = did.scope_list(internal_scope, name=name, recursive=recursive, session=session)
 
     for d in dids:
         ret_did = deepcopy(d)
@@ -410,7 +496,7 @@ def scope_list(scope, name=None, recursive=False, vo='def', *, session: "Session
 
 
 @read_session
-def get_did(scope: str, name: str, dynamic_depth: "Optional[DIDType]" = None, vo: str = 'def', *, session: "Session") -> "dict[str, Any]":
+def get_did(scope: str, name: str, dynamic_depth: Optional[DIDType] = None, vo: str = 'def', *, session: "Session") -> "dict[str, Any]":
     """
     Retrieve a single data did.
 
@@ -431,7 +517,17 @@ def get_did(scope: str, name: str, dynamic_depth: "Optional[DIDType]" = None, vo
 
 
 @transactional_session
-def set_metadata(scope, name, key, value, issuer, recursive=False, vo='def', *, session: "Session"):
+def set_metadata(
+    scope: str,
+    name: str,
+    key: str,
+    value: Any,
+    issuer: str,
+    recursive: bool = False,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Add metadata to data did.
 
@@ -452,12 +548,21 @@ def set_metadata(scope, name, key, value, issuer, recursive=False, vo='def', *, 
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, scope, name))
 
-    scope = InternalScope(scope, vo=vo)
-    return did.set_metadata(scope=scope, name=name, key=key, value=value, recursive=recursive, session=session)
+    internal_scope = InternalScope(scope, vo=vo)
+    return did.set_metadata(scope=internal_scope, name=name, key=key, value=value, recursive=recursive, session=session)
 
 
 @transactional_session
-def set_metadata_bulk(scope, name, meta, issuer, recursive=False, vo='def', *, session: "Session"):
+def set_metadata_bulk(
+    scope: str,
+    name: str,
+    meta: dict[str, Any],
+    issuer: str,
+    recursive: bool = False,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Add metadata to data did.
 
@@ -478,12 +583,19 @@ def set_metadata_bulk(scope, name, meta, issuer, recursive=False, vo='def', *, s
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_metadata_bulk', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not add metadata to data identifier %s:%s' % (issuer, scope, name))
 
-    scope = InternalScope(scope, vo=vo)
-    return did.set_metadata_bulk(scope=scope, name=name, meta=meta, recursive=recursive, session=session)
+    internal_scope = InternalScope(scope, vo=vo)
+    return did.set_metadata_bulk(scope=internal_scope, name=name, meta=meta, recursive=recursive, session=session)
 
 
 @transactional_session
-def set_dids_metadata_bulk(dids, issuer, recursive=False, vo='def', *, session: "Session"):
+def set_dids_metadata_bulk(
+    dids: 'Iterable[dict[str, Any]]',
+    issuer: str,
+    recursive: bool = False,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Add metadata to a list of data identifiers.
 
@@ -508,7 +620,14 @@ def set_dids_metadata_bulk(dids, issuer, recursive=False, vo='def', *, session: 
 
 
 @read_session
-def get_metadata(scope, name, plugin='DID_COLUMN', vo='def', *, session: "Session"):
+def get_metadata(
+    scope: str,
+    name: str,
+    plugin: str = 'DID_COLUMN',
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Get data identifier metadata
 
@@ -518,14 +637,20 @@ def get_metadata(scope, name, plugin='DID_COLUMN', vo='def', *, session: "Sessio
     :param session: The database session in use.
     """
 
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
 
-    d = did.get_metadata(scope=scope, name=name, plugin=plugin, session=session)
+    d = did.get_metadata(scope=internal_scope, name=name, plugin=plugin, session=session)
     return gateway_update_return_dict(d, session=session)
 
 
 @stream_session
-def get_metadata_bulk(dids, inherit=False, vo='def', *, session: "Session"):
+def get_metadata_bulk(
+    dids: 'Iterable[dict[str, Any]]',
+    inherit: bool = False,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     Get metadata for a list of dids
     :param dids:               A list of dids.
@@ -543,7 +668,14 @@ def get_metadata_bulk(dids, inherit=False, vo='def', *, session: "Session"):
 
 
 @transactional_session
-def delete_metadata(scope, name, key, vo='def', *, session: "Session"):
+def delete_metadata(
+    scope: str,
+    name: str,
+    key: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Delete a key from the metadata column
 
@@ -554,12 +686,20 @@ def delete_metadata(scope, name, key, vo='def', *, session: "Session"):
     :param session: The database session in use.
     """
 
-    scope = InternalScope(scope, vo=vo)
-    return did.delete_metadata(scope=scope, name=name, key=key, session=session)
+    internal_scope = InternalScope(scope, vo=vo)
+    return did.delete_metadata(scope=internal_scope, name=name, key=key, session=session)
 
 
 @transactional_session
-def set_status(scope, name, issuer, vo='def', *, session: "Session", **kwargs):
+def set_status(
+    scope: str,
+    name: str,
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session",
+    **kwargs
+) -> None:
     """
     Set data identifier status
 
@@ -574,13 +714,18 @@ def set_status(scope, name, issuer, vo='def', *, session: "Session", **kwargs):
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_status', kwargs={'scope': scope, 'name': name, 'issuer': issuer}, session=session):
         raise AccessDenied('Account %s can not set status on data identifier %s:%s' % (issuer, scope, name))
 
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
 
-    return did.set_status(scope=scope, name=name, session=session, **kwargs)
+    return did.set_status(scope=internal_scope, name=name, session=session, **kwargs)
 
 
 @stream_session
-def get_dataset_by_guid(guid, vo='def', *, session: "Session"):
+def get_dataset_by_guid(
+    guid: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     Get the parent datasets for a given GUID.
     :param guid: The GUID.
@@ -598,7 +743,13 @@ def get_dataset_by_guid(guid, vo='def', *, session: "Session"):
 
 
 @stream_session
-def list_parent_dids(scope, name, vo='def', *, session: "Session"):
+def list_parent_dids(
+    scope: str,
+    name: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     List parent datasets and containers of a did.
 
@@ -608,16 +759,26 @@ def list_parent_dids(scope, name, vo='def', *, session: "Session"):
     :param session: The database session in use.
     """
 
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
 
-    dids = did.list_parent_dids(scope=scope, name=name, session=session)
+    dids = did.list_parent_dids(scope=internal_scope, name=name, session=session)
 
     for d in dids:
         yield gateway_update_return_dict(d, session=session)
 
 
 @transactional_session
-def create_did_sample(input_scope, input_name, output_scope, output_name, issuer, nbfiles, vo='def', *, session: "Session"):
+def create_did_sample(
+    input_scope: str,
+    input_name: str,
+    output_scope: str,
+    output_name: str,
+    issuer: str,
+    nbfiles: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+):
     """
     Create a sample from an input collection.
 
@@ -635,17 +796,23 @@ def create_did_sample(input_scope, input_name, output_scope, output_name, issuer
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='create_did_sample', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not bulk add data identifier' % (issuer))
 
-    input_scope = InternalScope(input_scope, vo=vo)
-    output_scope = InternalScope(output_scope, vo=vo)
+    input_internal_scope = InternalScope(input_scope, vo=vo)
+    output_internal_scope = InternalScope(output_scope, vo=vo)
 
-    issuer = InternalAccount(issuer, vo=vo)
+    issuer_account = InternalAccount(issuer, vo=vo)
 
-    return did.create_did_sample(input_scope=input_scope, input_name=input_name, output_scope=output_scope, output_name=output_name,
-                                 account=issuer, nbfiles=nbfiles, session=session)
+    return did.create_did_sample(input_scope=input_internal_scope, input_name=input_name, output_scope=output_internal_scope, output_name=output_name,
+                                 account=issuer_account, nbfiles=nbfiles, session=session)
 
 
 @transactional_session
-def resurrect(dids, issuer, vo='def', *, session: "Session"):
+def resurrect(
+    dids: 'Iterable[dict[str, Any]]',
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Resurrect DIDs.
 
@@ -666,7 +833,13 @@ def resurrect(dids, issuer, vo='def', *, session: "Session"):
 
 
 @stream_session
-def list_archive_content(scope, name, vo='def', *, session: "Session"):
+def list_archive_content(
+    scope: str,
+    name: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     List archive contents.
 
@@ -676,15 +849,22 @@ def list_archive_content(scope, name, vo='def', *, session: "Session"):
     :param session: The database session in use.
     """
 
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
 
-    dids = did.list_archive_content(scope=scope, name=name, session=session)
+    dids = did.list_archive_content(scope=internal_scope, name=name, session=session)
     for d in dids:
         yield gateway_update_return_dict(d, session=session)
 
 
 @transactional_session
-def add_did_to_followed(scope, name, account, *, session: "Session", vo='def'):
+def add_did_to_followed(
+    scope: str,
+    name: str,
+    account: str,
+    *,
+    session: "Session",
+    vo: str = 'def'
+) -> None:
     """
     Mark a did as followed by the given account
 
@@ -693,13 +873,19 @@ def add_did_to_followed(scope, name, account, *, session: "Session", vo='def'):
     :param account: The account owner.
     :param session: The database session in use.
     """
-    scope = InternalScope(scope, vo=vo)
-    account = InternalAccount(account, vo=vo)
-    return did.add_did_to_followed(scope=scope, name=name, account=account, session=session)
+    internal_scope = InternalScope(scope, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
+    return did.add_did_to_followed(scope=internal_scope, name=name, account=internal_account, session=session)
 
 
 @transactional_session
-def add_dids_to_followed(dids, account, *, session: "Session", vo='def'):
+def add_dids_to_followed(
+    dids: 'Iterable[Mapping[str, Any]]',
+    account: str,
+    *,
+    session: "Session",
+    vo: str = 'def'
+) -> None:
     """
     Bulk mark datasets as followed
 
@@ -707,12 +893,18 @@ def add_dids_to_followed(dids, account, *, session: "Session", vo='def'):
     :param account: The account owner.
     :param session: The database session in use.
     """
-    account = InternalAccount(account, vo=vo)
-    return did.add_dids_to_followed(dids=dids, account=account, session=session)
+    internal_account = InternalAccount(account, vo=vo)
+    return did.add_dids_to_followed(dids=dids, account=internal_account, session=session)
 
 
 @stream_session
-def get_users_following_did(name, scope, *, session: "Session", vo='def'):
+def get_users_following_did(
+    name: str,
+    scope: str,
+    *,
+    session: "Session",
+    vo: str = 'def'
+) -> 'Iterator[dict[str, str]]':
     """
     Return list of users following a did
 
@@ -720,15 +912,23 @@ def get_users_following_did(name, scope, *, session: "Session", vo='def'):
     :param name: The data identifier name.
     :param session: The database session in use.
     """
-    scope = InternalScope(scope, vo=vo)
-    users = did.get_users_following_did(name=name, scope=scope, session=session)
+    internal_scope = InternalScope(scope, vo=vo)
+    users = did.get_users_following_did(name=name, scope=internal_scope, session=session)
     for user in users:
         user['user'] = user['user'].external
         yield user
 
 
 @transactional_session
-def remove_did_from_followed(scope, name, account, issuer, *, session: "Session", vo='def'):
+def remove_did_from_followed(
+    scope: str,
+    name: str,
+    account: str,
+    issuer: str,
+    *,
+    session: "Session",
+    vo: str = 'def'
+) -> None:
     """
     Mark a did as not followed
 
@@ -742,13 +942,20 @@ def remove_did_from_followed(scope, name, account, issuer, *, session: "Session"
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='remove_did_from_followed', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not remove data identifiers from followed table' % (issuer))
 
-    scope = InternalScope(scope, vo=vo)
-    account = InternalAccount(account, vo=vo)
-    return did.remove_did_from_followed(scope=scope, name=name, account=account, session=session)
+    internal_scope = InternalScope(scope, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
+    return did.remove_did_from_followed(scope=internal_scope, name=name, account=internal_account, session=session)
 
 
 @transactional_session
-def remove_dids_from_followed(dids, account, issuer, *, session: "Session", vo='def'):
+def remove_dids_from_followed(
+    dids: 'Iterable[Mapping[str, Any]]',
+    account: str,
+    issuer: str,
+    *,
+    session: "Session",
+    vo: str = 'def'
+) -> None:
     """
     Bulk mark datasets as not followed
 
@@ -760,5 +967,5 @@ def remove_dids_from_followed(dids, account, issuer, *, session: "Session", vo='
     if not rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='remove_dids_from_followed', kwargs=kwargs, session=session):
         raise AccessDenied('Account %s can not bulk remove data identifiers from followed table' % (issuer))
 
-    account = InternalAccount(account, vo=vo)
-    return did.remove_dids_from_followed(dids=dids, account=account, session=session)
+    internal_account = InternalAccount(account, vo=vo)
+    return did.remove_dids_from_followed(dids=dids, account=internal_account, session=session)

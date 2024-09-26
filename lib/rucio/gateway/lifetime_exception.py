@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
 from rucio.common.types import InternalAccount, InternalScope
@@ -22,11 +22,21 @@ from rucio.db.sqla.session import stream_session, transactional_session
 from rucio.gateway import permission
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
     from sqlalchemy.orm import Session
+
+    from rucio.db.sqla.constants import LifetimeExceptionsState
 
 
 @stream_session
-def list_exceptions(exception_id=None, states=None, vo='def', *, session: "Session"):
+def list_exceptions(
+    exception_id: Optional[str] = None,
+    states: Optional["Iterable[LifetimeExceptionsState]"] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     List exceptions to Lifetime Model.
 
@@ -43,7 +53,16 @@ def list_exceptions(exception_id=None, states=None, vo='def', *, session: "Sessi
 
 
 @transactional_session
-def add_exception(dids, account, pattern, comments, expires_at, vo='def', *, session: "Session"):
+def add_exception(
+    dids: "Iterable[dict[str, Any]]",
+    account: str,
+    pattern: str,
+    comments: str,
+    expires_at: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Add exceptions to Lifetime Model.
 
@@ -58,10 +77,10 @@ def add_exception(dids, account, pattern, comments, expires_at, vo='def', *, ses
     returns:            The id of the exception.
     """
 
-    account = InternalAccount(account, vo=vo)
+    internal_account = InternalAccount(account, vo=vo)
     for did in dids:
         did['scope'] = InternalScope(did['scope'], vo=vo)
-    exceptions = lifetime_exception.add_exception(dids=dids, account=account, pattern=pattern, comments=comments, expires_at=expires_at, session=session)
+    exceptions = lifetime_exception.add_exception(dids=dids, account=internal_account, pattern=pattern, comments=comments, expires_at=expires_at, session=session)
 
     for key in exceptions:
         if key == 'exceptions':
@@ -78,7 +97,14 @@ def add_exception(dids, account, pattern, comments, expires_at, vo='def', *, ses
 
 
 @transactional_session
-def update_exception(exception_id, state, issuer, vo='def', *, session: "Session"):
+def update_exception(
+    exception_id: str,
+    state: 'LifetimeExceptionsState',
+    issuer: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Update exceptions state to Lifetime Model.
 

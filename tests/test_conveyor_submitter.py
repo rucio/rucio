@@ -18,7 +18,7 @@ from random import randint
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import and_, delete, func, select, update
 
 from rucio.common.constants import RseAttr
 from rucio.common.exception import RequestNotFound
@@ -71,7 +71,14 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
                 # Ensure uniqueness to avoid multiple valid submission orders and make tests deterministic with simple sorting techniques
                 request_creation_time = base_time + timedelta(minutes=randint(0, 3600))
             assigned_times.add(request_creation_time)
-            session.query(Request).filter(Request.id == request['id']).update({'created_at': request_creation_time})
+            stmt = update(
+                Request
+            ).where(
+                Request.id == request['id']
+            ).values({
+                Request.created_at: request_creation_time
+            })
+            session.execute(stmt)
             request['created_at'] = request_creation_time
 
     _forge_requests_creation_time()
@@ -101,10 +108,14 @@ def test_skip_requests_from_expired_rules(rse_factory, did_factory, root_account
     distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
 
     did = did_factory.upload_test_file(rse_name=src_rse_name)
-    rule = rule_core.add_rule(dids=[did], account=root_account, copies=1,
-                              rse_expression=dst_rse_name, grouping='ALL',
-                              weight=None, lifetime=-1, locked=False,
-                              subscription_id=None)[0]
+    rule_core.add_rule(dids=[did],
+                       account=root_account,
+                       copies=1,
+                       rse_expression=dst_rse_name, grouping='ALL',
+                       weight=None,
+                       lifetime=-1,
+                       locked=False,
+                       subscription_id=None)[0]
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     assert request_core.get_request(request_id=request['id'])['state'] == RequestState.QUEUED
 
@@ -182,11 +193,16 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
 
     @read_session
     def __number_sources(rse_id, scope, name, *, session=None):
-        return session.query(Source). \
-            filter(Source.rse_id == rse_id). \
-            filter(Source.scope == scope). \
-            filter(Source.name == name). \
-            count()
+        stmt = select(
+            func.count()
+        ).select_from(
+            Source
+        ).where(
+            and_(Source.rse_id == rse_id,
+                 Source.scope == scope,
+                 Source.name == name)
+        )
+        return session.execute(stmt).scalar()
 
     # Ensure that sources where created for transfers
     for rse_id in [src_rse_id, jump_rse1_id, jump_rse2_id]:
@@ -259,10 +275,14 @@ def test_source_avoid_deletion(caches_mock, rse_factory, did_factory, root_accou
 
     @transactional_session
     def __delete_sources(rse_id, scope, name, *, session=None):
-        session.execute(
-            delete(Source).where(Source.rse_id == rse_id,
-                                 Source.scope == scope,
-                                 Source.name == name))
+        stmt = delete(
+            Source
+        ).where(
+            and_(Source.rse_id == rse_id,
+                 Source.scope == scope,
+                 Source.name == name)
+        )
+        session.execute(stmt)
 
     # Deletion succeeds for one replica (second still protected by existing request)
     __delete_sources(src_rse1_id, **did)

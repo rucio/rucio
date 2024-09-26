@@ -27,8 +27,9 @@ import threading
 import time
 import traceback
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
+from sqlalchemy import and_, delete
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm.exc import FlushError
 
@@ -50,8 +51,11 @@ from rucio.db.sqla.session import transactional_session
 from rucio.rse.rsemanager import get_rse_info, lfns2pfns, parse_pfns
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
     from types import FrameType
-    from typing import Optional
+
+    from _typeshed import FileDescriptorOrPath, SupportsKeysAndGetItem
+    from sqlalchemy.orm import Session
 
 METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
@@ -62,8 +66,16 @@ DAEMON_NAME = 'storage-consistency-actions'
 
 
 @transactional_session
-def declare_bad_file_replicas(dids, rse_id, reason, issuer,
-                              status=BadFilesStatus.BAD, scheme=None, *, session=None):
+def declare_bad_file_replicas(
+    dids: "Iterable[dict[str, str]]",
+    rse_id: str,
+    reason: str,
+    issuer: InternalAccount,
+    status=BadFilesStatus.BAD,
+    scheme: Optional[str] = None,
+    *,
+    session: Optional["Session"] = None
+):
     """
     Declare a list of bad replicas.
 
@@ -87,12 +99,20 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer,
                         already_declared) or str(status) == str(BadFilesStatus.SUSPICIOUS)):
             replicas.append({'scope': scope, 'name': name, 'rse_id': rse_id,
                              'state': ReplicaState.BAD})
-            new_bad_replica = models.BadReplicas(scope=scope, name=name, rse_id=rse_id,
-                                                 reason=reason, state=status, account=issuer,
-                                                 bytes=size)
+            new_bad_replica = models.BadReplica(scope=scope, name=name, rse_id=rse_id,
+                                                reason=reason, state=status, account=issuer,
+                                                bytes=size)
             new_bad_replica.save(session=session, flush=False)
-            session.query(models.Source).filter_by(scope=scope, name=name,
-                                                   rse_id=rse_id).delete(synchronize_session=False)
+            stmt = delete(
+                models.Source
+            ).where(
+                and_(models.Source.scope == scope,
+                     models.Source.name == name,
+                     models.Source.rse_id == rse_id)
+            ).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)  # type: ignore (session could be None)
         else:
             if already_declared:
                 unknown_replicas.append('%s:%s %s' % (did['scope'], did['name'],
@@ -108,7 +128,7 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer,
         except exception.UnsupportedOperation:
             raise exception.ReplicaNotFound("One or several replicas don't exist.")
     try:
-        session.flush()
+        session.flush()  # type: ignore (session could be None)
     except IntegrityError as error:
         raise exception.RucioException(error.args)
     except DatabaseError as error:
@@ -124,25 +144,25 @@ def declare_bad_file_replicas(dids, rse_id, reason, issuer,
 
 class Stats:
 
-    def __init__(self, path):
+    def __init__(self, path: "FileDescriptorOrPath"):
         self.path = path
         self.Data = {}
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> Any:
         return self.Data[name]
 
-    def __setitem__(self, name, value):
+    def __setitem__(self, name: str, value: Any) -> None:
         self.Data[name] = value
         self.save()
 
-    def get(self, name, default=None):
+    def get(self, name, default: Any = None) -> Any:
         return self.Data.get(name, default)
 
-    def update(self, data):
+    def update(self, data: "SupportsKeysAndGetItem") -> None:
         self.Data.update(data)
         self.save()
 
-    def save(self):
+    def save(self) -> None:
         try:
             with open(self.path, "r") as f:
                 data = f.read()
@@ -153,7 +173,11 @@ class Stats:
         open(self.path, "w").write(json.dumps(data, indent=4))
 
 
-def write_stats(my_stats, stats_file, stats_key=None):
+def write_stats(
+        my_stats: Any,
+        stats_file: "FileDescriptorOrPath",
+        stats_key: Optional[str] = None
+):
     if stats_file:
         stats = {}
         if os.path.isfile(stats_file):
@@ -168,7 +192,12 @@ def write_stats(my_stats, stats_file, stats_key=None):
 # TODO: Consider breaking the logic into two functions, following discussion in https://github.com/rucio/rucio/pull/5120#discussion_r792673599
 
 
-def cmp2dark(new_list, old_list, comm_list, stats_file):
+def cmp2dark(
+        new_list: "FileDescriptorOrPath",
+        old_list: "FileDescriptorOrPath",
+        comm_list: "FileDescriptorOrPath",
+        stats_file: "FileDescriptorOrPath"
+) -> None:
 
     t0 = time.time()
     stats_key = "cmp2dark"
@@ -210,7 +239,7 @@ def cmp2dark(new_list, old_list, comm_list, stats_file):
 
 
 # TODO: Changes suggested in https://github.com/rucio/rucio/pull/5120#discussion_r792681245
-def parse_filename(fn):
+def parse_filename(fn: str) -> tuple[str, str, str, str]:
     # filename looks like this:
     #
     #   <rse>_%Y_%m_%d_%H_%M_<type>.<extension>
@@ -224,7 +253,7 @@ def parse_filename(fn):
     return rse, timestamp, typ, ext
 
 
-def list_cc_scanned_rses(path):
+def list_cc_scanned_rses(path: "FileDescriptorOrPath") -> list[str]:
     files = glob.glob(f"{path}/*_stats.json")
     rses = set()
     for path in files:
@@ -234,7 +263,11 @@ def list_cc_scanned_rses(path):
     return sorted(list(rses))
 
 
-def list_runs_by_age(path, rse, reffile):
+def list_runs_by_age(
+        path: "FileDescriptorOrPath",
+        rse: str,
+        reffile: str
+) -> dict[str, int]:
     files = glob.glob(f"{path}/{rse}_*_stats.json")
     r, reftimestamp, typ, ext = parse_filename(reffile)
     reftime = datetime.strptime(reftimestamp, '%Y_%m_%d_%H_%M')
@@ -253,7 +286,11 @@ def list_runs_by_age(path, rse, reffile):
     return {k: v for k, v in sorted(runs.items(), reverse=True)}
 
 
-def list_runs(path, rse, nlast=0):
+def list_runs(
+        path: "FileDescriptorOrPath",
+        rse: str,
+        nlast: int = 0
+) -> list[str]:
     files = glob.glob(f"{path}/{rse}_*_stats.json")
     runs = []
     for path in files:
@@ -269,7 +306,11 @@ def list_runs(path, rse, nlast=0):
     return sorted(runs, reverse=False)[-nlast:]
 
 
-def list_unprocessed_runs(path, rse, nlast=0):
+def list_unprocessed_runs(
+        path: "FileDescriptorOrPath",
+        rse: str,
+        nlast: int = 0
+) -> list[str]:
     files = glob.glob(f"{path}/{rse}_*_stats.json")
     unproc_runs = []
     for path in files:
@@ -286,7 +327,9 @@ def list_unprocessed_runs(path, rse, nlast=0):
     return sorted(unproc_runs, reverse=True)[-nlast:]
 
 
-def was_cc_attempted(stats_file):
+def was_cc_attempted(
+        stats_file: "FileDescriptorOrPath"
+) -> Optional[bool]:
     try:
         f = open(stats_file, "r")
     except:
@@ -299,7 +342,9 @@ def was_cc_attempted(stats_file):
         return False
 
 
-def was_cc_processed(stats_file):
+def was_cc_processed(
+        stats_file: "FileDescriptorOrPath"
+) -> Optional[bool]:
     try:
         f = open(stats_file, "r")
     except:
@@ -320,8 +365,16 @@ def was_cc_processed(stats_file):
         return False
 
 
-def process_dark_files(path, scope, rse, latest_run, max_dark_fraction,
-                       max_files_at_site, old_enough_run, force_proceed):
+def process_dark_files(
+        path: "FileDescriptorOrPath",
+        scope: str,
+        rse: str,
+        latest_run: str,
+        max_dark_fraction: float,
+        max_files_at_site: int,
+        old_enough_run: str,
+        force_proceed: bool
+) -> None:
 
     """
     Process the Dark Files.
@@ -434,8 +487,16 @@ def process_dark_files(path, scope, rse, latest_run, max_dark_fraction,
     METRICS.gauge('actions_dark_files_deleted.{rse}').labels(**labels).set(deleted_files)
 
 
-def process_miss_files(path, scope, rse, latest_run, max_miss_fraction,
-                       max_files_at_site, old_enough_run, force_proceed):
+def process_miss_files(
+        path: "FileDescriptorOrPath",
+        scope: str,
+        rse: str,
+        latest_run: str,
+        max_miss_fraction: float,
+        max_files_at_site: int,
+        old_enough_run: Optional[str],
+        force_proceed: bool
+) -> None:
 
     """
     Process the Missing Replicas.
@@ -529,8 +590,15 @@ def process_miss_files(path, scope, rse, latest_run, max_miss_fraction,
     METRICS.gauge('actions_miss_files_to_retransfer.{rse}').labels(**labels).set(invalidated_files)
 
 
-def deckard(scope, rse, dark_min_age, dark_threshold_percent, miss_threshold_percent,
-            force_proceed, scanner_files_path):
+def deckard(
+        scope: str,
+        rse: str,
+        dark_min_age: int,
+        dark_threshold_percent: float,
+        miss_threshold_percent: float,
+        force_proceed: bool,
+        scanner_files_path: "FileDescriptorOrPath"
+) -> None:
 
     """
     The core of CC actions.
@@ -625,8 +693,15 @@ def deckard(scope, rse, dark_min_age, dark_threshold_percent, miss_threshold_per
         logger(logging.INFO, 'No scans available for this RSE')
 
 
-def deckard_loop(scope, rses, dark_min_age, dark_threshold_percent, miss_threshold_percent,
-                 force_proceed, scanner_files_path):
+def deckard_loop(
+        scope: str,
+        rses: "Iterable[str]",
+        dark_min_age: int,
+        dark_threshold_percent: float,
+        miss_threshold_percent: float,
+        force_proceed: bool,
+        scanner_files_path: "FileDescriptorOrPath"
+) -> None:
 
     prefix = 'storage-consistency-actions (deckard_loop())'
     logger = formatted_logger(logging.log, prefix + '%s')
@@ -637,8 +712,17 @@ def deckard_loop(scope, rses, dark_min_age, dark_threshold_percent, miss_thresho
                 force_proceed, scanner_files_path)
 
 
-def actions_loop(once, scope, rses, sleep_time, dark_min_age, dark_threshold_percent,
-                 miss_threshold_percent, force_proceed, scanner_files_path):
+def actions_loop(
+        once: bool,
+        scope: str,
+        rses: "Sequence[str]",
+        sleep_time: int,
+        dark_min_age: int,
+        dark_threshold_percent: float,
+        miss_threshold_percent: float,
+        force_proceed: bool,
+        scanner_files_path: "FileDescriptorOrPath"
+) -> None:
 
     """
     Main loop to apply the CC actions
@@ -687,16 +771,25 @@ def actions_loop(once, scope, rses, sleep_time, dark_min_age, dark_threshold_per
     die(executable=DAEMON_NAME, hostname=hostname, pid=pid, thread=current_thread)
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
     graceful_stop.set()
 
 
-def run(once=False, scope=None, rses=None, sleep_time=60, default_dark_min_age=28, default_dark_threshold_percent=1.0,
-        default_miss_threshold_percent=1.0, force_proceed=False, default_scanner_files_path="/var/cache/consistency-dump",
-        threads=1):
+def run(
+        once: bool = False,
+        scope: Optional[str] = None,
+        rses: Optional["Sequence[str]"] = None,
+        sleep_time: int = 60,
+        default_dark_min_age: int = 28,
+        default_dark_threshold_percent: float = 1.0,
+        default_miss_threshold_percent: float = 1.0,
+        force_proceed: bool = False,
+        default_scanner_files_path: "FileDescriptorOrPath" = "/var/cache/consistency-dump",
+        threads: int = 1
+) -> None:
     """
     Starts up the Consistency-Actions.
     """
@@ -735,19 +828,19 @@ def run(once=False, scope=None, rses=None, sleep_time=60, default_dark_min_age=2
     threads = 1
 
     if once:
-        actions_loop(once, scope, rses, sleep_time, dark_min_age, dark_threshold_percent,
+        actions_loop(once, scope, rses, sleep_time, dark_min_age, dark_threshold_percent,  # type: ignore (scope and rses might be None)
                      miss_threshold_percent, force_proceed, scanner_files_path)
     else:
         logging.info('Consistency Actions starting %s threads' % str(threads))
-        threads = [threading.Thread(target=actions_loop,
-                                    kwargs={'once': once, 'scope': scope, 'rses': rses, 'sleep_time': sleep_time,
-                                            'dark_min_age': dark_min_age,
-                                            'dark_threshold_percent': dark_threshold_percent,
-                                            'miss_threshold_percent': miss_threshold_percent,
-                                            'force_proceed': force_proceed,
-                                            'scanner_files_path': scanner_files_path}) for i in range(0, threads)]
-        logger(logging.INFO, 'Threads: %d' % len(threads))
-        [t.start() for t in threads]
+        thread_list = [threading.Thread(target=actions_loop,
+                                        kwargs={'once': once, 'scope': scope, 'rses': rses, 'sleep_time': sleep_time,
+                                                'dark_min_age': dark_min_age,
+                                                'dark_threshold_percent': dark_threshold_percent,
+                                                'miss_threshold_percent': miss_threshold_percent,
+                                                'force_proceed': force_proceed,
+                                                'scanner_files_path': scanner_files_path}) for i in range(0, threads)]
+        logger(logging.INFO, 'Threads: %d' % len(thread_list))
+        [t.start() for t in thread_list]
         # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+        while thread_list[0].is_alive():
+            [t.join(timeout=3.14) for t in thread_list]

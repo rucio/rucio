@@ -22,20 +22,19 @@ import logging
 import os
 import re
 import threading
-from types import FrameType
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 from urllib.parse import urlparse
 
 from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get_bool, config_get_list
 from rucio.common.exception import DatabaseException, ReplicaNotFound, RequestNotFound, RSEProtocolNotSupported, UnsupportedOperation
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.types import InternalAccount
+from rucio.common.types import InternalAccount, LoggerFunction, RequestDict
 from rucio.common.utils import chunks
 from rucio.core import replica as replica_core
 from rucio.core import request as request_core
@@ -48,23 +47,27 @@ from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEA
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
+    from types import FrameType
+
+    from sqlalchemy.orm import Session
+
     from rucio.daemons.common import HeartbeatHandler
 
 GRACEFUL_STOP = threading.Event()
 
-REGION = make_region_memcached(expiration_time=900)
+REGION = MemcacheRegion(expiration_time=900)
 METRICS = MetricManager(module=__name__)
 DAEMON_NAME = 'conveyor-finisher'
 FAILED_DURING_SUBMISSION_DELAY = datetime.timedelta(minutes=120)
 
 
 def _fetch_requests(
-        db_bulk,
+        db_bulk: int,
         set_last_processed_by: bool,
-        cached_topology,
-        heartbeat_handler,
-        activity,
-):
+        cached_topology: Optional[ExpiringObjectCache],
+        heartbeat_handler: "HeartbeatHandler",
+        activity: str,
+) -> tuple[bool, tuple[list[dict[str, Any]], Topology]]:
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     logger(logging.DEBUG, 'Working on activity %s', activity)
@@ -109,13 +112,13 @@ def _fetch_requests(
 
 
 def _handle_requests(
-        batch,
-        bulk,
-        suspicious_patterns,
-        retry_protocol_mismatches,
+        batch: tuple[list[RequestDict], Topology],
+        bulk: int,
+        suspicious_patterns: list[re.Pattern],
+        retry_protocol_mismatches: bool,
         *,
-        logger=logging.log,
-):
+        logger: LoggerFunction = logging.log,
+) -> None:
     reqs, topology = batch
     if not reqs:
         return
@@ -144,15 +147,15 @@ def _handle_requests(
 
 
 def finisher(
-        once=False,
-        sleep_time=60,
-        activities=None,
-        bulk=100,
-        db_bulk=1000,
-        partition_wait_time=10,
-        cached_topology=None,
-        total_threads=1,
-):
+        once: bool = False,
+        sleep_time: int = 60,
+        activities: Optional[list[str]] = None,
+        bulk: int = 100,
+        db_bulk: int = 1000,
+        partition_wait_time: int = 10,
+        cached_topology: Optional[ExpiringObjectCache] = None,
+        total_threads: int = 1,
+) -> None:
     """
     Main loop to update the replicas and rules based on finished requests.
     """
@@ -176,7 +179,11 @@ def finisher(
         sleep_time=sleep_time,
         activities=activities,
     )
-    def _db_producer(*, activity: str, heartbeat_handler: "HeartbeatHandler"):
+    def _db_producer(
+        *,
+        activity: str,
+        heartbeat_handler: "HeartbeatHandler"
+    ) -> tuple[bool, tuple[list[dict[str, Any]], Topology]]:
         return _fetch_requests(
             db_bulk=db_bulk,
             cached_topology=cached_topology,
@@ -185,7 +192,7 @@ def finisher(
             heartbeat_handler=heartbeat_handler,
         )
 
-    def _consumer(batch):
+    def _consumer(batch: tuple[list[RequestDict], Topology]) -> None:
         return _handle_requests(
             batch=batch,
             bulk=bulk,
@@ -200,7 +207,7 @@ def finisher(
     ).run()
 
 
-def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
@@ -208,7 +215,14 @@ def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> Non
     GRACEFUL_STOP.set()
 
 
-def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, db_bulk=1000):
+def run(
+        once: bool = False,
+        total_threads: int = 1,
+        sleep_time: int = 60,
+        activities: Optional[list[str]] = None,
+        bulk: int = 100,
+        db_bulk: int = 1000
+) -> None:
     """
     Starts up the conveyor threads.
     """
@@ -229,7 +243,13 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
     )
 
 
-def _finish_requests(topology: "Topology", reqs, suspicious_patterns, retry_protocol_mismatches, logger=logging.log):
+def _finish_requests(
+        topology: Topology,
+        reqs: list[RequestDict],
+        suspicious_patterns: list[re.Pattern],
+        retry_protocol_mismatches: bool,
+        logger: LoggerFunction = logging.log
+) -> None:
     """
     Used by finisher to handle terminated requests,
 
@@ -325,11 +345,11 @@ def _finish_requests(topology: "Topology", reqs, suspicious_patterns, retry_prot
     __handle_terminated_replicas(replicas, logger=logger)
 
 
-def __get_undeterministic_rses(logger=logging.log):
+def __get_undeterministic_rses(logger: LoggerFunction = logging.log) -> list[str]:
     """
     Get the undeterministic rses from the database
 
-    :returns:  List of undeterministc rses
+    :returns:  List of undeterministic rses
     """
     key = 'undeterministic_rses'
     result = REGION.get(key)
@@ -343,7 +363,11 @@ def __get_undeterministic_rses(logger=logging.log):
     return result
 
 
-def __check_suspicious_files(req, suspicious_patterns, logger=logging.log):
+def __check_suspicious_files(
+        req: RequestDict,
+        suspicious_patterns: list[re.Pattern],
+        logger: LoggerFunction = logging.log
+) -> bool:
     """
     Check suspicious files when a transfer failed.
 
@@ -376,7 +400,10 @@ def __check_suspicious_files(req, suspicious_patterns, logger=logging.log):
     return is_suspicious
 
 
-def __handle_terminated_replicas(replicas, logger=logging.log):
+def __handle_terminated_replicas(
+        replicas: dict[str, dict[str, list[dict[str, Any]]]],
+        logger: LoggerFunction = logging.log
+) -> None:
     """
     Used by finisher to handle available and unavailable replicas.
 
@@ -414,7 +441,12 @@ def __handle_terminated_replicas(replicas, logger=logging.log):
 
 
 @transactional_session
-def __update_bulk_replicas(replicas, *, session, logger=logging.log):
+def __update_bulk_replicas(
+    replicas: list[dict[str, Any]],
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> Literal[True]:
     """
     Used by finisher to handle available and unavailable replicas belongs to same rule in bulk way.
 
@@ -436,7 +468,12 @@ def __update_bulk_replicas(replicas, *, session, logger=logging.log):
 
 
 @transactional_session
-def __update_replica(replica, *, session, logger=logging.log):
+def __update_replica(
+    replica: dict[str, Any],
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Used by finisher to update a replica to a finished state.
 

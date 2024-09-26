@@ -14,10 +14,14 @@
 
 """Types used for profile definitions."""
 import logging
-from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
+    from rucio.common.types import LoggerFunction
 
 
 class HandlerOutcome(Enum):
@@ -39,15 +43,15 @@ class DecommissioningProfile:
     """
 
     rse: dict[str, Any]
-    initializer: Callable[..., None]
-    discoverer: Callable[..., Iterable[dict[str, Any]]]
-    handlers: list[tuple[Callable[..., bool], Callable[..., HandlerOutcome]]]
-    finalizer: Callable[..., bool]
+    initializer: "Callable[..., None]"
+    discoverer: "Callable[..., Iterable[dict[str, Any]]]"
+    handlers: list[tuple["Callable[..., bool]", "Callable[..., HandlerOutcome]"]]
+    finalizer: "Callable[..., bool]"
 
     def initialize(
         self,
         *,
-        logger: Callable[..., None] = logging.log
+        logger: "LoggerFunction" = logging.log
     ) -> None:
         """Call the initializer."""
         self.initializer(self.rse, logger=logger)
@@ -55,8 +59,8 @@ class DecommissioningProfile:
     def discover(
         self,
         *,
-        logger: Callable[..., None] = logging.log
-    ) -> Iterable[dict[str, Any]]:
+        logger: "LoggerFunction" = logging.log
+    ) -> 'Iterable[dict[str, Any]]':
         """Call the discoverer."""
         return self.discoverer(self.rse, logger=logger)
 
@@ -64,7 +68,7 @@ class DecommissioningProfile:
         self,
         rule: dict[str, Any],
         *,
-        logger: Callable[..., None] = logging.log
+        logger: "LoggerFunction" = logging.log
     ) -> HandlerOutcome:
         """Process a rule.
 
@@ -83,7 +87,7 @@ class DecommissioningProfile:
     def finalize(
         self,
         *,
-        logger: Callable[..., None] = logging.log
+        logger: "LoggerFunction" = logging.log
     ) -> bool:
         """Call the finalizer."""
         return self.finalizer(self.rse, logger=logger)

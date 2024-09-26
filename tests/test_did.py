@@ -1249,3 +1249,21 @@ def test_list_by_length(vo, root_account, rse_factory, mock_scope, did_factory, 
     for d in dids:
         results.append(d)
     assert len(results) == 0
+
+
+@pytest.mark.dirty
+@pytest.mark.noparallel(reason='uses pre-defined scope')
+def test_client_bulk_add_containers(mock_scope, did_client, rse_factory):
+    """ DATA IDENTIFIERS (CLIENT): Make multiple containers and ensure they are all made"""
+    rse, _ = rse_factory.make_mock_rse()
+    scope = mock_scope.external
+    container_names = [did_name_generator("container") for _ in range(5)]
+
+    containers = [
+        {"scope": scope, "name": name, "rse": rse} for name in container_names
+    ]
+    did_client.add_containers(containers)
+    dids = did_client.list_dids(scope=scope, filters={})
+    returned_names = [did for did in dids]
+    for name in container_names:
+        assert name in returned_names

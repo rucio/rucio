@@ -20,10 +20,8 @@ import math
 import random
 import threading
 import traceback
-import uuid
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict, namedtuple
-from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -36,7 +34,7 @@ from sqlalchemy.sql.functions import coalesce
 from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.constants import RseAttr
 from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RucioException, UnsupportedOperation
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import FilterDict, InternalAccount, InternalScope, LoggerFunction, RequestDict
 from rucio.common.utils import chunks, generate_uuid
 from rucio.core.distance import get_distances
 from rucio.core.message import add_message, add_messages
@@ -51,8 +49,12 @@ from rucio.db.sqla.util import temp_table_mngr
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
 if TYPE_CHECKING:
+    import uuid
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
 
+    from sqlalchemy.engine import Row
     from sqlalchemy.orm import Session
+    from sqlalchemy.sql.selectable import Subquery
 
     from rucio.rse.protocols.protocol import RSEProtocol
 
@@ -72,7 +74,15 @@ TRANSFER_TIME_BUCKETS = (
 
 
 class RequestSource:
-    def __init__(self, rse: RseData, ranking=None, distance=None, file_path=None, scheme=None, url=None):
+    def __init__(
+            self,
+            rse: RseData,
+            ranking: Optional[int] = None,
+            distance: Optional[int] = None,
+            file_path: Optional[str] = None,
+            scheme: Optional[str] = None,
+            url: Optional[str] = None
+    ):
         self.rse = rse
         self.distance = distance if distance is not None else 9999
         self.ranking = ranking if ranking is not None else 0
@@ -80,16 +90,20 @@ class RequestSource:
         self.scheme = scheme
         self.url = url
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "src_rse={}".format(self.rse)
 
 
 class TransferDestination:
-    def __init__(self, rse: RseData, scheme):
+    def __init__(
+            self,
+            rse: RseData,
+            scheme: str
+    ):
         self.rse = rse
         self.scheme = scheme
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "dst_rse={}".format(self.rse)
 
 
@@ -114,7 +128,6 @@ class RequestWithSources:
             transfertool: str,
             requested_at: Optional[datetime.datetime] = None,
     ):
-
         self.request_id = id_
         self.request_type = request_type
         self.rule_id = rule_id
@@ -137,21 +150,21 @@ class RequestWithSources:
         self.sources: list[RequestSource] = []
         self.requested_source: Optional[RequestSource] = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "{}({}:{})".format(self.request_id, self.scope, self.name)
 
     @property
-    def attributes(self):
+    def attributes(self) -> dict[str, Any]:
         if self._dict_attributes is None:
             self._dict_attributes = self._parse_db_attributes(self._db_attributes)
         return self._dict_attributes
 
     @attributes.setter
-    def attributes(self, db_attributes):
+    def attributes(self, db_attributes: dict[str, Any]) -> None:
         self._dict_attributes = self._parse_db_attributes(db_attributes)
 
     @staticmethod
-    def _parse_db_attributes(db_attributes):
+    def _parse_db_attributes(db_attributes: Optional[Union[str, dict[str, Any]]]) -> dict[str, Any]:
         attr = {}
         if db_attributes:
             if isinstance(db_attributes, dict):
@@ -203,7 +216,10 @@ class DirectTransfer(metaclass=ABCMeta):
         pass
 
 
-def should_retry_request(req, retry_protocol_mismatches):
+def should_retry_request(
+        req: RequestDict,
+        retry_protocol_mismatches: bool
+) -> bool:
     """
     Whether should retry this request.
 
@@ -229,7 +245,14 @@ def should_retry_request(req, retry_protocol_mismatches):
 
 @METRICS.time_it
 @transactional_session
-def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mismatches=False, *, session: "Session", logger=logging.log):
+def requeue_and_archive(
+    request: RequestDict,
+    source_ranking_update: bool = True,
+    retry_protocol_mismatches: bool = False,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> Optional[RequestDict]:
     """
     Requeue and archive a failed request.
     TODO: Multiple requeue.
@@ -274,7 +297,12 @@ def requeue_and_archive(request, source_ranking_update=True, retry_protocol_mism
 
 @METRICS.count_it
 @transactional_session
-def queue_requests(requests, *, session: "Session", logger=logging.log):
+def queue_requests(
+    requests: 'Iterable[RequestDict]',
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> list[str]:
     """
     Submit transfer requests on destination RSEs for data identifiers.
 
@@ -313,7 +341,9 @@ def queue_requests(requests, *, session: "Session", logger=logging.log):
                 models.Request.name,
                 models.Request.dest_rse_id
             ).with_hint(
-                models.Request, "INDEX(REQUESTS REQUESTS_SC_NA_RS_TY_UQ_IDX)", 'oracle'
+                models.Request,
+                'INDEX(REQUESTS REQUESTS_SC_NA_RS_TY_UQ_IDX)',
+                'oracle'
             ).where(
                 or_(*requests_condition)
             )
@@ -400,10 +430,16 @@ def queue_requests(requests, *, session: "Session", logger=logging.log):
                          'payload': payload})
 
     for requests_chunk in chunks(new_requests, 1000):
-        session.execute(insert(models.Request), requests_chunk)
+        stmt = insert(
+            models.Request
+        )
+        session.execute(stmt, requests_chunk)
 
     for sources_chunk in chunks(sources, 1000):
-        session.execute(insert(models.Source), sources_chunk)
+        stmt = insert(
+            models.Source
+        )
+        session.execute(stmt, sources_chunk)
 
     add_messages(messages, session=session)
 
@@ -421,7 +457,7 @@ def list_and_mark_transfer_requests_and_source_replicas(
         limit: Optional[int] = None,
         activity: Optional[str] = None,
         older_than: Optional[datetime.datetime] = None,
-        rses: Optional[Sequence[str]] = None,
+        rses: Optional['Sequence[str]'] = None,
         request_type: Optional[list[RequestType]] = None,
         request_state: Optional[RequestState] = None,
         required_source_rse_attrs: Optional[list[str]] = None,
@@ -481,10 +517,12 @@ def list_and_mark_transfer_requests_and_source_replicas(
         models.Request.priority,
         models.Request.transfertool
     ).with_hint(
-        models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle'
+        models.Request,
+        'INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)',
+        'oracle'
     ).where(
-        models.Request.state == request_state,
-        models.Request.request_type.in_(request_type)
+        and_(models.Request.state == request_state,
+             models.Request.request_type.in_(request_type))
     ).outerjoin(
         models.ReplicationRule,
         models.Request.rule_id == models.ReplicationRule.id
@@ -506,11 +544,9 @@ def list_and_mark_transfer_requests_and_source_replicas(
 
     if processed_by:
         sub_requests = sub_requests.where(
-            or_(
-                models.Request.last_processed_by.is_(null()),
+            or_(models.Request.last_processed_by.is_(null()),
                 models.Request.last_processed_by != processed_by,
-                models.Request.last_processed_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=processed_at_delay)
-            )
+                models.Request.last_processed_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=processed_at_delay))
         )
 
     if not ignore_availability:
@@ -525,14 +561,18 @@ def list_and_mark_transfer_requests_and_source_replicas(
     # if a transfertool is specified make sure to filter for those requests and apply related index
     if transfertool:
         sub_requests = sub_requests.where(models.Request.transfertool == transfertool)
-        sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)", 'oracle')
+        sub_requests = sub_requests.with_hint(models.Request, 'INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)', 'oracle')
     else:
-        sub_requests = sub_requests.with_hint(models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle')
+        sub_requests = sub_requests.with_hint(models.Request, 'INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)', 'oracle')
 
     if rses:
         temp_table_cls = temp_table_mngr(session).create_id_table()
 
-        session.execute(insert(temp_table_cls), [{'id': rse_id} for rse_id in rses])
+        values = [{'id': rse_id} for rse_id in rses]
+        stmt = insert(
+            temp_table_cls
+        )
+        session.execute(stmt, values)
 
         sub_requests = sub_requests.join(temp_table_cls, temp_table_cls.id == models.RSE.id)
 
@@ -577,7 +617,9 @@ def list_and_mark_transfer_requests_and_source_replicas(
              models.RSEFileAssociation.state == ReplicaState.AVAILABLE,
              sub_requests.c.dest_rse_id != models.RSEFileAssociation.rse_id)
     ).with_hint(
-        models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_PK)", 'oracle'
+        models.RSEFileAssociation,
+        'INDEX(REPLICAS REPLICAS_PK)',
+        'oracle'
     ).outerjoin(
         models.RSE,
         and_(models.RSE.id == models.RSEFileAssociation.rse_id,
@@ -587,13 +629,17 @@ def list_and_mark_transfer_requests_and_source_replicas(
         and_(sub_requests.c.id == models.Source.request_id,
              models.RSE.id == models.Source.rse_id)
     ).with_hint(
-        models.Source, "INDEX(SOURCES SOURCES_PK)", 'oracle'
+        models.Source,
+        'INDEX(SOURCES SOURCES_PK)',
+        'oracle'
     ).outerjoin(
         models.Distance,
         and_(sub_requests.c.dest_rse_id == models.Distance.dest_rse_id,
              models.RSEFileAssociation.rse_id == models.Distance.src_rse_id)
     ).with_hint(
-        models.Distance, "INDEX(DISTANCES DISTANCES_PK)", 'oracle'
+        models.Distance,
+        'INDEX(DISTANCES DISTANCES_PK)',
+        'oracle'
     )
 
     for attribute in required_source_rse_attrs or ():
@@ -603,8 +649,8 @@ def list_and_mark_transfer_requests_and_source_replicas(
                 select(
                     1
                 ).where(
-                    rse_attr_alias.rse_id == models.RSE.id,
-                    rse_attr_alias.key == attribute
+                    and_(rse_attr_alias.rse_id == models.RSE.id,
+                         rse_attr_alias.key == attribute)
                 )
             )
         )
@@ -643,19 +689,21 @@ def list_and_mark_transfer_requests_and_source_replicas(
                 models.Request.id.in_(chunk)
             ).execution_options(
                 synchronize_session=False
-            ).values(
-                {
-                    models.Request.last_processed_by: processed_by,
-                    models.Request.last_processed_at: datetime.datetime.now(),
-                }
-            )
+            ).values({
+                models.Request.last_processed_by: processed_by,
+                models.Request.last_processed_at: datetime.datetime.now()
+            })
             session.execute(stmt)
 
     return requests_by_id
 
 
 @read_session
-def fetch_paths(request_id, *, session: "Session"):
+def fetch_paths(
+    request_id: str,
+    *,
+    session: "Session"
+) -> dict[str, list[str]]:
     """
     Find the paths for which the provided request is a constituent hop.
 
@@ -666,11 +714,9 @@ def fetch_paths(request_id, *, session: "Session"):
         models.TransferHop,
     ).join(
         transfer_hop_alias,
-        and_(
-            transfer_hop_alias.initial_request_id == models.TransferHop.initial_request_id,
-            or_(transfer_hop_alias.request_id == request_id,
-                transfer_hop_alias.initial_request_id == request_id),
-        )
+        and_(transfer_hop_alias.initial_request_id == models.TransferHop.initial_request_id,
+             or_(transfer_hop_alias.request_id == request_id,
+                 transfer_hop_alias.initial_request_id == request_id))
     )
 
     parents_by_initial_request = {}
@@ -693,24 +739,24 @@ def fetch_paths(request_id, *, session: "Session"):
 @transactional_session
 def get_and_mark_next(
         rse_collection: "RseCollection",
-        request_type,
-        state,
+        request_type: Union[list[RequestType], RequestType],
+        state: Union[list[RequestState], RequestState],
         processed_by: Optional[str] = None,
         processed_at_delay: int = 600,
         limit: int = 100,
         older_than: "Optional[datetime.datetime]" = None,
-        rse_id: "Optional[str]" = None,
-        activity: "Optional[str]" = None,
+        rse_id: Optional[str] = None,
+        activity: Optional[str] = None,
         total_workers: int = 0,
         worker_number: int = 0,
-        mode_all=False,
-        hash_variable='id',
-        activity_shares=None,
-        include_dependent=True,
-        transfertool=None,
+        mode_all: bool = False,
+        hash_variable: str = 'id',
+        activity_shares: Optional[dict[str, Any]] = None,
+        include_dependent: bool = True,
+        transfertool: Optional[str] = None,
         *,
         session: "Session"
-):
+) -> list[dict[str, Any]]:
     """
     Retrieve the next requests matching the request type and state.
     Workers are balanced via hashing to reduce concurrency on database.
@@ -739,46 +785,48 @@ def get_and_mark_next(
     METRICS.counter('get_next.requests.{request_type}.{state}').labels(request_type=request_type_metric_label, state=state_metric_label).inc()
 
     # lists of one element are not allowed by SQLA, so just duplicate the item
-    if type(request_type) is not list:
+    if not isinstance(request_type, list):
         request_type = [request_type, request_type]
     elif len(request_type) == 1:
         request_type = [request_type[0], request_type[0]]
-    if type(state) is not list:
+    if not isinstance(state, list):
         state = [state, state]
     elif len(state) == 1:
         state = [state[0], state[0]]
 
     result = []
     if not activity_shares:
-        activity_shares = [None]
+        activity_shares = [None]  # type: ignore
 
-    for share in activity_shares:
+    for share in activity_shares:  # type: ignore
 
         query = select(
             models.Request.id
         ).where(
-            models.Request.state.in_(state),
-            models.Request.request_type.in_(request_type)
+            and_(models.Request.state.in_(state),
+                 models.Request.request_type.in_(request_type))
         ).order_by(
             asc(models.Request.updated_at)
         )
         if processed_by:
             query = query.where(
-                or_(
-                    models.Request.last_processed_by.is_(null()),
+                or_(models.Request.last_processed_by.is_(null()),
                     models.Request.last_processed_by != processed_by,
-                    models.Request.last_processed_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=processed_at_delay)
-                )
+                    models.Request.last_processed_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=processed_at_delay))
             )
         if transfertool:
             query = query.with_hint(
-                models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)", 'oracle'
+                models.Request,
+                'INDEX(REQUESTS REQUESTS_TYP_STA_TRA_ACT_IDX)',
+                'oracle'
             ).where(
                 models.Request.transfertool == transfertool
             )
         else:
             query = query.with_hint(
-                models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle'
+                models.Request,
+                'INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)',
+                'oracle'
             )
 
         if not include_dependent:
@@ -794,24 +842,24 @@ def get_and_mark_next(
             )
 
         if isinstance(older_than, datetime.datetime):
-            query = query.filter(models.Request.updated_at < older_than)
+            query = query.where(models.Request.updated_at < older_than)
 
         if rse_id:
-            query = query.filter(models.Request.dest_rse_id == rse_id)
+            query = query.where(models.Request.dest_rse_id == rse_id)
 
         if share:
-            query = query.filter(models.Request.activity == share)
+            query = query.where(models.Request.activity == share)
         elif activity:
-            query = query.filter(models.Request.activity == activity)
+            query = query.where(models.Request.activity == activity)
 
         query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable=hash_variable)
 
         if share:
-            query = query.limit(activity_shares[share])
+            query = query.limit(activity_shares[share])  # type: ignore
         else:
             query = query.limit(limit)
 
-        if session.bind.dialect.name == 'oracle':
+        if session.bind.dialect.name == 'oracle':  # type: ignore
             query = select(
                 models.Request
             ).where(
@@ -853,12 +901,10 @@ def get_and_mark_next(
                         models.Request.id.in_(chunk)
                     ).execution_options(
                         synchronize_session=False
-                    ).values(
-                        {
-                            models.Request.last_processed_by: processed_by,
-                            models.Request.last_processed_at: datetime.datetime.now(),
-                        }
-                    )
+                    ).values({
+                        models.Request.last_processed_by: processed_by,
+                        models.Request.last_processed_at: datetime.datetime.now()
+                    })
                     session.execute(stmt)
 
     return result
@@ -880,7 +926,7 @@ def update_request(
         *,
         raise_on_missing: bool = False,
         session: "Session",
-):
+) -> bool:
 
     rowcount = 0
     try:
@@ -944,9 +990,9 @@ def transition_request_state(
         err_msg: Optional[str] = None,
         attributes: Optional[dict[str, str]] = None,
         *,
-        request: "Optional[dict[str, Any]]" = None,
+        request: Optional[dict[str, Any]] = None,
         session: "Session",
-        logger=logging.log
+        logger: LoggerFunction = logging.log
 ) -> bool:
     """
     Update the request if its state changed. Return a boolean showing if the request was actually updated or not.
@@ -988,7 +1034,13 @@ def transition_request_state(
 
 @METRICS.count_it
 @transactional_session
-def transition_requests_state_if_possible(request_ids, new_state, *, session: "Session", logger=logging.log):
+def transition_requests_state_if_possible(
+    request_ids: 'Iterable[str]',
+    new_state: str,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Bulk update the state of requests. Skips silently if the request_id does not exist.
 
@@ -1010,7 +1062,11 @@ def transition_requests_state_if_possible(request_ids, new_state, *, session: "S
 
 @METRICS.count_it
 @transactional_session
-def touch_requests_by_rule(rule_id, *, session: "Session"):
+def touch_requests_by_rule(
+    rule_id: str,
+    *,
+    session: "Session"
+) -> None:
     """
     Update the update time of requests in a rule. Fails silently if no requests on this rule.
 
@@ -1022,23 +1078,28 @@ def touch_requests_by_rule(rule_id, *, session: "Session"):
         stmt = update(
             models.Request
         ).prefix_with(
-            "/*+ INDEX(REQUESTS REQUESTS_RULEID_IDX) */", dialect='oracle'
+            '/*+ INDEX(REQUESTS REQUESTS_RULEID_IDX) */',
+            dialect='oracle'
         ).where(
-            models.Request.rule_id == rule_id,
-            models.Request.state.in_([RequestState.FAILED, RequestState.DONE, RequestState.LOST, RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]),
-            models.Request.updated_at < datetime.datetime.utcnow()
+            and_(models.Request.rule_id == rule_id,
+                 models.Request.state.in_([RequestState.FAILED, RequestState.DONE, RequestState.LOST, RequestState.NO_SOURCES, RequestState.ONLY_TAPE_SOURCES]),
+                 models.Request.updated_at < datetime.datetime.utcnow())
         ).execution_options(
             synchronize_session=False
-        ).values(
-            updated_at=datetime.datetime.utcnow() + datetime.timedelta(minutes=20)
-        )
+        ).values({
+            models.Request.updated_at: datetime.datetime.utcnow() + datetime.timedelta(minutes=20)
+        })
         session.execute(stmt)
     except IntegrityError as error:
         raise RucioException(error.args)
 
 
 @read_session
-def get_request(request_id, *, session: "Session"):
+def get_request(
+    request_id: str,
+    *,
+    session: "Session"
+) -> Optional[dict[str, Any]]:
     """
     Retrieve a request by its ID.
 
@@ -1067,7 +1128,14 @@ def get_request(request_id, *, session: "Session"):
 
 @METRICS.count_it
 @read_session
-def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Session"):
+def get_request_by_did(
+    scope: InternalScope,
+    name: str,
+    rse_id: str,
+    request_type: Optional[RequestType] = None,
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Retrieve a request by its DID for a destination RSE.
 
@@ -1083,9 +1151,9 @@ def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Sess
         stmt = select(
             models.Request
         ).where(
-            models.Request.scope == scope,
-            models.Request.name == name,
-            models.Request.dest_rse_id == rse_id
+            and_(models.Request.scope == scope,
+                 models.Request.name == name,
+                 models.Request.dest_rse_id == rse_id)
         )
         if request_type:
             stmt = stmt.where(
@@ -1109,7 +1177,14 @@ def get_request_by_did(scope, name, rse_id, request_type=None, *, session: "Sess
 
 @METRICS.count_it
 @read_session
-def get_request_history_by_did(scope, name, rse_id, request_type=None, *, session: "Session"):
+def get_request_history_by_did(
+    scope: InternalScope,
+    name: str,
+    rse_id: str,
+    request_type: Optional[RequestType] = None,
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Retrieve a historical request by its DID for a destination RSE.
 
@@ -1125,9 +1200,9 @@ def get_request_history_by_did(scope, name, rse_id, request_type=None, *, sessio
         stmt = select(
             models.RequestHistory
         ).where(
-            models.RequestHistory.scope == scope,
-            models.RequestHistory.name == name,
-            models.RequestHistory.dest_rse_id == rse_id
+            and_(models.RequestHistory.scope == scope,
+                 models.RequestHistory.name == name,
+                 models.RequestHistory.dest_rse_id == rse_id)
         )
         if request_type:
             stmt = stmt.where(
@@ -1148,7 +1223,7 @@ def get_request_history_by_did(scope, name, rse_id, request_type=None, *, sessio
         raise RucioException(error.args)
 
 
-def is_intermediate_hop(request):
+def is_intermediate_hop(request: RequestDict) -> bool:
     """
     Check if the request is an intermediate hop in a multi-hop transfer.
     """
@@ -1158,7 +1233,11 @@ def is_intermediate_hop(request):
 
 
 @transactional_session
-def handle_failed_intermediate_hop(request, *, session: "Session") -> int:
+def handle_failed_intermediate_hop(
+    request: RequestDict,
+    *,
+    session: "Session"
+) -> int:
     """
     Perform housekeeping behind a failed intermediate hop
     Returns the number of updated requests
@@ -1177,21 +1256,25 @@ def handle_failed_intermediate_hop(request, *, session: "Session") -> int:
         stmt = update(
             models.Request
         ).where(
-            models.Request.id.in_(dependent_requests),
-            models.Request.state.in_([RequestState.QUEUED, RequestState.SUBMITTED]),
+            and_(models.Request.id.in_(dependent_requests),
+                 models.Request.state.in_([RequestState.QUEUED, RequestState.SUBMITTED]))
         ).execution_options(
             synchronize_session=False
-        ).values(
-            state=new_state,
-            err_msg=get_transfer_error(new_state, reason=reason),
-        )
+        ).values({
+            models.Request.state: new_state,
+            models.Request.err_msg: get_transfer_error(new_state, reason=reason)
+        })
         session.execute(stmt)
     return len(dependent_requests)
 
 
 @METRICS.count_it
 @transactional_session
-def archive_request(request_id, *, session: "Session"):
+def archive_request(
+    request_id: str,
+    *,
+    session: "Session"
+) -> None:
     """
     Move a request to the history table.
 
@@ -1238,36 +1321,43 @@ def archive_request(request_id, *, session: "Session"):
             time_diff = req['updated_at'] - req['created_at']
             time_diff_s = time_diff.seconds + time_diff.days * 24 * 3600
             METRICS.timer('archive_request_per_activity.{activity}').labels(activity=req['activity'].replace(' ', '_')).observe(time_diff_s)
-            session.execute(
-                delete(
-                    models.Source
-                ).where(
-                    models.Source.request_id == request_id
-                )
+            stmt = delete(
+                models.Source
+            ).where(
+                models.Source.request_id == request_id
             )
-            session.execute(
-                delete(
-                    models.TransferHop
-                ).where(
-                    or_(models.TransferHop.request_id == request_id,
-                        models.TransferHop.next_hop_request_id == request_id,
-                        models.TransferHop.initial_request_id == request_id)
-                )
+            session.execute(stmt)
+
+            stmt = delete(
+                models.TransferHop
+            ).where(
+                or_(models.TransferHop.request_id == request_id,
+                    models.TransferHop.next_hop_request_id == request_id,
+                    models.TransferHop.initial_request_id == request_id)
             )
-            session.execute(
-                delete(
-                    models.Request
-                ).where(
-                    models.Request.id == request_id
-                )
+            session.execute(stmt)
+
+            stmt = delete(
+                models.Request
+            ).where(
+                models.Request.id == request_id
             )
+            session.execute(stmt)
         except IntegrityError as error:
             raise RucioException(error.args)
 
 
 @METRICS.count_it
 @transactional_session
-def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSFER, *, session: "Session", logger=logging.log):
+def cancel_request_did(
+    scope: InternalScope,
+    name: str,
+    dest_rse_id: str,
+    request_type: RequestType = RequestType.TRANSFER,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> dict[str, Any]:
     """
     Cancel a request based on a DID and request type.
 
@@ -1286,10 +1376,10 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
             models.Request.external_id,
             models.Request.external_host
         ).where(
-            models.Request.scope == scope,
-            models.Request.name == name,
-            models.Request.dest_rse_id == dest_rse_id,
-            models.Request.request_type == request_type
+            and_(models.Request.scope == scope,
+                 models.Request.name == name,
+                 models.Request.dest_rse_id == dest_rse_id,
+                 models.Request.request_type == request_type)
         )
         reqs = session.execute(stmt).all()
         if not reqs:
@@ -1307,7 +1397,12 @@ def cancel_request_did(scope, name, dest_rse_id, request_type=RequestType.TRANSF
 
 
 @read_session
-def get_sources(request_id, rse_id=None, *, session: "Session"):
+def get_sources(
+    request_id: str,
+    rse_id: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional[list[dict[str, Any]]]:
     """
     Retrieve sources by its ID.
 
@@ -1342,7 +1437,11 @@ def get_sources(request_id, rse_id=None, *, session: "Session"):
 
 
 @read_session
-def get_heavy_load_rses(threshold, *, session: "Session"):
+def get_heavy_load_rses(
+    threshold: int,
+    *,
+    session: "Session"
+) -> Optional[list[dict[str, Any]]]:
     """
     Retrieve heavy load rses.
 
@@ -1405,7 +1504,7 @@ class TransferStatsManager:
         self.downsample_timer = None
         self.downsample_period = math.ceil(raw_retention.total_seconds())
 
-    def __enter__(self):
+    def __enter__(self) -> "TransferStatsManager":
         self.record_stats = config_get_bool('transfers', 'stats_enabled', default=self.record_stats)
         downsample_period = config_get_int('transfers', 'stats_downsample_period', default=self.downsample_period)
         # Introduce some voluntary jitter to reduce the likely-hood of performing this database
@@ -1418,7 +1517,7 @@ class TransferStatsManager:
             self.downsample_timer.start()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         if self.save_timer is not None:
             self.save_timer.cancel()
         if self.downsample_timer is not None:
@@ -1468,7 +1567,7 @@ class TransferStatsManager:
         if save_samples:
             self._save_samples(timestamp=save_timestamp, samples=save_samples, session=session)
 
-    def periodic_save(self):
+    def periodic_save(self) -> None:
         """
         Save samples to the database if the end of the current recording interval was reached.
         Opportunistically perform down-sampling.
@@ -1527,9 +1626,12 @@ class TransferStatsManager:
                 models.TransferStats.bytes_done.name: record.bytes_done,
             })
         if rows_to_insert:
-            session.execute(insert(models.TransferStats), rows_to_insert)
+            stmt = insert(
+                models.TransferStats
+            )
+            session.execute(stmt, rows_to_insert)
 
-    def periodic_downsample_and_cleanup(self):
+    def periodic_downsample_and_cleanup(self) -> None:
         """
         Periodically create lower resolution samples from higher resolution ones.
         """
@@ -1651,9 +1753,9 @@ class TransferStatsManager:
     def load_totals(
             self,
             older_t: "datetime.datetime",
-            dest_rse_id: "Optional[str]" = None,
-            src_rse_id: "Optional[str]" = None,
-            activity: "Optional[str]" = None,
+            dest_rse_id: Optional[str] = None,
+            src_rse_id: Optional[str] = None,
+            activity: Optional[str] = None,
             by_activity: bool = True,
             *,
             session: "Session"
@@ -1695,13 +1797,13 @@ class TransferStatsManager:
             resolution: "datetime.timedelta",
             recent_t: "datetime.datetime",
             older_t: "datetime.datetime",
-            dest_rse_id: "Optional[str]" = None,
-            src_rse_id: "Optional[str]" = None,
-            activity: "Optional[str]" = None,
+            dest_rse_id: Optional[str] = None,
+            src_rse_id: Optional[str] = None,
+            activity: Optional[str] = None,
             by_activity: bool = True,
             *,
             session: "Session"
-    ) -> "Iterator[Mapping[str, str | int]]":
+    ) -> "Iterator[Mapping[str, Union[str, int]]]":
         """
         Load aggregated totals for the given resolution and time interval.
 
@@ -1779,7 +1881,7 @@ class TransferStatsManager:
 
     @staticmethod
     def _cleanup(
-            id_temp_table,
+            id_temp_table: Any,
             resolution: "datetime.timedelta",
             timestamp: "datetime.datetime",
             limit: "Optional[int]" = 10000,
@@ -1793,8 +1895,8 @@ class TransferStatsManager:
         stmt = select(
             models.TransferStats.id
         ).where(
-            models.TransferStats.resolution == resolution.total_seconds(),
-            models.TransferStats.timestamp < timestamp
+            and_(models.TransferStats.resolution == resolution.total_seconds(),
+                 models.TransferStats.timestamp < timestamp)
         )
 
         if limit is not None:
@@ -1802,7 +1904,7 @@ class TransferStatsManager:
 
         # Oracle does not support chaining order_by(), limit(), and
         # with_for_update(). Use a nested query to overcome this.
-        if session.bind.dialect.name == 'oracle':
+        if session.bind.dialect.name == 'oracle':  # type: ignore
             stmt = select(
                 models.TransferStats.id
             ).where(
@@ -1813,8 +1915,17 @@ class TransferStatsManager:
         else:
             stmt = stmt.with_for_update(skip_locked=True)
 
-        session.execute(delete(id_temp_table))
-        session.execute(insert(id_temp_table).from_select(['id'], stmt))
+        del_stmt = delete(
+            id_temp_table
+        )
+        session.execute(del_stmt)
+        insert_stmt = insert(
+            id_temp_table
+        ).from_select(
+            ['id'],
+            stmt
+        )
+        session.execute(insert_stmt)
 
         stmt = delete(
             models.TransferStats
@@ -1831,7 +1942,7 @@ class TransferStatsManager:
             resolution: datetime.timedelta,
             start_time: "Optional[datetime.datetime]" = None,
             end_time: "Optional[datetime.datetime]" = None
-    ) -> Iterator[tuple[datetime.datetime, datetime.datetime]]:
+    ) -> 'Iterator[tuple[datetime.datetime, datetime.datetime]]':
         """
         Iterates, back in time, over time intervals of length `resolution` which are fully
         included within the input interval (start_time, end_time).
@@ -1853,12 +1964,13 @@ class TransferStatsManager:
 
 @read_session
 def get_request_metrics(
-        dest_rse_id: "Optional[str]" = None,
-        src_rse_id: "Optional[str]" = None,
-        activity: "Optional[str]" = None,
+        dest_rse_id: Optional[str] = None,
+        src_rse_id: Optional[str] = None,
+        activity: Optional[str] = None,
+        group_by_rse_attribute: Optional[str] = None,
         *,
         session: "Session"
-):
+) -> dict[str, Any]:
     metrics = {}
     now = datetime.datetime.utcnow()
 
@@ -1934,20 +2046,37 @@ def get_request_metrics(
         metric['src_rse'] = src_rse.name
         metric['dst_rse'] = dst_rse.name
 
-        response[f'{src_rse.name}:{dst_rse.name}'] = metric
+        if group_by_rse_attribute:
+            src_rse_group = src_rse.attributes.get(group_by_rse_attribute, 'UNKNOWN')
+            dst_rse_group = dst_rse.attributes.get(group_by_rse_attribute, 'UNKNOWN')
+            if src_rse_group is not None and dst_rse_group is not None:
+                response[f'{src_rse_group}:{dst_rse_group}'] = metric
+        else:
+            response[f'{src_rse.name}:{dst_rse.name}'] = metric
 
     return response
 
 
 @read_session
 def get_request_stats(
-        state: "RequestState | list[RequestState]",
-        dest_rse_id: "Optional[str]" = None,
-        src_rse_id: "Optional[str]" = None,
-        activity: "Optional[str]" = None,
+        state: Union[RequestState, list[RequestState]],
+        dest_rse_id: Optional[str] = None,
+        src_rse_id: Optional[str] = None,
+        activity: Optional[str] = None,
         *,
         session: "Session"
-):
+) -> """Sequence[
+            Row[tuple[
+                Optional[InternalAccount],
+                RequestState,
+                uuid.UUID,
+                Optional[uuid.UUID],
+                Optional[str],
+                int,
+                Optional[int]
+                ]
+            ]
+]""":
     """
     Retrieve statistics about requests by destination, activity and state.
     """
@@ -1965,10 +2094,12 @@ def get_request_stats(
             func.count(1).label('counter'),
             func.sum(models.Request.bytes).label('bytes')
         ).with_hint(
-            models.Request, "INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)", 'oracle'
+            models.Request,
+            'INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)',
+            'oracle'
         ).where(
-            models.Request.state.in_(state),
-            models.Request.request_type.in_([RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT])
+            and_(models.Request.state.in_(state),
+                 models.Request.request_type.in_([RequestType.TRANSFER, RequestType.STAGEIN, RequestType.STAGEOUT]))
         ).group_by(
             models.Request.account,
             models.Request.state,
@@ -2002,7 +2133,7 @@ def release_waiting_requests_per_deadline(
         deadline: int = 1,
         *,
         session: "Session",
-):
+) -> int:
     """
     Release waiting requests that were waiting too long and exceeded the maximum waiting time to be released.
     If the DID of a request is attached to a dataset, the oldest requested_at date of all requests related to the dataset will be used for checking and all requests of this dataset will be released.
@@ -2028,18 +2159,18 @@ def release_waiting_requests_per_deadline(
             old_requests_subquery,
             and_(filtered_requests_subquery.c.dataset_name == old_requests_subquery.c.name,
                  filtered_requests_subquery.c.dataset_scope == old_requests_subquery.c.scope)
-        ).subquery()
+        )
 
         amount_released_requests = update(
             models.Request
         ).where(
-            models.Request.id.in_(old_requests_subquery)
+            models.Request.id.in_(old_requests_subquery)  # type: ignore
         ).execution_options(
             synchronize_session=False
-        ).values(
-            {models.Request.state: RequestState.QUEUED}
-        )
-    return session.execute(amount_released_requests).rowcount
+        ).values({
+            models.Request.state: RequestState.QUEUED
+        })
+    return session.execute(amount_released_requests).rowcount  # type: ignore
 
 
 @transactional_session
@@ -2049,7 +2180,7 @@ def release_waiting_requests_per_free_volume(
         volume: int = 0,
         *,
         session: "Session"
-):
+) -> int:
     """
     Release waiting requests if they fit in available transfer volume. If the DID of a request is attached to a dataset, the volume will be checked for the whole dataset as all requests related to this dataset will be released.
 
@@ -2059,7 +2190,7 @@ def release_waiting_requests_per_free_volume(
     :param session: The database session.
     """
 
-    dialect = session.bind.dialect.name
+    dialect = session.bind.dialect.name  # type: ignore
     if dialect == 'mysql' or dialect == 'sqlite':
         coalesce_func = func.ifnull
     elif dialect == 'oracle':
@@ -2100,17 +2231,17 @@ def release_waiting_requests_per_free_volume(
              filtered_requests_subquery.c.dataset_scope == cumulated_volume_subquery.c.scope)
     ).where(
         cumulated_volume_subquery.c.cum_volume <= volume - sum_volume_active_subquery.c.sum_bytes
-    ).subquery()
+    )
 
     amount_released_requests = update(
         models.Request
     ).where(
-        models.Request.id.in_(cumulated_volume_subquery)
+        models.Request.id.in_(cumulated_volume_subquery)  # type: ignore
     ).execution_options(
         synchronize_session=False
-    ).values(
-        {models.Request.state: RequestState.QUEUED},
-    )
+    ).values({
+        models.Request.state: RequestState.QUEUED
+    })
     return session.execute(amount_released_requests).rowcount
 
 
@@ -2120,7 +2251,7 @@ def create_base_query_grouped_fifo(
         source_rse_id: Optional[str] = None,
         *,
         session: "Session"
-):
+) -> tuple["Subquery", "Subquery"]:
     """
     Build the sqlalchemy queries to filter relevant requests and to group them in datasets.
     Group requests either by same destination RSE or source RSE.
@@ -2129,7 +2260,7 @@ def create_base_query_grouped_fifo(
     :param source_rse_id: The destination RSE id to filter on
     :param session: The database session.
     """
-    dialect = session.bind.dialect.name
+    dialect = session.bind.dialect.name  # type: ignore
     if dialect == 'mysql' or dialect == 'sqlite':
         coalesce_func = func.ifnull
     elif dialect == 'oracle':
@@ -2206,7 +2337,7 @@ def release_waiting_requests_fifo(
         account: Optional[InternalAccount] = None,
         *,
         session: "Session"
-):
+) -> int:
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
 
@@ -2218,7 +2349,7 @@ def release_waiting_requests_fifo(
     :param session: The database session.
     """
 
-    dialect = session.bind.dialect.name
+    dialect = session.bind.dialect.name  # type: ignore
     rowcount = 0
 
     subquery = select(
@@ -2240,12 +2371,11 @@ def release_waiting_requests_fifo(
     if account is not None:
         subquery = subquery.where(models.Request.account == account)
 
-    subquery = subquery.subquery()
-
     if dialect == 'mysql':
         # TODO: check if the logic from this `if` is still needed on modern mysql
 
         # join because IN and LIMIT cannot be used together
+        subquery = subquery.subquery()
         subquery = select(
             models.Request.id
         ).join(
@@ -2253,17 +2383,17 @@ def release_waiting_requests_fifo(
             models.Request.id == subquery.c.id
         ).subquery()
         # wrap select to update and select from the same table
-        subquery = select(subquery.c.id).subquery()
+        subquery = select(subquery.c.id)
 
     stmt = update(
         models.Request
     ).where(
-        models.Request.id.in_(subquery)
+        models.Request.id.in_(subquery)  # type: ignore
     ).execution_options(
         synchronize_session=False
-    ).values(
-        {'state': RequestState.QUEUED}
-    )
+    ).values({
+        models.Request.state: RequestState.QUEUED
+    })
     rowcount = session.execute(stmt).rowcount
     return rowcount
 
@@ -2277,7 +2407,7 @@ def release_waiting_requests_grouped_fifo(
         volume: int = 0,
         *,
         session: "Session"
-):
+) -> int:
     """
     Release waiting requests. Transfer requests that were requested first, get released first (FIFO).
     Also all requests to DIDs that are attached to the same dataset get released, if one children of the dataset is chosen to be released (Grouped FIFO).
@@ -2318,17 +2448,17 @@ def release_waiting_requests_grouped_fifo(
     ).subquery()
 
     # needed for mysql to update and select from the same table
-    cumulated_children_subquery = select(cumulated_children_subquery.c.id).subquery()
+    cumulated_children_subquery = select(cumulated_children_subquery.c.id)
 
     stmt = update(
         models.Request
     ).where(
-        models.Request.id.in_(cumulated_children_subquery)
+        models.Request.id.in_(cumulated_children_subquery)  # type: ignore
     ).execution_options(
         synchronize_session=False
-    ).values(
-        {models.Request.state: RequestState.QUEUED}
-    )
+    ).values({
+        models.Request.state: RequestState.QUEUED
+    })
     amount_updated_requests += session.execute(stmt).rowcount
 
     # release requests where the whole datasets volume fits in the available volume space
@@ -2346,7 +2476,7 @@ def release_all_waiting_requests(
         account: Optional[InternalAccount] = None,
         *,
         session: "Session"
-):
+) -> int:
     """
     Release all waiting requests per destination RSE.
 
@@ -2363,9 +2493,9 @@ def release_all_waiting_requests(
             models.Request.state == RequestState.WAITING,
         ).execution_options(
             synchronize_session=False
-        ).values(
-            {'state': RequestState.QUEUED}
-        )
+        ).values({
+            models.Request.state: RequestState.QUEUED
+        })
         if source_rse_id is not None:
             query = query.where(
                 models.Request.source_rse_id == source_rse_id
@@ -2392,7 +2522,7 @@ def release_all_waiting_requests(
 def list_transfer_limits(
         *,
         session: "Session",
-):
+) -> 'Iterator[dict[str, Any]]':
     stmt = select(
         models.TransferLimit
     )
@@ -2402,11 +2532,11 @@ def list_transfer_limits(
 
 
 def _sync_rse_transfer_limit(
-        limit_id: Union[str, uuid.UUID],
+        limit_id: Union[str, 'uuid.UUID'],
         desired_rse_ids: set[str],
         *,
         session: "Session",
-):
+) -> None:
     """
     Ensure that an RSETransferLimit exists in the database for each of the given rses (and only for these rses)
     """
@@ -2422,20 +2552,21 @@ def _sync_rse_transfer_limit(
     rse_limits_to_delete = existing_rse_ids.difference(desired_rse_ids)
 
     if rse_limits_to_add:
-        session.execute(
-            insert(models.RSETransferLimit),
-            [
-                {'rse_id': rse_id, 'limit_id': limit_id}
-                for rse_id in rse_limits_to_add
-            ]
+        values = [
+            {'rse_id': rse_id, 'limit_id': limit_id}
+            for rse_id in rse_limits_to_add
+        ]
+        stmt = insert(
+            models.RSETransferLimit
         )
+        session.execute(stmt, values)
 
     if rse_limits_to_delete:
         stmt = delete(
             models.RSETransferLimit
         ).where(
-            models.RSETransferLimit.limit_id == limit_id,
-            models.RSETransferLimit.rse_id.in_(rse_limits_to_delete)
+            and_(models.RSETransferLimit.limit_id == limit_id,
+                 models.RSETransferLimit.rse_id.in_(rse_limits_to_delete))
         )
         session.execute(stmt)
 
@@ -2445,7 +2576,7 @@ def re_sync_all_transfer_limits(
         delete_empty: bool = False,
         *,
         session: "Session",
-):
+) -> None:
     """
     For each TransferLimit in the database, re-evaluate the rse expression and ensure that the
     correct RSETransferLimits are in the database
@@ -2479,7 +2610,7 @@ def set_transfer_limit(
         waitings: Optional[int] = None,
         *,
         session: "Session",
-):
+) -> 'uuid.UUID':
     """
     Create or update a transfer limit
 
@@ -2502,9 +2633,9 @@ def set_transfer_limit(
     stmt = select(
         models.TransferLimit
     ).where(
-        models.TransferLimit.rse_expression == rse_expression,
-        models.TransferLimit.activity == activity,
-        models.TransferLimit.direction == direction
+        and_(models.TransferLimit.rse_expression == rse_expression,
+             models.TransferLimit.activity == activity,
+             models.TransferLimit.direction == direction)
     )
     limit = session.execute(stmt).scalar_one_or_none()
 
@@ -2564,7 +2695,7 @@ def set_transfer_limit_stats(
         transfers: int,
         *,
         session: "Session",
-):
+) -> None:
     """
     Set the statistics of the TransferLimit
     """
@@ -2572,10 +2703,10 @@ def set_transfer_limit_stats(
         models.TransferLimit
     ).where(
         models.TransferLimit.id == limit_id
-    ).values(
-        waitings=waitings,
-        transfers=transfers
-    )
+    ).values({
+        models.TransferLimit.waitings: waitings,
+        models.TransferLimit.transfers: transfers
+    })
     session.execute(stmt)
 
 
@@ -2586,7 +2717,7 @@ def delete_transfer_limit(
         direction: TransferLimitDirection = TransferLimitDirection.DESTINATION,
         *,
         session: "Session",
-):
+) -> None:
 
     if activity is None:
         activity = 'all_activities'
@@ -2597,10 +2728,10 @@ def delete_transfer_limit(
         exists(
             select(1)
         ).where(
-            models.RSETransferLimit.limit_id == models.TransferLimit.id,
-            models.TransferLimit.rse_expression == rse_expression,
-            models.TransferLimit.activity == activity,
-            models.TransferLimit.direction == direction
+            and_(models.RSETransferLimit.limit_id == models.TransferLimit.id,
+                 models.TransferLimit.rse_expression == rse_expression,
+                 models.TransferLimit.activity == activity,
+                 models.TransferLimit.direction == direction)
         )
     ).execution_options(
         synchronize_session=False
@@ -2610,9 +2741,9 @@ def delete_transfer_limit(
     stmt = delete(
         models.TransferLimit
     ).where(
-        models.TransferLimit.rse_expression == rse_expression,
-        models.TransferLimit.activity == activity,
-        models.TransferLimit.direction == direction
+        and_(models.TransferLimit.rse_expression == rse_expression,
+             models.TransferLimit.activity == activity,
+             models.TransferLimit.direction == direction)
     )
     session.execute(stmt)
 
@@ -2622,7 +2753,7 @@ def delete_transfer_limit_by_id(
         limit_id: str,
         *,
         session: "Session",
-):
+) -> None:
     stmt = delete(
         models.RSETransferLimit
     ).where(
@@ -2639,7 +2770,13 @@ def delete_transfer_limit_by_id(
 
 
 @transactional_session
-def update_requests_priority(priority, filter_, *, session: "Session", logger=logging.log):
+def update_requests_priority(
+    priority: int,
+    filter_: FilterDict,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> dict[str, Any]:
     """
     Update priority of requests.
 
@@ -2662,13 +2799,13 @@ def update_requests_priority(priority, filter_, *, session: "Session", logger=lo
                  models.ReplicaLock.rse_id == models.Request.dest_rse_id)
         )
         if 'rule_id' in filter_:
-            query = query.filter(models.ReplicaLock.rule_id == filter_['rule_id'])
+            query = query.where(models.ReplicaLock.rule_id == filter_['rule_id'])
         if 'request_id' in filter_:
-            query = query.filter(models.Request.id == filter_['request_id'])
+            query = query.where(models.Request.id == filter_['request_id'])
         if 'older_than' in filter_:
-            query = query.filter(models.Request.created_at < filter_['older_than'])
+            query = query.where(models.Request.created_at < filter_['older_than'])
         if 'activities' in filter_:
-            if type(filter_['activities']) is not list:
+            if not isinstance(filter_['activities'], list):
                 filter_['activities'] = filter_['activities'].split(',')
             query = query.filter(models.Request.activity.in_(filter_['activities']))
 
@@ -2687,7 +2824,13 @@ def update_requests_priority(priority, filter_, *, session: "Session", logger=lo
 
 
 @read_session
-def add_monitor_message(new_state, request, additional_fields, *, session: "Session"):
+def add_monitor_message(
+    new_state: RequestState,
+    request: RequestDict,
+    additional_fields: "Mapping[str, Any]",
+    *,
+    session: "Session"
+) -> None:
     """
     Create a message for hermes from a request
 
@@ -2706,8 +2849,8 @@ def add_monitor_message(new_state, request, additional_fields, *, session: "Sess
     stmt = select(
         models.DataIdentifier.datatype
     ).where(
-        models.DataIdentifier.scope == request['scope'],
-        models.DataIdentifier.name == request['name'],
+        and_(models.DataIdentifier.scope == request['scope'],
+             models.DataIdentifier.name == request['name'])
     )
     datatype = session.execute(stmt).scalar_one_or_none()
 
@@ -2783,7 +2926,10 @@ def add_monitor_message(new_state, request, additional_fields, *, session: "Sess
     add_message(transfer_status, message, session=session)
 
 
-def get_transfer_error(state, reason=None):
+def get_transfer_error(
+        state: RequestState,
+        reason: Optional[str] = None
+) -> Optional[str]:
     """
     Transform a specific RequestState to an error message
 
@@ -2808,7 +2954,13 @@ def get_transfer_error(state, reason=None):
 
 
 @read_session
-def get_source_rse(request_id, src_url, *, session: "Session", logger=logging.log):
+def get_source_rse(
+    request_id: str,
+    src_url: str,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> tuple[Optional[str], Optional[str]]:
     """
     Based on a request, and src_url extract the source rse name and id.
 
@@ -2830,7 +2982,7 @@ def get_source_rse(request_id, src_url, *, session: "Session", logger=logging.lo
                 src_rse_name = get_rse_name(src_rse_id, session=session)
                 logger(logging.DEBUG, "Find rse name %s for %s" % (src_rse_name, src_url))
                 return src_rse_name, src_rse_id
-        # cannot find matched surl
+        # cannot find matched source url
         logger(logging.WARNING, 'Cannot get correct RSE for source url: %s' % (src_url))
         return None, None
     except Exception:
@@ -2839,7 +2991,13 @@ def get_source_rse(request_id, src_url, *, session: "Session", logger=logging.lo
 
 
 @stream_session
-def list_requests(src_rse_ids, dst_rse_ids, states=None, *, session: "Session"):
+def list_requests(
+    src_rse_ids: 'Sequence[str]',
+    dst_rse_ids: 'Sequence[str]',
+    states: Optional['Sequence[RequestState]'] = None,
+    *,
+    session: "Session"
+) -> 'Iterator[models.Request]':
     """
     List all requests in a specific state from a source RSE to a destination RSE.
 
@@ -2854,16 +3012,24 @@ def list_requests(src_rse_ids, dst_rse_ids, states=None, *, session: "Session"):
     stmt = select(
         models.Request
     ).where(
-        models.Request.state.in_(states),
-        models.Request.source_rse_id.in_(src_rse_ids),
-        models.Request.dest_rse_id.in_(dst_rse_ids)
+        and_(models.Request.state.in_(states),
+             models.Request.source_rse_id.in_(src_rse_ids),
+             models.Request.dest_rse_id.in_(dst_rse_ids))
     )
     for request in session.execute(stmt).yield_per(500).scalars():
         yield request
 
 
 @stream_session
-def list_requests_history(src_rse_ids, dst_rse_ids, states=None, offset=None, limit=None, *, session: "Session"):
+def list_requests_history(
+    src_rse_ids: 'Sequence[str]',
+    dst_rse_ids: 'Sequence[str]',
+    states: Optional['Sequence[RequestState]'] = None,
+    offset: Optional[int] = None,
+    limit: Optional[int] = None,
+    *,
+    session: "Session"
+) -> 'Iterator[models.RequestHistory]':
     """
     List all historical requests in a specific state from a source RSE to a destination RSE.
 
@@ -2879,10 +3045,10 @@ def list_requests_history(src_rse_ids, dst_rse_ids, states=None, offset=None, li
 
     stmt = select(
         models.RequestHistory
-    ).filter(
-        models.RequestHistory.state.in_(states),
-        models.RequestHistory.source_rse_id.in_(src_rse_ids),
-        models.RequestHistory.dest_rse_id.in_(dst_rse_ids)
+    ).where(
+        and_(models.RequestHistory.state.in_(states),
+             models.RequestHistory.source_rse_id.in_(src_rse_ids),
+             models.RequestHistory.dest_rse_id.in_(dst_rse_ids))
     )
     if offset:
         stmt = stmt.offset(offset)
@@ -2910,18 +3076,14 @@ def reset_stale_waiting_requests(time_limit: Optional[datetime.timedelta] = date
         stmt = update(
             models.Request
         ).where(
-            and_(
-                models.Request.state == RequestState.WAITING,
-                models.Request.last_processed_at < time_limit_timestamp
-            )
+            and_(models.Request.state == RequestState.WAITING,
+                 models.Request.last_processed_at < time_limit_timestamp)
         ).execution_options(
             synchronize_session=False
-        ).values(
-            {
-                models.Request.source_rse_id: None,
-                models.Request.state: RequestState.PREPARING
-            }
-        )
+        ).values({
+            models.Request.source_rse_id: None,
+            models.Request.state: RequestState.PREPARING
+        })
         session.execute(stmt)
 
     except IntegrityError as error:

@@ -16,6 +16,7 @@ import json as json_lib
 import operator
 from typing import TYPE_CHECKING, Any, cast
 
+from sqlalchemy import and_, select
 from sqlalchemy.exc import DataError, NoResultFound
 
 from rucio.common import exception
@@ -52,7 +53,13 @@ class JSONDidMeta(DidMetaPlugin):
             raise NotImplementedError
 
         try:
-            row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
+            stmt = select(
+                models.DidMeta
+            ).where(
+                and_(models.DidMeta.scope == scope,
+                     models.DidMeta.name == name)
+            )
+            row = session.execute(stmt).scalar_one()
             meta = getattr(row, 'meta')
             return json_lib.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
         except NoResultFound:
@@ -67,10 +74,22 @@ class JSONDidMeta(DidMetaPlugin):
         if not json_implemented(session=session):
             raise NotImplementedError
 
-        if session.query(models.DataIdentifier).filter_by(scope=scope, name=name).one_or_none() is None:
+        stmt = select(
+            models.DataIdentifier
+        ).where(
+            and_(models.DataIdentifier.scope == scope,
+                 models.DataIdentifier.name == name)
+        )
+        if session.execute(stmt).one_or_none() is None:
             raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
 
-        row_did_meta = session.query(models.DidMeta).filter_by(scope=scope, name=name).scalar()
+        stmt = select(
+            models.DidMeta
+        ).where(
+            and_(models.DidMeta.scope == scope,
+                 models.DidMeta.name == name)
+        )
+        row_did_meta = session.execute(stmt).scalar_one_or_none()
         if row_did_meta is None:
             # Add metadata column to new table (if not already present)
             row_did_meta = models.DidMeta(scope=scope, name=name)
@@ -112,7 +131,13 @@ class JSONDidMeta(DidMetaPlugin):
             raise NotImplementedError
 
         try:
-            row = session.query(models.DidMeta).filter_by(scope=scope, name=name).one()
+            stmt = select(
+                models.DidMeta
+            ).where(
+                and_(models.DidMeta.scope == scope,
+                     models.DidMeta.name == name)
+            )
+            row = session.execute(stmt).scalar_one()
             existing_meta = getattr(row, 'meta')
             # Oracle returns a string instead of a dict
             if session.bind.dialect.name in ['oracle', 'sqlite'] and existing_meta is not None:
@@ -150,7 +175,7 @@ class JSONDidMeta(DidMetaPlugin):
         # instantiate fe and create sqla query, note that coercion to a model keyword
         # is not appropriate here as the filter words are stored in a single json column.
         fe = FilterEngine(filters, model_class=models.DidMeta, strict_coerce=False)
-        query = fe.create_sqla_query(
+        stmt = fe.create_sqla_query(
             additional_model_attributes=[
                 models.DidMeta.scope,
                 models.DidMeta.name
@@ -162,13 +187,15 @@ class JSONDidMeta(DidMetaPlugin):
         )
 
         if limit:
-            query = query.limit(limit)
+            stmt = stmt.limit(
+                limit
+            )
         if recursive:
             from rucio.core.did import list_content
 
             # Get attached DIDs and save in list because query has to be finished before starting a new one in the recursion
             collections_content = []
-            for did in query.yield_per(100):
+            for did in session.execute(stmt).yield_per(100):
                 if (did.did_type == DIDType.CONTAINER or did.did_type == DIDType.DATASET):
                     collections_content += [d for d in list_content(scope=did.scope, name=did.name)]
 
@@ -181,7 +208,7 @@ class JSONDidMeta(DidMetaPlugin):
                     yield result
 
         try:
-            for did in query.yield_per(5):                  # don't unpack this as it makes it dependent on query return order!
+            for did in session.execute(stmt).yield_per(5):                  # don't unpack this as it makes it dependent on query return order!
                 if long:
                     did_full = "{}:{}".format(did.scope, did.name)
                     if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.

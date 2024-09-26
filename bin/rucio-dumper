@@ -95,9 +95,10 @@ if __name__ == "__main__":
         record_type = data_models.CompleteDataset
     elif args.subcommand == 'dump-replicas':
         record_type = data_models.Replica
-    else:
-        assert args.subcommand in consistency.subcommands
+    elif args.subcommand in consistency.subcommands:
         record_type = consistency.Consistency
+    else:
+        raise ValueError("Record type not set! Cannot dump files.")
 
     if 'filter' in args and args.filter:
         user_filter = data_models.Filter(args.filter, record_type).match
@@ -113,8 +114,8 @@ if __name__ == "__main__":
     fields = set(record_type.get_fieldnames())
 
     if 'group_by' in args and args.group_by:
-        # FIXME: Better checking
-        assert args.group_by in fields
+        if args.group_by not in fields:
+            raise ValueError("Group_by option %s not supported." % args.group_by)
         fields = [args.group_by]
         data_iter = data
         data_dict = {}
@@ -125,7 +126,8 @@ if __name__ == "__main__":
             data_dict[key].append(record)
 
         if 'sum' in args and args.sum:
-            assert args.sum in set(record_type.get_fieldnames())
+            if args.sum not in set(record_type.get_fieldnames()):
+                raise ValueError("Sum option %s for record type %s not supported.\nChoice from %s" % (args.sum, args.record_type, set(record_type.get_fieldnames())))
             fields.append(args.sum)
             data = []
             for key, value in data_dict.items():

@@ -22,6 +22,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from jwkest.jwt import JWT
 from oic import rndstr
+from sqlalchemy import select
 
 from rucio.common.config import config_get_bool
 from rucio.common.exception import CannotAuthenticate, DatabaseException, Duplicate
@@ -144,21 +145,28 @@ def get_mock_oidc_client(**kwargs):
 
 
 def get_oauth_session_row(account, state=None, session=None):
+    stmt = select(
+        models.OAuthRequest
+    ).where(
+        models.OAuthRequest.account == account
+    )
     if state:
-        result = session.query(models.OAuthRequest).filter_by(account=account, state=state).all()  # pylint: disable=no-member
-    else:
-        result = session.query(models.OAuthRequest).filter_by(account=account).all()  # pylint: disable=no-member
-    return result
+        stmt = stmt.where(
+            models.OAuthRequest.state == state
+        )
+    return session.execute(stmt).scalars().all()
 
 
 def get_token_row(access_token, account=None, session=None) -> models.Token:
-    if account:
-        token = session.get(models.Token, access_token)
-        if token:
-            assert token.account == account
-        return token
-    else:
-        return session.get(models.Token, access_token)
+    stmt = select(
+        models.Token
+    ).where(
+        models.Token.token == access_token
+    )
+    token = session.execute(stmt).scalar_one_or_none()
+    if account and token:
+        assert token.account == account
+    return token
 
 
 class MockADMINClientISSOIDC(MagicMock):

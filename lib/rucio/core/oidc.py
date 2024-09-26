@@ -20,7 +20,7 @@ import traceback
 from datetime import datetime, timedelta
 from math import floor
 from secrets import choice
-from typing import TYPE_CHECKING, Any, Final, Optional
+from typing import TYPE_CHECKING, Any, Final, Optional, Union
 from urllib.parse import parse_qs, urljoin, urlparse
 
 import requests
@@ -36,8 +36,7 @@ from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from sqlalchemy import delete, select, update
 from sqlalchemy.sql.expression import true
 
-from rucio.common import types
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_int
 from rucio.common.exception import CannotAuthenticate, CannotAuthorize, RucioException
 from rucio.common.stopwatch import Stopwatch
@@ -52,12 +51,14 @@ from rucio.db.sqla.session import read_session, transactional_session
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from rucio.common.types import InternalAccount
+
 # The WLCG Common JWT Profile dictates that the lifetime of access and ID tokens
 # should range from five minutes to six hours.
 TOKEN_MIN_LIFETIME: Final = config_get_int('oidc', 'token_min_lifetime', default=300)
 TOKEN_MAX_LIFETIME: Final = config_get_int('oidc', 'token_max_lifetime', default=21600)
 
-REGION: Final = make_region_memcached(expiration_time=TOKEN_MAX_LIFETIME)
+REGION: Final = MemcacheRegion(expiration_time=TOKEN_MAX_LIFETIME)
 METRICS = MetricManager(module=__name__)
 
 # worokaround for a bug in pyoidc (as of Dec 2019)
@@ -96,10 +97,13 @@ def _token_cache_get(
         METRICS.counter('token_cache.miss').inc()
         return None
 
-    try:
-        assert isinstance(value, str)
-        payload = JWT().unpack(value).payload()
-    except Exception:
+    if isinstance(value, str):
+        try:
+            payload = JWT().unpack(value).payload()
+        except Exception:
+            METRICS.counter('token_cache.invalid').inc()
+            return None
+    else:
         METRICS.counter('token_cache.invalid').inc()
         return None
 
@@ -243,13 +247,22 @@ def __load_oidc_configuration() -> bool:
             data = json.load(f)
             OIDC_CLIENT_ID = data[ADMIN_ISSUER_ID]['client_id']
             OIDC_CLIENT_SECRET = data[ADMIN_ISSUER_ID]['client_secret']
-            OIDC_PROVIDER_ENDPOINT = urljoin(data[ADMIN_ISSUER_ID]['issuer'], 'token')
+            issuer = data[ADMIN_ISSUER_ID]['issuer']
     except Exception:
         logging.error('Failed to parse configuration file "%s"', IDPSECRETS,
                       exc_info=True)
         return False
-    else:
-        return True
+    try:
+        oidc_discover_url = urljoin(issuer, '.well-known/openid-configuration')
+        response = requests.get(oidc_discover_url)
+        response.raise_for_status()
+        payload = response.json()
+        OIDC_PROVIDER_ENDPOINT = payload['token_endpoint']
+    except (requests.HTTPError, requests.JSONDecodeError, KeyError):
+        logging.error('Failed to discover token endpoint', exc_info=True)
+        return False
+
+    return True
 
 
 def __get_init_oidc_client(token_object: models.Token = None, token_type: str = None, **kwargs) -> dict[Any, Any]:
@@ -465,7 +478,12 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
 
 
 @transactional_session
-def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"):
+def get_token_oidc(
+    auth_query_string: str,
+    ip: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional[dict[str, Optional[Union[str, bool]]]]:
     """
     After Rucio User got redirected to Rucio /auth/oidc_token (or /auth/oidc_code)
     REST endpoints with authz code and session state encoded within the URL.
@@ -626,7 +644,7 @@ def get_token_oidc(auth_query_string: str, ip: str = None, *, session: "Session"
 
 
 @transactional_session
-def __get_admin_token_oidc(account: types.InternalAccount, req_scope, req_audience, issuer, *, session: "Session"):
+def __get_admin_token_oidc(account: 'InternalAccount', req_scope, req_audience, issuer, *, session: "Session"):
     """
     Get a token for Rucio application to act on behalf of itself.
     client_credential flow is used for this purpose.
@@ -996,7 +1014,7 @@ def __change_refresh_state(token: str, refresh: bool = False, *, session: "Sessi
 
 
 @transactional_session
-def refresh_cli_auth_token(token_string: str, account: str, *, session: "Session"):
+def refresh_cli_auth_token(token_string: str, account: str, *, session: "Session") -> Optional[tuple[str, int]]:
     """
     Checks if there is active refresh token and if so returns
     either active token with expiration timestamp or requests a new
@@ -1274,7 +1292,7 @@ def __get_keyvalues_from_claims(token: str, keys=None):
         for key in keys:
             value = ''
             if key in claims:
-                value = val_to_space_sep_str(claims[key])
+                value = val_to_space_sep_str(claims[key])  # type: ignore
             resdict[key] = value
         return resdict
     except Exception as error:

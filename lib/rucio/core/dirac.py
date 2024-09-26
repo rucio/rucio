@@ -15,8 +15,9 @@
 import re
 from json import loads
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
+from sqlalchemy import and_, select
 from sqlalchemy.exc import NoResultFound
 
 from rucio.common.config import config_get
@@ -32,11 +33,18 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from sqlalchemy.orm import Session
 
 
 @read_session
-def _exists(scope, name, *, session: "Session"):
+def _exists(
+    scope: str,
+    name: str,
+    *,
+    session: "Session"
+) -> tuple[bool, Optional[DIDType]]:
     """
     Check if the did exists
 
@@ -45,15 +53,31 @@ def _exists(scope, name, *, session: "Session"):
     :session: The session used
     """
     try:
-        res = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
-            with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-        return True, res.did_type
+        stmt = select(
+            models.DataIdentifier.did_type
+        ).with_hint(
+            models.DataIdentifier,
+            "INDEX(DIDS DIDS_PK)",
+            'oracle'
+        ).where(
+            and_(models.DataIdentifier.scope == scope,
+                 models.DataIdentifier.name == name)
+        )
+        return True, session.execute(stmt).scalar_one()
     except NoResultFound:
         return False, None
 
 
 @transactional_session
-def add_files(lfns: list[dict], account: str, ignore_availability: bool, parents_metadata: Optional[dict] = None, vo: str = 'def', *, session: "Session"):
+def add_files(
+    lfns: "Iterable[dict[str, Any]]",
+    account: str,
+    ignore_availability: bool,
+    parents_metadata: Optional[dict[str, Any]] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> None:
     """
     Bulk add files :
     - Create the file and replica.
@@ -77,8 +101,8 @@ def add_files(lfns: list[dict], account: str, ignore_availability: bool, parents
     scopes = [scope.external for scope in scopes]
     exist_lfn = []
     try:
-        lifetime_dict: str = config_get(section='dirac', option='lifetime', default='{}', session=session)
-        lifetime_dict = loads(lifetime_dict)
+        config_lifetime: str = config_get(section='dirac', option='lifetime', default='{}', session=session)
+        lifetime_dict: dict = loads(config_lifetime)
     except ConfigNotFound:
         lifetime_dict = {}
     except JSONDecodeError as err:

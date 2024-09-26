@@ -2,12 +2,12 @@ include MANIFEST.in pylintrc
 include AUTHORS
 include LICENSE
 include ChangeLog
-include README.rst
+include README.md
 include setuputil.py
 include setup.py
 include setup.cfg
 include pyproject.toml
-include requirements.txt
+include requirements/requirements.client.txt
 include etc/rse-accounts.cfg.template
 include etc/rucio.cfg.atlas.client.template
 include etc/rucio.cfg.template

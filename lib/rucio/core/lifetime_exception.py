@@ -15,7 +15,7 @@
 from configparser import NoSectionError
 from datetime import datetime, timedelta
 from re import match
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound
@@ -32,8 +32,7 @@ from rucio.db.sqla.constants import DIDType, LifetimeExceptionsState
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-    from typing import Any, Optional, Union
+    from collections.abc import Iterable, Iterator, Sequence
 
     from sqlalchemy.orm import Session
 
@@ -42,8 +41,8 @@ if TYPE_CHECKING:
 
 @stream_session
 def list_exceptions(
-        exception_id: 'Optional[str]',
-        states: 'list[LifetimeExceptionsState]',
+        exception_id: Optional[str],
+        states: Optional['Iterable[LifetimeExceptionsState]'],
         *,
         session: 'Session',
 ) -> 'Iterator[dict[str, Any]]':
@@ -57,9 +56,9 @@ def list_exceptions(
 
     state_clause = []
     if states:
-        state_clause = [models.LifetimeExceptions.state == state for state in states]
+        state_clause = [models.LifetimeException.state == state for state in states]
 
-    query = select(models.LifetimeExceptions)
+    query = select(models.LifetimeException)
     if state_clause != []:
         query = query.where(or_(*state_clause))
     if exception_id:
@@ -75,14 +74,14 @@ def list_exceptions(
 
 @transactional_session
 def add_exception(
-        dids: 'list[dict[str, Any]]',
+        dids: "Iterable[dict[str, Any]]",
         account: 'InternalAccount',
-        pattern: 'Optional[str]',
+        pattern: Optional[str],
         comments: str,
-        expires_at: 'Optional[Union[str, datetime]]',
+        expires_at: Optional[Union[str, datetime]],
         *,
         session: 'Session'
-) -> 'dict[str, Any]':
+) -> dict[str, Any]:
     """
     Add exceptions to Lifetime Model.
 
@@ -106,7 +105,7 @@ def add_exception(
             else:
                 if isinstance(expires_at, str):
                     expires_at = str_to_date(expires_at)
-                if expires_at > datetime.utcnow() + timedelta(days=max_extension):
+                if expires_at and (expires_at > datetime.utcnow() + timedelta(days=max_extension)):
                     expires_at = datetime.utcnow() + timedelta(days=max_extension)
     except (ConfigNotFound, ValueError, NoSectionError):
         max_extension = None
@@ -149,12 +148,12 @@ def add_exception(
 
 @transactional_session
 def __add_exception(
-        dids: 'list[dict[str, Any]]',
+        dids: 'Sequence[dict[str, Any]]',
         account: 'InternalAccount',
-        pattern: 'Optional[str]',
+        pattern: Optional[str],
         comments: str,
-        expires_at: 'Optional[Union[str, datetime]]',
-        estimated_volume: 'Optional[int]' = None,
+        expires_at: Optional[Union[str, datetime]],
+        estimated_volume: Optional[int] = None,
         *,
         session: 'Session',
 ) -> str:
@@ -202,8 +201,8 @@ def __add_exception(
                 did_type = DIDType[did['did_type']]
             else:
                 did_type = did['did_type']
-        new_exception = models.LifetimeExceptions(id=exception_id, scope=did['scope'], name=did['name'], did_type=did_type,
-                                                  account=account, pattern=pattern, comments=reason, state=LifetimeExceptionsState.WAITING, expires_at=lifetime)
+        new_exception = models.LifetimeException(id=exception_id, scope=did['scope'], name=did['name'], did_type=did_type,
+                                                 account=account, pattern=pattern, comments=reason, state=LifetimeExceptionsState.WAITING, expires_at=lifetime)
         if len(text) < 3000:
             text += '%s %s %s\n' % (str(did_type), did['scope'], did['name'])
         else:
@@ -251,9 +250,9 @@ def update_exception(
         raise UnsupportedOperation
 
     query = update(
-        models.LifetimeExceptions
+        models.LifetimeException
     ).where(
-        models.LifetimeExceptions.id == exception_id
+        models.LifetimeException.id == exception_id
     ).values(
         state=state,
         updated_at=datetime.utcnow()
@@ -267,10 +266,10 @@ def update_exception(
 def define_eol(
         scope: 'InternalScope',
         name: str,
-        rses: 'list[dict[str, Any]]',
+        rses: 'Iterable[dict[str, Any]]',
         *,
         session: 'Session',
-) -> 'Optional[datetime]':
+) -> Optional[datetime]:
     """
     ATLAS policy for rules on SCRATCHDISK
 
@@ -300,11 +299,11 @@ def define_eol(
         return None
     policy_dict = rucio.common.policy.get_lifetime_policy()
     did_type = 'other'
-    if scope.external.startswith('mc'):
+    if scope.external.startswith('mc'):  # type: ignore
         did_type = 'mc'
-    elif scope.external.startswith('data'):
+    elif scope.external.startswith('data'):  # type: ignore
         did_type = 'data'
-    elif scope.external.startswith('valid'):
+    elif scope.external.startswith('valid'):  # type: ignore
         did_type = 'valid'
     else:
         did_type = 'other'

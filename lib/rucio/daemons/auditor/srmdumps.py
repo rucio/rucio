@@ -21,7 +21,7 @@ import logging
 import operator
 import os
 import re
-from typing import Optional
+from typing import IO, TYPE_CHECKING, Any, Optional
 
 import gfal2
 import requests
@@ -32,10 +32,19 @@ from rucio.common.dumper import DUMPS_CACHE_DIR, HTTPDownloadFailed, ddmendpoint
 from rucio.core.credential import get_signed_url
 from rucio.core.rse import get_rse_id, list_rse_attributes
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
 CHUNK_SIZE = 10485760
 
-__DUMPERCONFIGDIRS = (os.path.join(confdir, 'auditor') for confdir in get_config_dirs())
-__DUMPERCONFIGDIRS = list(filter(os.path.exists, __DUMPERCONFIGDIRS))
+__DUMPERCONFIGDIRS = list(
+    filter(
+        os.path.exists,
+        (
+            os.path.join(confdir, 'auditor') for confdir in get_config_dirs()
+        )
+    )
+)
 
 OBJECTSTORE_NUM_TRIES = 30
 
@@ -48,10 +57,17 @@ class Parser(ConfigParser.RawConfigParser):
     remove_quotes_re = re.compile(r"^'(.+)'$")
     remove_double_quotes_re = re.compile(r'^"(.+)"$')
 
-    def optionxform(self, optionstr):
+    def optionxform(
+            self,
+            optionstr: str
+    ) -> str:
         return optionstr
 
-    def get(self, section, option):
+    def get(
+            self,
+            section: str,
+            option: str
+    ) -> Any:
         value = super(Parser, self).get(section, option)
         if isinstance(value, str):
             value = self.remove_quotes_re.sub(r'\1', value)
@@ -62,18 +78,23 @@ class Parser(ConfigParser.RawConfigParser):
         return [(name, self.get(section, name)) for name in self.options(section)]
 
 
-def mkdir(dir_):
+def mkdir(dir_: str) -> None:
     '''
     This functions creates the `dir` directory if it doesn't exist. If `dir`
     already exists this function does nothing.
     '''
     try:
         os.mkdir(dir_)
-    except OSError as e:
-        assert e.errno == 17
+    except OSError as error:
+        if error.errno != 17:
+            raise error
 
 
-def get_newest(base_url, url_pattern, links):
+def get_newest(
+        base_url: str,
+        url_pattern: str,
+        links: "Iterable[str]"
+) -> tuple[str, datetime.datetime]:
     '''
     Returns a tuple with the newest url in the `links` list matching the
     pattern `url_pattern` and a datetime object representing the creation
@@ -108,7 +129,7 @@ def get_newest(base_url, url_pattern, links):
     return max(times, key=operator.itemgetter(1))
 
 
-def gfal_links(base_url):
+def gfal_links(base_url: str) -> list[str]:
     '''
     Returns a list of the urls contained in `base_url`.
     '''
@@ -121,14 +142,17 @@ class _LinkCollector(HTMLParser.HTMLParser):
         super(_LinkCollector, self).__init__()
         self.links = []
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(
+            self, tag: str,
+            attrs: "Iterable[tuple[str, str]]"
+    ) -> None:
         if tag == 'a':
             self.links.append(
                 next(value for key, value in attrs if key == 'href')
             )
 
 
-def http_links(base_url):
+def http_links(base_url: str) -> list[str]:
     '''
     Returns a list of the urls contained in `base_url`.
     '''
@@ -173,7 +197,7 @@ protocol_funcs = {
 }
 
 
-def protocol(url):
+def protocol(url: str) -> str:
     '''
     Given the URL `url` returns a string with the protocol part.
     '''
@@ -184,14 +208,14 @@ def protocol(url):
     return proto
 
 
-def get_links(base_url):
+def get_links(base_url: str) -> list[str]:
     '''
     Given the URL `base_url` returns the URLs linked or contained in it.
     '''
     return protocol_funcs[protocol(base_url)]['links'](base_url)
 
 
-def download(url, filename):
+def download(url: str, filename: IO) -> None:
     '''
     Given the URL `url` downloads its contents on `filename`.
     '''
@@ -218,7 +242,12 @@ def parse_configuration(conf_dirs: Optional[list[str]] = None) -> Parser:
     return configuration
 
 
-def download_rse_dump(rse, configuration, date=None, destdir=DUMPS_CACHE_DIR):
+def download_rse_dump(
+        rse: str,
+        configuration: ConfigParser.RawConfigParser,
+        date: Optional[datetime.datetime] = None,
+        destdir: str = DUMPS_CACHE_DIR
+) -> tuple[str, datetime.datetime]:
     '''
     Downloads the dump for the given ddmendpoint. If this endpoint does not
     follow the standardized method to publish the dumps it should have an
@@ -300,7 +329,10 @@ def download_rse_dump(rse, configuration, date=None, destdir=DUMPS_CACHE_DIR):
     return (path, date)
 
 
-def generate_url(rse, config):
+def generate_url(
+        rse: str,
+        config: ConfigParser.RawConfigParser
+) -> tuple[str, str]:
     '''
     :param rse: Name of the endpoint.
     :param config: RawConfigParser instance which may have configuration

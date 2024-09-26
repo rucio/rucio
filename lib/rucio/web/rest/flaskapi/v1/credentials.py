@@ -25,7 +25,7 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_acc
 if TYPE_CHECKING:
     from typing import Optional
 
-    from rucio.web.rest.flaskapi.v1.common import HeadersType
+    from rucio.web.rest.flaskapi.v1.types import HeadersType
 
 
 class SignURL(ErrorHandlingMethodView):

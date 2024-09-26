@@ -41,10 +41,12 @@ class Consistency(data_models.DataModel):
                 ddm_endpoint, prev_date, cache_dir=cache_dir)
             next_date_fname = data_models.Replica.download(
                 ddm_endpoint, next_date, cache_dir=cache_dir)
-            assert prev_date_fname is not None
-            assert next_date_fname is not None
+            if (prev_date_fname is None) or (next_date_fname is None):
+                raise ValueError("Both prev_date_fname and next_date_fname are required for subcommand='consistency'; found prev_data_fname=%s and next_date_fname=%s" % (prev_date_fname, next_date_fname))
+        elif subcommand == 'consistency-manual':
+            pass
         else:
-            assert subcommand == 'consistency-manual'
+            raise ValueError("subcommand %s not accepted, choice from ('consistency','consistency-manual')" % subcommand)
 
         prefix_components = path_parsing.components(dumper.ddmendpoint_url(ddm_endpoint))
 
@@ -161,12 +163,13 @@ def _try_to_advance(it, default=None):
     return el.strip()
 
 
-def min3(*values):
+def min_value(*values):
     '''
-    Minimum between the 3 values ignoring None
+    Minimum between the input values, ignoring None
     '''
     values = [value for value in values if value is not None]
-    assert len(values) > 0
+    if len(values) == 0:
+        raise ValueError("Input contains 0 non-null values.")
     return min(values)
 
 
@@ -198,7 +201,7 @@ def compare3(it0, it1, it2):
         path0, status0 = split_if_not_none(v0)
         path2, status2 = split_if_not_none(v2)
 
-        vmin = min3(path0, v1, path2)
+        vmin = min_value(path0, v1, path2)
         in0 = in1 = in2 = False
         in0_status = in2_status = None
 
@@ -301,7 +304,8 @@ def gnu_sort(file_path, prefix=None, delimiter=None, fieldspec=None, cache_dir=D
     memory and it is relatively fast if used with the environment variable
     LC_ALL set to C as in this function.
     '''
-    assert (delimiter is None and fieldspec is None) or (delimiter is not None and fieldspec is not None)
+    if (delimiter is not None) ^ (fieldspec is not None):
+        raise ValueError("Either both delimiter and fieldspec is set, or neither are.")
     if delimiter is None:
         cmd_line = 'LC_ALL=C sort {0} > {1}'
     else:
@@ -388,8 +392,10 @@ def _parse_args_consistency(args):
         error('The storage dump filename must be of the form '
               '"dump_YYYYMMDD" where the date correspond to the date '
               'of the newest files included')
+
     date_str = date_str.group(1)
-    assert date_str is not None
+    if date_str is None:
+        error('Invalid date {0}'.format(date_str))
     try:
         args_dict['date'] = date = datetime.datetime.strptime(date_str, '%Y%m%d')
     except ValueError:

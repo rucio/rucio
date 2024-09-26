@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from json import dumps
+from typing import Optional
 
 from requests import post
 
@@ -30,7 +31,12 @@ class TouchClient(BaseClient):
     DIDS_BASEURL = 'dids'
     TRACES_BASEURL = 'traces'
 
-    def touch(self, scope, name, rse=None):
+    def touch(
+            self,
+            scope: str,
+            name: str,
+            rse: Optional[str] = None
+    ) -> None:
         """
         Sends a touch trace for a given file or dataset.
 

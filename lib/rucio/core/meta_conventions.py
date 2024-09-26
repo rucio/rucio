@@ -15,7 +15,7 @@
 from re import match
 from typing import TYPE_CHECKING, Optional, Union
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
@@ -85,8 +85,12 @@ def del_key(key: str, *, session: "Session") -> None:
     :param key: the name for the key.
     :param session: The database session in use.
     """
-    statement = select(models.DIDMetaConventionsKey.key).where(models.DIDMetaConventionsKey.key == key)
-    session.delete(statement)
+    stmt = delete(
+        models.DIDMetaConventionsKey
+    ).where(
+        models.DIDMetaConventionsKey.key == key
+    )
+    session.execute(stmt)
 
 
 @read_session
@@ -98,12 +102,10 @@ def list_keys(*, session: "Session") -> list[str]:
 
     :returns: A list containing all keys.
     """
-    key_list = []
-    statement = select(models.DIDMetaConventionsKey.key)
-    query = session.execute(statement).scalars()
-    for row in query:
-        key_list.append(row)
-    return key_list
+    stmt = select(
+        models.DIDMetaConventionsKey.key
+    )
+    return list(session.execute(stmt).scalars().all())
 
 
 @transactional_session
@@ -119,7 +121,7 @@ def add_value(key: str, value: str, *, session: "Session") -> None:
     :raises KeyNotFound: Key not in metadata conventions table
     :raises InvalidValueForKey: Value conflicts with rse expression for key values or does not have the correct type
     """
-    new_value = models.DIDMetaConventionsConstraints(key=key, value=value)
+    new_value = models.DIDMetaConventionsConstraint(key=key, value=value)
     try:
         new_value.save(session=session)
     except IntegrityError as error:
@@ -167,12 +169,12 @@ def list_values(key: str, *, session: "Session") -> list[str]:
 
     :returns: A list containing all values.
     """
-    value_list = []
-    statement = select(models.DIDMetaConventionsConstraints.value).where(models.DIDMetaConventionsConstraints.key == key)
-    query = session.execute(statement).scalars()
-    for row in query:
-        value_list.append(row)
-    return value_list
+    statement = select(
+        models.DIDMetaConventionsConstraint.value
+    ).where(
+        models.DIDMetaConventionsConstraint.key == key
+    )
+    return list(session.execute(statement).scalars().all())
 
 
 @read_session
@@ -191,9 +193,10 @@ def validate_meta(meta: dict, did_type: DIDType, *, session: "Session") -> None:
     if did_type == DIDType.DATASET and key in meta:
         try:
             statement = select(
-                models.DIDMetaConventionsConstraints.value
+                models.DIDMetaConventionsConstraint.value
             ).where(
-                and_(models.DIDMetaConventionsConstraints.value == meta[key], models.DIDMetaConventionsConstraints.key == key)
+                and_(models.DIDMetaConventionsConstraint.value == meta[key],
+                     models.DIDMetaConventionsConstraint.key == key)
             )
             session.execute(statement).one()
         except NoResultFound:

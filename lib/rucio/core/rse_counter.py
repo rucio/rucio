@@ -13,6 +13,7 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
+from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import NoResultFound
 
 from rucio.common.exception import CounterNotFound
@@ -71,8 +72,15 @@ def del_counter(rse_id, *, session: "Session"):
     :param session: The database session in use.
     """
 
-    session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').\
-        delete(synchronize_session=False)
+    stmt = delete(
+        models.RSEUsage
+    ).where(
+        and_(models.RSEUsage.rse_id == rse_id,
+             models.RSEUsage.source == 'rucio')
+    ).execution_options(
+        synchronize_session=False
+    )
+    session.execute(stmt)
 
 
 @read_session
@@ -88,11 +96,20 @@ def get_counter(rse_id, *, session: "Session"):
     """
 
     try:
-        counter = session.query(models.RSEUsage).\
-            filter_by(rse_id=rse_id, source='rucio').one()
-        return {'bytes': counter.used,
-                'files': counter.files,
-                'updated_at': counter.updated_at}
+        stmt = select(
+            models.RSEUsage.used,
+            models.RSEUsage.files,
+            models.RSEUsage.updated_at
+        ).where(
+            and_(models.RSEUsage.rse_id == rse_id,
+                 models.RSEUsage.source == 'rucio')
+        )
+        usage_bytes, usage_files, usage_updated_at = session.execute(stmt).one()
+        return {
+            'bytes': usage_bytes,
+            'files': usage_files,
+            'updated_at': usage_updated_at
+        }
     except NoResultFound:
         raise CounterNotFound()
 
@@ -107,12 +124,13 @@ def get_updated_rse_counters(total_workers, worker_number, *, session: "Session"
     :param session:            Database session in use.
     :returns:                  List of rse_ids whose rse_counters need to be updated.
     """
-    query = session.query(models.UpdatedRSECounter.rse_id).\
-        distinct(models.UpdatedRSECounter.rse_id)
+    stmt = select(
+        models.UpdatedRSECounter.rse_id
+    ).distinct(
+    )
 
-    query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='rse_id')
-    results = query.all()
-    return [result.rse_id for result in results]
+    stmt = filter_thread_work(session=session, query=stmt, total_threads=total_workers, thread_id=worker_number, hash_variable='rse_id')
+    return session.execute(stmt).scalars().all()
 
 
 @transactional_session
@@ -124,12 +142,23 @@ def update_rse_counter(rse_id, *, session: "Session"):
     :param session:  Database session in use.
     """
 
-    updated_rse_counters = session.query(models.UpdatedRSECounter).filter_by(rse_id=rse_id).all()
+    stmt = select(
+        models.UpdatedRSECounter
+    ).where(
+        models.UpdatedRSECounter.rse_id == rse_id
+    )
+    updated_rse_counters = session.execute(stmt).scalars().all()
     sum_bytes = sum([updated_rse_counter.bytes for updated_rse_counter in updated_rse_counters])
     sum_files = sum([updated_rse_counter.files for updated_rse_counter in updated_rse_counters])
 
     try:
-        rse_counter = session.query(models.RSEUsage).filter_by(rse_id=rse_id, source='rucio').one()
+        stmt = select(
+            models.RSEUsage
+        ).where(
+            and_(models.RSEUsage.rse_id == rse_id,
+                 models.RSEUsage.source == 'rucio')
+        )
+        rse_counter = session.execute(stmt).scalar_one()
         rse_counter.used = (rse_counter.used or 0) + sum_bytes
         rse_counter.files = (rse_counter.files or 0) + sum_files
     except NoResultFound:
@@ -150,5 +179,8 @@ def fill_rse_counter_history_table(*, session: "Session"):
     :param session: Database session in use.
     """
     RSEUsageHistory = models.RSEUsageHistory
-    for usage in session.query(models.RSEUsage).all():
+    stmt = select(
+        models.RSEUsage
+    )
+    for usage in session.execute(stmt).scalars().all():
         RSEUsageHistory(rse_id=usage['rse_id'], used=usage['used'], files=usage['files'], source=usage['source']).save(session=session)

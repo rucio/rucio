@@ -219,7 +219,7 @@ class DidColumnMeta(DidMetaPlugin):
 
         # instantiate fe and create sqla query
         fe = FilterEngine(filters, model_class=models.DataIdentifier)
-        query = fe.create_sqla_query(
+        stmt = fe.create_sqla_query(
             additional_model_attributes=[
                 models.DataIdentifier.scope,
                 models.DataIdentifier.name,
@@ -232,16 +232,22 @@ class DidColumnMeta(DidMetaPlugin):
             ],
             session=session
         )
-        query.with_hint(models.DataIdentifier, 'NO_EXPAND', 'oracle')
+        stmt = stmt.with_hint(
+            models.DataIdentifier,
+            'NO_EXPAND',
+            'oracle'
+        )
 
         if limit:
-            query = query.limit(limit)
+            stmt = stmt.limit(
+                limit
+            )
         if recursive:
             from rucio.core.did import list_content
 
             # Get attached DIDs and save in list because query has to be finished before starting a new one in the recursion
             collections_content = []
-            for did in query.yield_per(100):
+            for did in session.execute(stmt).yield_per(100):
                 if (did.did_type == DIDType.CONTAINER or did.did_type == DIDType.DATASET):
                     collections_content += [d for d in list_content(scope=did.scope, name=did.name)]
 
@@ -253,7 +259,7 @@ class DidColumnMeta(DidMetaPlugin):
                                              long=long, ignore_dids=ignore_dids, session=session):
                     yield result
 
-        for did in query.yield_per(5):                  # don't unpack this as it makes it dependent on query return order!
+        for did in session.execute(stmt).yield_per(5):                  # don't unpack this as it makes it dependent on query return order!
             if long:
                 did_full = "{}:{}".format(did.scope, did.name)
                 if did_full not in ignore_dids:         # concatenating results of OR clauses may contain duplicate DIDs if query result sets not mutually exclusive.
@@ -261,7 +267,7 @@ class DidColumnMeta(DidMetaPlugin):
                     yield {
                         'scope': did.scope,
                         'name': did.name,
-                        'did_type': str(did.did_type),
+                        'did_type': did.did_type.name,
                         'bytes': did.bytes,
                         'length': did.length
                     }

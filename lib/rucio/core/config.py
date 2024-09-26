@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 from dogpile.cache.api import NoValue
-from sqlalchemy import func
+from sqlalchemy import and_, delete, func, select, update
 
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import CacheKey, MemcacheRegion
 from rucio.common.exception import ConfigNotFound
 from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
@@ -26,32 +25,14 @@ from rucio.db.sqla.session import read_session, transactional_session
 T = TypeVar('T')
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
 
 
-REGION = make_region_memcached(expiration_time=900)
+REGION = MemcacheRegion(expiration_time=900)
 
 SECTIONS_CACHE_KEY = 'sections'
-
-
-def _has_section_cache_key(section: str) -> str:
-    return 'has_section_%s' % section
-
-
-def _options_cache_key(section: str) -> str:
-    return 'options_%s' % section
-
-
-def _has_option_cache_key(section: str, option: str) -> str:
-    return 'has_option_%s_%s' % (section, option)
-
-
-def _items_cache_key(section: str) -> str:
-    return 'items_%s' % section
-
-
-def _value_cache_key(section: str, option: str) -> str:
-    return 'get_%s_%s' % (section, option)
 
 
 @read_session
@@ -74,8 +55,11 @@ def sections(
     if use_cache:
         all_sections = read_from_cache(SECTIONS_CACHE_KEY, expiration_time)
     if isinstance(all_sections, NoValue):
-        query = session.query(models.Config.section).distinct().all()
-        all_sections = [section[0] for section in query]
+        stmt = select(
+            models.Config.section
+        ).distinct(
+        )
+        all_sections = list(session.execute(stmt).scalars().all())
         write_to_cache(SECTIONS_CACHE_KEY, all_sections)
 
     return all_sections
@@ -114,8 +98,12 @@ def has_section(
     if use_cache:
         has_section = read_from_cache(has_section_key, expiration_time)
     if isinstance(has_section, NoValue):
-        query = session.query(models.Config).filter_by(section=section)
-        has_section = True if query.first() else False
+        stmt = select(
+            models.Config
+        ).where(
+            models.Config.section == section
+        )
+        has_section = session.execute(stmt).first() is not None
         write_to_cache(has_section_key, has_section)
     return has_section
 
@@ -137,13 +125,17 @@ def options(
     :param session: The database session in use.
     :returns: ['option', ...]
     """
-    options_key = _options_cache_key(section)
+    options_key = CacheKey.options(section)
     options = NoValue()
     if use_cache:
         options = read_from_cache(options_key, expiration_time)
     if isinstance(options, NoValue):
-        query = session.query(models.Config.opt).filter_by(section=section).distinct().all()
-        options = [option[0] for option in query]
+        stmt = select(
+            models.Config.opt
+        ).where(
+            models.Config.section == section
+        ).distinct()
+        options = list(session.execute(stmt).scalars().all())
         write_to_cache(options_key, options)
     return options
 
@@ -167,13 +159,18 @@ def has_option(
     :param session: The database session in use.
     :returns: True/False
     """
-    has_option_key = _has_option_cache_key(section, option)
+    has_option_key = CacheKey.has_option(section, option)
     has_option = NoValue()
     if use_cache:
         has_option = read_from_cache(has_option_key, expiration_time)
     if isinstance(has_option, NoValue):
-        query = session.query(models.Config).filter_by(section=section, opt=option)
-        has_option = True if query.first() else False
+        stmt = select(
+            models.Config
+        ).where(
+            and_(models.Config.section == section,
+                 models.Config.opt == option)
+        )
+        has_option = session.execute(stmt).first() is not None
         write_to_cache(has_option_key, has_option)
     return has_option
 
@@ -186,7 +183,7 @@ def get(
         default: Optional[T] = None,
         use_cache: bool = True,
         expiration_time: int = 900,
-        convert_type_fnc: Callable[[str], T],
+        convert_type_fnc: 'Callable[[str], T]',
         session: "Session"
 ) -> T:
     """
@@ -204,12 +201,18 @@ def get(
     :param session: The database session in use.
     :returns: The auto-coerced value.
     """
-    value_key = _value_cache_key(section, option)
+    value_key = CacheKey.value(section, option)
     value = NoValue()
     if use_cache:
         value = read_from_cache(value_key, expiration_time)
     if isinstance(value, NoValue):
-        tmp = session.query(models.Config.value).filter_by(section=section, opt=option).first()
+        stmt = select(
+            models.Config.value
+        ).where(
+            and_(models.Config.section == section,
+                 models.Config.opt == option)
+        )
+        tmp = session.execute(stmt).first()
         if tmp is not None:
             value = convert_type_fnc(tmp[0])
             write_to_cache(value_key, tmp[0])
@@ -229,7 +232,7 @@ def items(
         use_cache: bool = True,
         expiration_time: int = 900,
         *,
-        convert_type_fnc: Callable[[str], T],
+        convert_type_fnc: 'Callable[[str], T]',
         session: "Session"
 ) -> list[tuple[str, T]]:
     """
@@ -242,14 +245,20 @@ def items(
     :param session: The database session in use.
     :returns: [('option', auto-coerced value), ...]
     """
-    items_key = _items_cache_key(section)
+    items_key = CacheKey.items(section)
     items = NoValue()
     if use_cache:
         items = read_from_cache(items_key, expiration_time)
     if isinstance(items, NoValue):
-        items = session.query(models.Config.opt, models.Config.value).filter_by(section=section).all()
+        stmt = select(
+            models.Config.opt,
+            models.Config.value
+        ).where(
+            models.Config.section == section
+        )
+        items = session.execute(stmt).all()
         write_to_cache(items_key, items)
-    return [(item[0], convert_type_fnc(item[1])) for item in items]
+    return [(opt, convert_type_fnc(val)) for opt, val in items]
 
 
 @transactional_session
@@ -275,23 +284,36 @@ def set(
         new_option = models.Config(section=section, opt=option, value=value)
         new_option.save(session=session)
 
-        delete_from_cache(key=_value_cache_key(section, option))
-        delete_from_cache(key=_has_option_cache_key(section, option))
-        delete_from_cache(key=_items_cache_key(section))
+        delete_from_cache(key=CacheKey.value(section, option))
+        delete_from_cache(key=CacheKey.has_option(section, option))
+        delete_from_cache(key=CacheKey.items(section))
         if not section_existed:
             delete_from_cache(key=SECTIONS_CACHE_KEY)
-            delete_from_cache(key=_has_section_cache_key(section))
+            delete_from_cache(key=CacheKey.has_section(section))
     else:
-        old_value = session.query(models.Config.value).filter_by(section=section,
-                                                                 opt=option).first()[0]
+        stmt = select(
+            models.Config.value
+        ).where(
+            and_(models.Config.section == section,
+                 models.Config.opt == option)
+        )
+        old_value = session.execute(stmt).scalar_one_or_none()
         if old_value != str(value):
             old_option = models.ConfigHistory(section=section,
                                               opt=option,
                                               value=old_value)
             old_option.save(session=session)
-            session.query(models.Config).filter_by(section=section, opt=option).update({'value': str(value)})
-            delete_from_cache(key=_value_cache_key(section, option))
-            delete_from_cache(key=_items_cache_key(section))
+            stmt = update(
+                models.Config
+            ).where(
+                and_(models.Config.section == section,
+                     models.Config.opt == option)
+            ).values({
+                models.Config.value: str(value)
+            })
+            session.execute(stmt)
+            delete_from_cache(key=CacheKey.value(section, option))
+            delete_from_cache(key=CacheKey.items(section))
 
 
 @transactional_session
@@ -307,17 +329,27 @@ def remove_section(section: str, *, session: "Session") -> bool:
     if not has_section(section=section, session=session):
         return False
     else:
-        for old in session.query(models.Config.value).filter_by(section=section).all():
+        stmt = select(
+            models.Config.value
+        ).where(
+            models.Config.section == section
+        )
+        for old in session.execute(stmt).all():
             old_option = models.ConfigHistory(section=old[0],
                                               opt=old[1],
                                               value=old[2])
             old_option.save(session=session)
-            delete_from_cache(key=_has_option_cache_key(old[0], old[1]))
-            delete_from_cache(key=_value_cache_key(old[0], old[1]))
+            delete_from_cache(key=CacheKey.has_option(old[0], old[1]))
+            delete_from_cache(key=CacheKey.value(old[0], old[1]))
 
-        session.query(models.Config).filter_by(section=section).delete()
+        stmt = delete(
+            models.Config
+        ).where(
+            models.Config.section == section
+        )
+        session.execute(stmt)
         delete_from_cache(key=SECTIONS_CACHE_KEY)
-        delete_from_cache(key=_items_cache_key(section))
+        delete_from_cache(key=CacheKey.items(section))
         return True
 
 
@@ -335,20 +367,40 @@ def remove_option(section: str, option: str, *, session: "Session") -> bool:
     if not has_option(section=section, option=option, session=session, use_cache=False):
         return False
     else:
+        stmt = select(
+            models.Config.value
+        ).where(
+            and_(models.Config.section == section,
+                 models.Config.opt == option)
+        )
+        result = session.execute(stmt).scalar_one_or_none()
         old_option = models.ConfigHistory(section=section,
                                           opt=option,
-                                          value=session.query(models.Config.value).filter_by(section=section,
-                                                                                             opt=option).first()[0])
+                                          value=result)
         old_option.save(session=session)
-        session.query(models.Config).filter_by(section=section, opt=option).delete()
 
-        if not session.query(func.count('*')).select_from(models.Config).filter_by(section=section).scalar():
+        stmt = delete(
+            models.Config
+        ).where(
+            and_(models.Config.section == section,
+                 models.Config.opt == option)
+        )
+        session.execute(stmt)
+
+        stmt = select(
+            func.count()
+        ).select_from(
+            models.Config
+        ).where(
+            models.Config.section == section
+        )
+        if not session.execute(stmt).scalar_one_or_none():
             # we deleted the last config entry in the section. Invalidate the section cache
             delete_from_cache(key=SECTIONS_CACHE_KEY)
-            delete_from_cache(key=_has_section_cache_key(section))
-        delete_from_cache(key=_items_cache_key(section))
-        delete_from_cache(key=_has_option_cache_key(section, option))
-        delete_from_cache(key=_value_cache_key(section, option))
+            delete_from_cache(key=CacheKey.has_section(section))
+        delete_from_cache(key=CacheKey.items(section))
+        delete_from_cache(key=CacheKey.has_option(section, option))
+        delete_from_cache(key=CacheKey.value(section, option))
         return True
 
 

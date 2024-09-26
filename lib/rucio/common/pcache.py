@@ -23,8 +23,17 @@ import subprocess
 import sys
 import time
 from socket import gethostname
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlencode
 from urllib.request import urlopen
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+    from types import FrameType
+    from urllib.parse import _QueryType
+
+    from _typeshed import StrOrBytesPath
+
 
 # The pCache Version
 pcacheversion = "4.2.3"
@@ -40,12 +49,12 @@ sessid = "%s.%s" % (int(time.time()), os.getpid())
 
 
 # Run a command with a timeout
-def run_cmd(args, timeout=0):
+def run_cmd(args: "subprocess._CMD", timeout: int = 0) -> tuple[int, Optional[bytes]]:
 
     class Alarm(Exception):
         pass
 
-    def alarm_handler(signum, frame):
+    def alarm_handler(signum: int, frame: Optional["FrameType"]) -> None:
         raise Alarm
 
     # Execute the command as a subprocess
@@ -95,7 +104,7 @@ def run_cmd(args, timeout=0):
     return (p.returncode, stdout)
 
 
-def get_process_children(pid):
+def get_process_children(pid: int) -> list[int]:
 
     # Get a list of all pids associated with a given pid
     p = subprocess.Popen(args='ps --no-headers -o pid --ppid %d' % pid,
@@ -110,19 +119,19 @@ def get_process_children(pid):
     return [int(pr) for pr in stdout.split()]
 
 
-def unitize(x):
+def unitize(x: int) -> str:
 
     suff = 'BKMGTPEZY'
 
     while ((x >= 1024) and suff):
-        x /= 1024.0
+        y = x / 1024.0
         suff = suff[1:]
-    return "%.4g%s" % (x, suff[0])
+    return "%.4g%s" % (y, suff[0])
 
 
 class Pcache:
 
-    def Usage(self):
+    def Usage(self) -> None:
         msg = """Usage: %s [flags] copy_prog [copy_flags] input output""" % self.progname
         sys.stderr.write("%s\n" % msg)  # py3, py2
     #  print>>sys.stderr, "  flags are: "
@@ -161,11 +170,11 @@ class Pcache:
         self.hysterisis = 0.75
         # self.hysterisis = 0.9
         self.clean = False
-        self.transfer_timeout = "600"
+        self.transfer_timeout_as_str: str = "600"
         self.max_retries = 3
         self.guid = None
-        self.accept_patterns = []
-        self.reject_patterns = []
+        self.accept_patterns: list[re.Pattern] = []
+        self.reject_patterns: list[re.Pattern] = []
         self.force = False
         self.flush = False
         self.verbose = False
@@ -185,7 +194,7 @@ class Pcache:
         self.deleted_guids = []
         self.version = pcacheversion
 
-    def parse_args(self, args):
+    def parse_args(self, args: list[str]) -> None:
         # handle pcache flags and leave the rest in self.args
 
         try:
@@ -239,11 +248,11 @@ class Pcache:
                 else:
                     self.hysterisis = float(arg)
             elif opt in ("-A", "--accept"):
-                self.accept_patterns.append(arg)
+                self.accept_patterns.append(re.compile(arg))
             elif opt in ("-R", "--reject"):
-                self.reject_patterns.append(arg)
+                self.reject_patterns.append(re.compile(arg))
             elif opt in ("-t", "--timeout"):
-                self.transfer_timeout = arg
+                self.transfer_timeout_as_str = arg
             elif opt in ("-f", "--force"):
                 self.force = True
             elif opt in ("-F", "--flush-cache"):
@@ -287,8 +296,8 @@ class Pcache:
         self._convert_max_space()
 
         # Convert timeout to seconds
-        t = self.transfer_timeout
         mult = 1
+        t = self.transfer_timeout_as_str
         suff = t[-1]
         if suff in ('H', 'h'):
             mult = 3600
@@ -299,11 +308,7 @@ class Pcache:
         elif suff in ('S', 's'):
             mult = 1
             t = t[:-1]
-        self.transfer_timeout = mult * int(t)
-
-        # Pre-compile regexes
-        self.accept_patterns = list(map(re.compile, self.accept_patterns))
-        self.reject_patterns = list(map(re.compile, self.reject_patterns))
+        self.transfer_timeout: int = mult * int(t)
 
         # Set host and name
         if self.hostname is None:
@@ -314,7 +319,7 @@ class Pcache:
         # All done
         self.args = args
 
-    def _convert_max_space(self):
+    def _convert_max_space(self) -> None:
         '''
         Added by Rucio team. Converts max allowed space usage of pcache into units used by this tool.
         :input self.max_space: limit set by user
@@ -335,7 +340,7 @@ class Pcache:
             else:  # Numeric value w/o units (exception if invalid)
                 self.bytes_max = float(self.max_space)
 
-    def clean_pcache(self, max_space=None):
+    def clean_pcache(self, max_space: Optional[str] = None) -> None:
         '''
         Added by Rucio team. Cleans pcache in case it is over limit.
         Used for tests of the pcache functionality. Can be called without other init.
@@ -360,8 +365,21 @@ class Pcache:
         # clean pcache
         self.maybe_start_cleaner_thread()
 
-    def check_and_link(self, src='', dst='', dst_prefix='', scratch_dir='/scratch/', storage_root=None, force=False,
-                       guid=None, log_file=None, version='', hostname=None, sitename=None, local_src=None):
+    def check_and_link(
+            self,
+            src: str = '',
+            dst: str = '',
+            dst_prefix: str = '',
+            scratch_dir: str = '/scratch/',
+            storage_root: Optional[str] = None,
+            force: bool = False,
+            guid: Optional[str] = None,
+            log_file: Optional[str] = None,
+            version: str = '',
+            hostname: Optional[str] = None,
+            sitename: Optional[str] = None,
+            local_src: Optional[str] = None
+    ):
         '''
         Added by Rucio team. Replacement for the main method.
         Checks whether a file is in pcache:
@@ -464,7 +482,7 @@ class Pcache:
         # Return if the file was cached, copied or an error (and its code)
         return (exit_status, copy_status)
 
-    def main(self, args):
+    def main(self, args: list[str]) -> tuple[int, Optional[int]]:
 
         # args
         self.cmdline = ' '.join(args)
@@ -579,7 +597,7 @@ class Pcache:
         # Return if the file was cached, copied or an error (and its code)
         return (exit_status, copy_status)
 
-    def finish(self, local_src=None):
+    def finish(self, local_src: Optional[str] = None) -> None:
         cache_file = self.pcache_dst_dir + "data"
         self.update_mru()
         if self.local_src:
@@ -589,7 +607,7 @@ class Pcache:
             if (self.make_hard_link(cache_file, self.dst)):
                 self.fail(102)
 
-    def pcache_copy_in(self):
+    def pcache_copy_in(self) -> tuple[int, Optional[int]]:
 
         cache_file = self.pcache_dst_dir + "data"
 
@@ -656,32 +674,33 @@ class Pcache:
 
         return (exit_status, copy_status)
 
-    def create_pcache_dst_dir(self):
+    def create_pcache_dst_dir(self) -> None:
 
         d = self.src
-        index = d.find(self.storage_root)
+        if self.storage_root is not None:
+            index = d.find(self.storage_root)
 
-        if (index >= 0):
-            d = d[index:]
-        else:
-            index = d.find("SFN=")
             if (index >= 0):
-                d = d[index + 4:]
+                d = d[index:]
+            else:
+                index = d.find("SFN=")
+                if (index >= 0):
+                    d = d[index + 4:]
 
-        # self.log(INFO, '%s', self.storage_root)
-        # self.log(INFO, '%s', d)
-        # XXXX any more patterns to look for?
-        d = os.path.normpath(self.pcache_dir + "CACHE/" + d)
-        if (not d.endswith('/')):
-            d += '/'
+            # self.log(INFO, '%s', self.storage_root)
+            # self.log(INFO, '%s', d)
+            # XXXX any more patterns to look for?
+            d = os.path.normpath(self.pcache_dir + "CACHE/" + d)
+            if (not d.endswith('/')):
+                d += '/'
 
-        self.pcache_dst_dir = d
-        status = self.mkdir_p(d)
-        if (status):
-            self.log(ERROR, "mkdir %s %s", d, status)
-            self.fail(103)
+            self.pcache_dst_dir = d
+            status = self.mkdir_p(d)
+            if (status):
+                self.log(ERROR, "mkdir %s %s", d, status)
+                self.fail(103)
 
-    def get_disk_usage(self):
+    def get_disk_usage(self) -> int:
         p = os.popen("df -P %s | tail -1" % self.pcache_dir, 'r')  # noqa: S605
         data = p.read()
         status = p.close()
@@ -696,19 +715,23 @@ class Pcache:
         percent = int(percent[:-1])
         return percent
 
-    def over_limit(self, factor=1.0):
+    def over_limit(self, factor: float = 1.0) -> bool:
         if self.percent_max:
             return self.get_disk_usage() > factor * self.percent_max
         if self.bytes_max:
-            return self.get_cache_size() > factor * self.bytes_max
+            cache_size = self.get_cache_size()
+            if cache_size is not None:
+                return cache_size > factor * self.bytes_max
         return False
 
-    def clean_cache(self):
+    def clean_cache(self) -> None:
         t0 = time.time()
+        cache_size = self.get_cache_size()
 
-        self.log(INFO, "starting cleanup, cache size=%s, usage=%s%%",
-                 unitize(self.get_cache_size()),
-                 self.get_disk_usage())
+        if cache_size is not None:
+            self.log(INFO, "starting cleanup, cache size=%s, usage=%s%%",
+                     unitize(cache_size),
+                     self.get_disk_usage())
 
         for link in self.list_by_mru():
             try:
@@ -746,7 +769,7 @@ class Pcache:
                  self.get_disk_usage(),
                  time.time() - t0)
 
-    def list_by_mru(self):
+    def list_by_mru(self) -> "Iterator[str]":
         mru_dir = self.pcache_dir + "MRU/"
         for root, dirs, files in os.walk(mru_dir):
             dirs.sort()
@@ -761,7 +784,7 @@ class Pcache:
                     path = os.path.join(root, file)
                     yield path
 
-    def flush_cache(self):
+    def flush_cache(self) -> None:
         # Delete everything in CACHE, MRU, and reset stats
         self.log(INFO, "flushing cache")
         if self.update_panda:
@@ -777,7 +800,7 @@ class Pcache:
                 if e.errno != errno.ENOENT:
                     self.log(ERROR, "%s: %s", d, e)
 
-    def do_transfer(self):
+    def do_transfer(self) -> tuple[int, Optional[int]]:
 
         # Cache file and transfer file locations
         cache_file = self.pcache_dst_dir + "data"
@@ -842,7 +865,7 @@ class Pcache:
         # Transfer completed, return the transfer command status
         return (0, None)
 
-    def maybe_start_cleaner_thread(self):
+    def maybe_start_cleaner_thread(self) -> None:
         if not self.over_limit():
             return
         # exit immediately if another cleaner is active
@@ -866,7 +889,7 @@ class Pcache:
             self.unlock_file(cleaner_lock)
             os._exit(0)
 
-    def make_hard_link(self, src, dst):
+    def make_hard_link(self, src: "StrOrBytesPath", dst: "StrOrBytesPath") -> Optional[int]:
         self.log(INFO, "linking %s to %s", src, dst)
         try:
             if os.path.exists(dst):
@@ -888,13 +911,13 @@ class Pcache:
                     self.log(INFO, "cannot stat %s", dst)
             return ret
 
-    def reject(self, name):
+    def reject(self, name: str) -> bool:
         for pat in self.reject_patterns:
             if pat.search(name):
                 return True
         return False
 
-    def accept(self, name):
+    def accept(self, name: str) -> bool:
         if not self.accept_patterns:
             return True
         for pat in self.accept_patterns:
@@ -902,7 +925,7 @@ class Pcache:
                 return True
         return False
 
-    def get_stat(self, stats_dir, stat_name):
+    def get_stat(self, stats_dir: str, stat_name: str) -> int:
         filename = os.path.join(self.pcache_dir, stats_dir, stat_name)
         try:
             f = open(filename, 'r')
@@ -912,12 +935,12 @@ class Pcache:
             data = 0
         return data
 
-    def print_stats(self):
+    def print_stats(self) -> None:
         print(("Cache size: %s", unitize(self.get_stat("CACHE", "size"))))
         print(("Cache hits: %s", self.get_stat("stats", "cache_hits")))
         print(("Cache misses: %s", self.get_stat("stats", "cache_misses")))
 
-    def reset_stats(self):
+    def reset_stats(self) -> None:
         stats_dir = os.path.join(self.pcache_dir, "stats")
         try:
             for f in os.listdir(stats_dir):
@@ -930,7 +953,7 @@ class Pcache:
         # XXXX error handling
         pass
 
-    def update_stat_file(self, stats_dir, name, delta):  # internal
+    def update_stat_file(self, stats_dir: str, name: str, delta: int) -> None:  # internal
         stats_dir = os.path.join(self.pcache_dir, stats_dir)
         self.mkdir_p(stats_dir)
         self.lock_dir(stats_dir)
@@ -954,13 +977,13 @@ class Pcache:
             # XXX
         self.unlock_dir(stats_dir)
 
-    def update_stats(self, name, delta=1):
+    def update_stats(self, name: str, delta: int = 1) -> None:
         return self.update_stat_file("stats", name, delta)
 
-    def update_cache_size(self, bytes_):
+    def update_cache_size(self, bytes_: int) -> None:
         return self.update_stat_file("CACHE", "size", bytes_)
 
-    def get_cache_size(self):
+    def get_cache_size(self) -> Optional[int]:
         filename = os.path.join(self.pcache_dir, "CACHE", "size")
         size = 0
 
@@ -976,14 +999,14 @@ class Pcache:
             size = self.do_cache_inventory()
 
         # The size should never be negative, so lets cleanup and start over
-        if size < 0:
+        if size is not None and size < 0:
             self.log(WARN, "CACHE corruption found. Negative CACHE size: %d", size)
             self.flush_cache()
             size = 0
 
         return size
 
-    def do_cache_inventory(self):
+    def do_cache_inventory(self) -> Optional[int]:
 
         inventory_lock = os.path.join(self.pcache_dir, ".inventory")
         if self.lock_file(inventory_lock, blocking=False):
@@ -1016,7 +1039,7 @@ class Pcache:
         self.log(INFO, "inventory complete, cache size %s", size)
         return size
 
-    def daemonize(self):
+    def daemonize(self) -> None:
         if self.debug:
             return
         try:
@@ -1055,7 +1078,7 @@ class Pcache:
                 pass
 
     # Panda server callback functions
-    def do_http_post(self, url, data):
+    def do_http_post(self, url: str, data: "_QueryType") -> None:
         # see http://www.faqs.org/faqs/unix-faq/faq/part3/section-13.html
         # for explanation of double-fork (is it overkill here?)
         pid = os.fork()
@@ -1072,7 +1095,7 @@ class Pcache:
             # This will retry for up to 1 hour, at 2 minute intervals
             while retry < 30:
                 try:
-                    u = urlopen(url, data=urlencode(data))
+                    u = urlopen(url, data=urlencode(data))  # type: ignore
                     ret = u.read()
                     u.close()
                     self.log(INFO, "http post to %s, retry %s, data='%s', return='%s'",
@@ -1087,25 +1110,25 @@ class Pcache:
             # finished, don't keep the child thread around!
             os._exit(0)
 
-    def panda_flush_cache(self):
+    def panda_flush_cache(self) -> None:
         self.do_http_post(self.panda_url + "flushCacheDB",
                           data={"site": self.sitename,
                                 "node": self.hostname})
 
-    def panda_add_cache_files(self, guids):
+    def panda_add_cache_files(self, guids: "Iterable[str]") -> None:
         self.do_http_post(self.panda_url + "addFilesToCacheDB",
                           data={"site": self.sitename,
                                 "node": self.hostname,
                                 "guids": ','.join(guids)})
 
-    def panda_del_cache_files(self, guids):
+    def panda_del_cache_files(self, guids: "Iterable[str]") -> None:
         self.do_http_post(self.panda_url + "deleteFilesFromCacheDB",
                           data={"site": self.sitename,
                                 "node": self.hostname,
                                 "guids": ','.join(guids)})
 
     # Locking functions
-    def lock_dir(self, d, create=True, blocking=True):
+    def lock_dir(self, d: str, create: bool = True, blocking: bool = True) -> Optional[int]:
         lock_name = os.path.join(d, LOCK_NAME)
         lock_status = self.lock_file(lock_name, blocking)
         if (not lock_status):  # succeeded
@@ -1118,10 +1141,10 @@ class Pcache:
             lock_status = self.lock_file(lock_name, blocking)
         return lock_status
 
-    def unlock_dir(self, d):
+    def unlock_dir(self, d: str) -> Optional[Any]:
         return self.unlock_file(os.path.join(d, LOCK_NAME))
 
-    def lock_file(self, name, blocking=True):
+    def lock_file(self, name: str, blocking: bool = True) -> Optional[int]:
         if name in self.locks:
             self.log(DEBUG, "lock_file: %s already locked", name)
             return
@@ -1150,7 +1173,7 @@ class Pcache:
                     self.fail(106)
         return status
 
-    def unlock_file(self, name):
+    def unlock_file(self, name: str) -> Optional[Any]:
         f = self.locks.get(name)
         if not f:
             self.log(DEBUG, "unlock_file: %s not locked", name)
@@ -1167,7 +1190,7 @@ class Pcache:
         del self.locks[name]
         return status
 
-    def unlock_all(self):
+    def unlock_all(self) -> None:
         for filename, f in list(self.locks.items()):
             try:
                 f.close()
@@ -1176,7 +1199,7 @@ class Pcache:
                 pass
 
     # Cleanup functions
-    def delete_file_and_parents(self, name):
+    def delete_file_and_parents(self, name: str) -> None:
         try:
             os.unlink(name)
         except OSError as e:
@@ -1185,7 +1208,7 @@ class Pcache:
                 self.fail(107)
         self.delete_parents_recursive(name)
 
-    def delete_parents_recursive(self, name):  # internal
+    def delete_parents_recursive(self, name: str) -> None:  # internal
         try:
             dirname = os.path.dirname(name)
             if not os.listdir(dirname):
@@ -1194,7 +1217,7 @@ class Pcache:
         except OSError as e:
             self.log(DEBUG, "delete_parents_recursive: %s", e)
 
-    def update_mru(self):
+    def update_mru(self) -> None:
         now = time.time()
         link_to_mru = self.pcache_dst_dir + "mru"
         if os.path.exists(link_to_mru):
@@ -1249,13 +1272,13 @@ class Pcache:
                     self.log(ERROR, "symlink: %s %s", e, link_from_mru)
                     self.fail(109)
 
-    def cleanup_failed_transfer(self):
+    def cleanup_failed_transfer(self) -> None:
         try:
             os.unlink(self.pcache_dir + 'xfer')
         except:
             pass
 
-    def empty_dir(self, d):
+    def empty_dir(self, d: str) -> None:
         status = None
         bytes_deleted = 0
         for name in os.listdir(d):
@@ -1294,14 +1317,14 @@ class Pcache:
         self.delete_parents_recursive(d)
         return status
 
-    def chmod(self, path, mode):
+    def chmod(self, path: str, mode: int) -> None:
         try:
             os.chmod(path, mode)
         except OSError as e:
             if e.errno != errno.EPERM:  # Cannot chmod files we don't own!
                 self.log(ERROR, "chmod %s %s", path, e)
 
-    def mkdir_p(self, d, mode=0o777):
+    def mkdir_p(self, d: str, mode: int = 0o777) -> Optional[int]:
         # Thread-safe
         try:
             os.makedirs(d, mode)
@@ -1314,7 +1337,7 @@ class Pcache:
                 sys.stderr.write("%s\n" % str(e))
                 return e.errno
 
-    def log(self, level, msg, *args):
+    def log(self, level: str, msg: str, *args) -> None:
 
         # Disable all logging
         if (self.quiet):
@@ -1343,7 +1366,7 @@ class Pcache:
             sys.stderr.write(msg)
             sys.stderr.flush()
 
-    def fail(self, errcode=1):
+    def fail(self, errcode: int = 1) -> None:
         self.unlock_all()
         sys.exit(errcode)
 

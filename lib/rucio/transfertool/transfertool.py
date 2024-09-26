@@ -14,14 +14,17 @@
 
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core.request import get_request
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from collections.abc import Iterable, Mapping, Sequence
 
+    from sqlalchemy.orm import Session
+
+    from rucio.common.types import LoggerFunction
     from rucio.core.request import DirectTransfer
     from rucio.core.rse import RseData
 
@@ -34,7 +37,7 @@ class TransferToolBuilder:
     Implements __hash__ and __eq__ to allow using it as key in dictionaries and group transfers
     by common transfertool.
     """
-    def __init__(self, transfertool_class, **kwargs):
+    def __init__(self, transfertool_class: type["Transfertool"], **kwargs):
         self.transfertool_class = transfertool_class
         self.fixed_kwargs = frozenset(kwargs.items())
 
@@ -47,7 +50,7 @@ class TransferToolBuilder:
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.__dict__ == other.__dict__
 
-    def make_transfertool(self, **additional_kwargs):
+    def make_transfertool(self, **additional_kwargs) -> "Transfertool":
         all_kwargs = dict(self.fixed_kwargs)
         all_kwargs.update(additional_kwargs)
         return self.transfertool_class(**all_kwargs)
@@ -64,7 +67,7 @@ class TransferStatusReport(metaclass=ABCMeta):
         'state',
     ]
 
-    def __init__(self, request_id, request=None):
+    def __init__(self, request_id: str, request: Optional[dict[str, Any]] = None):
         self.request_id = request_id
         self.__request = request  # Optional: DB request. If provided, saves us a database call to fetch it by request_id
         self.__initialized = False
@@ -73,25 +76,25 @@ class TransferStatusReport(metaclass=ABCMeta):
         self.state = None
 
     @abstractmethod
-    def initialize(self, session, logger=logging.log):
+    def initialize(self, session: "Session", logger: "LoggerFunction" = logging.log) -> None:
         """
         Initialize all fields from self.supported_update_fields
         """
         pass
 
     @abstractmethod
-    def get_monitor_msg_fields(self, session, logger=logging.log):
+    def get_monitor_msg_fields(self, session: "Session", logger: "LoggerFunction" = logging.log) -> dict[str, Any]:
         """
         Return the fields which will be included in the message sent to hermes.
         """
         pass
 
-    def ensure_initialized(self, session, logger=logging.log):
+    def ensure_initialized(self, session: "Session", logger: "LoggerFunction" = logging.log) -> None:
         if not self.__initialized:
             self.initialize(session, logger)
             self.__initialized = True
 
-    def request(self, session):
+    def request(self, session: "Session") -> Optional[dict[str, Any]]:
         """
         Fetch the request by request_id if needed.
         """
@@ -99,7 +102,7 @@ class TransferStatusReport(metaclass=ABCMeta):
             self.__request = get_request(self.request_id, session=session)
         return self.__request
 
-    def get_db_fields_to_update(self, session, logger=logging.log):
+    def get_db_fields_to_update(self, session: "Session", logger: "LoggerFunction" = logging.log) -> dict[str, Any]:
         """
         Returns the fields which have to be updated in the request
         """
@@ -122,7 +125,7 @@ class Transfertool(metaclass=ABCMeta):
     required_rse_attrs = ()
     supported_schemes = set(SUPPORTED_PROTOCOLS).difference(('magnet', ))
 
-    def __init__(self, external_host, logger=logging.log):
+    def __init__(self, external_host: str, logger: "LoggerFunction" = logging.log):
         """
         Initializes the transfertool
 
@@ -136,7 +139,7 @@ class Transfertool(metaclass=ABCMeta):
         return self.external_host if self.external_host is not None else self.__class__.__name__
 
     @classmethod
-    def can_perform_transfer(cls, source_rse: "RseData", dest_rse: "RseData"):
+    def can_perform_transfer(cls, source_rse: "RseData", dest_rse: "RseData") -> bool:
         """
         Return True if this transfertool is able to perform a transfer between the given source and destination rses
         """
@@ -149,7 +152,7 @@ class Transfertool(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def submission_builder_for_path(cls, transfer_path, logger=logging.log) -> "tuple[list[DirectTransfer], Optional[TransferToolBuilder]]":
+    def submission_builder_for_path(cls, transfer_path: list["DirectTransfer"], logger: "LoggerFunction" = logging.log) -> tuple[list["DirectTransfer"], Optional["TransferToolBuilder"]]:
         """
         Analyze the transfer path. If this transfertool class can submit the given transfers, return
         a TransferToolBuilder instance capable to build transfertool objects configured for this
@@ -163,7 +166,7 @@ class Transfertool(metaclass=ABCMeta):
 
     @abstractmethod
     @abstractmethod
-    def group_into_submit_jobs(self, transfer_paths):
+    def group_into_submit_jobs(self, transfer_paths: "Iterable[list[DirectTransfer]]") -> list[dict[str, Any]]:
         """
         Takes an iterable over transfer paths, and create groups which can be submitted in one call to submit()
 
@@ -173,7 +176,7 @@ class Transfertool(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def submit(self, transfers, job_params, timeout=None):
+    def submit(self, transfers: "Iterable[DirectTransfer]", job_params: dict[str, str], timeout: Optional[int] = None) -> str:
         """
         Submit transfers to the transfertool.
 
@@ -185,7 +188,7 @@ class Transfertool(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def bulk_query(self, requests_by_eid, timeout=None) -> dict[str, dict[str, TransferStatusReport]]:
+    def bulk_query(self, requests_by_eid: "Mapping[str, Mapping[str, Any]]", timeout: Optional[int] = None) -> dict[str, dict[str, TransferStatusReport]]:
         """
         Query the status of a bulk of transfers in FTS3 via JSON.
 
@@ -195,7 +198,7 @@ class Transfertool(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def cancel(self, transfer_ids, timeout=None):
+    def cancel(self, transfer_ids: "Sequence[str]", timeout: Optional[int] = None) -> None:
         """
         Cancel transfers that have been submitted to the transfertool.
 
@@ -206,7 +209,7 @@ class Transfertool(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def update_priority(self, transfer_id, priority, timeout=None):
+    def update_priority(self, transfer_id: str, priority: int, timeout: Optional[int] = None) -> Any:
         """
         Update the priority of a transfer that has been submitted to the transfertool.
 

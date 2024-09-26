@@ -18,8 +18,7 @@ Conveyor stager is a daemon to manage stagein file transfers.
 
 import logging
 import threading
-from types import FrameType
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.db.sqla.util
 from rucio.common import exception
@@ -31,22 +30,29 @@ from rucio.daemons.conveyor.submitter import submitter
 from rucio.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+    from types import FrameType
+
+    from rucio.common.types import RSESettingsDict
+
+
 METRICS = MetricManager(module=__name__)
 GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'conveyor-stager'
 
 
 def stager(
-        once=False,
-        rses=None,
-        bulk=100,
-        group_bulk=1,
-        group_policy='rule',
-        source_strategy=None,
-        activities=None,
-        sleep_time=600,
-        total_threads=1
-):
+        once: bool = False,
+        rses: Optional[list["RSESettingsDict"]] = None,
+        bulk: int = 100,
+        group_bulk: int = 1,
+        group_policy: str = 'rule',
+        source_strategy: Optional[str] = None,
+        activities: Optional[list[str]] = None,
+        sleep_time: int = 600,
+        total_threads: int = 1
+) -> None:
 
     submitter(
         once=once,
@@ -70,7 +76,7 @@ def stager(
     )
 
 
-def stop(signum: Optional[int] = None, frame: Optional[FrameType] = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
@@ -83,7 +89,7 @@ def run(
     total_threads: int = 1,
     group_bulk: int = 1,
     group_policy: str = 'rule',
-    rses: Optional[list[str]] = None,
+    rses: Optional["Sequence[Mapping[str, Any]]"] = None,
     include_rses: Optional[str] = None,
     exclude_rses: Optional[str] = None,
     vos: Optional[list[str]] = None,

@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-from collections.abc import Iterable, Iterator
 from datetime import datetime
 from io import StringIO
 from re import match
@@ -27,9 +26,9 @@ from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.sql.expression import and_, delete, desc, false, func, or_, select, true
 
 from rucio.common import exception, types, utils
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common.constants import RseAttr
+from rucio.common.constants import RSE_SUPPORTED_PROTOCOL_OPERATIONS, RseAttr
 from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
@@ -38,12 +37,14 @@ from rucio.db.sqla.session import read_session, stream_session, transactional_se
 from rucio.db.sqla.util import temp_table_mngr
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
     from sqlalchemy.orm import Session
 
 T = TypeVar('T', bound="RseData")
 
 RSE_SETTINGS = ["continent", "city", "region_code", "country_name", "time_zone", "ISP", "ASN"]
-REGION = make_region_memcached(expiration_time=900)
+REGION = MemcacheRegion(expiration_time=900)
 
 
 class RseData:
@@ -242,11 +243,11 @@ class RseData:
         if load_info:
             stmt = select(
                 temp_table.id,
-                models.RSEProtocols
+                models.RSEProtocol
             ).outerjoin_from(
                 temp_table,
-                models.RSEProtocols,
-                models.RSEProtocols.rse_id == temp_table.id
+                models.RSEProtocol,
+                models.RSEProtocol.rse_id == temp_table.id
             ).order_by(
                 temp_table.id,
             )
@@ -300,7 +301,7 @@ class RseCollection(Generic[T]):
     Container which keeps track of information loaded from the database for a group of RSEs.
     """
 
-    def __init__(self, rse_ids: Optional[Iterable[str]] = None, rse_data_cls: type[T] = RseData):
+    def __init__(self, rse_ids: Optional['Iterable[str]'] = None, rse_data_cls: type[T] = RseData):
         self._rse_data_cls = rse_data_cls
         self.rse_id_to_data_map: dict[str, T] = {}
         if rse_ids is not None:
@@ -359,7 +360,7 @@ class RseCollection(Generic[T]):
 
 
 @stream_session
-def _group_query_result_by_rse_id(stmt, *, session: "Session") -> Iterator[tuple[str, list[Any]]]:
+def _group_query_result_by_rse_id(stmt, *, session: "Session") -> 'Iterator[tuple[str, list[Any]]]':
     """
     Given a sqlalchemy query statement which fetches rows of two elements: (rse_id, object) ordered by rse_id.
     Will execute the query and return objects grouped by rse_id: (rse_id, [object1, object2])
@@ -459,10 +460,8 @@ def rse_exists(rse, vo='def', include_deleted=False, *, session: "Session"):
     stmt = select(
         models.RSE
     ).where(
-        and_(
-            models.RSE.rse == rse,
-            models.RSE.vo == vo
-        )
+        and_(models.RSE.rse == rse,
+             models.RSE.vo == vo)
     )
     if not include_deleted:
         stmt = stmt.where(models.RSE.deleted == false())
@@ -482,8 +481,8 @@ def del_rse(rse_id, *, session: "Session"):
         stmt = select(
             models.RSE
         ).where(
-            models.RSE.id == rse_id,
-            models.RSE.deleted == false()
+            and_(models.RSE.id == rse_id,
+                 models.RSE.deleted == false())
         )
         db_rse = session.execute(stmt).scalar_one()
         rse_name = db_rse.rse
@@ -511,8 +510,8 @@ def restore_rse(rse_id, *, session: "Session"):
         stmt = select(
             models.RSE
         ).where(
-            models.RSE.id == rse_id,
-            models.RSE.deleted == true()
+            and_(models.RSE.id == rse_id,
+                 models.RSE.deleted == true())
         )
         db_rse = session.execute(stmt).scalar_one()
     except sqlalchemy.orm.exc.NoResultFound:
@@ -578,13 +577,14 @@ def get_rse(rse_id, *, session: "Session"):
     :raises RSENotFound: If referred RSE was not found in the database.
     """
 
-    false_value = False  # To make pep8 checker happy ...
     try:
-        tmp = session.query(models.RSE).\
-            filter(sqlalchemy.and_(models.RSE.deleted == false_value,
-                                   models.RSE.id == rse_id))\
-            .one()
-        return _format_get_rse(tmp, session=session)
+        stmt = select(
+            models.RSE
+        ).where(
+            and_(models.RSE.deleted == false(),
+                 models.RSE.id == rse_id)
+        )
+        return _format_get_rse(session.execute(stmt).scalar_one(), session=session)
     except sqlalchemy.orm.exc.NoResultFound:
         raise exception.RSENotFound('RSE with id \'%s\' cannot be found' % rse_id)
 
@@ -616,8 +616,8 @@ def get_rse_id(rse, vo='def', include_deleted=True, *, session: "Session"):
         stmt = select(
             models.RSE.id
         ).where(
-            models.RSE.rse == rse,
-            models.RSE.vo == vo
+            and_(models.RSE.rse == rse,
+                 models.RSE.vo == vo)
         )
         if not include_deleted:
             stmt = stmt.where(models.RSE.deleted == false())
@@ -711,7 +711,6 @@ def list_rses(filters: Optional[dict[str, Any]] = None, *, session: "Session") -
     """
 
     filters = filters or {}
-    rse_list = []
     filters = filters.copy()  # Make a copy, so we can pop() without affecting the object `filters` outside this function
 
     stmt = select(
@@ -740,21 +739,15 @@ def list_rses(filters: Optional[dict[str, Any]] = None, *, session: "Session") -
                 attr_assoc_alias = aliased(models.RSEAttrAssociation)
                 stmt = stmt.join(
                     attr_assoc_alias,
-                    and_(
-                        attr_assoc_alias.rse_id == models.RSE.id,
-                        attr_assoc_alias.key == k,
-                        attr_assoc_alias.value == v,
-                    )
+                    and_(attr_assoc_alias.rse_id == models.RSE.id,
+                         attr_assoc_alias.key == k,
+                         attr_assoc_alias.value == v)
                 )
-    else:
-        stmt = stmt.order_by(
-            models.RSE.rse
-        )
+    stmt = stmt.order_by(
+        models.RSE.rse
+    )
 
-    for row in session.execute(stmt).scalars():
-        rse_list.append(row.to_dict())
-
-    return rse_list
+    return [row.to_dict() for row in session.execute(stmt).scalars()]
 
 
 @transactional_session
@@ -794,8 +787,8 @@ def del_rse_attribute(rse_id, key, *, session: "Session"):
         stmt = select(
             models.RSEAttrAssociation
         ).where(
-            models.RSEAttrAssociation.rse_id == rse_id,
-            models.RSEAttrAssociation.key == key
+            and_(models.RSEAttrAssociation.rse_id == rse_id,
+                 models.RSEAttrAssociation.key == key)
         )
         rse_attr = session.execute(stmt).scalar_one()
     except sqlalchemy.orm.exc.NoResultFound:
@@ -841,10 +834,10 @@ def list_rse_attributes(rse_id: str, use_cache: bool = False, *, session: "Sessi
 @stream_session
 def _fetch_many_rses_attributes(
         rse_id_temp_table,
-        keys: Optional[Iterable[str]] = None,
+        keys: Optional['Iterable[str]'] = None,
         *,
         session: "Session"
-) -> Iterator[tuple[str, dict[str, Any]]]:
+) -> 'Iterator[tuple[str, dict[str, Any]]]':
     """
     Given a temporary table pre-filled with RSE IDs, fetch the attributes of these RSEs.
     It's possible to only fetch a subset of attributes by setting the `keys` parameter.
@@ -884,8 +877,8 @@ def has_rse_attribute(rse_id, key, *, session: "Session"):
     stmt = select(
         models.RSEAttrAssociation.value
     ).where(
-        models.RSEAttrAssociation.rse_id == rse_id,
-        models.RSEAttrAssociation.key == key
+        and_(models.RSEAttrAssociation.rse_id == rse_id,
+             models.RSEAttrAssociation.key == key)
     )
     if session.execute(stmt).scalar():
         return True
@@ -910,10 +903,8 @@ def get_rses_with_attribute(key, *, session: "Session"):
         models.RSE.deleted == false()
     ).join(
         models.RSEAttrAssociation,
-        and_(
-            models.RSEAttrAssociation.rse_id == models.RSE.id,
-            models.RSEAttrAssociation.key == key
-        )
+        and_(models.RSEAttrAssociation.rse_id == models.RSE.id,
+             models.RSEAttrAssociation.key == key)
     )
 
     for db_rse in session.execute(stmt).scalars():
@@ -947,15 +938,13 @@ def get_rses_with_attribute_value(key, value, vo='def', *, session: "Session"):
             models.RSE.id,
             models.RSE.rse,
         ).where(
-            models.RSE.deleted == false(),
-            models.RSE.vo == vo
+            and_(models.RSE.deleted == false(),
+                 models.RSE.vo == vo)
         ).join(
             models.RSEAttrAssociation,
-            and_(
-                models.RSEAttrAssociation.rse_id == models.RSE.id,
-                models.RSEAttrAssociation.key == key,
-                models.RSEAttrAssociation.value == value
-            )
+            and_(models.RSEAttrAssociation.rse_id == models.RSE.id,
+                 models.RSEAttrAssociation.key == key,
+                 models.RSEAttrAssociation.value == value)
         )
 
         for row in session.execute(stmt):
@@ -993,8 +982,8 @@ def get_rse_attribute(rse_id: str, key: str, use_cache: bool = True, *, session:
     stmt = select(
         models.RSEAttrAssociation.value
     ).where(
-        models.RSEAttrAssociation.rse_id == rse_id,
-        models.RSEAttrAssociation.key == key
+        and_(models.RSEAttrAssociation.rse_id == rse_id,
+             models.RSEAttrAssociation.key == key)
     )
     value = session.execute(stmt).scalar_one_or_none()
 
@@ -1089,7 +1078,7 @@ def get_rse_usage(rse_id, source=None, per_account=False, *, session: "Session")
 
 def _format_get_rse_usage(
         rse_id: str,
-        db_usages: Iterable[models.RSEUsage],
+        db_usages: 'Iterable[models.RSEUsage]',
         per_account: bool,
         *,
         session: "Session"
@@ -1213,10 +1202,8 @@ def get_rse_transfer_limits(rse_id, activity=None, *, session: "Session"):
         )
         if activity:
             stmt = stmt.where(
-                or_(
-                    models.TransferLimit.activity == activity,
-                    models.TransferLimit.activity == 'all_activities',
-                )
+                or_(models.TransferLimit.activity == activity,
+                    models.TransferLimit.activity == 'all_activities')
             )
 
         limits = {}
@@ -1269,7 +1256,7 @@ def add_protocol(
     parameter: dict[str, Any],
     *,
     session: "Session"
-) -> models.RSEProtocols:
+) -> models.RSEProtocol:
     """
     Add a protocol to an existing RSE.
 
@@ -1303,7 +1290,7 @@ def add_protocol(
             if domain not in utils.rse_supported_protocol_domains():
                 raise exception.RSEProtocolDomainNotSupported(f"The protocol domain '{domain}' is not defined in the schema.")
             for op in parameter['domains'][domain]:
-                if op not in utils.rse_supported_protocol_operations():
+                if op not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = parameter['domains'][domain][op]
@@ -1323,7 +1310,7 @@ def add_protocol(
             raise exception.InvalidObject('Missing values! For SRM, extended_attributes and web_service_path must be specified')
 
     try:
-        new_protocol = models.RSEProtocols()
+        new_protocol = models.RSEProtocol()
         new_protocol.update(parameter)
         new_protocol.save(session=session)
     except (IntegrityError, FlushError, OperationalError) as error:
@@ -1365,14 +1352,14 @@ def get_rse_protocols(rse_id, schemes=None, *, session: "Session") -> types.RSES
     if not _rse:
         raise exception.RSENotFound('RSE with id \'%s\' not found' % rse_id)
 
-    terms = [models.RSEProtocols.rse_id == rse_id]
+    terms = [models.RSEProtocol.rse_id == rse_id]
     if schemes:
         if not type(schemes) is list:
             schemes = [schemes]
-        terms.extend([models.RSEProtocols.scheme.in_(schemes)])
+        terms.extend([models.RSEProtocol.scheme.in_(schemes)])
 
     stmt = select(
-        models.RSEProtocols
+        models.RSEProtocol
     ).where(
         *terms
     )
@@ -1383,7 +1370,7 @@ def get_rse_protocols(rse_id, schemes=None, *, session: "Session") -> types.RSES
 
 def _format_get_rse_protocols(
         rse: "models.RSE | dict[str, Any]",
-        db_protocols: Iterable[models.RSEProtocols],
+        db_protocols: 'Iterable[models.RSEProtocol]',
         rse_attributes: Optional[dict[str, Any]] = None,
         *,
         session: "Session"
@@ -1427,7 +1414,7 @@ def _format_get_rse_protocols(
             'verify_checksum': verify_checksum if verify_checksum is not None else True,
             'volatile': _rse['volatile']}
 
-    for op in utils.rse_supported_protocol_operations():
+    for op in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
         info['%s_protocol' % op] = 1  # 1 indicates the default protocol
 
     for row in db_protocols:
@@ -1514,7 +1501,7 @@ def update_protocols(
             if domain not in utils.rse_supported_protocol_domains():
                 raise exception.RSEProtocolDomainNotSupported(f"The protocol domain '{domain}' is not defined in the schema.")
             for op in data['domains'][domain]:
-                if op not in utils.rse_supported_protocol_operations():
+                if op not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = data['domains'][domain][op]
@@ -1534,14 +1521,14 @@ def update_protocols(
     except exception.RSENotFound:
         raise exception.RSENotFound('RSE with id \'%s\' not found' % rse_id)
 
-    terms = [models.RSEProtocols.rse_id == rse_id,
-             models.RSEProtocols.scheme == scheme,
-             models.RSEProtocols.hostname == hostname,
-             models.RSEProtocols.port == port]
+    terms = [models.RSEProtocol.rse_id == rse_id,
+             models.RSEProtocol.scheme == scheme,
+             models.RSEProtocol.hostname == hostname,
+             models.RSEProtocol.port == port]
 
     try:
         stmt = select(
-            models.RSEProtocols
+            models.RSEProtocol
         ).where(
             *terms
         )
@@ -1589,13 +1576,13 @@ def del_protocols(
         rse_name = get_rse_name(rse_id=rse_id, session=session, include_deleted=False)
     except exception.RSENotFound:
         raise exception.RSENotFound('RSE \'%s\' not found' % rse_id)
-    terms = [models.RSEProtocols.rse_id == rse_id, models.RSEProtocols.scheme == scheme]
+    terms = [models.RSEProtocol.rse_id == rse_id, models.RSEProtocol.scheme == scheme]
     if hostname is not None:
-        terms.append(models.RSEProtocols.hostname == hostname)
+        terms.append(models.RSEProtocol.hostname == hostname)
         if port is not None:
-            terms.append(models.RSEProtocols.port == port)
+            terms.append(models.RSEProtocol.port == port)
     stmt = select(
-        models.RSEProtocols
+        models.RSEProtocol
     ).where(
         *terms
     )
@@ -1785,8 +1772,8 @@ def delete_qos_policy(rse_id, qos_policy, *, session: "Session"):
         stmt = delete(
             models.RSEQoSAssociation
         ).where(
-            models.RSEQoSAssociation.rse_id == rse_id,
-            models.RSEQoSAssociation.qos_policy == qos_policy
+            and_(models.RSEQoSAssociation.rse_id == rse_id,
+                 models.RSEQoSAssociation.qos_policy == qos_policy)
         )
         session.execute(stmt)
     except DatabaseError as error:
@@ -1834,12 +1821,14 @@ def fill_rse_expired(rse_id, *, session: "Session"):
         func.sum(models.RSEFileAssociation.bytes).label("bytes"),
         func.count().label("length")
     ).with_hint(
-        models.RSEFileAssociation, "INDEX(REPLICAS REPLICAS_RSE_ID_TOMBSTONE_IDX)", 'oracle'
+        models.RSEFileAssociation,
+        'INDEX(REPLICAS REPLICAS_RSE_ID_TOMBSTONE_IDX)',
+        'oracle'
     ).where(
-        models.RSEFileAssociation.tombstone < datetime.utcnow(),
-        models.RSEFileAssociation.lock_cnt == 0,
-        models.RSEFileAssociation.rse_id == rse_id,
-        models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD))
+        and_(models.RSEFileAssociation.tombstone < datetime.utcnow(),
+             models.RSEFileAssociation.lock_cnt == 0,
+             models.RSEFileAssociation.rse_id == rse_id,
+             models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD)))
     )
 
     sum_bytes, sum_files = session.execute(stmt).one()
@@ -1863,8 +1852,8 @@ def determine_audience_for_rse(rse_id: str) -> str:
 
 def determine_scope_for_rse(
     rse_id: str,
-    scopes: Iterable[str],
-    extra_scopes: Optional[Iterable[str]] = None,
+    scopes: 'Iterable[str]',
+    extra_scopes: Optional['Iterable[str]'] = None,
 ) -> str:
     """Construct the Scope claim for an RSE."""
     if extra_scopes is None:

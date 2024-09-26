@@ -17,9 +17,10 @@ from traceback import format_exc
 from typing import TYPE_CHECKING, Any, Optional, cast
 
 from dogpile.cache.api import NO_VALUE
+from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError
 
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.exception import Duplicate, InvalidObject, RucioException
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import KeyType
@@ -36,7 +37,7 @@ if TYPE_CHECKING:
         scope: InternalScope
         regexp: str
 
-REGION = make_region_memcached(expiration_time=900)
+REGION = MemcacheRegion(expiration_time=900)
 
 
 @transactional_session
@@ -88,11 +89,13 @@ def get_naming_convention(
 
     :returns: the regular expression.
     """
-    query = session.query(models.NamingConvention.regexp).\
-        filter(models.NamingConvention.scope == scope).\
-        filter(models.NamingConvention.convention_type == convention_type)
-    for row in query:
-        return row[0]
+    stmt = select(
+        models.NamingConvention.regexp
+    ).where(
+        and_(models.NamingConvention.scope == scope,
+             models.NamingConvention.convention_type == convention_type)
+    )
+    return session.execute(stmt).scalar()
 
 
 @transactional_session
@@ -112,9 +115,13 @@ def delete_naming_convention(
     """
     if scope.internal is not None:
         REGION.delete(scope.internal)
-    return session.query(models.NamingConvention) \
-        .filter_by(scope=scope, convention_type=convention_type) \
-        .delete()
+    stmt = delete(
+        models.NamingConvention
+    ).where(
+        and_(models.NamingConvention.scope == scope,
+             models.NamingConvention.convention_type == convention_type)
+    )
+    return session.execute(stmt).rowcount
 
 
 @read_session
@@ -126,9 +133,11 @@ def list_naming_conventions(*, session: "Session") -> list["NamingConventionDict
 
     :returns: a list of dictionaries.
     """
-    query = session.query(models.NamingConvention.scope,
-                          models.NamingConvention.regexp)
-    return [cast("NamingConventionDict", row._asdict()) for row in query]
+    stmt = select(
+        models.NamingConvention.scope,
+        models.NamingConvention.regexp
+    )
+    return [cast("NamingConventionDict", row._asdict()) for row in session.execute(stmt).all()]
 
 
 @read_session

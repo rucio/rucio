@@ -13,15 +13,16 @@
 # limitations under the License.
 
 import json
-import logging
 import sys
-from collections.abc import Callable
 from configparser import NoSectionError
-from typing import Any, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 from rucio.common.config import config_get_int, config_get_items
 from rucio.common.exception import InvalidRequest
 from rucio.common.plugins import PolicyPackageAlgorithms
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 FTS3TapeMetadataPluginType = TypeVar('FTS3TapeMetadataPluginType', bound='FTS3TapeMetadataPlugin')
 
@@ -48,12 +49,9 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
             default=4096,
         )
 
-        # Use a default if the algorithm isn't supported
         if not self._supports(self.ALGORITHM_NAME, policy_algorithm):
-            logging.debug(f"Policy Algorithm {policy_algorithm} not found, ignoring.")
-            policy_algorithm = self.DEFAULT
+            raise ValueError(f'Policy Algorithm {policy_algorithm} not found')
 
-        # If the policy has a supplied and registered init function
         if self._supports(self._HINTS_NAME, policy_algorithm):
             self._get_one_algorithm(self._HINTS_NAME, name=policy_algorithm)()
 
@@ -65,11 +63,11 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
             "activity",
             func=lambda x: cls._activity_hints(cls, x),  # type: ignore
             init_func=lambda: cls._init_instance_activity_hints(cls))  # type: ignore
-        cls.register(cls.DEFAULT, func=lambda x: cls._collocation(cls, cls._default, x))  # type: ignore
+        cls.register(cls.DEFAULT, func=lambda x: cls._default(cls, x))  # type: ignore
         cls.register("test", func=lambda x: cls._collocation(cls, cls._test_collocation, x))  # type: ignore
 
     @classmethod
-    def register(cls: type[FTS3TapeMetadataPluginType], name: str, func: Callable, init_func: Optional[Callable] = None) -> None:
+    def register(cls: type[FTS3TapeMetadataPluginType], name: str, func: 'Callable', init_func: Optional['Callable'] = None) -> None:
         """
         Register a fts3 transfer plugin
 
@@ -103,7 +101,7 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
 
         return {"scheduling_hints": {"priority": priority}}
 
-    def _collocation(self, collocation_func: Callable, hints: dict[str, Any]) -> dict[str, dict]:
+    def _collocation(self, collocation_func: 'Callable', hints: dict[str, Any]) -> dict[str, dict]:
         """
         Wraps a 'collacation' style plugin for formatting
 
@@ -123,13 +121,14 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         """Check the to-be-submitted file transfer params are both json encodable and under the size limit for transfer"""
         try:
             hints_json = json.dumps(hint_dict)
-            assert sys.getsizeof(hints_json) < self.transfer_limit
+            in_tranfer_limit = sys.getsizeof(hints_json) < self.transfer_limit
 
         except TypeError as e:
             raise InvalidRequest("Request malformed, cannot encode to JSON", e)
-        except AssertionError as e:
+
+        if not in_tranfer_limit:
             raise InvalidRequest(
-                f"Request too large, decrease to less than {self.transfer_limit}", e
+                f"Request too large, decrease to less than {self.transfer_limit}"
             )
 
     def hints(self, hint_kwargs: dict) -> dict[str, Any]:

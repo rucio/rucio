@@ -27,7 +27,11 @@ class ScopeClient(BaseClient):
 
     SCOPE_BASEURL = 'accounts'
 
-    def add_scope(self, account, scope):
+    def add_scope(
+            self,
+            account: str,
+            scope: str
+    ) -> bool:
         """
         Sends the request to add a new scope.
 
@@ -47,7 +51,7 @@ class ScopeClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_scopes(self):
+    def list_scopes(self) -> list[str]:
         """
         Sends the request to list all scopes.
 
@@ -64,7 +68,7 @@ class ScopeClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_scopes_for_account(self, account):
+    def list_scopes_for_account(self, account: str) -> list[str]:
         """
         Sends the request to list all scopes for a rucio account.
 

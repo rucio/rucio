@@ -15,18 +15,22 @@
 import copy
 import logging
 import random
-from collections.abc import Callable
 from time import sleep
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from rucio.common import constants, exception, types, utils
 from rucio.common.config import config_get_int
+from rucio.common.constants import RSE_SUPPORTED_PROTOCOL_OPERATIONS
 from rucio.common.constraints import STRING_TYPES
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, make_valid_did
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
-def get_scope_protocol(vo: str = 'def') -> Callable:
+
+def get_scope_protocol(vo: str = 'def') -> 'Callable':
     """
         Returns the callable protocol to translate the pfn to a name/scope pair
 
@@ -129,7 +133,7 @@ def _get_possible_protocols(rse_settings: types.RSESettingsDict, operation, sche
 
 
 def get_protocols_ordered(rse_settings: types.RSESettingsDict, operation, scheme=None, domain='wan', impl=None):
-    if operation not in utils.rse_supported_protocol_operations():
+    if operation not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
         raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
 
     if domain and domain not in utils.rse_supported_protocol_domains():
@@ -141,7 +145,7 @@ def get_protocols_ordered(rse_settings: types.RSESettingsDict, operation, scheme
 
 
 def select_protocol(rse_settings: types.RSESettingsDict, operation, scheme=None, domain='wan'):
-    if operation not in utils.rse_supported_protocol_operations():
+    if operation not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
         raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
 
     if domain and domain not in utils.rse_supported_protocol_domains():
@@ -169,7 +173,7 @@ def create_protocol(rse_settings: types.RSESettingsDict, operation, scheme=None,
 
     # Verify feasibility of Protocol
     operation = operation.lower()
-    if operation not in utils.rse_supported_protocol_operations():
+    if operation not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
         raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
 
     if domain and domain not in utils.rse_supported_protocol_domains():

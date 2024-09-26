@@ -20,6 +20,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING
 
 import pytest
+from sqlalchemy import func, select
 
 import rucio.gateway.rule
 from rucio.client.ruleclient import RuleClient
@@ -113,10 +114,14 @@ def check_dataset_ok_callback(scope, name, rse, rse_id, rule_id, *, session=None
     if scope.vo != 'def':
         message['vo'] = scope.vo
 
-    callbacks = session.query(models.Message.id).filter(models.Message.payload == json.dumps(message)).all()
-    if len(callbacks) > 0:
-        return True
-    return False
+    stmt = select(
+        func.count(models.Message.id)
+    ).select_from(
+        models.Message
+    ).where(
+        models.Message.payload == json.dumps(message)
+    )
+    return session.execute(stmt).scalar() > 0
 
 
 @transactional_session
@@ -128,10 +133,12 @@ def check_rule_progress_callback(scope, name, progress, rule_id, *, session=None
     if scope.vo != 'def':
         message['vo'] = scope.vo
 
-    callbacks = session.query(models.Message.id).filter(models.Message.payload == json.dumps(message)).all()
-    if callbacks:
-        return True
-    return False
+    stmt = select(
+        models.Message.id
+    ).where(
+        models.Message.payload == json.dumps(message)
+    )
+    return session.execute(stmt).scalar_one_or_none() is not None
 
 
 @pytest.fixture

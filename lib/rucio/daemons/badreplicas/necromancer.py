@@ -18,32 +18,30 @@ import re
 import threading
 import time
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.cache import make_region_memcached
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get_int
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import get_bad_replicas_backlog, get_replicas_state, list_bad_replicas
 from rucio.core.rule import get_evaluation_backlog, update_rules_for_bad_replica, update_rules_for_lost_replica
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import HeartbeatHandler, run_daemon
 from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, ReplicaState
 
 if TYPE_CHECKING:
     from types import FrameType
-    from typing import Optional
 
-    from rucio.daemons.common import HeartbeatHandler
 
 graceful_stop = threading.Event()
 METRICS = MetricManager(module=__name__)
-REGION = make_region_memcached(expiration_time=config_get_int('necromancer', 'cache_time', False, 600))
+REGION = MemcacheRegion(expiration_time=config_get_int('necromancer', 'cache_time', False, 600))
 DAEMON_NAME = 'necromancer'
 
 
@@ -69,7 +67,7 @@ def necromancer(bulk: int, once: bool = False, sleep_time: int = 60) -> None:
     )
 
 
-def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> bool:
+def run_once(heartbeat_handler: HeartbeatHandler, bulk: int, **_kwargs) -> bool:
     worker_number, total_workers, logger = heartbeat_handler.live()
     must_sleep = True
 
@@ -191,7 +189,7 @@ def run(threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int =
             thread_list = [thread.join(timeout=3.14) for thread in thread_list if thread and thread.is_alive()]
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """

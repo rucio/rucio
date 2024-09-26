@@ -17,10 +17,9 @@ import logging
 import re
 import threading
 import time
-from collections.abc import Callable
 from datetime import datetime
 from json import dumps, loads
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get
@@ -40,7 +39,7 @@ from rucio.common.exception import (
 )
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.types import InternalAccount
+from rucio.common.types import InternalAccount, InternalScope, LoggerFunction
 from rucio.common.utils import chunks
 from rucio.core.did import get_metadata, list_new_dids, set_new_dids
 from rucio.core.monitor import MetricManager
@@ -54,9 +53,7 @@ from rucio.db.sqla.constants import DIDType, SubscriptionState
 
 if TYPE_CHECKING:
     from types import FrameType
-    from typing import Optional
 
-    from rucio.common.types import InternalScope
     from rucio.daemons.common import HeartbeatHandler
 
 METRICS = MetricManager(module=__name__)
@@ -128,7 +125,7 @@ def __split_rule_select_rses(
     rse_expression: str,
     copies: int,
     blocklisted_rse_id: list,
-    logger: "Callable",
+    logger: LoggerFunction,
 ) -> tuple[list, bool, bool]:
     """
     Internal method to create a list of RSEs that match RSE expression for subscriptions with split_rule.
@@ -213,7 +210,7 @@ def __split_rule_select_rses(
     return selected_rses, create_rule, wont_reevaluate
 
 
-def get_subscriptions(logger: Callable = logging.log) -> list[dict]:
+def get_subscriptions(logger: LoggerFunction = logging.log) -> list[dict]:
     """
     A method to extract the list of active subscriptions and exclude the one that have bad RSE expression.
     :param logger: The logger.
@@ -292,7 +289,11 @@ def get_subscriptions(logger: Callable = logging.log) -> list[dict]:
     return subscriptions
 
 
-def __is_matching_subscription(subscription, did, metadata):
+def __is_matching_subscription(
+        subscription: dict[str, Any],
+        did: dict[str, Any],
+        metadata: dict[str, Any]
+) -> bool:
     """
     Internal method to identify if a DID matches a subscription.
 
@@ -381,7 +382,12 @@ def __is_matching_subscription(subscription, did, metadata):
     return True
 
 
-def select_algorithm(algorithm: str, rule_ids: list, params: dict, logger: "Callable") -> dict:
+def select_algorithm(
+        algorithm: str,
+        rule_ids: list[str],
+        params: dict[str, Any],
+        logger: LoggerFunction
+) -> dict:
     """
     Method used in case of chained subscriptions
 
@@ -713,7 +719,10 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
 
 
 def run(
-    threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int = 60
+    threads: int = 1,
+    bulk: int = 100,
+    once: bool = False,
+    sleep_time: int = 60
 ) -> None:
     """
     Starts up the transmogrifier threads.
@@ -746,7 +755,7 @@ def run(
             ]
 
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """

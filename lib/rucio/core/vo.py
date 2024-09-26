@@ -15,6 +15,7 @@
 import re
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import select, update
 from sqlalchemy.exc import DatabaseError, IntegrityError, NoResultFound
 
 from rucio.common import exception
@@ -41,7 +42,12 @@ def vo_exists(vo: str, *, session: "Session") -> bool:
 
     :returns: True if the vo is in the vo table, False otherwise
     """
-    return True if session.query(models.VO).filter_by(vo=vo).first() else False
+    stmt = select(
+        models.VO
+    ).where(
+        models.VO.vo == vo
+    )
+    return bool(session.execute(stmt).scalar())
 
 
 @transactional_session
@@ -97,10 +103,12 @@ def list_vos(*, session: "Session") -> list[dict[str, Any]]:
     if not config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
         raise exception.UnsupportedOperation('VO operations cannot be performed in single VO mode.')
 
-    query = session.query(models.VO)
+    stmt = select(
+        models.VO
+    )
 
     vos = []
-    for vo in query.all():
+    for vo in session.execute(stmt).scalars().all():
         vo_dict = {'vo': vo.vo,
                    'description': vo.description,
                    'email': vo.email,
@@ -124,14 +132,26 @@ def update_vo(vo: str, parameters: dict[str, Any], *, session: "Session") -> Non
         raise exception.UnsupportedOperation('VO operations cannot be performed in single VO mode.')
 
     try:
-        query = session.query(models.VO).filter_by(vo=vo).one()
+        stmt = select(
+            models.VO
+        ).where(
+            models.VO.vo == vo
+        )
+        session.execute(stmt).scalar_one()
     except NoResultFound:
         raise exception.VONotFound('VO {} not found'.format(vo))
     param = {}
     for key in parameters:
         if key in ['email', 'description']:
             param[key] = parameters[key]
-    query.update(param)
+    stmt = update(
+        models.VO
+    ).where(
+        models.VO.vo == vo
+    ).values(
+        param
+    )
+    session.execute(stmt)
 
 
 def map_vo(vo: str) -> str:

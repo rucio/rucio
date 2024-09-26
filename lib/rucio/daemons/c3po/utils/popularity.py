@@ -14,11 +14,15 @@
 
 import logging
 from json import dumps, loads
+from typing import TYPE_CHECKING, Optional
 
 from requests import post
 from requests.auth import HTTPBasicAuth
 
 from rucio.common.config import config_get, config_get_options
+
+if TYPE_CHECKING:
+    from rucio.common.types import InternalScope
 
 ELASTIC_URL = config_get('es-atlas', 'url')
 
@@ -36,7 +40,7 @@ else:
 URL = ELASTIC_URL + '/atlas_rucio-popularity-*/_search'
 
 
-def get_popularity(did):
+def get_popularity(did: tuple['InternalScope', str]) -> Optional[int]:
     """
     Query the popularity for a given DID in the ElasticSearch popularity db.
     """

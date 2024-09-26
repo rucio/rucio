@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from rucio.common import exception
 from rucio.core import credential
@@ -25,7 +25,19 @@ if TYPE_CHECKING:
 
 
 @read_session
-def get_signed_url(account, appid, ip, rse, service, operation, url, lifetime, vo='def', *, session: "Session"):
+def get_signed_url(
+    account: str,
+    appid: str,
+    ip: str,
+    rse: str,
+    service: Literal['gsc', 's3', 'swift'],
+    operation: Literal['read', 'write', 'delete'],
+    url: str,
+    lifetime: int,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> str:
     """
     Get a signed URL for a particular service and operation.
 

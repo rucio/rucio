@@ -13,12 +13,11 @@
 # limitations under the License.
 
 import logging
-from collections.abc import Iterable, Iterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from sqlalchemy.exc import DatabaseError
-from sqlalchemy.sql.expression import and_, or_
+from sqlalchemy.sql.expression import and_, or_, select, true, update
 
 import rucio.core.did
 import rucio.core.rule
@@ -32,11 +31,13 @@ from rucio.db.sqla.constants import DIDType, LockState, RuleGrouping, RuleNotifi
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
     from sqlalchemy.orm import Session
 
 
 @stream_session
-def get_dataset_locks(scope: InternalScope, name: str, *, session: "Session") -> Iterator[dict[str, Any]]:
+def get_dataset_locks(scope: InternalScope, name: str, *, session: "Session") -> "Iterator[dict[str, Any]]":
     """
     Get the dataset locks of a dataset
 
@@ -46,17 +47,22 @@ def get_dataset_locks(scope: InternalScope, name: str, *, session: "Session") ->
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
 
-    query = session.query(models.DatasetLock.rse_id,
-                          models.DatasetLock.scope,
-                          models.DatasetLock.name,
-                          models.DatasetLock.rule_id,
-                          models.DatasetLock.account,
-                          models.DatasetLock.state,
-                          models.DatasetLock.length,
-                          models.DatasetLock.bytes,
-                          models.DatasetLock.accessed_at).filter_by(scope=scope, name=name)
+    stmt = select(
+        models.DatasetLock.rse_id,
+        models.DatasetLock.scope,
+        models.DatasetLock.name,
+        models.DatasetLock.rule_id,
+        models.DatasetLock.account,
+        models.DatasetLock.state,
+        models.DatasetLock.length,
+        models.DatasetLock.bytes,
+        models.DatasetLock.accessed_at
+    ).where(
+        and_(models.DatasetLock.scope == scope,
+             models.DatasetLock.name == name)
+    )
 
-    for rse_id, scope, name, rule_id, account, state, length, bytes_, accessed_at in query.yield_per(500):
+    for rse_id, scope, name, rule_id, account, state, length, bytes_, accessed_at in session.execute(stmt).yield_per(500):
         yield {'rse_id': rse_id,
                'rse': get_rse_name(rse_id, session=session),
                'scope': scope,
@@ -70,7 +76,7 @@ def get_dataset_locks(scope: InternalScope, name: str, *, session: "Session") ->
 
 
 @stream_session
-def get_dataset_locks_bulk(dids: Iterable[dict[str, Any]], *, session: "Session") -> Iterator[dict[str, Any]]:
+def get_dataset_locks_bulk(dids: "Iterable[dict[str, Any]]", *, session: "Session") -> "Iterator[dict[str, Any]]":
     """
     Get the dataset locks of a list of datasets or containers, recursively
 
@@ -82,7 +88,8 @@ def get_dataset_locks_bulk(dids: Iterable[dict[str, Any]], *, session: "Session"
 
     for did in dids:
         scope = did["scope"]
-        assert isinstance(scope, InternalScope)
+        if not isinstance(scope, InternalScope):
+            raise ValueError("Scope must be passed as an InternalScope object.")
         name = did["name"]
         did_type = did.get("type")
         if not did_type:
@@ -91,19 +98,21 @@ def get_dataset_locks_bulk(dids: Iterable[dict[str, Any]], *, session: "Session"
             except DataIdentifierNotFound:
                 continue
             did_type = did_info["type"]
-        assert did_type in (DIDType.DATASET, DIDType.CONTAINER)
+
         if did_type == DIDType.DATASET:
             for lock_dict in get_dataset_locks(scope, name, session=session):
                 yield lock_dict
-        else:
+        elif did_type == DIDType.CONTAINER:
             for dataset_info in rucio.core.did.list_child_datasets(scope, name, session=session):
                 dataset_scope, dataset_name = dataset_info["scope"], dataset_info["name"]
                 for lock_dict in get_dataset_locks(dataset_scope, dataset_name, session=session):
                     yield lock_dict
+        else:
+            raise ValueError("Can only get locks for datasets and containers.")
 
 
 @stream_session
-def get_dataset_locks_by_rse_id(rse_id: str, *, session: "Session") -> Iterator[dict[str, Any]]:
+def get_dataset_locks_by_rse_id(rse_id: str, *, session: "Session") -> "Iterator[dict[str, Any]]":
     """
     Get the dataset locks of an RSE.
 
@@ -111,18 +120,25 @@ def get_dataset_locks_by_rse_id(rse_id: str, *, session: "Session") -> Iterator[
     :param session:        The db session.
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
-    query = session.query(models.DatasetLock.rse_id,
-                          models.DatasetLock.scope,
-                          models.DatasetLock.name,
-                          models.DatasetLock.rule_id,
-                          models.DatasetLock.account,
-                          models.DatasetLock.state,
-                          models.DatasetLock.length,
-                          models.DatasetLock.bytes,
-                          models.DatasetLock.accessed_at).filter_by(rse_id=rse_id).\
-        with_hint(models.DatasetLock, "index(DATASET_LOCKS DATASET_LOCKS_RSE_ID_IDX)", 'oracle')
+    stmt = select(
+        models.DatasetLock.rse_id,
+        models.DatasetLock.scope,
+        models.DatasetLock.name,
+        models.DatasetLock.rule_id,
+        models.DatasetLock.account,
+        models.DatasetLock.state,
+        models.DatasetLock.length,
+        models.DatasetLock.bytes,
+        models.DatasetLock.accessed_at
+    ).with_hint(
+        models.DatasetLock,
+        'INDEX(DATASET_LOCKS DATASET_LOCKS_RSE_ID_IDX)',
+        'oracle'
+    ).where(
+        models.DatasetLock.rse_id == rse_id
+    )
 
-    for rse_id, scope, name, rule_id, account, state, length, bytes_, accessed_at in query.yield_per(500):
+    for rse_id, scope, name, rule_id, account, state, length, bytes_, accessed_at in session.execute(stmt).yield_per(500):
         yield {'rse_id': rse_id,
                'rse': get_rse_name(rse_id, session=session),
                'scope': scope,
@@ -136,7 +152,7 @@ def get_dataset_locks_by_rse_id(rse_id: str, *, session: "Session") -> Iterator[
 
 
 @read_session
-def get_replica_locks(scope: InternalScope, name: str, nowait: bool = False, restrict_rses: Optional[Iterable[str]] = None, *, session: "Session") -> list[models.ReplicaLock]:
+def get_replica_locks(scope: InternalScope, name: str, nowait: bool = False, restrict_rses: Optional["Iterable[str]"] = None, *, session: "Session") -> list[models.ReplicaLock]:
     """
     Get the active replica locks for a file
 
@@ -149,15 +165,25 @@ def get_replica_locks(scope: InternalScope, name: str, nowait: bool = False, res
     :raises:               NoResultFound
     """
 
-    query = session.query(models.ReplicaLock).filter_by(scope=scope, name=name)
+    stmt = select(
+        models.ReplicaLock
+    ).where(
+        and_(models.ReplicaLock.scope == scope,
+             models.ReplicaLock.name == name)
+    )
     if restrict_rses is not None:
         rse_clause = []
         for rse_id in restrict_rses:
             rse_clause.append(models.ReplicaLock.rse_id == rse_id)
         if rse_clause:
-            query = query.filter(or_(*rse_clause))
+            stmt = stmt.where(
+                or_(*rse_clause)
+            )
 
-    return query.with_for_update(nowait=nowait).all()
+    stmt = stmt.with_for_update(
+        nowait=nowait
+    )
+    return list(session.execute(stmt).scalars().all())
 
 
 @read_session
@@ -173,9 +199,13 @@ def get_replica_locks_for_rule_id(rule_id: str, *, session: "Session") -> list[d
 
     locks = []
 
-    query = session.query(models.ReplicaLock).filter_by(rule_id=rule_id)
+    stmt = select(
+        models.ReplicaLock
+    ).where(
+        models.ReplicaLock.rule_id == rule_id
+    )
 
-    for row in query:
+    for row in session.execute(stmt).scalars().all():
         locks.append({'scope': row.scope,
                       'name': row.name,
                       'rse_id': row.rse_id,
@@ -199,17 +229,23 @@ def get_replica_locks_for_rule_id_per_rse(rule_id: str, *, session: "Session") -
 
     locks = []
 
-    query = session.query(models.ReplicaLock.rse_id).filter_by(rule_id=rule_id).group_by(models.ReplicaLock.rse_id)
+    stmt = select(
+        models.ReplicaLock.rse_id
+    ).where(
+        models.ReplicaLock.rule_id == rule_id
+    ).group_by(
+        models.ReplicaLock.rse_id
+    )
 
-    for row in query:
-        locks.append({'rse_id': row.rse_id,
-                      'rse': get_rse_name(rse_id=row.rse_id, session=session)})
+    for rse_id in session.execute(stmt).scalars().all():
+        locks.append({'rse_id': rse_id,
+                      'rse': get_rse_name(rse_id=rse_id, session=session)})
 
     return locks
 
 
 @read_session
-def get_files_and_replica_locks_of_dataset(scope: InternalScope, name: str, nowait: bool = False, restrict_rses: Optional[Iterable[str]] = None, only_stuck: bool = False,
+def get_files_and_replica_locks_of_dataset(scope: InternalScope, name: str, nowait: bool = False, restrict_rses: Optional["Iterable[str]"] = None, only_stuck: bool = False,
                                            total_threads: Optional[int] = None, thread_id: Optional[int] = None,
                                            *, session: "Session") -> dict[tuple[InternalScope, str], Union[models.ReplicaLock, list[models.ReplicaLock]]]:
     """
@@ -228,83 +264,60 @@ def get_files_and_replica_locks_of_dataset(scope: InternalScope, name: str, nowa
     :raises:               NoResultFound
     """
     locks = {}
+
+    rse_clause = [true()]
+    if restrict_rses is not None:
+        rse_clause = [models.ReplicaLock.rse_id == rse_id for rse_id in restrict_rses]
+
+    base_stmt = select(
+        models.DataIdentifierAssociation.child_scope,
+        models.DataIdentifierAssociation.child_name
+    ).where(
+        and_(models.DataIdentifierAssociation.scope == scope,
+             models.DataIdentifierAssociation.name == name)
+    )
+    stmt = base_stmt.add_columns(
+        models.ReplicaLock
+    ).with_for_update(
+        nowait=nowait,
+        of=models.ReplicaLock.state
+    )
+
     if session.bind.dialect.name == 'postgresql':
-        content_query = session.query(models.DataIdentifierAssociation.child_scope,
-                                      models.DataIdentifierAssociation.child_name).\
-            with_hint(models.DataIdentifierAssociation,
-                      "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                      'oracle').\
-            filter(models.DataIdentifierAssociation.scope == scope,
-                   models.DataIdentifierAssociation.name == name)
-
         if total_threads and total_threads > 1:
-            content_query = filter_thread_work(session=session, query=content_query, total_threads=total_threads,
-                                               thread_id=thread_id, hash_variable='child_name')
+            base_stmt = filter_thread_work(session=session, query=base_stmt, total_threads=total_threads,
+                                           thread_id=thread_id, hash_variable='child_name')
 
-        for child_scope, child_name in content_query.yield_per(1000):
+        for child_scope, child_name in session.execute(base_stmt).yield_per(1000):
             locks[(child_scope, child_name)] = []
 
-        query = session.query(models.DataIdentifierAssociation.child_scope,
-                              models.DataIdentifierAssociation.child_name,
-                              models.ReplicaLock).\
-            with_hint(models.DataIdentifierAssociation,
-                      "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                      'oracle').\
-            filter(and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                        models.DataIdentifierAssociation.child_name == models.ReplicaLock.name))\
-            .filter(models.DataIdentifierAssociation.scope == scope,
-                    models.DataIdentifierAssociation.name == name)
-
-        if restrict_rses is not None:
-            rse_clause = []
-            for rse_id in restrict_rses:
-                rse_clause.append(models.ReplicaLock.rse_id == rse_id)
-            if rse_clause:
-                query = session.query(models.DataIdentifierAssociation.child_scope,
-                                      models.DataIdentifierAssociation.child_name,
-                                      models.ReplicaLock).\
-                    with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle').\
-                    filter(and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                                models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
-                                or_(*rse_clause)))\
-                    .filter(models.DataIdentifierAssociation.scope == scope,
-                            models.DataIdentifierAssociation.name == name)
+        stmt = stmt.where(
+            and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                 models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
+                 or_(*rse_clause))
+        )
     else:
-        query = session.query(models.DataIdentifierAssociation.child_scope,
-                              models.DataIdentifierAssociation.child_name,
-                              models.ReplicaLock).\
-            with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle').\
-            outerjoin(models.ReplicaLock,
-                      and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                           models.DataIdentifierAssociation.child_name == models.ReplicaLock.name))\
-            .filter(models.DataIdentifierAssociation.scope == scope, models.DataIdentifierAssociation.name == name)
-
-        if restrict_rses is not None:
-            rse_clause = []
-            for rse_id in restrict_rses:
-                rse_clause.append(models.ReplicaLock.rse_id == rse_id)
-            if rse_clause:
-                query = session.query(models.DataIdentifierAssociation.child_scope,
-                                      models.DataIdentifierAssociation.child_name,
-                                      models.ReplicaLock).\
-                    with_hint(models.DataIdentifierAssociation, "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)", 'oracle').\
-                    outerjoin(models.ReplicaLock,
-                              and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
-                                   models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
-                                   or_(*rse_clause)))\
-                    .filter(models.DataIdentifierAssociation.scope == scope,
-                            models.DataIdentifierAssociation.name == name)
+        stmt = stmt.with_hint(
+            models.DataIdentifierAssociation,
+            'INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)',
+            'oracle'
+        ).outerjoin(
+            models.ReplicaLock,
+            and_(models.DataIdentifierAssociation.child_scope == models.ReplicaLock.scope,
+                 models.DataIdentifierAssociation.child_name == models.ReplicaLock.name,
+                 or_(*rse_clause))
+        )
 
     if only_stuck:
-        query = query.filter(models.ReplicaLock.state == LockState.STUCK)
+        stmt = stmt.where(
+            models.ReplicaLock.state == LockState.STUCK
+        )
 
     if total_threads and total_threads > 1:
-        query = filter_thread_work(session=session, query=query, total_threads=total_threads,
-                                   thread_id=thread_id, hash_variable='child_name')
+        stmt = filter_thread_work(session=session, query=stmt, total_threads=total_threads,
+                                  thread_id=thread_id, hash_variable='child_name')
 
-    query = query.with_for_update(nowait=nowait, of=models.ReplicaLock.state)
-
-    for child_scope, child_name, lock in query:
+    for child_scope, child_name, lock in session.execute(stmt).all():
         if (child_scope, child_name) not in locks:
             if lock is None:
                 locks[(child_scope, child_name)] = []
@@ -328,13 +341,28 @@ def successful_transfer(scope: InternalScope, name: str, rse_id: str, nowait: bo
     :param session:  DB Session.
     """
 
-    locks = session.query(models.ReplicaLock).with_for_update(nowait=nowait).filter_by(scope=scope, name=name, rse_id=rse_id)
-    for lock in locks:
+    stmt = select(
+        models.ReplicaLock
+    ).where(
+        and_(models.ReplicaLock.scope == scope,
+             models.ReplicaLock.name == name,
+             models.ReplicaLock.rse_id == rse_id)
+    ).with_for_update(
+        nowait=nowait
+    )
+    for lock in session.execute(stmt).scalars().all():
         if lock.state == LockState.OK:
             continue
         logger(logging.DEBUG, 'Marking lock %s:%s for rule %s on rse %s as OK' % (lock.scope, lock.name, str(lock.rule_id), get_rse_name(rse_id=lock.rse_id, session=session)))
         # Update the rule counters
-        rule = session.query(models.ReplicationRule).with_for_update(nowait=nowait).filter_by(id=lock.rule_id).one()
+        stmt = select(
+            models.ReplicationRule
+        ).where(
+            models.ReplicationRule.id == lock.rule_id
+        ).with_for_update(
+            nowait=nowait
+        )
+        rule = session.execute(stmt).scalar_one()
         logger(logging.DEBUG, 'Updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
 
         if lock.state == LockState.REPLICATING:
@@ -368,8 +396,14 @@ def successful_transfer(scope: InternalScope, name: str, rse_id: str, nowait: bo
             rule.state = RuleState.OK
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
-                ds_locks = session.query(models.DatasetLock).with_for_update(nowait=nowait).filter_by(rule_id=rule.id)
-                for ds_lock in ds_locks:
+                stmt = select(
+                    models.DatasetLock
+                ).where(
+                    models.DatasetLock.rule_id == rule.id
+                ).with_for_update(
+                    nowait=nowait
+                )
+                for ds_lock in session.execute(stmt).scalars().all():
                     ds_lock.state = LockState.OK
                 session.flush()
             rucio.core.rule.generate_rule_notifications(rule=rule, replicating_locks_before=rule.locks_replicating_cnt + 1, session=session)
@@ -406,16 +440,40 @@ def failed_transfer(scope: InternalScope, name: str, rse_id: str, error_message:
     if staging_required:
         rse_name = get_rse_name(rse_id=rse_id, session=session)
         logger(logging.DEBUG, f'Destination RSE {rse_name} is type staging_required so do not update other OK replica locks.')
-        locks = session.query(models.ReplicaLock).with_for_update(nowait=nowait).filter_by(scope=scope, name=name, rse_id=rse_id, state=LockState.REPLICATING)
+        stmt = select(
+            models.ReplicaLock
+        ).where(
+            and_(models.ReplicaLock.scope == scope,
+                 models.ReplicaLock.name == name,
+                 models.ReplicaLock.rse_id == rse_id,
+                 models.ReplicaLock.state == LockState.REPLICATING)
+        ).with_for_update(
+            nowait=nowait
+        )
     else:
-        locks = session.query(models.ReplicaLock).with_for_update(nowait=nowait).filter_by(scope=scope, name=name, rse_id=rse_id)
+        stmt = select(
+            models.ReplicaLock
+        ).where(
+            and_(models.ReplicaLock.scope == scope,
+                 models.ReplicaLock.name == name,
+                 models.ReplicaLock.rse_id == rse_id)
+        ).with_for_update(
+            nowait=nowait
+        )
 
-    for lock in locks:
+    for lock in session.execute(stmt).scalars().all():
         if lock.state == LockState.STUCK:
             continue
         logger(logging.DEBUG, 'Marking lock %s:%s for rule %s on rse %s as STUCK' % (lock.scope, lock.name, str(lock.rule_id), get_rse_name(rse_id=lock.rse_id, session=session)))
         # Update the rule counters
-        rule = session.query(models.ReplicationRule).with_for_update(nowait=nowait).filter_by(id=lock.rule_id).one()
+        stmt = select(
+            models.ReplicationRule
+        ).where(
+            models.ReplicationRule.id == lock.rule_id
+        ).with_for_update(
+            nowait=nowait
+        )
+        rule = session.execute(stmt).scalar_one()
         logger(logging.DEBUG, 'Updating rule counters for rule %s [%d/%d/%d]' % (str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt))
         if lock.state == LockState.REPLICATING:
             rule.locks_replicating_cnt -= 1
@@ -436,16 +494,28 @@ def failed_transfer(scope: InternalScope, name: str, rse_id: str, error_message:
                 rule.error = broken_message
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
-                ds_locks = session.query(models.DatasetLock).with_for_update(nowait=nowait).filter_by(rule_id=rule.id)
-                for ds_lock in ds_locks:
+                stmt = select(
+                    models.DatasetLock
+                ).where(
+                    models.DatasetLock.rule_id == rule.id
+                ).with_for_update(
+                    nowait=nowait
+                )
+                for ds_lock in session.execute(stmt).scalars().all():
                     ds_lock.state = LockState.STUCK
         elif rule.locks_stuck_cnt > 0:
             if rule.state != RuleState.STUCK:
                 rule.state = RuleState.STUCK
                 # Try to update the DatasetLocks
                 if rule.grouping != RuleGrouping.NONE:
-                    ds_locks = session.query(models.DatasetLock).with_for_update(nowait=nowait).filter_by(rule_id=rule.id)
-                    for ds_lock in ds_locks:
+                    stmt = select(
+                        models.DatasetLock
+                    ).where(
+                        models.DatasetLock.rule_id == rule.id
+                    ).with_for_update(
+                        nowait=nowait
+                    )
+                    for ds_lock in session.execute(stmt).scalars().all():
                         ds_lock.state = LockState.STUCK
             if rule.error != error_message:
                 if error_message is not None and len(error_message) > 245:
@@ -458,7 +528,7 @@ def failed_transfer(scope: InternalScope, name: str, rse_id: str, error_message:
 
 
 @transactional_session
-def touch_dataset_locks(dataset_locks: Iterable[dict[str, Any]], *, session: "Session") -> bool:
+def touch_dataset_locks(dataset_locks: "Iterable[dict[str, Any]]", *, session: "Session") -> bool:
     """
     Update the accessed_at timestamp of the given dataset locks + eol_at.
 
@@ -472,10 +542,35 @@ def touch_dataset_locks(dataset_locks: Iterable[dict[str, Any]], *, session: "Se
     for dataset_lock in dataset_locks:
         eol_at = define_eol(dataset_lock['scope'], dataset_lock['name'], rses=[{'id': dataset_lock['rse_id']}], session=session)
         try:
-            session.query(models.DatasetLock).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']).\
-                update({'accessed_at': dataset_lock.get('accessed_at') or now}, synchronize_session=False)
-            for res in session.query(models.DatasetLock.rule_id).filter_by(scope=dataset_lock['scope'], name=dataset_lock['name'], rse_id=dataset_lock['rse_id']):
-                session.query(models.ReplicationRule).filter_by(id=res[0]).update({'eol_at': eol_at}, synchronize_session=False)
+            stmt = update(
+                models.DatasetLock
+            ).where(
+                and_(models.DatasetLock.scope == dataset_lock['scope'],
+                     models.DatasetLock.name == dataset_lock['name'],
+                     models.DatasetLock.rse_id == dataset_lock['rse_id'])
+            ).values({
+                models.DatasetLock.accessed_at: dataset_lock.get('accessed_at') or now
+            }).execution_options(
+                synchronize_session=False
+            )
+            subq = select(
+                models.DatasetLock.rule_id
+            ).where(
+                and_(models.DatasetLock.scope == dataset_lock['scope'],
+                     models.DatasetLock.name == dataset_lock['name'],
+                     models.DatasetLock.rse_id == dataset_lock['rse_id'])
+            )
+
+            stmt = update(
+                models.ReplicationRule
+            ).where(
+                models.ReplicationRule.id.in_(subq)
+            ).values({
+                models.ReplicationRule.eol_at: eol_at
+            }).execution_options(
+                synchronize_session=False
+            )
+            session.execute(stmt)
         except DatabaseError:
             return False
 

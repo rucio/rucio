@@ -13,12 +13,16 @@
 # limitations under the License.
 
 from json import dumps
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.utils import build_url
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class AccountClient(BaseClient):
@@ -27,7 +31,7 @@ class AccountClient(BaseClient):
 
     ACCOUNTS_BASEURL = 'accounts'
 
-    def add_account(self, account, type_, email):
+    def add_account(self, account: str, type_: str, email: str) -> bool:
         """
         Sends the request to create a new account.
 
@@ -49,7 +53,7 @@ class AccountClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
         raise exc_cls(exc_msg)
 
-    def delete_account(self, account):
+    def delete_account(self, account: str) -> bool:
         """
         Sends the request to disable an account.
 
@@ -68,7 +72,7 @@ class AccountClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
         raise exc_cls(exc_msg)
 
-    def get_account(self, account):
+    def get_account(self, account: str) -> Optional[dict[str, Any]]:
         """
         Sends the request to get information about a given account.
 
@@ -87,7 +91,7 @@ class AccountClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
         raise exc_cls(exc_msg)
 
-    def update_account(self, account, key, value):
+    def update_account(self, account: str, key: str, value: Any) -> bool:
         """ Update a property of an account.
 
         :param account: Name of the account.
@@ -106,7 +110,12 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def list_accounts(self, account_type=None, identity=None, filters=None):
+    def list_accounts(
+            self,
+            account_type: Optional[str] = None,
+            identity: Optional[str] = None,
+            filters: Optional[dict[str, Any]] = None
+    ) -> "Iterator[dict[str, Any]]":
         """
         Sends the request to list all rucio accounts.
 
@@ -137,7 +146,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def whoami(self):
+    def whoami(self) -> Optional[dict[str, Any]]:
         """
         Get information about account whose token is used
 
@@ -146,7 +155,15 @@ class AccountClient(BaseClient):
         """
         return self.get_account('whoami')
 
-    def add_identity(self, account, identity, authtype, email, default=False, password=None):
+    def add_identity(
+            self,
+            account: str,
+            identity: str,
+            authtype: str,
+            email: str,
+            default: bool = False,
+            password: Optional[str] = None
+    ) -> bool:
         """
         Adds a membership association between identity and account.
 
@@ -171,7 +188,12 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def del_identity(self, account, identity, authtype):
+    def del_identity(
+            self,
+            account: str,
+            identity: str,
+            authtype: str
+    ) -> bool:
         """
         Delete an identity's membership association with an account.
 
@@ -194,7 +216,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def list_identities(self, account):
+    def list_identities(self, account: str) -> "Iterator[dict[str, Any]]":
         """
         List all identities on an account.
 
@@ -210,7 +232,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def list_account_rules(self, account):
+    def list_account_rules(self, account: str) -> "Iterator[dict[str, Any]]":
         """
         List the associated rules of an account.
 
@@ -226,7 +248,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def get_account_limits(self, account, rse_expression, locality):
+    def get_account_limits(self, account: str, rse_expression: str, locality: str) -> dict[str, Any]:
         """
         Return the correct account limits for the given locality.
 
@@ -243,7 +265,7 @@ class AccountClient(BaseClient):
             from rucio.common.exception import UnsupportedOperation
             raise UnsupportedOperation('The provided locality (%s) for the account limit was invalid' % locality)
 
-    def get_global_account_limit(self, account, rse_expression):
+    def get_global_account_limit(self, account: str, rse_expression: str) -> dict[str, Any]:
         """
         List the account limit for the specific RSE expression.
 
@@ -259,7 +281,7 @@ class AccountClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
         raise exc_cls(exc_msg)
 
-    def get_global_account_limits(self, account):
+    def get_global_account_limits(self, account: str) -> dict[str, Any]:
         """
         List all RSE expression limits of this account.
 
@@ -274,7 +296,7 @@ class AccountClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
         raise exc_cls(exc_msg)
 
-    def get_local_account_limits(self, account):
+    def get_local_account_limits(self, account: str) -> dict[str, Any]:
         """
         List the account rse limits of this account.
 
@@ -289,7 +311,7 @@ class AccountClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
         raise exc_cls(exc_msg)
 
-    def get_local_account_limit(self, account, rse):
+    def get_local_account_limit(self, account: str, rse: str) -> dict[str, Any]:
         """
         List the account rse limits of this account for the specific rse.
 
@@ -305,7 +327,7 @@ class AccountClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
         raise exc_cls(exc_msg)
 
-    def get_local_account_usage(self, account, rse=None):
+    def get_local_account_usage(self, account: str, rse: Optional[str] = None) -> "Iterator[dict[str, Any]]":
         """
         List the account usage for one or all rses of this account.
 
@@ -324,7 +346,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def get_global_account_usage(self, account, rse_expression=None):
+    def get_global_account_usage(self, account: str, rse_expression: Optional[str] = None) -> "Iterator[dict[str, Any]]":
         """
         List the account usage for one or all RSE expressions of this account.
 
@@ -343,7 +365,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def get_account_usage_history(self, account, rse):
+    def get_account_usage_history(self, account: str, rse: str) -> dict[str, Any]:
         """
         List the account usage history of this account on rse.
 
@@ -359,7 +381,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def list_account_attributes(self, account):
+    def list_account_attributes(self, account: str) -> "Iterator[dict[dict[str, Any], Any]]":
         """
         List the attributes for an account.
 
@@ -374,7 +396,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def add_account_attribute(self, account, key, value):
+    def add_account_attribute(self, account: str, key: str, value: Any) -> bool:
         """
         Adds an attribute to an account.
 
@@ -393,7 +415,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def delete_account_attribute(self, account, key):
+    def delete_account_attribute(self, account: str, key: str) -> bool:
         """
         Delete an attribute for an account.
 

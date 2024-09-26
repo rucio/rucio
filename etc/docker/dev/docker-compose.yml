@@ -288,6 +288,14 @@ services:
     platform: linux/amd64
     profiles:
       - externalmetadata
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: rucio
+      MONGO_INITDB_ROOT_PASSWORD: mongo-meta
+  mongo-noauth:
+    image: docker.io/mongo:5.0
+    platform: linux/amd64
+    profiles:
+      - externalmetadata
   postgres:
     image: docker.io/postgres:14
     platform: linux/amd64

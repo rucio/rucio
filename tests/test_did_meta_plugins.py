@@ -192,14 +192,24 @@ class TestDidMetaJSON:
         assert [tmp_dsn4] == results
 
 
-@pytest.fixture
-def mongo_meta():
-    return MongoDidMeta(
-        host='mongo',
-        port=27017,
-        db='test_db',
-        collection='test_collection'
-    )
+@pytest.fixture(params=["with-auth", "no-auth"])
+def mongo_meta(request):
+    if request.param == "with-auth":
+        return MongoDidMeta(
+            host='mongo',
+            port=27017,
+            db='test_db',
+            collection='test_collection',
+            user="rucio",
+            password="mongo-meta",
+        )
+    else:
+        return MongoDidMeta(
+            host='mongo-noauth',
+            port=27017,
+            db='test_db',
+            collection='test_collection',
+        )
 
 
 @skip_rse_tests_with_accounts

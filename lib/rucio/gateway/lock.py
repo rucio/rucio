@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from rucio.common.types import InternalScope
 from rucio.common.utils import gateway_update_return_dict
@@ -23,6 +23,8 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import stream_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
     from sqlalchemy.orm import Session
 
 
@@ -31,7 +33,13 @@ LOGGER.setLevel(logging.DEBUG)
 
 
 @stream_session
-def get_dataset_locks(scope, name, vo='def', *, session: "Session"):
+def get_dataset_locks(
+    scope: str,
+    name: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     Get the dataset locks of a dataset.
 
@@ -42,16 +50,21 @@ def get_dataset_locks(scope, name, vo='def', *, session: "Session"):
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
 
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
 
-    locks = lock.get_dataset_locks(scope=scope, name=name, session=session)
+    locks = lock.get_dataset_locks(scope=internal_scope, name=name, session=session)
 
     for lock_object in locks:
         yield gateway_update_return_dict(lock_object, session=session)
 
 
 @stream_session
-def get_dataset_locks_bulk(dids, vo='def', *, session: "Session"):
+def get_dataset_locks_bulk(
+    dids: 'Iterable[dict[str, Any]]',
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     Get the dataset locks for multiple datasets or containers.
 
@@ -93,7 +106,12 @@ def get_dataset_locks_bulk(dids, vo='def', *, session: "Session"):
 
 
 @stream_session
-def get_dataset_locks_by_rse(rse, vo='def', *, session: "Session"):
+def get_dataset_locks_by_rse(
+    rse: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     Get the dataset locks of an RSE.
 
@@ -111,7 +129,12 @@ def get_dataset_locks_by_rse(rse, vo='def', *, session: "Session"):
 
 
 @stream_session
-def get_replica_locks_for_rule_id(rule_id, vo='def', *, session: "Session"):
+def get_replica_locks_for_rule_id(
+    rule_id: str,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     Get the replica locks for a rule_id.
 

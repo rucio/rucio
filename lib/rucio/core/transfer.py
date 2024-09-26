@@ -31,14 +31,13 @@ from rucio.common import constants
 from rucio.common.config import config_get, config_get_list
 from rucio.common.constants import SUPPORTED_PROTOCOLS, RseAttr
 from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RSEProtocolNotSupported, RucioException, UnsupportedOperation
-from rucio.common.utils import construct_surl
+from rucio.common.utils import construct_non_deterministic_pfn
 from rucio.core import did
 from rucio.core import message as message_core
 from rucio.core import request as request_core
 from rucio.core.account import list_accounts
 from rucio.core.monitor import MetricManager
 from rucio.core.request import DirectTransfer, RequestSource, RequestWithSources, TransferDestination, transition_request_state
-from rucio.core.rse import RseData
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, RequestState, RequestType, TransferLimitDirection
@@ -48,7 +47,6 @@ from rucio.transfertool.bittorrent import BittorrentTransfertool
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 from rucio.transfertool.mock import MockTransfertool
-from rucio.transfertool.transfertool import TransferStatusReport, Transfertool
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -57,8 +55,10 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from rucio.common.types import InternalAccount
+    from rucio.core.rse import RseData
     from rucio.core.topology import Topology
     from rucio.rse.protocols.protocol import RSEProtocol
+    from rucio.transfertool.transfertool import TransferStatusReport, Transfertool
 
     LoggerFunction = Callable[..., Any]
 
@@ -90,7 +90,7 @@ class ProtocolFactory:
     def __init__(self):
         self.protocols = {}
 
-    def protocol(self, rse: RseData, scheme: "Optional[str]", operation: str):
+    def protocol(self, rse: 'RseData', scheme: "Optional[str]", operation: str):
         protocol_key = '%s_%s_%s' % (operation, rse.id, scheme)
         protocol = self.protocols.get(protocol_key)
         if not protocol:
@@ -230,7 +230,8 @@ class DirectTransferImplementation(DirectTransfer):
             dsn = get_dsn(rws.scope, rws.name, rws.attributes.get('dsn', None))
             # DQ2 path always starts with /, but prefix might not end with /
             naming_convention = dst.rse.attributes.get(RseAttr.NAMING_CONVENTION, None)
-            dest_path = construct_surl(dsn, rws.scope.external, rws.name, naming_convention)
+            if rws.scope.external is not None:
+                dest_path = construct_non_deterministic_pfn(dsn, rws.scope.external, rws.name, naming_convention)
             if dst.rse.is_tape():
                 if rws.retry_count or rws.activity == 'Recovery':
                     dest_path = '%s_%i' % (dest_path, int(time.time()))
@@ -497,7 +498,7 @@ def set_transfers_state(
 
 @transactional_session
 def update_transfer_state(
-        tt_status_report: TransferStatusReport,
+        tt_status_report: 'TransferStatusReport',
         stats_manager: request_core.TransferStatsManager,
         *,
         session: "Session",
@@ -748,11 +749,11 @@ def _create_stagein_definitions(
                     rse=source.rse,
                     file_path=source.file_path,
                     url=source.url,
-                    scheme=limit_dest_schemes,
+                    scheme=limit_dest_schemes,  # type: ignore (list passed instead of single scheme)
                 ),
                 destination=TransferDestination(
                     rse=rws.dest_rse,
-                    scheme=limit_dest_schemes,
+                    scheme=limit_dest_schemes,  # type: ignore (list passed instead of single scheme)
                 ),
                 operation_src=operation_src,
                 operation_dest=operation_dest,

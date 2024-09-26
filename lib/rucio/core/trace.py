@@ -21,15 +21,23 @@ import json
 import logging.handlers
 import random
 import socket
+from typing import TYPE_CHECKING, Any, Union, overload
 
 import stomp
 from jsonschema import Draft7Validator, ValidationError, validate
 
 from rucio.common.config import config_get, config_get_int
-from rucio.common.exception import InvalidObject
+from rucio.common.exception import InvalidObject, TraceValidationSchemaNotFound
 from rucio.common.logging import rucio_log_formatter
 from rucio.common.schema.generic import TIME_ENTRY, UUID, IPv4orIPv6
 from rucio.core.monitor import MetricManager
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from referencing.jsonschema import ObjectSchema, Schema
+
+    from rucio.common.types import TraceSchemaDict
 
 METRICS = MetricManager(module=__name__)
 
@@ -72,7 +80,7 @@ USERNAME = config_get('trace', 'username')
 PASSWORD = config_get('trace', 'password')
 VHOST = config_get('trace', 'broker_virtual_host', raise_exception=False)
 
-TOUCH_SCHEMA = {
+TOUCH_SCHEMA: 'ObjectSchema' = {
     "description": "touch one or more DIDs",
     "type": "object",
     "properties": {
@@ -94,7 +102,7 @@ TOUCH_SCHEMA = {
     "required": ['eventType', 'clientState', 'account', 'traceTimeentry', 'traceTimeentryUnix', 'traceIp', 'traceId']
 }
 
-UPLOAD_SCHEMA = {
+UPLOAD_SCHEMA: 'ObjectSchema' = {
     "description": "upload method",
     "type": "object",
     "properties": {
@@ -127,7 +135,7 @@ UPLOAD_SCHEMA = {
                  'traceIp', 'traceId']
 }
 
-DOWNLOAD_SCHEMA = {
+DOWNLOAD_SCHEMA: 'ObjectSchema' = {
     "description": "download method",
     "type": "object",
     "properties": {
@@ -160,7 +168,7 @@ DOWNLOAD_SCHEMA = {
                  'filename', 'datasetScope', 'dataset', 'filesize', 'clientState', 'stateReason']
 }
 
-GET_SCHEMA = {
+GET_SCHEMA: 'ObjectSchema' = {
     "description": "get method, mainly sent by pilots",
     "type": "object",
     "properties": {
@@ -186,7 +194,7 @@ GET_SCHEMA = {
                  'filename', 'dataset']
 }
 
-PUT_SCHEMA = {
+PUT_SCHEMA: 'ObjectSchema' = {
     "description": "get method, mainly sent by pilots",
     "type": "object",
     "properties": {
@@ -214,7 +222,7 @@ PUT_SCHEMA = {
                  'filename', 'dataset']
 }
 
-SPECIAL_SCHEMA = {
+SPECIAL_SCHEMA: 'ObjectSchema' = {
     "description": "A special schema to capture most unsupported eventTypes",
     "type": "object",
     "properties": {
@@ -236,7 +244,7 @@ SPECIAL_SCHEMA = {
     "required": ['eventType', 'clientState', 'account', 'traceTimeentry', 'traceTimeentryUnix', 'traceIp', 'traceId']
 }
 
-SCHEMAS = {
+SCHEMAS: dict[str, 'Schema'] = {
     'touch': TOUCH_SCHEMA,
     'upload': UPLOAD_SCHEMA,
     'download': DOWNLOAD_SCHEMA,
@@ -286,13 +294,23 @@ for broker in BROKERS_RESOLVED:
     CONNS.append(stomp.Connection(host_and_ports=[(broker, PORT)], vhost=VHOST, reconnect_attempts_max=3))
 
 
-def date_handler(obj):
+@overload
+def date_handler(obj: "datetime") -> str:
+    ...
+
+
+@overload
+def date_handler(obj: object) -> object:
+    ...
+
+
+def date_handler(obj: Any) -> Union[str, object]:
     """ format dates to ISO format """
     return obj.isoformat() if hasattr(obj, 'isoformat') else obj
 
 
 @METRICS.count_it
-def trace(payload):
+def trace(payload: dict[str, Any]) -> None:
     """
     Write a trace to the buffer log file and send it to active mq.
 
@@ -335,26 +353,23 @@ def trace(payload):
         LOGGER.error(error)
 
 
-def validate_schema(obj):
+def validate_schema(obj: str) -> None:
     """
     Validate object against json schema
 
     :param obj: The object to validate.
 
-    :raises: InvalidObject
+    :raises: InvalidObject, TraceValidationSchemaNotFound
     """
-    obj = json.loads(obj)
+    loaded_obj: 'TraceSchemaDict' = json.loads(obj)
 
-    try:
-        if obj and 'eventType' in obj:
-            event_type = SCHEMAS.get(obj['eventType'].lower())
-            if not event_type:
-                validation_error = ValidationError(message=f"Trace schema for eventType {obj['eventType']} is not currently supported.")
-                validation_error.cause = "SCHEMA_NOT_FOUND"
-                raise validation_error
-            validate(obj, SCHEMAS.get(obj['eventType'].lower()), format_checker=FORMAT_CHECKER)
-    except ValidationError as error:
-        if error.cause == "SCHEMA_NOT_FOUND":
-            LOGGER.error(error)
+    if loaded_obj and 'eventType' in loaded_obj:
+        event_type = loaded_obj['eventType'].lower()
+        schema = SCHEMAS.get(event_type)
+        if schema is not None:
+            try:
+                validate(loaded_obj, schema, format_checker=FORMAT_CHECKER)
+            except ValidationError as error:
+                raise InvalidObject(error)
         else:
-            raise InvalidObject(error)
+            raise TraceValidationSchemaNotFound("Trace schema for eventType %s not found. This event type might not be supported." % event_type)

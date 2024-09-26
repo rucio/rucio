@@ -98,9 +98,17 @@ def get_global_account_limits(account=None, *, session: "Session"):
     :return:         Dict {'MOCK': {'resolved_rses': ['MOCK'], 'limit': 10, 'resolved_rse_ids': [123]}}.
     """
     if account:
-        global_account_limits = session.query(models.AccountGlobalLimit).filter_by(account=account).all()
+        stmt = select(
+            models.AccountGlobalLimit
+        ).where(
+            models.AccountGlobalLimit.account == account
+        )
+        global_account_limits = session.execute(stmt).scalars().all()
     else:
-        global_account_limits = session.query(models.AccountGlobalLimit).all()
+        stmt = select(
+            models.AccountGlobalLimit
+        )
+        global_account_limits = session.execute(stmt).scalars().all()
 
     resolved_global_account_limits = {}
     for limit in global_account_limits:
@@ -130,7 +138,13 @@ def get_global_account_limit(account, rse_expression, *, session: "Session"):
     :return:                Limit in Bytes.
     """
     try:
-        global_account_limit = session.query(models.AccountGlobalLimit).filter_by(account=account, rse_expression=rse_expression).one()
+        stmt = select(
+            models.AccountGlobalLimit
+        ).where(
+            and_(models.AccountGlobalLimit.account == account,
+                 models.AccountGlobalLimit.rse_expression == rse_expression)
+        )
+        global_account_limit = session.execute(stmt).scalar_one()
         if global_account_limit.bytes == -1:
             return float("inf")
         else:
@@ -150,8 +164,13 @@ def get_local_account_limit(account, rse_id, *, session: "Session"):
     :return:         Limit in Bytes.
     """
     try:
-        account_limit = session.query(models.AccountLimit).filter(models.AccountLimit.account == account,
-                                                                  models.AccountLimit.rse_id == rse_id).one()
+        stmt = select(
+            models.AccountLimit
+        ).where(
+            and_(models.AccountLimit.account == account,
+                 models.AccountLimit.rse_id == rse_id)
+        )
+        account_limit = session.execute(stmt).scalar_one()
         if account_limit.bytes == -1:
             return float("inf")
         else:
@@ -175,17 +194,28 @@ def get_local_account_limits(account, rse_ids=None, *, session: "Session"):
     if rse_ids:
         rse_id_clauses = []
         for rse_id in rse_ids:
-            rse_id_clauses.append(and_(models.AccountLimit.rse_id == rse_id, models.AccountLimit.account == account))
+            rse_id_clauses.append(and_(models.AccountLimit.rse_id == rse_id,
+                                       models.AccountLimit.account == account))
         rse_id_clause_chunks = [rse_id_clauses[x:x + 10] for x in range(0, len(rse_id_clauses), 10)]
         for rse_id_chunk in rse_id_clause_chunks:
-            tmp_limits = session.query(models.AccountLimit).filter(or_(*rse_id_chunk)).all()
+            stmt = select(
+                models.AccountLimit
+            ).where(
+                or_(*rse_id_chunk)
+            )
+            tmp_limits = session.execute(stmt).scalars().all()
             for limit in tmp_limits:
                 if limit.bytes == -1:
                     account_limits[limit.rse_id] = float("inf")
                 else:
                     account_limits[limit.rse_id] = limit.bytes
     else:
-        account_limits_tmp = session.query(models.AccountLimit).filter(models.AccountLimit.account == account).all()
+        stmt = select(
+            models.AccountLimit
+        ).where(
+            models.AccountLimit.account == account
+        )
+        account_limits_tmp = session.execute(stmt).scalars().all()
         for limit in account_limits_tmp:
             if limit.bytes == -1:
                 account_limits[limit.rse_id] = float("inf")
@@ -205,8 +235,13 @@ def set_local_account_limit(account, rse_id, bytes_, *, session: "Session"):
     :param session:  Database session in use.
     """
     try:
-        account_limit = session.query(models.AccountLimit).filter(models.AccountLimit.account == account,
-                                                                  models.AccountLimit.rse_id == rse_id).one()
+        stmt = select(
+            models.AccountLimit
+        ).where(
+            and_(models.AccountLimit.account == account,
+                 models.AccountLimit.rse_id == rse_id)
+        )
+        account_limit = session.execute(stmt).scalar_one()
         account_limit.bytes = bytes_
     except NoResultFound:
         models.AccountLimit(account=account, rse_id=rse_id, bytes=bytes_).save(session=session)
@@ -223,8 +258,13 @@ def set_global_account_limit(account, rse_expression, bytes_, *, session: "Sessi
     :param session:         Database session in use.
     """
     try:
-        account_limit = session.query(models.AccountGlobalLimit).filter(models.AccountGlobalLimit.account == account,
-                                                                        models.AccountGlobalLimit.rse_expression == rse_expression).one()
+        stmt = select(
+            models.AccountGlobalLimit
+        ).where(
+            and_(models.AccountGlobalLimit.account == account,
+                 models.AccountGlobalLimit.rse_expression == rse_expression)
+        )
+        account_limit = session.execute(stmt).scalar_one()
         account_limit.bytes = bytes_
     except NoResultFound:
         models.AccountGlobalLimit(account=account, rse_expression=rse_expression, bytes=bytes_).save(session=session)
@@ -241,8 +281,14 @@ def delete_local_account_limit(account, rse_id, *, session: "Session"):
     :returns:        True if something was deleted; False otherwise.
     """
     try:
-        session.query(models.AccountLimit).filter(models.AccountLimit.account == account,
-                                                  models.AccountLimit.rse_id == rse_id).one().delete(session=session)
+        stmt = select(
+            models.AccountLimit
+        ).where(
+            and_(models.AccountLimit.account == account,
+                 models.AccountLimit.rse_id == rse_id)
+        )
+        result = session.execute(stmt).scalar_one()
+        result.delete(session=session)
         return True
     except NoResultFound:
         return False
@@ -259,8 +305,14 @@ def delete_global_account_limit(account, rse_expression, *, session: "Session"):
     :returns:               True if something was deleted; False otherwise.
     """
     try:
-        session.query(models.AccountGlobalLimit).filter(models.AccountGlobalLimit.account == account,
-                                                        models.AccountGlobalLimit.rse_expression == rse_expression).one().delete(session=session)
+        stmt = select(
+            models.AccountGlobalLimit
+        ).where(
+            and_(models.AccountGlobalLimit.account == account,
+                 models.AccountGlobalLimit.rse_expression == rse_expression)
+        )
+        result = session.execute(stmt).scalar_one()
+        result.delete(session=session)
         return True
     except NoResultFound:
         return False
@@ -278,14 +330,22 @@ def get_local_account_usage(account, rse_id=None, *, session: "Session"):
     :returns:        List of dicts {'rse_id', 'rse', 'bytes', 'files', 'bytes_limit', 'bytes_remaining'}
     """
 
+    stmt = select(
+        models.AccountUsage
+    ).where(
+        models.AccountUsage.account == account
+    )
     if not rse_id:
         # All RSESs
         limits = get_local_account_limits(account=account, session=session)
-        counters = {c.rse_id: c for c in session.query(models.AccountUsage).filter_by(account=account).all()}
+        counters = {c.rse_id: c for c in session.execute(stmt).scalars().all()}
     else:
         # One RSE
+        stmt.where(
+            models.AccountUsage.rse_id == rse_id
+        )
         limits = get_local_account_limits(account=account, rse_ids=[rse_id], session=session)
-        counters = {c.rse_id: c for c in session.query(models.AccountUsage).filter_by(account=account, rse_id=rse_id).all()}
+        counters = {c.rse_id: c for c in session.execute(stmt).scalars().all()}
     result_list = []
 
     for rse_id in set(limits).union(counters):
@@ -340,9 +400,16 @@ def get_global_account_usage(account, rse_expression=None, *, session: "Session"
         limit = get_global_account_limit(account=account, rse_expression=rse_expression, session=session)
         vo = account.vo
         resolved_rses = [resolved_rse['id'] for resolved_rse in parse_expression(rse_expression, filter_={'vo': vo}, session=session)]
-        usage = session.query(func.sum(models.AccountUsage.bytes), func.sum(models.AccountUsage.files))\
-                       .filter(models.AccountUsage.account == account, models.AccountUsage.rse_id.in_(resolved_rses))\
-                       .group_by(models.AccountUsage.account).first()
+        stmt = select(
+            func.sum(models.AccountUsage.bytes),
+            func.sum(models.AccountUsage.files)
+        ).where(
+            and_(models.AccountUsage.account == account,
+                 models.AccountUsage.rse_id.in_(resolved_rses))
+        ).group_by(
+            models.AccountUsage.account
+        )
+        usage = session.execute(stmt).first()
         if limit is None:
             limit = 0
         if usage is None:

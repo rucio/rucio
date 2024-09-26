@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from json import loads
+from typing import Optional
 
 from requests import get
 
@@ -35,7 +36,7 @@ class MappingCollector:
             self._fetch_panda_mapping()
             self._fetch_ddm_mapping()
 
-        def _fetch_panda_mapping(self):
+        def _fetch_panda_mapping(self) -> None:
             '''
             _fetch_panda_mapping
             '''
@@ -50,7 +51,7 @@ class MappingCollector:
                     self.site_to_panda[entry['atlas_site']] = []
                 self.site_to_panda[entry['atlas_site']].append(entry['panda_resource'])
 
-        def _fetch_ddm_mapping(self):
+        def _fetch_ddm_mapping(self) -> None:
             '''
             _fetch_ddm_mapping
             '''
@@ -74,34 +75,34 @@ class MappingCollector:
         if not MappingCollector.instance:
             MappingCollector.instance = MappingCollector._MappingCollector()
 
-    def ddm_to_site(self, ddm):
+    def ddm_to_site(self, ddm: str) -> Optional[str]:
         '''
         ddm_to_site
         '''
-        if ddm not in self.instance.ddm_to_site:
+        if ddm not in self.instance.ddm_to_site:  # type: ignore
             return None
-        return self.instance.ddm_to_site[ddm]
+        return self.instance.ddm_to_site[ddm]  # type: ignore
 
-    def panda_to_site(self, panda):
+    def panda_to_site(self, panda: str) -> Optional[str]:
         '''
         panda_to_site
         '''
-        if panda not in self.instance.panda_to_site:
+        if panda not in self.instance.panda_to_site:  # type: ignore
             return None
-        return self.instance.panda_to_site[panda]
+        return self.instance.panda_to_site[panda]  # type: ignore
 
-    def site_to_ddm(self, site):
+    def site_to_ddm(self, site: str) -> Optional[str]:
         '''
         site_to_ddm
         '''
-        if site not in self.instance.site_to_ddm:
+        if site not in self.instance.site_to_ddm:  # type: ignore
             return None
-        return self.instance.site_to_ddm[site]
+        return self.instance.site_to_ddm[site]  # type: ignore
 
-    def site_to_panda(self, site):
+    def site_to_panda(self, site: str) -> Optional[str]:
         '''
         site_to_panda
         '''
-        if site not in self.instance.site_to_panda:
+        if site not in self.instance.site_to_panda:  # type: ignore
             return None
-        return self.instance.site_to_panda[site]
+        return self.instance.site_to_panda[site]  # type: ignore
