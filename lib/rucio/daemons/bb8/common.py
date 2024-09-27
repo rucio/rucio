@@ -426,6 +426,7 @@ def list_rebalance_rule_candidates(
             models.ReplicationRule.scope,
             models.ReplicationRule.name,
             models.ReplicationRule.id,
+            models.ReplicationRule.did_type,
             models.ReplicationRule.rse_expression,
             models.ReplicationRule.subscription_id,
             func.sum(models.DataIdentifier.bytes).label('total_bytes'),
@@ -459,6 +460,7 @@ def list_rebalance_rule_candidates(
             models.ReplicationRule.scope,
             models.ReplicationRule.name,
             models.ReplicationRule.id,
+            models.ReplicationRule.did_type,
             models.ReplicationRule.rse_expression,
             models.ReplicationRule.subscription_id
         ).having(
@@ -643,6 +645,7 @@ def rebalance_rse(
         scope,
         name,
         rule_id,
+        did_type,
         rse_expression,
         subscription_id,
         bytes_,
@@ -661,12 +664,17 @@ def rebalance_rse(
 
         try:
             rule = get_rule(rule_id=rule_id)
-            # My implementation of the rule rebalancing
             other_rses = []
-            for did in list_content(scope, name):
-                other_rses += [
-                    r["rse_id"] for r in get_dataset_locks(did['scope'], did['name'], session=session)
-                ]
+            if did_type == DIDType.CONTAINER:
+                for did in list_content(scope, name):
+                    if did["type"] == DIDType.DATASET:
+                        other_rses += [
+                            r["rse_id"] for r in get_dataset_locks(did['scope'], did['name'], session=session)
+                        ]
+            else:
+                other_rses = [
+                r["rse_id"] for r in get_dataset_locks(scope, name, session=session)
+            ]
             # Select the target RSE for this rule
             try:
                 target_rse_exp = select_target_rse(
