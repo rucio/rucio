@@ -14,13 +14,14 @@
 
 import importlib
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from typing import Any
+    from collections.abc import Iterable
+    from types import ModuleType
 
 
-def import_extras(module_list: list[str]) -> "dict[str, Any]":
+def import_extras(module_list: 'Iterable[str]') -> dict[str, "Optional[ModuleType]"]:
     out = dict()
     for mod in module_list:
         out[mod] = None
