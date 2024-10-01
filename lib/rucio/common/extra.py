@@ -29,8 +29,6 @@ def import_extras(module_list: 'Iterable[str]') -> dict[str, "Optional[ModuleTyp
             with warnings.catch_warnings():
                 # TODO: remove when https://github.com/paramiko/paramiko/issues/2038 is fixed
                 warnings.filterwarnings('ignore', 'Blowfish has been deprecated', module='paramiko')
-                # TODO: deprecated python 2 and 3.6 too ...
-                warnings.filterwarnings('ignore', 'Python .* is no longer supported', module='paramiko')
                 out[mod] = importlib.import_module(mod)
         except ImportError:
             pass
