@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import importlib
-import warnings
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -26,10 +25,7 @@ def import_extras(module_list: 'Iterable[str]') -> dict[str, "Optional[ModuleTyp
     for mod in module_list:
         out[mod] = None
         try:
-            with warnings.catch_warnings():
-                # TODO: remove when https://github.com/paramiko/paramiko/issues/2038 is fixed
-                warnings.filterwarnings('ignore', 'Blowfish has been deprecated', module='paramiko')
-                out[mod] = importlib.import_module(mod)
+            out[mod] = importlib.import_module(mod)
         except ImportError:
             pass
     return out
