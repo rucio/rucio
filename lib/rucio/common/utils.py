@@ -54,7 +54,7 @@ if EXTRA_MODULES['paramiko']:
     try:
         from paramiko import RSAKey
     except Exception:
-        EXTRA_MODULES['paramiko'] = False
+        EXTRA_MODULES['paramiko'] = None
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
