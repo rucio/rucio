@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -32,9 +33,9 @@ TEST_FTS_HOST = "https://fts:8446"
 
 
 def _make_transfer_path(
-        did, 
-        rse_factory, 
-        root_account, 
+        did,
+        rse_factory,
+        root_account,
         dst_rse_is_tape: bool = True
 ):
     _, src_rse_id = rse_factory.make_mock_rse()
@@ -288,4 +289,34 @@ def test_include_none_by_default(did_factory, rse_factory, root_account):
     )
 
     job_params = fts3_tool._file_from_transfer(transfer_path[0], job_params)
+    assert "archive_metadata" not in job_params
+
+
+def test_no_metadata_if_dest_is_not_tape(did_factory, rse_factory, root_account):
+    """
+    If the destination RSE is not tape,
+    no tape metadata plugin should run,
+    and no archive metadata should be included.
+    """
+
+    mock_did = did_factory.random_file_did()
+    mock_metadata_plugin = MagicMock()
+    transfer_path = _make_transfer_path(mock_did, rse_factory, root_account, dst_rse_is_tape=False)
+
+    fts3_tool = FTS3Transfertool(TEST_FTS_HOST)
+
+    fts3_tool.tape_metadata_plugins = [mock_metadata_plugin]  # type: ignore
+
+    job_params = build_job_params(
+        transfer_path=transfer_path,
+        bring_online=None,
+        default_lifetime=None,
+        archive_timeout_override=None,
+        max_time_in_queue=None,
+        logger=logging.log,
+    )
+
+    job_params = fts3_tool._file_from_transfer(transfer_path[0], job_params)
+
+    assert not mock_metadata_plugin.called
     assert "archive_metadata" not in job_params
