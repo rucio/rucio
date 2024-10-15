@@ -1,6 +1,7 @@
 coverage:
   status:
     patch:
-      paths:
-        - "lib/rucio/version*"
-        - "lib/rucio/common/*"
+      default:
+        paths:
+          - "lib/rucio/version*"
+          - "lib/rucio/common/*"
