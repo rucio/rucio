@@ -22,6 +22,7 @@ from urllib.parse import urlparse
 import geoip2.database
 import pytest
 
+import rucio.core.config as core_config
 from rucio.common.config import config_get
 from rucio.common.constants import RseAttr
 from rucio.common.utils import parse_replicas_from_string
@@ -448,7 +449,7 @@ def test_not_sorting_lan_replicas(vo, rest_client, auth_token, protocols_setup, 
 @pytest.mark.noparallel(reason='fails when run in parallel')
 @pytest.mark.parametrize("content_type", [Mime.METALINK, Mime.JSON_STREAM])
 def test_sort_geoip_address_not_found_error(vo, rest_client, auth_token, protocols_setup, content_type):
-    """Replicas: test sorting via geoip with ignoring geoip errors."""
+    """Replicas: test sorting via geoip with ignoring geoip errors (and without)."""
 
     class MockedGeoIPError(Exception):
         def __init__(self, *args):
@@ -479,6 +480,26 @@ def test_sort_geoip_address_not_found_error(vo, rest_client, auth_token, protoco
 
         get_geoip_db_mock.assert_called()
 
+    # now set config to not ignore errors
+    core_config.set("core", "geoip_ignore_error", False)
+    
+    # invalidate cache for __get_distance so that __get_geoip_db is called
+    replica_sorter.REGION.invalidate()
+
+    with mock.patch('rucio.core.replica_sorter.__geoip_db', side_effect=fake_get_geoip_db) as get_geoip_db_mock:
+        response = rest_client.post(
+            '/replicas/list',
+            headers=headers(auth(auth_token), vohdr(vo), accept(content_type)),
+            json=data
+        )
+        # this time the call should fail
+        assert response.status_code != 200
+
+        get_geoip_db_mock.assert_called()
+
+    # reset to ignore errors for other tests
+    core_config.set("core", "geoip_ignore_error", True)
+    
 
 @pytest.mark.noparallel(reason='fails when run in parallel, replicas should not be changed')
 def test_get_sorted_list_replicas_no_metalink(vo, rest_client, auth_token, protocols_setup, mock_scope):
