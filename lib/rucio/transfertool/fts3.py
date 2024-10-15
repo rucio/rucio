@@ -1041,8 +1041,10 @@ class FTS3Transfertool(Transfertool):
             if isinstance(activity_id, int):
                 t_file['scitag'] = self.scitags_exp_id << 6 | activity_id
 
-        for plugin in self.tape_metadata_plugins:
-            plugin_hints = plugin.hints(t_file['metadata'])
+        plugin_hints = {}
+        if t_file['metadata']['dst_type'] == 'TAPE':
+            for plugin in self.tape_metadata_plugins:
+                plugin_hints = plugin.hints(t_file['metadata'])
 
             t_file = deep_merge_dict(source=plugin_hints, destination=t_file)
 
