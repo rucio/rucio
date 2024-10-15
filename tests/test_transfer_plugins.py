@@ -31,9 +31,14 @@ MAX_POLL_WAIT_SECONDS = 60
 TEST_FTS_HOST = "https://fts:8446"
 
 
-def _make_transfer_path(did, rse_factory, root_account):
+def _make_transfer_path(
+        did, 
+        rse_factory, 
+        root_account, 
+        dst_rse_is_tape: bool = True
+):
     _, src_rse_id = rse_factory.make_mock_rse()
-    dst_rse, dst_rse_id = rse_factory.make_mock_rse()
+    dst_rse, dst_rse_id = rse_factory.make_mock_rse(rse_type="TAPE" if dst_rse_is_tape else "DISK")
     all_rses = [src_rse_id, dst_rse_id]
     distance_core.add_distance(src_rse_id, dst_rse_id, distance=1)
 
