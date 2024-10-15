@@ -17,7 +17,7 @@ import logging
 import re
 from configparser import NoOptionError, NoSectionError
 from json import dumps
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.exc import IntegrityError, NoResultFound, StatementError
@@ -26,12 +26,11 @@ from sqlalchemy.orm import aliased
 from rucio.common.config import config_get_bool
 from rucio.common.exception import RucioException, SubscriptionDuplicate, SubscriptionNotFound
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import SubscriptionState
+from rucio.db.sqla.constants import RuleState, SubscriptionState
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
-    from typing import Any, Optional
 
     from sqlalchemy.orm import Session
 
@@ -46,10 +45,10 @@ def add_subscription(name: str,
                      filter_: str,
                      replication_rules: str,
                      comments: str,
-                     lifetime: "Optional[int]" = None,
-                     retroactive: "Optional[bool]" = False,
-                     dry_run: "Optional[bool]" = False,
-                     priority: "Optional[int]" = 3,
+                     lifetime: Optional[int] = None,
+                     retroactive: Optional[bool] = False,
+                     dry_run: Optional[bool] = False,
+                     priority: Optional[int] = 3,
                      *, session: "Session") -> str:
     """
     Adds a new subscription which will be verified against every new added file and dataset
@@ -151,7 +150,7 @@ def update_subscription(name: str,
         keep_history = config_get_bool('subscriptions', 'keep_history')
     except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
-    values = {'state': SubscriptionState.UPDATED}
+    values: dict[str, Any] = {'state': SubscriptionState.UPDATED}
     if 'filter' in metadata and metadata['filter']:
         values['filter'] = dumps(metadata['filter'])
     if 'replication_rules' in metadata and metadata['replication_rules']:
@@ -212,9 +211,9 @@ def update_subscription(name: str,
 
 
 @stream_session
-def list_subscriptions(name: "Optional[str]" = None,
+def list_subscriptions(name: Optional[str] = None,
                        account: "Optional[InternalAccount]" = None,
-                       state: "Optional[SubscriptionState]" = None,
+                       state: Optional[SubscriptionState] = None,
                        *, session: "Session",
                        logger: "LoggerFunction" = logging.log) -> "Iterator[SubscriptionType]":
     """
@@ -282,7 +281,13 @@ def delete_subscription(subscription_id: str, *, session: "Session") -> None:
 
 
 @stream_session
-def list_subscription_rule_states(name=None, account=None, *, session: "Session", logger=logging.log):
+def list_subscription_rule_states(
+    name: Optional[str] = None,
+    account: Optional["InternalAccount"] = None,
+    *,
+    session: "Session",
+    logger: "LoggerFunction" = logging.log
+) -> "Iterator[tuple[InternalAccount, str, RuleState, int]]":
     """Returns a list of with the number of rules per state for a subscription.
 
     :param name:               Name of the subscription
@@ -311,7 +316,7 @@ def list_subscription_rule_states(name=None, account=None, *, session: "Session"
             )
 
         if account:
-            if '*' in account.internal:
+            if account.internal and '*' in account.internal:
                 account_str = account.internal.replace('*', '%')
                 stmt = stmt.where(
                     subscription.account.like(account_str)
@@ -332,11 +337,11 @@ def list_subscription_rule_states(name=None, account=None, *, session: "Session"
     )
 
     for row in session.execute(stmt).all():
-        yield row
+        yield row._tuple()
 
 
 @read_session
-def get_subscription_by_id(subscription_id, *, session: "Session"):
+def get_subscription_by_id(subscription_id: str, *, session: "Session") -> "SubscriptionType":
     """
     Get a specific subscription by id.
 
