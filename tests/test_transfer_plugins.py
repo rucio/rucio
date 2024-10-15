@@ -235,8 +235,8 @@ def test_multiple_plugin_concat(file_config_mock, did_factory, rse_factory, root
     generated_collocation_hints = job_params["archive_metadata"]["collocation_hints"]
     assert expected_hints["collocation_hints"] == generated_collocation_hints
 
-    expected_schedule_hints = job_params["archive_metadata"]["scheduling_hints"]
-    assert expected_hints["scheduling_hints"] == expected_schedule_hints
+    generated_scheduling_hints = job_params["archive_metadata"]["scheduling_hints"]
+    assert expected_hints["scheduling_hints"] == generated_scheduling_hints
 
 
 @pytest.mark.parametrize("file_config_mock", [
