@@ -49,6 +49,15 @@ OPERATORS_CONVERSION_LUT = {
     "": operator.eq
 }
 
+ELASTIC_OP_MAP = {
+    operator.eq: "=",
+    operator.ne: "!",
+    operator.gt: "gt",
+    operator.lt: "lt",
+    operator.ge: "gte",
+    operator.le: "lte"
+}
+
 # lookup table converting pythonic operators to oracle operators
 ORACLE_OP_MAP = {
     operator.eq: "==",
@@ -347,6 +356,56 @@ class FilterEngine:
             query_str = or_expressions[0]                           # ...otherwise just use the first, and only, entry.
 
         return query_str
+
+    def create_elastic_query(
+        self,
+        additional_filters: Optional["Iterable[FilterTuple]"] = None
+    ) -> dict[str, Any]:
+        """
+        Returns a single elastic query describing the filters expression.
+
+        :param additional_filters: additional filters to be applied to all clauses.
+        :returns: a elastic query string describing the filters expression.
+        """
+
+        additional_filters = additional_filters or []
+        for or_group in self._filters:
+            for _filter in additional_filters:
+                or_group.append(list(_filter))  # type: ignore
+
+        should = []
+        for or_group in self._filters:
+            bool_query = {
+                "must": [],
+                "must_not": []
+            }
+
+            for and_group in or_group:
+                key, oper, value = and_group
+                key = str(key)
+
+                if isinstance(value, str) and any(char in value for char in ['*', '%']):
+                    if value in ('*', '%', u'*', u'%'):
+                        bool_query["must"].append({"wildcard": {key: value}})
+                    else:
+                        wildcard_query = {"wildcard": {key: value}}
+                        if oper == operator.eq:
+                            bool_query["must"].append(wildcard_query)
+                        elif oper == operator.ne:
+                            bool_query["must_not"].append(wildcard_query)
+                else:
+                    if oper in [operator.lt, operator.gt, operator.ge, operator.le]:
+                        elsop = ELASTIC_OP_MAP[oper]
+                        bool_query["must"].append({"range": {key: {elsop: value}}})
+                    elif oper == operator.eq:
+                        bool_query["must"].append({"term": {key: value}})
+                    elif oper == operator.ne:
+                        bool_query["must_not"].append({"term": {key: value}})
+
+            should.append({"bool": bool_query})
+
+        q = {"bool": {"should": should}}
+        return q
 
     def create_postgres_query(
         self,

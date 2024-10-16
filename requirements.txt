@@ -1,0 +1,57 @@
+# All dependencies needed to run rucio client (and server/daemons) should be defined here
+requests>=2.20.0,<=2.27.1                                   # Python HTTP for Humans.
+urllib3>=1.24.2,<=1.26.8                                    # HTTP library with thread-safe connection pooling, file post, etc.
+dogpile.cache>=1.1.2,<=1.1.5                                # Caching API plugins (1.1.2 is the first version to support pymemcache)
+tabulate~=0.8.0                                             # Pretty-print tabular data
+jsonschema~=3.2.0                                           # For JSON schema validation (Policy modules)
+dataclasses==0.8.0; python_version == '3.6'
+
+# All dependencies needed in extras for rucio client (and server/daemons) should be defined here
+paramiko~=2.11.0                                            # ssh_extras; SSH2 protocol library (also needed in the server)
+kerberos~=1.3.1                                             # kerberos_extras for client and server
+pykerberos~=1.2.1                                           # kerberos_extras for client and server
+requests-kerberos>=0.12.0                                   # kerberos_extras for client and server
+python-swiftclient~=3.13.1                                  # swift_extras
+argcomplete~=1.12.3                                         # argcomplete_extras; Bash tab completion for argparse
+python-magic~=0.4.25                                        # dumper_extras; File type identification using libmagic
+
+# All dependencies needed to run rucio server/daemons should be defined here
+SQLAlchemy==1.4.31                                          # DB backend
+alembic~=1.7.6                                              # Lightweight database migration tool for SQLAlchemy
+pymemcache==3.5.2                                           # A comprehensive, fast, pure-Python memcached client (Used by Dogpile)
+python-dateutil==2.8.2                                      # Extensions to the standard datetime module
+stomp.py==6.1.1                                             # ActiveMQ Messaging Protocol
+statsd==3.3.0                                               # Needed to log into graphite with more than 1 Hz
+geoip2==4.5.0                                               # GeoIP2 API (for IPv6 support)
+google-auth==2.6.0                                          # Google authentication library for Python
+redis==4.1.4                                                # Python client for Redis key-value store
+Flask==2.0.3                                                # Python web framework
+oic==1.3.0                                                  # for authentication via OpenID Connect protocol
+prometheus_client==0.13.1                                   # Python client for the Prometheus monitoring system
+boto3==1.21.13                                              # S3 boto protocol (new version)
+
+# All dependencies needed in extras for rucio server/daemons should be defined here
+cx_oracle==8.3.0                                            # oracle_extras
+psycopg2-binary==2.9.3                                      # postgresql_extras
+PyMySQL==1.0.2                                              # mysql_extras
+PyYAML==5.4.1                                               # globus_extras and used for reading test configuration files
+globus-sdk==3.5.0                                           # globus_extras
+python3-saml==1.14.0                                        # saml_extras
+pymongo==4.0.1                                              # pymongo (metadata plugin)
+elasticsearch_dsl>=8.0.0                                    # elasticsearch (metadata plugin)
+
+# All dependencies needed to develop/test rucio should be defined here
+pytest==7.0.1
+pytest-xdist~=3.0.2                                         # Used for parallel testing
+pyflakes==2.5.0                                             # Passive checker of Python programs
+flake8==5.0.4                                               # Wrapper around PyFlakes&pep8
+pycodestyle==2.9.1                                          # New package replacing pep8
+pylint==2.13.9
+astroid<=2.11.7
+virtualenv==20.13.3                                         # Virtual Python Environment builder
+xmltodict==0.12.0                                           # Makes working with XML feel like you are working with JSON
+pytz==2021.3                                                # World timezone definitions, modern and historical
+pydoc-markdown~=3.13.0                                      # Used for generating Markdown documentation for docusaurus
+sh~=1.14.2                                                  # Convenience library for running subprocesses in Python
+apispec==5.1.1                                              # Generate OpenApi definition out of pydoc comments
+apispec-webframeworks==0.5.2                                # Integration of apispec in Flask
