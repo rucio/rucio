@@ -57,8 +57,9 @@ def quarantine_file_replicas(
     if rse_id is None:
         rse_id = get_rse_id(rse, vo=vo, session=session)
 
-    if not permission.has_permission(issuer, 'quarantine_file_replicas', {}, vo=vo, session=session):
-        raise exception.AccessDenied('Account %s can not quarantine replicas' % (issuer))
+    auth_result = permission.has_permission(issuer, 'quarantine_file_replicas', {}, vo=vo, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not quarantine replicas. %s' % (issuer, auth_result.message))
 
     replica_infos = []
     for r in replicas:

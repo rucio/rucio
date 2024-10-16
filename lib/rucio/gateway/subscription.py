@@ -66,8 +66,9 @@ def add_subscription(
     :param session: The database session in use.
     :returns: subscription_id
     """
-    if not has_permission(issuer=issuer, vo=vo, action='add_subscription', kwargs={'account': account}, session=session):
-        raise AccessDenied('Account %s can not add subscription' % (issuer))
+    auth_result = has_permission(issuer=issuer, vo=vo, action='add_subscription', kwargs={'account': account}, session=session)
+    if not auth_result.allowed:
+        raise AccessDenied('Account %s can not add subscription. %s' % (issuer, auth_result.message))
     try:
         if filter_:
             if not isinstance(filter_, dict):
@@ -121,8 +122,9 @@ def update_subscription(
     :param session: The database session in use.
     :raises: SubscriptionNotFound if subscription is not found
     """
-    if not has_permission(issuer=issuer, vo=vo, action='update_subscription', kwargs={'account': account}, session=session):
-        raise AccessDenied('Account %s can not update subscription' % (issuer))
+    auth_result = has_permission(issuer=issuer, vo=vo, action='update_subscription', kwargs={'account': account}, session=session)
+    if not auth_result.allowed:
+        raise AccessDenied('Account %s can not update subscription. %s' % (issuer, auth_result.message))
     try:
         if not isinstance(metadata, dict):
             raise TypeError('metadata should be a dict')
