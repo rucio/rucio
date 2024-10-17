@@ -25,6 +25,7 @@ import operator
 from typing import Any, TYPE_CHECKING, List, Optional, Union
 
 from elasticsearch import Elasticsearch
+from elasticsearch import exceptions as elastic_exceptions
 
 from rucio.common import config, exception
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
@@ -108,7 +109,7 @@ class ElasticDidMeta(DidMetaPlugin):
         doc_id = f"{scope.internal}{name}"
         try:
             doc = self.client.get(index=self.index, id=doc_id)["_source"]
-        except Elasticsearch.NotFoundError as err:
+        except elastic_exceptions.NotFoundError as err:
             raise exception.DataIdentifierNotFound(f"No metadata found for DID '{scope}:{name}' not found") from err
         except Exception as err:
             raise exception.RucioException(err)
@@ -180,7 +181,7 @@ class ElasticDidMeta(DidMetaPlugin):
                     }
                 }
                 self.client.update(index=self.index, id=doc_id, body=script)
-        except Elasticsearch.NotFoundError as err:
+        except elastic_exceptions.NotFoundError as err:
             raise exception.DataIdentifierNotFound(f"No metadata found for DID '{scope}:{name}' not found") from err
         except Exception as err:
             raise exception.RucioException(err)
@@ -281,7 +282,7 @@ class ElasticDidMeta(DidMetaPlugin):
 
             self.client.delete(index=self.index, id=doc_id)
 
-        except Elasticsearch.NotFoundError as err:
+        except elastic_exceptions.NotFoundError as err:
             raise exception.DataIdentifierNotFound(f"No metadata found for DID '{scope}:{name}' not found") from err
         except Exception as err:
             raise exception.RucioException(err)
@@ -299,7 +300,7 @@ class ElasticDidMeta(DidMetaPlugin):
         try:
             doc = self.client.get(index=self.archive_index, id=doc_id)["_source"]
             return doc
-        except Elasticsearch.NotFoundError as err:
+        except elastic_exceptions.NotFoundError as err:
             raise exception.DataIdentifierNotFound(f"No metadata found for DID '{scope}:{name}' not found") from err
         except Exception as err:
             raise exception.RucioException(err)
