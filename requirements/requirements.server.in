@@ -35,5 +35,6 @@ PyYAML==6.0.1                                               # globus_extras and 
 globus-sdk==3.41.0                                          # globus_extras
 python3-saml==1.16.0                                        # saml_extras
 pymongo==4.8.0                                              # pymongo (metadata plugin)
+elasticsearch>=8.0.0                                        # elasticsearch ( metadata plugin)
 libtorrent==2.0.9                                           # Support for the bittorrent transfertool
 qbittorrent-api==2023.11.57                                 # qBittorrent plugin for the bittorrent tranfsertool

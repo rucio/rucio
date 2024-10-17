@@ -22,6 +22,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, delete_dids, set_dids_metadata_bulk, set_metadata_bulk
 from rucio.core.did_meta_plugins import get_metadata, list_dids, set_metadata
 from rucio.core.did_meta_plugins.mongo_meta import MongoDidMeta
+from rucio.core.did_meta_plugins.elasticsearch_meta import ElasticDidMeta
 from rucio.core.did_meta_plugins.postgres_meta import ExternalPostgresJSONDidMeta
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import did_name_generator, skip_rse_tests_with_accounts
@@ -282,6 +283,107 @@ class TestDidMetaMongo:
             results.append(d)
         assert len(results) == 1
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn4}] == results
+        assert [tmp_dsn4] == results
+
+@pytest.fixture()
+def elastic_meta():
+    return ElasticDidMeta(
+            hosts=['http://elasticsearch_meta:9200'],
+            user="elastic",
+            password="rucio",
+        )
+
+
+@skip_rse_tests_with_accounts
+class TestDidMetaElastic:
+
+    @pytest.mark.dirty
+    def test_set_get_metadata(self, mock_scope, root_account, elastic_meta):
+        """ DID Meta (ELASTIC): Get/set did meta """
+        did_name = did_name_generator('dataset')
+        meta_key = 'my_key_%s' % generate_uuid()
+        meta_value = 'my_value_%s' % generate_uuid()
+        add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
+        elastic_meta.set_metadata(scope=mock_scope, name=did_name, key=meta_key, value=meta_value)
+        assert elastic_meta.get_metadata(scope=mock_scope, name=did_name)[meta_key] == meta_value
+
+
+    @pytest.mark.dirty
+    def test_delete_metadata(self, mock_scope, root_account, elastic_meta):
+        """ DID Meta (ELASTIC) : Deletes metadata key """
+
+        meta_key1 = 'my_key_%s' % generate_uuid()
+        meta_key2 = 'my_key_%s' % generate_uuid()
+        meta_value1 = 'my_value_%s' % generate_uuid()
+        meta_value2 = 'my_value_%s' % generate_uuid()
+
+        tmp_dsn1 = did_name_generator('dataset')
+        add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account)
+        meta = {meta_key1 : meta_value1, meta_key2 : meta_value2}
+        elastic_meta.set_metadata_bulk(scope=mock_scope, name=tmp_dsn1, meta=meta)
+        metadata = elastic_meta.get_metadata(scope=mock_scope, name=tmp_dsn1)
+        assert metadata[meta_key1] == meta_value1
+        assert metadata[meta_key2] == meta_value2
+
+        elastic_meta.delete_metadata(scope=mock_scope, name=tmp_dsn1, key=meta_key2)
+
+        metadata = elastic_meta.get_metadata(scope=mock_scope, name=tmp_dsn1)
+        assert metadata[meta_key1] == meta_value1
+        assert meta_key2 not in metadata
+
+
+    @pytest.mark.dirty
+    def test_list_did_meta(self, mock_scope, root_account, elastic_meta):
+        """ DID Meta (ELASTIC): List did meta """
+
+        meta_key1 = 'my_key_%s' % generate_uuid()
+        meta_key2 = 'my_key_%s' % generate_uuid()
+        meta_value1 = 'my_value_%s' % generate_uuid()
+        meta_value2 = 'my_value_%s' % generate_uuid()
+
+        tmp_dsn1 = did_name_generator('dataset')
+        add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account)
+        elastic_meta.set_metadata(scope=mock_scope, name=tmp_dsn1, key=meta_key1, value=meta_value1)
+
+        tmp_dsn2 = did_name_generator('dataset')
+        add_did(scope=mock_scope, name=tmp_dsn2, did_type="DATASET", account=root_account)
+        elastic_meta.set_metadata(scope=mock_scope, name=tmp_dsn2, key=meta_key1, value=meta_value2)
+
+        tmp_dsn3 = did_name_generator('dataset')
+        add_did(scope=mock_scope, name=tmp_dsn3, did_type="DATASET", account=root_account)
+        elastic_meta.set_metadata(scope=mock_scope, name=tmp_dsn3, key=meta_key2, value=meta_value1)
+        elastic_meta.get_metadata(scope=mock_scope, name=tmp_dsn3)
+
+        tmp_dsn4 = did_name_generator('dataset')
+        add_did(scope=mock_scope, name=tmp_dsn4, did_type="DATASET", account=root_account)
+        elastic_meta.set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key1, value=meta_value1)
+        elastic_meta.set_metadata(scope=mock_scope, name=tmp_dsn4, key=meta_key2, value=meta_value2)
+
+        dids = elastic_meta.list_dids(mock_scope, {meta_key1: meta_value1})
+        results = sorted(list(dids))
+        assert len(results) == 2
+        expected = sorted([tmp_dsn1, tmp_dsn4])
+        assert expected == results
+
+        dids = elastic_meta.list_dids(mock_scope, {meta_key1: meta_value2})
+        results = []
+        for d in dids:
+            results.append(d)
+        assert len(results) == 1
+        assert [tmp_dsn2] == results
+
+        dids = elastic_meta.list_dids(mock_scope, {meta_key2: meta_value1})
+        results = []
+        for d in dids:
+            results.append(d)
+        assert len(results) == 1
+        assert [tmp_dsn3] == results
+
+        dids = elastic_meta.list_dids(mock_scope, {meta_key1: meta_value1, meta_key2: meta_value2})
+        results = []
+        for d in dids:
+            results.append(d)
+        assert len(results) == 1
         assert [tmp_dsn4] == results
 
 
