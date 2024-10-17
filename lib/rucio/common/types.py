@@ -16,7 +16,7 @@ import sys
 from collections.abc import Callable
 from os import PathLike
 
-if sys.version_info < (3, 11):
+if sys.version_info < (3, 11):  # pragma: no cover
     from typing_extensions import TYPE_CHECKING, Any, Literal, NotRequired, Optional, TypedDict, Union  # noqa: UP035
     PathTypeAlias = Union[PathLike, str]
 else:
@@ -35,20 +35,18 @@ class InternalType:
     '''
     Base for Internal representations of string types
     '''
-    def __init__(self, value: Optional[str], vo: str = 'def', fromExternal: bool = True):
+    def __init__(self, value: Optional[str], vo: str = 'def', from_external: bool = True):
         if value is None:
             self.external = None
             self.internal = None
             self.vo = vo
-        elif not isinstance(value, str):
-            raise TypeError('Expected value to be string type, got %s' % type(value))
-        elif fromExternal:
+        elif from_external:
             self.external = value
             self.vo = vo
-            self.internal = self._calc_internal()
+            self.internal = _RepresentationCalculator.calc_internal(self.external, self.vo)
         else:
             self.internal = value
-            vo, external = self._calc_external()
+            vo, external = _RepresentationCalculator.calc_external(self.internal)
             self.external = external
             self.vo = vo
 
@@ -59,49 +57,56 @@ class InternalType:
         return self.external
 
     def __eq__(self, other):
-        if isinstance(other, self.__class__):
+        if type(self) is type(other):
             return self.internal == other.internal
         return NotImplemented
 
-    def __ne__(self, other):
-        val = self == other
-        if val is NotImplemented:
-            return NotImplemented
-        return not val
-
     def __le__(self, other):
-        val = self.external <= other.external
-        if val is NotImplemented:
-            return NotImplemented
-        return val
+        if type(self) is type(other) and self.external is not None and other.external is not None:
+            return self.external <= other.external
+        return NotImplemented
 
     def __lt__(self, other):
-        val = self.external < other.external
-        if val is NotImplemented:
-            return NotImplemented
-        return val
+        if type(self) is type(other) and self.external is not None and other.external is not None:
+            return self.external < other.external
+        return NotImplemented
 
     def __hash__(self):
         return hash(self.internal)
 
-    def _calc_external(self) -> tuple[str, str]:
-        ''' Utility to convert between internal and external representations'''
-        if isinstance(self.internal, str):
-            split = self.internal.split('@', 1)
-            if len(split) == 1:  # if cannot convert, vo is '' and this is single vo
-                vo = 'def'
-                external = split[0]
-            else:
-                vo = split[1]
-                external = split[0]
-            return vo, external
-        return '', ''
 
-    def _calc_internal(self) -> str:
-        ''' Utility to convert between internal and external representations'''
-        if self.vo == 'def' and self.external is not None:
-            return self.external
-        internal = '{}@{}'.format(self.external, self.vo)
+class _RepresentationCalculator:
+    @staticmethod
+    def calc_external(internal: str) -> tuple[str, str]:
+        """
+        Calculate external representation from internal representation
+
+        :param internal: internal representation
+
+        :returns: tuple of VO and external representation
+        """
+        split = internal.split('@', 1)
+        if len(split) == 1:  # if cannot convert, vo is '' and this is single vo
+            vo = 'def'
+            external = split[0]
+        else:
+            vo = split[1]
+            external = split[0]
+        return vo, external
+
+    @staticmethod
+    def calc_internal(external: str, vo: str) -> str:
+        """
+        Calculate internal representation from external representation and VO
+
+        :param external: external representation
+        :param vo: VO name
+
+        :returns: internal representation
+        """
+        if vo == 'def':
+            return external
+        internal = '{}@{}'.format(external, vo)
         return internal
 
 
@@ -109,16 +114,16 @@ class InternalAccount(InternalType):
     '''
     Internal representation of an account
     '''
-    def __init__(self, account: Optional[str], vo: str = 'def', fromExternal: bool = True):
-        super(InternalAccount, self).__init__(value=account, vo=vo, fromExternal=fromExternal)
+    def __init__(self, account: Optional[str], vo: str = 'def', from_external: bool = True):
+        super(InternalAccount, self).__init__(value=account, vo=vo, from_external=from_external)
 
 
 class InternalScope(InternalType):
     '''
     Internal representation of a scope
     '''
-    def __init__(self, scope: Optional[str], vo: str = 'def', fromExternal: bool = True):
-        super(InternalScope, self).__init__(value=scope, vo=vo, fromExternal=fromExternal)
+    def __init__(self, scope: Optional[str], vo: str = 'def', from_external: bool = True):
+        super(InternalScope, self).__init__(value=scope, vo=vo, from_external=from_external)
 
 
 LoggerFunction = Callable[..., Any]

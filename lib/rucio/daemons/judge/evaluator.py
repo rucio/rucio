@@ -91,9 +91,9 @@ def run_once(
     dids = get_updated_dids(total_workers=total_workers,
                             worker_number=worker_number,
                             limit=did_limit,
-                            blocked_dids=[(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids])
+                            blocked_dids=[(InternalScope(key[0], from_external=False), key[1]) for key in paused_dids])
     logger(logging.DEBUG, 'index query time %f fetch size is %d (%d blocked)', time.time() - start, len(dids),
-           len([(InternalScope(key[0], fromExternal=False), key[1]) for key in paused_dids]))
+           len([(InternalScope(key[0], from_external=False), key[1]) for key in paused_dids]))
 
     # If the list is empty, sent the worker to sleep
     if not dids:
