@@ -22,7 +22,7 @@
 
 import datetime
 import operator
-from typing import Any, TYPE_CHECKING, List, Optional, Union
+from typing import Any, TYPE_CHECKING, Optional, Union
 
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions as elastic_exceptions
@@ -32,7 +32,10 @@ from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from sqlalchemy.orm import Session
+
     from rucio.common.types import InternalScope
 
 IMMUTABLE_KEYS = [
@@ -58,7 +61,7 @@ class ElasticDidMeta(DidMetaPlugin):
         request_timeout: int = 100,
         max_retries: int = 3,
         retry_on_timeout: bool = False
-    ):
+    ) -> None:
         super(ElasticDidMeta, self).__init__()
         hosts = hosts or [config.config_get('metadata', 'elastic_service_host')]
         user = user or config.config_get('metadata', 'elastic_user', False, None)
@@ -83,7 +86,7 @@ class ElasticDidMeta(DidMetaPlugin):
             self.es_config.update({
                 'ca_certs': ca_certs,
                 'verify_certs': verify_certs,
-                })
+            })
             if client_cert and client_key:
                 self.es_config.update({
                     'client_cert': client_cert,
@@ -93,10 +96,16 @@ class ElasticDidMeta(DidMetaPlugin):
         self.client = Elasticsearch(**self.es_config)
         self.plugin_name = "ELASTIC"
 
-    def drop_index(self):
-        self.client.indices.delete(index=self.index, ignore=[400, 404])
+    def drop_index(self) -> None:
+        self.client.indices.delete(index=self.index)
 
-    def get_metadata(self, scope: "InternalScope", name: str, *, session: "Optional[Session]" = None):
+    def get_metadata(
+        self,
+        scope: "InternalScope",
+        name: str,
+        *,
+        session: "Optional[Session]" = None
+    ) -> dict[str, Any]:
         """
         Get data identifier metadata.
 
@@ -104,6 +113,8 @@ class ElasticDidMeta(DidMetaPlugin):
         :param name: The data identifier name
         :param session: The database session in use
         :returns: The metadata for the did
+        :raises DataIdentifierNotFound: If the DID metadata is not found.
+        :raises RucioException: If another error occurs during the process.
         """
 
         doc_id = f"{scope.internal}{name}"
@@ -115,7 +126,16 @@ class ElasticDidMeta(DidMetaPlugin):
             raise exception.RucioException(err)
         return doc
 
-    def set_metadata(self, scope: "InternalScope", name: str, key: str, value: str, recursive: bool = False, *, session: "Optional[Session]" = None):
+    def set_metadata(
+        self,
+        scope: "InternalScope",
+        name: str,
+        key: str,
+        value: str,
+        recursive: bool = False,
+        *,
+        session: "Optional[Session]" = None
+    ) -> None:
         """
         Set single metadata key.
 
@@ -125,10 +145,20 @@ class ElasticDidMeta(DidMetaPlugin):
         :param value: the value of the key to be added
         :param recursive: recurse into DIDs (not supported)
         :param session: The database session in use
+        :raises DataIdentifierNotFound: If the DID is not found.
+        :raises RucioException: If an error occurs while setting the metadata.
         """
         self.set_metadata_bulk(scope=scope, name=name, meta={key: value}, recursive=recursive, session=session)
 
-    def set_metadata_bulk(self, scope: "InternalScope", name: str, meta: dict[str, Any], recursive: bool = False, *, session: "Optional[Session]" = None):
+    def set_metadata_bulk(
+        self,
+        scope: "InternalScope",
+        name: str,
+        meta: dict[str, Any],
+        recursive: bool = False,
+        *,
+        session: "Optional[Session]" = None
+    ) -> None:
         """
         Bulk set metadata keys.
 
@@ -137,6 +167,8 @@ class ElasticDidMeta(DidMetaPlugin):
         :param meta: dictionary of metadata keypairs to be added
         :param recursive: recurse into DIDs (not supported)
         :param session: The database session in use
+        :raises DataIdentifierNotFound: If the DID is not found.
+        :raises RucioException: If an error occurs while setting the metadata.
         """
         doc_id = f"{scope.internal}{name}"
         try:
@@ -153,18 +185,26 @@ class ElasticDidMeta(DidMetaPlugin):
                 existing_meta[key] = value
 
         try:
-            response = self.client.index(index=self.index, body=existing_meta, id=doc_id, refresh="true")
-            return response
+            self.client.index(index=self.index, body=existing_meta, id=doc_id, refresh="true")
         except Exception as err:
             raise exception.RucioException(err)
 
-    def delete_metadata(self, scope: "InternalScope", name: str, key: str, *, session: "Optional[Session]" = None):
+    def delete_metadata(
+        self,
+        scope: "InternalScope",
+        name: str,
+        key: str,
+        *,
+        session: "Optional[Session]" = None
+    ) -> None:
         """
         Delete a key from metadata.
 
         :param scope: the scope of did
         :param name: the name of the did
         :param key: the key to be deleted
+        :raises DataIdentifierNotFound: If the DID is not found.
+        :raises RucioException: If an error occurs while setting the metadata.
         """
         doc_id = f"{scope.internal}{name}"
         try:
@@ -186,9 +226,38 @@ class ElasticDidMeta(DidMetaPlugin):
         except Exception as err:
             raise exception.RucioException(err)
 
-    def list_dids(self, scope: "InternalScope", filters: Union[List[dict[str, Any]], dict[str, Any]], did_type: str = 'collection',
-                  ignore_case: bool = False, limit: "Optional[int]" = None, offset: "Optional[int]" = None,
-                  long: bool = False, recursive: bool = False, ignore_dids: "Optional[List]" = None, *, session: "Optional[Session]" = None):
+    def list_dids(
+        self,
+        scope: "InternalScope",
+        filters: Union[list[dict[str, Any]], dict[str, Any]],
+        did_type: str = 'collection',
+        ignore_case: bool = False,
+        limit: "Optional[int]" = None,
+        offset: "Optional[int]" = None,
+        long: bool = False,
+        recursive: bool = False,
+        ignore_dids: "Optional[list]" = None,
+        *,
+        session: "Optional[Session]" = None
+    ) -> "Iterator[dict[str, Any]]":
+        """
+        List DIDs (Data Identifier).
+
+        :param scope: The scope of the DIDs to search.
+        :param filters: The filters to apply to the DID search.
+        :param did_type: The type of DID (default is 'collection').
+        :param ignore_case: Whether to ignore case (default is False).
+        :param limit: The maximum number of DIDs to return.
+        :param offset: The starting point for the search (used for pagination).
+        :param long: Whether to return extended information (scope, name, did_type, bytes, length) (default is False).
+        :param recursive: Whether to search recursively (currently unsupported).
+        :param ignore_dids: A list of DIDs to ignore (default is an empty list).
+        :param session: The database session in use.
+        :returns: A generator yielding DIDs as strings (when `long` is False) or dictionaries (when `long` is True).
+        :raises UnsupportedOperation: If recursive searches are requested (currently unsupported).
+        :raises RucioException: If an error occurs during the search.
+        """
+
         if not ignore_dids:
             ignore_dids = []
 
@@ -262,13 +331,21 @@ class ElasticDidMeta(DidMetaPlugin):
         if recursive:
             raise exception.UnsupportedOperation(f"'{self.plugin_name.lower()}' metadata module does not currently support recursive searches")
 
-    def on_delete(self, scope: "InternalScope", name: str, archive: bool = False, session: "Optional[Session]" = None):
+    def on_delete(
+        self,
+        scope: "InternalScope",
+        name: str,
+        archive: bool = False,
+        session: "Optional[Session]" = None
+    ) -> None:
         """
         Delete a document and optionally archive it.
 
         :param scope: The scope of the document
         :param name: The name of the document
         :param archive: Whether to archive the document before deletion
+        :raises DataIdentifierNotFound: If the DID is not found.
+        :raises RucioException: If an error occurs while setting the metadata.
         """
         doc_id = f"{scope}{name}"
 
@@ -287,13 +364,20 @@ class ElasticDidMeta(DidMetaPlugin):
         except Exception as err:
             raise exception.RucioException(err)
 
-    def get_metadata_archived(self, scope: "InternalScope", name: str, session: "Optional[Session]" = None):
+    def get_metadata_archived(
+        self,
+        scope: "InternalScope",
+        name: str,
+        session: "Optional[Session]" = None
+    ) -> None:
         """
         Retrieve archived metadata for a given scope and name.
 
         :param scope: The scope of the document
         :param name: The name of the document
         :return: The archived metadata or None if not found
+        :raises DataIdentifierNotFound: If the DID is not found.
+        :raises RucioException: If an error occurs while setting the metadata.
         """
         doc_id = f"{scope}{name}"
 
@@ -305,7 +389,12 @@ class ElasticDidMeta(DidMetaPlugin):
         except Exception as err:
             raise exception.RucioException(err)
 
-    def manages_key(self, key: str, *, session: "Optional[Session]" = None) -> bool:
+    def manages_key(
+        self,
+        key: str,
+        *,
+        session: "Optional[Session]" = None
+    ) -> bool:
         return True
 
     def get_plugin_name(self) -> str:

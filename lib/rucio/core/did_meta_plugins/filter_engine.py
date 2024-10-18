@@ -385,7 +385,7 @@ class FilterEngine:
                 key = str(key)
 
                 if isinstance(value, str) and any(char in value for char in ['*', '%']):
-                    if value in ('*', '%', u'*', u'%'):
+                    if value in ('*', '%', '*', '%'):
                         bool_query["must"].append({"wildcard": {key: value}})
                     else:
                         wildcard_query = {"wildcard": {key: value}}
