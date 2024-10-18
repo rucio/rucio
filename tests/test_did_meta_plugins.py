@@ -21,8 +21,8 @@ from rucio.common.exception import KeyNotFound
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, delete_dids, set_dids_metadata_bulk, set_metadata_bulk
 from rucio.core.did_meta_plugins import get_metadata, list_dids, set_metadata
-from rucio.core.did_meta_plugins.mongo_meta import MongoDidMeta
 from rucio.core.did_meta_plugins.elasticsearch_meta import ElasticDidMeta
+from rucio.core.did_meta_plugins.mongo_meta import MongoDidMeta
 from rucio.core.did_meta_plugins.postgres_meta import ExternalPostgresJSONDidMeta
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import did_name_generator, skip_rse_tests_with_accounts

@@ -22,7 +22,7 @@
 
 import datetime
 import operator
-from typing import Any, TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions as elastic_exceptions
