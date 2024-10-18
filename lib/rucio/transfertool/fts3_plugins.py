@@ -109,9 +109,9 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         :param hints: kwargs utilized by the collocation rules
         :return: Collocation hints produced by the collocation_func, wrapped
         """
-        return {"collocation_hints": collocation_func(*hints)}
+        return {"collocation_hints": collocation_func(**hints)}
 
-    def _test_collocation(self, *hint: dict) -> dict[str, Any]:
+    def _test_collocation(self, **kwargs) -> dict[str, Any]:
         return {"0": "", "1": "", "2": "", "3": ""}
 
     def _default(self, *hints: dict) -> dict:
