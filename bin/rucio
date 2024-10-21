@@ -412,7 +412,7 @@ def list_file_replicas(args):
         pfn_dir, dst_dir = args.link.split(':')
         if args.rses:
             for replica, rse in itertools.product(replicas, rses):
-                if rse in list(replica['rses'].keys()) and replica['rses'][rse]:
+                if replica['rses'].get(rse):
                     for pfn in replica['rses'][rse]:
                         os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
         else:
@@ -423,16 +423,17 @@ def list_file_replicas(args):
                             os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
     elif args.pfns:
         if args.rses:
-            for replica, rse in itertools.product(replicas, rses):
-                if rse in list(replica['rses'].keys()) and replica['rses'][rse]:
-                    for pfn in replica['rses'][rse]:
+            for replica in replicas:
+                for pfn in replica['pfns']:
+                    rse = replica['pfns'][pfn]['rse']
+                    if replica['rses'].get(rse):
                         print(pfn)
         else:
             for replica in replicas:
-                for rse in replica['rses']:
+                for pfn in replica['pfns']:
+                    rse = replica['pfns'][pfn]['rse']
                     if replica['rses'][rse]:
-                        for pfn in replica['rses'][rse]:
-                            print(pfn)
+                        print(pfn)
     else:
         if args.all_states:
             header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', '(STATE) RSE: REPLICA']
@@ -440,18 +441,18 @@ def list_file_replicas(args):
             header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA']
         for replica in replicas:
             if 'bytes' in replica:
-                for rse in replica['rses']:
-                    for pfn in replica['rses'][rse]:
-                        if args.all_states:
-                            rse_string = '({2}) {0}: {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
-                        else:
-                            rse_string = '{0}: {1}'.format(rse, pfn)
-                        if args.rses:
-                            for selected_rse in rses:
-                                if rse == selected_rse:
-                                    table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
-                        else:
-                            table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
+                for pfn in replica['pfns']:
+                    rse = replica['pfns'][pfn]['rse']
+                    if args.all_states:
+                        rse_string = '({2}) {0}: {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
+                    else:
+                        rse_string = '{0}: {1}'.format(rse, pfn)
+                    if args.rses:
+                        for selected_rse in rses:
+                            if rse == selected_rse:
+                                table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
+                    else:
+                        table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
         print(tabulate(table, tablefmt=tablefmt, headers=header, disable_numparse=True))
     return SUCCESS
 
