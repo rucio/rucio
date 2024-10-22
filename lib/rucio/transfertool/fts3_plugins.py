@@ -53,7 +53,8 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
             raise ValueError(f'Policy Algorithm {policy_algorithm} not found')
 
         if self._supports(self._HINTS_NAME, policy_algorithm):
-            self._get_one_algorithm(self._HINTS_NAME, name=policy_algorithm)()
+            init_func = self._get_one_algorithm(self._HINTS_NAME, name=policy_algorithm)
+            init_func()
 
         self.set_in_hints = self._get_one_algorithm(self.ALGORITHM_NAME, name=policy_algorithm)
 
