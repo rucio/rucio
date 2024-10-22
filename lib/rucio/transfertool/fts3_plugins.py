@@ -78,14 +78,16 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         if init_func is not None:
             super()._register(cls._HINTS_NAME, algorithm_dict={name: init_func})
 
-    def _init_instance_activity_hints(self) -> None:
+    def _init_instance_activity_hints(self, default_priority: int = 20) -> None:
         """
-            Load prorities for activities from the config
+            Load default priority from the config
         """
-        try:
-            self.prority_table = dict(config_get_items("tape_priority"))
-        except NoSectionError:
-            self.prority_table = {}
+        self.default_priority = config_get_int(
+            "tape_priority",
+            option="default",
+            raise_exception=False,
+            default=default_priority,
+        )
 
     def _activity_hints(self, activity_kwargs: dict[str, str], default_prority: str = '20') -> dict[str, dict]:
         """ Activity Hints - assign a priority based on activity"""
@@ -95,10 +97,14 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         else:
             raise InvalidRequest("`activity` field not found in passed metadata")
 
-        default_prority = self.prority_table.get("default", default_prority)
-        priority = self.prority_table.get(activity, default_prority)
+        activity_priority = config_get_int(
+            "tape_priority",
+            option=activity,
+            raise_exception=False,
+            default=self.default_priority,
+        )
 
-        return {"scheduling_hints": {"priority": priority}}
+        return {"scheduling_hints": {"priority": activity_priority}}
 
     @staticmethod
     def _collocation(collocation_func: 'Callable', hints: dict[str, Any]) -> dict[str, dict]:
