@@ -34,7 +34,7 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
     """
 
     ALGORITHM_NAME = "fts3_tape_metadata_plugins"
-    _HINTS_NAME = "fts3_plugins_init"
+    _INIT_FUNC_NAME = "fts3_plugins_init"
     DEFAULT = "def"
 
     def __init__(self, policy_algorithm: str) -> None:
@@ -52,8 +52,8 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         if not self._supports(self.ALGORITHM_NAME, policy_algorithm):
             raise ValueError(f'Policy Algorithm {policy_algorithm} not found')
 
-        if self._supports(self._HINTS_NAME, policy_algorithm):
-            init_func = self._get_one_algorithm(self._HINTS_NAME, name=policy_algorithm)
+        if self._supports(self._INIT_FUNC_NAME, policy_algorithm):
+            init_func = self._get_one_algorithm(self._INIT_FUNC_NAME, name=policy_algorithm)
             init_func()
 
         self.set_in_hints = self._get_one_algorithm(self.ALGORITHM_NAME, name=policy_algorithm)
@@ -106,6 +106,7 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         )
 
         return {"scheduling_hints": {"priority": activity_priority}}
+            super()._register(cls._INIT_FUNC_NAME, algorithm_dict={name: init_func})
 
     @staticmethod
     def _collocation(collocation_func: 'Callable', hints: dict[str, Any]) -> dict[str, dict]:
