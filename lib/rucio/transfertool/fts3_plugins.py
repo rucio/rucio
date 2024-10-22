@@ -104,7 +104,7 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
     @staticmethod
     def _collocation(collocation_func: 'Callable', hints: dict[str, Any]) -> dict[str, dict]:
         """
-        Wraps a 'collacation' style plugin for formatting
+        Wraps a 'collocation' style plugin for formatting
 
         :param collocation_func: Function that defines the collocation rules
         :param hints: kwargs utilized by the collocation rules
