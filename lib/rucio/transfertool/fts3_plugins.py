@@ -14,7 +14,6 @@
 
 import json
 import sys
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 from rucio.common.config import config_get_int
@@ -131,7 +130,7 @@ class ActivityBasedTransferPriorityPlugin(FTS3TapeMetadataPlugin):
     def _get_activity_priority(self, activity_kwargs: dict[str, str]) -> dict[str, dict]:
         """ Activity Hints - assign a priority based on activity"""
         if "activity" in activity_kwargs:
-            activity = activity_kwargs["activity"].lower()
+            activity = activity_kwargs["activity"]
         else:
             raise InvalidRequest("`activity` field not found in passed metadata")
 
