@@ -52,7 +52,6 @@ dev_requirements = [
     'flake8',
     'pylint',
     'isort',
-    'virtualenv',
     'xmltodict',
     'pytz',
     'pycodestyle',
