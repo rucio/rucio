@@ -64,7 +64,6 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
             func=lambda x: cls._activity_hints(cls, x),  # type: ignore
             init_func=lambda: cls._init_instance_activity_hints(cls))  # type: ignore
         cls.register(cls.DEFAULT, func=lambda x: cls._default(cls, x))  # type: ignore
-        cls.register("test", func=lambda x: cls._collocation(cls._test_collocation, x))
 
     @classmethod
     def register(cls: type[FTS3TapeMetadataPluginType], name: str, func: 'Callable', init_func: Optional['Callable'] = None) -> None:
@@ -111,10 +110,6 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         :return: Collocation hints produced by the collocation_func, wrapped
         """
         return {"collocation_hints": collocation_func(**hints)}
-
-    @staticmethod
-    def _test_collocation(**kwargs: dict) -> dict[str, Any]:
-        return {"0": "", "1": "", "2": "", "3": ""}
 
     def _default(self, *hints: dict) -> dict:
         return {}
