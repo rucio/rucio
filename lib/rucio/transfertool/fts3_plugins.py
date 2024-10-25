@@ -14,10 +14,10 @@
 
 import json
 import sys
-from configparser import NoSectionError
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
-from rucio.common.config import config_get_int, config_get_items
+from rucio.common.config import config_get_int
 from rucio.common.exception import InvalidRequest
 from rucio.common.plugins import PolicyPackageAlgorithms
 
@@ -60,10 +60,6 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
 
     @classmethod
     def _module_init(cls: type[FTS3TapeMetadataPluginType]) -> None:
-        cls.register(
-            "activity",
-            func=lambda x: cls._activity_hints(cls, x),  # type: ignore
-            init_func=lambda: cls._init_instance_activity_hints(cls))  # type: ignore
         cls.register(cls.DEFAULT, func=lambda x: cls._default(cls, x))  # type: ignore
 
     @classmethod
@@ -77,35 +73,6 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         """
         super()._register(cls.ALGORITHM_NAME, algorithm_dict={name: func})
         if init_func is not None:
-            super()._register(cls._HINTS_NAME, algorithm_dict={name: init_func})
-
-    def _init_instance_activity_hints(self, default_priority: int = 20) -> None:
-        """
-            Load default priority from the config
-        """
-        self.default_priority = config_get_int(
-            "tape_priority",
-            option="default",
-            raise_exception=False,
-            default=default_priority,
-        )
-
-    def _activity_hints(self, activity_kwargs: dict[str, str], default_prority: str = '20') -> dict[str, dict]:
-        """ Activity Hints - assign a priority based on activity"""
-        if "activity" in activity_kwargs:
-            activity = activity_kwargs["activity"].lower()
-
-        else:
-            raise InvalidRequest("`activity` field not found in passed metadata")
-
-        activity_priority = config_get_int(
-            "tape_priority",
-            option=activity,
-            raise_exception=False,
-            default=self.default_priority,
-        )
-
-        return {"scheduling_hints": {"priority": activity_priority}}
             super()._register(cls._INIT_FUNC_NAME, algorithm_dict={name: init_func})
 
     @staticmethod
@@ -148,5 +115,39 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         return {"archive_metadata": hints}
 
 
+class ActivityBasedTransferPriorityPlugin(FTS3TapeMetadataPlugin):
+    def __init__(self, policy_algorithm: str = 'activity') -> None:
+        self.register(
+            policy_algorithm,
+            func=lambda x: self._get_activity_priority(x),
+            init_func=self._init_default_priority)
+        super().__init__(policy_algorithm)
+
+    def _init_default_priority(self) -> None:
+        self.default_priority = config_get_int(
+            "tape_priority",
+            option="default",
+            raise_exception=False,
+            default=20,
+        )
+
+    def _get_activity_priority(self, activity_kwargs: dict[str, str]) -> dict[str, dict]:
+        """ Activity Hints - assign a priority based on activity"""
+        if "activity" in activity_kwargs:
+            activity = activity_kwargs["activity"].lower()
+        else:
+            raise InvalidRequest("`activity` field not found in passed metadata")
+
+        priority = config_get_int(
+            "tape_priority",
+            option=activity,
+            raise_exception=False,
+            default=self.default_priority,
+        )
+
+        return {"scheduling_hints": {"priority": priority}}
+
+
 # Register the policies
 FTS3TapeMetadataPlugin._module_init()
+ActivityBasedTransferPriorityPlugin()
