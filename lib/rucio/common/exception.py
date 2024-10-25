@@ -1125,8 +1125,8 @@ class TraceValidationSchemaNotFound(RucioException):
     """
     Trace validation schema not found.
     """
-    def __init__(self, *args, **kwargs):
-        super(TraceValidationSchemaNotFound, self).__init__(*args, **kwargs)
+    def __init__(self, *args):
+        super(TraceValidationSchemaNotFound, self).__init__(*args)
         self._message = 'Trace validation schema not found.'
         self.error_code = 108
 
