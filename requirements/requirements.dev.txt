@@ -229,7 +229,7 @@ krb5==0.5.1
     # via
     #   -r requirements.server.txt
     #   pyspnego
-# libtorrent==2.0.9 # Temporarily disabled: https://github.com/rucio/rucio/issues/6853
+libtorrent==2.0.9
     # via -r requirements.server.txt
 lxml==5.2.2
     # via
@@ -504,7 +504,7 @@ websocket-client==1.8.0
     # via
     #   -r requirements.server.txt
     #   stomp-py
-werkzeug==3.0.3
+werkzeug==3.0.6
     # via
     #   -r requirements.server.txt
     #   flask
