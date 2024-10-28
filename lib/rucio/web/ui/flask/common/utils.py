@@ -65,6 +65,9 @@ if not AUTH_TYPE:
     except:
         AUTH_ISSUERS = []
 
+# check if userpass login is enabled
+USERPASS_SUPPORT =  config_get_bool('webui', 'userpass_support', raise_exception=False, default=True)
+
 MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
 
 # Additional error message that can have VO specific information for the user, e.g., support mailing list.
@@ -331,10 +334,10 @@ def x509token_auth(data=None):
                 ui_vo = valid_vos[0]
             else:
                 vos_with_desc = get_vo_descriptions(valid_vos)
-                return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, possible_vos=vos_with_desc)))
+                return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
         else:
             vos_with_desc = get_vo_descriptions(ui_vo)
-            return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, possible_vos=vos_with_desc)))
+            return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
 
     if not ui_account:
         if MULTI_VO:
@@ -393,10 +396,10 @@ def userpass_auth():
                 ui_vo = valid_vos[0]
             else:
                 vos_with_desc = get_vo_descriptions(valid_vos)
-                return render_template('login.html', account=ui_account, vo=None, possible_vos=vos_with_desc)
+                return render_template('login.html', account=ui_account, vo=None, possible_vos=vos_with_desc, userpass_support=USERPASS_SUPPORT)
         else:
             vos_with_desc = get_vo_descriptions(ui_vo)
-            return render_template('login.html', account=None, vo=None, possible_vos=vos_with_desc)
+            return render_template('login.html', account=None, vo=None, possible_vos=vos_with_desc, userpass_support=USERPASS_SUPPORT)
 
     if not ui_account:
         if MULTI_VO:
@@ -463,10 +466,10 @@ def saml_auth(method, data=None):
                     ui_vo = valid_vos[0]
                 else:
                     vos_with_desc = get_vo_descriptions(valid_vos)
-                    return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, possible_vos=vos_with_desc)))
+                    return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
             else:
                 vos_with_desc = get_vo_descriptions(ui_vo)
-                return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, possible_vos=vos_with_desc)))
+                return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
 
         if not ui_account:
             if MULTI_VO:
@@ -512,10 +515,10 @@ def saml_auth(method, data=None):
                         ui_vo = valid_vos[0]
                     else:
                         vos_with_desc = get_vo_descriptions(valid_vos)
-                        return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, possible_vos=vos_with_desc)))
+                        return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
                 else:
                     vos_with_desc = get_vo_descriptions(ui_vo)
-                    return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, possible_vos=vos_with_desc)))
+                    return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
 
             if not ui_account:
                 if MULTI_VO:
@@ -559,7 +562,7 @@ def oidc_auth(account, issuer, ui_vo=None):
             ui_vo = valid_vos[0]
         else:
             vos_with_desc = get_vo_descriptions(valid_vos)
-            return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, possible_vos=vos_with_desc)))
+            return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
 
     if not issuer:
         return render_template("problem.html", msg="Please provide IdP issuer.")
@@ -598,7 +601,7 @@ def authenticate(template, title):
 
     # login without any known server config
     if not AUTH_TYPE:
-        return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT)), cookie)
+        return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT)), cookie)
     # for AUTH_TYPE predefined by the server continue
     else:
         if AUTH_TYPE == 'userpass':
