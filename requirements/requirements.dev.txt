@@ -504,7 +504,7 @@ websocket-client==1.8.0
     # via
     #   -r requirements.server.txt
     #   stomp-py
-werkzeug==3.0.3
+werkzeug==3.0.6
     # via
     #   -r requirements.server.txt
     #   flask
