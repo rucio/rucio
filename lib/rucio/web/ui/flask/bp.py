@@ -18,7 +18,7 @@ from flask import Blueprint, make_response, render_template, request
 from rucio.common.config import config_get, config_get_bool
 from rucio.gateway.authentication import get_auth_token_x509
 from rucio.web.rest.flaskapi.v1.common import generate_http_error_flask
-from rucio.web.ui.flask.common.utils import AUTH_ISSUERS, SAML_SUPPORT, authenticate, finalize_auth, get_token, oidc_auth, saml_auth, userpass_auth, x509token_auth
+from rucio.web.ui.flask.common.utils import AUTH_ISSUERS, SAML_SUPPORT, USERPASS_SUPPORT, authenticate, finalize_auth, get_token, oidc_auth, saml_auth, userpass_auth, x509token_auth
 
 MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
 POLICY = config_get('policy', 'permission')
@@ -39,14 +39,14 @@ def auth():
         else:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get token')
     else:
-        return render_template('select_login_method.html', oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT)
+        return render_template('select_login_method.html', oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT)
 
 
 def login():
     if request.method == 'GET':
         account = request.args.get('account')
         vo = request.args.get('vo')
-        return render_template('login.html', account=account, vo=vo)
+        return render_template('login.html', account=account, vo=vo, userpass_support=USERPASS_SUPPORT)
     if request.method == 'POST':
         return userpass_auth()
 
