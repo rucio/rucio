@@ -66,7 +66,7 @@ if not AUTH_TYPE:
         AUTH_ISSUERS = []
 
 # check if userpass login is enabled
-USERPASS_SUPPORT =  config_get_bool('webui', 'userpass_support', raise_exception=False, default=True)
+USERPASS_SUPPORT = config_get_bool('webui', 'userpass_support', raise_exception=False, default=True)
 
 MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
 
