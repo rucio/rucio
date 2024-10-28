@@ -60,6 +60,7 @@
   </nav>
 
   <div id="content" style="margin: 1em;">
+    {% if userpass_support %}
     <div id="results" class="row">
 
       <div id="t_data" class="columns panel">
@@ -109,6 +110,13 @@
       </div>
     </div>
     <div id="loader"></div>
+    {% else %}
+    <div class="row">
+      <div class="large-6 columns text-align: center">
+        <h3>Userpass login is not supported. Please contact the administrator of your rucio instance. </h3>
+        <button class="button small postfix" onclick="javascript:history.go(-1)">Back</button>
+      </div>
+    {% endif %}
   </div>
 
 </body>

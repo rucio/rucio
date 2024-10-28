@@ -66,7 +66,9 @@ function get_link_oidc(elmnt, base_url, issuer) {
   <p class="text-success text-center">Choose Login Method</p>
   <p>
     <a href="" class="btn btn-block btn-outline-primary btn-lg" role="button" onclick="get_link(this, 'x509')" height="auto"><i class="fab fa-2x icon-certificate vertical-align-middle"></i><span class="inline-block padding-bottom-2">   X509 Certificate</span></a>
+    {% if userpass_support %}
     <a href="" class="btn btn-block btn-outline-rucio btn-lg" role="button" onclick="get_link(this, 'login')" height="auto"> <i class="fab fa-2x icon-rucio vertical-align-middle"></i><span class="inline-block padding-bottom-2">   Rucio Userpass</span></a>
+    {% endif %}
     <!-- {% if saml_support %}
         <a href="" class="btn btn-block btn-outline-cern btn-lg" role="button" onclick="get_link(this, 'saml')" height="auto"> <i class="fab fa-2x icon-cern vertical-align-middle"></i><span class="inline-block padding-bottom-2">   CERN SSO Log-In</span></a>
     {% endif %} -->
