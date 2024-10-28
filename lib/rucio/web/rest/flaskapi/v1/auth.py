@@ -185,7 +185,9 @@ class UserPass(ErrorHandlingMethodView):
         headers['Cache-Control'] = 'no-cache, no-store, max-age=0, must-revalidate'
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
-
+        USERPASS_SUPPORT = config_get('webui', 'userpass_support', False, True)
+        if not USERPASS_SUPPORT:
+            return generate_http_error_flask(400, CannotAuthenticate.__name__, 'Cannot authenticate via userpass credentials as it is not supported.', headers=self.get_headers())
         vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
         username = request.headers.get('X-Rucio-Username', default=None)
