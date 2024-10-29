@@ -15,7 +15,7 @@
 import logging
 from datetime import date, datetime, timedelta
 from string import Template
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Union
 
 from requests import get
 from sqlalchemy import BigInteger, and_, case, cast, false, func, or_, select
@@ -29,12 +29,12 @@ from rucio.common.exception import (
     RuleNotFound,
 )
 from rucio.common.types import InternalAccount, InternalScope
+from rucio.core.did import list_content
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector
 from rucio.core.rule import add_rule, get_rule, update_rule
-from rucio.core.did import list_content
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, LockState, RuleGrouping, RuleState
 from rucio.db.sqla.session import read_session, transactional_session
@@ -263,7 +263,7 @@ def _list_rebalance_rule_candidates_dump(
             )
     return candidates
 
-def structure_list_rebalance_rule_candidates_result(row):
+def structure_list_rebalance_rule_candidates_result(row: Any) -> Dict[str, Any]:
     """ Structure the query result in an object composed by the replication rule and the aggregated information
 
     :param row: query result
@@ -287,7 +287,7 @@ def list_rebalance_rule_candidates(
     mode: Optional[str] = None,
     *,
     session: Optional[Session] = None
-) -> Union[list[tuple], list["Row[tuple]"]]:
+) -> list[Dict[str, Any]]:
     """
     List the rebalance rule candidates based on the agreed on specification
     :param rse_id:       RSE of the source.
@@ -657,7 +657,7 @@ def rebalance_rse(
         fsize = rule_info["avg_file_size"]
         accessed_at = rule_info["accessed_at"]
         max_locks = rule_info["max_locks"]
-        if force_expression is not None and rule["subscription_id"] is not None:
+        if force_expression is not None:
             continue
 
         if rebalanced_bytes + bytes_ > max_bytes:
