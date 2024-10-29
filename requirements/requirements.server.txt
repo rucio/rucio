@@ -135,7 +135,7 @@ multidict==6.0.5
 oic==1.7.0
     # via -r requirements.server.in
 packaging==24.1
-    # via qbittorrent-api
+    # via -r requirements.server.in
 paramiko==3.4.1
     # via -r requirements.server.in
 pbr==6.0.0
