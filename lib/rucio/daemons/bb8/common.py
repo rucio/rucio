@@ -263,6 +263,7 @@ def _list_rebalance_rule_candidates_dump(
             )
     return candidates
 
+
 def structure_list_rebalance_rule_candidates_result(row: Any) -> Dict[str, Any]:
     """ Structure the query result in an object composed by the replication rule and the aggregated information
 
@@ -281,13 +282,14 @@ def structure_list_rebalance_rule_candidates_result(row: Any) -> Dict[str, Any]:
         'accessed_at': row.accessed_at
     }
 
+
 @transactional_session
 def list_rebalance_rule_candidates(
     rse_id: str,
     mode: Optional[str] = None,
     *,
     session: Optional[Session] = None
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     List the rebalance rule candidates based on the agreed on specification
     :param rse_id:       RSE of the source.
@@ -440,54 +442,39 @@ def list_rebalance_rule_candidates(
     ).scalar_subquery()
 
     stmt = select(
-            models.ReplicationRule,
-            func.sum(models.DataIdentifier.bytes).label('total_bytes'),
-            func.sum(models.DataIdentifier.length).label('total_length'),
-            func.max(count_locks).label('max_locks'),
-            func.avg(
-                    case(
-                (
-                    or_(models.DatasetLock.length < 1,
-                        models.DatasetLock.length.is_(None)),
-                    0
-                ),
-                else_=cast(
-                    models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
-                )
-            )
-            ).label('avg_file_size'),
-            func.max(models.DatasetLock.accessed_at).label('accessed_at'),
-        ).join(
-            models.DatasetLock, models.ReplicationRule.id == models.DatasetLock.rule_id
-        ).join(
-            models.DataIdentifier,
-            and_(
-                models.DatasetLock.scope == models.DataIdentifier.scope,
-                models.DatasetLock.name == models.DataIdentifier.name,
+        models.ReplicationRule,
+        func.sum(models.DataIdentifier.bytes).label('total_bytes'),
+        func.sum(models.DataIdentifier.length).label('total_length'),
+        func.max(count_locks).label('max_locks'),
+        func.avg(
+                case(
+            (
+                or_(models.DatasetLock.length < 1,
+                    models.DatasetLock.length.is_(None)),
+                0
             ),
-        ).where(
-            and_(models.DatasetLock.rse_id == rse_id,
-                *rule_clause,
-                *did_clause)
-        ).group_by(
-            *[column for column in models.ReplicationRule.__table__.columns]
-        ).having(
-            and_(
-                func.avg(
-                    case(
-                        (
-                            or_(
-                                models.DatasetLock.length < 1,
-                                models.DatasetLock.length.is_(None),
-                            ),
-                            0,
-                        ),
-                        else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, BigInteger),
-                    )
-                ) > 1000000000,
-                func.max(count_locks) == 1  # Add this line to filter max_count_locks
+            else_=cast(
+                models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
             )
-        ).order_by(
+        )
+        ).label('avg_file_size'),
+        func.max(models.DatasetLock.accessed_at).label('accessed_at'),
+    ).join(
+        models.DatasetLock, models.ReplicationRule.id == models.DatasetLock.rule_id
+    ).join(
+        models.DataIdentifier,
+        and_(
+            models.DatasetLock.scope == models.DataIdentifier.scope,
+            models.DatasetLock.name == models.DataIdentifier.name,
+        ),
+    ).where(
+        and_(models.DatasetLock.rse_id == rse_id,
+            *rule_clause,
+            *did_clause)
+    ).group_by(
+        *[column for column in models.ReplicationRule.__table__.columns]
+    ).having(
+        and_(
             func.avg(
                 case(
                     (
@@ -499,9 +486,24 @@ def list_rebalance_rule_candidates(
                     ),
                     else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, BigInteger),
                 )
-            ).asc(),
-            func.max(models.DatasetLock.accessed_at).asc(),
+            ) > 1000000000,
+            func.max(count_locks) == 1  # Add this line to filter max_count_locks
         )
+    ).order_by(
+        func.avg(
+            case(
+                (
+                    or_(
+                        models.DatasetLock.length < 1,
+                        models.DatasetLock.length.is_(None),
+                    ),
+                    0,
+                ),
+                else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, BigInteger),
+            )
+        ).asc(),
+        func.max(models.DatasetLock.accessed_at).asc(),
+    )
     result = list(session.execute(stmt).all())
     return [structure_list_rebalance_rule_candidates_result(row) for row in result]
 
@@ -654,9 +656,6 @@ def rebalance_rse(
         rule = rule_info["rule"]
         bytes_ = rule_info["total_bytes"]
         length = rule_info["total_length"]
-        fsize = rule_info["avg_file_size"]
-        accessed_at = rule_info["accessed_at"]
-        max_locks = rule_info["max_locks"]
         if force_expression is not None:
             continue
 
@@ -676,8 +675,8 @@ def rebalance_rse(
                         ]
             else:
                 other_rses = [
-                r["rse_id"] for r in get_dataset_locks(scope=rule["scope"], name=rule["name"], session=session)
-            ]
+                    r["rse_id"] for r in get_dataset_locks(scope=rule["scope"], name=rule["name"], session=session)
+                ]
             # Select the target RSE for this rule
             try:
                 target_rse_exp = select_target_rse(
