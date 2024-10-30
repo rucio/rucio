@@ -42,8 +42,6 @@ from rucio.db.sqla.session import read_session, transactional_session
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
-    from sqlalchemy.engine import Row
-
     from rucio.common.types import LoggerFunction
 
 
@@ -447,16 +445,16 @@ def list_rebalance_rule_candidates(
         func.sum(models.DataIdentifier.length).label('total_length'),
         func.max(count_locks).label('max_locks'),
         func.avg(
-                case(
-            (
-                or_(models.DatasetLock.length < 1,
-                    models.DatasetLock.length.is_(None)),
-                0
-            ),
-            else_=cast(
-                models.DatasetLock.bytes / models.DatasetLock.length, BigInteger
+            case(
+                (
+                    or_(
+                        models.DatasetLock.length < 1,
+                        models.DatasetLock.length.is_(None),
+                    ),
+                    0,
+                ),
+                else_=cast(models.DatasetLock.bytes / models.DatasetLock.length, BigInteger),
             )
-        )
         ).label('avg_file_size'),
         func.max(models.DatasetLock.accessed_at).label('accessed_at'),
     ).join(
@@ -469,8 +467,8 @@ def list_rebalance_rule_candidates(
         ),
     ).where(
         and_(models.DatasetLock.rse_id == rse_id,
-            *rule_clause,
-            *did_clause)
+             *rule_clause,
+             *did_clause)
     ).group_by(
         *[column for column in models.ReplicationRule.__table__.columns]
     ).having(
@@ -656,7 +654,7 @@ def rebalance_rse(
         rule = rule_info["rule"]
         bytes_ = rule_info["total_bytes"]
         length = rule_info["total_length"]
-        if force_expression is not None:
+        if force_expression is not None and rule['subscription_id'] is not None:
             continue
 
         if rebalanced_bytes + bytes_ > max_bytes:
