@@ -185,7 +185,6 @@ class UserPass(ErrorHandlingMethodView):
         headers['Cache-Control'] = 'no-cache, no-store, max-age=0, must-revalidate'
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
-
         vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
         username = request.headers.get('X-Rucio-Username', default=None)

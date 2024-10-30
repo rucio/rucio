@@ -253,7 +253,7 @@ urllib3==1.26.19
     #   requests
 websocket-client==1.8.0
     # via stomp-py
-werkzeug==3.0.3
+werkzeug==3.0.6
     # via
     #   -r requirements.server.in
     #   flask
