@@ -645,7 +645,7 @@ def rebalance_rse(
 
     for rule_info in list_rebalance_rule_candidates(rse_id=rse_id, mode=mode):
         # Handle dump scenario
-        if type(rule_info[0]) != dict:
+        if not isinstance(rule_info[0], dict):
             _, _, rule_id, _, subscription_id, bytes_, length, _ = rule_info
         else:
             rule, bytes_, length = rule_info
@@ -660,7 +660,7 @@ def rebalance_rse(
             if rebalanced_files + length > max_files:
                 continue
 
-        #Get rule info for dump scenario
+        # Get rule info for dump scenario
         if rule is None:
             rule = get_rule(rule_id=rule_id, session=session)
 
