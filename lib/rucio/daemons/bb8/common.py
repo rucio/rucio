@@ -262,7 +262,7 @@ def _list_rebalance_rule_candidates_dump(
     return candidates
 
 
-def structure_list_rebalance_rule_candidates_result(row: Any) -> dict[str, Any]:
+def structure_list_rebalance_rule_candidates_result(row: Any) -> dict[str, Union[dict, int, datetime, None]]:
     """ Structure the query result in an object composed by the replication rule and the aggregated information
 
     :param row: query result
