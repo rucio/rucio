@@ -107,13 +107,31 @@ def load_permission_for_vo(vo: str) -> None:
     permission_modules[vo] = module
 
 
+class PermissionResult:
+    """
+    Represents the result of a permission check, allowing an optional message to be
+    included to give the user more information.
+    """
+    def __init__(self, allowed: bool, message: "Optional[str]" = "") -> None:
+        self.allowed = allowed
+        self.message = message
+
+    # allow this to be tested as a bool for backwards compatibility
+    def __bool__(self) -> bool:
+        return self.allowed
+
+
 def has_permission(
         issuer: "InternalAccount",
         action: str,
         kwargs: dict[str, Any],
         *,
         session: "Optional[Session]" = None
-) -> bool:
+) -> PermissionResult:
     if issuer.vo not in permission_modules:
         load_permission_for_vo(issuer.vo)
-    return permission_modules[issuer.vo].has_permission(issuer, action, kwargs, session=session)
+    result = permission_modules[issuer.vo].has_permission(issuer, action, kwargs, session=session)
+    # continue to support policy packages that just return a boolean and no message
+    if isinstance(result, bool):
+        result = PermissionResult(result)
+    return result

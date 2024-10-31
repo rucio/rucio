@@ -44,8 +44,9 @@ def add_vo(new_vo: str, issuer: str, description: Optional[str] = None, email: O
     validate_schema('vo', new_vo, vo=vo)
 
     kwargs = {}
-    if not has_permission(issuer=issuer, action='add_vo', kwargs=kwargs, vo=vo, session=session):
-        raise exception.AccessDenied('Account {} cannot add a VO'.format(issuer))
+    auth_result = has_permission(issuer=issuer, action='add_vo', kwargs=kwargs, vo=vo, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account {} cannot add a VO. {}'.format(issuer, auth_result.message))
 
     vo_core.add_vo(vo=new_vo, description=description, email=email, session=session)
 
@@ -60,8 +61,9 @@ def list_vos(issuer: str, vo: str = 'def', *, session: "Session") -> list[dict[s
     :param session: The database session in use.
     '''
     kwargs = {}
-    if not has_permission(issuer=issuer, action='list_vos', kwargs=kwargs, vo=vo, session=session):
-        raise exception.AccessDenied('Account {} cannot list VOs'.format(issuer))
+    auth_result = has_permission(issuer=issuer, action='list_vos', kwargs=kwargs, vo=vo, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account {} cannot list VOs. {}'.format(issuer, auth_result.message))
 
     return vo_core.list_vos(session=session)
 
@@ -94,8 +96,9 @@ def recover_vo_root_identity(
     """
     kwargs = {}
     root_vo = vo_core.map_vo(root_vo)
-    if not has_permission(issuer=issuer, vo=vo, action='recover_vo_root_identity', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not recover root identity' % (issuer))
+    auth_result = has_permission(issuer=issuer, vo=vo, action='recover_vo_root_identity', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not recover root identity. %s' % (issuer, auth_result.message))
 
     account = InternalAccount('root', vo=root_vo)
 
@@ -116,7 +119,8 @@ def update_vo(updated_vo: str, parameters: dict[str, Any], issuer: str, vo: str 
     """
     kwargs = {}
     updated_vo = vo_core.map_vo(updated_vo)
-    if not has_permission(issuer=issuer, action='update_vo', kwargs=kwargs, vo=vo, session=session):
-        raise exception.AccessDenied('Account {} cannot update VO'.format(issuer))
+    auth_result = has_permission(issuer=issuer, action='update_vo', kwargs=kwargs, vo=vo, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account {} cannot update VO. {}'.format(issuer, auth_result.message))
 
     return vo_core.update_vo(vo=updated_vo, parameters=parameters, session=session)

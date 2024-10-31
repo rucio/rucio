@@ -75,8 +75,9 @@ def add_key(
     :param session: The database session in use.
     """
     kwargs = {'key': key, 'key_type': key_type, 'value_type': value_type, 'value_regexp': value_regexp}
-    if not has_permission(issuer=issuer, vo=vo, action='add_key', kwargs=kwargs, session=session):
-        raise AccessDenied('Account %s can not add key' % (issuer))
+    auth_result = has_permission(issuer=issuer, vo=vo, action='add_key', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise AccessDenied('Account %s can not add key. %s' % (issuer, auth_result.message))
     return meta_conventions.add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp, session=session)
 
 
@@ -91,6 +92,7 @@ def add_value(key: str, value: str, issuer: "InternalAccount", vo: str = 'def', 
     :param session: The database session in use.
     """
     kwargs = {'key': key, 'value': value}
-    if not has_permission(issuer=issuer, vo=vo, action='add_value', kwargs=kwargs, session=session):
-        raise AccessDenied('Account %s can not add value %s to key %s' % (issuer, value, key))
+    auth_result = has_permission(issuer=issuer, vo=vo, action='add_value', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise AccessDenied('Account %s can not add value %s to key %s. %s' % (issuer, value, key, auth_result.message))
     return meta_conventions.add_value(key=key, value=value, session=session)
