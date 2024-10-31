@@ -15,7 +15,7 @@
 import logging
 from datetime import date, datetime, timedelta
 from string import Template
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from requests import get
 from sqlalchemy import BigInteger, and_, case, cast, false, func, or_, select
@@ -262,7 +262,7 @@ def _list_rebalance_rule_candidates_dump(
     return candidates
 
 
-def structure_list_rebalance_rule_candidates_result(row: Any) -> Dict[str, Any]:
+def structure_list_rebalance_rule_candidates_result(row: Any) -> dict[str, Any]:
     """ Structure the query result in an object composed by the replication rule and the aggregated information
 
     :param row: query result
@@ -287,7 +287,7 @@ def list_rebalance_rule_candidates(
     mode: Optional[str] = None,
     *,
     session: Optional[Session] = None
-) -> list[dict[str, Any]]:
+) -> Union[list[tuple],list[dict[str, Any]]]:
     """
     List the rebalance rule candidates based on the agreed on specification
     :param rse_id:       RSE of the source.
