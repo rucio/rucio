@@ -18,7 +18,7 @@ from string import Template
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from requests import get
-from sqlalchemy import BigInteger, and_, case, cast, false, func, or_, select
+from sqlalchemy import BigInteger, and_, case, cast, false, func, or_, select, Row
 from sqlalchemy.orm import Session, aliased
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
@@ -262,7 +262,7 @@ def _list_rebalance_rule_candidates_dump(
     return candidates
 
 
-def structure_list_rebalance_rule_candidates_result(row: Any) -> tuple:
+def structure_list_rebalance_rule_candidates_result(row: Row) -> tuple:
     """ Structure the query result in an object composed by the replication rule and the aggregated information
 
     :param row: query result
