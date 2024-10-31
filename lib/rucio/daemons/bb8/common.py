@@ -18,7 +18,7 @@ from string import Template
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from requests import get
-from sqlalchemy import BigInteger, and_, case, cast, false, func, or_, select, Row
+from sqlalchemy import BigInteger, and_, case, cast, false, func, or_, Row, select
 from sqlalchemy.orm import Session, aliased
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
