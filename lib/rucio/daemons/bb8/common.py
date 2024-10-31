@@ -495,7 +495,7 @@ def list_rebalance_rule_candidates(
         ).asc(),
         func.max(models.DatasetLock.accessed_at).asc(),
     )
-    result = list(session.execute(stmt).all()) # type: ignore (session could be None)
+    result = list(session.execute(stmt).all())  # type: ignore (session could be None)
     return [structure_list_rebalance_rule_candidates_result(row) for row in result]
 
 
