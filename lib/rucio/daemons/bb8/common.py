@@ -15,10 +15,10 @@
 import logging
 from datetime import date, datetime, timedelta
 from string import Template
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from requests import get
-from sqlalchemy import BigInteger, and_, case, cast, false, func, or_, select
+from sqlalchemy import BigInteger, and_, case, cast, false, func, or_, Row, select
 from sqlalchemy.orm import Session, aliased
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
@@ -262,7 +262,7 @@ def _list_rebalance_rule_candidates_dump(
     return candidates
 
 
-def structure_list_rebalance_rule_candidates_result(row: Any) -> Dict[str, Any]:
+def structure_list_rebalance_rule_candidates_result(row: Row) -> tuple:
     """ Structure the query result in an object composed by the replication rule and the aggregated information
 
     :param row: query result
@@ -271,14 +271,7 @@ def structure_list_rebalance_rule_candidates_result(row: Any) -> Dict[str, Any]:
     rule_dict = {column.name: getattr(row.ReplicationRule, column.name)
                  for column in models.ReplicationRule.__table__.columns}
 
-    return {
-        'rule': rule_dict,
-        'total_bytes': row.total_bytes,
-        'total_length': row.total_length,
-        'max_locks': row.max_locks,
-        'avg_file_size': row.avg_file_size,
-        'accessed_at': row.accessed_at
-    }
+    return rule_dict, row.total_bytes, row.total_length
 
 
 @transactional_session
@@ -287,7 +280,7 @@ def list_rebalance_rule_candidates(
     mode: Optional[str] = None,
     *,
     session: Optional[Session] = None
-) -> list[dict[str, Any]]:
+) -> list[tuple]:
     """
     List the rebalance rule candidates based on the agreed on specification
     :param rse_id:       RSE of the source.
@@ -502,7 +495,7 @@ def list_rebalance_rule_candidates(
         ).asc(),
         func.max(models.DatasetLock.accessed_at).asc(),
     )
-    result = list(session.execute(stmt).all())
+    result = list(session.execute(stmt).all())      # type: ignore (session could be None)
     return [structure_list_rebalance_rule_candidates_result(row) for row in result]
 
 
@@ -651,10 +644,14 @@ def rebalance_rse(
     logger(logging.INFO, "***************************")
 
     for rule_info in list_rebalance_rule_candidates(rse_id=rse_id, mode=mode):
-        rule = rule_info["rule"]
-        bytes_ = rule_info["total_bytes"]
-        length = rule_info["total_length"]
-        if force_expression is not None and rule['subscription_id'] is not None:
+        # Handle dump scenario
+        if not isinstance(rule_info[0], dict):
+            _, _, rule_id, _, subscription_id, bytes_, length, _ = rule_info
+        else:
+            rule, bytes_, length = rule_info
+            subscription_id = rule["subscription_id"]
+
+        if force_expression is not None and subscription_id is not None:
             continue
 
         if rebalanced_bytes + bytes_ > max_bytes:
@@ -662,6 +659,10 @@ def rebalance_rse(
         if max_files:
             if rebalanced_files + length > max_files:
                 continue
+
+        # Get rule info for dump scenario
+        if rule is None:
+            rule = get_rule(rule_id=rule_id, session=session)
 
         try:
             other_rses = []
