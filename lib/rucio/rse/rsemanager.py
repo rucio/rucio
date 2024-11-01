@@ -37,7 +37,7 @@ def get_scope_protocol(vo: str = 'def') -> 'Callable':
     :returns:
         Callable: Scope Parser function
     """
-    from rucio.rse.protocols.protocol import RSEDeterministicScopeTranslation
+    from rucio.rse.translation import RSEDeterministicScopeTranslation
     translation = RSEDeterministicScopeTranslation(vo=vo)
     return translation.parser
 
