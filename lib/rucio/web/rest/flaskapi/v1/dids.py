@@ -34,6 +34,7 @@ from rucio.common.exception import (
     RSENotFound,
     RuleNotFound,
     ScopeNotFound,
+    UnsupportedMetadataPlugin,
     UnsupportedOperation,
     UnsupportedStatus,
 )
@@ -1321,6 +1322,8 @@ class Meta(ErrorHandlingMethodView):
                 schema:
                   description: A data identifier with all attributes.
                   type: object
+          400:
+            description: Bad Request - Invalid metadata plugin specified
           401:
             description: Invalid Auth Token
           404:
@@ -1339,6 +1342,8 @@ class Meta(ErrorHandlingMethodView):
             return Response(render_json(**meta), content_type='application/json')
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
+        except UnsupportedMetadataPlugin as error:
+            return generate_http_error_flask(400, error)
 
     def post(self, scope_name):
         """

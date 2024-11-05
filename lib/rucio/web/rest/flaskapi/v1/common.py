@@ -276,7 +276,7 @@ def generate_http_error_flask(
         exc_msg: Optional[str] = None,
         headers: Optional['HeadersType'] = None,
 ) -> "flask.Response":
-    """Utitily function to generate a complete HTTP error response.
+    """Utility function to generate a complete HTTP error response.
 
     :param status_code: The HTTP status code to generate a response for.
     :param exc: The name of the exception class or a RucioException object.

@@ -1139,3 +1139,13 @@ class PolicyPackageIsNotVersioned(PolicyPackageBaseException):
         super(PolicyPackageIsNotVersioned, self).__init__(package, *args)
         self._message = 'Policy package %s does not include information about which Rucio versions it supports.' % self.package
         self.error_code = 109
+
+
+class UnsupportedMetadataPlugin(RucioException):
+    """
+    Raised when attempting to use a metadata plugin that is not enabled on the server.
+    """
+    def __init__(self, *args):
+        super(UnsupportedMetadataPlugin, self).__init__(*args)
+        self._message = "The requested metadata plugin is not enabled on the server."
+        self.error_code = 110
