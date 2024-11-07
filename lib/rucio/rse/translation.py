@@ -209,28 +209,6 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return '%s/%s' % (scope, name)
 
     @staticmethod
-    def __belleii(scope, name, rse, rse_attrs, protocol_attrs):
-        """
-        Given a LFN, convert it directly to a path using the mapping:
-
-            path -> path
-        This is valid only for the belleii convention where the scope can be determined
-        from the LFN using a determinitic function.
-
-        :param scope: Scope of the LFN.
-        :param name: File name of the LFN.
-        :param rse: RSE for PFN (ignored)
-        :param rse_attrs: RSE attributes for PFN (ignored)
-        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
-        :returns: Path for use in the PFN generation.
-        """
-        del scope
-        del rse
-        del rse_attrs
-        del protocol_attrs
-        return name
-
-    @staticmethod
     def __ligo(scope, name, rse, rse_attrs, protocol_attrs):
         """
         Given a LFN, convert it directly to a path using the Caltech schema
@@ -277,7 +255,6 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         cls.register(cls.__hash, "hash")
         cls.register(cls.__identity, "identity")
         cls.register(cls.__ligo, "ligo")
-        cls.register(cls.__belleii, "belleii")
         cls.register(cls.__xenon, "xenon")
         policy_module = None
         try:
