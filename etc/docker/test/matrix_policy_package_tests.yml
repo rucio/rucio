@@ -88,7 +88,6 @@ atlas:
     - atlas
 
 belleii:
-  installation_cmd: ""
   config_overrides:
     permission: belleii
     extract_scope: belleii
