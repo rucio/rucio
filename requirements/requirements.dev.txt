@@ -51,6 +51,8 @@ bcrypt==4.1.3
     # via
     #   -r requirements.server.txt
     #   paramiko
+belleii-rucio-policy-package @ git+https://github.com/rucio/temporary-belle2-policy-package@v0.0.4
+    # via -r requirements.dev.in
 black==23.12.1
     # via docspec-python
 blinker==1.8.2
