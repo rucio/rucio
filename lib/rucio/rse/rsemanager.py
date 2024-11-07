@@ -22,7 +22,6 @@ from urllib.parse import urlparse
 from rucio.common import constants, exception, types, utils
 from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.common.config import config_get_int
-from rucio.common.constants import RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS
 from rucio.common.constraints import STRING_TYPES
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import make_valid_did
@@ -134,7 +133,7 @@ def _get_possible_protocols(rse_settings: types.RSESettingsDict, operation, sche
 
 
 def get_protocols_ordered(rse_settings: types.RSESettingsDict, operation, scheme=None, domain='wan', impl=None):
-    if operation not in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
+    if operation not in constants.RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
         raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
 
     if domain and domain not in utils.rse_supported_protocol_domains():
@@ -146,7 +145,7 @@ def get_protocols_ordered(rse_settings: types.RSESettingsDict, operation, scheme
 
 
 def select_protocol(rse_settings: types.RSESettingsDict, operation, scheme=None, domain='wan'):
-    if operation not in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
+    if operation not in constants.RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
         raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
 
     if domain and domain not in utils.rse_supported_protocol_domains():
@@ -174,7 +173,7 @@ def create_protocol(rse_settings: types.RSESettingsDict, operation, scheme=None,
 
     # Verify feasibility of Protocol
     operation = operation.lower()
-    if operation not in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
+    if operation not in constants.RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
         raise exception.RSEOperationNotSupported('Operation %s is not supported' % operation)
 
     if domain and domain not in utils.rse_supported_protocol_domains():
