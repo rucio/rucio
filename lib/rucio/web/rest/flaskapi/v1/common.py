@@ -69,7 +69,7 @@ class CORSMiddleware:
                 response: Response = Response(status=200)
                 response.headers['Access-Control-Allow-Origin'] = request.origin
                 response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-                response.headers['Access-Control-Allow-Headers'] = '*'
+                response.headers['Access-Control-Allow-Headers'] = request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')  # type: ignore (value could be None)
                 response.headers['Access-Control-Allow-Credentials'] = 'true'
                 return response(environ, start_response)
             response: Response = Response(status=403)
