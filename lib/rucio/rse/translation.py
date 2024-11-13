@@ -35,7 +35,6 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         super().__init__()
 
         self.register(RSEDeterministicScopeTranslation._default, "def")
-        self.register(RSEDeterministicScopeTranslation._atlas, "atlas")
 
         logger = logging.getLogger(__name__)
 
@@ -86,24 +85,6 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         path = parsed_pfn['path']
         scope = path.lstrip('/').split('/')[0]
         name = parsed_pfn['name']
-        return name, scope
-
-    @staticmethod
-    def _atlas(parsed_pfn: 'Mapping[str, str]') -> tuple[str, str]:
-        """ Translate pfn to name/scope pair
-
-        :param parsed_pfn: dictionary representing pfn containing:
-            - path: str,
-            - name: str
-        :return: tuple containing name, scope
-        """
-        path = parsed_pfn['path']
-        if path.startswith('/user') or path.startswith('/group'):
-            scope = '%s.%s' % (path.split('/')[1], path.split('/')[2])
-            name = parsed_pfn['name']
-        else:
-            name, scope = RSEDeterministicScopeTranslation._default(parsed_pfn)
-
         return name, scope
 
 
