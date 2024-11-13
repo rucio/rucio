@@ -596,7 +596,6 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         """
         Registers the included scope extraction algorithms
         """
-        cls.register('atlas', cls.extract_scope_atlas)
         cls.register('dirac', cls.extract_scope_dirac)
 
     @classmethod
@@ -613,24 +612,6 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         """
         algorithm_dict = {name: fn_extract_scope}
         super()._register(cls._algorithm_type, algorithm_dict)
-
-    @staticmethod
-    def extract_scope_atlas(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
-        # Try to extract the scope from the DSN
-        if did.find(':') > -1:
-            if len(did.split(':')) > 2:
-                raise RucioException('Too many colons. Cannot extract scope and name')
-            scope, name = did.split(':')[0], did.split(':')[1]
-            if name.endswith('/'):
-                name = name[:-1]
-            return scope, name
-        else:
-            scope = did.split('.')[0]
-            if did.startswith('user') or did.startswith('group'):
-                scope = ".".join(did.split('.')[0:2])
-            if did.endswith('/'):
-                did = did[:-1]
-            return scope, did
 
     @staticmethod
     def extract_scope_dirac(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
