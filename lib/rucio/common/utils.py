@@ -596,6 +596,7 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         """
         Registers the included scope extraction algorithms
         """
+        cls.register('def', cls.extract_scope_default)
         cls.register('dirac', cls.extract_scope_dirac)
 
     @classmethod
@@ -614,6 +615,30 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         super()._register(cls._algorithm_type, algorithm_dict)
 
     @staticmethod
+    def extract_scope_default(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
+        """
+        Default fallback scope extraction algorithm, based on the ATLAS scope extraction algorithm.
+
+        :param did: The DID to extract the scope from.
+
+        :returns: A tuple containing the extracted scope and the DID.
+        """
+        if did.find(':') > -1:
+            if len(did.split(':')) > 2:
+                raise RucioException('Too many colons. Cannot extract scope and name')
+            scope, name = did.split(':')[0], did.split(':')[1]
+            if name.endswith('/'):
+                name = name[:-1]
+            return scope, name
+        else:
+            scope = did.split('.')[0]
+            if did.startswith('user') or did.startswith('group'):
+                scope = ".".join(did.split('.')[0:2])
+            if did.endswith('/'):
+                did = did[:-1]
+            return scope, did
+
+    @staticmethod
     def extract_scope_dirac(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
         # Default dirac scope extract algorithm. Scope is the second element in the LFN or the first one (VO name)
         # if only one element is the result of a split.
@@ -625,14 +650,13 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         return scope, did
 
 
-_DEFAULT_EXTRACT = 'atlas'
 ScopeExtractionAlgorithms._module_init_()
 
 
 def extract_scope(
         did: str,
         scopes: Optional['Sequence[str]'] = None,
-        default_extract: str = _DEFAULT_EXTRACT
+        default_extract: str = 'def'
 ) -> 'Sequence[str]':
     scope_extraction_algorithms = ScopeExtractionAlgorithms()
     extract_scope_convention = config_get('common', 'extract_scope', False, None) or config_get('policy', 'extract_scope', False, None)
