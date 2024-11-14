@@ -413,7 +413,7 @@ class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
         """
         Registers the included non-deterministic PFN algorithms
         """
-        cls.register('DQ2', cls.construct_non_deterministic_pfn_DQ2)
+        cls.register('def', cls.construct_non_deterministic_pfn_default)
 
     @classmethod
     def get_algorithm(cls: type[NonDeterministicPFNAlgorithmsT], naming_convention: str) -> 'Callable[[str, Optional[str], str], str]':
@@ -467,7 +467,7 @@ class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
         return stripped_tag
 
     @staticmethod
-    def construct_non_deterministic_pfn_DQ2(dsn: str, scope: Optional[str], filename: str) -> str:
+    def construct_non_deterministic_pfn_default(dsn: str, scope: Optional[str], filename: str) -> str:
         """
         Defines relative PFN for new replicas. This method
         contains DQ2 convention. To be used for non-deterministic sites.
@@ -506,7 +506,6 @@ class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
             return '/%s/%s/%s/%s/%s' % (project, dataset_type, tag, stripped_dsn, filename)
 
 
-_DEFAULT_NON_DETERMINISTIC_PFN = 'DQ2'
 NonDeterministicPFNAlgorithms._module_init_()
 
 
@@ -520,7 +519,7 @@ def construct_non_deterministic_pfn(dsn: str, scope: Optional[str], filename: st
     """
     pfn_algorithms = NonDeterministicPFNAlgorithms()
     if naming_convention is None or not NonDeterministicPFNAlgorithms.supports(naming_convention):
-        naming_convention = _DEFAULT_NON_DETERMINISTIC_PFN
+        naming_convention = 'def'
     return pfn_algorithms.construct_non_deterministic_pfn(dsn, scope, filename, naming_convention)
 
 
