@@ -413,7 +413,6 @@ class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
         """
         Registers the included non-deterministic PFN algorithms
         """
-        cls.register('T0', cls.construct_non_deterministic_pfn_T0)
         cls.register('DQ2', cls.construct_non_deterministic_pfn_DQ2)
 
     @classmethod
@@ -505,26 +504,6 @@ class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
                 tag = NonDeterministicPFNAlgorithms.__strip_tag(fields[-1])
             stripped_dsn = NonDeterministicPFNAlgorithms.__strip_dsn(dsn)
             return '/%s/%s/%s/%s/%s' % (project, dataset_type, tag, stripped_dsn, filename)
-
-    @staticmethod
-    def construct_non_deterministic_pfn_T0(dsn: str, scope: Optional[str], filename: str) -> Optional[str]:
-        """
-        Defines relative PFN for new replicas. This method
-        contains Tier0 convention. To be used for non-deterministic sites.
-
-        @return: relative PFN for new replica.
-        @rtype: str
-        """
-        fields = dsn.split('.')
-        nfields = len(fields)
-        if nfields >= 3:
-            return '/%s/%s/%s/%s/%s' % (fields[0], fields[2], fields[1], dsn, filename)
-        elif nfields == 1:
-            return '/%s/%s/%s/%s/%s' % (fields[0], 'other', 'other', dsn, filename)
-        elif nfields == 2:
-            return '/%s/%s/%s/%s/%s' % (fields[0], fields[2], 'other', dsn, filename)
-        elif nfields == 0:
-            return '/other/other/other/other/%s' % (filename)
 
 
 _DEFAULT_NON_DETERMINISTIC_PFN = 'DQ2'
