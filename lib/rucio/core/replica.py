@@ -2359,7 +2359,6 @@ def get_replica(rse_id, scope, name, *, session: "Session"):
     except NoResultFound:
         raise exception.ReplicaNotFound("No row found for scope: %s name: %s rse: %s" % (scope, name, get_rse_name(rse_id=rse_id, session=session)))
 
-
 @transactional_session
 def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_seconds=600, only_delete_obsolete=False, *, session: "Session"):
     """
@@ -4156,3 +4155,82 @@ def get_RSEcoverage_of_dataset(scope, name, *, session: "Session"):
             result[rse_id] = total
 
     return result
+
+def touch_replica_update_at(replica, *, session: "Session"):
+    """
+    Update the updated_at timestamp of the given file replica/did but don't wait if row is locked.
+
+    :param replica: a dictionary with the information of the affected replica.
+    :param session: The database session in use.
+
+    :returns: True, if successful, False otherwise.
+    """
+    try:
+        updated_at, none_value = datetime.utcnow(), None
+
+        stmt = select(
+            models.RSEFileAssociation
+        ).with_hint(
+            models.RSEFileAssociation,
+            'INDEX(REPLICAS REPLICAS_PK)',
+            'oracle'
+        ).where(
+            and_(models.RSEFileAssociation.rse_id == replica['rse_id'],
+                 models.RSEFileAssociation.scope == replica['scope'],
+                 models.RSEFileAssociation.name == replica['name'])
+        ).with_for_update(
+            nowait=True
+        )
+        session.execute(stmt).one()
+
+        stmt = update(
+            models.RSEFileAssociation
+        ).where(
+            and_(models.RSEFileAssociation.rse_id == replica['rse_id'],
+                 models.RSEFileAssociation.scope == replica['scope'],
+                 models.RSEFileAssociation.name == replica['name'])
+        ).prefix_with(
+            '/*+ INDEX(REPLICAS REPLICAS_PK) */', dialect='oracle'
+        ).values({
+            models.RSEFileAssociation.updated_at: updated_at,
+        }).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt)
+
+        stmt = select(
+            models.DataIdentifier
+        ).with_hint(
+            models.DataIdentifier,
+            'INDEX(DIDS DIDS_PK)',
+            'oracle'
+        ).where(
+            and_(models.DataIdentifier.scope == replica['scope'],
+                 models.DataIdentifier.name == replica['name'],
+                 models.DataIdentifier.did_type == DIDType.FILE)
+        ).with_for_update(
+            nowait=True
+        )
+        session.execute(stmt).one()
+
+        stmt = update(
+            models.DataIdentifier
+        ).where(
+            and_(models.DataIdentifier.scope == replica['scope'],
+                 models.DataIdentifier.name == replica['name'],
+                 models.DataIdentifier.did_type == DIDType.FILE)
+        ).prefix_with(
+            '/*+ INDEX(DIDS DIDS_PK) */', dialect='oracle'
+        ).values({
+            models.DataIdentifier.updated_at: updated_at
+        }).execution_options(
+            synchronize_session=False
+        )
+        session.execute(stmt)
+
+    except DatabaseError:
+        return False
+    except NoResultFound:
+        return True
+
+    return True
