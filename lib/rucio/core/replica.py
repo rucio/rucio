@@ -3021,7 +3021,7 @@ def list_dataset_replicas(scope, name, deep=False, *, session: "Session"):
               with associated metrics and timestamps
     """
 
-    if not deep:
+    if False:   # was `not deep` 
         stmt = select(
             models.CollectionReplica.scope,
             models.CollectionReplica.name,
