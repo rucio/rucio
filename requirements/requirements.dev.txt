@@ -8,7 +8,7 @@ aiohappyeyeballs==2.3.5
     # via
     #   -r requirements.server.txt
     #   aiohttp
-aiohttp==3.10.2
+aiohttp==3.10.11
     # via
     #   -r requirements.server.txt
     #   geoip2
@@ -225,7 +225,7 @@ krb5==0.5.1
     # via
     #   -r requirements.server.txt
     #   pyspnego
-# libtorrent==2.0.9 # Temporarily disabled: https://github.com/rucio/rucio/issues/6853
+libtorrent==2.0.9
     # via -r requirements.server.txt
 lxml==5.2.2
     # via
@@ -295,6 +295,10 @@ pluggy==1.5.0
     # via pytest
 prometheus-client==0.20.0
     # via -r requirements.server.txt
+propcache==0.2.0
+    # via
+    #   -r requirements.server.txt
+    #   yarl
 psycopg2-binary==2.9.9
     # via -r requirements.server.txt
 pyasn1==0.6.0
@@ -513,7 +517,7 @@ xmltodict==0.13.0
     # via -r requirements.dev.in
 yapf==0.40.2
     # via pydoc-markdown
-yarl==1.9.4
+yarl==1.17.2
     # via
     #   -r requirements.server.txt
     #   aiohttp
