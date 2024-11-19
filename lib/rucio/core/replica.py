@@ -4216,7 +4216,7 @@ def refresh_replicas(
             models.RSEFileAssociation.state == ReplicaState.BEING_DELETED,
         ).values({
             models.RSEFileAssociation.updated_at: datetime.utcnow()
-        }).execute_options(
+        }).execution_options(
             synchronize_session=False
         )
 
