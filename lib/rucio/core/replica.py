@@ -4157,7 +4157,12 @@ def get_RSEcoverage_of_dataset(scope, name, *, session: "Session"):
     return result
 
 @transactional_session
-def refresh_replicas(rse_id=None, replicas=None, *, session: "Session"):
+def refresh_replicas(
+        rse_id: Optional[str] = None, 
+        replicas: Optional[Iterable[dict[str, Any]]] = None, 
+        *, 
+        session: "Session"
+) -> bool:
     """
     Updates the updated_at timestamp of the given replicas but don't wait if row is locked.
 
