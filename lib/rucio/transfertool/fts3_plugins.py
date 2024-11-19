@@ -20,6 +20,9 @@ from rucio.common.config import config_get_int
 from rucio.common.exception import InvalidRequest
 from rucio.common.plugins import PolicyPackageAlgorithms
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 FTS3TapeMetadataPluginType = TypeVar('FTS3TapeMetadataPluginType', bound='FTS3TapeMetadataPlugin')
 
 
