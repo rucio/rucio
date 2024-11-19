@@ -62,7 +62,7 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         cls.register(cls.DEFAULT, func=lambda x: cls._default(cls, x))  # type: ignore
 
     @classmethod
-    def register(cls: type[FTS3TapeMetadataPluginType], name: str, func: Callable, init_func: Optional[Callable] = None) -> None:
+    def register(cls: type[FTS3TapeMetadataPluginType], name: str, func: 'Callable', init_func: Optional['Callable'] = None) -> None:
         """
         Register a fts3 transfer plugin
 
