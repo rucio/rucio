@@ -677,10 +677,9 @@ def _run_once(
                 logger(logging.INFO, '%i files processed in %s seconds', len(file_replicas), time.time() - del_start_time)
 
                 # Then delete the replicas
-                elapsed_time = time.time() - del_start
                 del_start = time.time()
                 delete_replicas(rse_id=rse.id, files=deleted_files)  # type: ignore (argument missing: session)
-                logger(logging.DEBUG, 'delete_replicas succeeded on %s : %s replicas in %s seconds', rse.name, len(deleted_files), elapsed_time)
+                logger(logging.DEBUG, 'delete_replicas succeeded on %s : %s replicas in %s seconds', rse.name, len(deleted_files), time.time() - del_start)
                 METRICS.counter('deletion.done').inc(len(deleted_files))
 
         except RSEProtocolNotSupported:
