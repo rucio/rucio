@@ -88,28 +88,29 @@ class Scope(ErrorHandlingMethodView):
         - name: scope
           in: path
           description: The scope.
+          required: true
           schema:
             type: string
           style: simple
-        requestBody:
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  name:
-                    description: The name of the did.
-                    type: string
-                  recursive:
-                    description: If specified, also returns the child ids recursively.
-                    type: boolean
+        - name: name
+          in: query
+          description: The name of the data identifier (did).
+          required: false
+          schema:
+            type: string
+        - name: recursive
+          in: query
+          description: If true, retrieves child identifiers recursively for non-file types.
+          required: false
+          schema:
+            type: boolean
         responses:
           200:
             description: OK
             content:
               application/x-json-stream:
                 schema:
-                  description: Line separated dictionary of dids.
+                  description: Line-separated dictionary of dids.
                   type: array
                   items:
                     type: object
@@ -143,7 +144,7 @@ class Scope(ErrorHandlingMethodView):
                 for did in scope_list(scope=scope, name=name, recursive=recursive, vo=vo):
                     yield render_json(**did) + '\n'
 
-            recursive = 'recursive' in request.args
+            recursive = request.args.get('recursive', 'false').lower() in ['true', '1']
 
             return try_stream(
                 generate(
