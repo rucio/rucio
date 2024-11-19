@@ -109,7 +109,7 @@ def test_scheduling_hints(file_config_mock, did_factory, rse_factory, root_accou
     assert len(job_params["archive_metadata"].keys()) == 1
     generated_scheduling_hints = job_params["archive_metadata"]["scheduling_hints"]
 
-    expected_scheduling_hints = {"priority": "100"}
+    expected_scheduling_hints = {"priority": 100}
     assert expected_scheduling_hints == generated_scheduling_hints
 
 
@@ -151,7 +151,7 @@ def test_activity_missing(file_config_mock, did_factory, rse_factory, root_accou
     assert "archive_metadata" in job_params
     generated_scheduling_hints = job_params["archive_metadata"]["scheduling_hints"]
 
-    expected_scheduling_hints = {"priority": "20"}
+    expected_scheduling_hints = {"priority": 20}
     assert expected_scheduling_hints == generated_scheduling_hints
 
 
@@ -240,7 +240,7 @@ class TestCollocationHints:
         # Get the job params used for each transfer
         job_params = fts3_tool._file_from_transfer(transfer_path[0], job_params)
         expected_hints = {
-            "scheduling_hints": {"priority": "20"},
+            "scheduling_hints": {"priority": 20},
             "collocation_hints": {"0": "", "1": "", "2": "", "3": ""},
         }
         assert "archive_metadata" in job_params
