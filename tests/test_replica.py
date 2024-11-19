@@ -288,6 +288,11 @@ class TestReplicaCore:
 
         assert [f for f in list_files(scope=mock_scope, name=tmp_dsn2)] == []
 
+    def test_refresh_replicas(self, rse_factory, mock_scope, root_account):
+        """REPLICA (CORE): Refresh replicas"""
+        _, rse_id = rse_factory.make_mock_rse()
+        nbfiles = 5
+
     def test_touch_replicas(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Touch replicas accessed_at timestamp"""
 

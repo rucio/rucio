@@ -26,7 +26,8 @@ from json import dumps
 from re import match
 from struct import unpack
 from traceback import format_exc
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
+
 
 import requests
 from dogpile.cache.api import NO_VALUE
@@ -58,7 +59,6 @@ from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
-    from typing import Any, Optional
 
     from sqlalchemy.orm import Session
 
@@ -4159,7 +4159,7 @@ def get_RSEcoverage_of_dataset(scope, name, *, session: "Session"):
 @transactional_session
 def refresh_replicas(
         rse_id: Optional[str] = None, 
-        replicas: Optional[Iterable[dict[str, Any]]] = None, 
+        replicas: Optional[Iterable[dict[str, Any]]] = None,
         *, 
         session: "Session"
 ) -> bool:
