@@ -2974,6 +2974,28 @@ def get_replica_atime(replica, *, session: "Session"):
     )
     return session.execute(stmt).scalar_one()
 
+@read_session
+def get_replica_updated_at(replica, *, session: "Session"):
+    """
+    Get the updated_at timestamp for a replica. Just for testing.
+    :param replica: list of dictionary {scope, name, rse_id}
+    :param session: Database session to use.
+
+    :returns: A datetime timestamp with the updated time.
+    """
+    stmt = select(
+        models.RSEFileAssociation.updated_at
+    ).with_hint(
+        models.RSEFileAssociation,
+        'INDEX(REPLICAS REPLICAS_PK)',
+        'oracle'
+    ).where(
+        and_(models.RSEFileAssociation.scope == replica['scope'],
+             models.RSEFileAssociation.name == replica['name'],
+             models.RSEFileAssociation.rse_id == replica['rse_id'])
+    )
+    return session.execute(stmt).scalar_one()
+
 
 @transactional_session
 def touch_collection_replicas(collection_replicas, *, session: "Session"):
