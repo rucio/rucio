@@ -4200,14 +4200,14 @@ def refresh_replicas(rse_id=None, replicas=None, *, session: "Session"):
 
         stmt = update(
             models.RSEFileAssociation
+        ).prefix_with(
+                '/*+ INDEX(REPLICAS REPLICAS_PK) */', dialect='oracle'
         ).where(
             exists(select(1)
                     .where(
                         and_(models.RSEFileAssociation.scope == scope_name_temp_table.scope,
                             models.RSEFileAssociation.name == scope_name_temp_table.name,
                             models.RSEFileAssociation.rse_id == rse_id)))
-        ).prefix_with(
-                '/*+ INDEX(REPLICAS REPLICAS_PK) */', dialect='oracle'
         ).where(
             models.RSEFileAssociation.state == ReplicaState.BEING_DELETED,
         ).values({
