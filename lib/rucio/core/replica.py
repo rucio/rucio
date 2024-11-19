@@ -28,7 +28,6 @@ from struct import unpack
 from traceback import format_exc
 from typing import TYPE_CHECKING, Any, Optional
 
-
 import requests
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy import and_, delete, exists, func, insert, not_, or_, union, update
@@ -4159,7 +4158,7 @@ def get_RSEcoverage_of_dataset(scope, name, *, session: "Session"):
 @transactional_session
 def refresh_replicas(
         rse_id: Optional[str] = None, 
-        replicas: Optional[Iterable[dict[str, Any]]] = None,
+        replicas: Optional['Iterable[dict[str, Any]]'] = None,
         *, 
         session: "Session"
 ) -> bool:
