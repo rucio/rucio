@@ -908,7 +908,7 @@ def add_subscription(args):
     elif args.issuer:
         account = args.issuer
     else:
-        account = client.account
+        account = client.authenticated_account
     subscription_id = client.add_subscription(name=args.name, account=account, filter_=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
                                               comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False, priority=args.priority)
     print('Subscription added %s' % (subscription_id))
@@ -929,7 +929,7 @@ def list_subscriptions(args):
     elif args.issuer:
         account = args.issuer
     else:
-        account = client.account
+        account = client.authenticated_account
     subs = client.list_subscriptions(name=args.name, account=account)
     for sub in subs:
         if args.long:
@@ -954,7 +954,7 @@ def update_subscription(args):
     elif args.issuer:
         account = args.issuer
     else:
-        account = client.account
+        account = client.authenticated_account
     client.update_subscription(name=args.name, account=account, filter_=json.loads(args.filter), replication_rules=json.loads(args.replication_rules),
                                comments=args.comments, lifetime=args.lifetime, retroactive=False, dry_run=False, priority=args.priority)
     return SUCCESS
@@ -984,7 +984,7 @@ def list_account_attributes(args):
 
     """
     client = get_client(args)
-    account = args.account or client.account
+    account = args.account or client.authenticated_account
     attributes = next(client.list_account_attributes(account))
     table = []
     for attr in attributes:
