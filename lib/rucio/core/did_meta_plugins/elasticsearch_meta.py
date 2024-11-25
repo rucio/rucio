@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#
-# Author(s):
-# - Anil Panta <anilpanta2@gmail.con>, 2023
 
 '''
  Elasticsearch based metadata plugin.
@@ -22,7 +19,7 @@
 
 import datetime
 import operator
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions as elastic_exceptions
@@ -48,27 +45,27 @@ IMMUTABLE_KEYS = [
 class ElasticDidMeta(DidMetaPlugin):
     def __init__(
         self,
-        hosts: "Optional[list[str]]" = None,
-        user: "Optional[str]" = None,
-        password: "Optional[str]" = None,
-        index: "Optional[str]" = None,
-        archive_index: "Optional[str]" = None,
-        use_ssl: "Optional[bool]" = False,
+        hosts: Optional[list[str]] = None,
+        user: Optional[str] = None,
+        password: Optional[str] = None,
+        index: Optional[str] = None,
+        archive_index: Optional[str] = None,
+        use_ssl: Optional[bool] = False,
         verify_certs: bool = True,
-        ca_certs: "Optional[str]" = None,
-        client_cert: "Optional[str]" = None,
-        client_key: "Optional[str]" = None,
+        ca_certs: Optional[str] = None,
+        client_cert: Optional[str] = None,
+        client_key: Optional[str] = None,
         request_timeout: int = 100,
         max_retries: int = 3,
         retry_on_timeout: bool = False
     ) -> None:
         super(ElasticDidMeta, self).__init__()
-        hosts = hosts or [config.config_get('metadata', 'elastic_service_host')]
+        hosts = hosts or [config.config_get('metadata', 'elastic_service_hosts')]
         user = user or config.config_get('metadata', 'elastic_user', False, None)
         password = password or config.config_get('metadata', 'elastic_password', False, None)
         self.index = index or config.config_get('metadata', 'meta_index', False, 'rucio_did_meta')
         self.archive_index = archive_index or config.config_get('metadata', 'archive_index', False, 'archive_meta')
-        use_ssl = use_ssl or bool(config.config_get('metadata', 'use_ssl', False, False))
+        use_ssl = use_ssl or config.config_get_bool('metadata', 'use_ssl', False, False)
         ca_certs = ca_certs or config.config_get('metadata', 'ca_certs', False, None)
         client_cert = client_cert or config.config_get('metadata', 'client_cert', False, None)
         client_key = client_key or config.config_get('metadata', 'client_key', False, None)
@@ -177,8 +174,8 @@ class ElasticDidMeta(DidMetaPlugin):
         except exception.DataIdentifierNotFound:
             existing_meta = {
                 'scope': str(scope.external),
-                'name': str(name),
-                'vo': str(scope.vo)
+                'name': name,
+                'vo': scope.vo
             }
         for key, value in meta.items():
             if key not in IMMUTABLE_KEYS:
@@ -230,15 +227,15 @@ class ElasticDidMeta(DidMetaPlugin):
         self,
         scope: "InternalScope",
         filters: Union[list[dict[str, Any]], dict[str, Any]],
-        did_type: str = 'collection',
+        did_type: Literal['all', 'collection', 'dataset', 'container', 'file'] = 'collection',
         ignore_case: bool = False,
-        limit: "Optional[int]" = None,
-        offset: "Optional[int]" = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
         long: bool = False,
         recursive: bool = False,
-        ignore_dids: "Optional[list]" = None,
+        ignore_dids: Optional[list] = None,
         *,
-        session: "Optional[Session]" = None
+        session: Optional[Session] = None
     ) -> "Iterator[dict[str, Any]]":
         """
         List DIDs (Data Identifier).
@@ -261,7 +258,7 @@ class ElasticDidMeta(DidMetaPlugin):
         if not ignore_dids:
             ignore_dids = []
 
-        # backwards compatability for filters as single {}.
+        # backwards compatibility for filters as single {}.
         if isinstance(filters, dict):
             filters = [filters]
 
@@ -270,12 +267,12 @@ class ElasticDidMeta(DidMetaPlugin):
         elastic_query_str = fe.create_elastic_query(
             additional_filters=[
                 ('scope', operator.eq, str(scope.external)),
-                ('vo', operator.eq, str(scope.vo))
+                ('vo', operator.eq, scope.vo)
             ]
         )
         pit = self.client.open_point_in_time(index=self.index, keep_alive="2m")
         pit_id = pit["id"]
-        # Base query with point in time(pit) paramter.
+        # Base query with point in time (pit) paramter.
         # sort is needed for search_after, so we use scope sort (random choice)
         query = {
             "query": elastic_query_str,
@@ -336,7 +333,7 @@ class ElasticDidMeta(DidMetaPlugin):
         scope: "InternalScope",
         name: str,
         archive: bool = False,
-        session: "Optional[Session]" = None
+        session: Optional[Session] = None
     ) -> None:
         """
         Delete a document and optionally archive it.
@@ -368,7 +365,7 @@ class ElasticDidMeta(DidMetaPlugin):
         self,
         scope: "InternalScope",
         name: str,
-        session: "Optional[Session]" = None
+        session: Optional[Session] = None
     ) -> None:
         """
         Retrieve archived metadata for a given scope and name.
@@ -393,7 +390,7 @@ class ElasticDidMeta(DidMetaPlugin):
         self,
         key: str,
         *,
-        session: "Optional[Session]" = None
+        session: Optional[Session] = None
     ) -> bool:
         return True
 

@@ -362,10 +362,10 @@ class FilterEngine:
         additional_filters: Optional["Iterable[FilterTuple]"] = None
     ) -> dict[str, Any]:
         """
-        Returns a single elastic query describing the filters expression.
+        Returns an single elastic query dictionary describing the filters expression.
 
         :param additional_filters: additional filters to be applied to all clauses.
-        :returns: a elastic query string describing the filters expression.
+        :returns: a elastic query dictionary describing the filters expression.
         """
 
         additional_filters = additional_filters or []
@@ -373,7 +373,7 @@ class FilterEngine:
             for _filter in additional_filters:
                 or_group.append(list(_filter))  # type: ignore
 
-        should = []
+        should_clauses = []
         for or_group in self._filters:
             bool_query = {
                 "must": [],
@@ -402,10 +402,10 @@ class FilterEngine:
                     elif oper == operator.ne:
                         bool_query["must_not"].append({"term": {key: value}})
 
-            should.append({"bool": bool_query})
+            should_clauses.append({"bool": bool_query})
 
-        q = {"bool": {"should": should}}
-        return q
+        query_expression = {"bool": {"should": should_clauses}}
+        return query_expression
 
     def create_postgres_query(
         self,

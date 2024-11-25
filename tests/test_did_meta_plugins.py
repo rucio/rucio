@@ -168,26 +168,17 @@ class TestDidMetaJSON:
         expected = sorted([tmp_dsn1, tmp_dsn4])
         assert expected == results
 
-        dids = list_dids(mock_scope, {meta_key1: meta_value2})
-        results = []
-        for d in dids:
-            results.append(d)
+        results = list(list_dids(mock_scope, {meta_key1: meta_value2}))
         assert len(results) == 1
         # assert [{'scope': (tmp_scope), 'name': str(tmp_dsn2)}] == results
         assert [tmp_dsn2] == results
 
-        dids = list_dids(mock_scope, {meta_key2: meta_value1})
-        results = []
-        for d in dids:
-            results.append(d)
+        results = list(list_dids(mock_scope, {meta_key2: meta_value1}))
         assert len(results) == 1
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn3}] == results
         assert [tmp_dsn3] == results
 
-        dids = list_dids(mock_scope, {meta_key1: meta_value1, meta_key2: meta_value2})
-        results = []
-        for d in dids:
-            results.append(d)
+        results = list(list_dids(mock_scope, {meta_key2: meta_value1}))
         assert len(results) == 1
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn4}] == results
         assert [tmp_dsn4] == results
@@ -285,7 +276,7 @@ class TestDidMetaMongo:
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn4}] == results
         assert [tmp_dsn4] == results
 
-@pytest.fixture()
+@pytest.fixture
 def elastic_meta():
     return ElasticDidMeta(
             hosts=['http://elasticsearch_meta:9200'],
