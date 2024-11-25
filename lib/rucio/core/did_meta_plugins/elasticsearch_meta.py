@@ -235,7 +235,7 @@ class ElasticDidMeta(DidMetaPlugin):
         recursive: bool = False,
         ignore_dids: Optional[list] = None,
         *,
-        session: Optional[Session] = None
+        session: "Optional[Session]" = None
     ) -> "Iterator[dict[str, Any]]":
         """
         List DIDs (Data Identifier).
@@ -333,7 +333,7 @@ class ElasticDidMeta(DidMetaPlugin):
         scope: "InternalScope",
         name: str,
         archive: bool = False,
-        session: Optional[Session] = None
+        session: "Optional[Session]" = None
     ) -> None:
         """
         Delete a document and optionally archive it.
@@ -365,7 +365,7 @@ class ElasticDidMeta(DidMetaPlugin):
         self,
         scope: "InternalScope",
         name: str,
-        session: Optional[Session] = None
+        session: "Optional[Session]" = None
     ) -> None:
         """
         Retrieve archived metadata for a given scope and name.
@@ -390,7 +390,7 @@ class ElasticDidMeta(DidMetaPlugin):
         self,
         key: str,
         *,
-        session: Optional[Session] = None
+        session: "Optional[Session]" = None
     ) -> bool:
         return True
 
