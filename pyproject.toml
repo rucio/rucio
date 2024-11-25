@@ -2,6 +2,9 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[project]
+requires-python = ">=3.9"
+
 [tool.pytest.ini_options]
 pythonpath = [
   ".",
