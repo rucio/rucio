@@ -18,10 +18,6 @@ import sys
 
 from setuptools import setup
 
-if sys.version_info < (3, 9):
-    print('ERROR: Rucio Client requires at least Python 3.9 to run.')
-    sys.exit(1)
-
 try:
     from setuputil import clients_requirements_table, get_rucio_version, match_define_requirements
 except ImportError:
