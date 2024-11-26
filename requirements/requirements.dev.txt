@@ -39,7 +39,7 @@ async-timeout==4.0.3
     #   -r requirements.server.txt
     #   aiohttp
     #   redis
-atlas-rucio-policy-package==0.3.1
+atlas-rucio-policy-package==0.4.0
     # via -r requirements.dev.in
 attrs==23.2.0
     # via
