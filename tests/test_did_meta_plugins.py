@@ -168,17 +168,26 @@ class TestDidMetaJSON:
         expected = sorted([tmp_dsn1, tmp_dsn4])
         assert expected == results
 
-        results = list(list_dids(mock_scope, {meta_key1: meta_value2}))
+        dids = list_dids(mock_scope, {meta_key1: meta_value2})
+        results = []
+        for d in dids:
+            results.append(d)
         assert len(results) == 1
         # assert [{'scope': (tmp_scope), 'name': str(tmp_dsn2)}] == results
         assert [tmp_dsn2] == results
 
-        results = list(list_dids(mock_scope, {meta_key2: meta_value1}))
+        dids = list_dids(mock_scope, {meta_key2: meta_value1})
+        results = []
+        for d in dids:
+            results.append(d)
         assert len(results) == 1
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn3}] == results
         assert [tmp_dsn3] == results
 
-        results = list(list_dids(mock_scope, {meta_key2: meta_value1}))
+        dids = list_dids(mock_scope, {meta_key1: meta_value1, meta_key2: meta_value2})
+        results = []
+        for d in dids:
+            results.append(d)
         assert len(results) == 1
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn4}] == results
         assert [tmp_dsn4] == results
@@ -356,24 +365,15 @@ class TestDidMetaElastic:
         expected = sorted([tmp_dsn1, tmp_dsn4])
         assert expected == results
 
-        dids = elastic_meta.list_dids(mock_scope, {meta_key1: meta_value2})
-        results = []
-        for d in dids:
-            results.append(d)
+        results = list(elastic_meta.list_dids(mock_scope, {meta_key1: meta_value2}))
         assert len(results) == 1
         assert [tmp_dsn2] == results
 
-        dids = elastic_meta.list_dids(mock_scope, {meta_key2: meta_value1})
-        results = []
-        for d in dids:
-            results.append(d)
+        results = list(elastic_meta.list_dids(mock_scope, {meta_key2: meta_value1}))
         assert len(results) == 1
         assert [tmp_dsn3] == results
 
-        dids = elastic_meta.list_dids(mock_scope, {meta_key1: meta_value1, meta_key2: meta_value2})
-        results = []
-        for d in dids:
-            results.append(d)
+        results = list(elastic_meta.list_dids(mock_scope, {meta_key1: meta_value1, meta_key2: meta_value2}))
         assert len(results) == 1
         assert [tmp_dsn4] == results
 

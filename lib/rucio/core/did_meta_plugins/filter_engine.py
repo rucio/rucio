@@ -362,10 +362,10 @@ class FilterEngine:
         additional_filters: Optional["Iterable[FilterTuple]"] = None
     ) -> dict[str, Any]:
         """
-        Returns an single elastic query dictionary describing the filters expression.
+        Returns a single elastic query dictionary describing the filters expression.
 
         :param additional_filters: additional filters to be applied to all clauses.
-        :returns: a elastic query dictionary describing the filters expression.
+        :returns: an elastic query dictionary describing the filters expression.
         """
 
         additional_filters = additional_filters or []
