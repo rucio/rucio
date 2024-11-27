@@ -64,6 +64,7 @@ def has_permission(issuer: str, action: str, kwargs: dict[str, Any], vo: str = '
             r['account'] = InternalAccount(r['account'], vo=vo)
     if 'dids' in kwargs:
         for d in kwargs['dids']:
+            d['scope'] = InternalScope(d['scope'], vo=vo)
             if 'rules' in d:
                 for r in d['rules']:
                     r['account'] = InternalAccount(r['account'], vo=vo)

@@ -410,13 +410,7 @@ def perm_add_dids(issuer: "InternalAccount", kwargs: dict[str, Any], *, session:
     :returns: True if account is allowed, otherwise False
     """
     # Check the accounts of the issued rules
-    if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin', session=session):
-        for did in kwargs['dids']:
-            for rule in did.get('rules', []):
-                if rule['account'] != issuer:
-                    return False
-
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
+    return all(perm_add_did(issuer, kwargs=did, session=session) for did in kwargs['dids'])
 
 
 def perm_attach_dids(issuer: "InternalAccount", kwargs: dict[str, Any], *, session: "Optional[Session]" = None) -> bool:
