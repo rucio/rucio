@@ -516,7 +516,16 @@ def aggregate_to_influx(
         return res.status_code
     return 204
 
-def build_message_dict(bulk, worker_number, total_workers, message_dict, message_ids, logger, service=None):
+
+def build_message_dict(
+        bulk: int,
+        worker_number: int,
+        total_workers: int,
+        message_dict: dict,
+        message_ids: list,
+        logger: "LoggerFunction",
+        service: str = ""
+) -> None:
     start_time = time.time()
     messages = retrieve_messages(
         bulk=bulk,
@@ -526,7 +535,6 @@ def build_message_dict(bulk, worker_number, total_workers, message_dict, message
         service_filter=service
     )
 
-    to_delete = []
     if messages:
         if service not in message_dict:
             message_dict[service] = []
@@ -610,7 +618,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     worker_number, total_workers, logger = heartbeat_handler.live()
     message_dict = {}
     message_ids = []
-    multi_queue = config_get('hermes','multi_queue')
+    multi_queue = config_get("hermes", "multi_queue")
 
     # Multi_queue is a toggleable behaviour switch between collecting bulk number of messages across all services when false, to collecting bulk messages from each service when true.
     if multi_queue:
@@ -623,20 +631,19 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                 message_ids=message_ids,
                 logger=logger,
                 service=service
-                )
+            )
     else:
         build_message_dict(
-                bulk=bulk,
-                worker_number=worker_number,
-                total_workers=total_workers,
-                message_dict=message_dict,
-                message_ids=message_ids,
-                logger=logger
-                )
-
-
+            bulk=bulk,
+            worker_number=worker_number,
+            total_workers=total_workers,
+            message_dict=message_dict,
+            message_ids=message_ids,
+            logger=logger
+        )
 
     if message_dict:
+        to_delete = []
         if "influx" in message_dict and influx_endpoint:
             # For influxDB, bulk submission, either everything succeeds or fails
             t_time = time.time()
