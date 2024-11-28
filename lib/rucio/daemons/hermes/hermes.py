@@ -618,7 +618,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     worker_number, total_workers, logger = heartbeat_handler.live()
     message_dict = {}
     message_ids = []
-    multi_queue = config_get("hermes", "multi_queue")
+    multi_queue = config_get_bool("hermes", "multi_queue")
 
     # Multi_queue is a toggleable behaviour switch between collecting bulk number of messages across all services when false, to collecting bulk messages from each service when true.
     if multi_queue:
