@@ -516,6 +516,30 @@ def aggregate_to_influx(
         return res.status_code
     return 204
 
+def build_message_dict(bulk, worker_number, total_workers, message_dict, message_ids, logger, service=None):
+    start_time = time.time()
+    messages = retrieve_messages(
+        bulk=bulk,
+        old_mode=False,
+        thread=worker_number,
+        total_threads=total_workers,
+        service_filter=service
+    )
+
+    to_delete = []
+    if messages:
+        if service not in message_dict:
+            message_dict[service] = []
+            for message in messages:
+                message_dict[service].append(message)
+                message_ids.append(message["id"])
+            logger(
+                logging.DEBUG,
+                "Retrieved %i messages retrieved in %s seconds",
+                len(messages),
+                time.time() - start_time,
+            )
+
 
 def hermes(once: bool = False, bulk: int = 1000, sleep_time: int = 10) -> None:
     """
@@ -586,30 +610,32 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     worker_number, total_workers, logger = heartbeat_handler.live()
     message_dict = {}
     message_ids = []
+    multi_queue = config_get('hermes','multi_queue')
 
-    for service in services_list:
-        start_time = time.time()
-        messages = retrieve_messages(
-            bulk=bulk,
-            old_mode=False,
-            thread=worker_number,
-            total_threads=total_workers,
-            service_filter=service
-        )
-
-        to_delete = []
-        if messages:
-            if service not in message_dict:
-                message_dict[service] = []
-                for message in messages:
-                    message_dict[service].append(message)
-                    message_ids.append(message["id"])
-                logger(
-                    logging.DEBUG,
-                    "Retrieved %i messages retrieved in %s seconds",
-                    len(messages),
-                    time.time() - start_time,
+    # Multi_queue is a toggleable behaviour switch between collecting bulk number of messages across all services when false, to collecting bulk messages from each service when true.
+    if multi_queue:
+        for service in services_list:
+            build_message_dict(
+                bulk=bulk,
+                worker_number=worker_number,
+                total_workers=total_workers,
+                message_dict=message_dict,
+                message_ids=message_ids,
+                logger=logger,
+                service=service
                 )
+    else:
+        build_message_dict(
+                bulk=bulk,
+                worker_number=worker_number,
+                total_workers=total_workers,
+                message_dict=message_dict,
+                message_ids=message_ids,
+                logger=logger
+                )
+
+
+
     if message_dict:
         if "influx" in message_dict and influx_endpoint:
             # For influxDB, bulk submission, either everything succeeds or fails
