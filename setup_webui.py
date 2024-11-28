@@ -17,6 +17,10 @@ import sys
 
 from setuptools import setup
 
+if sys.version_info < (3, 9):  # noqa: UP036 (pending https://github.com/rucio/rucio/issues/6971)
+    print('ERROR: Rucio Server requires at least Python 3.9 to run.')
+    sys.exit(1)
+
 try:
     from setuputil import get_rucio_version
 except ImportError:
