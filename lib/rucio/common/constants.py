@@ -48,7 +48,7 @@ if config_get_bool('transfers', 'srm_https_compatibility', raise_exception=False
     SCHEME_MAP['srm'].append('davs')
     SCHEME_MAP['davs'].append('srm')
 
-SORTING_ALGORITHMS_LITERAL = Literal['geoip', 'closeness', 'custom_table', 'dynamic', 'ranking', 'random']
+SORTING_ALGORITHMS_LITERAL = Literal['geoip', 'custom_table', 'random']
 SORTING_ALGORITHMS = list(get_args(SORTING_ALGORITHMS_LITERAL))
 
 SUPPORTED_PROTOCOLS_LITERAL = Literal['gsiftp', 'srm', 'root', 'davs', 'http', 'https', 'file', 'storm', 'srm+https', 'scp', 'rsync', 'rclone', 'magnet']
