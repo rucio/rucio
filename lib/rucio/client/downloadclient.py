@@ -1199,7 +1199,7 @@ class DownloadClient:
         if self.is_tape_excluded:
             try:
                 tape_rses = [endp['rse'] for endp in self.client.list_rses(rse_expression='istape=true')]
-            except:
+            except Exception:
                 logger(logging.DEBUG, 'No tapes found.')
 
         # Matches each dereferenced DID back to a list of input items
