@@ -32,11 +32,19 @@ from datetime import datetime
 from functools import wraps
 from typing import Optional
 
+from rich.console import Console
+from rich.padding import Padding
+from rich.status import Status
+from rich.text import Text
+from rich.theme import Theme
+from rich.traceback import install
+from rich.tree import Tree
 from tabulate import tabulate
 
 # rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
 from rucio import version
 from rucio.client import Client
+from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, generate_table, get_cli_config, get_pager, print_output, setup_rich_logger
 from rucio.common.client import detect_client_location
 from rucio.common.config import config_get, config_get_float
 from rucio.common.constants import ReplicaState
@@ -74,9 +82,15 @@ FAILURE = 1
 DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
 
+# Setting up rich console.
+console = Console(theme=Theme(CLITheme.LOG_THEMES), soft_wrap=True)
+console.width = max(MIN_CONSOLE_WIDTH, console.width)
+
 logger = logging.log
 gfal2_logger = logging.getLogger("gfal2")
 tablefmt = 'psql'
+cli_config = get_cli_config()
+spinner = Status('Initializing spinner', spinner=CLITheme.SPINNER, spinner_style=CLITheme.SPINNER_STYLE, console=console)
 
 
 def setup_gfal2_logger(logger):
@@ -166,18 +180,21 @@ def exception_handler(function):
                 used_account = None
                 try:  # get the configured account from the configuration file
                     used_account = '%s (from rucio.cfg)' % config_get('client', 'account')
-                except:
+                except Exception:
                     pass
                 try:  # are we overridden by the environment?
                     used_account = '%s (from RUCIO_ACCOUNT)' % os.environ['RUCIO_ACCOUNT']
-                except:
+                except Exception:
                     pass
                 logger.error('Specified account %s does not have an associated identity.' % used_account)
             else:
-                logger.debug(traceback.format_exc())
+                if logger.level == logging.DEBUG and cli_config == 'rich':
+                    logger.exception(error)
+                else:
+                    logger.debug(traceback.format_exc())
                 contact = config_get('policy', 'support', raise_exception=False)
                 support = ('Please follow up with all relevant information at: ' + contact) if contact else ''
-                logger.error('\nThe object is missing this property: %s\n'
+                logger.error('The object is missing this property: %s\n'
                              'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n'
                              '%s' % (str(error), support))
             return FAILURE
@@ -194,13 +211,20 @@ def exception_handler(function):
                 devnull = os.open(os.devnull, os.O_WRONLY)
                 os.dup2(devnull, sys.stdout.fileno())
                 return SUCCESS
-            logger.debug(traceback.format_exc())
-            logger.error(error)
+
+            if cli_config == 'rich':
+                if logger.level == logging.DEBUG:
+                    logger.exception(error)
+                else:
+                    logger.error(error)
+            else:
+                logger.debug(traceback.format_exc())
+                logger.error(error)
             contact = config_get('policy', 'support', raise_exception=False)
             support = ("If it's a problem concerning your experiment or if you're unsure what to do, please follow up at: %s\n" % contact) if contact else ''
             contact = config_get('policy', 'support_rucio', default='https://github.com/rucio/rucio/issues')
             support += "If you're sure there is a problem with Rucio itself, please follow up at: " + contact
-            logger.error('\nRucio exited with an unexpected/unknown error.\n'
+            logger.error('Rucio exited with an unexpected/unknown error.\n'
                          'Please rerun the last command with the "-v" option to gather more information.\n'
                          '%s' % support)
             return FAILURE
@@ -294,8 +318,14 @@ def whoami_account(args):
     """
     client = get_client(args)
     info = client.whoami()
-    for k in info:
-        print(k.ljust(10) + ' : ' + str(info[k]))
+    if cli_config == 'rich':
+        keyword_styles = {**CLITheme.ACCOUNT_STATUS, **CLITheme.ACCOUNT_TYPE}
+        table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(info.items())]
+        table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+        print_output(table, console=console, no_pager=args.no_pager)
+    else:
+        for k in info:
+            print(k.ljust(10) + ' : ' + str(info[k]))
     return SUCCESS
 
 
@@ -330,6 +360,10 @@ def list_dataset_replicas(args):
             result[dsn] = {}
         result[dsn][replica['rse']] = [replica['rse'], replica['available_length'], replica['length']]
 
+    if cli_config == 'rich':
+        spinner.update(status='Fetching dataset replicas')
+        spinner.start()
+
     if len(args.dids) == 1:
         scope, name = get_scope(args.dids[0], client)
         dmeta = client.get_metadata(scope, name)
@@ -342,22 +376,39 @@ def list_dataset_replicas(args):
 
     if args.deep or len(datasets) < 2:
         for did in datasets:
-            dsn = "%s:%s" % (did['scope'], did['name'])
+            dsn = f"{did['scope']}:{did['name']}"
             for rep in client.list_dataset_replicas(scope=did['scope'], name=did['name'], deep=args.deep):
                 _append_result(dsn=dsn, replica=rep)
     else:
         for rep in client.list_dataset_replicas_bulk(dids=datasets):
-            dsn = "%s:%s" % (rep['scope'], rep['name'])
+            dsn = f"{rep['scope']}:{rep['name']}"
             _append_result(dsn=dsn, replica=rep)
 
     if args.csv:
         for dsn in result:
             for rse in list(result[dsn].values()):
                 print(rse[0], rse[1], rse[2], sep=',')
+
+        if cli_config == 'rich':
+            spinner.stop()
     else:
-        for dsn in result:
-            print('\nDATASET: %s' % (dsn))
-            print(tabulate(list(result[dsn].values()), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL']))
+        output = []
+        for i, dsn in enumerate(result):
+            if cli_config == 'rich':
+                if i > 0:
+                    output.append(Text(f'\nDATASET: {dsn}', style=CLITheme.TEXT_HIGHLIGHT))
+                elif len(result) > 1:
+                    output.append(Text(f'DATASET: {dsn}', style=CLITheme.TEXT_HIGHLIGHT))
+
+                table = generate_table(list(result[dsn].values()), headers=['RSE', 'FOUND', 'TOTAL'], col_alignments=['left', 'right', 'right'])
+                output.append(table)
+            else:
+                print(f'\nDATASET: {dsn}')
+                print(tabulate(list(result[dsn].values()), tablefmt=tablefmt, headers=['RSE', 'FOUND', 'TOTAL']))
+
+        if cli_config == 'rich':
+            spinner.stop()
+            print_output(*output, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -376,7 +427,7 @@ def list_file_replicas(args):
     if args.protocols:
         protocols = args.protocols.split(',')
 
-    table = []
+    table_data = []
     dids = []
     if args.missing and not args.rses:
         print('Cannot use --missing without specifying a RSE')
@@ -385,9 +436,13 @@ def list_file_replicas(args):
         print('The substitution parameter must equal --link="/pfn/dir:/dst/dir"')
         return FAILURE
 
+    if cli_config == 'rich':
+        spinner.update(status='Fetching file replicas')
+        spinner.start()
+
     for did in args.dids:
         scope, name = get_scope(did, client)
-        client.get_metadata(scope=scope, name=name)  # break with Exception before streaming replicas if DID does not exist
+        client.get_metadata(scope=scope, name=name)  # Break with Exception before streaming replicas if DID does not exist.
         dids.append({'scope': scope, 'name': name})
 
     replicas = client.list_replicas(dids, schemes=protocols,
@@ -401,14 +456,24 @@ def list_file_replicas(args):
     rses = [rse["rse"] for rse in client.list_rses(rse_expression=args.rses)]
 
     if args.metalink:
-        print(replicas[:-1])  # last character is newline, no need to print that
+        print(replicas[:-1])  # Last character is newline, no need to print that.
         return SUCCESS
 
     if args.missing:
         for replica, rse in itertools.product(replicas, rses):
             if 'states' in replica and rse in replica['states'] and replica['states'].get(rse) != 'AVAILABLE':
-                table.append([replica['scope'], replica['name'], "({0}) {1}".format(ReplicaState[replica['states'].get(rse)].value, rse)])
-        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE', 'NAME', '(STATE) RSE']))
+                if cli_config == 'rich':
+                    replica_state = f"[{CLITheme.REPLICA_STATE.get(ReplicaState[replica['states'].get(rse)].value, 'default')}]{ReplicaState[replica['states'].get(rse)].value}[/]"
+                    table_data.append([replica['scope'], replica['name'], '({0}) {1}'.format(replica_state, rse)])
+                else:
+                    table_data.append([replica['scope'], replica['name'], "({0}) {1}".format(ReplicaState[replica['states'].get(rse)].value, rse)])
+        if cli_config == 'rich':
+            table = generate_table(table_data, headers=['SCOPE', 'NAME', '(STATE) RSE'], col_alignments=['left', 'left', 'left'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
+        else:
+            print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE', 'NAME', '(STATE) RSE']))
+
     elif args.link:
         pfn_dir, dst_dir = args.link.split(':')
         if args.rses:
@@ -428,13 +493,23 @@ def list_file_replicas(args):
                 for pfn in replica['pfns']:
                     rse = replica['pfns'][pfn]['rse']
                     if replica['rses'].get(rse):
-                        print(pfn)
+                        if cli_config == 'rich':
+                            table_data.append([pfn])
+                        else:
+                            print(pfn)
         else:
             for replica in replicas:
                 for pfn in replica['pfns']:
                     rse = replica['pfns'][pfn]['rse']
                     if replica['rses'][rse]:
-                        print(pfn)
+                        if cli_config == 'rich':
+                            table_data.append([pfn])
+                        else:
+                            print(pfn)
+        if cli_config == 'rich':
+            table = generate_table(table_data, headers=['PFN'], col_alignments=['left'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
     else:
         if args.all_states:
             header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', '(STATE) RSE: REPLICA']
@@ -445,16 +520,37 @@ def list_file_replicas(args):
                 for pfn in replica['pfns']:
                     rse = replica['pfns'][pfn]['rse']
                     if args.all_states:
-                        rse_string = '({2}) {0}: {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
+                        if cli_config == 'rich':
+                            replica_state = f"[{CLITheme.REPLICA_STATE.get(ReplicaState[replica['states'][rse]].value, 'default')}]{ReplicaState[replica['states'][rse]].value}[/]"
+                            # Less does not display hyperlinks well if the table is very wide.
+                            if args.no_pager:
+                                rse_string = f'({replica_state}) {rse}: [u bright_blue link={pfn}]{pfn}[/]'
+                            else:
+                                rse_string = f'({replica_state}) {rse}: [u bright_blue]{pfn}[/]'
+                        else:
+                            rse_string = '({2}) {0}: {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
                     else:
-                        rse_string = '{0}: {1}'.format(rse, pfn)
+                        if cli_config == 'rich':
+                            # Less does not display hyperlinks well if the table is very wide.
+                            if args.no_pager:
+                                rse_string = f'{rse}: [u bright_blue link={pfn}]{pfn}[/]'
+                            else:
+                                rse_string = f'{rse}: [u bright_blue]{pfn}[/]'
+                        else:
+                            rse_string = '{0}: {1}'.format(rse, pfn)
                     if args.rses:
                         for selected_rse in rses:
                             if rse == selected_rse:
-                                table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
+                                table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
                     else:
-                        table.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
-        print(tabulate(table, tablefmt=tablefmt, headers=header, disable_numparse=True))
+                        table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
+
+        if cli_config == 'rich':
+            table = generate_table(table_data, headers=header, col_alignments=['left', 'left', 'right', 'left', 'left'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
+        else:
+            print(tabulate(table_data, tablefmt=tablefmt, headers=header, disable_numparse=True))
     return SUCCESS
 
 
@@ -559,7 +655,7 @@ def list_dids(args):
     client = get_client(args)
     filters = {}
     type_ = 'collection'
-    table = []
+    table_data = []
 
     try:
         scope, name = get_scope(args.did[0], client)
@@ -570,16 +666,16 @@ def list_dids(args):
         name = '*'
 
     if scope not in client.list_scopes():
-        logger.error('Scope not found')
+        logger.error('Scope not found.')
         return FAILURE
 
     if args.recursive and '*' in name:
-        logger.error('Option recursive cannot be used with wildcards')
+        logger.error('Option recursive cannot be used with wildcards.')
         return FAILURE
     else:
         if filters:
             if ('name' in filters) and (name != '*'):
-                logger.error('Must have a wildcard in did name if filtering by name')
+                logger.error('Must have a wildcard in did name if filtering by name.')
                 return FAILURE
 
     try:
@@ -600,15 +696,29 @@ def list_dids(args):
         logger.error(e)
         return FAILURE
 
+    if cli_config == 'rich':
+        spinner.update(status='Fetching DIDs')
+        spinner.start()
+
     for did in client.list_dids(scope, filters=filters, did_type=type_, long=True, recursive=args.recursive):
-        table.append(['%s:%s' % (did['scope'], did['name']), did['did_type']])
+        if cli_config == 'rich':
+            table_data.append([f"{did['scope']}:{did['name']}", Text(did['did_type'], style=CLITheme.DID_TYPE.get(did['did_type'], 'default'))])
+        else:
+            table_data.append([f"{did['scope']}:{did['name']}", did['did_type']])
 
-    if args.short:
-        for did, _ in table:
-            print(did)
+    if cli_config == 'rich':
+        if args.short:
+            table = generate_table([[did] for did, _ in table_data], headers=['SCOPE:NAME'], col_alignments=['left'])
+        else:
+            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+        spinner.stop()
+        print_output(table, console=console, no_pager=args.no_pager)
     else:
-        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
-
+        if args.short:
+            for did, _ in table_data:
+                print(did)
+        else:
+            print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -619,7 +729,7 @@ def list_dids_extended(args):
 
     List the data identifiers for a given scope (DEPRECATED).
     """
-    logger.error("This command has been deprecated. Please use list_dids instead.")
+    logger.error("This command has been deprecated. Please use list-dids instead.")
     return FAILURE
 
 
@@ -630,11 +740,19 @@ def list_scopes(args):
 
     List scopes.
     """
-    # For the moment..
     client = get_client(args)
+    if cli_config == 'rich':
+        spinner.update(status='Fetching scopes')
+        spinner.start()
+
     scopes = client.list_scopes()
-    for scope in scopes:
-        print(scope)
+    if cli_config == 'rich':
+        table = generate_table([[scope] for scope in sorted(scopes)], headers=['SCOPE'], col_alignments=['left'])
+        spinner.stop()
+        print_output(table, console=console, no_pager=args.no_pager)
+    else:
+        for scope in scopes:
+            print(scope)
     return SUCCESS
 
 
@@ -646,20 +764,32 @@ def list_files(args):
     List data identifier contents.
     """
     client = get_client(args)
+    if cli_config == 'rich':
+        spinner.update(status='Fetching files')
+        spinner.start()
+
     if args.csv:
         for did in args.dids:
             scope, name = get_scope(did, client)
             for f in client.list_files(scope=scope, name=name):
                 guid = f['guid']
                 if guid:
-                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                    guid = f'{guid[0:8]}-{guid[8:12]}-{guid[12:16]}-{guid[16:20]}-{guid[20:32]}'
                 else:
                     guid = '(None)'
                 print('{}:{}'.format(f['scope'], f['name']), guid, f['adler32'], sizefmt(f['bytes'], args.human), f['events'], sep=',')
+        if cli_config == 'rich':
+            spinner.stop()
         return SUCCESS
     elif args.LOCALPATH:
-
-        print('''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+        full_str = ''
+        if cli_config == 'rich':
+            header = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<!DOCTYPE POOLFILECATALOG SYSTEM "InMemory">
+<POOLFILECATALOG>'''
+            full_str = header
+        else:
+            print('''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <!DOCTYPE POOLFILECATALOG SYSTEM "InMemory">
 <POOLFILECATALOG>''')
 
@@ -677,15 +807,23 @@ def list_files(args):
             for f in client.list_files(scope=scope, name=name):
                 guid = f['guid']
                 if guid:
-                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                    guid = f'{guid[0:8]}-{guid[8:12]}-{guid[12:16]}-{guid[16:20]}-{guid[20:32]}'
                 else:
                     guid = '(None)'
-                print(file_str % (guid, args.LOCALPATH, f['name'], f['name']))
 
-        print('</POOLFILECATALOG>')
+                if cli_config == 'rich':
+                    full_str += '\n' + file_str % (guid, args.LOCALPATH, f['name'], f['name'])
+                else:
+                    print(file_str % (guid, args.LOCALPATH, f['name'], f['name']))
+
+        if cli_config == 'rich':
+            spinner.stop()
+            print_output(full_str + '\n</POOLFILECATALOG>', console=console, no_pager=True)
+        else:
+            print('</POOLFILECATALOG>')
         return SUCCESS
     else:
-        table = []
+        table_data = []
         for did in args.dids:
             totfiles = 0
             totsize = 0
@@ -698,15 +836,25 @@ def list_files(args):
                     totevents += int(file.get('events', 0))
                 guid = file['guid']
                 if guid:
-                    guid = '%s-%s-%s-%s-%s' % (guid[0:8], guid[8:12], guid[12:16], guid[16:20], guid[20:32])
+                    guid = f'{guid[0:8]}-{guid[8:12]}-{guid[12:16]}-{guid[16:20]}-{guid[20:32]}'
                 else:
                     guid = '(None)'
-                table.append(['%s:%s' % (file['scope'], file['name']), guid, 'ad:%s' % file['adler32'], sizefmt(file['bytes'], args.human), file['events']])
-            print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'], disable_numparse=True))
-            print('Total files : %s' % totfiles)
-            print('Total size : %s' % sizefmt(totsize, args.human))
-            if totevents:
-                print('Total events : %s' % totevents)
+                table_data.append([f"{file['scope']}:{file['name']}", guid, f"ad:{file['adler32']}", sizefmt(file['bytes'], args.human), file['events']])
+
+            if cli_config == 'rich':
+                table = generate_table(table_data, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'], col_alignments=['left', 'left', 'left', 'right', 'right'])
+                summary_data = [['Total files', str(totfiles)], ['Total size', sizefmt(totsize, args.human)]]
+                if totevents:
+                    summary_data.append(['Total events', str(totevents)])
+                summary_table = generate_table(summary_data, col_alignments=['left', 'left'], row_styles=['none'])
+                spinner.stop()
+                print_output(table, summary_table, console=console, no_pager=args.no_pager)
+            else:
+                print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'], disable_numparse=True))
+                print('Total files : %s' % totfiles)
+                print('Total size : %s' % sizefmt(totsize, args.human))
+                if totevents:
+                    print('Total events : %s' % totevents)
         return SUCCESS
 
 
@@ -718,16 +866,32 @@ def list_content(args):
     List data identifier contents.
     """
     client = get_client(args)
-    table = []
+    table_data = []
+    if cli_config == 'rich':
+        spinner.update(status='Fetching dataset contents')
+        spinner.start()
+
     for did in args.dids:
         scope, name = get_scope(did, client)
         for content in client.list_content(scope=scope, name=name):
-            table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
-    if args.short:
-        for did, dummy in table:
-            print(did)
+            if cli_config == 'rich':
+                table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=CLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
+            else:
+                table_data.append([f"{content['scope']}:{content['name']}", content['type'].upper()])
+
+    if cli_config == 'rich':
+        if args.short:
+            table = generate_table([[did] for did, _ in table_data], headers=['SCOPE:NAME'], col_alignments=['left'])
+        else:
+            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+        spinner.stop()
+        print_output(table, console=console, no_pager=args.no_pager)
     else:
-        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+        if args.short:
+            for did, dummy in table_data:
+                print(did)
+        else:
+            print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -739,12 +903,25 @@ def list_content_history(args):
     List data identifier contents.
     """
     client = get_client(args)
-    table = []
+    table_data = []
+    if cli_config == 'rich':
+        spinner.update(status='Fetching content history')
+        spinner.start()
+
     for did in args.dids:
         scope, name = get_scope(did, client)
         for content in client.list_content_history(scope=scope, name=name):
-            table.append(['%s:%s' % (content['scope'], content['name']), content['type'].upper()])
-    print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+            if cli_config == 'rich':
+                table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=CLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
+            else:
+                table_data.append([f"{content['scope']}:{content['name']}", content['type'].upper()])
+
+    if cli_config == 'rich':
+        table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+        spinner.stop()
+        print_output(table, console=console, no_pager=args.no_pager)
+    else:
+        print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
 
 
@@ -756,24 +933,43 @@ def list_parent_dids(args):
     List parent data identifier.
     """
     client = get_client(args)
+    if cli_config == 'rich':
+        spinner.update(status='Fetching parent DIDs')
+        spinner.start()
+
     if args.pfns:
         dict_datasets = {}
+        output = []
         for res in client.get_did_from_pfns(args.pfns):
             for key in res:
                 if key not in dict_datasets:
                     dict_datasets[key] = []
                 for rule in client.list_associated_rules_for_file(res[key]['scope'], res[key]['name']):
-                    if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[key]:
-                        dict_datasets[key].append('%s:%s' % (rule['scope'], rule['name']))
-        for pfn in dict_datasets:
-            print('PFN: ', pfn)
-            print('Parents: ', ','.join(dict_datasets[pfn]))
+                    if f"{rule['scope']}:{rule['name']}" not in dict_datasets[key]:
+                        dict_datasets[key].append(f"{rule['scope']}:{rule['name']}")
+
+        for i, pfn in enumerate(dict_datasets):
+            if cli_config == 'rich':
+                parent_tree = Tree('')
+                for parent in dict_datasets[pfn]:
+                    parent_tree.add(parent)
+                table = generate_table([['PFN', pfn], ['Parents', parent_tree]], col_alignments=['left', 'left'], row_styles=['none'])
+                output.append(table)
+            else:
+                print('PFN: ', pfn)
+                print('Parents: ', ','.join(dict_datasets[pfn]))
+
+        if cli_config == 'rich':
+            spinner.stop()
+            print_output(*output, console=console, no_pager=args.no_pager)
     elif args.guids:
+        output = []
         guids = []
         for input_ in args.guids:
             try:
                 uuid.UUID(input_)
             except ValueError:
+                print(f'Ignoring invalid GUID: {input_}')
                 continue
         dict_datasets = {}
         for guid in guids:
@@ -781,17 +977,38 @@ def list_parent_dids(args):
                 if guid not in dict_datasets:
                     dict_datasets[guid] = []
                 for rule in client.list_associated_rules_for_file(did['scope'], did['name']):
-                    if '%s:%s' % (rule['scope'], rule['name']) not in dict_datasets[guid]:
-                        dict_datasets[guid].append('%s:%s' % (rule['scope'], rule['name']))
-        for guid in dict_datasets:
-            print('GUID: ', guid)
-            print('Parents : ', ','.join(dict_datasets[guid]))
+                    if f"{rule['scope']}:{rule['name']}" not in dict_datasets[guid]:
+                        dict_datasets[guid].append(f"{rule['scope']}:{rule['name']}")
+
+        for i, guid in enumerate(dict_datasets):
+            if cli_config == 'rich':
+                parent_tree = Tree('')
+                for parent in dict_datasets[guid]:
+                    parent_tree.add(parent)
+                table = generate_table([['GUID', guid], ['Parents', parent_tree]], col_alignments=['left', 'left'], row_styles=['none'])
+                output.append(table)
+            else:
+                print('GUID: ', guid)
+                print('Parents : ', ','.join(dict_datasets[guid]))
+
+        if cli_config == 'rich':
+            spinner.stop()
+            print_output(*output, console=console, no_pager=args.no_pager)
     elif args.did:
-        table = []
+        table_data = []
         scope, name = get_scope(args.did, client)
         for dataset in client.list_parent_dids(scope=scope, name=name):
-            table.append(['%s:%s' % (dataset['scope'], dataset['name']), dataset['type']])
-        print(tabulate(table, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+            if cli_config == 'rich':
+                table_data.append([f"{dataset['scope']}:{dataset['name']}", Text(dataset['type'], style=CLITheme.DID_TYPE.get(dataset['type'], 'default'))])
+            else:
+                table_data.append([f"{dataset['scope']}:{dataset['name']}", dataset['type']])
+
+        if cli_config == 'rich':
+            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
+        else:
+            print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     else:
         print('At least one option has to be given. Use -h to list the options.')
         return FAILURE
@@ -836,13 +1053,32 @@ def stat(args):
     List attributes and statuses about data identifiers..
     """
     client = get_client(args)
+    if cli_config == 'rich':
+        spinner.update(status='Fetching DID stats')
+        spinner.start()
+        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE}
+
+    output = []
     for i, did in enumerate(args.dids):
-        if i > 0:
-            print('------')
         scope, name = get_scope(did, client)
         info = client.get_did(scope=scope, name=name, dynamic_depth='DATASET')
-        table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
-        print(tabulate(table, tablefmt='plain', disable_numparse=True))
+        if cli_config == 'rich':
+            if i > 0:
+                output.append(Text(f'\nDID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+            elif len(args.dids) > 1:
+                output.append(Text(f'DID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+            table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(info.items())]
+            table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+            output.append(table)
+        else:
+            if i > 0:
+                print('------')
+            table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
+            print(tabulate(table, tablefmt='plain', disable_numparse=True))
+
+    if cli_config == 'rich':
+        spinner.stop()
+        print_output(*output, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -875,8 +1111,7 @@ def erase(args):
             try:
                 # set lifetime to expire in 24 hours (value is in seconds).
                 client.set_metadata(scope=scope, name=name, key='lifetime', value=86400)
-                logger.info('CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:')
-                print("rucio erase --undo {0}:{1}".format(scope, name))
+                logger.info('CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:\n rucio erase --undo {0}:{1}'.format(scope, name))
             except RucioException as error:
                 logger.warning('Failed to erase DID: %s' % did)
                 logger.debug('Error: %s' % error)
@@ -1020,7 +1255,7 @@ def download(args):
     item_defaults['check_local_with_filesize_only'] = args.check_local_with_filesize_only
     archive_did = args.archive_did
     if archive_did:
-        logger.warning("Archives are treated transparently. --archive-did option is being obsoleted.")  # TODO
+        logger.warning("Archives are treated transparently. --archive-did option is being obsoleted.")
 
     # Get filters
     filters = {}
@@ -1169,13 +1404,32 @@ def get_metadata(args):
     else:
         plugin = config_get('client', 'metadata_default_plugin', default='DID_COLUMN')
 
+    if cli_config == 'rich':
+        spinner.update(status='Fetching metadata')
+        spinner.start()
+        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE, **CLITheme.AVAILABILITY}
+
+    output = []
     for i, did in enumerate(args.dids):
-        if i > 0:
-            print('------')
         scope, name = get_scope(did, client)
         meta = client.get_metadata(scope=scope, name=name, plugin=plugin)
-        table = [(k + ':', str(v)) for (k, v) in sorted(meta.items())]
-        print(tabulate(table, tablefmt='plain', disable_numparse=True))
+        if cli_config == 'rich':
+            if i > 0:
+                output.append(Text(f'\nDID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+            elif len(args.dids) > 1:
+                output.append(Text(f'DID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+            table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(meta.items())]
+            table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+            output.append(table)
+        else:
+            if i > 0:
+                print('------')
+            table = [(k + ':', str(v)) for (k, v) in sorted(meta.items())]
+            print(tabulate(table, tablefmt='plain', disable_numparse=True))
+
+    if cli_config == 'rich':
+        spinner.stop()
+        print_output(*output, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -1198,7 +1452,7 @@ def set_metadata(args):
 @exception_handler
 def delete_metadata(args):
     """
-    %(prog)s set_metadata [options] <field1=value1 field2=value2 ...>
+    %(prog)s delete-metadata [options] <field1=value1 field2=value2 ...>
 
     Delete data identifier metadata
     """
@@ -1385,47 +1639,80 @@ def info_rule(args):
     Retrieve information about a rule.
     """
     client = get_client(args)
+    if cli_config == 'rich':
+        spinner.update(status='Fetching rule info')
+        spinner.start()
+
     if args.examine:
+        output = []
         analysis = client.examine_replication_rule(rule_id=args.rule_id)
-        print('Status of the replication rule: %s' % analysis['rule_error'])
-        if analysis['transfers']:
-            print('STUCK Requests:')
-            for transfer in analysis['transfers']:
-                print('  %s:%s' % (transfer['scope'], transfer['name']))
-                print('    RSE:                  %s' % str(transfer['rse']))
-                print('    Attempts:             %s' % str(transfer['attempts']))
-                print('    Last Retry:           %s' % str(transfer['last_time']))
-                print('    Last error:           %s' % str(transfer['last_error']))
-                print('    Last source:          %s' % str(transfer['last_source']))
-                print('    Available sources:    %s' % ', '.join([source[0] for source in transfer['sources'] if source[1]]))
-                print('    Blocklisted sources:  %s' % ', '.join([source[0] for source in transfer['sources'] if not source[1]]))
+        if cli_config == 'rich':
+            keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE, **CLITheme.RULE_STATE}
+            rule_status = " ".join([f'[{keyword_styles.get(word, "default")}]{word}[/]' for word in analysis['rule_error'].split()])
+            output.append(f'Status of the replication rule: {rule_status}')
+            if analysis['transfers']:
+                output.append('[b]STUCK Requests:[/]')
+                for transfer in analysis['transfers']:
+                    output.append(Padding.indent(Text(f"{transfer['scope']}:{transfer['name']}", style=CLITheme.SUBHEADER_HIGHLIGHT), 2))
+                    table_data = [['RSE:', str(transfer['rse'])],
+                                  ['Attempts:', str(transfer['attempts'])],
+                                  ['Last retry:', str(transfer['last_time'])],
+                                  ['Last error:', str(transfer['last_source'])],
+                                  ['Available sources:', ', '.join([source[0] for source in transfer['sources'] if source[1]])],
+                                  ['Blocklisted sources:', ', '.join([source[0] for source in transfer['sources'] if not source[1]])]]
+                    table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+                    output.append(Padding.indent(table, 2))
+
+            spinner.stop()
+            print_output(*output, console=console, no_pager=args.no_pager)
+        else:
+            analysis = client.examine_replication_rule(rule_id=args.rule_id)
+            print('Status of the replication rule: %s' % analysis['rule_error'])
+            if analysis['transfers']:
+                print('STUCK Requests:')
+                for transfer in analysis['transfers']:
+                    print('  %s:%s' % (transfer['scope'], transfer['name']))
+                    print('    RSE:                  %s' % str(transfer['rse']))
+                    print('    Attempts:             %s' % str(transfer['attempts']))
+                    print('    Last Retry:           %s' % str(transfer['last_time']))
+                    print('    Last error:           %s' % str(transfer['last_error']))
+                    print('    Last source:          %s' % str(transfer['last_source']))
+                    print('    Available sources:    %s' % ', '.join([source[0] for source in transfer['sources'] if source[1]]))
+                    print('    Blocklisted sources:  %s' % ', '.join([source[0] for source in transfer['sources'] if not source[1]]))
     else:
         rule = client.get_replication_rule(rule_id=args.rule_id)
-        print("Id:                         %s" % rule['id'])
-        print("Account:                    %s" % rule['account'])
-        print("Scope:                      %s" % rule['scope'])
-        print("Name:                       %s" % rule['name'])
-        print("RSE Expression:             %s" % rule['rse_expression'])
-        print("Copies:                     %s" % rule['copies'])
-        print("State:                      %s" % rule['state'])
-        print("Locks OK/REPLICATING/STUCK: %s/%s/%s" % (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']))
-        print("Grouping:                   %s" % rule['grouping'])
-        print("Expires at:                 %s" % rule['expires_at'])
-        print("Locked:                     %s" % rule['locked'])
-        print("Weight:                     %s" % rule['weight'])
-        print("Created at:                 %s" % rule['created_at'])
-        print("Updated at:                 %s" % rule['updated_at'])
-        print("Error:                      %s" % rule['error'])
-        print("Subscription Id:            %s" % rule['subscription_id'])
-        print("Source replica expression:  %s" % rule['source_replica_expression'])
-        print("Activity:                   %s" % rule['activity'])
-        print("Comment:                    %s" % rule['comments'])
-        print("Ignore Quota:               %s" % rule['ignore_account_limit'])
-        print("Ignore Availability:        %s" % rule['ignore_availability'])
-        print("Purge replicas:             %s" % rule['purge_replicas'])
-        print("Notification:               %s" % rule['notification'])
-        print("End of life:                %s" % rule['eol_at'])
-        print("Child Rule Id:              %s" % rule['child_rule_id'])
+        if cli_config == 'rich':
+            keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE, **CLITheme.RULE_STATE}
+            table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for k, v in sorted(rule.items())]
+            table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
+        else:
+            print("Id:                         %s" % rule['id'])
+            print("Account:                    %s" % rule['account'])
+            print("Scope:                      %s" % rule['scope'])
+            print("Name:                       %s" % rule['name'])
+            print("RSE Expression:             %s" % rule['rse_expression'])
+            print("Copies:                     %s" % rule['copies'])
+            print("State:                      %s" % rule['state'])
+            print("Locks OK/REPLICATING/STUCK: %s/%s/%s" % (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']))
+            print("Grouping:                   %s" % rule['grouping'])
+            print("Expires at:                 %s" % rule['expires_at'])
+            print("Locked:                     %s" % rule['locked'])
+            print("Weight:                     %s" % rule['weight'])
+            print("Created at:                 %s" % rule['created_at'])
+            print("Updated at:                 %s" % rule['updated_at'])
+            print("Error:                      %s" % rule['error'])
+            print("Subscription Id:            %s" % rule['subscription_id'])
+            print("Source replica expression:  %s" % rule['source_replica_expression'])
+            print("Activity:                   %s" % rule['activity'])
+            print("Comment:                    %s" % rule['comments'])
+            print("Ignore Quota:               %s" % rule['ignore_account_limit'])
+            print("Ignore Availability:        %s" % rule['ignore_availability'])
+            print("Purge replicas:             %s" % rule['purge_replicas'])
+            print("Notification:               %s" % rule['notification'])
+            print("End of life:                %s" % rule['eol_at'])
+            print("Child Rule Id:              %s" % rule['child_rule_id'])
     return SUCCESS
 
 
@@ -1437,6 +1724,10 @@ def list_rules(args):
     List rules.
     """
     client = get_client(args)
+    if cli_config == 'rich':
+        spinner.update(status='Fetching rules')
+        spinner.start()
+
     if args.rule_id:
         rules = [client.get_replication_rule(args.rule_id)]
     elif args.file:
@@ -1481,55 +1772,93 @@ def list_rules(args):
         for rule in rules:
             print(rule['id'],
                   rule['account'],
-                  '%s:%s' % (rule['scope'], rule['name']),
-                  '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+                  f"{rule['scope']}:{rule['name']}",
+                  f"{rule['state']}[{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
                   rule['rse_expression'],
                   rule['copies'],
                   sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
                   rule['expires_at'],
                   rule['created_at'],
                   sep=',')
+
+        if cli_config == 'rich':
+            spinner.stop()
     else:
-        table = []
+        table_data = []
         for rule in rules:
-            table.append([rule['id'],
-                          rule['account'],
-                          '%s:%s' % (rule['scope'], rule['name']),
-                          '%s[%d/%d/%d]' % (rule['state'], rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
-                          rule['rse_expression'],
-                          rule['copies'],
-                          sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
-                          rule['expires_at'],
-                          rule['created_at']])
-        print(tabulate(table, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'], disable_numparse=True))
+            if cli_config == 'rich':
+                table_data.append([rule['id'],
+                                   rule['account'],
+                                   f"{rule['scope']}:{rule['name']}",
+                                   f"[{CLITheme.RULE_STATE.get(rule['state'], 'default')}]{rule['state']}[/][{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
+                                   rule['rse_expression'],
+                                   rule['copies'],
+                                   sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
+                                   rule['expires_at'],
+                                   rule['created_at']])
+            else:
+                table_data.append([rule['id'],
+                                   rule['account'],
+                                   f"{rule['scope']}:{rule['name']}",
+                                   f"{rule['state']}[{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
+                                   rule['rse_expression'],
+                                   rule['copies'],
+                                   sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
+                                   rule['expires_at'],
+                                   rule['created_at']])
+
+        if cli_config == 'rich':
+            table = generate_table(table_data, headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'],
+                                   col_alignments=['left', 'left', 'left', 'right', 'left', 'right', 'right', 'left', 'left'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
+        else:
+            print(tabulate(table_data, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'], disable_numparse=True))
     return SUCCESS
 
 
 @exception_handler
 def list_rules_history(args):
     """
-    %(prog)s list-rules_history ...
+    %(prog)s list-rules-history ...
 
     List replication rules history for a DID.
     """
     rule_dict = []
     client = get_client(args)
+    if cli_config == 'rich':
+        spinner.update(status='Fetching rules history')
+        spinner.start()
+
     scope, name = get_scope(args.did, client)
+    table_data = []
     for rule in client.list_replication_rule_full_history(scope, name):
         if rule['rule_id'] not in rule_dict:
             rule_dict.append(rule['rule_id'])
-            print('-' * 40)
-            print('Rule insertion')
-            print('Account : %s' % rule['account'])
-            print('RSE expression : %s' % (rule['rse_expression']))
-            print('Time : %s' % (rule['created_at']))
+            if cli_config == 'rich':
+                table_data.append(['Insertion', rule['account'], rule['rse_expression'], rule['created_at']])
+            else:
+                print('-' * 40)
+                print('Rule insertion')
+                print('Account : %s' % rule['account'])
+                print('RSE expression : %s' % (rule['rse_expression']))
+                print('Time : %s' % (rule['created_at']))
         else:
             rule_dict.remove(rule['rule_id'])
-            print('-' * 40)
-            print('Rule deletion')
-            print('Account : %s' % rule['account'])
-            print('RSE expression : %s' % (rule['rse_expression']))
-            print('Time : %s' % (rule['updated_at']))
+            if cli_config == 'rich':
+                table_data.append(['Deletion', rule['account'], rule['rse_expression'], rule['updated_at']])
+            else:
+                print('-' * 40)
+                print('Rule deletion')
+                print('Account : %s' % rule['account'])
+                print('RSE expression : %s' % (rule['rse_expression']))
+                print('Time : %s' % (rule['updated_at']))
+
+    if cli_config == 'rich':
+        table_data = sorted(table_data, key=lambda entry: entry[-1], reverse=True)
+        table = generate_table(table_data, headers=['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME'])
+        spinner.stop()
+        print_output(table, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -1542,10 +1871,18 @@ def list_rses(args):
 
     """
     client = get_client(args)
+    if cli_config == 'rich':
+        spinner.update(status='Fetching RSEs')
+        spinner.start()
 
     rses = client.list_rses(args.rses)
-    for rse in rses:
-        print('%(rse)s' % rse)
+    if cli_config == 'rich':
+        table = generate_table([[rse['rse']] for rse in sorted(rses, key=lambda elem: elem['rse'])], headers=['RSE'], col_alignments=['left'])
+        spinner.stop()
+        print_output(table, console=console, no_pager=args.no_pager)
+    else:
+        for rse in rses:
+            print('%(rse)s' % rse)
     return SUCCESS
 
 
@@ -1567,14 +1904,25 @@ def list_suspicious_replicas(args):
         younger_than = args.younger_than
     if args.nattempts:
         nattempts = args.nattempts
+
+    if cli_config == 'rich':
+        spinner.update(status='Fetching suspicious replicas')
+        spinner.start()
+
     # Generator is a list with one entry, which itself is a list of lists.
     replicas_gen = client.list_suspicious_replicas(rse_expression, younger_than, nattempts)
     for i in replicas_gen:
         replicas = i
-    table = []
+    table_data = []
     for rep in replicas:
-        table.append([rep['rse'], rep['scope'], rep['created_at'], rep['cnt'], rep['name']])
-    print(tabulate(table, headers=(['RSE Expression:', 'Scope:', 'Created at:', 'Nattempts:', 'File Name:'])))
+        table_data.append([rep['rse'], rep['scope'], rep['created_at'], rep['cnt'], rep['name']])
+
+    if cli_config == 'rich':
+        table = generate_table(table_data, headers=['RSE EXPRESSION', 'SCOPE', 'CREATED AT', 'N-ATTEMPTS', 'FILE NAME'], col_alignments=['left', 'left', 'left', 'right', 'left'])
+        spinner.stop()
+        print_output(table, console=console, no_pager=args.no_pager)
+    else:
+        print(tabulate(table_data, headers=(['RSE Expression:', 'Scope:', 'Created at:', 'Nattempts:', 'File Name:'])))
     return SUCCESS
 
 
@@ -1588,8 +1936,15 @@ def list_rse_attributes(args):
     """
     client = get_client(args)
     attributes = client.list_rse_attributes(rse=args.rse)
-    table = [(k + ':', str(v)) for (k, v) in sorted(attributes.items())]  # columns have mixed datatypes
-    print(tabulate(table, tablefmt='plain', disable_numparse=True))  # disabling number parsing
+
+    if cli_config == 'rich':
+        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.RSE_TYPE}
+        table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for k, v in sorted(attributes.items())]  # columns have mixed datatypes
+        table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+        print_output(table, console=console, no_pager=args.no_pager)
+    else:
+        table = [(k + ':', str(v)) for (k, v) in sorted(attributes.items())]  # columns have mixed datatypes
+        print(tabulate(table, tablefmt='plain', disable_numparse=True))  # disabling number parsing
     return SUCCESS
 
 
@@ -1602,34 +1957,80 @@ def list_rse_usage(args):
 
     """
     client = get_client(args)
+    if cli_config == 'rich':
+        spinner.update(status='Fetching RSE usage')
+        spinner.start()
+
     all_usages = client.get_rse_usage(rse=args.rse, filters={'per_account': args.show_accounts})
     select_usages = [u for u in all_usages if u['source'] not in ('srm', 'gsiftp', 'webdav')]
-    print('USAGE:')
+
+    if cli_config == 'rich':
+        output = []
+        table_data = []
+        header = ['SOURCE', 'USED', 'FILES', 'FREE', 'TOTAL', 'UPDATED AT']
+        header_account_data = ['ACCOUNT', 'USED', 'PERCENTAGE %']
+        key2id = {header[i].lower().replace(' ', '_'): i for i in range(len(header))}
+        account_data = {}
     for usage in select_usages:
-        print('------')
+        if cli_config == 'rich':
+            row = [''] * len(header)
         for elem in usage:
-            if (elem in ['free', 'total'] and usage['source'] != 'storage' or elem == 'files' and usage['source'] != 'rucio'):
+            if elem in ['free', 'total'] and usage['source'] != 'storage' or elem == 'files' and usage['source'] != 'rucio':
                 continue
             elif elem in ['used', 'free', 'total']:
-                print('  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human)))
-            elif elem == 'account_usages':
-                account_usages_title = '  per account:'
-                if not usage[elem]:
-                    account_usages_title += ' no usage'
+                if cli_config == 'rich':
+                    row[key2id[elem]] = sizefmt(usage[elem], args.human)
                 else:
-                    print(account_usages_title)
-                    print('  ------')
-                    col_width = max(len(str(entry[1])) for account in usage[elem] for entry in list(account.items())) + 16
-                    for account in usage[elem]:
-                        base_string = '    '
-                        used_string = 'used: {0}'.format(sizefmt(account['used'], args.human))
-                        account_string = 'account: {0}'.format(account['account'])
-                        percentage_string = 'percentage: {0}'.format(account['percentage'])
-                        print(base_string + account_string.ljust(col_width) + used_string.ljust(col_width) + percentage_string.ljust(col_width))
+                    print('  {0}: {1}'.format(elem, sizefmt(usage[elem], args.human)))
+            elif elem == 'account_usages':
+                if cli_config == 'rich':
+                    if usage[elem]:
+                        for account in usage[elem]:
+                            if cli_config == 'rich':
+                                account_data[usage['source']].append([account['account'], sizefmt(account['used'], args.human), str(account['percentage'])])
+                else:
+                    account_usages_title = '  per account:'
+                    if not usage[elem]:
+                        account_usages_title += ' no usage'
+                    else:
+                        print(account_usages_title)
                         print('  ------')
+                        col_width = max(len(str(entry[1])) for account in usage[elem] for entry in list(account.items())) + 16
+                        for account in usage[elem]:
+                            base_string = '    '
+                            used_string = 'used: {0}'.format(sizefmt(account['used'], args.human))
+                            account_string = 'account: {0}'.format(account['account'])
+                            percentage_string = 'percentage: {0}'.format(account['percentage'])
+                            print(base_string + account_string.ljust(col_width) + used_string.ljust(col_width) + percentage_string.ljust(col_width))
+                            print('  ------')
             else:
-                print('  {0}: {1}'.format(elem, usage[elem]))
-    print('------')
+                if cli_config == 'rich':
+                    if elem in key2id:
+                        row[key2id[elem]] = str(usage[elem])
+                    if elem == 'source':
+                        account_data[usage[elem]] = []
+                else:
+                    print('  {0}: {1}'.format(elem, usage[elem]))
+
+        if cli_config == 'rich':
+            table_data.append(row)
+
+    if cli_config == 'rich':
+        table = generate_table(table_data, headers=header, col_alignments=['left', 'right', 'right', 'right', 'right', 'left'])
+        output.append(table)
+
+        if args.show_accounts:
+            output.append('\n[b]USAGE PER ACCOUNT:')
+            for source in account_data:
+                if len(account_data[source]) > 0:
+                    output.append(Padding.indent(Text(f'source: {source}', style=CLITheme.SUBHEADER_HIGHLIGHT), 2))
+                    account_table = generate_table(account_data[source], headers=header_account_data, col_alignments=['left', 'right', 'right'])
+                    output.append(Padding.indent(account_table, 2))
+
+        spinner.stop()
+        print_output(*output, console=console, no_pager=args.no_pager)
+    else:
+        print('------')
     return SUCCESS
 
 
@@ -1642,24 +2043,40 @@ def list_account_limits(args):
 
     """
     client = get_client(args)
-    table = []
+    if cli_config == 'rich':
+        spinner.update(status='Fetching account limits')
+        spinner.start()
+
     if args.rse:
         limits = client.get_local_account_limit(account=args.limit_account, rse=args.rse)
     else:
         limits = client.get_local_account_limits(account=args.limit_account)
-    for limit in list(limits.items()):
-        table.append([limit[0], sizefmt(limit[1], args.human)])
-    table.sort()
-    print(tabulate(table, tablefmt=tablefmt, headers=['RSE', 'LIMIT']))
 
-    table = []
+    table_data = []
+    for limit in list(limits.items()):
+        table_data.append([limit[0], sizefmt(limit[1], args.human)])
+    table_data.sort()
+
+    if cli_config == 'rich':
+        table1 = generate_table(table_data, headers=['RSE', 'LIMIT'], col_alignments=['left', 'right'])
+    else:
+        print(tabulate(table_data, tablefmt=tablefmt, headers=['RSE', 'LIMIT']))
+
+    table_data = []
     limits = client.get_global_account_limits(account=args.limit_account)
     for limit in list(limits.items()):
         if (args.rse and args.rse in limit[1]['resolved_rses']) or not args.rse:
-            table.append([limit[0], sizefmt(limit[1]['limit'], args.human)])
-    table.sort()
-    print(tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'LIMIT']))
+            table_data.append([limit[0], sizefmt(limit[1]['limit'], args.human)])
+    table_data.sort()
 
+    if cli_config == 'rich':
+        table2 = generate_table(table_data, headers=['RSE EXPRESSION', 'LIMIT'], col_alignments=['left', 'right'])
+    else:
+        print(tabulate(table_data, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'LIMIT']))
+
+    if cli_config == 'rich':
+        spinner.stop()
+        print_output(table1, table2, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -1672,26 +2089,38 @@ def list_account_usage(args):
 
     """
     client = get_client(args)
-    table = []
-    if args.rse:
-        usage = client.get_local_account_usage(account=args.usage_account, rse=args.rse)
-    else:
-        usage = client.get_local_account_usage(account=args.usage_account)
+    if cli_config == 'rich':
+        spinner.update(status='Fetching account usage')
+        spinner.start()
+
+    usage = client.get_local_account_usage(account=args.usage_account, rse=args.rse)
+    table_data = []
     for item in usage:
         remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
-        table.append([item['rse'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
-    table.sort()
-    print(tabulate(table, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+        table_data.append([item['rse'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
+    table_data.sort()
 
-    table = []
+    if cli_config == 'rich':
+        table1 = generate_table(table_data, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT'], col_alignments=['left', 'right', 'right', 'right'])
+    else:
+        print(tabulate(table_data, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
+    table_data = []
     usage = client.get_global_account_usage(account=args.usage_account)
     for item in usage:
         if (args.rse and args.rse in item['rse_expression']) or not args.rse:
             remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
-            table.append([item['rse_expression'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
-    table.sort()
-    print(tabulate(table, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+            table_data.append([item['rse_expression'], sizefmt(item['bytes'], args.human), sizefmt(item['bytes_limit'], args.human), sizefmt(remaining, args.human)])
+    table_data.sort()
 
+    if cli_config == 'rich':
+        table2 = generate_table(table_data, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT'], col_alignments=['left', 'right', 'right', 'right'])
+    else:
+        print(tabulate(table_data, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
+    if cli_config == 'rich':
+        spinner.stop()
+        print_output(table1, table2, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -1704,19 +2133,36 @@ def list_datasets_rse(args):
 
     """
     client = get_client(args)
+    if cli_config == 'rich':
+        spinner.update(status='Fetching datasets at RSE')
+        spinner.start()
+
     if args.long:
-        table = []
+        table_data = []
         for dsn in client.list_datasets_per_rse(args.rse):
-            table.append(['%s:%s' % (dsn['scope'], dsn['name']), '%s/%s' % (str(dsn['available_length']), str(dsn['length'])), '%s/%s' % (str(dsn['available_bytes']), str(dsn['bytes']))])
-        table.sort()
-        print(tabulate(table, tablefmt=tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES']))
+            table_data.append([f"{dsn['scope']}:{dsn['name']}"
+                               f"{str(dsn['available_length'])}/{str(dsn['length'])}",
+                               f"{str(dsn['available_bytes'])}/{str(dsn['bytes'])}"])
+
+        if cli_config == 'rich':
+            table_data.sort()
+            table = generate_table(table_data, headers=['SCOPE:NAME', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES'], col_alignments=['left', 'right', 'right'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
+        else:
+            print(tabulate(table_data, tablefmt=tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES']))
     else:
-        dsns = list(set(['%s:%s' % (dsn['scope'], dsn['name']) for dsn in client.list_datasets_per_rse(args.rse)]))
+        dsns = list(set([f"{dsn['scope']}:{dsn['name']}" for dsn in client.list_datasets_per_rse(args.rse)]))
         dsns.sort()
-        print("SCOPE:NAME")
-        print('----------')
-        for dsn in dsns:
-            print(dsn)
+        if cli_config == 'rich':
+            table = generate_table([[dsn] for dsn in dsns], headers=['SCOPE:NAME'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
+        else:
+            print("SCOPE:NAME")
+            print('----------')
+            for dsn in dsns:
+                print(dsn)
     return SUCCESS
 
 
@@ -1789,7 +2235,7 @@ def add_lifetime_exception(args):
     if containers:
         logger.warning('One or more DIDs are containers. They will be resolved into a list of datasets to request exception. Full list below')
         for container in containers:
-            logger.info('Resolving %s:%s into datasets :' % (container['scope'], container['name']))
+            logger.info('Resolving %s:%s into datasets:' % (container['scope'], container['name']))
             list_datasets = __resolve_containers_to_datasets(container['scope'], container['name'], client)
             for chunk in chunks(list_datasets, chunk_limit):
                 for meta in client.get_metadata_bulk(chunk):
@@ -1803,7 +2249,7 @@ def add_lifetime_exception(args):
                         datasets.append({'scope': scope, 'name': name})
 
     if not datasets:
-        logger.error('Nothing to submit')
+        logger.error('Nothing to submit.')
         return SUCCESS
     try:
         client.add_exception(dids=datasets, account=client.account, pattern='', comments=reason, expires_at=expiration)
@@ -1811,11 +2257,18 @@ def add_lifetime_exception(args):
         logger.error(err)
         return FAILURE
     except Exception:
-        logger.error('Failure to submit exception. Please retry')
-        logger.debug(traceback.format_exc())
+        error_message = 'Failure to submit exception. Please retry.'
+        if cli_config == 'rich':
+            if logger.level == logging.DEBUG:
+                logger.exception(error_message)
+            else:
+                logger.error(error_message)
+        else:
+            logger.error(error_message)
+            logger.debug(traceback.format_exc())
         return FAILURE
 
-    logger.info('Exception successfully submitted. Summary below')
+    logger.info('Exception successfully submitted. Summary below:')
     for cnt, error in enumerate(error_types):
         print('{0:100} {1:6d}'.format(error, summary[cnt]))
     return SUCCESS
@@ -1870,6 +2323,7 @@ def get_parser():
     oparser.add_argument('--robot', '-R', dest="human", default=True, action='store_false', help="All output in bytes and without the units. This output format is preferred by parsers and scripts.")
     oparser.add_argument('--user-agent', '-U', dest="user_agent", default='rucio-clients', action='store', help="Rucio User Agent")
     oparser.add_argument('--vo', dest="vo", metavar="VO", default=None, help="VO to authenticate at. Only used in multi-VO mode.")
+    oparser.add_argument("--no-pager", dest="no_pager", default=False, action='store_true', help=argparse.SUPPRESS)
 
     # Options for the userpass or OIDC auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
@@ -2273,7 +2727,7 @@ You can filter by key/value, e.g.::
     list_content_history_parser.set_defaults(function=list_content_history)
     list_content_history_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
 
-# The upload subparser
+    # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method.')
     upload_parser.set_defaults(function=upload)
     upload_parser.add_argument('--rse', dest='rse', action='store', help='Rucio Storage Element (RSE) name.', required=True).completer = rse_completer
@@ -2533,11 +2987,30 @@ if __name__ == '__main__':
         sys.exit(FAILURE)
 
     args = oparser.parse_args(arguments)
+    pager = get_pager()
 
-    logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose)
+    if cli_config == 'rich':
+        install(console=console, word_wrap=True, width=min(console.width, MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
+        logger = setup_rich_logger(module_name=__name__, logger_name='user', verbose=args.verbose, console=console)
+    else:
+        logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose)
+
     start_time = time.time()
     result = args.function(args)
     end_time = time.time()
-    if args.verbose:
-        print("Completed in %-0.4f sec." % (end_time - start_time))
+    if cli_config == 'rich':
+        spinner.stop()
+    if console.is_terminal and not args.no_pager:
+        command_output = console.end_capture()
+        if command_output == '' and args.verbose:
+            print("Completed in %-0.4f sec." % (end_time - start_time))
+        else:
+            if args.verbose:
+                command_output += "Completed in %-0.4f sec." % (end_time - start_time)
+            # Ignore SIGINT during pager execution.
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+            pager(command_output)
+    else:
+        if args.verbose:
+            print("Completed in %-0.4f sec." % (end_time - start_time))
     sys.exit(result)
