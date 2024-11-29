@@ -143,8 +143,6 @@ class ReplicaClient(BaseClient):
         :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
         :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
         :param sort: Sort the replicas: ``geoip`` - based on src/dst IP topographical distance
-                                        ``closeness`` - based on src/dst closeness
-                                        ``dynamic`` - Rucio Dynamic Smart Sort (tm)
         :param domain: Define the domain. None is fallback to 'wan', otherwise 'wan, 'lan', or 'all'
         :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
         :param nrandom: pick N random replicas. If the initial number of replicas is smaller than N, returns all replicas.
