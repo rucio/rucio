@@ -98,7 +98,7 @@ jobs:
         shell: bash
         run: |
           docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata pull
+          docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata pull
           i=0; until [ "$i" -ge 3 ]; do
             IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | $GITHUB_WORKSPACE/dev/rucio/tools/test/build_images.py --output list \
                 --cache-repo ghcr.io/${{ github.repository }} --branch "${{ needs.setup.outputs.branch }}" \
@@ -119,7 +119,7 @@ jobs:
           sed -i 's;image: docker.io/rucio/rucio-dev.*;image: ${{ fromJSON(steps.images.outputs.images)[0] }};' \
               $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml
       - name: Start containers
-        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata up -d
+        run: docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata up -d
       - name: Initialize tests
         shell: bash
         run: |
@@ -173,4 +173,4 @@ jobs:
       - name: Test external metadata plugin (postgres)
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_did_meta_plugins.py::TestDidMetaExternalPostgresJSON
       - name: Stop containers
-        run: docker-compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata down
+        run: docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata down
