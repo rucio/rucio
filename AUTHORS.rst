@@ -67,6 +67,7 @@ Individual contributors to the source code
 - Aksel Lunde Aase <aksel.lunde.aase@gmail.com>, 2022
 - Elena Gazzarrini <gazzarrini.elena@gmail.com>, 2022-2023
 - Maximilian Linhoff, <maximilian.linhoff@tu-dortmund.de>, 2024
+- Hugo Gonzalez Labrador, <hugo.gonzalez.labrador@cern.ch>, 2024
 
 Organisations employing contributors
 ------------------------------------

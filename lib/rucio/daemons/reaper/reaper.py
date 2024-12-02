@@ -45,7 +45,7 @@ from rucio.core.heartbeat import list_payload_counts
 from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
 from rucio.core.oidc import request_token
-from rucio.core.replica import delete_replicas, list_and_mark_unlocked_replicas
+from rucio.core.replica import delete_replicas, list_and_mark_unlocked_replicas, refresh_replicas
 from rucio.core.rse import RseData, determine_audience_for_rse, determine_scope_for_rse, list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
@@ -141,9 +141,26 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
     rse_id = rse_info['id']
     noaccess_attempts = 0
     pfns_to_bulk_delete = []
+
+    trigger_time = 60 * 8  # 8 minutes, we could make it configurable, but will change functions signature.
+
     try:
         prot.connect()
+        refresh_start_time = time.time()
+        num_replicas_processed = 0  # counts how many replicas has been already being processed
         for replica in replicas:
+            # Every 8 minutes, if there are still replicas to process,
+            # we bump the updated_at field of the unprocessed replicas to current time,
+            # which will prevent other workers from selecting
+            # the unprocessed replicas for the next 8+ minutes
+            elapsed_time = time.time() - refresh_start_time
+            if elapsed_time > trigger_time:  # 8 minutes have passed
+                to_refresh = replicas[num_replicas_processed + 1]  # only refresh the replicas we have not yet deleted
+                ok = refresh_replicas(rse_id=rse_id, replicas=to_refresh)
+                if not ok:
+                    logger(logging.WARNING, "Failed to bump updated_at for replicas BEING_DELETED")
+                refresh_start_time = time.time()  # reset it so we can trigger new refresh cycles.
+
             # Physical deletion
             _, _, logger = heartbeat_handler.live(payload=hb_payload)
             stopwatch = Stopwatch()
@@ -216,6 +233,13 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 deletion_dict['reason'] = str(error)
                 deletion_dict['duration'] = duration
                 add_message('deletion-failed', deletion_dict)
+
+            finally:
+                # this control loop will run indefinitely until all deletions have gone through (or failed).
+                # it assumes that for each deletion a timeout will occur (which will fail the deletion).
+                # if that assumption is not true, we need to introduce a maximum retry counter to avoid the worker hanging
+                # on individual deletions.
+                num_replicas_processed += 1
 
         if pfns_to_bulk_delete and prot.attributes['scheme'] == 'globus':
             logger(logging.DEBUG, 'Attempting bulk delete on RSE %s for scheme %s', rse_name, prot.attributes['scheme'])
@@ -444,7 +468,7 @@ def run_once(
         auto_exclude_threshold: int,
         auto_exclude_timeout: int,
         heartbeat_handler: "HeartbeatHandler",
-        **_kwargs
+        **_kwargs: Optional["dict[str, Any]"]
 ) -> bool:
 
     must_sleep = True
@@ -629,7 +653,10 @@ def _run_once(
             for file_replicas in chunks(replicas, chunk_size):
                 # Refresh heartbeat
                 _, total_workers, logger = heartbeat_handler.live(payload=hb_payload)
+
                 del_start_time = time.time()
+
+                # for each replica object obtain the pfn
                 for replica in file_replicas:
                     try:
                         replica['pfn'] = str(list(rsemgr.lfns2pfns(rse_settings=rse.info,
@@ -643,14 +670,17 @@ def _run_once(
                         logger(logging.CRITICAL, 'Exception', exc_info=True)
 
                 is_staging = rse.columns['staging_area']
+
+                # First, delete the physical files associated with a replica
                 deleted_files = delete_from_storage(heartbeat_handler, hb_payload, file_replicas, prot, rse.info, is_staging, auto_exclude_threshold, logger=logger)
                 logger(logging.INFO, '%i files processed in %s seconds', len(file_replicas), time.time() - del_start_time)
 
-                # Then finally delete the replicas
+                # Then delete the replicas
                 del_start = time.time()
                 delete_replicas(rse_id=rse.id, files=deleted_files)  # type: ignore (argument missing: session)
                 logger(logging.DEBUG, 'delete_replicas succeeded on %s : %s replicas in %s seconds', rse.name, len(deleted_files), time.time() - del_start)
                 METRICS.counter('deletion.done').inc(len(deleted_files))
+
         except RSEProtocolNotSupported:
             logger(logging.WARNING, 'Protocol %s not supported on %s', scheme, rse.name)
         except Exception:

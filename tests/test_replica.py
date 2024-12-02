@@ -32,7 +32,23 @@ from rucio.common.schema import get_schema_value
 from rucio.common.utils import clean_pfns, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
 from rucio.core.did import add_did, attach_dids, get_did, get_did_atime, list_files, set_status
-from rucio.core.replica import add_bad_dids, add_replica, add_replicas, delete_replicas, get_bad_pfns, get_replica, get_replica_atime, get_replicas_state, get_RSEcoverage_of_dataset, list_replicas, set_tombstone, touch_replica, update_replica_state
+from rucio.core.replica import (
+    add_bad_dids,
+    add_replica,
+    add_replicas,
+    delete_replicas,
+    get_bad_pfns,
+    get_replica,
+    get_replica_atime,
+    get_replica_updated_at,
+    get_replicas_state,
+    get_RSEcoverage_of_dataset,
+    list_replicas,
+    refresh_replicas,
+    set_tombstone,
+    touch_replica,
+    update_replica_state,
+)
 from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import minos
 from rucio.daemons.badreplicas.minos_temporary_expiration import minos_tu_expiration
@@ -287,6 +303,35 @@ class TestReplicaCore:
         get_did(scope=mock_scope, name=tmp_dsn2)
 
         assert [f for f in list_files(scope=mock_scope, name=tmp_dsn2)] == []
+
+    def test_refresh_replicas(self, rse_factory, mock_scope, root_account):
+        """REPLICA (CORE): Refresh replicas"""
+        _, rse_id = rse_factory.make_mock_rse()
+        nbfiles = 5
+
+        # add 5 replicas
+        files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+        add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
+        # adding a repilca will set updated_at time to unix epoch, so we expect is set
+        replica_dict = {'scope': files[0]['scope'], 'name': files[0]['name'], 'rse_id': rse_id}
+        original_timestamp = get_replica_updated_at(replica_dict)
+        assert original_timestamp is not None
+
+        # we update the state to BEING_DELETED
+        update_replica_state(rse_id, replica_dict['scope'], replica_dict['name'], ReplicaState.BEING_DELETED)
+        original_timestamp = get_replica_updated_at(replica_dict)
+
+        time.sleep(2)
+        assert refresh_replicas(rse_id, [replica_dict])
+
+        got_timestamp = get_replica_updated_at(replica_dict)
+        assert got_timestamp > original_timestamp
+
+    def test_refresh_replicas_no_rows(self, rse_factory):
+        """REPLICA (CORE): Refresh replicas, no rows"""
+        _, rse_id = rse_factory.make_mock_rse()
+        # when there are no replicas to refresh, True is returned.
+        assert refresh_replicas(rse_id, [])
 
     def test_touch_replicas(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Touch replicas accessed_at timestamp"""
