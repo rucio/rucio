@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-import io
 import itertools
+import json
 import multiprocessing
 import os
 import pathlib
@@ -28,12 +26,15 @@ import traceback
 import uuid
 from datetime import datetime
 from tempfile import NamedTemporaryFile
-from typing import Optional, Union, NoReturn
+from typing import TYPE_CHECKING, NoReturn, Optional, Union
 
 import yaml
 
+if TYPE_CHECKING:
+    import io
 
-def run(*args, check=True, return_stdout=False, env=None) -> Union[NoReturn, io.TextIOBase]:
+
+def run(*args, check=True, return_stdout=False, env=None) -> Union[NoReturn, 'io.TextIOBase']:
     kwargs = {'check': check, 'stdout': sys.stderr, 'stderr': subprocess.STDOUT}
     if env is not None:
         kwargs['env'] = env
@@ -280,7 +281,6 @@ def run_with_httpd(
     logs_dir: pathlib.Path,
     tests: list[str],
 ) -> bool:
-    compose_version = int(run('docker', 'compose', 'version', '--short', return_stdout=True).decode().split('.')[0])
 
     with (NamedTemporaryFile() as compose_override_file):
         compose_override_content = yaml.dump({
@@ -305,19 +305,11 @@ def run_with_httpd(
             '--file', compose_override_file.name,
             '--profile', rdbms,
         )
-        rucio_container = None
+
+        rucio_container = 'dev_rucio_1'
         try:
             # Start docker compose
             run('docker', 'compose', '-p', project, *up_down_args, 'up', '-d')
-
-            # Retrieve container names from docker compose
-            # or use pre-defined names for old, v1, docker compose
-            rucio_container = f'{project}_rucio_1'
-            if compose_version > 1:
-                rucio_container = next(filter(
-                    lambda c: c['Service'] == 'rucio',
-                    json.loads(run('docker', 'compose', '-p', project, 'ps', '--format', 'json', return_stdout=True))
-                ), {}).get('Name', rucio_container)
 
             # Running test.sh
             if tests:
@@ -339,23 +331,22 @@ def run_with_httpd(
                 flush=True,
             )
         finally:
-            if rucio_container:
-                run('docker', *namespace_args, 'logs', rucio_container, check=False)
-                if copy_rucio_logs:
-                    try:
-                        if logs_dir.exists():
-                            shutil.rmtree(logs_dir)
-                        run('docker', *namespace_args, 'cp', f'{rucio_container}:/var/log', str(logs_dir))
-                    except Exception:
-                        print(
-                            "** Error on retrieving logs for",
-                            {**caseenv, "IMAGE": image},
-                            '\n',
-                            traceback.format_exc(),
-                            '\n**',
-                            file=sys.stderr,
-                            flush=True,
-                        )
+            run('docker', *namespace_args, 'logs', rucio_container, check=False)
+            if copy_rucio_logs:
+                try:
+                    if logs_dir.exists():
+                        shutil.rmtree(logs_dir)
+                    run('docker', *namespace_args, 'cp', f'{rucio_container}:/var/log', str(logs_dir))
+                except Exception:
+                    print(
+                        "** Error on retrieving logs for",
+                        {**caseenv, "IMAGE": image},
+                        '\n',
+                        traceback.format_exc(),
+                        '\n**',
+                        file=sys.stderr,
+                        flush=True,
+                    )
             run('docker', 'compose', '-p', project, *up_down_args, 'down', '-t', '30', check=False)
         return False
 
