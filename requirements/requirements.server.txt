@@ -148,8 +148,12 @@ prometheus-client==0.20.0
     # via -r requirements.server.in
 propcache==0.2.0
     # via yarl
-psycopg2-binary==2.9.9
+psycopg[pool]==3.2.3
     # via -r requirements.server.in
+psycopg-binary==3.2.3 ; implementation_name == "cpython"
+    # via -r requirements.server.in
+psycopg-pool==3.2.4
+    # via psycopg
 pyasn1==0.6.0
     # via
     #   pyasn1-modules
@@ -252,6 +256,8 @@ typing-extensions==4.12.2
     #   alembic
     #   dogpile-cache
     #   globus-sdk
+    #   psycopg
+    #   psycopg-pool
     #   pydantic
     #   pydantic-core
     #   sqlalchemy
