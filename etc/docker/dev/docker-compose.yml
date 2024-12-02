@@ -27,6 +27,7 @@ services:
       - X509_USER_KEY=/opt/rucio/etc/userkey.pem
       - RDBMS
   rucio:
+    container_name: dev_rucio_1
     image: docker.io/rucio/rucio-dev:latest-alma9
     entrypoint: ["/rucio_source/etc/docker/dev/rucio_entrypoint.sh"]
     command: ["httpd","-D","FOREGROUND"]
