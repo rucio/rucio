@@ -70,6 +70,7 @@ server_requirements_table = {
         'boto3',
         'sqlalchemy',
         'alembic',
+        'packaging'
         'pymemcache',
         'python-dateutil',
         'stomp-py',
