@@ -34,7 +34,7 @@ from rucio.core.lock import get_dataset_locks
 from rucio.core.rse import get_rse_name, get_rse_vo, list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rse_selector import RSESelector
-from rucio.core.rule import add_rule, get_rule, update_rule
+from rucio.core.rule import add_rule, get_rule, move_rule, update_rule
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, LockState, RuleGrouping, RuleState
 from rucio.db.sqla.session import read_session, transactional_session
@@ -654,14 +654,17 @@ def rebalance_rse(
     logger(logging.INFO, "***************************")
 
     for rule_info in list_rebalance_rule_candidates(rse_id=rse_id, mode=mode):
+        child_rule_id = None
         # Handle dump scenario
         if not isinstance(rule_info[0], dict):
-            _, _, rule_id, _, subscription_id, bytes_, length, _ = rule_info
+            _, _, rule_id, _, _, bytes_, length, _ = rule_info
+            rule = get_rule(rule_id=rule_id, session=session)
         else:
             rule, bytes_, length = rule_info
-            subscription_id = rule["subscription_id"]
 
-        if force_expression is not None and subscription_id is not None:
+        full_move_condition = ((rule["did_type"] == DIDType.CONTAINER and rule['grouping'] == RuleGrouping.ALL) or rule["did_type"] == DIDType.DATASET) and rule["copies"] == 1
+
+        if force_expression is not None:
             continue
 
         if rebalanced_bytes + bytes_ > max_bytes:
@@ -670,54 +673,61 @@ def rebalance_rse(
             if rebalanced_files + length > max_files:
                 continue
 
-        # Get rule info for dump scenario
-        if rule is None:
-            rule = get_rule(rule_id=rule_id, session=session)
-
-        try:
-            other_rses = []
-            if rule["did_type"] == DIDType.CONTAINER:
-                for did in list_content(rule["scope"], rule["name"]):
-                    if did["type"] == DIDType.DATASET:
-                        other_rses += [
-                            r["rse_id"] for r in get_dataset_locks(did['scope'], did['name'], session=session)
-                        ]
-            else:
-                other_rses = [
-                    r["rse_id"] for r in get_dataset_locks(scope=rule["scope"], name=rule["name"], session=session)
-                ]
-            # Select the target RSE for this rule
+        if full_move_condition:
             try:
-                target_rse_exp = select_target_rse(
-                    parent_rule=rule,
-                    current_rse_id=rse_id,
-                    rse_expression=rule["rse_expression"],
-                    subscription_id=rule["subscription_id"],
-                    rse_attributes=rse_attributes,
-                    other_rses=other_rses,
-                    exclude_expression=exclude_expression,
-                    force_expression=force_expression,
-                    session=session,
-                )
-                # Rebalance this rule
-                if not dry_run:
-                    child_rule_id = rebalance_rule(
-                        parent_rule=rule,
-                        activity="Data Rebalancing",
-                        rse_expression=target_rse_exp,
-                        priority=priority,
-                        source_replica_expression=source_replica_expression,
-                        comment=comment,
-                    )
+                other_rses = []
+                if rule["did_type"] == DIDType.CONTAINER:
+                    for did in list_content(rule["scope"], rule["name"]):
+                        if did["type"] == DIDType.DATASET:
+                            other_rses += [
+                                r["rse_id"] for r in get_dataset_locks(did['scope'], did['name'], session=session)
+                            ]
                 else:
-                    child_rule_id = ""
-            except (
-                InsufficientTargetRSEs,
-                DuplicateRule,
-                RuleNotFound,
-                InsufficientAccountLimit,
-            ) as err:
-                logger(logging.ERROR, str(err))
+                    other_rses = [
+                        r["rse_id"] for r in get_dataset_locks(scope=rule["scope"], name=rule["name"], session=session)
+                    ]
+                # Select the target RSE for this rule
+                try:
+                    target_rse_exp = select_target_rse(
+                        parent_rule=rule,
+                        current_rse_id=rse_id,
+                        rse_expression=rule["rse_expression"],
+                        subscription_id=rule["subscription_id"],
+                        rse_attributes=rse_attributes,
+                        other_rses=other_rses,
+                        exclude_expression=exclude_expression,
+                        force_expression=force_expression,
+                        session=session,
+                    )
+                    # Rebalance this rule
+                    if not dry_run:
+                        child_rule_id = rebalance_rule(
+                            parent_rule=rule,
+                            activity="Data Rebalancing",
+                            rse_expression=target_rse_exp,
+                            priority=priority,
+                            source_replica_expression=source_replica_expression,
+                            comment=comment,
+                        )
+                    else:
+                        child_rule_id = ""
+                except (
+                    InsufficientTargetRSEs,
+                    DuplicateRule,
+                    RuleNotFound,
+                    InsufficientAccountLimit,
+                ) as err:
+                    logger(logging.ERROR, str(err))
+                    continue
+            except Exception as error:
+                logger(
+                    logging.ERROR,
+                    "Exception %s occurred while rebalancing %s:%s, rule_id: %s!",
+                    str(error),
+                    rule["scope"],
+                    rule["name"],
+                    str(rule["id"]),
+                )
                 continue
             if child_rule_id is None:
                 logger(
@@ -728,31 +738,47 @@ def rebalance_rse(
                     target_rse_exp,
                 )
                 continue
-            logger(
-                logging.INFO,
-                "Rebalancing %s:%s rule %s (%f GB) from %s to %s. New rule %s",
-                rule["scope"],
-                rule["name"],
-                str(rule["id"]),
-                bytes_ / 1e9,
-                rule["rse_expression"],
-                target_rse_exp,
-                child_rule_id,
-            )
-            rebalanced_bytes += bytes_
-            rebalanced_files += length
-            rebalanced_datasets.append(
-                (rule["scope"], rule["name"], bytes_, length, target_rse_exp, rule["id"], child_rule_id)
-            )
-        except Exception as error:
-            logger(
-                logging.ERROR,
-                "Exception %s occurred while rebalancing %s:%s, rule_id: %s!",
-                str(error),
-                rule["scope"],
-                rule["name"],
-                str(rule["id"]),
-            )
+        else:
+            # Move rule excluding current RSE
+            target_rse_exp = rule["rse_expression"]
+            # Clean expression in case of being rebalanced in the past
+            if rule["activity"] == "Data Rebalancing":
+                target_rse_exp = target_rse_exp.split('\\')[:-1].join('\\')
+                target_rse_exp = target_rse_exp[1:-1] if target_rse_exp[0] == '(' and target_rse_exp[-1] == ')' else target_rse_exp
+
+            target_rse_exp = '(' + target_rse_exp + f")\\({src_rse})"
+            if not dry_run:
+                try:
+                    child_rule_id = move_rule(rule['id'], rse_expression=target_rse_exp, override={'activity': 'Data Rebalancing', 'comment': comment}, session=session)
+                except Exception as error:
+                    logger(
+                        logging.ERROR,
+                        "Exception %s occurred while rebalancing %s:%s, rule_id: %s!",
+                        str(error),
+                        rule["scope"],
+                        rule["name"],
+                        str(rule["id"]),
+                    )
+                    continue
+            else:
+                child_rule_id = ""
+
+        logger(
+            logging.INFO,
+            "Rebalancing %s:%s rule %s (%f GB) from %s to %s. New rule %s",
+            rule["scope"],
+            rule["name"],
+            str(rule["id"]),
+            bytes_ / 1e9,
+            rule["rse_expression"],
+            target_rse_exp,
+            child_rule_id,
+        )
+        rebalanced_bytes += bytes_
+        rebalanced_files += length
+        rebalanced_datasets.append(
+            (rule["scope"], rule["name"], bytes_, length, target_rse_exp, rule["id"], child_rule_id)
+        )
 
     logger(
         logging.INFO,

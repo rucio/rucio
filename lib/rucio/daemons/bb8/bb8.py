@@ -22,11 +22,11 @@ import socket
 import threading
 from typing import TYPE_CHECKING, Optional
 
-from rucio.common.config import config_get_float, config_get_int, config_get
+from rucio.common.config import config_get_float, config_get
 from rucio.common.exception import InvalidRSEExpression
 from rucio.common.logging import setup_logging
 from rucio.core.heartbeat import list_payload_counts, sanity_check
-from rucio.core.rse import get_rse_usage, get_rse_limits
+from rucio.core.rse import get_rse_limits, get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.bb8.common import get_active_locks, rebalance_rse
 from rucio.daemons.common import HeartbeatHandler, run_daemon
@@ -81,7 +81,6 @@ def run_once(
     dry_run: bool,
     **_kwargs
 ) -> bool:
-
     must_sleep = False
     total_rebalance_volume = 0
     worker_number, total_workers, logger = heartbeat_handler.live()
@@ -95,7 +94,7 @@ def run_once(
     if len(rse) == 1:
         [rse] = rse
 
-        target_rse_rebalance_volume = config_get_int("bb8", "target_rse_rebalance_volume", default=0)
+        target_rse_rebalance_volume = config_get_float("bb8", "target_rse_rebalance_volume", default=0)
 
         rebalance_rse(
             rse_id=rse['id'],
