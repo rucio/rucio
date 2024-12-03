@@ -26,6 +26,7 @@ clients_requirements_table = {
         'requests',
         'urllib3',
         'dogpile-cache',
+        'packaging',
         'tabulate',
         'jsonschema',
         'dataclasses',
@@ -70,7 +71,6 @@ server_requirements_table = {
         'boto3',
         'sqlalchemy',
         'alembic',
-        'packaging'
         'pymemcache',
         'python-dateutil',
         'stomp-py',
