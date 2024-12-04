@@ -15,8 +15,6 @@
 """
 Common utility functions for stomp connections
 """
-from __future__ import annotations
-
 import json
 import logging
 import random
@@ -25,7 +23,7 @@ from collections import namedtuple
 from copy import deepcopy
 from functools import partial
 from time import monotonic
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from stomp import Connection12
 from stomp.exception import ConnectFailedException, NotConnectedException
@@ -36,7 +34,7 @@ from rucio.common.logging import formatted_logger
 from rucio.core.monitor import MetricManager
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Iterable, Iterator
 
     from stomp.connect import Frame
 
@@ -58,7 +56,7 @@ class Connection(Connection12):
         Initialise.
 
         Args:
-            host_and_ports (list[tuple[str, int]]): brokers list
+            host_and_ports: brokers list
 
         Kwargs:
             Arguments to pass to the Constructor12 base class.
@@ -72,7 +70,7 @@ class Connection(Connection12):
         List brokers.
 
         Returns:
-            list[tuple[str, int]]: All assigned brokers in (host, port) format.
+            All assigned brokers in (host, port) format.
         """
         return self._brokers
 
@@ -84,14 +82,14 @@ class ListenerBase(HeartbeatListener):
 
     def __init__(self,
                  conn: Connection,
-                 logger: None | LoggerFunction = None,
+                 logger: "None | LoggerFunction" = None,
                  **kwargs):
         """
         Initialise.
 
         Args:
-            conn (Connection12): The connection object that is using this listener
-            logger (logging.Logger): Logger to use. Defaults to logging.getLogger(__name__).getChild(__qualname__).
+            conn: The connection object that is using this listener
+            logger: Logger to use. Defaults to logging.getLogger(__name__).getChild(__qualname__).
 
         Kwargs:
             Arguments to pass to the stomp.ConnectionListener base class.
@@ -106,7 +104,7 @@ class ListenerBase(HeartbeatListener):
         self._conn.disconnect()
 
     @METRICS.count_it
-    def on_error(self, frame: Frame):
+    def on_error(self, frame: "Frame"):
         """
         on_error
         """
@@ -126,13 +124,13 @@ class StompConnectionManager:
 
     def __init__(self,
                  config_section: str,
-                 logger: None | LoggerFunction = None):
+                 logger: "None | LoggerFunction" = None):
         """
         Initialise.
 
         Args:
-            config_section (str): The name of the config section for this manager to parse for configuration.
-            logger (logging.Logger): logger to use. Defaults to logging.getLogger(__name__).getChild(__qualname__).
+            config_section: The name of the config section for this manager to parse for configuration.
+            logger: logger to use. Defaults to logging.getLogger(__name__).getChild(__qualname__).
         """
         if logger is not None:
             self._logger = logger
@@ -155,11 +153,11 @@ class StompConnectionManager:
         Get the config.
 
         Returns:
-            StompConfig: config object.
+            config object.
         """
         return deepcopy(self._config)
 
-    def set_listener_factory(self, name: str, listener_cls: type, **kwargs):
+    def set_listener_factory(self, name: str, listener_cls: type, **kwargs) -> None:
         """
         Setup listener factory
 
@@ -167,8 +165,8 @@ class StompConnectionManager:
         connection.set_listener based on pre-defined argument values.
 
         Args:
-            name (str): Listener name
-            listener_cls (ListenerBase): Listener class.
+            name: Listener name
+            listener_cls: Listener class.
         """
         def create_listener(name, listener_factory, conn):
             return name, listener_factory(conn=conn)
@@ -181,13 +179,13 @@ class StompConnectionManager:
         Parse config section.
 
         Args:
-            config_section (str): The name of the config section for this manager to parse for configuration.
+            config_section: The name of the config section for this manager to parse for configuration.
 
         Raises:
             RuntimeError: If cannot parse config sections 'brokers' or 'use_ssl' or if misconfigured.
 
         Returns:
-            StompConfig: Stomp manager configuration object.
+            Stomp manager configuration object.
         """
         try:
             brokers = config_get(config_section, 'brokers')
@@ -228,16 +226,16 @@ class StompConnectionManager:
                            username=username, password=password, nonssl_port=nonssl_port,
                            reconnect_attempts_max=reconnect_attempts, timeout=timeout, heartbeats=heartbeats)
 
-    def _resolve_host_and_port(self, fqdns: str | list[str], port: int) -> list[tuple[str, int]]:
+    def _resolve_host_and_port(self, fqdns: "str | Iterable[str]", port: int) -> list[tuple[str, int]]:
         """
         Resolve host and port.
 
         Args:
-            fqdns (str | list[str]): fully qualified domain name(s)
-            port (int): port
+            fqdns: fully qualified domain name(s)
+            port: port
 
         Returns:
-            list[tuple[str, int]]: list of (host, port) tuples.
+            list of (host, port) tuples.
         """
         if isinstance(fqdns, str):
             fqdns = fqdns.split(',')
@@ -260,10 +258,10 @@ class StompConnectionManager:
         Determine if a connection is stalled.
 
         Args:
-            conn (Connection): The Connection object
+            conn: The Connection object
 
         Returns:
-            bool: Whether the connection has stalled.
+            Whether the connection has stalled.
         """
         received_heartbeat = getattr(conn, 'received_heartbeat', None)
         if received_heartbeat is None or not any(self._config.heartbeats):
@@ -279,12 +277,12 @@ class StompConnectionManager:
 
         return True
 
-    def connect(self) -> Generator[Connection, None, None]:
+    def connect(self) -> "Iterator[Connection]":
         """
         Connect.
 
         Yields:
-            Generator[Connection, None, None]: Each connection object after ensuring it's connected.
+            Each connection object after ensuring it's connected.
         """
         config = self._config
         params = {'wait': True, "heartbeats": self._config.heartbeats}
@@ -300,11 +298,7 @@ class StompConnectionManager:
                     self._logger(logging.ERROR, "[broker] Stalled connection could not be disconnected")
             if not conn.is_connected():
                 self._logger(logging.INFO, 'connecting to %s:%s', *conn.brokers[0])
-                # self._logger.info('connecting to %s', conn.transport._Transport__host_and_ports[0][0])
-                # if self._metrics is not None:
-                #     self._metrics.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0].split('.')[0]).inc()
                 METRICS.counter('reconnect.{host}').labels(host=conn.brokers[0][0]).inc()
-                # METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0].split('.')[0]).inc()
                 if self._listener_factory is not None:
                     conn.set_listener(*self._listener_factory(conn=conn))
 
@@ -322,15 +316,15 @@ class StompConnectionManager:
             except Exception:
                 self._logger(logging.ERROR, "[broker] Error in yielded code, skipping to next connection.")
 
-    def deliver_messages(self, messages: dict) -> list[int]:
+    def deliver_messages(self, messages: "Iterable[dict[str, Any]]") -> list[int]:
         """
         Deliver messages.
 
         Args:
-            messages (dict): Messages to deliver.
+            messages: Messages to deliver.
 
         Returns:
-            list[int]: delivered message ids, ready for deletion.
+            delivered message ids, ready for deletion.
         """
         config = self._config
         conn = random.sample(list(self.connect()), 1)[0]
@@ -401,15 +395,15 @@ class StompConnectionManager:
 
         return to_delete
 
-    def subscribe(self, id_: str, ack: str, destination: None | str = None, **kwargs):
+    def subscribe(self, id_: str, ack: str, destination: None | str = None, **kwargs) -> None:
         """
         Subscribe
 
         Args:
-            id_ (str): The identifier to uniquely identify the subscription
-            ack (str): Either auto, client or client-individual
-            destination (None | str, optional): The topic or queue to subscribe to. If None then
-                                                destination is taken from the rucio config Defaults to None.
+            id_: The identifier to uniquely identify the subscription
+            ack: Either auto, client or client-individual
+            destination: The topic or queue to subscribe to. If None then
+                         destination is taken from the rucio config Defaults to None.
 
         Kwargs:
             Arguments to pass to the Construction objects subscribe method.
@@ -420,7 +414,7 @@ class StompConnectionManager:
             conn.subscribe(destination=destination,
                            id=id_, ack=ack, **kwargs)
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         """Disconnect."""
         for conn in self._conns:
             try:
