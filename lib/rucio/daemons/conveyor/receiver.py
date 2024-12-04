@@ -15,8 +15,6 @@
 """
 Conveyor is a daemon to manage file transfers.
 """
-from __future__ import annotations
-
 import json
 import logging
 import threading
@@ -40,6 +38,7 @@ if TYPE_CHECKING:
     from types import FrameType
 
     from sqlalchemy.orm import Session
+    from stomp.utils import Frame
 
     from rucio.common.types import LoggerFunction
 
@@ -58,7 +57,7 @@ class Receiver(ListenerBase):
                  total_threads: int,
                  transfer_stats_manager: request_core.TransferStatsManager,
                  all_vos: bool = False,
-                 logger: LoggerFunction = logging.log,
+                 logger: "LoggerFunction" = logging.log,
                  **kwargs: dict) -> None:
         super().__init__(conn, logger, **kwargs)
         self.__all_vos = all_vos
@@ -67,8 +66,8 @@ class Receiver(ListenerBase):
         self._transfer_stats_manager = transfer_stats_manager
 
     @METRICS.count_it
-    def on_message(self, frame) -> None:
-        msg = json.loads(frame.body)
+    def on_message(self, frame: "Frame") -> None:
+        msg = json.loads(frame.body)  # type: ignore
 
         if not self.__all_vos:
             if 'vo' not in msg or msg['vo'] != get_policy():
@@ -89,8 +88,8 @@ class Receiver(ListenerBase):
         self,
         msg: dict[str, Any],
         *,
-        session: Session | None,
-        logger: LoggerFunction = logging.log
+        session: "Session | None",
+        logger: "LoggerFunction" = logging.log
     ) -> None:
         external_host = msg.get('endpnt', None)
         request_id = msg['file_metadata'].get('request_id', None)
@@ -116,7 +115,7 @@ class Receiver(ListenerBase):
 def receiver(id_: str,
              total_threads: int = 1,
              all_vos: bool = False,
-             logger: LoggerFunction = logging.log):
+             logger: "LoggerFunction" = logging.log):
     """
     Main loop to consume messages from the FTS3 producer.
     """
@@ -145,7 +144,7 @@ def receiver(id_: str,
         conn_mgr.disconnect()
 
 
-def stop(signum: int | None = None, frame: FrameType | None = None) -> None:
+def stop(signum: "int | None" = None, frame: "FrameType | None" = None) -> None:
     """
     Graceful exit.
     """
@@ -172,11 +171,6 @@ def run(once: bool = False, total_threads: int = 1) -> None:
         threads.append(rec_thread)
 
     logger(logging.INFO, 'waiting for interrupts')
-
-    # Interruptible joins require a timeout.
-    # while alive_threads := [thread for thread in threads if thread.is_alive()]:
-    #     for thread in alive_threads:
-    #         thread.join(timeout=3.14)
 
     while [thread.join(timeout=3.14) for thread in threads if thread.is_alive()]:
         pass
