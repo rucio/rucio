@@ -125,6 +125,7 @@ def exception_handler(function):
                 except Exception:
                     pass
                 logger.error("Specified account %s does not have an associated identity." % used_account)
+
             else:
                 logger.debug(traceback.format_exc())
                 contact = config_get("policy", "support", raise_exception=False)
