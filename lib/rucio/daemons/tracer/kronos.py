@@ -15,8 +15,6 @@
 """
 This daemon consumes tracer messages from ActiveMQ and updates the atime for replicas.
 """
-from __future__ import annotations
-
 import functools
 import logging
 import re
@@ -30,7 +28,7 @@ from time import time
 from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get, config_get_int, config_get_list
 from rucio.common.exception import DatabaseException, RSENotFound
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.stomp_utils import ListenerBase, StompConnectionManager
@@ -63,11 +61,11 @@ class AMQConsumer(ListenerBase):
     """ActiveMQ message consumer"""
 
     def __init__(self,
-                 conn: Connection,
+                 conn: "Connection",
                  queue: str,
                  chunksize: int,
                  subscription_id: str,
-                 excluded_usrdns: Set[str],
+                 excluded_usrdns: "Set[str]",
                  dataset_queue: Queue,
                  bad_files_patterns: list[re.Pattern],
                  logger: LoggerFunction = logging.log,
@@ -114,7 +112,10 @@ class AMQConsumer(ListenerBase):
 
         try:
             self._logger(logging.DEBUG,
-                         f"message received: {report['eventType']!s} {report['filename']!s} {report['remoteSite']!s}")
+                         "message received: %s %s %s",
+                         str(report['eventType']),
+                         report['filename'],
+                         report['remoteSite'])
         except Exception:
             pass
 
@@ -150,11 +151,13 @@ class AMQConsumer(ListenerBase):
                                         surl = report['url']
                                         declare_bad_file_replicas([surl, ], reason=reason, issuer=InternalAccount('root', vo=report['vo']), status=BadFilesStatus.SUSPICIOUS)
                                         self._logger(logging.INFO,
-                                                     f"Declare suspicious file {report['url']!s} with reason {reason!s}")
+                                                     "Declare suspicious file %s with reason %s",
+                                                     report['url'],
+                                                     reason)
                                     except Exception as error:
                                         self._logger(logging.ERROR, 'Failed to declare suspicious file' + str(error))
                 except Exception as error:
-                    self._logger(logging.ERROR, f'Problem with bad trace : {report!s} . Error {error!s}')
+                    self._logger(logging.ERROR, 'Problem with bad trace : %s . Error %s', str(report), str(error))
 
                 # check if scope in report. if not skip this one.
                 if 'scope' not in report:
@@ -312,7 +315,7 @@ def kronos_file(once: bool = False,
     """
     bad_files_patterns = []
     try:
-        patterns = str(config_get(section='kronos', option='bad_files_patterns', session=None)).split(",")
+        patterns = config_get_list(section='kronos', option='bad_files_patterns', session=None)
         for pat in patterns:
             bad_files_patterns.append(re.compile(pat.strip()))
     except (NoOptionError, NoSectionError, RuntimeError):
@@ -464,7 +467,7 @@ def run_once_kronos_dataset(dataset_queue: Queue,
     logger(logging.INFO, 'update done for %d collection replicas, %d failed (%ds)' % (total, failed, time() - start))
 
 
-def stop(signum: int | None = None, frame: FrameType | None = None) -> None:
+def stop(signum: "int | None" = None, frame: "FrameType | None" = None) -> None:
     """
     Graceful exit.
     """
@@ -503,10 +506,6 @@ def run(
         thread_list.append(krd_thread)
 
     logger(logging.INFO, 'waiting for interrupts')
-
-    # while alive_threads := [thread for thread in thread_list if thread.is_alive()]:
-    #     for thread in alive_threads:
-    #         thread.join(timeout=3)
 
     while [thread.join(timeout=3.) for thread in thread_list if thread.is_alive()]:
         pass
