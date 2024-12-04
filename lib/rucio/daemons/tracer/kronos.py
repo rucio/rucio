@@ -307,7 +307,7 @@ class AMQConsumer(ListenerBase):
 
 
 def kronos_file(once: bool = False,
-                dataset_queue: Queue | None = None,
+                dataset_queue: "Queue | None" = None,
                 sleep_time: int = 60,
                 logger: LoggerFunction = logging.log) -> None:
     """
@@ -396,7 +396,7 @@ def kronos_dataset(dataset_queue: Queue, once: bool = False, sleep_time: int = 6
 
 def run_once_kronos_dataset(dataset_queue: Queue,
                             return_values: dict,
-                            heartbeat_handler: HeartbeatHandler | None,
+                            heartbeat_handler: "HeartbeatHandler | None",
                             **kwargs) -> None:
     if heartbeat_handler is None:
         if "heartbeat_handler" not in return_values.keys():
