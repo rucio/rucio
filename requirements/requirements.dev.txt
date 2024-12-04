@@ -309,8 +309,16 @@ propcache==0.2.0
     # via
     #   -r requirements.server.txt
     #   yarl
-psycopg2-binary==2.9.9
+psycopg[pool]==3.2.3
     # via -r requirements.server.txt
+psycopg-binary==3.2.3 ; implementation_name == "cpython"
+    # via
+    #   -r requirements.server.txt
+    #   psycopg
+psycopg-pool==3.2.4
+    # via
+    #   -r requirements.server.txt
+    #   psycopg
 pyasn1==0.6.0
     # via
     #   -r requirements.server.txt
@@ -500,6 +508,8 @@ typing-extensions==4.12.2
     #   dogpile-cache
     #   globus-sdk
     #   nr-util
+    #   psycopg
+    #   psycopg-pool
     #   pydantic
     #   pydantic-core
     #   pylint
