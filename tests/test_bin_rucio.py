@@ -121,7 +121,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
-        assert 'Added new account: %s\n' % tmp_val == out
+        assert 'Added new account: %s\n' % tmp_val in out
 
     def test_whoami(self):
         """CLIENT(USER): Rucio whoami"""
@@ -136,12 +136,12 @@ class TestBinRucio:
         tmp_val = account_name_generator()
         cmd = 'rucio-admin account add %s' % tmp_val
         exitcode, out, err = execute(cmd)
-        assert 'Added new account: %s\n' % tmp_val == out
+        assert 'Added new account: %s\n' % tmp_val in out
         cmd = 'rucio-admin identity add --account %s --type GSS --id jdoe@CERN.CH --email jdoe@CERN.CH' % tmp_val
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
-        assert 'Added new identity to account: jdoe@CERN.CH-%s\n' % tmp_val == out
+        assert 'Added new identity to account: jdoe@CERN.CH-%s\n' % tmp_val in out
 
     def test_del_identity(self):
         """CLIENT(ADMIN): Test del identity"""
@@ -158,14 +158,14 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert 'Deleted identity: jdoe@CERN.CH\n' == out
+        assert 'Deleted identity: jdoe@CERN.CH\n' in out
         # list identities for account
         cmd = 'rucio-admin account list-identities %s' % (tmp_acc)
         print(self.marker + cmd)
         print(cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert '' == out
+        assert 'jdoe@CERN.CH' not in out
 
     def test_attributes(self):
         """CLIENT(ADMIN): Add/List/Delete attributes"""
@@ -203,7 +203,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert 'Added new scope to account: %s-%s\n' % (tmp_scp, tmp_acc) == out
+        assert 'Added new scope to account: %s-%s\n' % (tmp_scp, tmp_acc) in out
 
     def test_add_rse(self):
         """CLIENT(ADMIN): Add RSE"""
@@ -212,7 +212,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
-        assert 'Added new deterministic RSE: %s\n' % tmp_val == out
+        assert 'Added new deterministic RSE: %s\n' % tmp_val in out
 
     def test_add_rse_nondet(self):
         """CLIENT(ADMIN): Add non-deterministic RSE"""
@@ -221,7 +221,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
-        assert 'Added new non-deterministic RSE: %s\n' % tmp_val == out
+        assert 'Added new non-deterministic RSE: %s\n' % tmp_val in out
 
     def test_list_rses(self):
         """CLIENT(ADMIN): List RSEs"""
@@ -1216,7 +1216,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out)
         assert not err
-        rule = out[:-1]  # trimming new line character
+        rule = out.split('\n')[-2]
         assert re.match(r'^\w+$', rule)
         # check if rule exist for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
@@ -1257,7 +1257,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert not err
-        rule = out[:-1]  # trimming new line character
+        rule = out.split('\n')[-2]
         cmd = "rucio rule-info {0}".format(rule)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
@@ -1319,7 +1319,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert 5 == len(out.splitlines())
+        assert f"{self.user}:{tmp_file1[5:]}" in out
 
     def test_move_rule(self):
         """CLIENT(USER): Rucio move rule"""
@@ -1374,7 +1374,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out)
         assert not err
-        rule = out[:-1]  # trimming new line character
+        rule = out.split('\n')[-2]
         assert re.match(r'^\w+$', rule)
 
         # move rule
@@ -1384,7 +1384,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out)
         assert not err
-        new_rule = out[:-1]  # trimming new line character
+        new_rule = out.split('\n')[-2]  # trimming new line character
 
         # check if rule exist for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
@@ -1446,7 +1446,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out)
         assert not err
-        rule = out[:-1]  # trimming new line character
+        rule = out.split('\n')[-2]
         assert re.match(r'^\w+$', rule)
         # move rule
         new_rule_expr = "spacetoken=ATLASSCRATCHDISK|spacetoken=ATLASSD"
@@ -1457,7 +1457,7 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert not err
-        new_rule_id = out[:-1]  # trimming new line character
+        new_rule_id = out.split('\n')[-2]  # trimming new line character
 
         # check if rule exist for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
@@ -2125,7 +2125,7 @@ class TestBinRucio:
         new_rule_expr = rule_expr + "|spacetoken=RULELOC1"
         cmd = f"rucio move-rule {parentrule_id} '{new_rule_expr}'"
         exitcode, out, err = execute(cmd)
-        childrule_id = out.strip()
+        childrule_id = out.split('\n')[-2]
         assert err == ''
 
         # check if new rule exists for the file
@@ -2176,7 +2176,7 @@ class TestBinRucio:
         cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".\
             format(self.user, tmp_file[5:])
         exitcode, out, err = execute(cmd)
-        parentrule_id, _ = out.split()
+        parentrule_id = out.split('\n')[-2]
 
         # now for the test
         # TODO: merge this with the other update_rule test from issue #5930
@@ -2348,7 +2348,7 @@ class TestBinRucio:
         exitcode, out, err = execute("rucio-admin rse update --setting test_with_non_existing_option --value 3 --rse {}".format(self.def_rse))
         print(out, err)
         assert exitcode != 0
-        assert "There is an error with one of the input parameters.\nDetails: The key 'test_with_non_existing_option' does not exist for RSE properties.\nThis means that the input you provided did not meet all the requirements." in err
+        assert "Details: The key 'test_with_non_existing_option' does not exist for RSE properties." in err
 
         exitcode, out, err = execute("rucio-admin rse update --setting country_name --value France --rse {}".format(self.def_rse))
         print(out, err)

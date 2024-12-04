@@ -28,7 +28,7 @@ def scope_and_rse(mock_scope, test_scope):
     Check if xrd containers rses for xrootd are available in the testing environment.
     :return: A tuple (scope, rses) for the rucio client where scope is mock/test and rses is a list.
     """
-    cmd = "rucio list-rses --rses 'test_container_xrd=True'"
+    cmd = "rucio rse list --rse 'test_container_xrd=True'"
     print(cmd)
     exitcode, out, err = execute(cmd)
     print(out, err)
@@ -162,7 +162,7 @@ class TestImplUploadDownload:
         print(out)
         print(err)
         # get the rule for the file
-        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(scope, tmp_file1.name)
+        cmd = r"rucio rule list --did {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(scope, tmp_file1.name)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -173,7 +173,7 @@ class TestImplUploadDownload:
         exitcode, out, err = execute(cmd)
         print(out, err)
         # delete the physical file
-        cmd = 'rucio list-file-replicas --pfn {0}:{1}'.format(scope, tmp_file1.name)
+        cmd = 'rucio replica list --pfn --did {0}:{1}'.format(scope, tmp_file1.name)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
