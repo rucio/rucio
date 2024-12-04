@@ -56,7 +56,7 @@ class AMQConsumer(ListenerBase):
         """
         try:
             msg = json.loads(frame.body)  # type: ignore
-            self._logger(logging.DEBUG, f'Message received: {msg}')
+            self._logger(logging.DEBUG, 'Message received: %s', msg)
             if isinstance(msg, dict) and 'operation' in msg.keys():
                 for f in msg['files']:
                     f['scope'] = InternalScope(f['scope'])
@@ -69,14 +69,13 @@ class AMQConsumer(ListenerBase):
                 if 'vo' in msg and msg['vo'] != 'def':
                     rse_vo_str = f"{rse_vo_str} on {msg['vo']}"
                 if msg['operation'] == 'add_replicas':
-                    self._logger(logging.INFO, f"add_replicas to RSE {rse_vo_str}: {str(msg['files'])}")
+                    self._logger(logging.INFO, "add_replicas to RSE %s: %s", rse_vo_str, str(msg['files']))
                     add_volatile_replicas(rse_id=rse_id, replicas=msg['files'])
                 elif msg['operation'] == 'delete_replicas':
-                    self._logger(logging.INFO, f"delete_replicas to RSE {rse_vo_str}: {str(msg['files'])}")
+                    self._logger(logging.INFO, "delete_replicas to RSE %s: %s", rse_vo_str, str(msg['files']))
                     delete_volatile_replicas(rse_id=rse_id, replicas=msg['files'])
             else:
-                self._logger(logging.DEBUG,
-                             f'Check failed: {isinstance(msg, dict)} {"operation" in msg.keys()}')
+                self._logger(logging.DEBUG, 'Check failed: %s %s', isinstance(msg, dict), "operation" in msg.keys())
         except:
             self._logger(logging.ERROR, str(format_exc()))
 
@@ -129,11 +128,6 @@ def run(num_thread: int = 1) -> None:
         threads.append(con_thread)
 
     logger(logging.INFO, 'waiting for interrupts')
-
-    # Interruptible joins require a timeout.
-    # while alive_threads := [thread for thread in threads if thread.is_alive()]:
-    #     for thread in alive_threads:
-    #         thread.join(timeout=3.14)
 
     while [thread.join(timeout=3.14) for thread in threads if thread.is_alive()]:
         pass
