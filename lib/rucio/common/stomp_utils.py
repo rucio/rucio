@@ -395,7 +395,7 @@ class StompConnectionManager:
 
         return to_delete
 
-    def subscribe(self, id_: str, ack: str, destination: None | str = None, **kwargs) -> None:
+    def subscribe(self, id_: str, ack: str, destination: "None | str" = None, **kwargs) -> None:
         """
         Subscribe
 
