@@ -230,8 +230,9 @@ def aggregate_to_influx(
                        rf"{timestamp!s}\n")
 
     influx_token = config_get("hermes", "influxdb_token", False, None)
+    headers = {}
     if influx_token:
-        headers = {"Authorization": f"Token {influx_token!s}"}
+        headers["Authorization"] = f"Token {influx_token!s}"
     if points:
         res = requests.post(endpoint, headers=headers, data=points)
         logger(logging.DEBUG, "%s", str(res.text))
