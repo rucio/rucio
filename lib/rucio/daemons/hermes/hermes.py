@@ -73,7 +73,7 @@ class HermesListener(ListenerBase):
     """
 
 
-def deliver_emails(messages: "Iterable[dict[str, Any]]", logger: "LoggerFunction") -> list:
+def deliver_emails(messages: "Iterable[dict[str, Any]]", logger: "LoggerFunction") -> list[int]:
     """
     Sends emails
 
@@ -462,10 +462,5 @@ def run(
         thread_list.append(her_thread)
 
     logger(logging.DEBUG, thread_list)
-    # Interruptible joins require a timeout.
-    # while alive_threads := [thread for thread in threads if thread.is_alive()]:
-    #     for thread in alive_threads:
-    #         thread.join(timeout=3.14)
-
     while [thread.join(timeout=3.14) for thread in thread_list if thread.is_alive()]:
         pass
