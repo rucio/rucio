@@ -21,7 +21,7 @@ import logging
 import threading
 import time
 from traceback import format_exc
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common import exception
@@ -102,7 +102,7 @@ def consumer(id_: int, num_thread: int = 1, logger: LoggerFunction = logging.log
     logger(logging.INFO, 'graceful stop done')
 
 
-def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
+def stop(signum: "int | None" = None, frame: "FrameType | None" = None) -> None:
     """
     Graceful exit.
     """
