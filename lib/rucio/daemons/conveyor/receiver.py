@@ -78,7 +78,8 @@ class Receiver(ListenerBase):
            and 'issuer' in msg['job_metadata'].keys() \
            and str(msg['job_metadata']['issuer']) == 'rucio':
 
-            if 'job_state' in msg.keys() and (str(msg['job_state']) != 'ACTIVE' or msg.get('job_multihop', False) is True):
+            if ('job_state' in msg.keys() and (str(msg['job_state']) != 'ACTIVE'
+                                               or msg.get('job_multihop', False) is True)):
                 METRICS.counter('message_rucio').inc()
 
                 self._perform_request_update(msg)
@@ -94,7 +95,9 @@ class Receiver(ListenerBase):
         external_host = msg.get('endpnt', None)
         request_id = msg['file_metadata'].get('request_id', None)
         try:
-            tt_status_report = FTS3CompletionMessageTransferStatusReport(external_host, request_id=request_id, fts_message=msg)
+            tt_status_report = FTS3CompletionMessageTransferStatusReport(external_host,
+                                                                         request_id=request_id,
+                                                                         fts_message=msg)
             if tt_status_report.get_db_fields_to_update(session=session, logger=logger):  # type: ignore
                 logging.info('RECEIVED %s', tt_status_report)
 
