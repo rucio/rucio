@@ -29,7 +29,7 @@ from jsonschema import validate
 
 from rucio.client.didclient import DIDClient
 from rucio.client.rseclient import RSEClient
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get_items, config_has_section
 from rucio.common.exception import DataIdentifierNotFound
 from rucio.common.schema import get_schema_value
 
@@ -104,17 +104,24 @@ def get_parser():
          'operation': 'delete_replicas'
         }
 """
-    oparser = argparse.ArgumentParser(description="This daemons is used to populate information of replicas on volatile storage.",
-                                      prog=os.path.basename(sys.argv[0]), add_help=True)
+    description = "This daemons is used to populate information of replicas on volatile storage."
+
+    if not config_has_section("message-cache"):
+        defaults = {}
+        message_append = "WARNING: section 'messaging-cache' not present in config! All arguments must be manually set!\n"
+        description = message_append + description
+    else:
+        defaults = config_get_items("message-cache")
+
+    oparser = argparse.ArgumentParser(description=description, prog=os.path.basename(sys.argv[0]), add_help=True)
 
     # Main arguments
-    oparser.add_argument('-b', '--broker', dest='broker', default=config_get('messaging-cache', 'brokers').split(',')[0], help='Message broker name')
-    oparser.add_argument('-p', '--port', dest='port', default=config_get_int('messaging-cache', 'port'), help='Message broker port')
-    oparser.add_argument('-c', '--certificate', dest='ssl_cert_file', default=config_get('messaging-cache', 'ssl_cert_file'), help='Certificate file')
-    oparser.add_argument('-k', '--certificate-key', dest='ssl_key_file', default=config_get('messaging-cache', 'ssl_key_file'), help='Certificate key file')
-    oparser.add_argument('-d', '--destination', dest='destination', default=config_get('messaging-cache', 'destination'), help="Message broker topic")
+    oparser.add_argument('-b', '--broker', dest='broker', default=defaults.get('brokers', '').split(',')[0], help='Message broker name')
+    oparser.add_argument('-p', '--port', dest='port', type=int, default=defaults.get('port'), help='Message broker port')
+    oparser.add_argument('-c', '--certificate', dest='ssl_cert_file', default=defaults.get('ssl_cert_file'), help='Certificate file')
+    oparser.add_argument('-k', '--certificate-key', dest='ssl_key_file', default=defaults.get('ssl_key_file'), help='Certificate key file')
+    oparser.add_argument('-d', '--destination', dest='destination', default=defaults.get('destination'), help="Message broker topic")
     oparser.add_argument('-m', '--message', dest='message', default=None, help=message_help)
-
     return oparser
 
 
