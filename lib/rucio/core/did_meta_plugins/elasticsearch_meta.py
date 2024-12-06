@@ -165,6 +165,7 @@ class ElasticDidMeta(DidMetaPlugin):
         :param recursive: recurse into DIDs (not supported)
         :param session: The database session in use
         :raises DataIdentifierNotFound: If the DID is not found.
+        :raises UnsupportedOperation: If recursive inserts are requested (currently unsupported).
         :raises RucioException: If an error occurs while setting the metadata.
         """
         doc_id = f"{scope.internal}{name}"
@@ -185,6 +186,9 @@ class ElasticDidMeta(DidMetaPlugin):
             self.client.index(index=self.index, body=existing_meta, id=doc_id, refresh="true")
         except Exception as err:
             raise exception.RucioException(err)
+
+        if recursive:
+            raise exception.UnsupportedOperation(f"'{self.plugin_name.lower()}' metadata module does not currently support recursive inserts of metadata")
 
     def delete_metadata(
         self,
