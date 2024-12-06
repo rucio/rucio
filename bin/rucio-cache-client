@@ -104,7 +104,7 @@ def get_parser():
          'operation': 'delete_replicas'
         }
 """
-    description = "This daemons is used to populate information of replicas on volatile storage."
+    description = "This daemon is used to populate information of replicas on volatile storage."
 
     if not config_has_section("message-cache"):
         defaults = {}
