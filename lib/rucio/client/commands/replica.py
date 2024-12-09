@@ -86,7 +86,7 @@ class Replica(CommandBase):
 
     def usage_example(self) -> list[str]:
         return [
-            "$ rucio replica --did user.jdoe:test_file  # Show all replicas for user.jdoe:test_file, with their pfn and rse.",
+            "$ rucio replica list --did user.jdoe:test_file  # Show all replicas for user.jdoe:test_file, with their pfn and rse.",
             "$ rucio replica dataset --did user.jdoe:test_dataset  # Show all replicas for the dataset user.jdoe:test_dataset"]
 
     def default_operation(self):

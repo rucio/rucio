@@ -30,7 +30,7 @@ class Rule(CommandBase):
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
             "add": {"call": self.add, "docs": "Add replication rule to define number of replicas at sites.", "namespace": self.add_namespace},
-            "remove": {"call": self.remove, "docs": "Delete a replication rule. Replicas created by the rule will not be impacted unless specified to do so.", "namespace": self.remove_namespace},
+            "remove": {"call": self.remove, "docs": "Delete a replication rule.", "namespace": self.remove_namespace},
             "show": {"call": self.show, "docs": "Retrieve information about a specific rule.", "namespace": self.show_namespace},
             "history": {"call": self.history, "docs": "List history of different replica rules impacting a DID", "namespace": self._common_namespace},
             "update": {"call": self.update, "docs": "Update replication rule, can be used to move a rule from one RSE to another.", "namespace": self.update_namespace},
@@ -42,9 +42,8 @@ class Rule(CommandBase):
 
     def usage_example(self) -> list[str]:
         return [
-            "$ rucio rule add -d user.jdoe:test_did --copies 2 --rse SPAINSITES  # Create a rule that requires two copies of a did limited to Spanish Cites.",
+            "$ rucio rule add -d user.jdoe:test_did --copies 2 --rse SPAINSITES  # Create a rule that requires two copies of a did limited to Spanish Sites.",
             "$ rucio rule list --did user.jdoe:test_did  # show rules impacting a DID",
-            "$ rucio rule list --rule-id rule123456  # View a summary for an existing rule",
             "$ rucio rule show --rule-id rule123456  # View a detailed overview for an existing rule.",
             "$ rucio rule remove --rule-id rule123456  # Deactivate a rule",
             "$ rucio rule update --rule-id rule123456 --suspend  # Suspend the execution of a rule",
@@ -56,7 +55,7 @@ class Rule(CommandBase):
         parser.add_argument("--activity", action="store", help="Activity to be used (e.g. User, Data Consolidation)")  # TODO More info on this
         parser.add_argument("--rule-id", help="The rule ID, for accessing an existing rule.")
         parser.add_argument("--lifetime", dest="lifetime", action="store", type=int, help="Rule lifetime (in seconds)")
-        parser.add_argument("--locked", action="store_true", help="Set the rule to locked - [WHAT IS THE CONSEQUENCE?]")  # TODO More info on this
+        parser.add_argument("--locked", action="store_true", help="Set the rule to locked")  # TODO More info on this
         parser.add_argument("--source-replica-expression", help="RSE Expression for RSEs to be considered for source replicas")
         parser.add_argument("--comment", dest="comment", action="store", help="Comment about the replication rule")
 
@@ -83,7 +82,7 @@ class Rule(CommandBase):
         parser.add_argument("--examine", action="store_true", help="Detailed analysis of transfer errors")
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
-        self._common_namespace(parser)
+        parser.add_argument("-a", "--account", dest="rule_account", action="store", help="The account of the rule")
         parser.add_argument("-d", "--did", help="DIDs to look for rules.")
         parser.add_argument("--traverse", action="store_true", help="Traverse the did tree and search for rules affecting this did")
         parser.add_argument("--csv", action="store_true", help="Write output to a CSV.")
@@ -118,8 +117,6 @@ class Rule(CommandBase):
         list_rules_history(self.args, self.client, self.logger, self.console, self.spinner)
 
     def update(self):
-        # typing issue is due to trying to map two argparser objects to one function
-        # Claims you can't add new args
         self.args.rule_activity = self.args.activity
         if self.args.move:
             move_rule(self.args, self.client, self.logger, self.console, self.spinner)
