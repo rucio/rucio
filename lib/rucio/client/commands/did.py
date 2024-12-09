@@ -148,7 +148,7 @@ class DID(CommandBase):
 
     def usage_example(self) -> list[str]:
         return [
-            "$ rucio did --did user.jdoe:*  # Show all collection level DIDs with the scope user.jdoe",
+            "$ rucio did list --did user.jdoe:*  # Show all collection level DIDs with the scope user.jdoe",
             "$ rucio did list --short --filter type=CONTAINER --did user.jdoe:* # Show the names of all container type DIDs",
             "$ rucio did list --filter type=all --did user.jdoe:*  # Show all DIDs with the scope user.jdoe",
             "$ rucio did add --type container --did user.jdoe:container_12345  # Create a new container-type did.",

@@ -102,30 +102,41 @@ class Commands:
         auth_args.add_argument(
             "--oidc-scope",
             default="openid profile",
-            help="Defines which (OIDC) information user will share with Rucio. "
-            + 'Rucio requires at least -sc="openid profile". To request refresh token for Rucio, scope must include "openid offline_access" and '  # NOQA: W503
-            + "there must be no active access token saved on the side of the currently used Rucio Client.",
-        )  # NOQA: W503
+            help="""
+                Defines which (OIDC) information user will share with Rucio. Rucio requires at least -sc='openid profile'.
+                To request refresh token for Rucio, scope must include 'openid offline_access' and there must be no active
+                access token saved on the side of the currently used Rucio Client.
+            """
+        )
         auth_args.add_argument("--oidc-audience", help="Defines which audience are tokens requested for.")
         auth_args.add_argument(
             "--oidc-auto",
             default=False,
             action="store_true",
-            help="If not specified, username and password credentials are not required and users will be given a URL " + "to use in their browser. If specified, the users explicitly trust Rucio with their IdP credentials.",
-        )  # NOQA: W503
+            help="""
+                If not specified, username and password credentials are not required and users will be given a URL to use in their browser.
+                If specified, the users explicitly trust Rucio with their IdP credentials.
+             """
+        )
         auth_args.add_argument(
             "--oidc-polling",
             default=False,
             action="store_true",
-            help="If not specified, user will be asked to enter a code returned by the browser to the command line. "
-            + "If --polling is set, Rucio Client should get the token without any further interaction of the user. This option is active only if --auto is *not* specified.",
-        )  # NOQA: W503
+            help="""
+                If not specified, user will be asked to enter a code returned by the browser to the command line.
+                If --polling is set, Rucio Client should get the token without any further interaction of the user.
+                This option is active only if --auto is *not* specified.
+            """
+        )
         auth_args.add_argument(
             "--oidc-refresh-lifetime",
-            help="Max lifetime in hours for this access token; the token will be refreshed by an asynchronous Rucio daemon. "
-            + "If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.",
-        )  # NOQA: W503
-        auth_args.add_argument("--oidc-issuer", help="Defines which Identity Provider is going to be used. The issuer string must correspond " + "to the keys configured in the /etc/idpsecrets.json auth server configuration file.")  # NOQA: W503
+            help="""
+                Max lifetime in hours for this access token; the token will be refreshed by an asynchronous Rucio daemon.
+                If not specified, refresh will be stopped after 4 days.
+                This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.
+            """
+        )
+        auth_args.add_argument("--oidc-issuer", help="Defines which Identity Provider is going to be used. The issuer string must correspond to the keys configured in the /etc/idpsecrets.json auth server configuration file.")  # NOQA: W503
 
         # Options for the x509  auth_strategy
         auth_args.add_argument("--certificate", help="Client certificate file.")
@@ -242,5 +253,5 @@ def main():
     if console.is_terminal and not args.no_pager:
         command_output = console.end_capture()
         if command_output != '':
-            signal.signal(signal.SIGINT, signal.SIG_IGN)  # Do not allow the user to
+            signal.signal(signal.SIGINT, signal.SIG_IGN)  # Do not allow the user to stop the program while sending to pager
             pager(command_output)

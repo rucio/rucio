@@ -50,7 +50,7 @@ class RSE(CommandBase):
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
             "list": {"call": self.list_, "docs": "Show all RSEs.", "namespace": self.list_namespace},
-            "show": {"call": self.show, "docs": "Show history of RSE usage (date created, date updated, etc)", "namespace": self.namespace},
+            "show": {"call": self.show, "docs": "Show history of RSE usage (in terms of bytes and files)", "namespace": self.namespace},
             "remove": {"call": self.remove, "docs": "Disable an RSE.", "namespace": self.namespace},
             "add": {"call": self.add, "docs": "Create a new RSE.", "namespace": self.namespace},
             "update": {"call": self.update, "docs": "Update an existing RSE.", "namespace": self.namespace},

@@ -47,25 +47,26 @@ class Account(CommandBase):
 
     def usage_example(self) -> list[str]:
         return [
-            "$ rucio account  # List all accounts on the instance" "$ rucio account add --account user_jdoe --type USER  # Create a new user account",
+            "$ rucio account list # List all accounts on the instance",
+            "$ rucio account add --account user_jdoe --type USER  # Create a new user account",
             "$ rucio account update --account user_jdoe --email jdoe@cern.ch  # Update jdoe's email",
             "$ rucio account update --account jdoe --ban True  # Ban jdoe",
             "$ rucio account history --account root  # Show all the usage history for the account root",
         ]
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--type", dest="account_type", default="USER", help="Account Type", choices={"USER", "GROUP", "SERVICE"})
+        parser.add_argument("--type", dest="account_type",  help="Account Type", choices={"USER", "GROUP", "SERVICE"})
         parser.add_argument("-a", "--account", dest="account", help="Account name")
         parser.add_argument("--id", dest="identity", action="store", help="Identity (e.g. DN)")
         parser.add_argument("--filters", dest="filters", action="store", help="Filter arguments in form `key=value,another_key=next_value`")
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--type", dest="accounttype", default="USER", help="Account Type (USER, GROUP, SERVICE)")
+        parser.add_argument("--type", dest="accounttype", help="Account Type (USER, GROUP, SERVICE)")
         parser.add_argument("-a", "--account", dest="account", help="Account name")
         parser.add_argument("--email", dest="accountemail", help="Add an email address associated with the account")
 
     def show_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--type", dest="accounttype", default="USER", help="Account Type (USER, GROUP, SERVICE)")
+        parser.add_argument("--type", dest="accounttype", help="Account Type (USER, GROUP, SERVICE)")
         parser.add_argument("-a", "--account", dest="account", help="Account name")
 
     def update_namespace(self, parser: "ArgumentParser") -> None:
@@ -127,7 +128,7 @@ class Account(CommandBase):
 
 class Attribute(Account):
     def module_help(self) -> str:
-        return "Add additional key/value pairs associated with an account for organizational purposes."
+        return "Add additional key/value pairs associated with an account."
 
     def default_operation(self):
         raise NotImplementedError
@@ -200,12 +201,12 @@ class Limit(Account):
 
 class Identity(Account):
     def module_help(self) -> str:
-        return "Manage identities (DNs) on an account."
+        return "Manage identities  on an account."
 
     def namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--account", dest="account", action="store", help="Account name", required=True)
         parser.add_argument("--type", dest="authtype", action="store", choices=["X509", "GSS", "USERPASS", "SSH", "SAML", "OIDC"], help="Authentication type.")
-        parser.add_argument("--id", dest="identity", action="store", help="Identity as a DNs, provide in quotes.")
+        parser.add_argument("--id", dest="identity", action="store", help="Identity as a DNs for X509 IDs.")
         parser.add_argument("--email", dest="email", action="store", help="Email address associated with the identity")
         parser.add_argument("--password", dest="password", action="store", help="Password if authtype is USERPASS")
         parser.add_argument("--human", default=True, help=SUPPRESS)
@@ -213,7 +214,7 @@ class Identity(Account):
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
             "list": {"call": self.list_, "docs": "Show existing DNs for an account.", "namespace": self.namespace},
-            "add": {"call": self.add, "docs": "Grant identity access to an account.  Format IDs as 'KEY1=Value One,KEY2=Value Two' if DNs.", "namespace": self.namespace},
+            "add": {"call": self.add, "docs": "Grant identity access to an account.", "namespace": self.namespace},
             "remove": {"call": self.remove, "docs": "Revoke identity access for an account.", "namespace": self.namespace},
         }
 
@@ -221,7 +222,7 @@ class Identity(Account):
         return [
             "$ rucio account identity list --account jdoe  # List all auth identities for jdoe",
             "$ rucio account identity add --account jdoe --type GSS --email jdoe@cern.ch --id jdoe@fnal.ch  # Add a new GSS auth",
-            "$ rucio account identity add --account jdoe --type X509 --id 'CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch' --email jdoe@cern.ch  # Add a new X509 auth. Note the DN in quotes.",
+            "$ rucio account identity add --account jdoe --type X509 --id 'CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch' --email jdoe@cern.ch  # Add a new X509 auth.",
         ]
 
     def default_operation(self):
