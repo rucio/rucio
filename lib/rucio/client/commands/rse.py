@@ -153,14 +153,14 @@ class Distance(RSE):
 
     def usage_example(self) -> list[str]:
         return [
-            "$ rucio rse distance list --rse rse1 --destination rse2  # View the existing distance between rse1 and rse2",
-            "$ rucio rse distance remove --rse rse1 --destination rse2  # Remove an existing distance",
-            "$ rucio rse distance add --rse rse1 --destination rse2 --distance 10  # Add the distance between two rses that do not already have a distance",
-            "$ rucio rse distance set --rse rse1 --destination rse2 --distance 20  # Update an existing distance",
+            "$ rucio rse distance list --source rse1 --destination rse2  # View the existing distance between rse1 and rse2",
+            "$ rucio rse distance remove --source rse1 --destination rse2  # Remove an existing distance",
+            "$ rucio rse distance add --source rse1 --destination rse2 --distance 10  # Add the distance between two rses that do not already have a distance",
+            "$ rucio rse distance set --source rse1 --destination rse2 --distance 20  # Update an existing distance",
         ]
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--rse", dest="source", action="store", help="Source RSE name")
+        parser.add_argument("--source", dest="source", action="store", help="Source RSE name")
         parser.add_argument("--destination", dest="destination", action="store", help="Destination RSE name")
         parser.add_argument("--distance", dest="distance", type=int, help="Distance between RSEs")
 
