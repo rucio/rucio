@@ -41,9 +41,6 @@ class Subscription(CommandBase):
             "$ rucio subscription --account jdoe # List subscriptions for jdoe's account. Shows rules created by this subscription.",
         ]
 
-    def default_operation(self):
-        return self.list_
-
     def _common_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--name", help="Subscription name, used to identify the subscription in the place of an ID.")
         parser.add_argument("--filter", help='DID filter (eg \'{"scope": ["tests"], "project": ["data12_8TeV"]}\')')

@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from argparse import ArgumentParser, Namespace, _SubParsersAction
-    from collections.abc import Callable
     from logging import Logger
 
     from rich.console import Console
@@ -73,12 +72,6 @@ class CommandBase(ABC):
         """
         raise NotImplementedError
 
-    def default_operation(self) -> "Callable":
-        """
-        The operation that will be executed when no operational argument is added by the user. Can raise an error.
-        """
-        raise NotImplementedError
-
     def implemented_subcommands(self) -> dict[str, type["CommandBase"]]:
         """
         Provide a mapping of subcommands. Leave empty if command has no subcommands.
@@ -100,12 +93,6 @@ class CommandBase(ABC):
         Create a help string including the module help, operation options, subcommand options, a usage example, and stating the default operation.
         """
         help = f"{self.module_help()}\n"
-
-        try:
-            default_operation = [name for name, operation in self._operations().items() if operation["call"] == self.default_operation()][0]
-            help += f"Default Operation: {default_operation}\n"
-        except (IndexError, NotImplementedError):
-            default_operation = None
 
         help += "\nMatching Commands:\n"
         for operation_name in self._operations().keys():
@@ -143,10 +130,6 @@ class CommandBase(ABC):
             namespace = operation.get("namespace")
             if namespace is not None:
                 namespace(parser)
-
-                # For the default_operations - include the args in the top level parser
-                if operation.get("call") == self.default_operation():
-                    namespace(command_parser)
 
             # Just get the namespace argument if there isn't a specific namespace for a operation
             elif hasattr(self, "namespace"):
@@ -186,8 +169,6 @@ class CommandBase(ABC):
                 subcommand_operations[requested_verb]["call"]()
             elif requested_verb is not None:
                 raise NotImplementedError
-            else:
-                subcommand_client.default_operation()()
 
     def __call__(self):
         subcommands = self.implemented_subcommands()
@@ -210,6 +191,3 @@ class CommandBase(ABC):
 
             else:  # Should not be possible, but better to catch the error than not.
                 raise NotImplementedError
-        else:
-            # Do the default operation given by the None operation
-            self.default_operation()()

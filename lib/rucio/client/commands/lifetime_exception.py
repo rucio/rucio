@@ -41,9 +41,6 @@ class LifetimeException(CommandBase):
             "add": {"call": self.add, "namespace": self.namespace},
         }
 
-    def default_operation(self):
-        return None
-
     def usage_example(self) -> list[str]:
         return ["$ rucio lifetime-exception add --inputfile myfile.txt --reason 'Needed for my analysis' --expiration 2015-10-30  # Add exceptions for all DIDs listed in myfile.txt"]
 
