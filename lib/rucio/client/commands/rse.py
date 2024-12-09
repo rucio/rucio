@@ -84,9 +84,6 @@ class RSE(CommandBase):
     def list_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--rse", dest="rses", help="RSE name or expression")
 
-    def default_operation(self):
-        return self.list_
-
     def list_(self):
         list_rses(self.args, self.client, self.logger, self.console, self.spinner)
 
@@ -106,9 +103,6 @@ class RSE(CommandBase):
 class Attribute(RSE):
     def module_help(self) -> str:
         return "Manage RSE Attributes as key/value pairs. \nCAUTION: the existing attributes can be overwritten."
-
-    def default_operation(self):
-        raise NotImplementedError
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
@@ -145,9 +139,6 @@ class Attribute(RSE):
 class Distance(RSE):
     def module_help(self) -> str:
         return "Manage distances between RSEs. Used for determining efficiency of transfers from RSE to RSE via multihop operations."
-
-    def default_operation(self):
-        raise NotImplementedError
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
         return {}
@@ -192,9 +183,6 @@ class Protocol(RSE):
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
         return {}
-
-    def default_operation(self):
-        raise NotImplementedError
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {"add": {"call": self.add, "docs": "Create a new RSE transfer protocol."}, "remove": {"call": self.remove, "docs": "Remove an existing RSE protocol."}}
@@ -252,9 +240,6 @@ class Limit(RSE):
 class QOS(RSE):
     def module_help(self) -> str:
         return "Interact with an RSE's QoS policy."
-
-    def default_operation(self):
-        raise NotImplementedError
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {"list": {"call": self.list_, "docs": "Show existing QoS Policies"}, "add": {"call": self.add, "docs": "Add a new policy"}, "remove": {"call": self.remove, "docs": "Remove Policy"}}

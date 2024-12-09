@@ -33,9 +33,6 @@ class Config(CommandBase):
         parser.add_argument("-v", "--value", help="String-encoded value")
         return parser
 
-    def default_operation(self):
-        return self.list_
-
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
             "list": {"call": self.list_, "docs": "Show the existing config.", "namespace": self.namespace},

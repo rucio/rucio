@@ -44,9 +44,6 @@ class Scope(CommandBase):
         parser.add_argument("-a", "--account", help="Account name for filtering, attribution.", required=True)
         parser.add_argument("-s", "--scope", help="Name of the new scope to add", required=True)
 
-    def default_operation(self):
-        return self.list_
-
     def list_(self):
         list_scopes(self.args, self.client, self.logger, self.console, self.spinner)
 

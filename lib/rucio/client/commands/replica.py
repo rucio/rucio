@@ -89,9 +89,6 @@ class Replica(CommandBase):
             "$ rucio replica list --did user.jdoe:test_file  # Show all replicas for user.jdoe:test_file, with their pfn and rse.",
             "$ rucio replica dataset --did user.jdoe:test_dataset  # Show all replicas for the dataset user.jdoe:test_dataset"]
 
-    def default_operation(self):
-        return self.list_
-
     def list_(self):
         list_file_replicas(self.args, self.client, self.logger, self.console, self.spinner)
 
@@ -108,9 +105,6 @@ class Replica(CommandBase):
 class State(Replica):
     def module_help(self) -> str:
         return "Manage replica state."
-
-    def default_operation(self):
-        raise NotImplementedError
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
         return {}

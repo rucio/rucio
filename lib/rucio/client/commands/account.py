@@ -95,9 +95,6 @@ class Account(CommandBase):
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
         return {"attribute": Attribute, "limit": Limit, "identity": Identity}
 
-    def default_operation(self):
-        return self.list_
-
     def list_(self):
         list_accounts(self.args, self.client, self.logger, self.console, self.spinner)
 
@@ -129,9 +126,6 @@ class Account(CommandBase):
 class Attribute(Account):
     def module_help(self) -> str:
         return "Add additional key/value pairs associated with an account."
-
-    def default_operation(self):
-        raise NotImplementedError
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
         return {}
@@ -186,9 +180,6 @@ class Limit(Account):
     def usage_example(self) -> list[str]:
         return super().usage_example()
 
-    def default_operation(self):
-        raise NotImplementedError
-
     def list_(self):
         get_limits(self.args, self.client, self.logger, self.console, self.spinner)
 
@@ -224,9 +215,6 @@ class Identity(Account):
             "$ rucio account identity add --account jdoe --type GSS --email jdoe@cern.ch --id jdoe@fnal.ch  # Add a new GSS auth",
             "$ rucio account identity add --account jdoe --type X509 --id 'CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch' --email jdoe@cern.ch  # Add a new X509 auth.",
         ]
-
-    def default_operation(self):
-        raise NotImplementedError
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
         return {}

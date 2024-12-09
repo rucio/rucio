@@ -23,7 +23,7 @@ from rucio.tests.common import account_name_generator, execute, file_generator, 
 
 def test_account(rucio_client):
     new_account = account_name_generator()
-    command = f"rucio account add --account {new_account}"
+    command = f"rucio account add --type USER --account {new_account}"
     exitcode, _, err = execute(command)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -41,7 +41,7 @@ def test_account(rucio_client):
     assert exitcode == 0
     assert "ERROR" not in err
 
-    command = "rucio account"
+    command = "rucio account list"
     exitcode, out, err = execute(command)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -61,7 +61,7 @@ def test_account(rucio_client):
 
     # Test account banning
     tmp_account = account_name_generator()
-    execute(f"rucio account add --account {tmp_account}")
+    execute(f"rucio account add --type USER --account {tmp_account}")
 
     cmd = f"rucio account update --ban True --account {tmp_account}"
     exitcode, _, new_ban_log = execute(cmd)
@@ -102,7 +102,7 @@ def test_account_attribute(jdoe_account):
 
 def test_account_identities(rucio_client):
     tmp_account = account_name_generator()
-    execute(f"rucio account add --account {tmp_account}")
+    execute(f"rucio account add --type USER --account {tmp_account}")
 
     cmd = "rucio -v account identity list"
     exitcode, _, _ = execute(cmd)
@@ -161,7 +161,7 @@ def test_config():
     assert exitcode == 0
     assert "ERROR" not in err
 
-    exitcode, _, err = execute("rucio config --section vo-map")
+    exitcode, _, err = execute("rucio config list --section vo-map")
     assert exitcode == 0
     assert "ERROR" not in err
 
@@ -174,7 +174,7 @@ def test_config():
     assert exitcode == 0
     assert "ERROR" not in err
 
-    exitcode, out, err = execute("rucio config --section vo-map")
+    exitcode, out, err = execute("rucio config list --section vo-map")
     assert exitcode == 0
     assert "ERROR" not in err
     assert value in out
@@ -384,7 +384,7 @@ def test_replica(mock_scope, rucio_client):
     assert "ERROR" not in err
     assert name not in out
 
-    cmd = f"rucio replica --did {scope}:{name}"
+    cmd = f"rucio replica list --did {scope}:{name}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -435,7 +435,7 @@ def test_rse(rucio_client):
     assert "ERROR" not in err
     assert rse_name in [i['rse'] for i in rucio_client.list_rses(rse_name)]
 
-    cmd = "rucio rse"
+    cmd = "rucio rse list"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -655,7 +655,7 @@ def test_subscription(rucio_client, mock_scope):
     assert exitcode == 0
     assert "ERROR" not in err
 
-    cmd = "rucio subscription --account root"
+    cmd = "rucio subscription list --account root"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err

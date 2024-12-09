@@ -37,9 +37,6 @@ class Rule(CommandBase):
             "list": {"call": self.list_, "docs": "List replication rules.", "namespace": self.list_namespace},
         }
 
-    def default_operation(self):
-        return self.list_
-
     def usage_example(self) -> list[str]:
         return [
             "$ rucio rule add -d user.jdoe:test_did --copies 2 --rse SPAINSITES  # Create a rule that requires two copies of a did limited to Spanish Sites.",
@@ -89,6 +86,7 @@ class Rule(CommandBase):
         parser.add_argument("--file", help="List associated rules of an affected file")
         parser.add_argument("--subscription", help="List by account and subscription name", metavar=("ACCOUNT", "SUBSCRIPTION"), nargs=2)
         parser.add_argument("--human", default=True, help=SUPPRESS)
+        parser.add_argument("--rule-id", help=SUPPRESS)
 
     def update_namespace(self, parser: "ArgumentParser") -> None:
         self._common_namespace(parser)

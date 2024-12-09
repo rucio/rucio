@@ -158,9 +158,6 @@ class DID(CommandBase):
             "$ rucio did show --parent --did user.jdoe:file_12345 # Show all the parent DIDs for file_12345",
         ]
 
-    def default_operation(self):
-        return self.list_
-
     def download(self):
         download(self.args, self.client, self.logger, self.console, self.spinner)
 
@@ -221,9 +218,6 @@ class Content(DID):
             "$ rucio did content remove --did user.jdoe:file_12345 --from user.jdoe:datset_123  # Orphan file_12345"
         ]
 
-    def default_operation(self):
-        raise NotImplementedError
-
     def namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--did", dest="dids", nargs="+", action="store", help="DIDs to manage the contents of, space separated list.")
         parser.add_argument("--short", dest="short", action="store_true", help="Only show the list of DIDs.")
@@ -267,9 +261,6 @@ class Metadata(DID):
             "$ rucio did metadata list --did user.jdoe:test1245  # Show all the metadata for a DID",
             "$ rucio did metadata list --did user.jdoe:test1245 user.jdoe:test67890  # Show all the metadata for both test12345 and test67890",
         ]
-
-    def default_operation(self):
-        raise NotImplementedError
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-d", "--did", nargs="+", dest="dids", help="List of space separated data identifiers.")
