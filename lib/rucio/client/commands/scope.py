@@ -26,22 +26,22 @@ if TYPE_CHECKING:
 
 class Scope(CommandBase):
     def module_help(self) -> str:
-        return "Manage scopes - A namespace partition generally used to separate common data from user data."
+        return "Manage scopes - A namespace partition generally used to separate common data from user data"
 
     def _operations(self) -> dict[str, "OperationDict"]:
-        return {"list": {"call": self.list_, "docs": "Show existing scopes.", "namespace": self.list_namespace}, "add": {"call": self.add, "docs": "Create a new scope.", "namespace": self.add_namespace}}
+        return {"list": {"call": self.list_, "docs": "Show existing scopes", "namespace": self.list_namespace}, "add": {"call": self.add, "docs": "Create a new scope", "namespace": self.add_namespace}}
 
     def usage_example(self) -> list[str]:
         return [
-            "$ rucio scope add --scope user.jdoe --account jdoe  # Add a new scope, 'user.jdoe' for use with the account jdoe.",
-            "$ rucio scope list --account jdoe  # List the existing scopes for account jdoe."
+            "$ rucio scope add --scope user.jdoe --account jdoe  # Add a new scope, 'user.jdoe' for use with the account jdoe",
+            "$ rucio scope list --account jdoe  # List the existing scopes for account jdoe"
         ]
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-a", "--account", help="Account name for filtering, attribution.")
+        parser.add_argument("-a", "--account", help="Account name for filtering, attribution")
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-a", "--account", help="Account name for filtering, attribution.", required=True)
+        parser.add_argument("-a", "--account", help="Account name for filtering, attribution", required=True)
         parser.add_argument("-s", "--scope", help="Name of the new scope to add", required=True)
 
     def list_(self):

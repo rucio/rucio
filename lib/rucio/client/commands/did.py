@@ -25,31 +25,31 @@ if TYPE_CHECKING:
 
 class DID(CommandBase):
     def module_help(self) -> str:
-        return "Manage Data IDentifiers. Modify and access specific files and groups of files. DIDs are accessed by the pattern `scope`:`name`, where name can be a wildcard, but scope must be specified."
+        return "Manage Data IDentifiers. Modify and access specific files and groups of files. DIDs are accessed by the pattern `scope`:`name`, where name can be a wildcard, but scope must be specified"
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--recursive", dest="recursive", action="store_true", help="List data identifiers recursively.")
-        parser.add_argument("--filter", help="Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type.")
-        parser.add_argument("--short", action="store_true", help="Just dump the list of DIDs.")
-        parser.add_argument("-d", "--did", nargs=1, help="Data IDentifier pattern.")
+        parser.add_argument("--recursive", dest="recursive", action="store_true", help="List data identifiers recursively")
+        parser.add_argument("--filter", help="Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type")
+        parser.add_argument("--short", action="store_true", help="Just dump the list of DIDs")
+        parser.add_argument("-d", "--did", nargs=1, help="Data IDentifier pattern")
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--type", dest='dtype', choices=("container", "dataset"), help="Add collection type DID.")
-        parser.add_argument("--monotonic", action="store_true", help="Monotonic status to True.")
-        parser.add_argument("-d", "--did", action="store", help="The name of the dataset to add.")
-        parser.add_argument("--lifetime", dest="lifetime", action="store", type=int, help="Lifetime in seconds.")
+        parser.add_argument("--type", dest='dtype', choices=("container", "dataset"), help="Add collection type DID")
+        parser.add_argument("--monotonic", action="store_true", help="Monotonic status to True")
+        parser.add_argument("-d", "--did", action="store", help="The name of the dataset to add")
+        parser.add_argument("--lifetime", dest="lifetime", action="store", type=int, help="Lifetime in seconds")
 
     def update_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers.")
-        parser.add_argument("-r", "--rse", help="The RSE of the DIDs that are touched.")
+        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
+        parser.add_argument("-r", "--rse", help="The RSE of the DIDs that are touched")
 
-        parser.add_argument("--touch", action="store_true", help="Update the last updated time to the current time. Requires a RSE to be set.")
-        parser.add_argument("--close", action="store_true", help="Set a collection-type DID to 'closed', so it cannot have more child DIDs added to it.")
-        parser.add_argument("--open", action="store_true", help="Set a collection-type DID to 'open', so more DIDs may be added to it as children.")
+        parser.add_argument("--touch", action="store_true", help="Update the last updated time to the current time. Requires a RSE to be set")
+        parser.add_argument("--close", action="store_true", help="Set a collection-type DID to 'closed', so it cannot have more child DIDs added to it")
+        parser.add_argument("--open", action="store_true", help="Set a collection-type DID to 'open', so more DIDs may be added to it as children")
 
     def show_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers.")
-        parser.add_argument("--parent", action="store_true", help="List the parents of the DID.")
+        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
+        parser.add_argument("--parent", action="store_true", help="List the parents of the DID")
 
         # Both non-functional, but list_parents complains if not present
         # Planned to re-implement in a future release
@@ -57,20 +57,20 @@ class DID(CommandBase):
         parser.add_argument("--guid", dest="guids", nargs="+", help=argparse.SUPPRESS)
 
     def remove_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--undo", action="store_true", help="Undo erase DIDs. Only works if has been less than 24 hours since erase operation.")
-        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers.")
+        parser.add_argument("--undo", action="store_true", help="Undo erase DIDs. Only works if has been less than 24 hours since erase operation")
+        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
 
     def touch_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers.")
-        parser.add_argument("-r", "--rse", help="The RSE of the DIDs that are touched.")
+        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
+        parser.add_argument("-r", "--rse", help="The RSE of the DIDs that are touched")
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "List the Data IDentifiers matching certain pattern. Only collection type DIDs are returned by default, use --filter 'type=all' to return all.", "namespace": self.list_namespace},
-            "show": {"call": self.show, "docs": "List attributes and statuses about data identifiers.", "namespace": self.show_namespace},
+            "list": {"call": self.list_, "docs": "List the Data IDentifiers matching certain pattern. Only collection type DIDs are returned by default, use --filter 'type=all' to return all", "namespace": self.list_namespace},
+            "show": {"call": self.show, "docs": "List attributes and statuses about data identifiers", "namespace": self.show_namespace},
             "add": {"call": self.add, "docs": "Create a new collection type data identifier", "namespace": self.add_namespace},
-            "remove": {"call": self.remove, "docs": "Delete a DID. Can be recovered for up to 24 hours after deletion.", "namespace": self.remove_namespace},
-            "update": {"call": self.update, "docs": "Touch one or more DIDs and set the last accessed date to the current date.", "namespace": self.update_namespace}
+            "remove": {"call": self.remove, "docs": "Delete a DID. Can be recovered for up to 24 hours after deletion", "namespace": self.remove_namespace},
+            "update": {"call": self.update, "docs": "Touch one or more DIDs and set the last accessed date to the current date", "namespace": self.update_namespace}
         }
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
@@ -109,7 +109,7 @@ class DID(CommandBase):
         elif self.args.close:
             close(self.args, self.client, self.logger, self.console, self.spinner)
         else:
-            raise NotImplementedError("No update option specified, please use `rucio did update -h` to see possible update fields.")
+            raise NotImplementedError("No update option specified, please use `rucio did update -h` to see possible update fields")
 
     def add(self):
         operations = {
@@ -124,14 +124,14 @@ class DID(CommandBase):
 
 class Content(DID):
     def module_help(self) -> str:
-        return "View the content of collection-type DIDs (datasets and containers), and update their open/closed status."
+        return "View the content of collection-type DIDs (datasets and containers), and update their open/closed status"
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "Show the contents of a collection-type DID.", "namespace": self.namespace},
-            "history": {"call": self.history, "docs": "Show the content history of a collection-type DID, when DIDs were created, modified, or deleted.", "namespace": self.namespace},
-            "add": {"call": self.add, "docs": "Attach a list of Data IDentifiers (file, dataset or container) to an other Data IDentifier (dataset or container).", "namespace": self.add_namespace},
-            "remove": {"call": self.remove, "docs": "Detach a list of Data Identifiers (file, dataset or container) from an other Data Identifier (dataset or container).", "namespace": self.remove_namespace},
+            "list": {"call": self.list_, "docs": "Show the contents of a collection-type DI.", "namespace": self.namespace},
+            "history": {"call": self.history, "docs": "Show the content history of a collection-type DID, when DIDs were created, modified, or deleted", "namespace": self.namespace},
+            "add": {"call": self.add, "docs": "Attach a list of Data IDentifiers (file, dataset or container) to an other Data IDentifier (dataset or container)", "namespace": self.add_namespace},
+            "remove": {"call": self.remove, "docs": "Detach a list of Data Identifiers (file, dataset or container) from an other Data Identifier (dataset or container)", "namespace": self.remove_namespace},
         }
 
     def usage_example(self) -> list[str]:
@@ -143,17 +143,17 @@ class Content(DID):
         ]
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--did", dest="dids", nargs="+", action="store", help="DIDs to manage the contents of, space separated list.")
-        parser.add_argument("--short", dest="short", action="store_true", help="Only show the list of DIDs.")
+        parser.add_argument("--did", dest="dids", nargs="+", action="store", help="DIDs to manage the contents of, space separated list")
+        parser.add_argument("--short", dest="short", action="store_true", help="Only show the list of DIDs")
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--to", dest="todid", help="Destination Data IDentifier (either dataset or container).")
-        parser.add_argument("-f", "--from-file", dest="fromfile", action="store_true", help="Attach the DIDs contained in a file. The file should contain one did per line.")
-        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers, or path to file of DIDs when using from-file.")
+        parser.add_argument("--to", dest="todid", help="Destination Data IDentifier (either dataset or container)")
+        parser.add_argument("-f", "--from-file", dest="fromfile", action="store_true", help="Attach the DIDs contained in a file. The file should contain one did per line")
+        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers, or path to file of DIDs when using from-file")
 
     def remove_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--from", dest="fromdid", help="Target Data IDentifier (dataset or container), from which to detach.")
-        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers.")
+        parser.add_argument("--from", dest="fromdid", help="Target Data IDentifier (dataset or container), from which to detach")
+        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
 
     def list_(self):
         list_content(self.args, self.client, self.logger, self.console, self.spinner)
@@ -174,9 +174,9 @@ class Metadata(DID):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "Show current metadata for a DID.", "namespace": self.list_namespace},
-            "add": {"call": self.add, "docs": "Add new metadata for a DID."},
-            "remove": {"call": self.remove, "docs": "Delete an existing metadata field for a DID."},
+            "list": {"call": self.list_, "docs": "Show current metadata for a DID", "namespace": self.list_namespace},
+            "add": {"call": self.add, "docs": "Add new metadata for a DID"},
+            "remove": {"call": self.remove, "docs": "Delete an existing metadata field for a DID"},
         }
 
     def usage_example(self) -> list[str]:
@@ -187,11 +187,11 @@ class Metadata(DID):
         ]
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", nargs="+", dest="dids", help="List of space separated data identifiers.")
+        parser.add_argument("-d", "--did", nargs="+", dest="dids", help="List of space separated data identifiers")
         parser.add_argument("--plugin", help="Filter down to metadata from specific metadata plugin")
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", help="Single DID to modify.")
+        parser.add_argument("-d", "--did", help="Single DID to modify")
         parser.add_argument("--plugin", help="Filter down to metadata from specific metadata plugin")
         parser.add_argument("--key", help="Attribute key")
         parser.add_argument("--value", help="Attribute value")

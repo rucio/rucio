@@ -26,27 +26,27 @@ if TYPE_CHECKING:
 
 class Upload(CommandBase):
     def module_help(self) -> str:
-        return "Upload a DID."
+        return "Upload (a) DID(s)"
 
     def parser(self, parser: "argparse._SubParsersAction[ArgumentParser]") -> None:
 
         command_parser = parser.add_parser(self.PARSER_NAME, description=self._help(), formatter_class=argparse.RawDescriptionHelpFormatter)
 
-        command_parser.add_argument("--files", nargs="+", dest="args", help="Files and datasets to upload.")
+        command_parser.add_argument("--files", nargs="+", dest="args", help="Files and datasets to upload")
         command_parser.add_argument("-r", "--rse", help="The Rucio Storage Element (RSE) name or expression")
-        command_parser.add_argument("--lifetime", type=int, help="Lifetime of the rule in seconds.")
+        command_parser.add_argument("--lifetime", type=int, help="Lifetime of the rule in second.")
         command_parser.add_argument("--expiration-date", help="The date when the rule expires in UTC, format: <year>-<month>-<day>-<hour>:<minute>:<second>. E.g. 2022-10-20-20:00:00")
-        command_parser.add_argument("--scope", help="Scope name to assign new files.")
-        command_parser.add_argument("--impl", help="Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone).")
+        command_parser.add_argument("--scope", help="Scope name to assign new files")
+        command_parser.add_argument("--impl", help="Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone)")
         # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
         command_parser.add_argument("--no-register", action="store_true", default=False, help=argparse.SUPPRESS)
-        command_parser.add_argument("--register-after-upload", action="store_true", default=False, help="Register the file only after successful upload.")
+        command_parser.add_argument("--register-after-upload", action="store_true", default=False, help="Register the file only after successful upload")
         command_parser.add_argument("--summary", action="store_true", default=False, help="Create rucio_upload.json summary file")
-        command_parser.add_argument("--guid", help="Manually specify the GUID for the file.")
+        command_parser.add_argument("--guid", help="Manually specify the GUID for the file")
         command_parser.add_argument("--protocol", help="Force the protocol to use")
-        command_parser.add_argument("--pfn", help="Specify the exact PFN for the upload.")
-        command_parser.add_argument("--name", help="Specify the exact LFN for the upload.")
-        command_parser.add_argument("--transfer-timeout", type=float, default=config_get_float("upload", "transfer_timeout", False, 360), help="Transfer timeout (in seconds).")
+        command_parser.add_argument("--pfn", help="Specify the exact PFN for the upload")
+        command_parser.add_argument("--name", help="Specify the exact LFN for the upload")
+        command_parser.add_argument("--transfer-timeout", type=float, default=config_get_float("upload", "transfer_timeout", False, 360), help="Transfer timeout (in seconds)")
         command_parser.add_argument("--recursive", action="store_true", default=False, help="Convert recursively the folder structure into collections")
 
     def usage_example(self):

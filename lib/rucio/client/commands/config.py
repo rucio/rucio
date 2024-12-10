@@ -35,9 +35,9 @@ class Config(CommandBase):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "Show the existing config.", "namespace": self.namespace},
+            "list": {"call": self.list_, "docs": "Show the existing config", "namespace": self.namespace},
             "add": {"call": self.add, "docs": "Update the existing configuration settings. WARNING: Changes the global config. Can overwrite existing settings!", "namespace": self.namespace},
-            "remove": {"call": self.remove, "docs": "Remove a setting from the configuration. WARNING: Changes the global config.", "namespace": self.namespace},
+            "remove": {"call": self.remove, "docs": "Remove a setting from the configuration. WARNING: Changes the global config", "namespace": self.namespace},
         }
 
     def usage_example(self) -> list[str]:

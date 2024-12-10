@@ -49,11 +49,11 @@ class RSE(CommandBase):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "Show all RSEs.", "namespace": self.list_namespace},
+            "list": {"call": self.list_, "docs": "Show all RSEs", "namespace": self.list_namespace},
             "show": {"call": self.show, "docs": "Show history of RSE usage (in terms of bytes and files)", "namespace": self.namespace},
-            "remove": {"call": self.remove, "docs": "Disable an RSE.", "namespace": self.namespace},
-            "add": {"call": self.add, "docs": "Create a new RSE.", "namespace": self.namespace},
-            "update": {"call": self.update, "docs": "Update an existing RSE.", "namespace": self.namespace},
+            "remove": {"call": self.remove, "docs": "Disable an RSE", "namespace": self.namespace},
+            "add": {"call": self.add, "docs": "Create a new RSE", "namespace": self.namespace},
+            "update": {"call": self.update, "docs": "Update an existing RSE", "namespace": self.namespace},
         }
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
@@ -76,7 +76,7 @@ class RSE(CommandBase):
         parser.add_argument(
             "--setting",
             dest="param",
-            help="RSE setting.",
+            help="RSE setting",
             choices={"deterministic", "rse_type", "staging_area", "volatile", "qos_class", "availability_delete", "availability_read", "availability_write", "city", "country_name", "latitude", "longitude", "region_code", "time_zone"},
         )
         parser.add_argument("--value", dest="value", help='Value for the new setting configuration. Use "", None or null to wipe the value')
@@ -102,13 +102,13 @@ class RSE(CommandBase):
 
 class Attribute(RSE):
     def module_help(self) -> str:
-        return "Manage RSE Attributes as key/value pairs. \nCAUTION: the existing attributes can be overwritten."
+        return "Manage RSE Attributes as key/value pairs. \nCAUTION: the existing attributes can be overwritten"
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "Show existing attributes for an RSE."},
-            "add": {"call": self.add, "docs": "Update an RSE's setting. Will overwrite existing settings."},
-            "remove": {"call": self.remove, "docs": "Wipe an RSE's setting."}
+            "list": {"call": self.list_, "docs": "Show existing attributes for an RSE"},
+            "add": {"call": self.add, "docs": "Update an RSE's setting. Will overwrite existing settings"},
+            "remove": {"call": self.remove, "docs": "Wipe an RSE's setting"}
         }
 
     def namespace(self, parser: "ArgumentParser") -> None:
@@ -123,7 +123,7 @@ class Attribute(RSE):
         return [
             "$ rucio rse attribute list --rse ThisRSE  # Show all the attributes for a given RSE",
             "$ rucio rse attribute list --rse ThisRSE --key name # Show all the attribute 'name' for a given RSE",
-            "$ rucio rse attribute add --rse ThisRSE --key given-attribute --value updated # Set the attribute 'given-attribute' to 'updated' for an RSE.",
+            "$ rucio rse attribute add --rse ThisRSE --key given-attribute --value updated # Set the attribute 'given-attribute' to 'updated' for an RSE",
         ]
 
     def add(self):
@@ -138,7 +138,7 @@ class Attribute(RSE):
 
 class Distance(RSE):
     def module_help(self) -> str:
-        return "Manage distances between RSEs. Used for determining efficiency of transfers from RSE to RSE via multihop operations."
+        return "Manage distances between RSEs. Used for determining efficiency of transfers from RSE to RSE via multihop operations"
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
         return {}
@@ -146,9 +146,9 @@ class Distance(RSE):
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
             "list": {"call": self.list_, "docs": "Show distances between RSEs"},
-            "add": {"call": self.add, "docs": "Add or update a distance between RSEs."},
-            "remove": {"call": self.remove, "docs": "Delete the distance between a pair of RSEs. The mandatory parameters are source and destination."},
-            "set": {"call": self.set_, "docs": "Update the distance between a pair of RSE that already have a distance between them."},
+            "add": {"call": self.add, "docs": "Add or update a distance between RSEs"},
+            "remove": {"call": self.remove, "docs": "Delete the distance between a pair of RSEs. The mandatory parameters are source and destination"},
+            "set": {"call": self.set_, "docs": "Update the distance between a pair of RSE that already have a distance between them"},
         }
 
     def usage_example(self) -> list[str]:
@@ -179,13 +179,13 @@ class Distance(RSE):
 
 class Protocol(RSE):
     def module_help(self) -> str:
-        return "Manage RSE transfer and storage protocols. Use `$ rucio rse show` to view an RSE's existing protocols."
+        return "Manage RSE transfer and storage protocols. Use `$ rucio rse show` to view an RSE's existing protocols"
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
         return {}
 
     def _operations(self) -> dict[str, "OperationDict"]:
-        return {"add": {"call": self.add, "docs": "Create a new RSE transfer protocol."}, "remove": {"call": self.remove, "docs": "Remove an existing RSE protocol."}}
+        return {"add": {"call": self.add, "docs": "Create a new RSE transfer protocol"}, "remove": {"call": self.remove, "docs": "Remove an existing RSE protocol"}}
 
     def namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-r", "--rse", help="RSE name")
@@ -202,7 +202,7 @@ class Protocol(RSE):
     def usage_example(self) -> list[str]:
         return [
             "$ rucio rse protocol --hostname jdoes.test.org --scheme gsiftp --prefix '/atlasdatadisk/rucio/' --port 8443 --rse JDOE_DATADISK  # Add a new protocol on jdoe.test.org that uses gsiftp",
-            "$ rucio rse protocol remove --scheme gsiftp --rse JDOE_DATADISK # Remove the existing gsiftp protocol.",
+            "$ rucio rse protocol remove --scheme gsiftp --rse JDOE_DATADISK # Remove the existing gsiftp protocol",
         ]
 
     def add(self):
@@ -214,10 +214,10 @@ class Protocol(RSE):
 
 class Limit(RSE):
     def module_help(self) -> str:
-        return "Manage storage size limits. Existing limits can be found with `$ rucio rse info`."
+        return "Manage storage size limits. Existing limits can be found with `$ rucio rse info`"
 
     def _operations(self) -> dict[str, "OperationDict"]:
-        return {"add": {"call": self.add, "docs": "Add a storage limit."}, "remove": {"call": self.remove, "docs": "Remove an existing storage limit"}}
+        return {"add": {"call": self.add, "docs": "Add a storage limit"}, "remove": {"call": self.remove, "docs": "Remove an existing storage limit"}}
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
         return {}
@@ -225,7 +225,7 @@ class Limit(RSE):
     def namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-r", "--rse", help="RSE name")
         parser.add_argument("--name", help="Name of the limit")
-        parser.add_argument("--limit", dest="value", help="Value of the limit in bytes.")
+        parser.add_argument("--limit", dest="value", help="Value of the limit in bytes")
 
     def usage_example(self) -> list[str]:
         return ["$ rucio rse limit add --rse XRD1 --name MinFreeSpace --value 10000", "$ rucio rse limit --rse XRD3 --name MinFreeSpace"]
