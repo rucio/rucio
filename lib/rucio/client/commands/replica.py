@@ -15,7 +15,7 @@ from argparse import SUPPRESS
 from typing import TYPE_CHECKING
 
 from rucio.client.commands.bin_legacy.rucio import list_dataset_replicas, list_file_replicas, list_suspicious_replicas
-from rucio.client.commands.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas, list_pfns, quarantine_replicas, set_tombstone
+from rucio.client.commands.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas, quarantine_replicas, set_tombstone
 from rucio.client.commands.command_base import CommandBase
 from rucio.common.utils import StoreAndDeprecateWarningAction
 
@@ -31,16 +31,17 @@ class Replica(CommandBase):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "List the replicas of a DID and its PFNs", "namespace": self.list_namespace},
-            "dataset": {"call": self.dataset, "docs": "List replica datasets", "namespace": self.dataset_namespace},
-            "pfn": {"call": self.pfn, "docs": "Show the pfn for replicas of a DID", "namespace": self.pfn_namespace},
-            "tombstone": {"call": self.tombstone, "docs": "Add a tombstone which will mark the replica as ready for deletion by a reaper daemon", "namespace": self.tombstone_namespace},
+            "list": {"call": self.list_, "docs": "List replicas for a given DID", "namespace": self.list_namespace},
+            "remove": {
+                "call": self.remove,
+                "docs": "Set a replica for removal by adding a tombstone which will mark the replica as ready for deletion by a reaper daemon",
+                "namespace": self.remove_namespace},
         }
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
+        parser.add_argument(dest='dtype', choices=("file", "dataset"), help="List either the replicas of a file or a dataset (and its contents)")
         parser.add_argument("-d", "--did", dest="dids", nargs="+", action="store", help="List of space separated data identifiers.")
-
-        parser.add_argument("--protocols", help="List of comma separated protocols (i.e. https, root, srm)", required=False)
+        parser.add_argument("--protocols", help="Protocol used to access a replicas (i.e. https, root, srm)", required=False)
         parser.add_argument(
             "--all-states",
             action="store_true",
@@ -63,21 +64,15 @@ class Replica(CommandBase):
         parser.add_argument("-r", "--rse", dest="rses", help="The RSE filter expression")
         parser.add_argument("--human", default=True, help=SUPPRESS)
 
-    def dataset_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", dest="dids", nargs="+", action="store", help="List of space separated data identifiers")
-        parser.add_argument("--deep", action="store_true", help="Make a deep check")
+        # Dataset options.
+        parser.add_argument("--deep", action="store_true", help="Dataset option only: Make a deep check, checking the contents of datasets in datasets")
         parser.add_argument(
             "--csv",
             action="store_true",
-            help="Write output to comma separated values",
+            help="Dataset option only: Write output to comma separated values",
         )
 
-    def pfn_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", dest="dids", help="List of DIDs (coma separated)")
-        parser.add_argument("-r", "--rse", help="RSE")
-        parser.add_argument("--protocol", choices={"srm", "root", "http", "https", "posix", None}, default=None, help="The protocol to access pfns")
-
-    def tombstone_namespace(self, parser: "ArgumentParser") -> None:
+    def remove_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-d", "--did", dest="dids", help="DIDs to access, as comma separated values")
         parser.add_argument("-r", "--rse", help="RSE where the replica is")
 
@@ -86,19 +81,22 @@ class Replica(CommandBase):
 
     def usage_example(self) -> list[str]:
         return [
-            "$ rucio replica list --did user.jdoe:test_file  # Show all replicas for user.jdoe:test_file, with their pfn and rse",
-            "$ rucio replica dataset --did user.jdoe:test_dataset  # Show all replicas for the dataset user.jdoe:test_dataset"]
+            "$ rucio replica list file --did user.jdoe:test_file  # Show all replicas for user.jdoe:test_file, with their pfn and rse",
+            "$ rucio replica list dataset --did user.jdoe:test_dataset  # Show all replicas for the dataset user.jdoe:test_dataset",
+            "$ rucio replica list file --did user.jdoe:test_file --pfns  # Show the PFNs for replicas of user.jdoe:test_file",
+            "$ rucio replica remove --did user.jdoe:test_file --rse MyRSE  # Mark a replica for deletion by a reaper daemon"
+        ]
 
     def list_(self):
-        list_file_replicas(self.args, self.client, self.logger, self.console, self.spinner)
+        if self.args.dtype == "file":
+            list_file_replicas(self.args, self.client, self.logger, self.console, self.spinner)
 
-    def dataset(self):
-        list_dataset_replicas(self.args, self.client, self.logger, self.console, self.spinner)
+        elif self.args.dtype == "dataset":
+            list_dataset_replicas(self.args, self.client, self.logger, self.console, self.spinner)
+        else:
+            raise NotImplementedError("Only 'file' and 'dataset' are listable")
 
-    def pfn(self):
-        list_pfns(self.args, self.client, self.logger, self.console, self.spinner)
-
-    def tombstone(self):
+    def remove(self):
         set_tombstone(self.args, self.client, self.logger, self.console, self.spinner)
 
 
@@ -111,58 +109,58 @@ class State(Replica):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "suspicious": {"call": self.suspicious, "docs": "Show existing replicas marked as suspicious", "namespace": self.sus_namespace},
-            "quarantine": {"call": self.quarantine, "docs": "Quarantine replicas", "namespace": self.quarantine_namespace},
-            "bad": {"call": self.bad, "docs": "Declare bad replicas", "namespace": self.bad_namespace},
-            "temp-unavailable": {"call": self.temp_unavailable, "docs": "Declare temporary unavailable replicas", "namespace": self.unavail_namespace},
+            "list": {"call": self.list_, "docs": "List replicas filtered by state (implemented: (suspicious))", "namespace": self.list_namespace},
+            "update": {"call": self.update, "docs": "Update the state of a replica. (implemented: (list as (bad, quarantined, or temporarily unavailable)))", "namespace": self.update_namespace},
         }
 
-    def sus_namespace(self, parser: "ArgumentParser") -> None:
+    def list_namespace(self, parser: "ArgumentParser"):
+        parser.add_argument("state_type", choices=("suspicious",), help="State to filter by when listing")
         parser.add_argument("-r", "--rse", dest="rse", action="store", help="RSE name or expression")
-        parser.add_argument("--reason", dest="reason", action="store", help="Supply a reason for changing the replica state")
-        parser.add_argument("--files", dest="listbadfiles", nargs="*", help="List of items to update. Each can be a PFN (for one replica) or an LFN (for all replicas of the LFN) or a collection DID (for all file replicas in the DID)")
-        parser.add_argument("--input-file", dest="inputfile", nargs="?", action="store", help="File containing list of replicas to update state")
         parser.add_argument("--younger-than", help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00')  # NOQA: E501
         parser.add_argument("--nattempts", dest="nattempts", action="store", help="Minimum number of failed attempts to access a suspicious file")
 
-    def bad_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--files", nargs="*", dest="listbadfiles", help="List of items to update. Each can be a PFN (for one replica) or an LFN (for all replicas of the LFN) or a collection DID (for all file replicas in the DID)")
-        parser.add_argument("-r", "--rse", dest="rse", action="store", help="RSE name or expression")
-        parser.add_argument("--reason", dest="reason", action="store", help="Supply a reason for changing the replica state")
-        parser.add_argument("--input-file", dest="inputfile", nargs="?", action="store", help="File containing list of replicas to update state")
-        parser.add_argument("--allow-collection", dest="allow_collection", action="store_true", help="Allow passing a collection DID as bad item")
-        parser.add_argument("--lfns", dest="lfns", nargs="?", action="store", help="File containing list of LFNs for bad replicas. Requires --rse and --scope")
-        parser.add_argument("--scope", dest="scope", nargs="?", action="store", help="Common scope for bad replicas specified with LFN list, ignored without --lfns")
+    def update_namespace(self, parser: "ArgumentParser") -> None:
+        parser.add_argument("state_type", choices=("bad", "unavailable", "quarantine"))
 
-    def unavail_namespace(self, parser: "ArgumentParser") -> None:
+        parser.add_argument("--files", nargs="*", dest="files", help="List of items to update. Each can be a PFN (for one replica) or an LFN (for all replicas of the LFN) or a collection DID (for all file replicas in the DID)")
         parser.add_argument("-r", "--rse", dest="rse", action="store", help="RSE name or expression")
-        parser.add_argument("--reason", dest="reason", action="store", help="Supply a reason for changing the replica state")
-        parser.add_argument("--files", nargs="*", dest="listbadfiles", help="List of items to update. Each can be a PFN (for one replica) or an LFN (for all replicas of the LFN) or a collection DID (for all file replicas in the DID)")
         parser.add_argument("--input-file", dest="inputfile", nargs="?", action="store", help="File containing list of replicas to update state")
-        parser.add_argument("--expiration-date", "--duration", new_option_string="--duration", dest="duration", required=True, action=StoreAndDeprecateWarningAction, type=int, help="Timeout in seconds when the replicas will become available again")  # NOQA: E501
 
-    def quarantine_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-r", "--rse", dest="rse", action="store", help="RSE name or expression")
         parser.add_argument("--reason", dest="reason", action="store", help="Supply a reason for changing the replica state")
-        parser.add_argument("--files", dest="paths_list", nargs="*", help="List of items to update. Each can be a PFN (for one replica) or an LFN (for all replicas of the LFN) or a collection DID (for all file replicas in the DID)")
-        parser.add_argument("--input-file", dest="inputfile", nargs="?", action="store", help="File containing list of replicas to update state")
+
+        bad_parser = parser.add_argument_group("Bad")
+        bad_parser.add_argument("--lfns", dest="lfns", nargs="?", action="store", help="File containing list of LFNs for bad replicas. Requires --rse and --scope")
+        bad_parser.add_argument("--scope", dest="scope", nargs="?", action="store", help="Common scope for bad replicas specified with LFN list, ignored without --lfns")
+
+        unavailable_parser = parser.add_argument_group("Unavailable")
+        unavailable_parser.add_argument("--expiration-date", "--duration", new_option_string="--duration", dest="duration", action=StoreAndDeprecateWarningAction, type=int, help="Timeout in seconds when the replicas will become available again")  # NOQA: E501
+
+        parser.add_argument_group("Quarantine")
 
     def usage_example(self) -> list[str]:
         return [
-            "$ rucio replica state bad --files mock:test --rse RSE  # Declare the replica of did mock:test at RSE to be bad",
-            "$ rucio replica state temp-unavailable --files mock:test --rse RSE --duration 10 # Declare mock:test at RSE to be unavailable for 10 seconds",
-            "$ rucio replica state quarantine --files mock:test --rse RSE  # Apply a quarantine to mock:test",
-            "$ rucio replica state suspicious --rse RSE  # Show all the suspicious replicas at RSE",
+            "$ rucio replica state update bad --files mock:test --rse RSE  # Declare the replica of did mock:test at RSE to be bad",
+            "$ rucio replica state update unavailable --files mock:test --rse RSE --duration 10 # Declare mock:test at RSE to be unavailable for 10 seconds",
+            "$ rucio replica state update quarantine --files mock:test --rse RSE  # Apply a quarantine to mock:test",
+            "$ rucio replica state list suspicious --rse RSE  # Show all the suspicious replicas at RSE",
         ]
 
-    def suspicious(self):
+    def list_(self):
         list_suspicious_replicas(self.args, self.client, self.logger, self.console, self.spinner)
 
-    def quarantine(self):
-        quarantine_replicas(self.args, self.client, self.logger, self.console, self.spinner)
+    def update(self):
+        if self.args.state_type == "bad":
+            self.args.listbadfiles = self.args.files
+            declare_bad_file_replicas(self.args, self.client, self.logger, self.console, self.spinner)
+        elif self.args.state_type == "unavailable":
+            self.args.listbadfiles = self.args.files
+            if not hasattr(self.args, "duration"):
+                raise ValueError("Missing argument '--expiration-date/--duration")
 
-    def bad(self):
-        declare_bad_file_replicas(self.args, self.client, self.logger, self.console, self.spinner)
+            declare_temporary_unavailable_replicas(self.args, self.client, self.logger, self.console, self.spinner)
+        elif self.args.state_type == "quarantine":
+            self.args.paths_list = self.args.files
+            quarantine_replicas(self.args, self.client, self.logger, self.console, self.spinner)
 
-    def temp_unavailable(self):
-        declare_temporary_unavailable_replicas(self.args, self.client, self.logger, self.console, self.spinner)
+        else:
+            raise NotImplementedError
