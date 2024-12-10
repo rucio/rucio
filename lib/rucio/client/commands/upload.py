@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 class Upload(CommandBase):
     def module_help(self) -> str:
-        return "Upload (a) DID(s)"
+        return "Upload DIDs"
 
     def parser(self, parser: "argparse._SubParsersAction[ArgumentParser]") -> None:
 

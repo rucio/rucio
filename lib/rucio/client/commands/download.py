@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 class Download(CommandBase):
     def module_help(self) -> str:
-        return "Download a file."
+        return "Download files"
 
     def parser(self, parser: "argparse._SubParsersAction[ArgumentParser]") -> None:
 
