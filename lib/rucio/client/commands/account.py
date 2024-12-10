@@ -60,13 +60,12 @@ class Account(CommandBase):
         parser.add_argument("--filters", dest="filters", action="store", help="Filter arguments in form `key=value,another_key=next_value`")
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--type", dest="accounttype", help="Account Type (USER, GROUP, SERVICE)")
-        parser.add_argument("-a", "--account", dest="account", help="Account name")
+        parser.add_argument("--type", dest="accounttype", help="Account Type (USER, GROUP, SERVICE)", required=True)
+        parser.add_argument("-a", "--account", dest="account", help="Account name", required=True)
         parser.add_argument("--email", dest="accountemail", help="Add an email address associated with the account")
 
     def show_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--type", dest="accounttype", help="Account Type (USER, GROUP, SERVICE)")
-        parser.add_argument("-a", "--account", dest="account", help="Account name")
+        parser.add_argument("-a", "--account", dest="account", help="Account name", required=True)
 
     def update_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-a", "--account", help="Account name", required=True)
@@ -74,12 +73,7 @@ class Account(CommandBase):
         parser.add_argument("--ban", type=bool, choices=(True, False), help='Ban the account, to disable it. Use --ban False to unban.', default=None)
 
     def remove_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-a", "--account", dest="acnt", action="store", help="Account name")
-
-    def history_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-a", "--account", dest="usage_account", help="Account name.")
-        parser.add_argument("-r", "--rse", help="Show usage for only for this RSE.")
-        parser.add_argument("--human", default=True, help=SUPPRESS)
+        parser.add_argument("-a", "--account", dest="acnt", action="store", help="Account name", required=True)
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
