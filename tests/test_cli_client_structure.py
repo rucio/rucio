@@ -336,13 +336,13 @@ def test_did_metadata(rucio_client, root_account):
     # assert metadata_value not in [value for value in rucio_client.get_metadata(scope=scope, name=dataset).values()]
 
 
-def test_did_upload_download():
+def test_upload_download():
     # DID upload/download not tested for implementation as their tests are identical to the base rucio bin versions
-    cmd = "rucio did upload --files there-is-not-a-file-here --rse mock"
+    cmd = "rucio upload --files there-is-not-a-file-here --rse mock"
     exitcode, _, _ = execute(cmd)
     assert exitcode != 2  # Failure is not due to the command structure
 
-    cmd = "rucio did download --did fake:fake --dir ."
+    cmd = "rucio download --did fake:fake --dir ."
     exitcode, _, _ = execute(cmd)
     assert exitcode != 2  # Failure is not due to the command structure
 

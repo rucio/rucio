@@ -12,13 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse
-import os
 from typing import TYPE_CHECKING
 
-from rucio.client.commands.bin_legacy.rucio import add_container, add_dataset, attach, close, delete_metadata, detach, download, erase, get_metadata, list_content, list_content_history, list_dids, list_parent_dids, reopen, set_metadata, stat, touch, upload
+from rucio.client.commands.bin_legacy.rucio import add_container, add_dataset, attach, close, delete_metadata, detach, erase, get_metadata, list_content, list_content_history, list_dids, list_parent_dids, reopen, set_metadata, stat, touch
 from rucio.client.commands.command_base import CommandBase
-from rucio.common.config import config_get_float
-from rucio.common.utils import StoreAndDeprecateWarningAction
 
 if TYPE_CHECKING:
     from argparse import ArgumentParser
@@ -67,80 +64,13 @@ class DID(CommandBase):
         parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers.")
         parser.add_argument("-r", "--rse", help="The RSE of the DIDs that are touched.")
 
-    def upload_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--files", nargs="+", dest="args", help="Files and datasets to upload.")
-        parser.add_argument("-r", "--rse", help="The Rucio Storage Element (RSE) name or expression")
-        parser.add_argument("--lifetime", type=int, help="Lifetime of the rule in seconds.")
-        parser.add_argument("--expiration-date", help="The date when the rule expires in UTC, format: <year>-<month>-<day>-<hour>:<minute>:<second>. E.g. 2022-10-20-20:00:00")
-        parser.add_argument("--scope", help="Scope name to assign new files.")
-        parser.add_argument("--impl", help="Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone).")
-        # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
-        parser.add_argument("--no-register", action="store_true", default=False, help=argparse.SUPPRESS)
-        parser.add_argument("--register-after-upload", action="store_true", default=False, help="Register the file only after successful upload.")
-        parser.add_argument("--summary", action="store_true", default=False, help="Create rucio_upload.json summary file")
-        parser.add_argument("--guid", help="Manually specify the GUID for the file.")
-        parser.add_argument("--protocol", help="Force the protocol to use")
-        parser.add_argument("--pfn", help="Specify the exact PFN for the upload.")
-        parser.add_argument("--name", help="Specify the exact LFN for the upload.")
-        parser.add_argument("--transfer-timeout", type=float, default=config_get_float("upload", "transfer_timeout", False, 360), help="Transfer timeout (in seconds).")
-        parser.add_argument("--recursive", action="store_true", default=False, help="Convert recursively the folder structure into collections")
-
-    def download_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", nargs="*", dest="dids", help="DIDs to download, as a space separated list.", required=True)
-        parser.add_argument("-r", "--rse", help="The Rucio Storage Element (RSE) name or expression to download from.", dest="rses")
-        parser.add_argument("--dir", dest="dir", default=".", action="store", help="The directory to store the downloaded file.")
-        parser.add_argument("--allow-tape", action="store_true", default=False, help="Also consider tape endpoints as source of the download.")
-        parser.add_argument("--impl", dest="impl", action="store", help="Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone).")
-        parser.add_argument("--protocol", action="store", help="Force the protocol to use.")
-        parser.add_argument("--nrandom", type=int, action="store", help="Download N random files from the DID.")
-        parser.add_argument("--ndownloader", type=int, default=3, action="store", help="Choose the number of parallel processes for download.")
-        parser.add_argument("--no-subdir", action="store_true", default=False, help="Don't create a subdirectory for the scope of the files.")
-        parser.add_argument("--pfn", dest="pfn", action="store", help="Specify the exact PFN for the download.")
-        parser.add_argument("--archive-did", action="store", dest="archive_did", help="Download from archive is transparent. This option is obsolete.")
-        parser.add_argument("--no-resolve-archives", action="store_true", default=False, help="If set archives will not be considered for download.")
-        parser.add_argument("--ignore-checksum", action="store_true", default=False, help="Don't validate checksum for downloaded files.")
-        parser.add_argument("--check-local-with-filesize-only", action="store_true", default=False, help="Don't use checksum verification for already downloaded files, use filesize instead.")
-        parser.add_argument(
-            "--transfer-timeout",
-            dest="transfer_timeout",
-            type=float,
-            action="store",
-            default=config_get_float("download", "transfer_timeout", False, None),
-            help="Transfer timeout (in seconds). Default: computed dynamically from --transfer-speed-timeout. If set to any value >= 0, --transfer-speed-timeout is ignored.",
-        )  # NOQA: E501
-        parser.add_argument(
-            "--transfer-speed-timeout",
-            dest="transfer_speed_timeout",
-            type=float,
-            action="store",
-            default=None,
-            help="Minimum allowed average transfer speed (in KBps). Default: 500. Used to dynamically compute the timeout if --transfer-timeout not set. Is not supported for --pfn.",
-        )  # NOQA: E501
-        parser.add_argument("--aria", action="store_true", default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
-        parser.add_argument("--trace_appid", "--trace-appid", new_option_string="--trace-appid", dest="trace_appid", action=StoreAndDeprecateWarningAction, default=os.environ.get("RUCIO_TRACE_APPID", None), help=argparse.SUPPRESS)
-        parser.add_argument("--trace_dataset", "--trace-dataset", new_option_string="--trace-dataset", dest="trace_dataset", action=StoreAndDeprecateWarningAction, default=os.environ.get("RUCIO_TRACE_DATASET", None), help=argparse.SUPPRESS)
-        parser.add_argument(
-            "--trace_datasetscope", "--trace-datasetscope", new_option_string="--trace-datasetscope", dest="trace_datasetscope", action=StoreAndDeprecateWarningAction, default=os.environ.get("RUCIO_TRACE_DATASETSCOPE", None), help=argparse.SUPPRESS
-        )  # NOQA: E501
-        parser.add_argument("--trace_eventtype", "--trace-eventtype", new_option_string="--trace-eventtype", dest="trace_eventtype", action=StoreAndDeprecateWarningAction, default=os.environ.get("RUCIO_TRACE_EVENTTYPE", None), help=argparse.SUPPRESS)  # NOQA: E501
-        parser.add_argument("--trace_pq", "--trace-pq", new_option_string="--trace-pq", dest="trace_pq", action=StoreAndDeprecateWarningAction, default=os.environ.get("RUCIO_TRACE_PQ", None), help=argparse.SUPPRESS)
-        parser.add_argument("--trace_taskid", "--trace-taskid", new_option_string="--trace-taskid", dest="trace_taskid", action=StoreAndDeprecateWarningAction, default=os.environ.get("RUCIO_TRACE_TASKID", None), help=argparse.SUPPRESS)
-        parser.add_argument("--trace_usrdn", "--trace-usrdn", new_option_string="--trace-usrdn", dest="trace_usrdn", action=StoreAndDeprecateWarningAction, default=os.environ.get("RUCIO_TRACE_USRDN", None), help=argparse.SUPPRESS)
-        parser.add_argument("--filter", dest="filter", action="store", help="Filter files by key-value pairs like guid=2e2232aafac8324db452070304f8d745.")
-        parser.add_argument("--scope", dest="scope", action="store", help="Scope if you are using the filter option and no full DID.")
-        parser.add_argument("--metalink", dest="metalink_file", action="store", help="Path to a metalink file.")
-        parser.add_argument("--deactivate-file-download-exceptions", dest="deactivate_file_download_exceptions", action="store_true", help="Does not raise NoFilesDownloaded, NotAllFilesDownloaded or incorrect number of output queue files Exception.")  # NOQA: E501
-        parser.add_argument("--replica-selection", dest="sort", help="Select the best replica using a replica sorting algorithm provided by replica sorter (e.g., random, geoip).")
-
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
             "list": {"call": self.list_, "docs": "List the Data IDentifiers matching certain pattern. Only collection type DIDs are returned by default, use --filter 'type=all' to return all.", "namespace": self.list_namespace},
             "show": {"call": self.show, "docs": "List attributes and statuses about data identifiers.", "namespace": self.show_namespace},
             "add": {"call": self.add, "docs": "Create a new collection type data identifier", "namespace": self.add_namespace},
             "remove": {"call": self.remove, "docs": "Delete a DID. Can be recovered for up to 24 hours after deletion.", "namespace": self.remove_namespace},
-            "update": {"call": self.update, "docs": "Touch one or more DIDs and set the last accessed date to the current date.", "namespace": self.update_namespace},
-            "upload": {"call": self.upload, "docs": "Upload a DID", "namespace": self.upload_namespace},
-            "download": {"call": self.download, "docs": "Download a DID", "namespace": self.download_namespace},
+            "update": {"call": self.update, "docs": "Touch one or more DIDs and set the last accessed date to the current date.", "namespace": self.update_namespace}
         }
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
@@ -157,12 +87,6 @@ class DID(CommandBase):
             "$ rucio did show --did user.jdoe:file_12345  # Get the stats for file_12345 - account holder, size, expiration, open status, type, etc",
             "$ rucio did show --parent --did user.jdoe:file_12345 # Show all the parent DIDs for file_12345",
         ]
-
-    def download(self):
-        download(self.args, self.client, self.logger, self.console, self.spinner)
-
-    def upload(self):
-        upload(self.args, self.client, self.logger, self.console, self.spinner)
 
     def list_(self):
         list_dids(self.args, self.client, self.logger, self.console, self.spinner)

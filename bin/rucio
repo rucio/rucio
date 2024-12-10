@@ -57,9 +57,9 @@ def map_legacy_command() -> Optional[list[str]]:
             "erase": ["did", "remove"],
             "list-content": ["did", "content", "list"],
             "list-content-history": ["did", "content", "history"],
-            "upload": ["did", "upload"],
-            "get": ["did", "download"],
-            "download": ["did", "download"],
+            "upload": ["upload"],
+            "get": ["download"],
+            "download": ["download"],
             "get-metadata": ["did", "metadata", "list"],
             "set-metadata": ["did", "metadata", "add"],
             "delete-metadata": ["did", "metadata", "remove"],
@@ -88,7 +88,7 @@ def map_legacy_command() -> Optional[list[str]]:
 
 
 if __name__ == "__main__":
-    commands = ("-h", "--version", "account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception")
+    commands = ("-h", "--version", "account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download")
     first_command = [arg for arg in sys.argv if arg[0] != "-" or arg in ("-h", "--help", "--version")][1]
     is_legacy = '--legacy' in sys.argv
 
