@@ -22,7 +22,6 @@ from rucio.client.commands.bin_legacy.rucio_admin import (
     delete_account,
     delete_account_attribute,
     delete_limits,
-    get_limits,
     identity_add,
     identity_delete,
     info_account,
@@ -88,7 +87,6 @@ class Account(CommandBase):
             "add": {"call": self.add, "docs": "Add a new account.", "namespace": self.add_namespace},
             "show": {"call": self.show, "docs": "Get all stats on an account, including status, account type, and dates of creation and updates.", "namespace": self.show_namespace},
             "remove": {"call": self.remove, "docs": "Delete an account.", "namespace": self.remove_namespace},
-            "history": {"call": self.history, "docs": "See historical usage for an account", "namespace": self.history_namespace},
             "update": {"call": self.update, "docs": "Change the basic account settings.", "namespace": self.update_namespace},
         }
 
@@ -106,9 +104,6 @@ class Account(CommandBase):
 
     def show(self):
         info_account(self.args, self.client, self.logger, self.console, self.spinner)
-
-    def history(self):
-        list_account_usage(self.args, self.client, self.logger, self.console, self.spinner)
 
     def update(self):
         if self.args.ban is not None:
@@ -169,8 +164,8 @@ class Limit(Account):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "Show limits for an account at a given RSE.", "namespace": self.namespace},
-            "add": {"call": self.add, "docs": "Add or update limits for an account.", "namespace": self.namespace},
+            "list": {"call": self.list_, "docs": "Show limits and current utilization for an account at a given RSE.", "namespace": self.namespace},
+            "add": {"call": self.add, "docs": "Add or update limits for an account.", "namespace": self.namespace},  # TODO Add and update should become different operations
             "remove": {"call": self.remove, "docs": "Remove all limits for given account/rse/locality.", "namespace": self.namespace},
         }
 
@@ -181,7 +176,8 @@ class Limit(Account):
         return super().usage_example()
 
     def list_(self):
-        get_limits(self.args, self.client, self.logger, self.console, self.spinner)
+        self.args.usage_account = self.args.account
+        list_account_usage(self.args, self.client, self.logger, self.console, self.spinner)
 
     def add(self):
         set_limits(self.args, self.client, self.logger, self.console, self.spinner)
