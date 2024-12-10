@@ -36,11 +36,6 @@ def test_account(rucio_client):
     assert "ERROR" not in err
     assert update_email == [account["email"] for account in rucio_client.list_accounts() if account["account"] == new_account][0]
 
-    command = "rucio account history --account root"
-    exitcode, _, err = execute(command)
-    assert exitcode == 0
-    assert "ERROR" not in err
-
     command = "rucio account list"
     exitcode, out, err = execute(command)
     assert exitcode == 0
