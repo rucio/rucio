@@ -38,7 +38,7 @@ class Subscription(CommandBase):
     def usage_example(self) -> list[str]:
         return [
             "$ rucio subscription add --lifetime 2 --account jdoe --priority 1 --name jdoes_txt_files_on_datadisk  # Create a new subscription to create new rules",
-            "$ rucio subscription --account jdoe # List subscriptions for jdoe's account. Shows rules created by this subscription.",
+            "$ rucio subscription list --account jdoe # List subscriptions for jdoe's account. Shows rules created by this subscription.",
         ]
 
     def _common_namespace(self, parser: "ArgumentParser") -> None:
