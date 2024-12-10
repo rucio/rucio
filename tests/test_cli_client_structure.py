@@ -128,16 +128,17 @@ def test_account_identities(rucio_client):
 def test_account_limit(jdoe_account, rucio_client):
     jdoe_account = jdoe_account.external
     mock_rse = "MOCK"
-    cmd = f"rucio -v account limit list --account {jdoe_account} --rse {mock_rse}"
-    _, out, err = execute(cmd)
-    assert "ERROR" not in err
-    assert mock_rse in out
 
     bytes_limit = 10
     cmd = f"rucio account limit add --account {jdoe_account} --rse {mock_rse} --bytes {bytes_limit}"
     _, _, set_log = execute(cmd)
     assert "ERROR" not in set_log
     assert bytes_limit == rucio_client.get_account_limits(jdoe_account, mock_rse, locality="local")[mock_rse]
+
+    cmd = f"rucio -v account limit list --account {jdoe_account} --rse {mock_rse}"
+    _, out, err = execute(cmd)
+    assert "ERROR" not in err
+    assert mock_rse in out
 
     cmd = f"rucio account limit remove --account {jdoe_account} --rse {mock_rse}"
     _, _, rm_log = execute(cmd)
@@ -373,26 +374,27 @@ def test_replica(mock_scope, rucio_client):
 
     rucio_client.add_replica(mock_rse, scope, name, 1, "deadbeef")  # I don't know why this is the default adler32
 
-    cmd = f"rucio replica dataset --did {scope}:{name}"
+    cmd = f"rucio replica list dataset --did {scope}:{name}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert name not in out
 
-    cmd = f"rucio replica list --did {scope}:{name}"
+    cmd = f"rucio replica list file --did {scope}:{name}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert name in out
 
-    cmd = f"rucio replica pfn --did {scope}:{name} --rse {mock_rse}"
+    cmd = f"rucio replica list file --pfns --did {scope}:{name} --rse {mock_rse}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     pfn = [r for r in rucio_client.list_replicas([{"name": name, "scope": scope}])][0]["pfns"].keys()
-    assert out.rstrip("\n") in pfn
+    pfn = list(pfn)[0]
+    assert pfn in out
 
-    cmd = f"rucio replica tombstone --did {scope}:{name} --rse {mock_rse}"
+    cmd = f"rucio replica remove --did {scope}:{name} --rse {mock_rse}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -406,17 +408,18 @@ def test_replica_state(mock_scope, rucio_client):
     name1 = generate_uuid()
     rucio_client.add_replica(mock_rse, mock_scope.external, name1, 4, "deadbeef")
 
-    cmd = f"rucio replica state bad --files {scope}:{name1} --rse {mock_rse}"
+    cmd = f"rucio replica state update bad --files {scope}:{name1} --rse {mock_rse}"
     exitcode, _, err = execute(cmd)
+    print(err)
     assert exitcode == 0
     if "ERROR" in err:
         assert "Details: ERROR, multiple matches" in err  # The test rses are strange. I don't know why this happens.
 
     name3 = generate_uuid()
     rucio_client.add_replica(mock_rse, mock_scope.external, name3, 4, "deadbeef")
-    cmd = f"rucio replica state quarantine --files {mock_scope}:{name3} --rse {mock_rse}"
+    cmd = f"rucio replica state update quarantine --files {mock_scope}:{name3} --rse {mock_rse}"
     exitcode, _, err = execute(cmd)
-    print(err)
+
     assert exitcode == 0
     assert "ERROR" not in err
 
