@@ -34,7 +34,7 @@ class LifetimeException(CommandBase):
         self.PARSER_NAME = "lifetime-exception"
 
     def module_help(self) -> str:
-        return "Manage Lifetime Exceptions (to make protections against deletion from reaper daemons)."
+        return "Manage Lifetime Exceptions (to make protections against deletion from reaper daemons)"
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
@@ -45,8 +45,8 @@ class LifetimeException(CommandBase):
         return ["$ rucio lifetime-exception add --inputfile myfile.txt --reason 'Needed for my analysis' --expiration 2015-10-30  # Add exceptions for all DIDs listed in myfile.txt"]
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-f", "--inputfile", help="File where the list of datasets requested to be extended are located.")
-        parser.add_argument("--reason", help="The reason for the extension.")
+        parser.add_argument("-f", "--inputfile", help="File where the list of datasets requested to be extended are located")
+        parser.add_argument("--reason", help="The reason for the extension")
         parser.add_argument("-x", "--expiration", help="The expiration date format YYYY-MM-DD")
 
     def add(self):

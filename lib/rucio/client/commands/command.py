@@ -190,7 +190,7 @@ class Whoami(CommandBase):
         return []
 
     def parser(self, subparser):
-        command_parser = subparser.add_parser("whoami", description="See login information, test credentials.", formatter_class=argparse.RawDescriptionHelpFormatter)
+        command_parser = subparser.add_parser("whoami", description="See login information, test credentials", formatter_class=argparse.RawDescriptionHelpFormatter)
         return command_parser
 
     def __call__(self):

@@ -77,11 +77,11 @@ class Account(CommandBase):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "List accounts.", "namespace": self.list_namespace},
-            "add": {"call": self.add, "docs": "Add a new account.", "namespace": self.add_namespace},
-            "show": {"call": self.show, "docs": "Get all stats on an account, including status, account type, and dates of creation and updates.", "namespace": self.show_namespace},
-            "remove": {"call": self.remove, "docs": "Delete an account.", "namespace": self.remove_namespace},
-            "update": {"call": self.update, "docs": "Change the basic account settings.", "namespace": self.update_namespace},
+            "list": {"call": self.list_, "docs": "List accounts", "namespace": self.list_namespace},
+            "add": {"call": self.add, "docs": "Add a new account", "namespace": self.add_namespace},
+            "show": {"call": self.show, "docs": "Get all stats on an account, including status, account type, and dates of creation and updates", "namespace": self.show_namespace},
+            "remove": {"call": self.remove, "docs": "Delete an account", "namespace": self.remove_namespace},
+            "update": {"call": self.update, "docs": "Change the basic account settings", "namespace": self.update_namespace},
         }
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
@@ -130,9 +130,9 @@ class Attribute(Account):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "List all account attributes."},
-            "add": {"call": self.add, "docs": "Add a new attribute to an account or update an existing one."},
-            "remove": {"call": self.remove, "docs": "Remove an existing account attribute."},
+            "list": {"call": self.list_, "docs": "List all account attributes"},
+            "add": {"call": self.add, "docs": "Add a new attribute to an account or update an existing one"},
+            "remove": {"call": self.remove, "docs": "Remove an existing account attribute"},
         }
 
     def list_(self):
@@ -153,14 +153,14 @@ class Limit(Account):
         parser.add_argument("-a", "--account", dest="account", help="Account name", required=True)
         parser.add_argument("-r", "--rse", action="store", help="RSE expression")
         parser.add_argument("--bytes", action="store", help='Value can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"')
-        parser.add_argument("--locality", nargs="?", default="local", choices=["local", "global"], help="Global or local limit scope.")
+        parser.add_argument("--locality", nargs="?", default="local", choices=["local", "global"], help="Global or local limit scope")
         parser.add_argument("--human", default=True, help=SUPPRESS)
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "Show limits and current utilization for an account at a given RSE.", "namespace": self.namespace},
-            "add": {"call": self.add, "docs": "Add or update limits for an account.", "namespace": self.namespace},  # TODO Add and update should become different operations
-            "remove": {"call": self.remove, "docs": "Remove all limits for given account/rse/locality.", "namespace": self.namespace},
+            "list": {"call": self.list_, "docs": "Show limits and current utilization for an account at a given RSE", "namespace": self.namespace},
+            "add": {"call": self.add, "docs": "Add or update limits for an account", "namespace": self.namespace},  # TODO Add and update should become different operations
+            "remove": {"call": self.remove, "docs": "Remove all limits for given account/rse/locality", "namespace": self.namespace},
         }
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
@@ -186,7 +186,7 @@ class Identity(Account):
 
     def namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--account", dest="account", action="store", help="Account name", required=True)
-        parser.add_argument("--type", dest="authtype", action="store", choices=["X509", "GSS", "USERPASS", "SSH", "SAML", "OIDC"], help="Authentication type.")
+        parser.add_argument("--type", dest="authtype", action="store", choices=["X509", "GSS", "USERPASS", "SSH", "SAML", "OIDC"], help="Authentication type")
         parser.add_argument("--id", dest="identity", action="store", help="Identity as a DNs for X509 IDs.")
         parser.add_argument("--email", dest="email", action="store", help="Email address associated with the identity")
         parser.add_argument("--password", dest="password", action="store", help="Password if authtype is USERPASS")
@@ -194,16 +194,16 @@ class Identity(Account):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "Show existing DNs for an account.", "namespace": self.namespace},
-            "add": {"call": self.add, "docs": "Grant identity access to an account.", "namespace": self.namespace},
-            "remove": {"call": self.remove, "docs": "Revoke identity access for an account.", "namespace": self.namespace},
+            "list": {"call": self.list_, "docs": "Show existing DNs for an account", "namespace": self.namespace},
+            "add": {"call": self.add, "docs": "Grant identity access to an account", "namespace": self.namespace},
+            "remove": {"call": self.remove, "docs": "Revoke identity access for an account", "namespace": self.namespace},
         }
 
     def usage_example(self) -> list[str]:
         return [
             "$ rucio account identity list --account jdoe  # List all auth identities for jdoe",
             "$ rucio account identity add --account jdoe --type GSS --email jdoe@cern.ch --id jdoe@fnal.ch  # Add a new GSS auth",
-            "$ rucio account identity add --account jdoe --type X509 --id 'CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch' --email jdoe@cern.ch  # Add a new X509 auth.",
+            "$ rucio account identity add --account jdoe --type X509 --id 'CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch' --email jdoe@cern.ch  # Add a new X509 auth",
         ]
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
