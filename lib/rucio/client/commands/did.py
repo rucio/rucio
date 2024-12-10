@@ -41,7 +41,7 @@ class DID(CommandBase):
 
     def update_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
-        parser.add_argument("-r", "--rse", help="The RSE of the DIDs that are touched")
+        parser.add_argument("--rse", "--rse-name", dest='rse', help="Touch Argument: The RSE of the DIDs that are touched")
 
         parser.add_argument("--touch", action="store_true", help="Update the last updated time to the current time. Requires a RSE to be set")
         parser.add_argument("--close", action="store_true", help="Set a collection-type DID to 'closed', so it cannot have more child DIDs added to it")
@@ -59,10 +59,6 @@ class DID(CommandBase):
     def remove_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--undo", action="store_true", help="Undo erase DIDs. Only works if has been less than 24 hours since erase operation")
         parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
-
-    def touch_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
-        parser.add_argument("-r", "--rse", help="The RSE of the DIDs that are touched")
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {

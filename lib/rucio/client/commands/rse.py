@@ -61,8 +61,8 @@ class RSE(CommandBase):
 
     def usage_example(self) -> list[str]:
         return [
-            "$ rucio rse  list # Show all current RSEs, can also access with",
-            "$ rucio rse list --rse 'deterministic=True' # Show all RSEs that match the RSE Expression 'deterministic=True'",
+            "$ rucio rse list # Show all current RSEs, can also access with",
+            "$ rucio rse list --rses 'deterministic=True' # Show all RSEs that match the RSE Expression 'deterministic=True'",
             "$ rucio rse remove --rse RemoveThisRSE  # Disable an RSE by name",
             "$ rucio rse add --rse CreateANewRSE  # add a new RSE named CreateANewRSE",
             "$ rucio rse update --rse rse123456 --setting deterministic --value False  # Make an RSE Non-Deterministic",
@@ -70,7 +70,7 @@ class RSE(CommandBase):
         ]
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--rse", help="RSE name or expression", required=True)
+        parser.add_argument("--rse", "--rse-name", help="RSE name", required=True)
         parser.add_argument("--non-deterministic", action="store_true", help="Create RSE in non-deterministic mode")
 
         parser.add_argument(
@@ -82,7 +82,7 @@ class RSE(CommandBase):
         parser.add_argument("--value", dest="value", help='Value for the new setting configuration. Use "", None or null to wipe the value')
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--rse", dest="rses", help="RSE name or expression")
+        parser.add_argument("--rses", "--rse-exp", dest="rses", help="RSE name or expression")
 
     def list_(self):
         list_rses(self.args, self.client, self.logger, self.console, self.spinner)
@@ -112,7 +112,7 @@ class Attribute(RSE):
         }
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--rse", help="RSE name", required=True)
+        parser.add_argument("--rse", "--rse-name", help="RSE name", required=True)
         parser.add_argument("--key", help="Attribute key")
         parser.add_argument("--value", help="Attribute value")
 
@@ -188,7 +188,7 @@ class Protocol(RSE):
         return {"add": {"call": self.add, "docs": "Create a new RSE transfer protocol"}, "remove": {"call": self.remove, "docs": "Remove an existing RSE protocol"}}
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-r", "--rse", help="RSE name")
+        parser.add_argument("--rse", "--rse-name", dest='rse', help="RSE name")
         parser.add_argument("--host", dest="hostname", help="Endpoint hostname")
         parser.add_argument("--scheme", help="Endpoint URL scheme")
         parser.add_argument("--prefix", help="Endpoint URL path prefix")
@@ -223,7 +223,7 @@ class Limit(RSE):
         return {}
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-r", "--rse", help="RSE name")
+        parser.add_argument("--rse", "--rse-name", dest='rse', help="RSE name")
         parser.add_argument("--name", help="Name of the limit")
         parser.add_argument("--limit", dest="value", help="Value of the limit in bytes")
 
@@ -248,7 +248,7 @@ class QOS(RSE):
         return {}
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--rse", help="RSE name")
+        parser.add_argument("--rse", "--rse-name", dest="rse", help="RSE name")
         parser.add_argument("--policy", dest="qos_policy", help="QoS policy")
 
     def usage_example(self) -> list[str]:

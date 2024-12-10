@@ -61,7 +61,7 @@ class Replica(CommandBase):
         parser.add_argument("--metalink", action="store_true", help="Output available replicas as metalink", required=False)
         parser.add_argument("--no-resolve-archives", action="store_true", help="Do not resolve archives which may contain the files", required=False)
         parser.add_argument("--sort", help="Replica sort algorithm. Available options: geoip (default), random", required=False)
-        parser.add_argument("-r", "--rse", dest="rses", help="The RSE filter expression")
+        parser.add_argument("--rses", "--rse-exp", dest="rses", help="The RSE filter expression")
         parser.add_argument("--human", default=True, help=SUPPRESS)
 
         # Dataset options.
@@ -74,7 +74,7 @@ class Replica(CommandBase):
 
     def remove_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-d", "--did", dest="dids", help="DIDs to access, as comma separated values")
-        parser.add_argument("-r", "--rse", help="RSE where the replica is")
+        parser.add_argument("--rse", "--rse-name", dest="rse", help="RSE Name")
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
         return {"state": State}
@@ -115,7 +115,7 @@ class State(Replica):
 
     def list_namespace(self, parser: "ArgumentParser"):
         parser.add_argument("state_type", choices=("suspicious",), help="State to filter by when listing")
-        parser.add_argument("-r", "--rse", dest="rse", action="store", help="RSE name or expression")
+        parser.add_argument("--rses", "--rse-exp", dest="rse_expression", action="store", help="RSE name or expression")  # TODO remap rse_expression to rses (for consistency)
         parser.add_argument("--younger-than", help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00')  # NOQA: E501
         parser.add_argument("--nattempts", dest="nattempts", action="store", help="Minimum number of failed attempts to access a suspicious file")
 
@@ -123,8 +123,8 @@ class State(Replica):
         parser.add_argument("state_type", choices=("bad", "unavailable", "quarantine"))
 
         parser.add_argument("--files", nargs="*", dest="files", help="List of items to update. Each can be a PFN (for one replica) or an LFN (for all replicas of the LFN) or a collection DID (for all file replicas in the DID)")
-        parser.add_argument("-r", "--rse", dest="rse", action="store", help="RSE name or expression")
         parser.add_argument("--input-file", dest="inputfile", nargs="?", action="store", help="File containing list of replicas to update state")
+        parser.add_argument('--rse', "--rse_name", dest='rse', nargs='?', action='store', help='RSE Name')
 
         parser.add_argument("--reason", dest="reason", action="store", help="Supply a reason for changing the replica state")
 
@@ -142,7 +142,7 @@ class State(Replica):
             "$ rucio replica state update bad --files mock:test --rse RSE  # Declare the replica of did mock:test at RSE to be bad",
             "$ rucio replica state update unavailable --files mock:test --rse RSE --duration 10 # Declare mock:test at RSE to be unavailable for 10 seconds",
             "$ rucio replica state update quarantine --files mock:test --rse RSE  # Apply a quarantine to mock:test",
-            "$ rucio replica state list suspicious --rse RSE  # Show all the suspicious replicas at RSE",
+            "$ rucio replica state list suspicious --rses RSE  # Show all the suspicious replicas at RSE",
         ]
 
     def list_(self):
