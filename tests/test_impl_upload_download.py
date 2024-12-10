@@ -62,7 +62,7 @@ class TestImplUploadDownload:
         impl = 'xrootd'
 
         # Uploading file
-        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3}'.format(rse, scope, impl, tmp_file1)
+        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3}'.format(rse, scope, impl, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -86,7 +86,7 @@ class TestImplUploadDownload:
         assert exitcode == 0
 
         # Downloading the file
-        cmd = 'rucio download --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_file1.name, impl)
+        cmd = 'rucio download --legacy --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_file1.name, impl)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -108,7 +108,7 @@ class TestImplUploadDownload:
         impl = 'xrootd'
 
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3} {4} {5} {1}:{6}'.format(rse, scope, impl, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3} {4} {5} {1}:{6}'.format(rse, scope, impl, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -132,7 +132,7 @@ class TestImplUploadDownload:
         assert exitcode == 0
 
         # Downloading dataset
-        cmd = 'rucio download --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_dsn, impl)
+        cmd = 'rucio download --legacy --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_dsn, impl)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -156,7 +156,7 @@ class TestImplUploadDownload:
         impl = 'xrootd'
 
         # Upload the file
-        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3}'.format(rse, scope, impl, tmp_file1)
+        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3}'.format(rse, scope, impl, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -184,7 +184,7 @@ class TestImplUploadDownload:
         print(out, err)
         assert re.search(r'DELETED', out) is not None
         # upload the files to the dataset
-        cmd = 'rucio -v upload --rse {0} --scope {1} --impl {2} {3} {4} {5}'.format(rse, scope, impl, tmp_file1, tmp_file2, tmp_file3)
+        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --impl {2} {3} {4} {5}'.format(rse, scope, impl, tmp_file1, tmp_file2, tmp_file3)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         upload_string_1 = ('Successfully uploaded file %s' % tmp_file1.name)
@@ -198,7 +198,7 @@ class TestImplUploadDownload:
         impl = 'xrootd'
 
         # Upload the file
-        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3}'.format(rse, scope, impl, tmp_file1)
+        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3}'.format(rse, scope, impl, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -222,7 +222,7 @@ class TestImplUploadDownload:
         assert exitcode == 0
 
         # Re-Upload the file
-        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3}'.format(rse, scope, impl, tmp_file1)
+        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3}'.format(rse, scope, impl, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -230,7 +230,7 @@ class TestImplUploadDownload:
         assert re.search(r'File already exists on RSE. Skipping upload', err) is not None
 
         # Downloading the file
-        cmd = 'rucio download --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_file1_name, impl)
+        cmd = 'rucio download --legacy -dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_file1_name, impl)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -243,7 +243,7 @@ class TestImplUploadDownload:
         assert exitcode == 0
 
         # Re-download file
-        cmd = 'rucio download --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_file1_name, impl)
+        cmd = 'rucio download --legacy --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_file1_name, impl)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -263,13 +263,13 @@ class TestImplUploadDownload:
         impl = 'xrootd'
 
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3} {1}:{4}'.format(rse, scope, impl, tmp_file1, tmp_dsn)
+        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3} {1}:{4}'.format(rse, scope, impl, tmp_file1, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
         # upload the files to the dataset
-        cmd = 'rucio -v upload --rse {0} --scope {1} --impl {2} {3} {4} {5} {1}:{6}'.format(rse, scope, impl, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --impl {2} {3} {4} {5} {1}:{6}'.format(rse, scope, impl, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
 
@@ -292,7 +292,7 @@ class TestImplUploadDownload:
         assert exitcode == 0
 
         # Downloading dataset
-        cmd = 'rucio download --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_dsn, impl)
+        cmd = 'rucio download --legacy --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_dsn, impl)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -308,7 +308,7 @@ class TestImplUploadDownload:
         assert tmp_file3.name in out
 
         # Re-download dataset
-        cmd = 'rucio download --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_dsn, impl)
+        cmd = 'rucio download --legacy --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_dsn, impl)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -323,7 +323,7 @@ class TestImplUploadDownload:
         did_factory.register_dids([{'scope': scope, 'name': tmp_file1.name}])
         tmp_guid = uuid()
         impl = 'xrootd'
-        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} --guid {3} {4}'.format(rse, scope, impl, tmp_guid, tmp_file1)
+        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} --guid {3} {4}'.format(rse, scope, impl, tmp_guid, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -340,14 +340,14 @@ class TestImplUploadDownload:
         tmp_file1 = file_factory.file_generator()
         did_factory.register_dids([{'scope': scope, 'name': tmp_file1.name}])
         tmp_guid = uuid()
-        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} --guid {3} {4}'.format(rse, scope, impl, tmp_guid, tmp_file1)
+        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} --guid {3} {4}'.format(rse, scope, impl, tmp_guid, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
         assert exitcode == 0
         wrong_guid = uuid()
-        cmd = 'rucio -v download --dir /tmp {0}:{1} --impl {2} --filter guid={3}'.format(scope, '*', impl, wrong_guid)
+        cmd = 'rucio -v download --legacy --dir /tmp {0}:{1} --impl {2} --filter guid={3}'.format(scope, '*', impl, wrong_guid)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -356,7 +356,7 @@ class TestImplUploadDownload:
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert re.search(tmp_file1.name, out) is None
-        cmd = 'rucio -v download --dir /tmp {0}:{1} --impl {2} --filter guid={3}'.format(scope, '*', impl, tmp_guid)
+        cmd = 'rucio -v download --legacy --dir /tmp {0}:{1} --impl {2} --filter guid={3}'.format(scope, '*', impl, tmp_guid)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -371,14 +371,14 @@ class TestImplUploadDownload:
         tmp_file1 = file_factory.file_generator()
         did_factory.register_dids([{'scope': scope, 'name': tmp_file1.name}])
         tmp_guid = uuid()
-        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} --guid {3} {4}'.format(rse, scope, impl, tmp_guid, tmp_file1)
+        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} --guid {3} {4}'.format(rse, scope, impl, tmp_guid, tmp_file1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
         assert exitcode == 0
         wrong_guid = uuid()
-        cmd = 'rucio -v download --dir /tmp --scope {0} --impl {1} --filter guid={2}'.format(scope, impl, wrong_guid)
+        cmd = 'rucio -v download --legacy --dir /tmp --scope {0} --impl {1} --filter guid={2}'.format(scope, impl, wrong_guid)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -387,7 +387,7 @@ class TestImplUploadDownload:
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert re.search(tmp_file1.name, out) is None
-        cmd = 'rucio -v download --dir /tmp --scope {0} --impl {1} --filter guid={2}'.format(scope, impl, tmp_guid)
+        cmd = 'rucio -v download --legacy --dir /tmp --scope {0} --impl {1} --filter guid={2}'.format(scope, impl, tmp_guid)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -402,13 +402,13 @@ class TestImplUploadDownload:
         tmp_file1 = file_factory.file_generator()
         tmp_dsn = 'tests.rucio_client_test_server_impl_check' + uuid()
         did_factory.register_dids([{'scope': scope, 'name': n} for n in (tmp_file1.name, tmp_dsn)])
-        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3} {1}:{4}'.format(rse, scope, impl, tmp_file1, tmp_dsn)
+        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3} {1}:{4}'.format(rse, scope, impl, tmp_file1, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
         assert exitcode == 0
-        cmd = 'rucio download --dir /tmp --scope {0} --filter created_before=1900-01-01T00:00:00.000Z'.format(scope)
+        cmd = 'rucio download --legacy --dir /tmp --scope {0} --filter created_before=1900-01-01T00:00:00.000Z'.format(scope)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -417,7 +417,7 @@ class TestImplUploadDownload:
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert re.search(tmp_file1.name, out) is None
-        cmd = 'rucio download --dir /tmp --scope {0} --filter created_after=1900-01-01T00:00:00.000Z'.format(scope)
+        cmd = 'rucio download --legacy --dir /tmp --scope {0} --filter created_after=1900-01-01T00:00:00.000Z'.format(scope)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -431,13 +431,13 @@ class TestImplUploadDownload:
         tmp_file1 = file_factory.file_generator()
         tmp_dsn = 'tests.rucio_client_test_server_impl_check' + uuid()
         did_factory.register_dids([{'scope': scope, 'name': n} for n in (tmp_file1.name, tmp_dsn)])
-        cmd = 'rucio upload --rse {0} --scope {1} --impl {2} {3} {1}:{4}'.format(rse, scope, impl, tmp_file1, tmp_dsn)
+        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3} {1}:{4}'.format(rse, scope, impl, tmp_file1, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
         assert exitcode == 0
-        cmd = 'rucio download --dir /tmp {0}:{1} --filter created_before=1900-01-01T00:00:00.000Z'.format(scope, tmp_dsn[0:-1] + '*')
+        cmd = 'rucio download --legacy --dir /tmp {0}:{1} --filter created_before=1900-01-01T00:00:00.000Z'.format(scope, tmp_dsn[0:-1] + '*')
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -446,7 +446,7 @@ class TestImplUploadDownload:
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert re.search(tmp_file1.name, out) is None
-        cmd = 'rucio download --dir /tmp {0}:{1} --filter created_after=1900-01-01T00:00:00.000Z'.format(scope, tmp_dsn[0:-1] + '*')
+        cmd = 'rucio download --legacy --dir /tmp {0}:{1} --filter created_after=1900-01-01T00:00:00.000Z'.format(scope, tmp_dsn[0:-1] + '*')
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
