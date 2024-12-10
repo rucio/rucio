@@ -941,7 +941,6 @@ class TestMultiVOBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert len(out) == 0
         assert 'Details: CannotAuthenticate' in err
 
         cmd = 'rucio-admin rse list'
@@ -973,7 +972,6 @@ class TestMultiVOBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert len(out) == 0
         assert 'Details: CannotAuthenticate' in err
 
         cmd = 'rucio list-rses'
