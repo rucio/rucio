@@ -39,12 +39,12 @@ class Rule(CommandBase):
 
     def usage_example(self) -> list[str]:
         return [
-            "$ rucio rule add -d user.jdoe:test_did --copies 2 --rse SPAINSITES  # Create a rule that requires two copies of a did limited to Spanish Sites",
+            "$ rucio rule add -d user.jdoe:test_did --copies 2 --rses SPAINSITES  # Create a rule that requires two copies of a did limited to Spanish Sites",
             "$ rucio rule list --did user.jdoe:test_did  # show rules impacting a DID",
             "$ rucio rule show --rule-id rule123456  # View a detailed overview for an existing rule",
             "$ rucio rule remove --rule-id rule123456  # Deactivate a rule",
             "$ rucio rule update --rule-id rule123456 --suspend  # Suspend the execution of a rule",
-            "$ rucio rule update --rule-id rule123456 --move --rse NewRSE # Copy an existing rule to a new RSE",
+            "$ rucio rule update --rule-id rule123456 --move --rses NewRSE # Copy an existing rule to a new RSE",
         ]
 
     def _common_namespace(self, parser: "ArgumentParser") -> None:
@@ -58,7 +58,7 @@ class Rule(CommandBase):
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
         self._common_namespace(parser)
-        parser.add_argument("-r", "--rse", dest="rse_expression", action="store", help="The RSE expression. Must be specified if a DID is provided")
+        parser.add_argument("--rses", "--rse-exp", dest="rse_expression", action="store", help="The RSE expression. Must be specified if a DID is provided")
         parser.add_argument("-d", "--did", dest="dids", nargs="+", help="DID(s) to apply the rule to")
         parser.add_argument("--copies", type=int, help="Number of copies")
         parser.add_argument("--weight", help="RSE Weight")  # TODO What does this do
@@ -90,7 +90,7 @@ class Rule(CommandBase):
 
     def update_namespace(self, parser: "ArgumentParser") -> None:
         self._common_namespace(parser)
-        parser.add_argument("-r", "--rse", dest="rse_expression", help="RSE to change for the rule")
+        parser.add_argument("--rses", "--rse-exp", dest="rse_expression", help="RSE to change for the rule")
         parser.add_argument("--stuck", dest="state_stuck", action="store_true", help="Set state to STUCK")
         parser.add_argument("--suspend", dest="state_suspended", action="store_true", help="Set state to SUSPENDED")
         parser.add_argument("--cancel-requests", action="store_true", help="Cancel requests when setting rules to stuck")

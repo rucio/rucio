@@ -130,22 +130,22 @@ def test_account_limit(jdoe_account, rucio_client):
     mock_rse = "MOCK"
 
     bytes_limit = 10
-    cmd = f"rucio account limit add --account {jdoe_account} --rse {mock_rse} --bytes {bytes_limit}"
+    cmd = f"rucio account limit add --account {jdoe_account} --rses {mock_rse} --bytes {bytes_limit}"
     _, _, set_log = execute(cmd)
     assert "ERROR" not in set_log
     assert bytes_limit == rucio_client.get_account_limits(jdoe_account, mock_rse, locality="local")[mock_rse]
 
-    cmd = f"rucio -v account limit list --account {jdoe_account} --rse {mock_rse}"
+    cmd = f"rucio -v account limit list --account {jdoe_account} --rses {mock_rse}"
     _, out, err = execute(cmd)
     assert "ERROR" not in err
     assert mock_rse in out
 
-    cmd = f"rucio account limit remove --account {jdoe_account} --rse {mock_rse}"
+    cmd = f"rucio account limit remove --account {jdoe_account} --rses {mock_rse}"
     _, _, rm_log = execute(cmd)
     assert "ERROR" not in rm_log
     assert rucio_client.get_account_limits(jdoe_account, mock_rse, locality="local")[mock_rse] is None
 
-    cmd = f"rucio account limit add --account {jdoe_account} --rse {mock_rse} --bytes {bytes_limit} --locality NotAnOption"
+    cmd = f"rucio account limit add --account {jdoe_account} --rses {mock_rse} --bytes {bytes_limit} --locality NotAnOption"
     exitcode, _, _ = execute(cmd)
     assert exitcode == 2  # Fails bc locality is limited to local or global
 
@@ -386,7 +386,7 @@ def test_replica(mock_scope, rucio_client):
     assert "ERROR" not in err
     assert name in out
 
-    cmd = f"rucio replica list file --pfns --did {scope}:{name} --rse {mock_rse}"
+    cmd = f"rucio replica list file --pfns --did {scope}:{name} --rses {mock_rse}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -582,7 +582,7 @@ def test_rule(rucio_client, mock_scope):
     name = generate_uuid()
     rucio_client.add_replica(rse=mock_rse, scope=scope, name=name, bytes_=4, adler32="deadbeef")
 
-    cmd = f"rucio rule add --did {scope}:{name} --copies 1 --rse {rule_rse}"
+    cmd = f"rucio rule add --did {scope}:{name} --copies 1 --rses {rule_rse}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -603,7 +603,7 @@ def test_rule(rucio_client, mock_scope):
     # assert rule_id in out
 
     move_rse = "MOCK2"
-    cmd = f"rucio rule update --rule-id {rule_id} --move --rse {move_rse}"
+    cmd = f"rucio rule update --rule-id {rule_id} --move --rses {move_rse}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -616,7 +616,7 @@ def test_rule(rucio_client, mock_scope):
     # Do one without a child rule so i can delete it
     new_name = generate_uuid()
     rucio_client.add_replica(mock_rse, scope, new_name, 4, "deadbeef")
-    cmd = f"rucio rule add --did {scope}:{new_name} --copies 1 --rse {mock_rse}"
+    cmd = f"rucio rule add --did {scope}:{new_name} --copies 1 --rses {mock_rse}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err

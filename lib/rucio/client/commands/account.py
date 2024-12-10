@@ -151,7 +151,7 @@ class Limit(Account):
 
     def namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-a", "--account", dest="account", help="Account name", required=True)
-        parser.add_argument("-r", "--rse", action="store", help="RSE expression")
+        parser.add_argument("--rses", "--rse-exp",  dest='rse', action="store", help="RSE expression")
         parser.add_argument("--bytes", action="store", help='Value can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"')
         parser.add_argument("--locality", nargs="?", default="local", choices=["local", "global"], help="Global or local limit scope")
         parser.add_argument("--human", default=True, help=SUPPRESS)
