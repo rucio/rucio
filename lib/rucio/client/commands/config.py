@@ -45,7 +45,7 @@ class Config(CommandBase):
             "$ rucio config add --section limitsscratchdisk --option testlimit --value 30  # Change the existing limitstractdisk section",
             "$ rucio config list --section foo # Show the settings in section foo",
             "$ rucio config list # Show all the different sections of the config",
-            "$ rucio config remove --section testsection -- option test  # Remove the value in testsection/test",
+            "$ rucio config remove --section testsection --option test  # Remove the value in testsection/test",
         ]
 
     def list_(self):

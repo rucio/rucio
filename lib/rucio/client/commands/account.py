@@ -151,7 +151,7 @@ class Limit(Account):
 
     def namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-a", "--account", dest="account", help="Account name", required=True)
-        parser.add_argument("--rses", "--rse-exp",  dest='rse', action="store", help="RSE expression")
+        parser.add_argument("--rses", "--rse-exp", dest='rse', action="store", help="RSE expression")
         parser.add_argument("--bytes", action="store", help='Value can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"')
         parser.add_argument("--locality", nargs="?", default="local", choices=["local", "global"], help="Global or local limit scope")
         parser.add_argument("--human", default=True, help=SUPPRESS)
@@ -182,7 +182,7 @@ class Limit(Account):
 
 class Identity(Account):
     def module_help(self) -> str:
-        return "Manage identities  on an account."
+        return "Manage identities on an account."
 
     def namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--account", dest="account", action="store", help="Account name", required=True)
@@ -194,7 +194,7 @@ class Identity(Account):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "Show existing DNs for an account", "namespace": self.namespace},
+            "list": {"call": self.list_, "docs": "Display existing identities for an account", "namespace": self.namespace},
             "add": {"call": self.add, "docs": "Grant identity access to an account", "namespace": self.namespace},
             "remove": {"call": self.remove, "docs": "Revoke identity access for an account", "namespace": self.namespace},
         }
