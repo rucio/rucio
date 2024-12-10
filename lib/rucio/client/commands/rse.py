@@ -61,7 +61,7 @@ class RSE(CommandBase):
 
     def usage_example(self) -> list[str]:
         return [
-            "$ rucio rse  # Show all current RSEs, can also access with `rucio rse list`",
+            "$ rucio rse  list # Show all current RSEs, can also access with",
             "$ rucio rse list --rse 'deterministic=True' # Show all RSEs that match the RSE Expression 'deterministic=True'",
             "$ rucio rse remove --rse RemoveThisRSE  # Disable an RSE by name",
             "$ rucio rse add --rse CreateANewRSE  # add a new RSE named CreateANewRSE",
