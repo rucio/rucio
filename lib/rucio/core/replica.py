@@ -26,7 +26,7 @@ from json import dumps
 from re import match
 from struct import unpack
 from traceback import format_exc
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 import requests
 from dogpile.cache.api import NO_VALUE
@@ -34,7 +34,7 @@ from sqlalchemy import and_, delete, exists, func, insert, not_, or_, union, upd
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError, NoResultFound
-from sqlalchemy.sql.expression import case, false, literal, literal_column, null, select, text, true
+from sqlalchemy.sql.expression import ColumnElement, case, false, literal, literal_column, null, select, text, true
 
 import rucio.core.did
 import rucio.core.lock
@@ -42,7 +42,7 @@ from rucio.common import exception
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import RseAttr, SuspiciousAvailability
-from rucio.common.types import InternalScope
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import add_url_query, chunks, clean_pfns, str_to_date
 from rucio.core.credential import get_signed_url
 from rucio.core.message import add_messages
@@ -57,10 +57,11 @@ from rucio.db.sqla.util import temp_table_mngr
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Sequence
-    from typing import Any, Optional
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
 
+    from sqlalchemy.engine import Row
     from sqlalchemy.orm import Session
+    from sqlalchemy.sql.selectable import Select, Subquery
 
     from rucio.common.types import LoggerFunction
     from rucio.rse.protocols.protocol import RSEProtocol
@@ -74,7 +75,14 @@ Association = namedtuple('Association', ['scope', 'name', 'child_scope', 'child_
 
 
 @read_session
-def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, filter_=None, *, session: "Session"):
+def get_bad_replicas_summary(
+    rse_expression: Optional[str] = None,
+    from_date: Optional[datetime] = None,
+    to_date: Optional[datetime] = None,
+    filter_: Optional[dict[str, Any]] = None,
+    *,
+    session: "Session"
+) -> list[dict[str, Any]]:
     """
     List the bad file replicas summary. Method used by the rucio-ui.
     :param rse_expression: The RSE expression.
@@ -94,11 +102,11 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
         for rse in list_rses(filters=filter_, session=session):
             rse_clause.append(models.BadReplica.rse_id == rse['id'])
 
-    if session.bind.dialect.name == 'oracle':
+    if session.bind.dialect.name == 'oracle':  # type: ignore
         to_days = func.trunc(models.BadReplica.created_at, 'DD')
-    elif session.bind.dialect.name == 'mysql':
+    elif session.bind.dialect.name == 'mysql':  # type: ignore
         to_days = func.date(models.BadReplica.created_at)
-    elif session.bind.dialect.name == 'postgresql':
+    elif session.bind.dialect.name == 'postgresql':  # type: ignore
         to_days = func.date_trunc('day', models.BadReplica.created_at)
     else:
         to_days = func.strftime(models.BadReplica.created_at, '%Y-%m-%d')
@@ -137,7 +145,22 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
 
 
 @read_session
-def __exist_replicas(rse_id, replicas, *, session: "Session"):
+def __exist_replicas(
+    rse_id: str,
+    replicas: list[tuple[Optional[str], Optional[str], Optional[str]]],
+    *,
+    session: "Session"
+) -> list[
+    tuple
+    [
+        str,
+        str,
+        str,
+        bool,
+        bool,
+        Optional[int]
+    ]
+]:
     """
     Internal method to check if a replica exists at a given site.
     :param rse_id: The RSE id.
@@ -153,8 +176,8 @@ def __exist_replicas(rse_id, replicas, *, session: "Session"):
     """
 
     return_list = []
-    path_clause = []
-    did_clause = []
+    path_clause: list[ColumnElement[bool]] = []
+    did_clause: list[ColumnElement[bool]] = []
     for scope, name, path in replicas:
         if path:
             path_clause.append(models.RSEFileAssociation.path == path)
@@ -219,7 +242,17 @@ def __exist_replicas(rse_id, replicas, *, session: "Session"):
 
 
 @read_session
-def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than=None, older_than=None, limit=None, list_pfns=False, vo='def', *, session: "Session"):
+def list_bad_replicas_status(
+    state: BadFilesStatus = BadFilesStatus.BAD,
+    rse_id: Optional[str] = None,
+    younger_than: Optional[datetime] = None,
+    older_than: Optional[datetime] = None,
+    limit: Optional[int] = None,
+    list_pfns: Optional[bool] = False,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> list[dict[str, Any]]:
     """
     List the bad file replicas history states. Method used by the rucio-ui.
     :param state: The state of the file (SUSPICIOUS or BAD).
@@ -272,7 +305,18 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse_id=None, younger_than
 
 
 @transactional_session
-def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesStatus.BAD, scheme='srm', force=False, logger: "LoggerFunction" = logging.log, *, session: "Session"):
+def __declare_bad_file_replicas(
+    pfns: "Sequence[Union[str, dict[str, Any]]]",
+    rse_id: str,
+    reason: str,
+    issuer: InternalAccount,
+    status: BadFilesStatus = BadFilesStatus.BAD,
+    scheme: str = 'srm',
+    force: bool = False,
+    logger: "LoggerFunction" = logging.log,
+    *,
+    session: "Session"
+) -> list[str]:
     """
     Declare a list of bad replicas.
 
@@ -285,9 +329,9 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
     :param force: boolean, if declaring BAD replica, ignore existing replica status in the bad_replicas table. Default: False
     :param session: The database session in use.
     """
-    unknown_replicas = []
-    replicas = []
-    path_pfn_dict = {}
+    unknown_replicas: list[str] = []
+    replicas: list[dict[str, Any]] = []
+    path_pfn_dict: dict[str, str] = {}
 
     if len(pfns) > 0 and type(pfns[0]) is str:
         # If pfns is a list of PFNs, the scope and names need to be extracted from the path
@@ -319,8 +363,8 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
     else:
         # If pfns is a list of replicas, just use scope, name and rse_id
         for pfn in pfns:
-            replicas.append({'scope': pfn['scope'], 'name': pfn['name'], 'rse_id': rse_id, 'state': status})
-            logger(logging.DEBUG, f"Declaring replica {pfn['scope']}:{pfn['name']} {status} at {rse_id} without path")
+            replicas.append({'scope': pfn['scope'], 'name': pfn['name'], 'rse_id': rse_id, 'state': status})  # type: ignore
+            logger(logging.DEBUG, f"Declaring replica {pfn['scope']}:{pfn['name']} {status} at {rse_id} without path")  # type: ignore
 
     replicas_list = []
     for replica in replicas:
@@ -381,7 +425,15 @@ def __declare_bad_file_replicas(pfns, rse_id, reason, issuer, status=BadFilesSta
 
 
 @transactional_session
-def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, *, session: "Session"):
+def add_bad_dids(
+    dids: "Iterable[dict[str, Any]]",
+    rse_id: str,
+    reason: str,
+    issuer: InternalAccount,
+    state: BadFilesStatus = BadFilesStatus.BAD,
+    *,
+    session: "Session"
+) -> list[str]:
     """
     Declare a list of bad replicas.
 
@@ -438,8 +490,15 @@ def add_bad_dids(dids, rse_id, reason, issuer, state=BadFilesStatus.BAD, *, sess
 
 
 @transactional_session
-def declare_bad_file_replicas(replicas: list, reason: str, issuer, status=BadFilesStatus.BAD, force: bool = False, *,
-                              session: "Session"):
+def declare_bad_file_replicas(
+    replicas: list[Union[str, dict[str, Any]]],
+    reason: str,
+    issuer: InternalAccount,
+    status: BadFilesStatus = BadFilesStatus.BAD,
+    force: bool = False,
+    *,
+    session: "Session"
+) -> dict[str, list[str]]:
     """
     Declare a list of bad replicas.
 
@@ -451,7 +510,7 @@ def declare_bad_file_replicas(replicas: list, reason: str, issuer, status=BadFil
     :param session: The database session in use.
     :returns: Dictionary {rse_id -> [replicas failed to declare with errors]}
     """
-    unknown_replicas = {}
+    unknown_replicas: dict[str, list[str]] = {}
     if replicas:
         type_ = type(replicas[0])
         files_to_declare = {}
@@ -463,7 +522,7 @@ def declare_bad_file_replicas(replicas: list, reason: str, issuer, status=BadFil
             scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(replicas, vo=issuer.vo, session=session)
         else:
             for replica in replicas:
-                rse_id = replica['rse_id']
+                rse_id = replica['rse_id']  # type: ignore
                 files_to_declare.setdefault(rse_id, []).append(replica)
         for rse_id in files_to_declare:
             notdeclared = __declare_bad_file_replicas(files_to_declare[rse_id], rse_id, reason, issuer,
@@ -475,7 +534,12 @@ def declare_bad_file_replicas(replicas: list, reason: str, issuer, status=BadFil
 
 
 @read_session
-def get_pfn_to_rse(pfns, vo='def', *, session: "Session"):
+def get_pfn_to_rse(
+    pfns: "Iterable[str]",
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> tuple[Optional[str], dict[str, Any], dict[str, list[str]]]:
     """
     Get the RSE associated to a list of PFNs.
 
@@ -552,7 +616,10 @@ def get_pfn_to_rse(pfns, vo='def', *, session: "Session"):
 
 
 @read_session
-def get_bad_replicas_backlog(*, session: "Session"):
+def get_bad_replicas_backlog(
+    *,
+    session: "Session"
+) -> dict[str, int]:
     """
     Get the replica backlog by RSE.
 
@@ -587,7 +654,14 @@ def get_bad_replicas_backlog(*, session: "Session"):
 
 
 @read_session
-def list_bad_replicas(limit=10000, thread=None, total_threads=None, rses=None, *, session: "Session"):
+def list_bad_replicas(
+    limit: int = 10000,
+    thread: Optional[int] = None,
+    total_threads: Optional[int] = None,
+    rses: Optional['Iterable[dict[str, Any]]'] = None,
+    *,
+    session: "Session"
+) -> list[dict[str, Any]]:
     """
     List RSE File replicas with no locks.
 
@@ -634,7 +708,13 @@ def list_bad_replicas(limit=10000, thread=None, total_threads=None, rses=None, *
 
 
 @stream_session
-def get_did_from_pfns(pfns, rse_id=None, vo='def', *, session: "Session"):
+def get_did_from_pfns(
+    pfns: "Iterable[str]",
+    rse_id: Optional[str] = None,
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, dict[str, Any]]]':
     """
     Get the DIDs associated to a PFN on one given RSE
 
@@ -656,7 +736,7 @@ def get_did_from_pfns(pfns, rse_id=None, vo='def', *, session: "Session"):
         pfns = dict_rse[rse_id]
         rse_info = rsemgr.get_rse_info(rse_id=rse_id, session=session)
         pfndict = {}
-        proto = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
+        proto: RSEProtocol = rsemgr.create_protocol(rse_info, 'read', scheme=scheme)
         if rse_info['deterministic']:
             scope_proto = rsemgr.get_scope_protocol(vo=vo)
             parsed_pfn = proto.parse_pfns(pfns=pfns)
@@ -685,7 +765,10 @@ def get_did_from_pfns(pfns, rse_id=None, vo='def', *, session: "Session"):
                 yield {pfndict[pfn]: {'scope': scope, 'name': name}}
 
 
-def _pick_n_random(nrandom, generator):
+def _pick_n_random(
+        nrandom: int,
+        generator: 'Iterable[Any]'
+) -> 'Iterator[Any]':
     """
     Select n random elements from the generator
     """
@@ -720,7 +803,11 @@ def _pick_n_random(nrandom, generator):
         yield r
 
 
-def _list_files_wo_replicas(files_wo_replica, *, session: "Session"):
+def _list_files_wo_replicas(
+        files_wo_replica: "Iterable[dict[str, Any]]",
+        *,
+        session: "Session"
+) -> 'Iterator[tuple[str, str, int, str, str]]':
     if files_wo_replica:
         file_wo_clause = []
         for file in sorted(files_wo_replica, key=lambda f: (f['scope'], f['name'])):
@@ -744,7 +831,7 @@ def _list_files_wo_replicas(files_wo_replica, *, session: "Session"):
             yield scope, name, bytes_, md5, adler32
 
 
-def get_vp_endpoint():
+def get_vp_endpoint() -> str:
     """
     VP endpoint is the Virtual Placement server.
     Once VP is integrated in Rucio it won't be needed.
@@ -753,7 +840,11 @@ def get_vp_endpoint():
     return vp_endpoint
 
 
-def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
+def get_multi_cache_prefix(
+        cache_site: str,
+        filename: str,
+        logger: "LoggerFunction" = logging.log
+) -> str:
     """
     for a givent cache site and filename, return address of the cache node that
     should be prefixed.
@@ -780,10 +871,10 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
             logger(logging.WARNING, 'In get_multi_cache_prefix, could not access {}. Excaption:{}'.format(vp_endpoint, re))
             return ''
 
-    if cache_site not in x_caches:
+    if cache_site not in x_caches:  # type: ignore
         return ''
 
-    xcache_site = x_caches[cache_site]
+    xcache_site = x_caches[cache_site]  # type: ignore
     h = float(
         unpack('Q', sha256(filename.encode('utf-8')).digest()[:8])[0]) / 2**64
     for irange in xcache_site['ranges']:
@@ -795,8 +886,8 @@ def get_multi_cache_prefix(cache_site, filename, logger=logging.log):
 def _get_list_replicas_protocols(
         rse_id: str,
         domain: str,
-        schemes: "Sequence[str]",
-        additional_schemes: "Sequence[str]",
+        schemes: Optional[list[str]],
+        additional_schemes: "Iterable[str]",
         session: "Session"
 ) -> "list[tuple[str, RSEProtocol, int]]":
     """
@@ -851,9 +942,9 @@ def _build_list_replicas_pfn(
         protocol: "RSEProtocol",
         path: str,
         sign_urls: bool,
-        signature_lifetime: int,
-        client_location: "dict[str, Any]",
-        logger=logging.log,
+        signature_lifetime: Optional[int],
+        client_location: Optional[dict[str, Any]],
+        logger: "LoggerFunction" = logging.log,
         *,
         session: "Session",
 ) -> str:
@@ -908,7 +999,7 @@ def _build_list_replicas_pfn(
                             # don't forget to mangle gfal-style davs URL into generic https URL
                             pfn = f"root://{root_proxy_internal}//{pfn.replace('davs://', 'https://')}"
 
-    simulate_multirange = get_rse_attribute(rse_id, RseAttr.SIMULATE_MULTIRANGE)
+    simulate_multirange = get_rse_attribute(rse_id, RseAttr.SIMULATE_MULTIRANGE, session=session)
 
     if simulate_multirange is not None:
         try:
@@ -925,8 +1016,21 @@ def _build_list_replicas_pfn(
     return pfn
 
 
-def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_location, domain,
-                   sign_urls, signature_lifetime, resolve_parents, filters, by_rse_name, *, session: "Session"):
+def _list_replicas(
+        replicas: "Iterable[tuple]",
+        show_pfns: bool,
+        schemes: Optional[list[str]],
+        files_wo_replica: "Iterable[dict[str, Any]]",
+        client_location: Optional[dict[str, Any]],
+        domain: Optional[str],
+        sign_urls: bool,
+        signature_lifetime: Optional[int],
+        resolve_parents: bool,
+        filters: dict[str, Any],
+        by_rse_name: bool,
+        *,
+        session: "Session"
+) -> "Iterator[dict[str, Any]]":
 
     # the `domain` variable name will be re-used throughout the function with different values
     input_domain = domain
@@ -948,7 +1052,7 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
         pfns = {}
         for scope, name, archive_scope, archive_name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_group:
             if isinstance(archive_scope, str):
-                archive_scope = InternalScope(archive_scope, fromExternal=False)
+                archive_scope = InternalScope(archive_scope, from_external=False)
 
             is_archive = bool(archive_scope and archive_name)
 
@@ -1086,24 +1190,24 @@ def _list_replicas(replicas, show_pfns, schemes, files_wo_replica, client_locati
 @stream_session
 def list_replicas(
         dids: "Sequence[dict[str, Any]]",
-        schemes: "Optional[list[str]]" = None,
+        schemes: Optional[list[str]] = None,
         unavailable: bool = False,
-        request_id: "Optional[str]" = None,
+        request_id: Optional[str] = None,
         ignore_availability: bool = True,
         all_states: bool = False,
         pfns: bool = True,
-        rse_expression: "Optional[str]" = None,
-        client_location: "Optional[dict[str, Any]]" = None,
-        domain: "Optional[str]" = None,
+        rse_expression: Optional[str] = None,
+        client_location: Optional[dict[str, Any]] = None,
+        domain: Optional[str] = None,
         sign_urls: bool = False,
         signature_lifetime: "Optional[int]" = None,
         resolve_archives: bool = True,
         resolve_parents: bool = False,
-        nrandom: "Optional[int]" = None,
-        updated_after: "Optional[datetime]" = None,
+        nrandom: Optional[int] = None,
+        updated_after: Optional[datetime] = None,
         by_rse_name: bool = False,
         *, session: "Session",
-):
+) -> 'Iterator':
     """
     List file replicas for a list of data identifiers (DIDs).
 
@@ -1185,7 +1289,11 @@ def list_replicas(
 
         return stmt.subquery()
 
-    def _resolve_collection_files(temp_table, *, session: "Session"):
+    def _resolve_collection_files(
+            temp_table: Any,
+            *,
+            session: "Session"
+    ) -> tuple[int, Any]:
         """
         Find all FILE dids contained in collections from temp_table and return them in a newly
         created temporary table.
@@ -1202,7 +1310,10 @@ def list_replicas(
 
         return session.execute(stmt).rowcount, resolved_files_temp_table
 
-    def _list_replicas_for_collection_files_stmt(temp_table, replicas_subquery):
+    def _list_replicas_for_collection_files_stmt(
+            temp_table: Any,
+            replicas_subquery: "Subquery"
+    ) -> "Select":
         """
         Build a query for listing replicas of files resolved from containers/datasets
 
@@ -1229,7 +1340,10 @@ def list_replicas(
                  replicas_subquery.c.name == temp_table.name),
         )
 
-    def _list_replicas_for_constituents_stmt(temp_table, replicas_subquery):
+    def _list_replicas_for_constituents_stmt(
+            temp_table: Any,
+            replicas_subquery: "Subquery"
+    ) -> "Select":
         """
         Build a query for listing replicas of archives containing the files(constituents) given as input.
         i.e. for a file scope:file.log which exists in scope:archive.tar.gz, it will return the replicas
@@ -1266,7 +1380,10 @@ def list_replicas(
                  replicas_subquery.c.name == models.ConstituentAssociation.name),
         )
 
-    def _list_replicas_for_input_files_stmt(temp_table, replicas_subquery):
+    def _list_replicas_for_input_files_stmt(
+            temp_table: Any,
+            replicas_subquery: "Subquery"
+    ) -> "Select":
         """
         Builds a query which list the replicas of FILEs from users input, but ignores
         collections in the same input.
@@ -1300,7 +1417,11 @@ def list_replicas(
                  replicas_subquery.c.name == temp_table.name),
         )
 
-    def _inspect_dids(temp_table, *, session: "Session"):
+    def _inspect_dids(
+            temp_table: Any,
+            *,
+            session: "Session"
+    ) -> tuple[int, int, int]:
         """
         Find how many files, collections and constituents are among the dids in the temp_table
         """
@@ -1328,7 +1449,7 @@ def list_replicas(
     else:
         filter_ = {'vo': 'def'}
 
-    dids = {(did['scope'], did['name']): did for did in dids}  # Deduplicate input
+    dids = {(did['scope'], did['name']): did for did in dids}  # type: ignore (Deduplicate input)
     if not dids:
         return
 
@@ -1382,17 +1503,17 @@ def list_replicas(
         # (for example: scheme; or client_location/domain). We don't have any guarantee that
         # those, python, filters will not drop the replicas which we just selected randomly.
         stmt = select(
-            resolved_files_temp_table.scope.label('scope'),
-            resolved_files_temp_table.name.label('name'),
+            resolved_files_temp_table.scope.label('scope'),  # type: ignore (resolved_files_temp_table might be None)
+            resolved_files_temp_table.name.label('name'),  # type: ignore (resolved_files_temp_table might be None)
         ).where(
             exists(
                 select(1)
             ).where(
-                replicas_subquery.c.scope == resolved_files_temp_table.scope,
-                replicas_subquery.c.name == resolved_files_temp_table.name
+                replicas_subquery.c.scope == resolved_files_temp_table.scope,  # type: ignore (resolved_files_temp_table might be None)
+                replicas_subquery.c.name == resolved_files_temp_table.name  # type: ignore (resolved_files_temp_table might be None)
             )
         ).order_by(
-            literal_column('dbms_random.value') if session.bind.dialect.name == 'oracle' else func.random()
+            literal_column('dbms_random.value') if session.bind.dialect.name == 'oracle' else func.random()  # type: ignore
         ).limit(
             # slightly overshoot to reduce the probability that python-side filtering will
             # leave us with less than nrandom replicas.
@@ -1416,7 +1537,7 @@ def list_replicas(
         random_replicas = list(
             _pick_n_random(
                 nrandom,
-                _list_replicas(replica_tuples, pfns, schemes, [], client_location, domain,
+                _list_replicas(replica_tuples, pfns, schemes, [], client_location, domain,  # type: ignore (replica_tuples, pending SQLA2.1: https://github.com/rucio/rucio/discussions/6615)
                                sign_urls, signature_lifetime, resolve_parents, filter_, by_rse_name, session=session)
             )
         )
@@ -1432,7 +1553,7 @@ def list_replicas(
         stmt = replica_sources[0].order_by('scope', 'name')
         replica_tuples = session.execute(stmt)
     else:
-        if session.bind.dialect.name == 'mysql':
+        if session.bind.dialect.name == 'mysql':  # type: ignore
             # On mysql, perform both queries independently and merge their result in python.
             # The union query fails with "Can't reopen table"
             replica_tuples = heapq.merge(
@@ -1444,14 +1565,20 @@ def list_replicas(
             replica_tuples = session.execute(stmt)
 
     yield from _pick_n_random(
-        nrandom,
-        _list_replicas(replica_tuples, pfns, schemes, [], client_location, domain,
+        nrandom,  # type: ignore (nrandom is not None)
+        _list_replicas(replica_tuples, pfns, schemes, [], client_location, domain,  # type: ignore (replica_tuples, pending SQLA2.1: https://github.com/rucio/rucio/discussions/6615)
                        sign_urls, signature_lifetime, resolve_parents, filter_, by_rse_name, session=session)
     )
 
 
 @transactional_session
-def __bulk_add_new_file_dids(files, account, dataset_meta=None, *, session: "Session"):
+def __bulk_add_new_file_dids(
+    files: "Iterable[dict[str, Any]]",
+    account: InternalAccount,
+    dataset_meta: Optional["Mapping[str, Any]"] = None,
+    *,
+    session: "Session"
+) -> Literal[True]:
     """
     Bulk add new dids.
 
@@ -1498,7 +1625,13 @@ def __bulk_add_new_file_dids(files, account, dataset_meta=None, *, session: "Ses
 
 
 @transactional_session
-def __bulk_add_file_dids(files, account, dataset_meta=None, *, session: "Session"):
+def __bulk_add_file_dids(
+    files: "Iterable[dict[str, Any]]",
+    account: InternalAccount,
+    dataset_meta: Optional["Mapping[str, Any]"] = None,
+    *,
+    session: "Session"
+) -> list[dict[str, Any]]:
     """
     Bulk add new dids.
 
@@ -1542,12 +1675,12 @@ def __bulk_add_file_dids(files, account, dataset_meta=None, *, session: "Session
     return new_files + available_files
 
 
-def tombstone_from_delay(tombstone_delay):
+def tombstone_from_delay(tombstone_delay: Optional[Union[str, timedelta]]) -> Optional[datetime]:
     # Tolerate None for tombstone_delay
     if not tombstone_delay:
         return None
 
-    tombstone_delay = timedelta(seconds=int(tombstone_delay))
+    tombstone_delay = timedelta(seconds=int(tombstone_delay))  # type: ignore
 
     if not tombstone_delay:
         return None
@@ -1559,7 +1692,13 @@ def tombstone_from_delay(tombstone_delay):
 
 
 @transactional_session
-def __bulk_add_replicas(rse_id, files, account, *, session: "Session"):
+def __bulk_add_replicas(
+    rse_id: str,
+    files: "Iterable[dict[str, Any]]",
+    account: InternalAccount,
+    *,
+    session: "Session"
+) -> tuple[int, int]:
     """
     Bulk add new dids.
 
@@ -1630,8 +1769,15 @@ def __bulk_add_replicas(rse_id, files, account, *, session: "Session"):
 
 
 @transactional_session
-def add_replicas(rse_id, files, account, ignore_availability=True,
-                 dataset_meta=None, *, session: "Session"):
+def add_replicas(
+    rse_id: str,
+    files: "Iterable[dict[str, Any]]",
+    account: InternalAccount,
+    ignore_availability: bool = True,
+    dataset_meta: Optional["Mapping[str, Any]"] = None,
+    *,
+    session: "Session"
+) -> None:
     """
     Bulk add file replicas.
 
@@ -1640,8 +1786,6 @@ def add_replicas(rse_id, files, account, ignore_availability=True,
     :param account: The account owner.
     :param ignore_availability: Ignore the RSE blocklisting.
     :param session: The database session in use.
-
-    :returns: list of replicas.
     """
 
     def _expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan', protocol_attr=None):
@@ -1709,16 +1853,16 @@ def add_replica(
     name: str,
     bytes_: int,
     account: models.InternalAccount,
-    adler32: "Optional[str]" = None,
-    md5: "Optional[str]" = None,
-    dsn: "Optional[str]" = None,
-    pfn: "Optional[str]" = None,
-    meta: "Optional[dict[str, Any]]" = None,
-    rules: "Optional[list[dict[str, Any]]]" = None,
+    adler32: Optional[str] = None,
+    md5: Optional[str] = None,
+    dsn: Optional[str] = None,
+    pfn: Optional[str] = None,
+    meta: Optional[dict[str, Any]] = None,
+    rules: Optional[list[dict[str, Any]]] = None,
     tombstone: "Optional[datetime]" = None,
     *,
     session: "Session"
-) -> "list[dict[str, Any]]":
+) -> list[dict[str, Any]]:
     """
     Add File replica.
 
@@ -1748,7 +1892,13 @@ def add_replica(
 
 @METRICS.time_it
 @transactional_session
-def delete_replicas(rse_id, files, ignore_availability=True, *, session: "Session"):
+def delete_replicas(
+    rse_id: str,
+    files: Optional["Sequence[dict[str, Any]]"],
+    ignore_availability: bool = True,
+    *,
+    session: "Session"
+) -> None:
     """
     Delete file replicas.
 
@@ -1847,7 +1997,15 @@ def delete_replicas(rse_id, files, ignore_availability=True, *, session: "Sessio
 
 
 @transactional_session
-def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_table2, association_temp_table, rse_id, files, *, session: "Session"):
+def __cleanup_after_replica_deletion(
+    scope_name_temp_table: Any,
+    scope_name_temp_table2: Any,
+    association_temp_table: Any,
+    rse_id: str,
+    files: "Iterable[dict[str, Any]]",
+    *,
+    session: "Session"
+) -> None:
     """
     Perform update of collections/archive associations/dids after the removal of their replicas
     :param rse_id: the rse id
@@ -2336,7 +2494,13 @@ def __cleanup_after_replica_deletion(scope_name_temp_table, scope_name_temp_tabl
 
 
 @transactional_session
-def get_replica(rse_id, scope, name, *, session: "Session"):
+def get_replica(
+    rse_id: str,
+    scope: InternalScope,
+    name: str,
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Get File replica.
 
@@ -2361,7 +2525,15 @@ def get_replica(rse_id, scope, name, *, session: "Session"):
 
 
 @transactional_session
-def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_seconds=600, only_delete_obsolete=False, *, session: "Session"):
+def list_and_mark_unlocked_replicas(
+    limit: int,
+    bytes_: Optional[int] = None,
+    rse_id: Optional[str] = None,
+    delay_seconds: int = 600,
+    only_delete_obsolete: bool = False,
+    *,
+    session: "Session"
+) -> list[dict[str, Any]]:
     """
     List RSE File replicas with no locks.
 
@@ -2478,7 +2650,7 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
             if len(rows) >= limit or (not only_delete_obsolete and needed_space is not None and total_bytes > needed_space):
                 break
             if state != ReplicaState.UNAVAILABLE:
-                total_bytes += bytes_
+                total_bytes += bytes_  # type: ignore
 
             rows.append({'scope': scope, 'name': name, 'path': path,
                          'bytes': bytes_, 'tombstone': tombstone,
@@ -2513,7 +2685,12 @@ def list_and_mark_unlocked_replicas(limit, bytes_=None, rse_id=None, delay_secon
 
 
 @transactional_session
-def update_replicas_states(replicas, nowait=False, *, session: "Session"):
+def update_replicas_states(
+    replicas: "Iterable[dict[str, Any]]",
+    nowait: bool = False,
+    *,
+    session: "Session"
+) -> bool:
     """
     Update File replica information and state.
 
@@ -2614,7 +2791,11 @@ def update_replicas_states(replicas, nowait=False, *, session: "Session"):
 
 
 @transactional_session
-def touch_replica(replica, *, session: "Session"):
+def touch_replica(
+    replica: dict[str, Any],
+    *,
+    session: "Session"
+) -> bool:
     """
     Update the accessed_at timestamp of the given file replica/did but don't wait if row is locked.
 
@@ -2699,7 +2880,14 @@ def touch_replica(replica, *, session: "Session"):
 
 
 @transactional_session
-def update_replica_state(rse_id, scope, name, state, *, session: "Session"):
+def update_replica_state(
+    rse_id: str,
+    scope: InternalScope,
+    name: str,
+    state: BadFilesStatus,
+    *,
+    session: "Session"
+) -> bool:
     """
     Update File replica information and state.
 
@@ -2713,7 +2901,14 @@ def update_replica_state(rse_id, scope, name, state, *, session: "Session"):
 
 
 @transactional_session
-def get_and_lock_file_replicas(scope, name, nowait=False, restrict_rses=None, *, session: "Session"):
+def get_and_lock_file_replicas(
+    scope: InternalScope,
+    name: str,
+    nowait: bool = False,
+    restrict_rses: Optional["Sequence[str]"] = None,
+    *,
+    session: "Session"
+) -> "Sequence[models.RSEFileAssociation]":
     """
     Get file replicas for a specific scope:name.
 
@@ -2743,7 +2938,13 @@ def get_and_lock_file_replicas(scope, name, nowait=False, restrict_rses=None, *,
 
 
 @transactional_session
-def get_source_replicas(scope, name, source_rses=None, *, session: "Session"):
+def get_source_replicas(
+    scope: InternalScope,
+    name: str,
+    source_rses: Optional["Sequence[str]"] = None,
+    *,
+    session: "Session"
+) -> "Sequence[str]":
     """
     Get source replicas for a specific scope:name.
 
@@ -2772,9 +2973,16 @@ def get_source_replicas(scope, name, source_rses=None, *, session: "Session"):
 
 
 @transactional_session
-def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_rses=None,
-                                           total_threads=None, thread_id=None,
-                                           *, session: "Session"):
+def get_and_lock_file_replicas_for_dataset(
+    scope: InternalScope,
+    name: str,
+    nowait: bool = False,
+    restrict_rses: Optional["Sequence[str]"] = None,
+    total_threads: Optional[int] = None,
+    thread_id: Optional[int] = None,
+    *,
+    session: "Session"
+) -> tuple[list[dict[str, Any]], dict[tuple[InternalScope, str], Any]]:
     """
     Get file replicas for all files of a dataset.
 
@@ -2812,7 +3020,7 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
     if restrict_rses is not None and len(restrict_rses) < 10:
         rse_clause = [models.RSEFileAssociation.rse_id == rse_id for rse_id in restrict_rses]
 
-    if session.bind.dialect.name == 'postgresql':
+    if session.bind.dialect.name == 'postgresql':  # type: ignore
         if total_threads and total_threads > 1:
             base_stmt = filter_thread_work(session=session,
                                            query=base_stmt,
@@ -2876,9 +3084,15 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
 
 
 @transactional_session
-def get_source_replicas_for_dataset(scope, name, source_rses=None,
-                                    total_threads=None, thread_id=None,
-                                    *, session: "Session"):
+def get_source_replicas_for_dataset(
+    scope: InternalScope,
+    name: str,
+    source_rses: Optional["Sequence[str]"] = None,
+    total_threads: Optional[int] = None,
+    thread_id: Optional[int] = None,
+    *,
+    session: "Session"
+) -> dict[tuple[InternalScope, str], Any]:
     """
     Get file replicas for all files of a dataset.
 
@@ -2955,7 +3169,11 @@ def get_source_replicas_for_dataset(scope, name, source_rses=None,
 
 
 @read_session
-def get_replica_atime(replica, *, session: "Session"):
+def get_replica_atime(
+    replica: dict[str, Any],
+    *,
+    session: "Session"
+) -> Optional[datetime]:
     """
     Get the accessed_at timestamp for a replica. Just for testing.
     :param replicas: List of dictionaries {scope, name, rse_id, path}
@@ -2978,7 +3196,11 @@ def get_replica_atime(replica, *, session: "Session"):
 
 
 @transactional_session
-def touch_collection_replicas(collection_replicas, *, session: "Session"):
+def touch_collection_replicas(
+    collection_replicas: "Iterable[dict[str, Any]]",
+    *,
+    session: "Session"
+) -> bool:
     """
     Update the accessed_at timestamp of the given collection replicas.
 
@@ -3010,7 +3232,13 @@ def touch_collection_replicas(collection_replicas, *, session: "Session"):
 
 
 @stream_session
-def list_dataset_replicas(scope, name, deep=False, *, session: "Session"):
+def list_dataset_replicas(
+    scope: "InternalScope",
+    name: str,
+    deep: bool = False,
+    *,
+    session: "Session"
+) -> "Iterator[dict[str, Any]]":
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.
@@ -3184,7 +3412,11 @@ def list_dataset_replicas(scope, name, deep=False, *, session: "Session"):
 
 
 @stream_session
-def list_dataset_replicas_bulk(names_by_intscope, *, session: "Session"):
+def list_dataset_replicas_bulk(
+    names_by_intscope: dict[str, Any],
+    *,
+    session: "Session"
+) -> "Iterator[dict[str, Any]]":
     """
     :param names_by_intscope: The dictionary of internal scopes pointing at the list of names.
     :param session: Database session to use.
@@ -3228,7 +3460,14 @@ def list_dataset_replicas_bulk(names_by_intscope, *, session: "Session"):
 
 
 @stream_session
-def list_dataset_replicas_vp(scope, name, deep=False, *, session: "Session", logger=logging.log):
+def list_dataset_replicas_vp(
+    scope: InternalScope,
+    name: str,
+    deep: bool = False,
+    *,
+    session: "Session",
+    logger: "LoggerFunction" = logging.log
+) -> Union[list[str], "Iterator[dict[str, Any]]"]:
     """
     List dataset replicas for a DID (scope:name) using the
     Virtual Placement service.
@@ -3284,7 +3523,13 @@ def list_dataset_replicas_vp(scope, name, deep=False, *, session: "Session", log
 
 
 @stream_session
-def list_datasets_per_rse(rse_id, filters=None, limit=None, *, session: "Session"):
+def list_datasets_per_rse(
+    rse_id: str,
+    filters: Optional[dict[str, Any]] = None,
+    limit: Optional[int] = None,
+    *,
+    session: "Session"
+) -> "Iterator[dict[str, Any]]":
     """
     List datasets at a RSE.
 
@@ -3317,9 +3562,9 @@ def list_datasets_per_rse(rse_id, filters=None, limit=None, *, session: "Session
 
     for (k, v) in filters and filters.items() or []:
         if k == 'name' or k == 'scope':
-            v_str = v if k != 'scope' else v.internal
+            v_str = v if k != 'scope' else v.internal  # type: ignore
             if '*' in v_str or '%' in v_str:
-                if session.bind.dialect.name == 'postgresql':  # PostgreSQL escapes automatically
+                if session.bind.dialect.name == 'postgresql':  # type: ignore | PostgreSQL escapes automatically
                     stmt = stmt.where(getattr(models.CollectionReplica, k).like(v_str.replace('*', '%')))
                 else:
                     stmt = stmt.where(getattr(models.CollectionReplica, k).like(v_str.replace('*', '%'), escape='\\'))
@@ -3345,7 +3590,7 @@ def list_datasets_per_rse(rse_id, filters=None, limit=None, *, session: "Session
 @stream_session
 def list_replicas_per_rse(
     rse_id: str,
-    limit: "Optional[int]" = None,
+    limit: Optional[int] = None,
     *,
     session: "Session"
 ) -> "Iterator[dict[str, Any]]":
@@ -3364,7 +3609,13 @@ def list_replicas_per_rse(
 
 
 @transactional_session
-def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=None, *, session: "Session"):
+def get_cleaned_updated_collection_replicas(
+    total_workers: int,
+    worker_number: int,
+    limit: Optional[int] = None,
+    *,
+    session: "Session"
+) -> list[dict[str, Any]]:
     """
     Get update request for collection replicas.
     :param total_workers:      Number of total workers.
@@ -3401,12 +3652,12 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
     session.execute(stmt)
 
     # Delete duplicates
-    if session.bind.dialect.name == 'oracle':
+    if session.bind.dialect.name == 'oracle':  # type: ignore
         schema = ''
         if BASE.metadata.schema:
             schema = BASE.metadata.schema + '.'
         session.execute(text('DELETE FROM {schema}updated_col_rep A WHERE A.rowid > ANY (SELECT B.rowid FROM {schema}updated_col_rep B WHERE A.scope = B.scope AND A.name=B.name AND A.did_type=B.did_type AND (A.rse_id=B.rse_id OR (A.rse_id IS NULL and B.rse_id IS NULL)))'.format(schema=schema)))  # NOQA: E501
-    elif session.bind.dialect.name == 'mysql':
+    elif session.bind.dialect.name == 'mysql':  # type: ignore
         subquery1 = select(
             func.max(models.UpdatedCollectionReplica.id).label('max_id')
         ).group_by(
@@ -3464,7 +3715,11 @@ def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=
 
 
 @transactional_session
-def update_collection_replica(update_request, *, session: "Session"):
+def update_collection_replica(
+    update_request: dict[str, Any],
+    *,
+    session: "Session"
+) -> None:
     """
     Update a collection replica.
     :param update_request: update request from the upated_col_rep table.
@@ -3620,7 +3875,13 @@ def update_collection_replica(update_request, *, session: "Session"):
 
 
 @read_session
-def get_bad_pfns(limit=10000, thread=None, total_threads=None, *, session: "Session"):
+def get_bad_pfns(
+    limit: int = 10000,
+    thread: Optional[int] = None,
+    total_threads: Optional[int] = None,
+    *,
+    session: "Session"
+) -> list[dict[str, Any]]:
     """
     Returns a list of bad PFNs
 
@@ -3653,7 +3914,15 @@ def get_bad_pfns(limit=10000, thread=None, total_threads=None, *, session: "Sess
 
 
 @transactional_session
-def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAVAILABLE, reason=None, expires_at=None, *, session: "Session"):
+def bulk_add_bad_replicas(
+    replicas: "Iterable[dict[str, Any]]",
+    account: InternalAccount,
+    state: BadFilesStatus = BadFilesStatus.TEMPORARY_UNAVAILABLE,
+    reason: Optional[str] = None,
+    expires_at: Optional[datetime] = None,
+    *,
+    session: "Session"
+) -> bool:
     """
     Bulk add new bad replicas.
 
@@ -3711,7 +3980,11 @@ def bulk_add_bad_replicas(replicas, account, state=BadFilesStatus.TEMPORARY_UNAV
 
 
 @transactional_session
-def bulk_delete_bad_pfns(pfns, *, session: "Session"):
+def bulk_delete_bad_pfns(
+    pfns: "Iterable[str]",
+    *,
+    session: "Session"
+) -> Literal[True]:
     """
     Bulk delete bad PFNs.
 
@@ -3738,7 +4011,11 @@ def bulk_delete_bad_pfns(pfns, *, session: "Session"):
 
 
 @transactional_session
-def bulk_delete_bad_replicas(bad_replicas, *, session: "Session"):
+def bulk_delete_bad_replicas(
+    bad_replicas: "Iterable[dict[str, Any]]",
+    *,
+    session: "Session"
+) -> Literal[True]:
     """
     Bulk delete bad replica.
 
@@ -3767,7 +4044,15 @@ def bulk_delete_bad_replicas(bad_replicas, *, session: "Session"):
 
 
 @transactional_session
-def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, *, session: "Session"):
+def add_bad_pfns(
+    pfns: "Iterable[str]",
+    account: InternalAccount,
+    state: BadFilesStatus,
+    reason: Optional[str] = None,
+    expires_at: Optional[datetime] = None,
+    *,
+    session: "Session"
+) -> Literal[True]:
     """
     Add bad PFNs.
 
@@ -3811,7 +4096,13 @@ def add_bad_pfns(pfns, account, state, reason=None, expires_at=None, *, session:
 
 
 @read_session
-def list_expired_temporary_unavailable_replicas(total_workers, worker_number, limit=10000, *, session: "Session"):
+def list_expired_temporary_unavailable_replicas(
+    total_workers: int,
+    worker_number: int,
+    limit: int = 10000,
+    *,
+    session: "Session"
+) -> "Sequence[Row]":
     """
     List the expired temporary unavailable replicas
 
@@ -3843,7 +4134,12 @@ def list_expired_temporary_unavailable_replicas(total_workers, worker_number, li
 
 
 @read_session
-def get_replicas_state(scope=None, name=None, *, session: "Session"):
+def get_replicas_state(
+    scope: Optional[InternalScope] = None,
+    name: Optional[str] = None,
+    *,
+    session: "Session"
+) -> dict[ReplicaState, list[str]]:
     """
     Method used by the necromancer to get all the replicas of a DIDs
     :param scope: The scope of the file.
@@ -3873,16 +4169,16 @@ def get_replicas_state(scope=None, name=None, *, session: "Session"):
 def get_suspicious_files(
     rse_expression: str,
     available_elsewhere: int,
-    filter_: "Optional[dict[str, Any]]" = None,
+    filter_: Optional[dict[str, Any]] = None,
     logger: "LoggerFunction" = logging.log,
-    younger_than: "Optional[datetime]" = None,
+    younger_than: Optional[datetime] = None,
     nattempts: int = 0,
     nattempts_exact: bool = False,
     *,
     session: "Session",
-    exclude_states: "Optional[Iterable[str]]" = None,
+    exclude_states: Optional["Iterable[str]"] = None,
     is_suspicious: bool = False
-) -> "list[dict[str, Any]]":
+) -> list[dict[str, Any]]:
     """
     Gets a list of replicas from bad_replicas table which are: declared more than <nattempts> times since <younger_than> date,
     present on the RSE specified by the <rse_expression> and do not have a state in <exclude_states> list.
@@ -4025,7 +4321,15 @@ def get_suspicious_files(
 
 
 @read_session
-def get_suspicious_reason(rse_id, scope, name, nattempts=0, logger=logging.log, *, session: "Session"):
+def get_suspicious_reason(
+    rse_id: str,
+    scope: InternalScope,
+    name: str,
+    nattempts: int = 0,
+    logger: "LoggerFunction" = logging.log,
+    *,
+    session: "Session"
+) -> list[dict[str, Any]]:
     """
     Returns the error message(s) which lead to the replica(s) being declared suspicious.
 
@@ -4085,7 +4389,14 @@ def get_suspicious_reason(rse_id, scope, name, nattempts=0, logger=logging.log, 
 
 
 @transactional_session
-def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, *, session: "Session"):
+def set_tombstone(
+    rse_id: str,
+    scope: InternalScope,
+    name: str,
+    tombstone: datetime = OBSOLETE,
+    *,
+    session: "Session"
+) -> None:
     """
     Sets a tombstone on a replica.
 
@@ -4127,7 +4438,12 @@ def set_tombstone(rse_id, scope, name, tombstone=OBSOLETE, *, session: "Session"
 
 
 @read_session
-def get_RSEcoverage_of_dataset(scope, name, *, session: "Session"):
+def get_RSEcoverage_of_dataset(
+    scope: "InternalScope",
+    name: str,
+    *,
+    session: "Session"
+) -> dict[str, int]:
     """
     Get total bytes present on RSEs
 

@@ -16,7 +16,7 @@ import json
 from datetime import datetime
 from io import StringIO
 from re import match
-from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, Literal, Optional, TypeVar, Union, overload
 
 import sqlalchemy
 from dogpile.cache.api import NO_VALUE
@@ -27,9 +27,10 @@ from sqlalchemy.sql.expression import and_, delete, desc, false, func, or_, sele
 
 from rucio.common import exception, types, utils
 from rucio.common.cache import MemcacheRegion
+from rucio.common.checksum import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common.constants import RSE_SUPPORTED_PROTOCOL_OPERATIONS, RseAttr
-from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
+from rucio.common.constants import RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS, RSE_ATTRS_BOOL, RSE_ATTRS_STR, SUPPORTED_SIGN_URL_SERVICES_LITERAL, RseAttr
+from rucio.common.utils import Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import ReplicaState, RSEType
@@ -886,7 +887,7 @@ def has_rse_attribute(rse_id, key, *, session: "Session"):
 
 
 @read_session
-def get_rses_with_attribute(key, *, session: "Session"):
+def get_rses_with_attribute(key, *, session: "Session") -> list[dict[str, Any]]:
     """
     Return all RSEs with a certain attribute.
 
@@ -957,6 +958,36 @@ def get_rses_with_attribute_value(key, value, vo='def', *, session: "Session"):
         return rse_list
 
     return result
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: Literal['sign_url'], use_cache: bool = True, *, session: "Session") -> Optional[SUPPORTED_SIGN_URL_SERVICES_LITERAL]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: Literal['sign_url'], use_cache: bool = True) -> Optional[SUPPORTED_SIGN_URL_SERVICES_LITERAL]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_STR', use_cache: bool = True) -> Optional[str]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_STR', use_cache: bool = True, *, session: "Session") -> Optional[str]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_BOOL', use_cache: bool = True) -> Optional[bool]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_BOOL', use_cache: bool = True, *, session: "Session") -> Optional[bool]:
+    ...
 
 
 @read_session
@@ -1290,7 +1321,7 @@ def add_protocol(
             if domain not in utils.rse_supported_protocol_domains():
                 raise exception.RSEProtocolDomainNotSupported(f"The protocol domain '{domain}' is not defined in the schema.")
             for op in parameter['domains'][domain]:
-                if op not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
+                if op not in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = parameter['domains'][domain][op]
@@ -1414,7 +1445,7 @@ def _format_get_rse_protocols(
             'verify_checksum': verify_checksum if verify_checksum is not None else True,
             'volatile': _rse['volatile']}
 
-    for op in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
+    for op in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
         info['%s_protocol' % op] = 1  # 1 indicates the default protocol
 
     for row in db_protocols:
@@ -1501,7 +1532,7 @@ def update_protocols(
             if domain not in utils.rse_supported_protocol_domains():
                 raise exception.RSEProtocolDomainNotSupported(f"The protocol domain '{domain}' is not defined in the schema.")
             for op in data['domains'][domain]:
-                if op not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
+                if op not in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = data['domains'][domain][op]
@@ -1869,7 +1900,7 @@ def determine_scope_for_rse(
         # a base which should be removed from the prefix (in order for '/' to
         # mean the entire resource associated with that issuer).
         prefix = protocol['prefix']
-        if base_path := get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH):
+        if base_path := get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH):  # type: ignore (session parameter missing)
             prefix = prefix.removeprefix(base_path)
         filtered_prefixes.add(prefix)
     all_scopes = [f'{s}:{p}' for s in scopes for p in filtered_prefixes] + list(extra_scopes)

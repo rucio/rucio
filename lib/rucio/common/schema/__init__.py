@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 import importlib
+import logging
 from configparser import NoOptionError, NoSectionError
 from os import environ
 from typing import TYPE_CHECKING, Any
@@ -23,21 +25,35 @@ from rucio.common.plugins import check_policy_package_version
 if TYPE_CHECKING:
     from types import ModuleType
 
+LOGGER = logging.getLogger('policy')
+
 # dictionary of schema modules for each VO
 schema_modules: dict[str, "ModuleType"] = {}
 
 # list of unique SCOPE_NAME_REGEXP values from all schemas
 scope_name_regexps: list[str] = []
 
-try:
-    multivo = config.config_get_bool('common', 'multi_vo', check_config_table=False)
-except (NoOptionError, NoSectionError):
-    multivo = False
+
+# cached function to check for multivo
+@functools.cache
+def _is_multivo():
+    try:
+        return config.config_get_bool('common', 'multi_vo', check_config_table=False)
+    except (NoOptionError, NoSectionError):
+        return False
+
+
+# cached function to get generic schema module
+@functools.cache
+def _get_generic_schema_module():
+    GENERIC_FALLBACK = 'generic_multi_vo' if _is_multivo() else 'generic'
+    return importlib.import_module('rucio.common.schema.' + GENERIC_FALLBACK)
+
 
 # multi-VO version loads schema per-VO on demand
 # we can't get a list of VOs here because the database might not
 # be available as this is imported during the bootstrapping process
-if not multivo:
+if not _is_multivo():
     GENERIC_FALLBACK = 'generic'
 
     if config.config_has_section('policy'):
@@ -61,12 +77,23 @@ if not multivo:
     try:
         module = importlib.import_module(POLICY)
     except ModuleNotFoundError:
-        raise exception.PolicyPackageNotFound(POLICY)
+        # if policy package does not contain schema module, load fallback module instead
+        # this allows a policy package to omit modules that do not need customisation
+        try:
+            LOGGER.warning('Unable to load schema module %s from policy package, falling back to %s'
+                           % (POLICY, GENERIC_FALLBACK))
+            POLICY = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
+            module = importlib.import_module(POLICY)
+        except ModuleNotFoundError:
+            raise exception.PolicyPackageNotFound(POLICY)
+        except ImportError:
+            raise exception.ErrorLoadingPolicyPackage(POLICY)
     except ImportError:
         raise exception.ErrorLoadingPolicyPackage(POLICY)
 
     schema_modules["def"] = module
-    scope_name_regexps.append(module.SCOPE_NAME_REGEXP)
+    if hasattr(module, 'SCOPE_NAME_REGEXP'):
+        scope_name_regexps.append(module.SCOPE_NAME_REGEXP)
 
 
 def load_schema_for_vo(vo: str) -> None:
@@ -93,7 +120,17 @@ def load_schema_for_vo(vo: str) -> None:
     try:
         module = importlib.import_module(POLICY)
     except ModuleNotFoundError:
-        raise exception.PolicyPackageNotFound(POLICY)
+        # if policy package does not contain schema module, load fallback module instead
+        # this allows a policy package to omit modules that do not need customisation
+        try:
+            LOGGER.warning('Unable to load schema module %s from policy package, falling back to %s'
+                           % (POLICY, GENERIC_FALLBACK))
+            POLICY = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
+            module = importlib.import_module(POLICY)
+        except ModuleNotFoundError:
+            raise exception.PolicyPackageNotFound(POLICY)
+        except ImportError:
+            raise exception.ErrorLoadingPolicyPackage(POLICY)
     except ImportError:
         raise exception.ErrorLoadingPolicyPackage(POLICY)
 
@@ -103,12 +140,17 @@ def load_schema_for_vo(vo: str) -> None:
 def validate_schema(name: str, obj: Any, vo: str = 'def') -> None:
     if vo not in schema_modules:
         load_schema_for_vo(vo)
+    if not hasattr(schema_modules[vo], 'validate_schema'):
+        _get_generic_schema_module().validate_schema(name, obj)
+        return
     schema_modules[vo].validate_schema(name, obj)
 
 
 def get_schema_value(key: str, vo: str = 'def') -> Any:
     if vo not in schema_modules:
         load_schema_for_vo(vo)
+    if not hasattr(schema_modules[vo], key):
+        return getattr(_get_generic_schema_module(), key)
     return getattr(schema_modules[vo], key)
 
 

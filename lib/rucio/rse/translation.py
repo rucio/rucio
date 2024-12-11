@@ -34,9 +34,6 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
     def __init__(self, vo: str = 'def'):
         super().__init__()
 
-        self.register(RSEDeterministicScopeTranslation._default, "def")
-        self.register(RSEDeterministicScopeTranslation._atlas, "atlas")
-
         logger = logging.getLogger(__name__)
 
         try:
@@ -51,6 +48,13 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
                 algorithm_name = "def"
 
         self.parser = self.get_parser(algorithm_name)
+
+    @classmethod
+    def _module_init_(cls) -> None:
+        """
+        Registers the included scope extraction algorithms
+        """
+        cls.register(cls._default, "def")
 
     @classmethod
     def get_parser(cls, algorithm_name: str) -> 'Callable[..., Any]':
@@ -88,26 +92,8 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         name = parsed_pfn['name']
         return name, scope
 
-    @staticmethod
-    def _atlas(parsed_pfn: 'Mapping[str, str]') -> tuple[str, str]:
-        """ Translate pfn to name/scope pair
 
-        :param parsed_pfn: dictionary representing pfn containing:
-            - path: str,
-            - name: str
-        :return: tuple containing name, scope
-        """
-        path = parsed_pfn['path']
-        if path.startswith('/user') or path.startswith('/group'):
-            scope = '%s.%s' % (path.split('/')[1], path.split('/')[2])
-            name = parsed_pfn['name']
-        else:
-            name, scope = RSEDeterministicScopeTranslation._default(parsed_pfn)
-
-        return name, scope
-
-
-RSEDeterministicScopeTranslation()
+RSEDeterministicScopeTranslation._module_init_()  # pylint: disable=protected-access
 
 
 class RSEDeterministicTranslation(PolicyPackageAlgorithms):
@@ -209,28 +195,6 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return '%s/%s' % (scope, name)
 
     @staticmethod
-    def __belleii(scope, name, rse, rse_attrs, protocol_attrs):
-        """
-        Given a LFN, convert it directly to a path using the mapping:
-
-            path -> path
-        This is valid only for the belleii convention where the scope can be determined
-        from the LFN using a determinitic function.
-
-        :param scope: Scope of the LFN.
-        :param name: File name of the LFN.
-        :param rse: RSE for PFN (ignored)
-        :param rse_attrs: RSE attributes for PFN (ignored)
-        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
-        :returns: Path for use in the PFN generation.
-        """
-        del scope
-        del rse
-        del rse_attrs
-        del protocol_attrs
-        return name
-
-    @staticmethod
     def __ligo(scope, name, rse, rse_attrs, protocol_attrs):
         """
         Given a LFN, convert it directly to a path using the Caltech schema
@@ -277,7 +241,6 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         cls.register(cls.__hash, "hash")
         cls.register(cls.__identity, "identity")
         cls.register(cls.__ligo, "ligo")
-        cls.register(cls.__belleii, "belleii")
         cls.register(cls.__xenon, "xenon")
         policy_module = None
         try:

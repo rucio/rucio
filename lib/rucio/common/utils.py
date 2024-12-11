@@ -14,18 +14,13 @@
 
 import argparse
 import base64
-import copy
 import datetime
 import errno
 import getpass
-import hashlib
-import io
 import ipaddress
 import itertools
 import json
 import logging
-import math
-import mmap
 import os
 import os.path
 import re
@@ -35,10 +30,9 @@ import subprocess
 import tempfile
 import threading
 import time
-import zlib
 from collections import OrderedDict
 from enum import Enum
-from functools import partial, wraps
+from functools import wraps
 from io import StringIO
 from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
@@ -60,11 +54,13 @@ if EXTRA_MODULES['paramiko']:
     try:
         from paramiko import RSAKey
     except Exception:
-        EXTRA_MODULES['paramiko'] = False
+        EXTRA_MODULES['paramiko'] = None
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, Sequence
+    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
     T = TypeVar('T')
+    HashableKT = TypeVar('HashableKT')
+    HashableVT = TypeVar('HashableVT')
     from _typeshed import FileDescriptorOrPath
     from sqlalchemy.orm import Session
 
@@ -101,7 +97,7 @@ codes = {
 DATE_FORMAT = '%a, %d %b %Y %H:%M:%S UTC'
 
 
-def invert_dict(d: dict[Any, Any]) -> dict[Any, Any]:
+def invert_dict(d: "Mapping[HashableKT, HashableVT]") -> "Mapping[HashableVT, HashableKT]":
     """
     Invert the dictionary.
     CAUTION: this function is not deterministic unless the input dictionary is one-to-one mapping.
@@ -110,26 +106,6 @@ def invert_dict(d: dict[Any, Any]) -> dict[Any, Any]:
     :returns: dictionary {value: key for key, value in d.items()}
     """
     return {value: key for key, value in d.items()}
-
-
-def dids_as_dicts(did_list: 'Iterable[Union[str, dict[str, str]]]') -> list[dict[str, str]]:
-    """
-    Converts list of DIDs to list of dictionaries
-    :param did_list: list of DIDs as either "scope:name" or {"scope":"scope", "name":"name"}
-    :returns: list of dictionaries {"scope":"scope", "name":"name"}
-    """
-    out = []
-    for did in did_list:
-        if isinstance(did, str):
-            scope, name = did.split(":", 1)
-            did = dict(scope=scope, name=name)
-        if isinstance(did, dict):
-            if not ("name" in did and "scope" in did):
-                raise ValueError("Scope or name missing in: %s" % (did,))
-        else:
-            raise ValueError("Can not convert item %s (%s) to a DID" % (did, type(did)))
-        out.append(did)
-    return out
 
 
 def build_url(
@@ -148,11 +124,27 @@ def build_url(
     if path is not None:
         complete_url += "/" + path
     if params is not None:
-        complete_url += "?"
-        if isinstance(params, str):
-            complete_url += quote(params)
-        else:
-            complete_url += urlencode(params, doseq=doseq)
+        complete_url += _encode_params_as_url_query_string(params, doseq)
+    return complete_url
+
+
+def _encode_params_as_url_query_string(
+        params: Union[str, dict[Any, Any], list[tuple[Any, Any]]],
+        doseq: bool
+) -> str:
+    """
+    Encode params into a URL query string.
+
+    :param params: the parameters to encode
+    :param doseq: if True, individual key=value pairs separated by '&' are generated for each element of the value sequence for the key
+
+    :returns: params as a URL query string
+    """
+    complete_url = "?"
+    if isinstance(params, str):
+        complete_url += quote(params)
+    else:
+        complete_url += urlencode(params, doseq=doseq)
     return complete_url
 
 
@@ -227,349 +219,6 @@ def generate_uuid() -> str:
 
 def generate_uuid_bytes() -> bytes:
     return uuid().bytes
-
-
-# GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5', 'sha256', 'crc32']
-GLOBALLY_SUPPORTED_CHECKSUMS = ['adler32', 'md5']
-CHECKSUM_ALGO_DICT = {}
-PREFERRED_CHECKSUM = GLOBALLY_SUPPORTED_CHECKSUMS[0]
-CHECKSUM_KEY = 'supported_checksums'
-
-
-def is_checksum_valid(checksum_name: str) -> bool:
-    """
-    A simple function to check whether a checksum algorithm is supported.
-    Relies on GLOBALLY_SUPPORTED_CHECKSUMS to allow for expandability.
-
-    :param checksum_name: The name of the checksum to be verified.
-    :returns: True if checksum_name is in GLOBALLY_SUPPORTED_CHECKSUMS list, False otherwise.
-    """
-
-    return checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS
-
-
-def set_preferred_checksum(checksum_name: str) -> None:
-    """
-    If the input checksum name is valid,
-    set it as PREFERRED_CHECKSUM.
-
-    :param checksum_name: The name of the checksum to be verified.
-    """
-    if is_checksum_valid(checksum_name):
-        global PREFERRED_CHECKSUM
-        PREFERRED_CHECKSUM = checksum_name
-
-
-def adler32(file: "FileDescriptorOrPath") -> str:
-    """
-    An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B
-    and concatenating their bits into a 32-bit integer. A is the sum of all bytes in the
-    stream plus one, and B is the sum of the individual values of A from each step.
-
-    :param file: file name
-    :returns: Hexified string, padded to 8 values.
-    """
-
-    # adler starting value is _not_ 0
-    adler = 1
-
-    can_mmap = False
-    # try:
-    #    with open(file, 'r+b') as f:
-    #        can_mmap = True
-    # except:
-    #    pass
-
-    try:
-        # use mmap if possible
-        if can_mmap:
-            with open(file, 'r+b') as f:
-                m = mmap.mmap(f.fileno(), 0)
-                # partial block reads at slightly increased buffer sizes
-                for block in iter(partial(m.read, io.DEFAULT_BUFFER_SIZE * 8), b''):
-                    adler = zlib.adler32(block, adler)
-        else:
-            with open(file, 'rb') as f:
-                # partial block reads at slightly increased buffer sizes
-                for block in iter(partial(f.read, io.DEFAULT_BUFFER_SIZE * 8), b''):
-                    adler = zlib.adler32(block, adler)
-
-    except Exception as e:
-        raise Exception('FATAL - could not get Adler-32 checksum of file %s: %s' % (file, e))
-
-    # backflip on 32bit -- can be removed once everything is fully migrated to 64bit
-    if adler < 0:
-        adler = adler + 2 ** 32
-
-    return str('%08x' % adler)
-
-
-CHECKSUM_ALGO_DICT['adler32'] = adler32
-
-
-def md5(file: "FileDescriptorOrPath") -> str:
-    """
-    Runs the MD5 algorithm (RFC-1321) on the binary content of the file named file and returns the hexadecimal digest
-
-    :param file: file name
-    :returns: string of 32 hexadecimal digits
-    """
-    hash_md5 = hashlib.md5()
-    try:
-        with open(file, "rb") as f:
-            list(map(hash_md5.update, iter(lambda: f.read(4096), b"")))
-    except Exception as e:
-        raise Exception('FATAL - could not get MD5 checksum of file %s - %s' % (file, e))
-
-    return hash_md5.hexdigest()
-
-
-CHECKSUM_ALGO_DICT['md5'] = md5
-
-
-def sha256(file: "FileDescriptorOrPath") -> str:
-    """
-    Runs the SHA256 algorithm on the binary content of the file named file and returns the hexadecimal digest
-
-    :param file: file name
-    :returns: string of 32 hexadecimal digits
-    """
-    with open(file, "rb") as f:
-        bytes_ = f.read()  # read entire file as bytes
-        readable_hash = hashlib.sha256(bytes_).hexdigest()
-        print(readable_hash)
-        return readable_hash
-
-
-CHECKSUM_ALGO_DICT['sha256'] = sha256
-
-
-def crc32(file: "FileDescriptorOrPath") -> str:
-    """
-    Runs the CRC32 algorithm on the binary content of the file named file and returns the hexadecimal digest
-
-    :param file: file name
-    :returns: string of 32 hexadecimal digits
-    """
-    prev = 0
-    for eachLine in open(file, "rb"):
-        prev = zlib.crc32(eachLine, prev)
-    return "%X" % (prev & 0xFFFFFFFF)
-
-
-CHECKSUM_ALGO_DICT['crc32'] = crc32
-
-
-def _next_pow2(num: int) -> int:
-    if not num:
-        return 0
-    return math.ceil(math.log2(num))
-
-
-def _bittorrent_v2_piece_length_pow2(file_size: int) -> int:
-    """
-    Automatically chooses the `piece size` so that `piece layers`
-    is kept small(er) than usually. This is a balancing act:
-    having a big piece_length requires more work on bittorrent client
-    side to validate hashes, but having it small requires more
-    place to store the `piece layers` in the database.
-
-    Returns the result as the exponent 'x' for power of 2.
-    To get the actual length in bytes, the caller should compute 2^x.
-    """
-
-    # by the bittorrent v2 specification, the piece size is equal to block size = 16KiB
-    min_piece_len_pow2 = 14  # 2 ** 14 == 16 KiB
-    if not file_size:
-        return min_piece_len_pow2
-    # Limit the maximum size of pieces_layers hash chain for bittorrent v2,
-    # because we'll have to store it in the database
-    max_pieces_layers_size_pow2 = 20  # 2 ** 20 == 1 MiB
-    # sha256 requires 2 ** 5 == 32 Bytes == 256 bits
-    hash_size_pow2 = 5
-
-    # The closest power of two bigger than the file size
-    file_size_pow2 = _next_pow2(file_size)
-
-    # Compute the target size for the 'pieces layers' in the torrent
-    # (as power of two: the closest power-of-two smaller than the number)
-    # Will cap at max_pieces_layers_size for files larger than 1TB.
-    target_pieces_layers_size = math.sqrt(file_size)
-    target_pieces_layers_size_pow2 = min(math.floor(math.log2(target_pieces_layers_size)), max_pieces_layers_size_pow2)
-    target_piece_num_pow2 = max(target_pieces_layers_size_pow2 - hash_size_pow2, 0)
-
-    piece_length_pow2 = max(file_size_pow2 - target_piece_num_pow2, min_piece_len_pow2)
-    return piece_length_pow2
-
-
-def bittorrent_v2_piece_length(file_size: int) -> int:
-    return 2 ** _bittorrent_v2_piece_length_pow2(file_size)
-
-
-def bittorrent_v2_merkle_sha256(file: "FileDescriptorOrPath") -> tuple[bytes, bytes, int]:
-    """
-    Compute the .torrent v2 hash tree for the given file.
-    (http://www.bittorrent.org/beps/bep_0052.html)
-    In particular, it will return the root of the merkle hash
-    tree of the file, the 'piece layers' as described in the
-    previous BEP, and the chosen `piece size`
-
-    This function will read the file in chunks of 16KiB
-    (which is the imposed block size by bittorrent v2) and compute
-    the sha256 hash of each block. When enough blocks are read
-    to form a `piece`, will compute the merkle hash root of the
-    piece from the hashes of its blocks. At the end, the hashes
-    of pieces are combined to create the global pieces_root.
-    """
-
-    # by the bittorrent v2 specification, the block size and the
-    # minimum piece size are both fixed to 16KiB
-    block_size = 16384
-    block_size_pow2 = 14  # 2 ** 14 == 16 KiB
-    # sha256 requires 2 ** 5 == 32 Bytes == 256 bits
-    hash_size = 32
-
-    def _merkle_root(leafs: list[bytes], nb_levels: int, padding: bytes) -> bytes:
-        """
-        Build the root of the merkle hash tree from the (possibly incomplete) leafs layer.
-        If len(leafs) < 2 ** nb_levels, it will be padded with the padding repeated as many times
-        as needed to have 2 ** nb_levels leafs in total.
-        """
-        nodes = copy.copy(leafs)
-        level = nb_levels
-
-        while level > 0:
-            for i in range(2 ** (level - 1)):
-                node1 = nodes[2 * i] if 2 * i < len(nodes) else padding
-                node2 = nodes[2 * i + 1] if 2 * i + 1 < len(nodes) else padding
-                h = hashlib.sha256(node1)
-                h.update(node2)
-                if i < len(nodes):
-                    nodes[i] = h.digest()
-                else:
-                    nodes.append(h.digest())
-            level -= 1
-        return nodes[0] if nodes else padding
-
-    file_size = os.stat(file).st_size
-    piece_length_pow2 = _bittorrent_v2_piece_length_pow2(file_size)
-
-    block_per_piece_pow2 = piece_length_pow2 - block_size_pow2
-    piece_length = 2 ** piece_length_pow2
-    block_per_piece = 2 ** block_per_piece_pow2
-    piece_num = math.ceil(file_size / piece_length)
-
-    remaining = file_size
-    remaining_in_block = min(file_size, block_size)
-    block_hashes = []
-    piece_hashes = []
-    current_hash = hashlib.sha256()
-    block_padding = bytes(hash_size)
-    with open(file, 'rb') as f:
-        while True:
-            data = f.read(remaining_in_block)
-            if not data:
-                break
-
-            current_hash.update(data)
-
-            remaining_in_block -= len(data)
-            remaining -= len(data)
-
-            if not remaining_in_block:
-                block_hashes.append(current_hash.digest())
-                if len(block_hashes) == block_per_piece or not remaining:
-                    piece_hashes.append(_merkle_root(block_hashes, nb_levels=block_per_piece_pow2, padding=block_padding))
-                    block_hashes = []
-                current_hash = hashlib.sha256()
-                remaining_in_block = min(block_size, remaining)
-
-            if not remaining:
-                break
-
-    if remaining or remaining_in_block or len(piece_hashes) != piece_num:
-        raise RucioException(f'Error while computing merkle sha256 of {file}')
-
-    piece_padding = _merkle_root([], nb_levels=block_per_piece_pow2, padding=block_padding)
-    pieces_root = _merkle_root(piece_hashes, nb_levels=_next_pow2(piece_num), padding=piece_padding)
-    pieces_layers = b''.join(piece_hashes) if len(piece_hashes) > 1 else b''
-
-    return pieces_root, pieces_layers, piece_length
-
-
-def merkle_sha256(file: "FileDescriptorOrPath") -> str:
-    """
-    The root of the sha256 merkle hash tree with leaf size of 16 KiB.
-    """
-    pieces_root, _, _ = bittorrent_v2_merkle_sha256(file)
-    return pieces_root.hex()
-
-
-CHECKSUM_ALGO_DICT['merkle_sha256'] = merkle_sha256
-
-
-def bencode(obj: Union[int, bytes, str, list, dict[bytes, Any]]) -> bytes:
-    """
-    Copied from the reference implementation of v2 bittorrent:
-    http://bittorrent.org/beps/bep_0052_torrent_creator.py
-    """
-
-    if isinstance(obj, int):
-        return b"i" + str(obj).encode() + b"e"
-    elif isinstance(obj, bytes):
-        return str(len(obj)).encode() + b":" + obj
-    elif isinstance(obj, str):
-        return bencode(obj.encode("utf-8"))
-    elif isinstance(obj, list):
-        return b"l" + b"".join(map(bencode, obj)) + b"e"
-    elif isinstance(obj, dict):
-        if all(isinstance(i, bytes) for i in obj.keys()):
-            items = list(obj.items())
-            items.sort()
-            return b"d" + b"".join(map(bencode, itertools.chain(*items))) + b"e"
-        else:
-            raise ValueError("dict keys should be bytes " + str(obj.keys()))
-    raise ValueError("Allowed types: int, bytes, str, list, dict; not %s", type(obj))
-
-
-def construct_torrent(
-        scope: str,
-        name: str,
-        length: int,
-        piece_length: int,
-        pieces_root: bytes,
-        pieces_layers: "Optional[bytes]" = None,
-        trackers: "Optional[list[str]]" = None,
-) -> "tuple[str, bytes]":
-
-    torrent_dict = {
-        b'creation date': int(time.time()),
-        b'info': {
-            b'meta version': 2,
-            b'private': 1,
-            b'name': f'{scope}:{name}'.encode(),
-            b'piece length': piece_length,
-            b'file tree': {
-                name.encode(): {
-                    b'': {
-                        b'length': length,
-                        b'pieces root': pieces_root,
-                    }
-                }
-            }
-        },
-        b'piece layers': {},
-    }
-    if trackers:
-        torrent_dict[b'announce'] = trackers[0].encode()
-        if len(trackers) > 1:
-            torrent_dict[b'announce-list'] = [t.encode() for t in trackers]
-    if pieces_layers:
-        torrent_dict[b'piece layers'][pieces_root] = pieces_layers
-
-    torrent_id = hashlib.sha256(bencode(torrent_dict[b'info'])).hexdigest()[:40]
-    torrent = bencode(torrent_dict)
-    return torrent_id, torrent
 
 
 def str_to_date(string: str) -> Optional[datetime.datetime]:
@@ -764,9 +413,7 @@ class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
         """
         Registers the included non-deterministic PFN algorithms
         """
-        cls.register('T0', cls.construct_non_deterministic_pfn_T0)
-        cls.register('DQ2', cls.construct_non_deterministic_pfn_DQ2)
-        cls.register('BelleII', cls.construct_non_deterministic_pfn_BelleII)
+        cls.register('def', cls.construct_non_deterministic_pfn_default)
 
     @classmethod
     def get_algorithm(cls: type[NonDeterministicPFNAlgorithmsT], naming_convention: str) -> 'Callable[[str, Optional[str], str], str]':
@@ -820,7 +467,7 @@ class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
         return stripped_tag
 
     @staticmethod
-    def construct_non_deterministic_pfn_DQ2(dsn: str, scope: Optional[str], filename: str) -> str:
+    def construct_non_deterministic_pfn_default(dsn: str, scope: Optional[str], filename: str) -> str:
         """
         Defines relative PFN for new replicas. This method
         contains DQ2 convention. To be used for non-deterministic sites.
@@ -858,44 +505,7 @@ class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
             stripped_dsn = NonDeterministicPFNAlgorithms.__strip_dsn(dsn)
             return '/%s/%s/%s/%s/%s' % (project, dataset_type, tag, stripped_dsn, filename)
 
-    @staticmethod
-    def construct_non_deterministic_pfn_T0(dsn: str, scope: Optional[str], filename: str) -> Optional[str]:
-        """
-        Defines relative PFN for new replicas. This method
-        contains Tier0 convention. To be used for non-deterministic sites.
 
-        @return: relative PFN for new replica.
-        @rtype: str
-        """
-        fields = dsn.split('.')
-        nfields = len(fields)
-        if nfields >= 3:
-            return '/%s/%s/%s/%s/%s' % (fields[0], fields[2], fields[1], dsn, filename)
-        elif nfields == 1:
-            return '/%s/%s/%s/%s/%s' % (fields[0], 'other', 'other', dsn, filename)
-        elif nfields == 2:
-            return '/%s/%s/%s/%s/%s' % (fields[0], fields[2], 'other', dsn, filename)
-        elif nfields == 0:
-            return '/other/other/other/other/%s' % (filename)
-
-    @staticmethod
-    def construct_non_deterministic_pfn_BelleII(dsn: str, scope: Optional[str], filename: str) -> str:
-        """
-        Defines relative PFN for Belle II specific replicas.
-        This method contains the Belle II convention.
-        To be used for non-deterministic Belle II sites.
-        DSN (or datablock in the Belle II naming) contains /
-        """
-
-        fields = dsn.split("/")
-        nfields = len(fields)
-        if nfields == 0:
-            return '/other/%s' % (filename)
-        else:
-            return '%s/%s' % (dsn, filename)
-
-
-_DEFAULT_NON_DETERMINISTIC_PFN = 'DQ2'
 NonDeterministicPFNAlgorithms._module_init_()
 
 
@@ -909,7 +519,7 @@ def construct_non_deterministic_pfn(dsn: str, scope: Optional[str], filename: st
     """
     pfn_algorithms = NonDeterministicPFNAlgorithms()
     if naming_convention is None or not NonDeterministicPFNAlgorithms.supports(naming_convention):
-        naming_convention = _DEFAULT_NON_DETERMINISTIC_PFN
+        naming_convention = 'def'
     return pfn_algorithms.construct_non_deterministic_pfn(dsn, scope, filename, naming_convention)
 
 
@@ -964,8 +574,7 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         """
         Registers the included scope extraction algorithms
         """
-        cls.register('atlas', cls.extract_scope_atlas)
-        cls.register('belleii', cls.extract_scope_belleii)
+        cls.register('def', cls.extract_scope_default)
         cls.register('dirac', cls.extract_scope_dirac)
 
     @classmethod
@@ -984,8 +593,14 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         super()._register(cls._algorithm_type, algorithm_dict)
 
     @staticmethod
-    def extract_scope_atlas(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
-        # Try to extract the scope from the DSN
+    def extract_scope_default(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
+        """
+        Default fallback scope extraction algorithm, based on the ATLAS scope extraction algorithm.
+
+        :param did: The DID to extract the scope from.
+
+        :returns: A tuple containing the extracted scope and the DID.
+        """
         if did.find(':') > -1:
             if len(did.split(':')) > 2:
                 raise RucioException('Too many colons. Cannot extract scope and name')
@@ -1012,90 +627,14 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
             scope = elem[1]
         return scope, did
 
-    @staticmethod
-    def extract_scope_belleii(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
-        split_did = did.split('/')
-        if did.startswith('/belle/mock/'):
-            return 'mock', did
-        if did.startswith('/belle/MC/'):
-            if did.startswith('/belle/MC/BG') or \
-               did.startswith('/belle/MC/build') or \
-               did.startswith('/belle/MC/generic') or \
-               did.startswith('/belle/MC/log') or \
-               did.startswith('/belle/MC/mcprod') or \
-               did.startswith('/belle/MC/prerelease') or \
-               did.startswith('/belle/MC/release'):
-                return 'mc', did
-            if did.startswith('/belle/MC/cert') or \
-               did.startswith('/belle/MC/dirac') or \
-               did.startswith('/belle/MC/dr3') or \
-               did.startswith('/belle/MC/fab') or \
-               did.startswith('/belle/MC/hideki') or \
-               did.startswith('/belle/MC/merge') or \
-               did.startswith('/belle/MC/migration') or \
-               did.startswith('/belle/MC/skim') or \
-               did.startswith('/belle/MC/test'):
-                return 'mc_tmp', did
-            if len(split_did) > 4:
-                if split_did[3].find('fab') > -1 or split_did[3].find('merge') > -1 or split_did[3].find('skim') > -1:
-                    return 'mc_tmp', did
-                if split_did[3].find('release') > -1:
-                    return 'mc', did
-            return 'mc_tmp', did
-        if did.startswith('/belle/Raw/'):
-            return 'raw', did
-        if did.startswith('/belle/hRaw'):
-            return 'hraw', did
-        if did.startswith('/belle/user/'):
-            if len(split_did) > 4:
-                if len(split_did[3]) == 1 and scopes is not None and 'user.%s' % (split_did[4]) in scopes:
-                    return 'user.%s' % split_did[4], did
-            if len(split_did) > 3:
-                if scopes is not None and 'user.%s' % (split_did[3]) in scopes:
-                    return 'user.%s' % split_did[3], did
-            return 'user', did
-        if did.startswith('/belle/group/'):
-            if len(split_did) > 4:
-                if scopes is not None and 'group.%s' % (split_did[4]) in scopes:
-                    return 'group.%s' % split_did[4], did
-            return 'group', did
-        if did.startswith('/belle/data/') or did.startswith('/belle/Data/'):
-            if len(split_did) > 4:
-                if split_did[3] in ['fab', 'skim']:  # /belle/Data/fab --> data_tmp
-                    return 'data_tmp', did
-                if split_did[3].find('release') > -1:  # /belle/Data/release --> data
-                    return 'data', did
-            if len(split_did) > 5:
-                if split_did[3] in ['proc']:  # /belle/Data/proc
-                    if split_did[4].find('release') > -1:  # /belle/Data/proc/release*
-                        if len(split_did) > 7 and split_did[6] in ['GCR2c', 'prod00000007', 'prod6b', 'proc7b',
-                                                                   'proc8b', 'Bucket4', 'Bucket6test', 'bucket6',
-                                                                   'proc9', 'bucket7', 'SKIMDATAx1', 'proc10Valid',
-                                                                   'proc10', 'SkimP10x1', 'SkimP11x1', 'SkimB9x1',
-                                                                   'SkimB10x1', 'SkimB11x1']:  # /belle/Data/proc/release*/*/proc10/* --> data_tmp (Old convention)
-                            return 'data_tmp', did
-                        else:  # /belle/Data/proc/release*/*/proc11/* --> data (New convention)
-                            return 'data', did
-                    if split_did[4].find('fab') > -1:  # /belle/Data/proc/fab* --> data_tmp
-                        return 'data_tmp', did
-            return 'data_tmp', did
-        if did.startswith('/belle/ddm/functional_tests/') or did.startswith('/belle/ddm/tests/') or did.startswith('/belle/test/ddm_test'):
-            return 'test', did
-        if did.startswith('/belle/BG/'):
-            return 'data', did
-        if did.startswith('/belle/collection'):
-            return 'collection', did
-        return 'other', did
 
-
-_DEFAULT_EXTRACT = 'atlas'
 ScopeExtractionAlgorithms._module_init_()
 
 
 def extract_scope(
         did: str,
         scopes: Optional['Sequence[str]'] = None,
-        default_extract: str = _DEFAULT_EXTRACT
+        default_extract: str = 'def'
 ) -> 'Sequence[str]':
     scope_extraction_algorithms = ScopeExtractionAlgorithms()
     extract_scope_convention = config_get('common', 'extract_scope', False, None) or config_get('policy', 'extract_scope', False, None)

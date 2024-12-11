@@ -1068,14 +1068,14 @@ class PolicyPackageVersionError(PolicyPackageBaseException):
     """
     Policy package is not compatible with this version of Rucio.
     """
-    def __init__(self, package: str, rucio_version: str, supported_versions: list[str], *args):
+    def __init__(self, package: str, rucio_version: str, supported_versionset: str, *args):
         super(PolicyPackageVersionError, self).__init__(package, *args)
         self.rucio_version = rucio_version
-        self.supported_versions = supported_versions
+        self.supported_versionset = supported_versionset
         self._message = 'Policy package %s is not compatible with this Rucio version.\nRucio version: %s\nVersions supported by the package: %s' % (
             self.package,
             self.rucio_version,
-            self.supported_versions
+            self.supported_versionset
         )
         self.error_code = 103
 
@@ -1125,8 +1125,8 @@ class TraceValidationSchemaNotFound(RucioException):
     """
     Trace validation schema not found.
     """
-    def __init__(self, *args, **kwargs):
-        super(TraceValidationSchemaNotFound, self).__init__(*args, **kwargs)
+    def __init__(self, *args):
+        super(TraceValidationSchemaNotFound, self).__init__(*args)
         self._message = 'Trace validation schema not found.'
         self.error_code = 108
 
@@ -1139,3 +1139,31 @@ class PolicyPackageIsNotVersioned(PolicyPackageBaseException):
         super(PolicyPackageIsNotVersioned, self).__init__(package, *args)
         self._message = 'Policy package %s does not include information about which Rucio versions it supports.' % self.package
         self.error_code = 109
+
+
+class UnsupportedMetadataPlugin(RucioException):
+    """
+    Raised when attempting to use a metadata plugin that is not enabled on the server.
+    """
+    def __init__(self, *args):
+        super(UnsupportedMetadataPlugin, self).__init__(*args)
+        self._message = "The requested metadata plugin is not enabled on the server."
+        self.error_code = 110
+
+
+class ChecksumCalculationError(RucioException):
+    """
+    An error occurred while calculating the checksum.
+    """
+    def __init__(
+            self,
+            algorithm_name: str,
+            filepath: str,
+            *args,
+            **kwargs
+    ):
+        super(ChecksumCalculationError, self).__init__(*args, **kwargs)
+        self.algorithm_name = algorithm_name
+        self.filepath = filepath
+        self._message = 'An error occurred while calculating the %s checksum of file %s.' % (self.algorithm_name, self.filepath)
+        self.error_code = 111

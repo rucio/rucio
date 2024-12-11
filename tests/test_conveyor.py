@@ -23,10 +23,11 @@ import pytest
 from sqlalchemy import and_, delete, select, update
 
 import rucio.daemons.reaper.reaper
+from rucio.common.checksum import adler32
 from rucio.common.constants import RseAttr
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
 from rucio.common.types import InternalAccount
-from rucio.common.utils import adler32, generate_uuid
+from rucio.common.utils import generate_uuid
 from rucio.core import config as core_config
 from rucio.core import did as did_core
 from rucio.core import distance as distance_core

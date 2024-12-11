@@ -4,6 +4,8 @@ urllib3>=1.26.18                                            # HTTP library with 
 dogpile-cache>=1.2.2                                        # Caching API plugins (1.1.2 is the first version to support pymemcache)
 tabulate>=0.9.0                                             # Pretty-print tabular data
 jsonschema>=4.20.0                                          # For JSON schema validation (Policy modules)
+packaging>=24.1                                             # Packaging utilities
+rich>=13.7.1                                                # For Rich terminal display
 
 # All dependencies needed in extras for rucio client should be defined here
 paramiko>=3.4.0                                             # ssh_extras; SSH2 protocol library (also needed in the server)

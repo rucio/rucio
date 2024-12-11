@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import importlib
+import logging
 from configparser import NoOptionError, NoSectionError
 from os import environ
 from typing import TYPE_CHECKING, Any
 
+import rucio.core.permission.generic
 from rucio.common import config, exception
 from rucio.common.plugins import check_policy_package_version
 
@@ -26,6 +28,8 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from rucio.common.types import InternalAccount
+
+LOGGER = logging.getLogger('policy')
 
 # dictionary of permission modules for each VO
 permission_modules = {}
@@ -69,7 +73,17 @@ if not multivo:
     try:
         module = importlib.import_module(POLICY)
     except ModuleNotFoundError:
-        raise exception.PolicyPackageNotFound(POLICY)
+        # if policy package does not contain permission module, load fallback module instead
+        # this allows a policy package to omit modules that do not need customisation
+        try:
+            LOGGER.warning('Unable to load permission module %s from policy package, falling back to %s'
+                           % (POLICY, FALLBACK_POLICY))
+            POLICY = 'rucio.core.permission.' + FALLBACK_POLICY.lower()
+            module = importlib.import_module(POLICY)
+        except ModuleNotFoundError:
+            raise exception.PolicyPackageNotFound(POLICY)
+        except ImportError:
+            raise exception.ErrorLoadingPolicyPackage(POLICY)
     except ImportError:
         raise exception.ErrorLoadingPolicyPackage(POLICY)
 
@@ -100,6 +114,17 @@ def load_permission_for_vo(vo: str) -> None:
     try:
         module = importlib.import_module(POLICY)
     except ModuleNotFoundError:
+        # if policy package does not contain permission module, load fallback module instead
+        # this allows a policy package to omit modules that do not need customisation
+        try:
+            LOGGER.warning('Unable to load permission module %s from policy package, falling back to %s'
+                           % (POLICY, GENERIC_FALLBACK))
+            POLICY = 'rucio.core.permission.' + GENERIC_FALLBACK.lower()
+            module = importlib.import_module(POLICY)
+        except ModuleNotFoundError:
+            raise exception.PolicyPackageNotFound(POLICY)
+        except ImportError:
+            raise exception.ErrorLoadingPolicyPackage(POLICY)
         raise exception.PolicyPackageNotFound(POLICY)
     except ImportError:
         raise exception.ErrorLoadingPolicyPackage(POLICY)
@@ -130,7 +155,14 @@ def has_permission(
 ) -> PermissionResult:
     if issuer.vo not in permission_modules:
         load_permission_for_vo(issuer.vo)
-    result = permission_modules[issuer.vo].has_permission(issuer, action, kwargs, session=session)
+    try:
+        result = permission_modules[issuer.vo].has_permission(issuer, action, kwargs, session=session)
+    except TypeError:
+        # will be thrown if policy package is missing the action in its perm dictionary
+        result = None
+    # if this permission is missing from the policy package, fallback to generic
+    if result is None:
+        result = rucio.core.permission.generic.has_permission(issuer, action, kwargs, session=session)
     # continue to support policy packages that just return a boolean and no message
     if isinstance(result, bool):
         result = PermissionResult(result)

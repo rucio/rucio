@@ -25,6 +25,7 @@ from rucio.core.topology import Topology
 from rucio.core.transfer import ProtocolFactory, build_transfer_paths
 from rucio.db.sqla.session import get_session
 from rucio.transfertool.fts3 import FTS3Transfertool, build_job_params
+from rucio.transfertool.fts3_plugins import FTS3TapeMetadataPlugin
 
 mock_session = get_session()
 
@@ -108,7 +109,7 @@ def test_scheduling_hints(file_config_mock, did_factory, rse_factory, root_accou
     assert len(job_params["archive_metadata"].keys()) == 1
     generated_scheduling_hints = job_params["archive_metadata"]["scheduling_hints"]
 
-    expected_scheduling_hints = {"priority": "100"}
+    expected_scheduling_hints = {"priority": 100}
     assert expected_scheduling_hints == generated_scheduling_hints
 
 
@@ -150,93 +151,105 @@ def test_activity_missing(file_config_mock, did_factory, rse_factory, root_accou
     assert "archive_metadata" in job_params
     generated_scheduling_hints = job_params["archive_metadata"]["scheduling_hints"]
 
-    expected_scheduling_hints = {"priority": "20"}
+    expected_scheduling_hints = {"priority": 20}
     assert expected_scheduling_hints == generated_scheduling_hints
 
 
-@pytest.mark.parametrize("file_config_mock", [
-    {
-        "overrides": [
-            ("transfers", "fts3tape_metadata_plugins", "test")
-        ]
-    }
-], indirect=True)
-def test_collocation_hints(file_config_mock, did_factory, rse_factory, root_account):
-    """For a mock collocation algorithm, it can produce the 4 levels of hints required for each did"""
+class TestCollocationHints:
+    class TestCollocationPlugin(FTS3TapeMetadataPlugin):
+        def __init__(self) -> None:
+            self.register(
+                'test',
+                func=lambda x: self._test_collocation(x))
+            super().__init__('test')
 
-    mock_did = did_factory.random_file_did()
-    transfer_path = _make_transfer_path(mock_did, rse_factory, root_account)
+        def _test_collocation(self, hints: dict[str, str]) -> dict[str, dict]:
+            return {"collocation_hints": {"0": "", "1": "", "2": "", "3": ""}}
 
-    # Mock Transfer Tool
-    fts3_tool = FTS3Transfertool(TEST_FTS_HOST)
+    TestCollocationPlugin()
 
-    job_params = build_job_params(
-        transfer_path=transfer_path,
-        bring_online=None,
-        default_lifetime=None,
-        archive_timeout_override=None,
-        max_time_in_queue=None,
-        logger=logging.log,
-    )
-
-    # Get the job params used for each transfer
-    job_params = fts3_tool._file_from_transfer(transfer_path[0], job_params)
-
-    expected_collocation_hints = {
-        "collocation_hints": {
-            "0": "",
-            "1": "",
-            "2": "",
-            "3": "",
+    @pytest.mark.parametrize("file_config_mock", [
+        {
+            "overrides": [
+                ("transfers", "fts3tape_metadata_plugins", "test")
+            ]
         }
-    }
+    ], indirect=True)
+    def test_collocation_hints(self, file_config_mock, did_factory, rse_factory, root_account):
+        """For a mock collocation algorithm, it can produce the 4 levels of hints required for each did"""
 
-    assert "archive_metadata" in job_params
-    generated_collocation_hints = job_params["archive_metadata"]["collocation_hints"]
+        mock_did = did_factory.random_file_did()
+        transfer_path = _make_transfer_path(mock_did, rse_factory, root_account)
 
-    assert (
-        expected_collocation_hints["collocation_hints"] == generated_collocation_hints
-    )
+        # Mock Transfer Tool
+        fts3_tool = FTS3Transfertool(TEST_FTS_HOST)
 
+        job_params = build_job_params(
+            transfer_path=transfer_path,
+            bring_online=None,
+            default_lifetime=None,
+            archive_timeout_override=None,
+            max_time_in_queue=None,
+            logger=logging.log,
+        )
 
-@pytest.mark.parametrize("file_config_mock", [
-    {
-        "overrides": [
-            ("transfers", "fts3tape_metadata_plugins", "activity, test")
-        ]
-    }
-], indirect=True)
-def test_multiple_plugin_concat(file_config_mock, did_factory, rse_factory, root_account):
-    """When multiple plugins are used (like priority and collocation), both logics are applied"""
+        # Get the job params used for each transfer
+        job_params = fts3_tool._file_from_transfer(transfer_path[0], job_params)
 
-    mock_did = did_factory.random_file_did()
-    transfer_path = _make_transfer_path(mock_did, rse_factory, root_account)
+        expected_collocation_hints = {
+            "collocation_hints": {
+                "0": "",
+                "1": "",
+                "2": "",
+                "3": "",
+            }
+        }
 
-    # Mock Transfer Tool
-    fts3_tool = FTS3Transfertool(TEST_FTS_HOST)
+        assert "archive_metadata" in job_params
+        generated_collocation_hints = job_params["archive_metadata"]["collocation_hints"]
 
-    job_params = build_job_params(
-        transfer_path=transfer_path,
-        bring_online=None,
-        default_lifetime=None,
-        archive_timeout_override=None,
-        max_time_in_queue=None,
-        logger=logging.log,
-    )
+        assert (
+            expected_collocation_hints["collocation_hints"] == generated_collocation_hints
+        )
 
-    # Get the job params used for each transfer
-    job_params = fts3_tool._file_from_transfer(transfer_path[0], job_params)
-    expected_hints = {
-        "scheduling_hints": {"priority": "20"},
-        "collocation_hints": {"0": "", "1": "", "2": "", "3": ""},
-    }
-    assert "archive_metadata" in job_params
+    @pytest.mark.parametrize("file_config_mock", [
+        {
+            "overrides": [
+                ("transfers", "fts3tape_metadata_plugins", "activity, test")
+            ]
+        }
+    ], indirect=True)
+    def test_multiple_plugin_concat(self, file_config_mock, did_factory, rse_factory, root_account):
+        """When multiple plugins are used (like priority and collocation), both logics are applied"""
 
-    generated_collocation_hints = job_params["archive_metadata"]["collocation_hints"]
-    assert expected_hints["collocation_hints"] == generated_collocation_hints
+        mock_did = did_factory.random_file_did()
+        transfer_path = _make_transfer_path(mock_did, rse_factory, root_account)
 
-    generated_scheduling_hints = job_params["archive_metadata"]["scheduling_hints"]
-    assert expected_hints["scheduling_hints"] == generated_scheduling_hints
+        # Mock Transfer Tool
+        fts3_tool = FTS3Transfertool(TEST_FTS_HOST)
+
+        job_params = build_job_params(
+            transfer_path=transfer_path,
+            bring_online=None,
+            default_lifetime=None,
+            archive_timeout_override=None,
+            max_time_in_queue=None,
+            logger=logging.log,
+        )
+
+        # Get the job params used for each transfer
+        job_params = fts3_tool._file_from_transfer(transfer_path[0], job_params)
+        expected_hints = {
+            "scheduling_hints": {"priority": 20},
+            "collocation_hints": {"0": "", "1": "", "2": "", "3": ""},
+        }
+        assert "archive_metadata" in job_params
+
+        generated_collocation_hints = job_params["archive_metadata"]["collocation_hints"]
+        assert expected_hints["collocation_hints"] == generated_collocation_hints
+
+        generated_scheduling_hints = job_params["archive_metadata"]["scheduling_hints"]
+        assert expected_hints["scheduling_hints"] == generated_scheduling_hints
 
 
 @pytest.mark.parametrize("file_config_mock", [
