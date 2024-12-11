@@ -173,7 +173,7 @@ class TestImplUploadDownload:
         exitcode, out, err = execute(cmd)
         print(out, err)
         # delete the physical file
-        cmd = 'rucio replica list --pfn --did {0}:{1}'.format(scope, tmp_file1.name)
+        cmd = 'rucio replica list file --pfns --did {0}:{1}'.format(scope, tmp_file1.name)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -230,7 +230,7 @@ class TestImplUploadDownload:
         assert re.search(r'File already exists on RSE. Skipping upload', err) is not None
 
         # Downloading the file
-        cmd = 'rucio download --legacy -dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_file1_name, impl)
+        cmd = 'rucio download --legacy --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_file1_name, impl)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
