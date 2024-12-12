@@ -28,7 +28,7 @@ def make_warning():
 
     if first_command not in ("-h", "--version", "--help"):
         command_map = {
-            "data": {"-h": "did -h", "import": "did upload", "export": "did download"},
+            "data": {"import": "upload", "export": "download"},
             "account": {
                 "-h": "account -h",
                 "add": "account add",
@@ -48,9 +48,9 @@ def make_warning():
             "rse": {
                 "-h": "rse -h",
                 "add": "rse add",
-                "list": "rse",
+                "list": "rse list",
                 "update": "rse update",
-                "info": "rse info",
+                "info": "rse show",
                 "set-attribute": "rse attribute add",
                 "delete-attribute": "rse attribute remove",
                 "delete-distance": "rse distance remove",
@@ -69,7 +69,15 @@ def make_warning():
             "scope": {"-h": "scope -h", "add": "scope add", "list": "scope list"},
             "config": {"-h": "config -h", "get": "config list", "set": "config add", "delete": "config remove"},
             "subscription": {"-h": "subscription -h", "add": "subscription add", "list": "subscription", "update": "subscription update", "reevaluate": "subscription touch"},
-            "replicas": {"-h": "replica -h", "quarantine": "replica state quarantine", "declare-bad": "replica state bad", "declare-temporary-unavailable": "replica state temp-unavailable", "list-pfns": "replica pfn", "set-tombstone": "replica tombstone"},
+            "replicas": {
+                "-h": "replica -h",
+                "quarantine": "replica state quarantine",
+                "declare-bad": "replica state bad",
+                "declare-temporary-unavailable":
+                "replica state unavailable",
+                "set-tombstone": "replica remove",
+                "list-pfns": "replica list file --pfns"
+            },
         }
         try:
             new_command = command_map[first_command]
