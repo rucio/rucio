@@ -36,7 +36,7 @@ def get_scope_and_rses():
 
     :return: A tuple (scope, rses) for the rucio client where scope is mock/test and rses is a list or (None, [None]) if no suitable rse exists.
     """
-    cmd = "rucio rse list --rse 'test_container_xrd=True'"
+    cmd = "rucio rse list --rses 'test_container_xrd=True'"
     print(cmd)
     exitcode, out, err = execute(cmd)
     print(out, err)

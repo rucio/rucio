@@ -2069,7 +2069,7 @@ def add_lifetime_exception(args, client, logger, console, spinner):
 
 def test_server(args, client, logger, console, spinner):
     """"
-    %(prog)s test-server [options] <field1=value1 field2=value2 ...>
+    %(prog)s test-rucio-server [options] <field1=value1 field2=value2 ...>
     Test the client against a server.
     """
     suite = unittest.TestLoader().loadTestsFromTestCase(TestRucioServer)
@@ -2735,7 +2735,7 @@ can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/co
     list_datasets_rse_parser.add_argument('--long', dest='long', action='store_true', default=False, help='The long option')
 
     # The test-server command
-    test_server_parser = subparsers.add_parser('test-server', help='Test Server', description='Run a bunch of tests against the Rucio Servers.')
+    test_server_parser = subparsers.add_parser('test-rucio-server', help='Test Server', description='Run a bunch of tests against the Rucio Servers.')
     test_server_parser.set_defaults(function=test_server)
 
     # The get-metadata subparser
