@@ -26,9 +26,11 @@ clients_requirements_table = {
         'requests',
         'urllib3',
         'dogpile-cache',
+        'packaging',
         'tabulate',
         'jsonschema',
         'dataclasses',
+        'rich',
     ],
     'ssh': ['paramiko'],
     'kerberos': [
