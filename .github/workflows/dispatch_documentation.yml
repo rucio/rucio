@@ -1,0 +1,19 @@
+name: Trigger Doc Build
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  workflow_trigger:
+    runs-on: ubuntu-latest
+
+ steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+      - name: Dispatch Event to Trigger Docs Build
+        uses: GitHub/dispatch@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISPATCH_EVENT_NAME: 'build-docs'
+          repo-name: 'rucio/documentation'
