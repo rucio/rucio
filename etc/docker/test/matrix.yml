@@ -13,7 +13,6 @@ python:
         - client
         - client_syntax
         - syntax
-        - docs
         - sqlite
   - id: "3.10"
     allow:
