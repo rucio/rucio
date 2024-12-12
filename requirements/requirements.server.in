@@ -38,3 +38,4 @@ python3-saml==1.16.0                                        # saml_extras
 pymongo==4.8.0                                              # pymongo (metadata plugin)
 libtorrent==2.0.9                                           # Support for the bittorrent transfertool
 qbittorrent-api==2023.11.57                                 # qBittorrent plugin for the bittorrent tranfsertool
+rich==13.7.1                                                # For Rich terminal display

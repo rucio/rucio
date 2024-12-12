@@ -34,8 +34,6 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
     def __init__(self, vo: str = 'def'):
         super().__init__()
 
-        self.register(RSEDeterministicScopeTranslation._default, "def")
-
         logger = logging.getLogger(__name__)
 
         try:
@@ -50,6 +48,13 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
                 algorithm_name = "def"
 
         self.parser = self.get_parser(algorithm_name)
+
+    @classmethod
+    def _module_init_(cls) -> None:
+        """
+        Registers the included scope extraction algorithms
+        """
+        cls.register(cls._default, "def")
 
     @classmethod
     def get_parser(cls, algorithm_name: str) -> 'Callable[..., Any]':
@@ -88,7 +93,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         return name, scope
 
 
-RSEDeterministicScopeTranslation()
+RSEDeterministicScopeTranslation._module_init_()  # pylint: disable=protected-access
 
 
 class RSEDeterministicTranslation(PolicyPackageAlgorithms):
