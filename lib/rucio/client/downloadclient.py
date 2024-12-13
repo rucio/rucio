@@ -325,8 +325,6 @@ class DownloadClient:
         :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
         :param sort: Select best replica by replica sorting algorithm. Available algorithms:
             ``geoip``       - based on src/dst IP topographical distance
-            ``closeness``   - based on src/dst closeness
-            ``dynamic``     - Rucio Dynamic Smart Sort (tm)
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -836,8 +834,6 @@ class DownloadClient:
         :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
         :param sort: Select best replica by replica sorting algorithm. Available algorithms:
             ``geoip``       - based on src/dst IP topographical distance
-            ``closeness``   - based on src/dst closeness
-            ``dynamic``     - Rucio Dynamic Smart Sort (tm)
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -1199,7 +1195,7 @@ class DownloadClient:
         if self.is_tape_excluded:
             try:
                 tape_rses = [endp['rse'] for endp in self.client.list_rses(rse_expression='istape=true')]
-            except:
+            except Exception:
                 logger(logging.DEBUG, 'No tapes found.')
 
         # Matches each dereferenced DID back to a list of input items
