@@ -23,22 +23,6 @@ from rucio.tests.common import skip_rse_tests_with_accounts
 
 
 @pytest.fixture(scope='class')
-def scope_and_rse(mock_scope, test_scope):
-    """
-    Check if xrd containers rses for xrootd are available in the testing environment.
-    :return: A tuple (scope, rses) for the rucio client where scope is mock/test and rses is a list.
-    """
-    cmd = "rucio rse list --rses 'test_container_xrd=True'"
-    print(cmd)
-    exitcode, out, err = execute(cmd)
-    print(out, err)
-    rses = out.split()
-    if len(rses) == 0:
-        return mock_scope, 'MOCK-POSIX'
-    return test_scope, rses[0]
-
-
-@pytest.fixture(scope='class')
 def scope(scope_and_rse):
     scope, rse = scope_and_rse
     return scope
