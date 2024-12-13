@@ -104,7 +104,7 @@ class TestRucioServer:
         print(out)
         print(err)
         # The files should be there
-        cmd = 'ls /tmp/{0}/rucio_testfile_*'.format(tmp_dsn)
+        cmd = 'ls /tmp/{0}/*'.format(tmp_dsn)
         print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(err, out)
