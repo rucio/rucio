@@ -21,6 +21,16 @@ from rucio.client.commands.bin_legacy.rucio import main as main_legacy
 from rucio.client.commands.command import main
 
 
+def _get_first_command(args: list[str]) -> Optional[str]:
+    return next(
+        (
+            arg for arg in args
+            if arg != 'rucio' and (arg[0] != "-" or arg in ("-h", "--help", "--version"))
+        ),
+        None
+    )
+
+
 def make_warning():
     base_warning = "\nWARNING: This method is being deprecated."
     new_command = map_legacy_command()
@@ -33,13 +43,7 @@ def make_warning():
 
 
 def map_legacy_command() -> Optional[list[str]]:
-    command = next(
-        (
-            arg for arg in sys.argv[1:]
-            if arg != 'rucio' and (arg[0] != "-" or arg in ("-h", "--help", "--version"))
-        ),
-        None
-    )
+    command = _get_first_command(sys.argv[1:])
 
     new_command = None
     if command not in ("-h", "--version", None):
@@ -93,13 +97,7 @@ def map_legacy_command() -> Optional[list[str]]:
 if __name__ == "__main__":
     commands = ("-h", "--help", "--version", "account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download")
 
-    first_command = next(
-        (
-            arg for arg in sys.argv[1:]
-            if arg != 'rucio' and (arg[0] != "-" or arg in ("-h", "--help", "--version"))
-        ),
-        None
-    )
+    first_command = _get_first_command(sys.argv[1:])
 
     is_legacy = '--legacy' in sys.argv
 
