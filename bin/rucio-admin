@@ -20,7 +20,10 @@ from rucio.client.commands.bin_legacy.rucio_admin import main as main_legacy
 def make_warning():
     base_warning = "\nWARNING: This method is being deprecated."
     args = [arg for arg in sys.argv if arg[0] != "-" or arg in ("-h", "--help", "--version")]
-    first_command = args[1]
+    try:
+        first_command = args[1]
+    except IndexError:
+        first_command = None
     try:
         second_command = args[2]
     except IndexError:
