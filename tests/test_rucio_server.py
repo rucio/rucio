@@ -47,7 +47,7 @@ class TestRucioServer:
         print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        self.assertEqual(exitcode, 0)
+        assert exitcode == 0
 
     def test_whoami(self):
         """CLIENT (USER): rucio whoami"""
@@ -55,7 +55,7 @@ class TestRucioServer:
         print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        self.assertEqual(exitcode, 0)
+        assert exitcode == 0
 
     def test_upload_download(self, file_factory, scope_and_rse):
         """CLIENT(USER): rucio upload files to dataset/download dataset"""
@@ -79,7 +79,7 @@ class TestRucioServer:
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
-        self.assertEqual(exitcode, 0)
+        assert exitcode == 0
 
         # List the files
         cmd = 'rucio did content list --did {0}:{1}'.format(scope, tmp_dsn)
@@ -87,7 +87,7 @@ class TestRucioServer:
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
-        self.assertEqual(exitcode, 0)
+        assert exitcode == 0
 
         # List the replicas
         cmd = 'rucio replica list --did {0}:{1}'.format(scope, tmp_dsn)
@@ -95,7 +95,7 @@ class TestRucioServer:
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
-        self.assertEqual(exitcode, 0)
+        assert exitcode == 0
 
         # Downloading dataset
         cmd = 'rucio did download --dir /tmp/ --did {0}:{1}'.format(scope, tmp_dsn)
@@ -108,7 +108,7 @@ class TestRucioServer:
         print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(err, out)
-        self.assertEqual(exitcode, 0)
+        assert exitcode == 0
 
         # cleaning
         remove('/tmp/{0}/'.format(tmp_dsn) + basename(tmp_file1))
