@@ -38,6 +38,8 @@ def map_legacy_command() -> Optional[list[str]]:
     except IndexError:
         command = None
 
+    new_command = None
+    if command not in ("-h", "--version", None):
         command_map = {
             "list-file-replicas": ["replica", "list", "file"],
             "list-dataset-replicas": ["replica", "list", "dataset"],
