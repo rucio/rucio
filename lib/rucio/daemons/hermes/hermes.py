@@ -522,7 +522,6 @@ def build_message_dict(
         worker_number: int,
         total_workers: int,
         message_dict: dict[str, dict[str, Any]],
-        message_ids: list[str],
         logger: "LoggerFunction",
         service: str = ""
 ) -> None:
@@ -540,7 +539,6 @@ def build_message_dict(
             message_dict[service] = []
             for message in messages:
                 message_dict[service].append(message)
-                message_ids.append(message["id"])
             logger(
                 logging.DEBUG,
                 "Retrieved %i messages retrieved in %s seconds",
@@ -617,7 +615,6 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
 
     worker_number, total_workers, logger = heartbeat_handler.live()
     message_dict = {}
-    message_ids = []
     query_by_service = config_get_bool("hermes", "query_by_service", default=False)
 
     # query_by_service is a toggleable behaviour switch between collecting bulk number of messages across all services when false, to collecting bulk messages from each service when true.
@@ -628,7 +625,6 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                 worker_number=worker_number,
                 total_workers=total_workers,
                 message_dict=message_dict,
-                message_ids=message_ids,
                 logger=logger,
                 service=service
             )
@@ -638,7 +634,6 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             worker_number=worker_number,
             total_workers=total_workers,
             message_dict=message_dict,
-            message_ids=message_ids,
             logger=logger
         )
 
