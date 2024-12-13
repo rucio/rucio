@@ -1,4 +1,5 @@
-version: "3"
+name: rucio
+
 services:
   rucioclient:
     image: docker.io/rucio/rucio-dev:latest-alma9
@@ -57,7 +58,6 @@ services:
       - RDBMS
   ruciodb:
     image: docker.io/postgres:14
-    platform: linux/amd64
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
@@ -65,10 +65,8 @@ services:
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   graphite:
     image: docker.io/graphiteapp/graphite-statsd
-    platform: linux/amd64
   influxdb:
     image: docker.io/influxdb:latest
-    platform: linux/amd64
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=myusername
@@ -78,7 +76,6 @@ services:
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
   elasticsearch:
     image: docker.io/elasticsearch:7.8.0
-    platform: linux/amd64
     environment:
       - discovery.type=single-node
   activemq:
@@ -96,7 +93,6 @@ services:
       - ACTIVEMQ_CONFIG_QUEUES_events=/queue/events'
   postgres14:
     image: docker.io/postgres:14
-    platform: linux/amd64
     profiles:
       - postgres14
     environment:
@@ -106,7 +102,6 @@ services:
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
   mysql8:
     image: docker.io/mysql:8.3
-    platform: linux/amd64
     profiles:
       - mysql8
     environment:
@@ -153,7 +148,6 @@ services:
         hard: 10240
   ftsdb:
     image: docker.io/mysql:8.3
-    platform: linux/amd64
     profiles:
       - storage
     command: --default-authentication-plugin=mysql_native_password
@@ -266,7 +260,6 @@ services:
       - ./web1/default-ssl.conf:/etc/apache2/sites-available/default-ssl.conf
   minio:
     image: docker.io/minio/minio
-    platform: linux/amd64
     profiles:
       - storage
     environment:
@@ -285,7 +278,6 @@ services:
       - ../../certs/ssh/ruciouser_sshkey.pub:/tmp/sshkey.pub:Z
   mongo:
     image: docker.io/mongo:5.0
-    platform: linux/amd64
     profiles:
       - externalmetadata
     environment:
@@ -293,12 +285,10 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: mongo-meta
   mongo-noauth:
     image: docker.io/mongo:5.0
-    platform: linux/amd64
     profiles:
       - externalmetadata
   postgres:
     image: docker.io/postgres:14
-    platform: linux/amd64
     profiles:
       - externalmetadata
     environment:
@@ -316,17 +306,14 @@ services:
       - ./pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf:Z
   kibana:
     image: docker.io/kibana:7.4.0
-    platform: linux/amd64
     profiles:
       - monitoring
   grafana:
     image: docker.io/grafana/grafana:latest
-    platform: linux/amd64
     profiles:
       - monitoring
   iam-db:
     image: mariadb:10.11
-    platform: linux/amd64
     profiles:
       - iam
     healthcheck:
@@ -342,7 +329,6 @@ services:
       - ./iam/indigoiam_db.sql:/docker-entrypoint-initdb.d/03_indigoiam.sql:ro
   indigoiam:
     image: nginx
-    platform: linux/amd64
     profiles:
       - iam
     dns_search: cern.ch
@@ -395,7 +381,6 @@ services:
         condition: service_healthy
   keycloak:
     image: quay.io/keycloak/keycloak:23.0.1
-    platform: linux/amd64
     command: start-dev --features=token-exchange,admin-fine-grained-authz,dynamic-scopes --db mariadb --db-url-host iam-db --db-username keycloak --db-password secret --https-certificate-file=/cert.pem --https-certificate-key-file=/key.pem
     profiles:
       - iam
