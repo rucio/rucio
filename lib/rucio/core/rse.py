@@ -1905,3 +1905,30 @@ def determine_scope_for_rse(
         filtered_prefixes.add(prefix)
     all_scopes = [f'{s}:{p}' for s in scopes for p in filtered_prefixes] + list(extra_scopes)
     return ' '.join(sorted(all_scopes))
+
+
+def determine_file_scope_for_path(
+    rse_id: str,
+    file_path: str,
+    scopes: 'Iterable[str]',
+    extra_scopes: Optional[list[str]] = None,
+) -> str:
+    """Construct the Scope claim for an RSE with file path."""
+    rse_protocols = get_rse_protocols(rse_id)
+    filtered_prefixes = set()
+    for protocol in rse_protocols['protocols']:
+        # Token support is exclusive to WebDAV.
+        if protocol['scheme'] != 'davs':
+            continue
+        # Remove base path from prefix.  Storages typically map an issuer (i.e.
+        # a VO) to a particular area.  If so, then the path to that area acts as
+        # a base which should be removed from the prefix (in order for '/' to
+        # mean the entire resource associated with that issuer).
+        prefix = protocol['prefix']
+        if base_path := get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH):  # type: ignore (session parameter missing)
+            prefix = prefix.removeprefix(base_path)
+        filtered_prefixes.add(prefix)
+    all_scopes = [f'{s}:{p}{file_path}' for s in scopes for p in filtered_prefixes]
+    if extra_scopes:
+        all_scopes += extra_scopes
+    return ' '.join(sorted(all_scopes))
