@@ -98,7 +98,7 @@ class TestRucioServer:
         assert exitcode == 0
 
         # Downloading dataset
-        cmd = 'rucio did download --dir /tmp/ --did {0}:{1}'.format(scope, tmp_dsn)
+        cmd = 'rucio download --dir /tmp/ --did {0}:{1}'.format(scope, tmp_dsn)
         print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
