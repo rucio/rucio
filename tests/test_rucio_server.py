@@ -41,14 +41,6 @@ def delete_rules(did):
 @pytest.mark.noparallel(reason='uses pre-defined RSE')
 class TestRucioServer:
 
-    def setUp(self):
-        self.generated_dids = []
-
-    def tearDown(self):
-        for did in self.generated_dids:
-            delete_rules(did)
-        self.generated_dids = []
-
     def test_ping(self):
         """CLIENT (USER): rucio ping"""
         cmd = 'rucio ping'
@@ -123,4 +115,7 @@ class TestRucioServer:
         remove('/tmp/{0}/'.format(tmp_dsn) + basename(tmp_file2))
         remove('/tmp/{0}/'.format(tmp_dsn) + basename(tmp_file3))
         added_dids = ['{0}:{1}'.format(scope, did) for did in (basename(tmp_file1), basename(tmp_file2), basename(tmp_file3), tmp_dsn)]
-        self.generated_dids += added_dids
+
+        # Delete rules
+        for did in added_dids:
+            delete_rules(did)
