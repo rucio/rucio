@@ -134,7 +134,7 @@ class TestRucioServer(unittest.TestCase):
         self.assertEqual(exitcode, 0)
 
         # Downloading dataset
-        cmd = 'rucio did download --dir /tmp/ --did {0}:{1}'.format(self.scope, tmp_dsn)
+        cmd = 'rucio download --dir /tmp/ --did {0}:{1}'.format(self.scope, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
