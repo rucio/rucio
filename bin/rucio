@@ -33,10 +33,13 @@ def make_warning():
 
 
 def map_legacy_command() -> Optional[list[str]]:
-    try:
-        command = [arg for arg in sys.argv if arg[0] != "-" or arg in ("-h", "--version")][1]
-    except IndexError:
-        command = None
+    command = next(
+        (
+            arg for arg in sys.argv[1:]
+            if arg != 'rucio' and (arg[0] != "-" or arg in ("-h", "--help", "--version"))
+        ),
+        None
+    )
 
     new_command = None
     if command not in ("-h", "--version", None):
@@ -89,7 +92,15 @@ def map_legacy_command() -> Optional[list[str]]:
 
 if __name__ == "__main__":
     commands = ("-h", "--help", "--version", "account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download")
-    first_command = [arg for arg in sys.argv if arg[0] != "-" or arg in ("-h", "--help", "--version")][1]
+
+    first_command = next(
+        (
+            arg for arg in sys.argv[1:]
+            if arg != 'rucio' and (arg[0] != "-" or arg in ("-h", "--help", "--version"))
+        ),
+        None
+    )
+
     is_legacy = '--legacy' in sys.argv
 
     if (first_command in commands) and not is_legacy:
