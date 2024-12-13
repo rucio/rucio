@@ -71,7 +71,7 @@ class TestRucioServer:
         tmp_dsn = 'tests.rucio_client_test_server_' + uuid()
 
         # Adding files to a new dataset
-        cmd = 'rucio -v did upload --rse {0} --scope {1} --files {2} {3} {4} {1}:{5}'.format(rse, scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3} {4} {1}:{5}'.format(rse, scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
