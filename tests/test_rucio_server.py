@@ -21,28 +21,6 @@ from rucio.common.utils import execute
 from rucio.common.utils import generate_uuid as uuid
 
 
-def get_scope_and_rses():
-    """
-    Check if xrd containers rses for xrootd are available in the testing environment.
-
-    :return: A tuple (scope, rses) for the rucio client where scope is mock/test and rses is a list or (None, [None]) if no suitable rse exists.
-    """
-    cmd = "rucio rse list --rses 'test_container_xrd=True'"
-    print(cmd)
-    exitcode, out, err = execute(cmd)
-    print(out, err)
-    rses = out.split()
-    if len(rses) == 0:
-        return None, [None]
-
-    scope = 'test'
-    account = 'root'
-    cmd = f"rucio scope add -s {scope} -a {account}"
-    _, out, err = execute(cmd)
-    print(out, err)
-    return scope, rses
-
-
 def delete_rules(did):
     # get the rules for the file
     print('Deleting rules')
@@ -63,8 +41,6 @@ class TestRucioServer:
 
     def setUp(self):
         self.marker = '$ > '
-        self.scope, self.rses = get_scope_and_rses()
-        self.rse = self.rses[0]
         self.generated_dids = []
 
     def tearDown(self):
@@ -88,9 +64,12 @@ class TestRucioServer:
         print(out, err)
         self.assertEqual(exitcode, 0)
 
-    def test_upload_download(self, file_factory):
+    def test_upload_download(self, file_factory, scope_and_rse):
         """CLIENT(USER): rucio upload files to dataset/download dataset"""
-        if self.rse is None:
+
+        scope, rse = scope_and_rse
+
+        if rse is None:
             return
 
         tmp_file1 = file_factory.file_generator()
@@ -99,7 +78,7 @@ class TestRucioServer:
         tmp_dsn = 'tests.rucio_client_test_server_' + uuid()
 
         # Adding files to a new dataset
-        cmd = 'rucio -v did upload --rse {0} --scope {1} --files {2} {3} {4} {1}:{5}'.format(self.rse, self.scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        cmd = 'rucio -v did upload --rse {0} --scope {1} --files {2} {3} {4} {1}:{5}'.format(rse, scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -110,7 +89,7 @@ class TestRucioServer:
         self.assertEqual(exitcode, 0)
 
         # List the files
-        cmd = 'rucio did content list --did {0}:{1}'.format(self.scope, tmp_dsn)
+        cmd = 'rucio did content list --did {0}:{1}'.format(scope, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -118,7 +97,7 @@ class TestRucioServer:
         self.assertEqual(exitcode, 0)
 
         # List the replicas
-        cmd = 'rucio replica list --did {0}:{1}'.format(self.scope, tmp_dsn)
+        cmd = 'rucio replica list --did {0}:{1}'.format(scope, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -126,7 +105,7 @@ class TestRucioServer:
         self.assertEqual(exitcode, 0)
 
         # Downloading dataset
-        cmd = 'rucio did download --dir /tmp/ --did {0}:{1}'.format(self.scope, tmp_dsn)
+        cmd = 'rucio did download --dir /tmp/ --did {0}:{1}'.format(scope, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -142,5 +121,5 @@ class TestRucioServer:
         remove('/tmp/{0}/'.format(tmp_dsn) + basename(tmp_file1))
         remove('/tmp/{0}/'.format(tmp_dsn) + basename(tmp_file2))
         remove('/tmp/{0}/'.format(tmp_dsn) + basename(tmp_file3))
-        added_dids = ['{0}:{1}'.format(self.scope, did) for did in (basename(tmp_file1), basename(tmp_file2), basename(tmp_file3), tmp_dsn)]
+        added_dids = ['{0}:{1}'.format(scope, did) for did in (basename(tmp_file1), basename(tmp_file2), basename(tmp_file3), tmp_dsn)]
         self.generated_dids += added_dids
