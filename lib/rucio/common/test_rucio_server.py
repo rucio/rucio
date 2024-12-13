@@ -126,7 +126,7 @@ class TestRucioServer(unittest.TestCase):
         self.assertEqual(exitcode, 0)
 
         # List the replicas
-        cmd = 'rucio replica list --did {0}:{1}'.format(self.scope, tmp_dsn)
+        cmd = 'rucio replica list file --did {0}:{1}'.format(self.scope, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
