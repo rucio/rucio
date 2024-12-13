@@ -717,6 +717,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             "updated_at": message["created_at"],
             "payload": str(message["payload"]),
             "event_type": message["event_type"],
+            "services": message["services"]
         }
         for message in to_delete
     ]
