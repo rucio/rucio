@@ -109,6 +109,9 @@ class TestRucioServer:
         exitcode, out, err = execute(cmd)
         print(err, out)
         assert exitcode == 0
+        assert tmp_file1.name in out
+        assert tmp_file2.name in out
+        assert tmp_file3.name in out
 
         # cleaning
         remove('/tmp/{0}/'.format(tmp_dsn) + basename(tmp_file1))
