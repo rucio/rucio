@@ -20,6 +20,8 @@ import pytest
 from rucio.common.utils import execute
 from rucio.common.utils import generate_uuid as uuid
 
+MARKER = '$ > '
+
 
 def delete_rules(did):
     # get the rules for the file
@@ -40,7 +42,6 @@ def delete_rules(did):
 class TestRucioServer:
 
     def setUp(self):
-        self.marker = '$ > '
         self.generated_dids = []
 
     def tearDown(self):
@@ -51,7 +52,7 @@ class TestRucioServer:
     def test_ping(self):
         """CLIENT (USER): rucio ping"""
         cmd = 'rucio ping'
-        print(self.marker + cmd)
+        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         self.assertEqual(exitcode, 0)
@@ -59,7 +60,7 @@ class TestRucioServer:
     def test_whoami(self):
         """CLIENT (USER): rucio whoami"""
         cmd = 'rucio whoami'
-        print(self.marker + cmd)
+        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         self.assertEqual(exitcode, 0)
@@ -79,7 +80,7 @@ class TestRucioServer:
 
         # Adding files to a new dataset
         cmd = 'rucio -v did upload --rse {0} --scope {1} --files {2} {3} {4} {1}:{5}'.format(rse, scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
-        print(self.marker + cmd)
+        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
@@ -90,7 +91,7 @@ class TestRucioServer:
 
         # List the files
         cmd = 'rucio did content list --did {0}:{1}'.format(scope, tmp_dsn)
-        print(self.marker + cmd)
+        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
@@ -98,7 +99,7 @@ class TestRucioServer:
 
         # List the replicas
         cmd = 'rucio replica list --did {0}:{1}'.format(scope, tmp_dsn)
-        print(self.marker + cmd)
+        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
@@ -106,13 +107,13 @@ class TestRucioServer:
 
         # Downloading dataset
         cmd = 'rucio did download --dir /tmp/ --did {0}:{1}'.format(scope, tmp_dsn)
-        print(self.marker + cmd)
+        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
         print(err)
         # The files should be there
         cmd = 'ls /tmp/{0}/rucio_testfile_*'.format(tmp_dsn)
-        print(self.marker + cmd)
+        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(err, out)
         self.assertEqual(exitcode, 0)
