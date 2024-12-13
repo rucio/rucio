@@ -21,16 +21,6 @@ from rucio.common.utils import execute
 from rucio.common.utils import generate_uuid as uuid
 
 
-def file_generator(size=2048, namelen=10):
-    """ Create a bogus file and returns it's name.
-    :param size: size in bytes
-    :returns: The name of the generated file.
-    """
-    fn = '/tmp/rucio_testfile_' + uuid()
-    execute('dd if=/dev/urandom of={0} count={1} bs=1'.format(fn, size))
-    return fn
-
-
 def get_scope_and_rses():
     """
     Check if xrd containers rses for xrootd are available in the testing environment.
@@ -98,14 +88,14 @@ class TestRucioServer:
         print(out, err)
         self.assertEqual(exitcode, 0)
 
-    def test_upload_download(self):
+    def test_upload_download(self, file_factory):
         """CLIENT(USER): rucio upload files to dataset/download dataset"""
         if self.rse is None:
             return
 
-        tmp_file1 = file_generator()
-        tmp_file2 = file_generator()
-        tmp_file3 = file_generator()
+        tmp_file1 = file_factory.file_generator()
+        tmp_file2 = file_factory.file_generator()
+        tmp_file3 = file_factory.file_generator()
         tmp_dsn = 'tests.rucio_client_test_server_' + uuid()
 
         # Adding files to a new dataset
