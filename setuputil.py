@@ -31,6 +31,7 @@ clients_requirements_table = {
         'jsonschema',
         'dataclasses',
         'rich',
+        'typing_extensions'
     ],
     'ssh': ['paramiko'],
     'kerberos': [
