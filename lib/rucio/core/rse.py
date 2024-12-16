@@ -70,9 +70,7 @@ class RseData:
 
     @property
     def name(self) -> str:
-        if self._name is None:
-            raise ValueError(f'name not loaded for rse {self}')
-        return self._name
+        return self._get_loaded_attribute('name')
 
     @name.setter
     def name(self, name):
@@ -80,39 +78,27 @@ class RseData:
 
     @property
     def columns(self) -> dict[str, Any]:
-        if self._columns is None:
-            raise ValueError(f'columns not loaded for rse {self}')
-        return self._columns
+        return self._get_loaded_attribute('columns')
 
     @property
     def attributes(self) -> dict[str, Any]:
-        if self._attributes is None:
-            raise ValueError(f'attributes not loaded for rse {self}')
-        return self._attributes
+        return self._get_loaded_attribute('attributes')
 
     @property
     def info(self) -> types.RSESettingsDict:
-        if self._info is None:
-            raise ValueError(f'info not loaded for rse {self}')
-        return self._info
+        return self._get_loaded_attribute('info')
 
     @property
     def usage(self) -> list[dict[str, Any]]:
-        if self._usage is None:
-            raise ValueError(f'usage not loaded for rse {self}')
-        return self._usage
+        return self._get_loaded_attribute('usage')
 
     @property
     def limits(self) -> dict[str, Any]:
-        if self._limits is None:
-            raise ValueError(f'limits not loaded for rse {self}')
-        return self._limits
+        return self._get_loaded_attribute('limits')
 
     @property
     def transfer_limits(self):
-        if self._transfer_limits is None:
-            raise ValueError(f'transfer_limits not loaded for rse {self}')
-        return self._transfer_limits
+        return self._get_loaded_attribute('transfer_limits')
 
     def __hash__(self):
         return hash(self.id)
