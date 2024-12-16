@@ -2138,7 +2138,7 @@ def get_parser():
 
     # Options for the x509  auth_strategy
     oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file for x509 Authentication.')
-    oparser.add_argument('--client_key', dest='client_key', default=None, help='Client key for x509 Authentication.')
+    oparser.add_argument('--client-key', dest='client_key', default=None, help='Client key for x509 Authentication.')
     oparser.add_argument('--ca-certificate', dest='ca_certificate', default=None, help='CA certificate to verify peer against (SSL).')
 
     # Ping command
