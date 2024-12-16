@@ -62,6 +62,12 @@ class RseData:
         self._limits = limits
         self._transfer_limits = transfer_limits
 
+    def _get_loaded_attribute(self, attribute_name: str) -> Any:
+        attribute = getattr(self, f'_{attribute_name}', None)
+        if attribute is None:
+            raise ValueError(f'{attribute_name} not loaded for rse {self}')
+        return attribute
+
     @property
     def name(self) -> str:
         if self._name is None:
