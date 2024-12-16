@@ -46,7 +46,7 @@ from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
 from rucio.core.oidc import request_token
 from rucio.core.replica import delete_replicas, list_and_mark_unlocked_replicas
-from rucio.core.rse import RseData, determine_audience_for_rse, determine_scope_for_rse, list_rses
+from rucio.core.rse import RseData, determine_audience_for_rse, determine_scope_for_rse, list_rses, get_modify_scope_for_tokens
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
 from rucio.core.vo import list_vos
@@ -619,7 +619,8 @@ def _run_once(
                 audience = determine_audience_for_rse(rse.id)
                 # FIXME: At the time of writing, StoRM requires `storage.read`
                 # in order to perform a stat operation.
-                scope = determine_scope_for_rse(rse.id, scopes=['storage.modify', 'storage.read'])
+                file_path = get_modify_scope_for_tokens("/store", None, logger)
+                scope = determine_scope_for_rse(rse.id, scopes=['storage.modify', 'storage.read'], file_path=file_path)
                 auth_token = request_token(audience, scope)
                 if auth_token:
                     logger(logging.INFO, 'Using a token to delete on RSE %s', rse.name)
