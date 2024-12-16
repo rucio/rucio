@@ -19,7 +19,7 @@ from re import match
 from typing import TYPE_CHECKING, Any, Generic, Literal, Optional, TypeVar, Union, overload
 
 import sqlalchemy
-from dogpile.cache.api import NO_VALUE
+from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
@@ -621,7 +621,7 @@ def get_rse_id(rse, vo='def', include_deleted=True, *, session: "Session"):
         else:
             cache_key = 'rse-id_{}'.format(rse).replace(' ', '.')
         result = REGION.get(cache_key)
-        if result != NO_VALUE:
+        if not isinstance(result, NoValue):
             return result
 
     try:
@@ -647,7 +647,7 @@ def _get_rse_db_column(rse_id: str, column, cache_prefix: str, include_deleted: 
     if include_deleted:
         cache_key = '{}_{}'.format(cache_prefix, rse_id)
         result = REGION.get(cache_key)
-        if result != NO_VALUE:
+        if not isinstance(result, NoValue):
             return result
 
     try:
@@ -824,7 +824,7 @@ def list_rse_attributes(rse_id: str, use_cache: bool = False, *, session: "Sessi
     if use_cache:
         value = REGION.get(cache_key)
 
-        if value is not NO_VALUE:
+        if not isinstance(value, NoValue):
             return value
 
     rse_attrs = {}
@@ -942,7 +942,7 @@ def get_rses_with_attribute_value(key, value, vo='def', *, session: "Session"):
         cache_key = 'av-%s-%s' % (key, value)
 
     result = REGION.get(cache_key)
-    if result is NO_VALUE:
+    if isinstance(result, NoValue):
 
         rse_list = []
 
@@ -1018,7 +1018,7 @@ def get_rse_attribute(rse_id: str, key: str, use_cache: bool = True, *, session:
     if use_cache:
         value = REGION.get(cache_key)
 
-        if value is not NO_VALUE:
+        if not isinstance(value, NoValue):
             return value
 
     stmt = select(
@@ -1499,7 +1499,7 @@ def get_rse_info(rse_id, *, session: "Session") -> types.RSESettingsDict:
     """
     key = 'rse_info_%s' % rse_id
     result = REGION.get(key)
-    if result is NO_VALUE:
+    if isinstance (result, NoValue):
         result = get_rse_protocols(rse_id=rse_id, session=session)
         REGION.set(key, result)
     return result
