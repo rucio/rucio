@@ -22,8 +22,6 @@ from configparser import NoOptionError, NoSectionError
 from functools import wraps
 from typing import TYPE_CHECKING
 
-from typing_extensions import NotRequired, TypedDict
-
 from rucio.client.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (
@@ -46,11 +44,12 @@ from rucio.common.utils import setup_logger
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from typing_extensions import NotRequired, TypedDict
 
-class OperationDict(TypedDict):
-    call: "Callable"
-    docs: NotRequired[str]
-    namespace: NotRequired["Callable"]
+    class OperationDict(TypedDict):
+        call: Callable
+        docs: NotRequired[str]
+        namespace: NotRequired[Callable]
 
 
 def exception_handler(function):
