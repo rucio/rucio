@@ -39,10 +39,38 @@ class LifetimeClient(BaseClient):
             states: Optional['Sequence[LifetimeExceptionsState]'] = None
     ) -> 'Iterator[dict[str, Any]]':
         """
-        List exceptions to Lifetime Model.
+        Lists lifetime model exceptions that allow extending data lifetimes beyond their configured policies.
 
-        :param id:         The id of the exception
-        :param states:     The states to filter
+        The lifetime model exceptions are used to override the default lifecycle policies for data identifiers
+        (files, datasets, containers, or archives) that need to be kept longer than usual. These exceptions
+        can be filtered by their ID or approval state.
+
+        :param exception_id: The unique identifier of a specific exception. If provided, returns only that exception.
+        :param states: Filter exceptions by their states. Possible values are:
+                      - `A` (APPROVED): Exception was approved
+                      - `R` (REJECTED): Exception was rejected
+                      - `W` (WAITING): Exception is waiting for approval
+
+        :returns:
+            An iterator of dictionaries containing the exception details:
+             - `id`: The unique identifier of the exception
+             - `scope`: The scope associated with the data identifier
+             - `name`: The name of the data identifier
+             - `did_type`: Type of the data identifier:
+                    `F` (file), `D` (dataset), `C` (container), `A` (archive),
+                    `X` (deleted file), `Y` (deleted dataset), `Z` (deleted container)
+             - `account`: The account that requested the exception
+             - `pattern`: Pattern used for matching data identifiers
+             - `comments`: User provided comments explaining the exception
+             - `state`: Current state of the exception
+             - `created_at`: When the exception was created
+             - `expires_at`: When the exception expires
+
+        :raises LifetimeExceptionNotFound: If no exceptions exist or match the filters
+        :raises UnsupportedRequestedContentType: If the client requests an unsupported content type
+        :raises CannotAuthenticate: If authentication to the server fails
+        :raises ServerConnectionException: If the server cannot be reached
+        :raises RucioException: Any other failure happening in the server
         """
 
         path = self.LIFETIME_BASEURL + '/'
@@ -70,16 +98,35 @@ class LifetimeClient(BaseClient):
             expires_at: 'datetime'
     ) -> dict[str, Any]:
         """
-        Add exceptions to Lifetime Model.
+        Creates a lifetime model exception request to extend the expiration date of data identifiers (DIDs).
 
-        :param dids:        The list of dids
-        :param account:     The account of the requester.
-        :param pattern:     The account.
-        :param comments:    The comments associated to the exception.
-        :param expires_at:  The expiration date of the exception.
+        These exceptions allow requesting extensions to DIDs' lifetimes, subject to approval and configured
+        maximum extension periods. The request includes details about which DIDs should have extended
+        lifetimes, who is requesting it, and why it's needed.
 
-        returns:            The id of the exception.
+        :param dids: List of dictionaries containing the data identifiers to be excepted.
+                    Each dictionary must contain:
+                    - `scope`: The scope name
+                    - `name`: The DID name
+        :param account: The account requesting the exception
+        :param pattern: Associated pattern for the exception request
+        :param comments: Justification for why the exception is needed
+        :param expires_at: When the exception should expire (datetime object)
+
+        :returns: A dictionary containing:
+                 - `exceptions`: Dictionary mapping exception IDs to lists of DIDs that were successfully added
+                 - `unknown`: List of DIDs that could not be found
+                 - `not_affected`: List of DIDs that did not qualify for an exception
+
+        :raises AccessDenied: If the account is not authorized to request exceptions
+        :raises InvalidObject: If the request parameters are invalid
+        :raises LifetimeExceptionDuplicate: If an identical exception already exists
+        :raises UnsupportedOperation: If the request is made outside allowed time windows
+        :raises CannotAuthenticate: If authentication to the server fails
+        :raises ServerConnectionException: If the server cannot be reached
+        :raises RucioException: Any other failure happening in the server
         """
+
         path = self.LIFETIME_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
         data = {'dids': dids, 'account': account, 'pattern': pattern, 'comments': comments, 'expires_at': expires_at}
