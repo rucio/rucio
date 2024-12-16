@@ -1909,8 +1909,8 @@ def determine_scope_for_rse(
 
 def determine_file_scope_for_path(
     rse_id: str,
-    file_path: str,
     scopes: 'Iterable[str]',
+    file_path: Optional[str],
     extra_scopes: Optional[list[str]] = None,
 ) -> str:
     """Construct the Scope claim for an RSE with file path."""
@@ -1928,7 +1928,7 @@ def determine_file_scope_for_path(
         if base_path := get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH):  # type: ignore (session parameter missing)
             prefix = prefix.removeprefix(base_path)
         filtered_prefixes.add(prefix)
-    all_scopes = [f'{s}:{p}{file_path}' for s in scopes for p in filtered_prefixes]
+    all_scopes = [f'{s}:{p}{file_path or ""}' for s in scopes for p in filtered_prefixes]
     if extra_scopes:
         all_scopes += extra_scopes
     return ' '.join(sorted(all_scopes))

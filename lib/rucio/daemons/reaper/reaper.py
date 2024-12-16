@@ -49,6 +49,7 @@ from rucio.core.replica import delete_replicas, list_and_mark_unlocked_replicas
 from rucio.core.rse import RseData, determine_audience_for_rse, determine_scope_for_rse, list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
+from rucio.core.token_issuer import request_access_token
 from rucio.core.vo import list_vos
 from rucio.daemons.common import run_daemon
 from rucio.rse import rsemanager as rsemgr
@@ -620,7 +621,12 @@ def _run_once(
                 # FIXME: At the time of writing, StoRM requires `storage.read`
                 # in order to perform a stat operation.
                 scope = determine_scope_for_rse(rse.id, scopes=['storage.modify', 'storage.read'])
-                auth_token = request_token(audience, scope)
+                if not config_get_bool("oidc", "rucio_token_issuer", raise_exception=False, default=False):
+                    auth_token = request_token(audience, scope)
+                else:
+                    # TODO: do we still create RSE level token ?
+                    # if file level token then may be we need change some logic in delete_from_storage ?
+                    auth_token = request_access_token(scope=scope, audience=audience)
                 if auth_token:
                     logger(logging.INFO, 'Using a token to delete on RSE %s', rse.name)
                     prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, auth_token=auth_token, logger=logger)

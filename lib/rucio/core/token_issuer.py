@@ -15,24 +15,26 @@
 
 import base64
 import datetime
+import hashlib
 import os
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 import jwt
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
 
 ALLOWED_SCOPES = ["storage.read", "storage.write", "storage.modify", "storage.stage", "offline_access"]
 ISSUER = config_get('client', 'rucio_host')
-# TODO: decide on what should be sub for token
-SUB = "rucio-service"
-# kid should be some static value to encode token and put into jwks keys
-KID = "EB7520023DDB48AB02BACB61F84F3D66"
-# is there more alogrithm needed ?
+# TODO: decide on what should be sub for token.
+# currently sub is sha256 SERVICE_NAME[:16]
+SERVICE_NAME = "rucio-service"
+# is there more algorithm needed ?
 SUPPORTED_ALGORITHMS = ["RS256"]
 # should we have default audience ?
+# right now its ISSUER itself
 DEFAULT_AUDIENCE = ISSUER
 ACCESS_TOKEN_LIFETIME = config_get_int('oidc', 'access_token_lifetime', raise_exception=False, default=21600)
 
@@ -53,10 +55,33 @@ if config_get_bool("oidc", "rucio_token_issuer", raise_exception=False, default=
 
     # Read private and public keys from the specified paths
     with open(PRIVATE_KEY_PATH, "rb") as private_key_file:
-        PRIVATE_KEY_RS256 = serialization.load_pem_private_key(private_key_file.read(), password=None)
+        private_key = serialization.load_pem_private_key(private_key_file.read(), password=None)
+        if not isinstance(private_key, rsa.RSAPrivateKey):
+            raise TypeError(f"Expected an RSA private key, but got {type(private_key)}")
+        PRIVATE_KEY_RS256 = private_key
 
     with open(PUBLIC_KEY_PATH, "rb") as public_key_file:
-        PUBLIC_KEY_RS256 = serialization.load_pem_public_key(public_key_file.read())
+        public_key = serialization.load_pem_public_key(public_key_file.read())
+        if not isinstance(public_key, rsa.RSAPublicKey):
+            raise TypeError(f"Expected an RSA public key, but got {type(public_key)}")
+        PUBLIC_KEY_RS256 = public_key
+
+    # get public key bytes and compute sha256
+    public_key_bytes = PUBLIC_KEY_RS256.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+    sha256_kid = hashlib.sha256(public_key_bytes).hexdigest()
+    # Use the first 12 characters of the fingerprint to create a unique KID
+    KID = sha256_kid[:12]
+
+    PUBLIC_NUMBERS = PUBLIC_KEY_RS256.public_numbers()
+
+
+def _generate_stable_sub(service_name: str) -> str:
+    " Include hash in SUB "
+    hashed_sub = hashlib.sha256(service_name.encode('utf-8')).hexdigest()
+    return f"{hashed_sub[:16]}"
 
 
 def openid_config_resource() -> dict[str, Any]:
@@ -74,22 +99,21 @@ def openid_config_resource() -> dict[str, Any]:
 
 def jwks() -> dict[str, list[dict[str, Any]]]:
     """Return JWKS configuration for public key discovery."""
-    numbers = PUBLIC_KEY_RS256.public_numbers()
     return {
         "keys": [
             {
                 "alg": "RS256",
-                "kid": "RS256-1",
+                "kid": KID,
                 "use": "sig",
                 "kty": "RSA",
-                "n": base64.urlsafe_b64encode(numbers.n.to_bytes((numbers.n.bit_length() + 7) // 8, 'big')).decode('utf-8').rstrip('='),
-                "e": "AQAB",  # base64.urlsafe_b64encode(numbers.e.to_bytes((numbers.e.bit_length() + 7) // 8, 'big')).decode('utf-8').rstrip('='),
+                "n": base64.urlsafe_b64encode(PUBLIC_NUMBERS.n.to_bytes((PUBLIC_NUMBERS.n.bit_length() + 7) // 8, 'big')).decode('utf-8').rstrip('='),
+                "e": base64.urlsafe_b64encode(PUBLIC_NUMBERS.e.to_bytes((PUBLIC_NUMBERS.e.bit_length() + 7) // 8, 'big')).decode('utf-8').rstrip('='),
             },
         ]
     }
 
 
-def _decode_token(token: str, algorithm: str = "RS256", verify_aud=False) -> dict[str, Any]:
+def _decode_token(token: str, algorithm: str = "RS256", verify_aud: bool = False) -> dict[str, Any]:
     """
     Decodes a JWT token using the specified algorithm.
 
@@ -98,13 +122,17 @@ def _decode_token(token: str, algorithm: str = "RS256", verify_aud=False) -> dic
     :param verify_aud: Whether to verify the audience claim (default: False).
     :return: A dictionary containing the decoded claims from the JWT.
     """
+    if algorithm not in SUPPORTED_ALGORITHMS:
+        raise ValueError(f"Unsupported algorithm: {algorithm}")
+
     return jwt.decode(token, PUBLIC_KEY_RS256, algorithms=[algorithm], options={"verify_aud": verify_aud})
 
 
 def _create_jwt_token(
         scope: str,
-        audience: Optional[str] = DEFAULT_AUDIENCE,
-        algorithm: str = "RS256"
+        audience: str = DEFAULT_AUDIENCE,
+        access_token_lifetime: int = ACCESS_TOKEN_LIFETIME,
+        algorithm: str = "RS256",
 ) -> str:
     """
     Creates a JWT token with the specified parameters and optional expiration offset.
@@ -117,12 +145,15 @@ def _create_jwt_token(
 
     Returns: The generated JWT token.
     """
+    if algorithm not in SUPPORTED_ALGORITHMS:
+        raise ValueError(f"Unsupported algorithm: {algorithm}")
+
     headers = {'kid': KID}
     now = datetime.datetime.now(datetime.timezone.utc)
     payload = {
-        "sub": SUB,
+        "sub": _generate_stable_sub(SERVICE_NAME),
         "iss": ISSUER,
-        "exp": now + datetime.timedelta(seconds=int(ACCESS_TOKEN_LIFETIME)),
+        "exp": now + datetime.timedelta(seconds=access_token_lifetime),
         "iat": now,
         "nbf": now,
         "jti": str(uuid.uuid4()),
@@ -135,7 +166,8 @@ def _create_jwt_token(
 
 def request_access_token(
     scope: str,
-    audience: Optional[str] = DEFAULT_AUDIENCE,
+    audience: str = DEFAULT_AUDIENCE,
+    access_token_lifetime: int = ACCESS_TOKEN_LIFETIME,
     algorithm: str = "RS256"
 ) -> dict[str, Any]:
     """
@@ -148,6 +180,9 @@ def request_access_token(
     :param algorithm: The algorithm to use for token signing. Default is RS256.
     :return: A dictionary containing the access token response.
     """
+    if algorithm not in SUPPORTED_ALGORITHMS:
+        raise ValueError(f"Unsupported algorithm: {algorithm}")
+
     scopes = scope.split()
     scope_base_list = []
     for sc in scopes:
@@ -158,7 +193,7 @@ def request_access_token(
     if invalid_scopes:
         raise ValueError(f"Invalid scopes detected: {', '.join(invalid_scopes)}")
 
-    access_token = _create_jwt_token(scope, audience, algorithm)
+    access_token = _create_jwt_token(scope, audience, access_token_lifetime, algorithm)
 
     response = {
         "access_token": access_token,

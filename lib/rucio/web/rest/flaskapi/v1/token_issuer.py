@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Blueprint, Flask, jsonify
+from flask import Blueprint, Flask, Response, jsonify
 
 from rucio.gateway.token_issuer import jwks, openid_config_resource
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask
@@ -21,7 +21,7 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_acc
 class JWKS(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self):
+    def get(self) -> Response:
         """
         ---
         summary: jwks info
@@ -40,10 +40,9 @@ class JWKS(ErrorHandlingMethodView):
 
 
 class OPENID_WELLKNOWN(ErrorHandlingMethodView):
-    """ dd"""
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self):
+    def get(self) -> Response:
         """
         ---
         summary: jwks info
@@ -61,7 +60,7 @@ class OPENID_WELLKNOWN(ErrorHandlingMethodView):
         return jsonify(res)
 
 
-def blueprint():
+def blueprint() -> Blueprint:
     public_bp = Blueprint('token_issuer', __name__)
 
     # Register JWKS view at /jwks
@@ -74,7 +73,7 @@ def blueprint():
     return public_bp
 
 
-def make_doc():
+def make_doc() -> Flask:
     """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
     doc_app.register_blueprint(blueprint())

@@ -1034,8 +1034,9 @@ class FTS3Transfertool(Transfertool):
             for source in transfer.sources:
                 src_audience = determine_audience_for_rse(rse_id=source.rse.id)
                 if config_get_bool("oidc", "rucio_token_issuer", raise_exception=False, default=False):
-                    # TODO: confirm the source.file_path what I am expecting it to be.
-                    src_scope = determine_file_scope_for_path(rse_id=source.rse.id, file_path=source.file_path, scopes=['storage.read'], extra_scopes=['offline_access'])
+                    src_protocol = transfer.source_protocol(source)
+                    [src_lfn] = src_protocol.parse_pfns([transfer.source_url(source)]).values()
+                    src_scope = determine_file_scope_for_path(rse_id=source.rse.id, scopes=['storage.read'], file_path=src_lfn['path'], extra_scopes=['offline_access'])
                     token_payload = request_access_token(scope=src_scope, audience=src_audience)
                     t_file['source_tokens'].append(token_payload["access_token"])
                 else:
@@ -1046,8 +1047,9 @@ class FTS3Transfertool(Transfertool):
             # FIXME: At the time of writing, StoRM requires `storage.read` in
             # order to perform a stat operation.
             if config_get_bool("oidc", "rucio_token_issuer", raise_exception=False, default=False):
-                # TODO : how to get dst file path here?
-                dst_scope = determine_file_scope_for_path(rse_id=transfer.dst.rse.id, file_path="<how to get dst file path here?>", scopes=['storage.modify', 'storage.read'], extra_scopes=['offline_access'])
+                dest_protocol = transfer.dest_protocol()
+                [dest_lfn] = dest_protocol.parse_pfns([transfer.dest_url]).values()
+                dst_scope = determine_file_scope_for_path(rse_id=transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], file_path=dest_lfn['path'], extra_scopes=['offline_access'])
                 token_payload = request_access_token(scope=dst_scope, audience=dst_audience)
                 t_file['source_tokens'].append(token_payload["access_token"])
             else:
