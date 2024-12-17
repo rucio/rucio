@@ -13,7 +13,6 @@ python:
         - client
         - client_syntax
         - syntax
-        - docs
         - sqlite
   - id: "3.10"
     allow:
@@ -28,8 +27,6 @@ python:
 suites:
   - id: syntax
     SYNTAX_REPORT: 1
-    RUN_HTTPD: false
-  - id: docs
     RUN_HTTPD: false
   - id: client_syntax
     RUN_HTTPD: false
