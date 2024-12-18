@@ -16,7 +16,6 @@
 import base64
 import datetime
 import hashlib
-import os
 import uuid
 from typing import Any
 
@@ -41,17 +40,10 @@ ACCESS_TOKEN_LIFETIME = config_get_int('oidc', 'access_token_lifetime', raise_ex
 
 # Check if OIDC token issuer is enabled in config
 if config_get_bool("oidc", "rucio_token_issuer", raise_exception=False, default=False):
-    # Try to get keys from environment variables first
-    PRIVATE_KEY_PATH = os.getenv("OIDC_PRIVATE_KEY_PATH")
-    PUBLIC_KEY_PATH = os.getenv("OIDC_PUBLIC_KEY_PATH")
 
-    if not PRIVATE_KEY_PATH:
-        # If not set in environment, try to get from config
-        PRIVATE_KEY_PATH = config_get('oidc', 'oidc_private_key_path', raise_exception=True)
+    PRIVATE_KEY_PATH = config_get('oidc', 'oidc_private_key_path', raise_exception=True)
 
-    if not PUBLIC_KEY_PATH:
-        # If not set in environment, try to get from config
-        PUBLIC_KEY_PATH = config_get('oidc', 'oidc_public_key_path', raise_exception=True)
+    PUBLIC_KEY_PATH = config_get('oidc', 'oidc_public_key_path', raise_exception=True)
 
     # Read private and public keys from the specified paths
     with open(PRIVATE_KEY_PATH, "rb") as private_key_file:
@@ -70,7 +62,7 @@ if config_get_bool("oidc", "rucio_token_issuer", raise_exception=False, default=
     public_key_bytes = PUBLIC_KEY_RS256.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
-        )
+    )
     sha256_kid = hashlib.sha256(public_key_bytes).hexdigest()
     # Use the first 12 characters of the fingerprint to create a unique KID
     KID = sha256_kid[:12]
@@ -79,26 +71,36 @@ if config_get_bool("oidc", "rucio_token_issuer", raise_exception=False, default=
 
 
 def _generate_stable_sub(service_name: str) -> str:
-    " Include hash in SUB "
+    """generate sub with hash of service_name
+
+    :param str service_name: Service to hash for SUB
+    :return str: hash sha256 first 16.
+    """
     hashed_sub = hashlib.sha256(service_name.encode('utf-8')).hexdigest()
     return f"{hashed_sub[:16]}"
 
 
 def openid_config_resource() -> dict[str, Any]:
-    """ OpenID discovery """
+    """openID Discovery.
+
+    :return dict[str, Any]: related openID discovery info
+    """
     res = {
-            "issuer": ISSUER,
-            "jwks_uri": f"{ISSUER}/jwks",
-            "scopes_supported": ALLOWED_SCOPES,
-            "response_types_supported": ["token"],
-            "grant_types_supported": [],
-            "claims_supported": ["sub", "aud"],
-        }
+        "issuer": ISSUER,
+        "jwks_uri": f"{ISSUER}/jwks",
+        "scopes_supported": ALLOWED_SCOPES,
+        "response_types_supported": ["token"],
+        "grant_types_supported": [],
+        "claims_supported": ["sub", "aud"],
+    }
     return res
 
 
 def jwks() -> dict[str, list[dict[str, Any]]]:
-    """Return JWKS configuration for public key discovery."""
+    """JWKS configuration for public key discovery.
+
+    :return dict[str, list[dict[str, Any]]]: public key jwks info
+    """
     return {
         "keys": [
             {
@@ -138,12 +140,11 @@ def _create_jwt_token(
     Creates a JWT token with the specified parameters and optional expiration offset.
     The function combines the payload creation and token encoding steps into one.
 
-    :param sub (str): Subject (usually the user identifier).
     :param scope (str): Scope of the token.
     :param audience (Optional[str]): Audience for the token. Defaults to the system's default if not provided.
+    :param access_token_lifetime (str): lifetime of access token. defaults to ACCESS_TOKEN_LIFETIME.
     :param algorithm (str): The algorithm to use for signing the token (default is "RS256").
-
-    Returns: The generated JWT token.
+    :return: The generated JWT token.
     """
     if algorithm not in SUPPORTED_ALGORITHMS:
         raise ValueError(f"Unsupported algorithm: {algorithm}")
@@ -174,9 +175,9 @@ def request_access_token(
     Issues an access token.
     https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
 
-    :param sub: Subject (user ID or client ID).
     :param scope: Scopes requested for the token.
     :param audience: Audience for which the token is intended.
+    :param algorithm (str): The algorithm to use for signing the token (default is "RS256").
     :param algorithm: The algorithm to use for token signing. Default is RS256.
     :return: A dictionary containing the access token response.
     """
@@ -189,7 +190,7 @@ def request_access_token(
         scope_base = sc.split(":")[0]
         scope_base_list.append(scope_base)
     # Validate requested scopes against allowed scopes
-    invalid_scopes = [sc for sc in scopes if sc not in ALLOWED_SCOPES]
+    invalid_scopes = [sc for sc in scope_base_list if sc not in ALLOWED_SCOPES]
     if invalid_scopes:
         raise ValueError(f"Invalid scopes detected: {', '.join(invalid_scopes)}")
 

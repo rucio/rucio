@@ -1915,6 +1915,8 @@ def determine_file_scope_for_path(
 ) -> str:
     """Construct the Scope claim for an RSE with file path."""
     rse_protocols = get_rse_protocols(rse_id)
+    if file_path:
+        file_path = file_path.lstrip("/")
     filtered_prefixes = set()
     for protocol in rse_protocols['protocols']:
         # Token support is exclusive to WebDAV.
