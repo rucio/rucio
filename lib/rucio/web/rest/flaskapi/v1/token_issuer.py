@@ -14,6 +14,7 @@
 
 from flask import Blueprint, Flask, Response, jsonify
 
+from rucio.common.config import config_get_int
 from rucio.gateway.token_issuer import jwks, openid_config_resource
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask
 
@@ -36,7 +37,10 @@ class JWKS(ErrorHandlingMethodView):
             res_jwks = jwks()
         except ValueError as error:
             generate_http_error_flask(500, str(error))
-        return jsonify(res_jwks)
+        response = jsonify(res_jwks)
+        jwks_cache_lifetime = config_get_int('oidc', 'jwks_cache_lifetime', raise_exception=False, default=21600)
+        response.headers['Cache-Control'] = f'public, max-age={jwks_cache_lifetime}'
+        return response
 
 
 class OPENID_WELLKNOWN(ErrorHandlingMethodView):

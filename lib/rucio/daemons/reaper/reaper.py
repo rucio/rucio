@@ -626,7 +626,8 @@ def _run_once(
                 else:
                     # TODO: do we still create RSE level token ?
                     # if file level token then may be we need change some logic in delete_from_storage ?
-                    auth_token = request_access_token(scope=scope, audience=audience)
+                    auth_token_payload = request_access_token(scope=scope, audience=audience)
+                    auth_token = auth_token_payload["access_token"]
                 if auth_token:
                     logger(logging.INFO, 'Using a token to delete on RSE %s', rse.name)
                     prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, auth_token=auth_token, logger=logger)

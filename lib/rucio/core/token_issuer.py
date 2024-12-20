@@ -25,7 +25,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
 
-ALLOWED_SCOPES = ["storage.read", "storage.write", "storage.modify", "storage.stage", "offline_access"]
+ALLOWED_SCOPES = ["storage.read", "storage.write", "storage.modify", "storage.stage"]
+# TODO: issuer should not contain port if standard port? use urlparse or is there better way ?
 ISSUER = config_get('client', 'rucio_host')
 # TODO: decide on what should be sub for token.
 # currently sub is sha256 SERVICE_NAME[:16]
