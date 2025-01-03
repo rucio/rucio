@@ -61,19 +61,19 @@ class Account(CommandBase):
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--type", dest="accounttype", help="Account Type (USER, GROUP, SERVICE)", required=True)
-        parser.add_argument("-a", "--account", dest="account", help="Account name", required=True)
+        self._add_positional_option(parser, "account", dest="account", help="Account name", abbr='a')
         parser.add_argument("--email", dest="accountemail", help="Add an email address associated with the account")
 
     def show_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-a", "--account", dest="account", help="Account name", required=True)
+        self._add_positional_option(parser, "account", dest="account", help="Account name", abbr='a')
 
     def update_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-a", "--account", help="Account name", required=True)
+        self._add_positional_option(parser, "account", dest="account", help="Account name", abbr='a')
         parser.add_argument("--email", help="Account email")
         parser.add_argument("--ban", type=bool, choices=(True, False), help='Ban the account, to disable it. Use --ban False to unban.', default=None)
 
     def remove_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-a", "--account", dest="acnt", action="store", help="Account name", required=True)
+        self._add_positional_option(parser, "account", dest="acnt", help="Account name", abbr='a')
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
@@ -119,10 +119,18 @@ class Attribute(Account):
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:
         return {}
 
-    def namespace(self, subparser):
-        subparser.add_argument("-a", "--account", help="Account name")
-        subparser.add_argument("--key", dest="key", action="store", help="Attribute key")
-        subparser.add_argument("--value", dest="value", action="store", help="Attribute value")
+    def add_namespace(self, subparser):
+        self._add_positional_option(subparser, "account", dest="account", help="Account name", abbr='a')
+        self._add_positional_option(subparser, "key", dest="key", help="Attribute key")
+        self._add_positional_option(subparser, "value", dest="value", help="Attribute value")
+
+    def list_namespace(self, parser):
+        self._add_positional_option(parser, "account", dest="account", help="Account name", abbr='a')
+        parser.add_argument("--key", help="Attribute key")
+
+    def remove_namespace(self, parser):
+        self._add_positional_option(parser, "account", dest="account", help="Account name", abbr='a')
+        self._add_positional_option(parser, "key", dest="key", help="Attribute key", abbr='k')
 
     def usage_example(self) -> list[str]:
         return ["$ rucio account attribute list --account jdoe  # Show all attributes for jdoe",
@@ -130,9 +138,9 @@ class Attribute(Account):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "List all account attributes"},
-            "add": {"call": self.add, "docs": "Add a new attribute to an account or update an existing one"},
-            "remove": {"call": self.remove, "docs": "Remove an existing account attribute"},
+            "list": {"call": self.list_, "docs": "List all account attributes", "namespace": self.list_namespace},
+            "add": {"call": self.add, "docs": "Add a new attribute to an account or update an existing one", "namespace": self.add_namespace},
+            "remove": {"call": self.remove, "docs": "Remove an existing account attribute", "namespace": self.remove_namespace},
         }
 
     def list_(self):
@@ -150,7 +158,7 @@ class Limit(Account):
         return "Manage storage limits for an account at a given RSE."
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-a", "--account", dest="account", help="Account name", required=True)
+        self._add_positional_option(parser, "account", dest="account", help="Account name", abbr='a')
         parser.add_argument("--rses", "--rse-exp", dest='rse', action="store", help="RSE expression")
         parser.add_argument("--bytes", action="store", help='Value can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"')
         parser.add_argument("--locality", nargs="?", default="local", choices=["local", "global"], help="Global or local limit scope")
@@ -185,7 +193,7 @@ class Identity(Account):
         return "Manage identities on an account."
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--account", dest="account", action="store", help="Account name", required=True)
+        self._add_positional_option(parser, "account", dest="account", help="Account name", abbr='a')
         parser.add_argument("--type", dest="authtype", action="store", choices=["X509", "GSS", "USERPASS", "SSH", "SAML", "OIDC"], help="Authentication type")
         parser.add_argument("--id", dest="identity", action="store", help="Identity as a DNs for X509 IDs.")
         parser.add_argument("--email", dest="email", action="store", help="Email address associated with the identity")

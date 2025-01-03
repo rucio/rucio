@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import argparse
 import sys
 from abc import ABC, abstractmethod
 from argparse import ArgumentError, RawDescriptionHelpFormatter
@@ -106,6 +107,30 @@ class CommandBase(ABC):
         help += f"\n\nUsage Example:\n{examples}"
 
         return help
+
+    def _add_positional_option(self, parser, arg, dest, help="", type_=str, abbr=None, nargs='?'):
+        # Override the default behavior where "dest" cannot be shared between different arguments
+        # Even if those arguments are mutually exclusive
+
+        default = None if nargs == "?" else []  # Handling a bizarre behavior in argparse: https://www.reddit.com/r/learnpython/comments/6adrao/strange_behavior_or_limitation_in_argparse/?rdt=61234
+
+        # Makes it so any positional can also be a kwarg
+        class DestOverride(argparse.Action):
+            def __call__(self, namespace, args, values, options):
+                if (values is not None) and (values != default):
+                    setattr(args, dest, values)  # Overrides the behavior that forbids conflict for dest
+
+        g = parser.add_mutually_exclusive_group(required=True)
+        help += f"\n (Note: You can also use --{arg})"
+        if abbr is not None:
+            help = help[:-1]
+            help += f"/-{abbr})"
+
+        g.add_argument(arg, nargs=nargs, type=type_, help=help, action=DestOverride, default=default)
+        if abbr is not None:
+            g.add_argument(f"-{abbr}", f"--{arg}", type=type_, nargs=nargs, help=argparse.SUPPRESS, action=DestOverride, default=default)
+        else:
+            g.add_argument(f"--{arg}", type=type_, nargs=nargs, help=argparse.SUPPRESS, action=DestOverride, default=default)
 
     def parser(self, subparser: "_SubParsersAction[ArgumentParser]") -> "ArgumentParser":
         """

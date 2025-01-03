@@ -28,27 +28,28 @@ class DID(CommandBase):
         return "Manage Data IDentifiers. Modify and access specific files and groups of files. DIDs are accessed by the pattern `scope`:`name`, where name can be a wildcard, but scope must be specified"
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
+        self._add_positional_option(parser, "did", dest="did", help="Data IDentifier pattern", abbr='d', nargs='?')  # ? denotes 0 or 1 argument
         parser.add_argument("--recursive", dest="recursive", action="store_true", help="List data identifiers recursively")
         parser.add_argument("--filter", help="Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type")
         parser.add_argument("--short", action="store_true", help="Just dump the list of DIDs")
-        parser.add_argument("-d", "--did", nargs=1, help="Data IDentifier pattern")
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--type", dest='dtype', choices=("container", "dataset"), help="Add collection type DID")
         parser.add_argument("--monotonic", action="store_true", help="Monotonic status to True")
-        parser.add_argument("-d", "--did", action="store", help="The name of the dataset to add")
+        parser.add_argument("-d", "--did", action="store", help="The name of the dataset to add", required=True)
         parser.add_argument("--lifetime", dest="lifetime", action="store", type=int, help="Lifetime in seconds")
 
     def update_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
+        self._add_positional_option(parser, "did", dest="dids", help="Data IDentifiers", abbr='d', nargs='*')
         parser.add_argument("--rse", "--rse-name", dest='rse', help="Touch Argument: The RSE of the DIDs that are touched")
 
-        parser.add_argument("--touch", action="store_true", help="Update the last updated time to the current time. Requires a RSE to be set")
-        parser.add_argument("--close", action="store_true", help="Set a collection-type DID to 'closed', so it cannot have more child DIDs added to it")
-        parser.add_argument("--open", action="store_true", help="Set a collection-type DID to 'open', so more DIDs may be added to it as children")
+        op_group = parser.add_mutually_exclusive_group(required=False)
+        op_group.add_argument("--touch", action="store_true", help="Update the last updated time to the current time. Requires a RSE to be set")
+        op_group.add_argument("--close", action="store_true", help="Set a collection-type DID to 'closed', so it cannot have more child DIDs added to it")
+        op_group.add_argument("--open", action="store_true", help="Set a collection-type DID to 'open', so more DIDs may be added to it as children")
 
     def show_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
+        self._add_positional_option(parser, "did", dest="dids", help="Data IDentifiers", abbr='d', nargs='*')
         parser.add_argument("--parent", action="store_true", help="List the parents of the DID")
 
         # Both non-functional, but list_parents complains if not present
@@ -57,8 +58,8 @@ class DID(CommandBase):
         parser.add_argument("--guid", dest="guids", nargs="+", help=argparse.SUPPRESS)
 
     def remove_namespace(self, parser: "ArgumentParser") -> None:
+        self._add_positional_option(parser, "did", dest="dids", help="Data IDentifiers", abbr='d', nargs='*')
         parser.add_argument("--undo", action="store_true", help="Undo erase DIDs. Only works if has been less than 24 hours since erase operation")
-        parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
@@ -85,6 +86,7 @@ class DID(CommandBase):
         ]
 
     def list_(self):
+        self.args.did = [self.args.did]
         list_dids(self.args, self.client, self.logger, self.console, self.spinner)
 
     def show(self):

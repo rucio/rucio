@@ -31,8 +31,7 @@ class Upload(CommandBase):
     def parser(self, parser: "argparse._SubParsersAction[ArgumentParser]") -> None:
 
         command_parser = parser.add_parser(self.PARSER_NAME, description=self._help(), formatter_class=argparse.RawDescriptionHelpFormatter)
-
-        command_parser.add_argument("--files", nargs="+", dest="args", help="Files and datasets to upload")
+        self._add_positional_option(command_parser, "files", dest="args", help="Files and datasets to upload", abbr='f', nargs='*')
         command_parser.add_argument('--rse', "--rse-name", dest='rse', action='store', help='Rucio Storage Element (RSE) name.',)
         command_parser.add_argument("--lifetime", type=int, help="Lifetime of the rule in second.")
         command_parser.add_argument("--expiration-date", help="The date when the rule expires in UTC, format: <year>-<month>-<day>-<hour>:<minute>:<second>. E.g. 2022-10-20-20:00:00")

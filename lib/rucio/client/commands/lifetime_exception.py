@@ -42,10 +42,10 @@ class LifetimeException(CommandBase):
         }
 
     def usage_example(self) -> list[str]:
-        return ["$ rucio lifetime-exception add --inputfile myfile.txt --reason 'Needed for my analysis' --expiration 2015-10-30  # Add exceptions for all DIDs listed in myfile.txt"]
+        return ["$ rucio lifetime-exception add --file myfile.txt --reason 'Needed for my analysis' --expiration 2015-10-30  # Add exceptions for all DIDs listed in myfile.txt"]
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-f", "--inputfile", help="File where the list of datasets requested to be extended are located")
+        self._add_positional_option(parser, "file", dest="inputfile", help="File where the list of datasets requested to be extended are located", abbr='f')
         parser.add_argument("--reason", help="The reason for the extension")
         parser.add_argument("-x", "--expiration", help="The expiration date format YYYY-MM-DD")
 

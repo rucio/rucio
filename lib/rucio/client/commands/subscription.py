@@ -57,7 +57,7 @@ class Subscription(CommandBase):
         parser.add_argument("--long", action="store_true", help="Show extra subscription information, including creation and expiration dates")
 
     def touch_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", dest="dids", help="List of DIDs (coma separated)", required=True)
+        self._add_positional_option(parser, "did", dest="dids", help="List of DIDs (coma separated)", abbr='d')
 
     def list_(self):
         list_subscriptions(self.args, self.client, self.logger, self.console, self.spinner)

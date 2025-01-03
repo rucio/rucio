@@ -41,8 +41,8 @@ class Scope(CommandBase):
         parser.add_argument("-a", "--account", help="Account name for filtering, attribution")
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-a", "--account", help="Account name for filtering, attribution", required=True)
-        parser.add_argument("-s", "--scope", help="Name of the new scope to add", required=True)
+        self._add_positional_option(parser, "account", dest="account", help="Account name for filtering, attribution", abbr='a')
+        self._add_positional_option(parser, "scope", dest="scope", help="Name of the new scope to add", abbr='s')
 
     def list_(self):
         list_scopes(self.args, self.client, self.logger, self.console, self.spinner)

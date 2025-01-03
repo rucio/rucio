@@ -34,7 +34,7 @@ class Download(CommandBase):
 
         command_parser = parser.add_parser(self.PARSER_NAME, description=self._help(), formatter_class=argparse.RawDescriptionHelpFormatter)
 
-        command_parser.add_argument("-d", "--did", nargs="*", dest="dids", help="DIDs to download, as a space separated list", required=True)
+        self._add_positional_option(command_parser, "did", dest="dids", help="DIDs to download", abbr='d', nargs='*')
         command_parser.add_argument("--rses", "--rse-exp", help="The Rucio Storage Element (RSE) name or expression to download from", dest="rses")
         command_parser.add_argument("--dir", dest="dir", default=".", action="store", help="The directory to store the downloaded file")
         command_parser.add_argument("--allow-tape", action="store_true", default=False, help="Also consider tape endpoints as source of the download")
