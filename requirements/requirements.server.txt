@@ -69,6 +69,10 @@ docopt==0.6.2
     # via stomp-py
 dogpile-cache==1.2.2
     # via -r requirements.server.in
+elastic-transport==8.15.1
+    # via elasticsearch
+elasticsearch==8.15.1
+    # via -r requirements.server.in
 flask==3.0.3
     # via -r requirements.server.in
 frozenlist==1.4.1
