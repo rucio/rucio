@@ -74,6 +74,7 @@ def add_account(
 @read_session
 def account_exists(
     account: "InternalAccount",
+    raise_exception: bool = False,
     *,
     session: "Session"
 ) -> bool:
@@ -84,13 +85,13 @@ def account_exists(
 
     :returns: True if found, otherwise false.
     """
-    query = select(
-        models.Account
-    ).where(
-        models.Account.account == account,
-        models.Account.status == AccountStatus.ACTIVE
-    )
-    return session.execute(query).scalar() is not None
+    try:
+        entity = get_account(account, session=session)
+    except exception.AccountNotFound as e:
+        if raise_exception:
+            raise e
+        return False
+    return entity.status == AccountStatus.ACTIVE
 
 
 @read_session
@@ -129,18 +130,8 @@ def del_account(
     :param account: the account name.
     :param session: the database session in use.
     """
-    query = select(
-        models.Account
-    ).where(
-        models.Account.account == account,
-        models.Account.status == AccountStatus.ACTIVE
-    )
-    try:
-        query_result = session.execute(query).scalar_one()
-    except exc.NoResultFound:
-        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
-
-    query_result.update({'status': AccountStatus.DELETED, 'deleted_at': datetime.utcnow()})
+    entity = get_account(account, session=session)
+    entity.update({'status': AccountStatus.DELETED, 'deleted_at': datetime.utcnow()})
 
 
 @transactional_session
@@ -158,24 +149,16 @@ def update_account(
     :param value: Property value.
     :param session: the database session in use.
     """
-    query = select(
-        models.Account
-    ).where(
-        models.Account.account == account
-    )
-    try:
-        query_result = session.execute(query).scalar_one()
-    except exc.NoResultFound:
-        raise exception.AccountNotFound('Account with ID \'%s\' cannot be found' % account)
+    entity = get_account(account, session=session)    # XXX: This changes the behaviour for non-ACTIVE accounts.
     if key == 'status':
         if isinstance(value, str):
             value = AccountStatus[value]
         if value == AccountStatus.SUSPENDED:
-            query_result.update({'status': value, 'suspended_at': datetime.utcnow()})
+            entity.update({'status': value, 'suspended_at': datetime.utcnow()})
         elif value == AccountStatus.ACTIVE:
-            query_result.update({'status': value, 'suspended_at': None})
+            entity.update({'status': value, 'suspended_at': None})
     else:
-        query_result.update({key: value})
+        entity.update({key: value})
 
 
 @stream_session
@@ -358,17 +341,7 @@ def add_account_attribute(
     :param account: the account to add the attribute to.
     :param session: The database session in use.
     """
-    query = select(
-        models.Account
-    ).where(
-        models.Account.account == account,
-        models.Account.status == AccountStatus.ACTIVE
-    )
-    try:
-        session.execute(query).scalar_one()
-    except exc.NoResultFound:
-        raise exception.AccountNotFound("Account ID '{0}' does not exist".format(account))
-
+    account_exists(account, raise_exception=True, session=session)
     new_attr = models.AccountAttrAssociation(account=account, key=key, value=value)
     try:
         new_attr.save(session=session)
