@@ -56,7 +56,7 @@ FROM python as gfal2
             dnf -y install gfal2-python3 && \
             cp /usr/lib64/python3.9/site-packages/gfal2.so /usr/lib64/gfal2.so; \
         elif [ "$PYTHON" == "3.10" ] ; then \
-            wget https://boostorg.jfrog.io/artifactory/main/release/1.80.0/source/boost_1_80_0.tar.gz && \
+            wget https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz && \
             tar -xvzf boost_1_80_0.tar.gz && \
             cd boost_1_80_0 && \
             ./bootstrap.sh --with-libraries=python --with-python=/usr/bin/python3.10 --prefix=/usr/ --libdir=/usr/local/lib && \
