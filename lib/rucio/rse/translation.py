@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import config
 from rucio.common.constants import RseAttr
+from rucio.common.exception import ConfigNotFound
 from rucio.common.plugins import PolicyPackageAlgorithms
 
 if TYPE_CHECKING:
@@ -38,7 +39,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
 
         try:
             algorithm_name = config.config_get('policy', self._algorithm_type)
-        except (NoOptionError, NoSectionError, RuntimeError):
+        except (ConfigNotFound, NoOptionError, NoSectionError, RuntimeError):
             logger.debug("PFN2LFN: no algorithm specified in the config.")
             if super()._supports(self._algorithm_type, vo):
                 algorithm_name = vo
@@ -222,7 +223,7 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         policy_module = None
         try:
             policy_module = config.config_get('policy', 'lfn2pfn_module')
-        except (NoOptionError, NoSectionError):
+        except (ConfigNotFound, NoOptionError, NoSectionError):
             pass
         if policy_module:
             # TODO: The import of importlib is done like this due to a dependency issue with python 2.6 and incompatibility of the module with py3.x
