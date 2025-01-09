@@ -88,7 +88,7 @@ def map_legacy_command() -> Optional[list[str]]:
 
 
 if __name__ == "__main__":
-    commands = ("-h", "--version", "account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download")
+    commands = ("-h", "--help", "--version", "account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download")
     first_command = [arg for arg in sys.argv if arg[0] != "-" or arg in ("-h", "--help", "--version")][1]
     is_legacy = '--legacy' in sys.argv
 

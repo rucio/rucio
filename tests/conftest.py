@@ -653,3 +653,21 @@ def metrics_mock() -> "Iterator[CollectorRegistry]":
             mock.patch('rucio.core.monitor.TIMINGS', new={}), \
             mock.patch('prometheus_client.values.ValueClass', new=values.MutexValue):
         yield registry
+
+
+@pytest.fixture(scope='class')
+def scope_and_rse(mock_scope, test_scope):
+    from rucio.common.utils import execute
+
+    """
+    Check if xrd containers rses for xrootd are available in the testing environment.
+    :return: A tuple (scope, rse) for the rucio client where scope is mock/test and rse is a string.
+    """
+    cmd = "rucio rse list --rses 'test_container_xrd=True'"
+    print(cmd)
+    exitcode, out, err = execute(cmd)
+    print(out, err)
+    rses = out.split()
+    if len(rses) == 0:
+        return mock_scope, 'MOCK-POSIX'
+    return test_scope, rses[0]
