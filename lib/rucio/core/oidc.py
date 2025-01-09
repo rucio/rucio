@@ -37,7 +37,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.sql.expression import true
 
 from rucio.common.cache import MemcacheRegion
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import CannotAuthenticate, CannotAuthorize, RucioException
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import all_oidc_req_claims_present, build_url, val_to_space_sep_str
@@ -298,7 +298,8 @@ def __get_init_oidc_client(token_object: models.Token = None, token_type: str = 
                      "state": kwargs.get('state', rndstr()),
                      "nonce": kwargs.get('nonce', rndstr())}
         auth_args["scope"] = token_object.oidc_scope if token_object else kwargs.get('scope', " ")
-        auth_args["audience"] = token_object.audience if token_object else kwargs.get('audience', " ")
+        if config_get_bool('oidc', 'supports_audience', raise_exception=False, default=True):
+            auth_args["audience"] = token_object.audience if token_object else kwargs.get('audience', " ")
 
         if token_object:
             issuer = token_object.identity.split(", ")[1].split("=")[1]
