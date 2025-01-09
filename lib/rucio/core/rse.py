@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import json
+import logging
 from datetime import datetime
 from io import StringIO
 from re import match
 from typing import TYPE_CHECKING, Any, Generic, Literal, Optional, TypeVar, Union, overload
+from urllib.parse import urlparse
 
 import sqlalchemy
 from dogpile.cache.api import NO_VALUE
@@ -29,7 +31,8 @@ from rucio.common import exception, types, utils
 from rucio.common.cache import MemcacheRegion
 from rucio.common.checksum import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common.constants import RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS, RSE_ATTRS_BOOL, RSE_ATTRS_STR, SUPPORTED_SIGN_URL_SERVICES_LITERAL, RseAttr
+from rucio.common.constants import (RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS, RSE_ATTRS_BOOL, RSE_ATTRS_STR,
+                                    SUPPORTED_SIGN_URL_SERVICES_LITERAL, RseAttr)
 from rucio.common.utils import Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
@@ -52,6 +55,7 @@ class RseData:
     """
     Helper data class storing rse data grouped in one place.
     """
+
     def __init__(self, id_, name: "Optional[str]" = None, columns=None, attributes=None, info=None, usage=None, limits=None, transfer_limits=None):
         self.id = id_
         self._name = name
@@ -1875,6 +1879,10 @@ def determine_audience_for_rse(rse_id: str) -> str:
     # FIXME: At the time of writing, there does not appear to be a common
     # agreement on how sites will configure their storages.  Rucio had requested
     # that the protocol hostname be sufficient, but this may not come to pass.
+    use_wlcg_audience = get_rse_attribute(rse_id, 'use_wlcg_audience')
+    if use_wlcg_audience:
+        return 'https://wlcg.cern.ch/jwt/v1/any'
+
     filtered_hostnames = {p['hostname']
                           for p in rse_protocols['protocols']
                           if p['scheme'] == 'davs'}
@@ -1885,11 +1893,15 @@ def determine_scope_for_rse(
     rse_id: str,
     scopes: 'Iterable[str]',
     extra_scopes: Optional['Iterable[str]'] = None,
+    file_path: Optional[str] = None,
 ) -> str:
     """Construct the Scope claim for an RSE."""
     if extra_scopes is None:
         extra_scopes = []
     rse_protocols = get_rse_protocols(rse_id)
+    base_path = get_rse_attribute(rse_id, 'oidc_base_path', use_cache=False)
+    if file_path is not None and base_path is not None:
+        file_path = file_path.removeprefix(base_path)
     filtered_prefixes = set()
     for protocol in rse_protocols['protocols']:
         # Token support is exclusive to WebDAV.
@@ -1900,8 +1912,56 @@ def determine_scope_for_rse(
         # a base which should be removed from the prefix (in order for '/' to
         # mean the entire resource associated with that issuer).
         prefix = protocol['prefix']
-        if base_path := get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH):  # type: ignore (session parameter missing)
+        if base_path is not None:
             prefix = prefix.removeprefix(base_path)
         filtered_prefixes.add(prefix)
-    all_scopes = [f'{s}:{p}' for s in scopes for p in filtered_prefixes] + list(extra_scopes)
+    if file_path is None:
+        all_scopes = [f'{s}:{p}' for s in scopes for p in filtered_prefixes] + list(extra_scopes)
+    else:
+        # Do exactly as above, except if the scope is `storage.modify`, then use
+        # the (masked) file path instead of the RSE prefix.
+        all_scopes = []
+        for s in scopes:
+            for p in filtered_prefixes:
+                if s == 'storage.modify' or s == 'storage.read':
+                    all_scopes.append(f'{s}:{file_path}')
+                else:
+                    all_scopes.append(f'{s}:{file_path}')
+        all_scopes.extend(list(extra_scopes))
     return ' '.join(sorted(all_scopes))
+
+
+def get_read_scope_for_tokens(fileurl, rws, logger):
+
+    file_path = urlparse(fileurl).path
+
+    path_parts = file_path.split('/')
+
+    # Find the last index of 'store'
+    try:
+        store_index = len(path_parts) - 1 - path_parts[::-1].index('store')
+        # Join the path back up to the last 'store'
+        return '/'.join(path_parts[:store_index + 1])
+    except ValueError:
+        return "Directory 'store' not found in the path."
+
+
+def get_modify_scope_for_tokens(fileurl, rws, logger):
+
+    file_path = urlparse(fileurl).path
+
+    if rws is None:
+        return file_path
+
+    if rws.scope.external == "cms":
+        dst_path = '/'.join(file_path.split('/')[:-2]) + '/'
+
+    # if the scope prefix is "user." or "group.", we need to remove the last 3 parts of the path
+    elif rws.scope.external.startswith("user.") or rws.scope.external.startswith("group."):
+        dst_path = '/'.join(file_path.split('/')[:-3]) + '/'
+
+    else:
+        dst_path = file_path
+        logger(logging.WARNING, 'Could not determine the dataset scope for %s', transfer.dest_url + ' ' + rws.scope.external)
+
+    return dst_path
