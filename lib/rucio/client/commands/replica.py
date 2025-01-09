@@ -39,8 +39,8 @@ class Replica(CommandBase):
         }
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
+        self._add_positional_option(parser, "did", dest="dids", help="Data IDentifiers", abbr='d', nargs='*')
         parser.add_argument(dest='dtype', choices=("file", "dataset"), help="List either the replicas of a file or a dataset (and its contents)")
-        parser.add_argument("-d", "--did", dest="dids", nargs="+", action="store", help="List of space separated data identifiers.")
         parser.add_argument("--protocols", help="Protocol used to access a replicas (i.e. https, root, srm)", required=False)
         parser.add_argument(
             "--all-states",
@@ -73,7 +73,7 @@ class Replica(CommandBase):
         )
 
     def remove_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-d", "--did", dest="dids", help="DIDs to access, as comma separated values")
+        self._add_positional_option(parser, "did", dest="dids", help="Data IDentifiers", abbr='d', nargs='?')
         parser.add_argument("--rse", "--rse-name", dest="rse", help="RSE Name")
 
     def implemented_subcommands(self) -> dict[str, type[CommandBase]]:

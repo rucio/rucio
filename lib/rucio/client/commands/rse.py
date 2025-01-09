@@ -70,8 +70,8 @@ class RSE(CommandBase):
         ]
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--rse", "--rse-name", help="RSE name", required=True)
-        parser.add_argument("--non-deterministic", action="store_true", help="Create RSE in non-deterministic mode")
+        self._add_positional_option(parser, "rse", dest="rse", help="RSE Name")
+        parser.add_argument("--non-deterministic", action="store_true", help="RSE in non-deterministic mode")
 
         parser.add_argument(
             "--setting",
@@ -83,6 +83,9 @@ class RSE(CommandBase):
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--rses", "--rse-exp", dest="rses", help="RSE name or expression")
+
+    def show_namespace(self, parser: "ArgumentParser") -> None:
+        self._add_positional_option(parser, "rse", dest="rse", help="RSE Name")
 
     def list_(self):
         list_rses(self.args, self.client, self.logger, self.console, self.spinner)
@@ -112,7 +115,7 @@ class Attribute(RSE):
         }
 
     def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--rse", "--rse-name", help="RSE name", required=True)
+        self._add_positional_option(parser, "rse", dest="rse", help="RSE Name")
         parser.add_argument("--key", help="Attribute key")
         parser.add_argument("--value", help="Attribute value")
 
