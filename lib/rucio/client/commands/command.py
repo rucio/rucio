@@ -57,10 +57,9 @@ class Commands:
     @staticmethod
     def _all_commands() -> dict[str, type[commands.CommandBase]]:
         # Look for all the CommandBase'd child classes in this folder and add their parsers and child parsers
-        command_map = {child.__name__.lower(): child for child in commands.CommandBase.__subclasses__() if child.__name__ != "LifetimeException"}
+        custom_commands = ['LifetimeException', "TestServer"]  # These ones have custom names
+        command_map = {child.__name__.lower(): child for child in commands.CommandBase.__subclasses__() if child.__name__ not in custom_commands}
         command_map["lifetime-exception"] = commands.LifetimeException
-        command_map["ping"] = Ping
-        command_map["whoami"] = Whoami
         command_map["test-server"] = TestServer
         return command_map
 
@@ -140,6 +139,7 @@ class Commands:
 
         # Options for the x509  auth_strategy
         auth_args.add_argument("--certificate", help="Client certificate file.")
+        auth_args.add_argument('--client-key', dest='client_key', default=None, help='Client key for x509 Authentication.')
         auth_args.add_argument("--ca-certificate", help="CA certificate to verify peer against (SSL).")
 
     def _run_command(self) -> Optional[int]:
