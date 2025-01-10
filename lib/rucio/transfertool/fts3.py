@@ -686,7 +686,10 @@ class Fts3TransferStatusReport(TransferStatusReport):
         dst_type = file_metadata.get('dst_type', None)
         METRICS.counter('overwrite.check.{rsetype}.{rse}').labels(rse=file_metadata["dst_rse"], rsetype=dst_type).inc()
 
-        if 'Destination file exists and overwrite is not enabled' in (reason or ''):
+        if reason and any(msg in reason for msg in (
+        'Destination file exists and overwrite is not enabled',
+        'Destination file exists and is on tape'
+        )):
             if cls._dst_file_set_and_file_correct(request, dst_file):
                 if dst_type == 'DISK' or dst_file.get('file_on_tape'):
                     METRICS.counter('overwrite.ok.{rsetype}.{rse}').labels(rse=file_metadata["dst_rse"], rsetype=dst_type).inc()
