@@ -101,7 +101,9 @@ def retrieve_messages(bulk: int = 1000,
                       event_type: "Optional[str]" = None,
                       lock: bool = False,
                       old_mode: bool = True,
-                      *, session: "Session") -> "MessagesListType":
+                      service_filter: "Optional[str]" = None,
+                      *,
+                      session: "Session") -> "MessagesListType":
     """
     Retrieve up to $bulk messages.
 
@@ -123,7 +125,11 @@ def retrieve_messages(bulk: int = 1000,
             Message.created_at
         )
         stmt_subquery = filter_thread_work(session=session, query=stmt_subquery, total_threads=total_threads, thread_id=thread)
-        if event_type:
+        if service_filter:
+            stmt_subquery = stmt_subquery.where(
+                Message.services == service_filter
+            )
+        elif event_type:
             stmt_subquery = stmt_subquery.where(
                 Message.event_type == event_type
             )
