@@ -521,7 +521,7 @@ def build_message_dict(
         bulk: int,
         worker_number: int,
         total_workers: int,
-        message_dict: dict[str, dict[str, Any]],
+        message_dict: dict[str, list[dict[str, Any]]],
         logger: "LoggerFunction",
         service: str = ""
 ) -> None:
