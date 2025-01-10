@@ -534,17 +534,14 @@ def build_message_dict(
         service_filter=service
     )
 
-    if messages:
-        if service not in message_dict:
-            message_dict[service] = []
-            for message in messages:
-                message_dict[service].append(message)
-            logger(
-                logging.DEBUG,
-                "Retrieved %i messages retrieved in %s seconds",
-                len(messages),
-                time.time() - start_time,
-            )
+    if messages and service not in message_dict:
+        message_dict[service] = messages.copy()
+        logger(
+            logging.DEBUG,
+            "Retrieved %i messages retrieved in %s seconds",
+            len(messages),
+            time.time() - start_time,
+        )
 
 
 def hermes(once: bool = False, bulk: int = 1000, sleep_time: int = 10) -> None:
