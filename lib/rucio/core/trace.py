@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any, Union, overload
 import stomp
 from jsonschema import Draft7Validator, ValidationError, validate
 
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get, config_get_int, config_get_list
 from rucio.common.exception import InvalidObject, TraceValidationSchemaNotFound
 from rucio.common.logging import rucio_log_formatter
 from rucio.common.schema.generic import TIME_ENTRY, UUID, IPv4orIPv6
@@ -70,7 +70,7 @@ ROTATING_LOGGER.addHandler(ROTATING_HANDLER)
 
 BROKERS_ALIAS, BROKERS_RESOLVED = [], []
 try:
-    BROKERS_ALIAS = [b.strip() for b in config_get('trace', 'brokers').split(',')]
+    BROKERS_ALIAS = config_get_list('trace', 'brokers')
 except:
     raise Exception('Could not load brokers from configuration')
 

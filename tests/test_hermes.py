@@ -24,7 +24,7 @@ import pytest
 import requests
 import stomp
 
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get, config_get_int, config_get_list
 from rucio.core.message import add_message, retrieve_messages, truncate_messages
 from rucio.daemons.hermes import hermes
 from rucio.tests.common import rse_name_generator, skip_missing_elasticsearch_influxdb_in_env
@@ -140,7 +140,7 @@ def test_hermes(core_config_mock, caches_mock):
         add_message(
             "email",
             {
-                "to": config_get("messaging-hermes", "email_test").split(","),
+                "to": config_get_list("messaging-hermes", "email_test"),
                 "subject": "Half-Life %i" % i,
                 "body": """
                               Good morning, and welcome to the Black Mesa Transit System.
