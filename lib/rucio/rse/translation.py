@@ -195,27 +195,6 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         return '%s/%s' % (scope, name)
 
     @staticmethod
-    def __ligo(scope, name, rse, rse_attrs, protocol_attrs):
-        """
-        Given a LFN, convert it directly to a path using the Caltech schema
-
-        e.g.,: ER8:H-H1_HOFT_C02-1126256640-4096 ->
-               ER8/hoft_C02/H1/H-H1_HOFT_C02-11262/H-H1_HOFT_C02-1126256640-4096
-
-        :param scope: Scope of the LFN (observing run: ER8, O2, postO1, ...)
-        :param name: File name of the LFN (E.g., H-H1_HOFT_C02-1126256640-4096.gwf)
-        :param rse: RSE for PFN (ignored)
-        :param rse_attrs: RSE attributes for PFN (ignored)
-        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
-        :returns: Path for use in the PFN generation.
-        """
-        del rse
-        del rse_attrs
-        del protocol_attrs
-        from ligo_rucio import lfn2pfn as ligo_lfn2pfn  # pylint: disable=import-error
-        return ligo_lfn2pfn.ligo_lab(scope, name, None, None, None)
-
-    @staticmethod
     def __xenon(scope, name, rse, rse_attrs, protocol_attrs):
         """
         Given a LFN, turn it into a two level sub-directory structure based on the scope
@@ -240,7 +219,6 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         """
         cls.register(cls.__hash, "hash")
         cls.register(cls.__identity, "identity")
-        cls.register(cls.__ligo, "ligo")
         cls.register(cls.__xenon, "xenon")
         policy_module = None
         try:
