@@ -28,7 +28,7 @@ import rucio.db.sqla.util
 from rucio.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalScope, LoggerFunction
@@ -149,18 +149,14 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
 
     _, _, logger = heartbeat_handler.live()
     try:
-        rses = [
-            s.strip() for s in config_get("automatix", "rses").split(",")
-        ]  # TODO use config_get_list
+        rses = config_get_list("automatix", "rses")
     except (NoOptionError, NoSectionError, RuntimeError):
         logging.log(
             logging.ERROR,
             "Option rses not found in automatix section. Trying the legacy sites option",
         )
         try:
-            rses = [
-                s.strip() for s in config_get("automatix", "sites").split(",")
-            ]  # TODO use config_get_list
+            rses = config_get_list("automatix", "sites")
             logging.log(
                 logging.WARNING,
                 "Option sites found in automatix section. This option will be deprecated soon. Please update your config to use rses.",
