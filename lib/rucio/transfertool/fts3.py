@@ -1051,10 +1051,10 @@ class FTS3Transfertool(Transfertool):
                 [dest_lfn] = dest_protocol.parse_pfns([transfer.dest_url]).values()
                 dst_scope = determine_file_scope_for_path(rse_id=transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], file_path=dest_lfn['path'] + dest_lfn['name'])
                 token_payload = request_access_token(scope=dst_scope, audience=dst_audience)
-                t_file['source_tokens'].append(token_payload["access_token"])
+                t_file['destination_tokens'] = [token_payload["access_token"]]
             else:
                 dst_scope = determine_scope_for_rse(transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], extra_scopes=['offline_access'])
-            t_file['destination_tokens'] = [request_token(dst_audience, dst_scope)]
+                t_file['destination_tokens'] = [request_token(dst_audience, dst_scope)]
 
         if isinstance(self.scitags_exp_id, int):
             activity_id = self.scitags_activity_ids.get(rws.activity)
