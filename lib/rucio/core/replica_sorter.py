@@ -304,12 +304,6 @@ def sort_replicas(
         replicas = sort_geoip(dictreplica, client_location, ignore_error=config_get_bool('core', 'geoip_ignore_error', raise_exception=False, default=True))
     elif selection == 'custom_table':
         replicas = sort_custom(dictreplica, client_location)
-    elif selection == 'closeness':
-        replicas = sort_closeness(dictreplica, client_location)
-    elif selection == 'dynamic':
-        replicas = sort_dynamic(dictreplica, client_location)
-    elif selection == 'ranking':
-        replicas = sort_ranking(dictreplica, client_location)
     elif selection == 'random':
         replicas = sort_random(dictreplica)
 
@@ -366,42 +360,3 @@ def sort_custom(
         return __get_distance_custom(dictreplica[pfn], client_location)
 
     return list(sorted(dictreplica, key=distance))
-
-
-def sort_closeness(
-        dictreplica: dict[str, Any],
-        client_location: 'IPDict'
-) -> list[str]:
-    """
-    Return a list of replicas sorted by AGIS closeness. NOT IMPLEMENTED
-    :param dictreplica: A dict with replicas as keys (URIs).
-    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
-    """
-
-    return list(dictreplica.keys())
-
-
-def sort_ranking(
-        dictreplica: dict[str, Any],
-        client_location: 'IPDict'
-) -> list[str]:
-    """
-    Return a list of replicas sorted by ranking metric. NOT IMPLEMENTED
-    :param dictreplica: A dict with replicas as keys (URIs).
-    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
-    """
-
-    return list(dictreplica.keys())
-
-
-def sort_dynamic(
-        dictreplica: dict[str, Any],
-        client_location: 'IPDict'
-) -> list[str]:
-    """
-    Return a list of replicas sorted by dynamic network metrics. NOT IMPLEMENTED
-    :param dictreplica: A dict with replicas as keys (URIs).
-    :param client_location: Location dictionary containing {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
-    """
-
-    return list(dictreplica.keys())
