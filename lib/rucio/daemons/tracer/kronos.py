@@ -364,7 +364,7 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
         username = config_get('tracer-kronos', 'username')
         password = config_get('tracer-kronos', 'password')
 
-    excluded_usrdns = set(config_get('tracer-kronos', 'excluded_usrdns').split(','))
+    excluded_usrdns = set(config_get_list('tracer-kronos', 'excluded_usrdns'))
     vhost = config_get('tracer-kronos', 'broker_virtual_host', raise_exception=False)
 
     brokers_alias = config_get_list('tracer-kronos', 'brokers')
