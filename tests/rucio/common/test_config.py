@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-from unittest.mock import patch
 
 import pytest
 
@@ -77,13 +76,12 @@ class TestConfig:
         config_call_2 = get_config()
         assert config_call_1 is config_call_2
 
-    @patch('rucio.common.config.Config')
-    def test_clean_cached_config(self, config_mock):
+    def test_clean_cached_config(self, temp_config_file):
         config_call_1 = get_config()
         clean_cached_config()
         config_call_2 = get_config()
-        assert config_call_1 != config_call_2
-        assert config_mock.call_count == 2
+
+        assert config_call_1 is not config_call_2
 
     def test_get_config_dirs(self):
         rucio_home = "test"
