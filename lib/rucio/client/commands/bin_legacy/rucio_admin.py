@@ -418,7 +418,6 @@ def info_rse(args, client, logger, console, spinner):
     if cli_config == 'rich':
         table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         output.append(table)
-        table_data = []
     else:
         print('Protocols:')
         print('==========')
@@ -430,6 +429,7 @@ def info_rse(args, client, logger, console, spinner):
         else:
             print('  ' + protocol['scheme'])
 
+        table_data = []
         for item in sorted(protocol):
             if cli_config == 'rich':
                 if item == 'domains':
