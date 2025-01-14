@@ -873,7 +873,6 @@ class FTS3Transfertool(Transfertool):
 
     def __init__(self,
                  external_host: str,
-                 oidc_account: Optional[str] = None,
                  oidc_support: bool = False,
                  vo: Optional[str] = None,
                  group_bulk: int = 1,
