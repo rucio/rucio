@@ -577,6 +577,22 @@ def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
         yield
 
 
+@pytest.fixture(scope="session")
+def temp_config_file() -> "Iterator[ConfigParser]":
+    """
+    Session-scoped fixture that generates a temporary file and sets it as the Rucio config file.
+    Used to test when no Rucio config file is already present.
+    """
+    import tempfile
+
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(delete=True) as temp:
+        # Set the environment variable to the name of the temporary file
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setenv("RUCIO_CONFIG", temp.name)
+            yield mp
+
+
 @pytest.fixture
 def file_config_mock(request: pytest.FixtureRequest) -> "Iterator[ConfigParser]":
     """
