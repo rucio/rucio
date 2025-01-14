@@ -34,7 +34,6 @@ from rucio.common.config import config_get, config_get_bool, config_get_float
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.types import LoggerFunction
 from rucio.common.utils import dict_chunks
 from rucio.core import request as request_core
 from rucio.core import transfer as transfer_core
@@ -48,6 +47,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
     from types import FrameType
 
+    from rucio.common.types import LoggerFunction
     from rucio.daemons.common import HeartbeatHandler
     from rucio.transfertool.transfertool import Transfertool
 
@@ -118,7 +118,7 @@ def _handle_requests(
         transfer_stats_manager: request_core.TransferStatsManager,
         oidc_support: bool,
         *,
-        logger: LoggerFunction = logging.log,
+        logger: "LoggerFunction" = logging.log,
 ) -> None:
     transfs.sort(key=lambda t: (t['external_host'] or '',
                                 t['scope'].vo if multi_vo else '',
