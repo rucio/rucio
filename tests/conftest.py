@@ -440,10 +440,14 @@ def db_session() -> "Iterator[scoped_session]":
 
 def __get_fixture_param(request: pytest.FixtureRequest) -> Any:
     fixture_param = getattr(request, "param", None)
-    if not fixture_param and request.instance:
+    try:
+        mark_iterable = request.instance.pytestmark
+    except AttributeError:
+        mark_iterable = None
+    if not fixture_param and mark_iterable:
         # Parametrize support is incomplete for legacy unittest test cases
         # Manually retrieve the parameters from the list of marks:
-        mark = next(iter(filter(lambda m: m.name == 'parametrize', request.instance.pytestmark)), None)
+        mark = next(iter(filter(lambda m: m.name == 'parametrize', mark_iterable)), None)
         if mark:
             fixture_param = mark.args[1][0]
     return fixture_param
