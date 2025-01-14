@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+from unittest.mock import patch
 
 import pytest
 
-from rucio.common.config import _convert_to_boolean, convert_to_any_type, get_config_dirs
+from rucio.common.config import _convert_to_boolean, clean_cached_config, convert_to_any_type, get_config, get_config_dirs
 
 
 class TestConversion:
@@ -71,6 +72,19 @@ class TestConversion:
 
 
 class TestConfig:
+    def test_get_config_is_cached(self, temp_config_file):
+        config_call_1 = get_config()
+        config_call_2 = get_config()
+        assert config_call_1 is config_call_2
+
+    @patch('rucio.common.config.Config')
+    def test_clean_cached_config(self, config_mock):
+        config_call_1 = get_config()
+        clean_cached_config()
+        config_call_2 = get_config()
+        assert config_call_1 != config_call_2
+        assert config_mock.call_count == 2
+
     def test_get_config_dirs(self):
         rucio_home = "test"
         virtual_env = "test2"
