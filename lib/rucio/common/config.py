@@ -21,7 +21,7 @@ from functools import cache
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, overload
 
 from rucio.common import exception
-from rucio.common.exception import ConfigNotFound, DatabaseException
+from rucio.common.exception import ConfigLoadingError, ConfigNotFound, DatabaseException
 
 _T = TypeVar('_T')
 _U = TypeVar('_U')
@@ -784,7 +784,4 @@ class Config:
                     '\n\t' + '\n\t'.join(configs))
 
         if not self.parser.read(self.configfile) == [self.configfile]:
-            raise ConfigNotFound(
-                'Could not load Rucio configuration file. '
-                'Rucio tried loading the following configuration file:'
-                '\n\t' + self.configfile)
+            raise ConfigLoadingError(self.configfile)
