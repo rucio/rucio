@@ -2011,7 +2011,9 @@ def get_metadata(
 
     :param scope: The scope name.
     :param name: The data identifier name.
+    :param plugin: The metadata plugin to use or 'ALL' for all.
     :param session: The database session in use.
+
 
     :returns: List of HARDCODED metadata for did.
     """
@@ -2058,6 +2060,7 @@ def list_parent_dids_bulk(
 def get_metadata_bulk(
     dids: list["Mapping[Any, Any]"],
     inherit: bool = False,
+    plugin: str = 'JSON',
     *,
     session: "Session"
 ) -> "Iterator[dict[str, Any]]":
@@ -2065,6 +2068,7 @@ def get_metadata_bulk(
     Get metadata for a list of dids
     :param dids:               A list of dids.
     :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
+    :param plugin:             A string. The metadata plugin to use or 'ALL' for all.
     :param session:            The database session in use.
     """
     if inherit:
@@ -2096,7 +2100,7 @@ def get_metadata_bulk(
         meta_dict = {}
         for did in unique_dids:
             try:
-                meta = get_metadata(did['scope'], did['name'], plugin='JSON', session=session)
+                meta = get_metadata(did['scope'], did['name'], plugin=plugin, session=session)
             except exception.DataIdentifierNotFound:
                 meta = {}
             meta_dict[(did['scope'], did['name'])] = meta

@@ -19,7 +19,7 @@ import pytest
 from rucio.client.didclient import DIDClient
 from rucio.common.exception import KeyNotFound
 from rucio.common.utils import generate_uuid
-from rucio.core.did import add_did, delete_dids, set_dids_metadata_bulk, set_metadata_bulk
+from rucio.core.did import add_did, delete_dids, get_metadata_bulk, set_dids_metadata_bulk, set_metadata_bulk
 from rucio.core.did_meta_plugins import get_metadata, list_dids, set_metadata
 from rucio.core.did_meta_plugins.mongo_meta import MongoDidMeta
 from rucio.core.did_meta_plugins.postgres_meta import ExternalPostgresJSONDidMeta
@@ -118,7 +118,28 @@ class TestDidMetaJSON:
         meta_value = 'my_value_%s' % generate_uuid()
         add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
         set_metadata(scope=mock_scope, name=did_name, key=meta_key, value=meta_value)
-        assert get_metadata(scope=mock_scope, name=did_name, plugin='JSON')[meta_key] == meta_value
+
+        meta = get_metadata(scope=mock_scope, name=did_name, plugin='JSON')
+        assert meta[meta_key] == meta_value
+
+    @pytest.mark.dirty
+    def test_get_metadata_bulk(self, mock_scope, root_account):
+        skip_without_json()
+
+        dids = []
+        expected_meta = []
+
+        meta_key = 'data_product_id'
+        for _ in range(5):
+            did_name = did_name_generator('dataset')
+            meta_value = generate_uuid()
+            add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
+            set_metadata(scope=mock_scope, name=did_name, key=meta_key, value=meta_value)
+            dids.append({'scope': mock_scope, 'name': did_name})
+            expected_meta.append({'scope': mock_scope, 'name': did_name, meta_key: meta_value})
+
+        meta = list(get_metadata_bulk(dids, plugin="JSON", inherit=True))
+        assert meta == expected_meta
 
     @pytest.mark.dirty
     def test_get_metadata(self, mock_scope, root_account):
