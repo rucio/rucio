@@ -538,14 +538,16 @@ class DIDClient(BaseClient):
     def get_metadata_bulk(
             self,
             dids: "Sequence[Mapping[str, Any]]",
-            inherit: bool = False
+            inherit: bool = False,
+            plugin: str = "JSON",
     ) -> "Iterator[dict[str, Any]]":
         """
         Bulk get data identifier metadata
-        :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
         :param dids:               A list of dids.
+        :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
+        :param plugin:             The metadata plugin to query, 'ALL' for all available plugins
         """
-        data = {'dids': dids, 'inherit': inherit}
+        data = {'dids': dids, 'inherit': inherit, 'plugin': plugin}
         path = '/'.join([self.DIDS_BASEURL, 'bulkmeta'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type_='POST', data=dumps(data))

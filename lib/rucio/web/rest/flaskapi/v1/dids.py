@@ -1700,6 +1700,10 @@ class BulkMeta(ErrorHandlingMethodView):
                     description: Concatenated the metadata of the parent if set to true.
                     type: boolean
                     default: false
+                  plugin:
+                    description: The did meta plugin to query or "ALL" for all available plugins
+                    type: string
+                    default: "JSON"
         responses:
           200:
             description: OK
@@ -1723,10 +1727,11 @@ class BulkMeta(ErrorHandlingMethodView):
         parameters = json_parameters()
         dids = param_get(parameters, 'dids')
         inherit = param_get(parameters, 'inherit', default=False)
+        plugin = param_get(parameters, 'plugin', default='JSON')
 
         try:
             def generate(vo):
-                for meta in get_metadata_bulk(dids, inherit=inherit, vo=vo):
+                for meta in get_metadata_bulk(dids, inherit=inherit, plugin=plugin, vo=vo):
                     yield render_json(**meta) + '\n'
 
             return try_stream(generate(vo=request.environ.get('vo')))
