@@ -20,7 +20,8 @@ import sys
 import traceback
 from configparser import NoOptionError, NoSectionError
 from functools import wraps
-from typing import TYPE_CHECKING
+
+import click
 
 from rucio.client.client import Client
 from rucio.common.config import config_get
@@ -40,19 +41,6 @@ from rucio.common.exception import (
     UnsupportedOperation,
 )
 from rucio.common.utils import setup_logger
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from typing_extensions import NotRequired, TypedDict
-
-    class OperationDict(TypedDict):
-        call: Callable
-        docs: NotRequired[str]
-        namespace: NotRequired[Callable]
-
-SUCCESS = 0
-FAILURE = 1
 
 
 def exception_handler(function):
@@ -224,3 +212,21 @@ def setup_gfal2_logger():
     gfal2_logger = logging.getLogger("gfal2")
     gfal2_logger.setLevel(logging.CRITICAL)
     gfal2_logger.addHandler(logging.StreamHandler())
+
+
+def click_decorator(func):
+    """Util to combine decorators always used together in CLI. Equivalent to:
+    @click.help_option("-h", "--help")
+    @click.pass_context
+    @exception_handler
+    def func....
+    """
+    return exception_handler(click.pass_context(click.help_option("-h", "--help")(func)))
+
+
+class Arguments(dict):
+    """dot.notation access to dictionary attributes"""
+
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
