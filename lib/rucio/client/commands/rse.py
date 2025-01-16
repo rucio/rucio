@@ -71,7 +71,7 @@ class RSE(CommandBase):
 
     def namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--rse", "--rse-name", help="RSE name", required=True)
-        parser.add_argument("--non-deterministic", action="store_true", help="RSE in non-deterministic mode")
+        parser.add_argument("--non-deterministic", action="store_true", help="Create RSE in non-deterministic mode")
 
         parser.add_argument(
             "--setting",
