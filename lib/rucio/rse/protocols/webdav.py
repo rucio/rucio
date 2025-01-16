@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import sys
 import xml.etree.ElementTree as ET
@@ -560,3 +561,30 @@ class Default(protocol.RSEProtocol):
             return totalsize, unusedsize
         except Exception as error:
             raise exception.ServiceUnavailable(error)
+
+
+class NoRename(Default):
+    """ Implementing access to RSEs using the WebDAV protocol but without
+    renaming files on upload/download. Necessary for some storage endpoints.
+    """
+
+    def __init__(self, protocol_attr, rse_settings, logger=logging.log):
+        """ Initializes the object with information about the referred RSE.
+
+            :param protocol_attr:  Properties of the requested protocol.
+            :param rse_settting:   The RSE settings.
+            :param logger:         Optional decorated logger that can be passed from the calling daemons or servers.
+        """
+        super(NoRename, self).__init__(protocol_attr, rse_settings, logger=logger)
+        self.renaming = False
+        self.attributes.pop('determinism_type', None)
+
+    def rename(self, pfn, new_pfn):
+        """ Allows to rename a file stored inside the connected RSE.
+
+            :param pfn:      Current physical file name
+            :param new_pfn  New physical file name
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+        """
+        raise NotImplementedError
