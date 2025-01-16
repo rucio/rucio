@@ -11,253 +11,252 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import argparse
-import os
+import importlib
 import signal
-import sys
 import time
-from typing import TYPE_CHECKING, Optional
 
+import click
 from rich.console import Console
 from rich.status import Status
 from rich.theme import Theme
 from rich.traceback import install
 
-import rucio.client.commands as commands
 from rucio import version
-from rucio.client.commands.bin_legacy.rucio import get_client, ping, test_server, whoami_account
-from rucio.client.commands.command_base import CommandBase
-from rucio.client.commands.utils import exception_handler, setup_gfal2_logger, signal_handler
+from rucio.client.commands.bin_legacy.rucio import ping, test_server, whoami_account
+from rucio.client.commands.utils import Arguments, click_decorator, get_client, setup_gfal2_logger, signal_handler
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, get_cli_config, get_pager, setup_rich_logger
-from rucio.common.extra import import_extras
 from rucio.common.utils import setup_logger
 
-if TYPE_CHECKING:
-    from argparse import Namespace
-    from logging import Logger
 
-    from rucio.client.client import Client
+# Taken directly from https://click.palletsprojects.com/en/stable/complex/#defining-the-lazy-group
+class LazyGroup(click.Group):
+    def __init__(self, *args, lazy_subcommands=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # lazy_subcommands is a map of the form:
+        #
+        #   {command-name} -> {module-name}.{command-object-name}
+        #
+        self.lazy_subcommands = lazy_subcommands or {}
 
-EXTRA_MODULES = import_extras(["argcomplete"])
+    def list_commands(self, ctx):
+        base = super().list_commands(ctx)
+        lazy = sorted(self.lazy_subcommands.keys())
+        return base + lazy
 
-if EXTRA_MODULES["argcomplete"]:
-    import argcomplete  # pylint: disable=E0401
+    def get_command(self, ctx, cmd_name):
+        if cmd_name in self.lazy_subcommands:
+            return self._lazy_load(cmd_name)
+        return super().get_command(ctx, cmd_name)
 
-SUCCESS, FAILURE = 0, 1
-
-
-class Commands:
-    def __init__(self, logger: "Logger", client: "Client", args: "Namespace", console: Console, spinner: Status) -> None:
-        self.logger = logger
-        self.args = args
-        self.client = client
-        self.console = console
-        self.spinner = spinner
-
-    @staticmethod
-    def _all_commands() -> dict[str, type[commands.CommandBase]]:
-        # Look for all the CommandBase'd child classes in this folder and add their parsers and child parsers
-        custom_commands = ['LifetimeException', "TestServer"]  # These ones have custom names
-        command_map = {child.__name__.lower(): child for child in commands.CommandBase.__subclasses__() if child.__name__ not in custom_commands}
-        command_map["lifetime-exception"] = commands.LifetimeException
-        command_map["test-server"] = TestServer
-        return command_map
-
-    @staticmethod
-    def _add_parsers() -> argparse.ArgumentParser:
-        all_commands = Commands._all_commands()
-        groups = ""
-        for command_name, command in all_commands.items():
-            help = command(None, None, None, None, None).module_help().split('\n')[0]  # type: ignore
-            groups += f"    {command_name.ljust(20)}{help}\n"
-        description = f'CLI Rucio Client. (Use --legacy to view CLI from <36.0)\n\nPossible Arguments:\n{groups} \nView `rucio <command> -h` for more information and subcommands.'
-        parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawDescriptionHelpFormatter)
-        Commands._main_parser(parser)
-
-        subparsers = parser.add_subparsers(dest="command", help=argparse.SUPPRESS)
-        for command in all_commands.values():
-            command(None, None, None, None, None).parser(subparsers)  # type: ignore
-
-        return parser
-
-    @staticmethod
-    def _main_parser(parser: argparse.ArgumentParser) -> None:
-        main_args = parser.add_argument_group("Main Arguments")
-
-        main_args.add_argument("--version", action="version", version="%(prog)s " + version.version_string())
-
-        main_args.add_argument("--config", help="The Rucio configuration file to use.")
-        main_args.add_argument("--verbose", "-v", default=False, action="store_true", help="Print more verbose output.")
-        main_args.add_argument("-H", "--host", metavar="ADDRESS", help="The Rucio API host.")
-        main_args.add_argument("--auth-host", metavar="ADDRESS", help="The Rucio Authentication host.")
-        main_args.add_argument("-a", "--account", dest="issuer", help="Rucio account to use.")
-        main_args.add_argument("-S", "--auth-strategy", help="Authentication strategy (userpass, x509...)")
-        main_args.add_argument("-T", "--timeout", type=float, help="Set all timeout values to seconds.")
-        main_args.add_argument("--user-agent", "-U", dest="user_agent", default="rucio-clients", help="Rucio User Agent")
-        main_args.add_argument("--vo", metavar="VO", help="VO to authenticate at. Only used in multi-VO mode.")
-        main_args.add_argument("--no-pager", dest="no_pager", default=False, action='store_true', help=argparse.SUPPRESS)
-
-        auth_args = parser.add_argument_group("Authentication Settings")
-
-        auth_args.add_argument("-u", "--user", dest="username", help="username")
-        auth_args.add_argument("-pwd", "--password", help="password")
-        # Options for defining remaining OIDC parameters
-        auth_args.add_argument("--oidc-user", dest="oidc_username", help="OIDC username")
-        auth_args.add_argument("--oidc-password", help="OIDC password")
-        auth_args.add_argument(
-            "--oidc-scope",
-            default="openid profile",
-            help="""
-                Defines which (OIDC) information user will share with Rucio. Rucio requires at least -sc='openid profile'.
-                To request refresh token for Rucio, scope must include 'openid offline_access' and there must be no active
-                access token saved on the side of the currently used Rucio Client.
-            """
-        )
-        auth_args.add_argument("--oidc-audience", help="Defines which audience are tokens requested for.")
-        auth_args.add_argument(
-            "--oidc-auto",
-            default=False,
-            action="store_true",
-            help="""
-                If not specified, username and password credentials are not required and users will be given a URL to use in their browser.
-                If specified, the users explicitly trust Rucio with their IdP credentials.
-             """
-        )
-        auth_args.add_argument(
-            "--oidc-polling",
-            default=False,
-            action="store_true",
-            help="""
-                If not specified, user will be asked to enter a code returned by the browser to the command line.
-                If --polling is set, Rucio Client should get the token without any further interaction of the user.
-                This option is active only if --auto is *not* specified.
-            """
-        )
-        auth_args.add_argument(
-            "--oidc-refresh-lifetime",
-            help="""
-                Max lifetime in hours for this access token; the token will be refreshed by an asynchronous Rucio daemon.
-                If not specified, refresh will be stopped after 4 days.
-                This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.
-            """
-        )
-        auth_args.add_argument("--oidc-issuer", help="Defines which Identity Provider is going to be used. The issuer string must correspond to the keys configured in the /etc/idpsecrets.json auth server configuration file.")  # NOQA: W503
-
-        # Options for the x509  auth_strategy
-        auth_args.add_argument("--certificate", help="Client certificate file.")
-        auth_args.add_argument('--client-key', dest='client_key', default=None, help='Client key for x509 Authentication.')
-        auth_args.add_argument("--ca-certificate", help="CA certificate to verify peer against (SSL).")
-
-    def _run_command(self) -> Optional[int]:
-        try:
-            command_class = Commands._all_commands()[self.args.command]
-        except KeyError as e:
-            if self.args.command is not None:
-                self.logger.error(f"Cannot find command {self.args.command}: {e}")
-            sys.exit(FAILURE)
-
-        return exception_handler(command_class(self.client, self.args, self.logger, self.console, self.spinner))()
-
-    def __call__(self) -> None:
-        self.logger.debug("Running a command with the following arguments: %s" % vars(self.args))
-        start_time = time.time()
-        self._run_command()
-        end_time = time.time()
-
-        self.logger.debug("Completed in %-0.4f sec." % (end_time - start_time))
+    def _lazy_load(self, cmd_name):
+        # lazily loading a command, first get the module name and attribute name
+        import_path = self.lazy_subcommands[cmd_name]
+        modname, cmd_object_name = import_path.rsplit(".", 1)
+        # do the import
+        mod = importlib.import_module(modname)
+        # get the Command object from that module
+        cmd_object = getattr(mod, cmd_object_name)
+        # check the result to make debugging easier
+        if not isinstance(cmd_object, click.BaseCommand):
+            raise ValueError(f"Lazy loading of {import_path} failed by returning " "a non-command object")
+        return cmd_object
 
 
-class Ping(CommandBase):
-    def _operations(self):
-        return {}
+@click.group(
+    cls=LazyGroup,
+    lazy_subcommands={
+        "account": "rucio.client.commands.account_commands.account",
+        "config": "rucio.client.commands.config_commands.config",
+        "did": "rucio.client.commands.did_commands.did",
+        "download": "rucio.client.commands.download_commands.download",
+        "lifetime-exception": "rucio.client.commands.lifetime_exception_commands.lifetime_exception",
+        "replica": "rucio.client.commands.replica_commands.replica",
+        "rse": "rucio.client.commands.rse_commands.rse",
+        "rule": "rucio.client.commands.rule_commands.rule",
+        "scope": "rucio.client.commands.scope_commands.scope",
+        "subscription": "rucio.client.commands.subscription_commands.subscription",
+        "upload": "rucio.client.commands.upload_commands.upload_command",
+    },
+)  # TODO: Implement https://click.palletsprojects.com/en/stable/options/#dynamic-defaults-for-prompts for args from config or os
+@click.version_option(version.version_string(), message="%(prog)s %(version)s")
+@click.option("--config", help="The Rucio configuration file to use")
+@click.option("-v", "--verbose/--no-verbose", default=False, help="Print more verbose output")
+@click.option("-H", "--host", help="The Rucio API host")
+@click.option("--auth-host", help="The Rucio Authentication host")
+@click.option("-S", "--auth-strategy", help="Authentication strategy (userpass, x509...)")
+@click.option("-T", "--timeout", type=float, help="Set all timeout values to seconds")
+@click.option("-U", "--user-agent", default="rucio-clients", help="Rucio User Agent")
+@click.option("--vo", help="VO to authenticate at. Only used in multi-VO mode")
+@click.option("--pager/--no-pager", default=False, hidden=True)
+@click.option("-u", "--user", help="Username for userpass")
+@click.option("-pwd", "--password", help="Password for userpass")
+@click.option("--oidc-user", help="OIDC username")
+@click.option("--oidc-password", help="OIDC password")
+@click.option(
+    "--oidc-scope",
+    default="openid profile",
+    help="""
+        Defines which (OIDC) information user will share with Rucio. Rucio requires at least -sc='openid profile'.
+        To request refresh token for Rucio, scope must include 'openid offline_access'
+        and there must be no active access token saved on the side of the currently used Rucio Client,
+    """,
+)
+@click.option("--oidc-audience", help="Defines which audience are tokens requested for.")
+@click.option(
+    "--oidc-auto/--no-oidc-auto",
+    default=False,
+    help="""
+        If not specified, username and password credentials are not required and users will be given a URL to use in their browser.
+        If specified, the users explicitly trust Rucio with their IdP credentials"
+    """,
+)
+@click.option(
+    "--oidc-polling/--no-oidc-polling",
+    default=False,
+    help="""
+        If not specified, user will be asked to enter a code returned by the browser to the command line.
+        If --polling is set, Rucio Client should get the token without any further interaction of the user.
+        This option is active only if --auto is *not* specified
+    """,
+)
+@click.option(
+    "--oidc-refresh-lifetime",
+    help="""
+        Max lifetime in hours for this access token; the token will be refreshed by an asynchronous Rucio daemon.
+        If not specified, refresh will be stopped after 4 days.
+        This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio
+    """,
+)
+@click.option(
+    "--oidc-issuer",
+    help="""
+        Defines which Identity Provider is going to be used.
+        The issuer string must correspond to the keys configured in the /etc/idpsecrets.json auth server configuration file")
+    """,
+)
+# Options for the x509  auth_strategy
+@click.option("--certificate", help="Client certificate file")
+@click.option("--client-key", help="Client key for x509 Authentication")
+@click.option("--ca-certificate", help="CA certificate to verify peer against (SSL)")
+@click_decorator
+def main(
+    ctx,
+    config,
+    verbose,
+    host,
+    auth_host,
+    auth_strategy,
+    timeout,
+    user_agent,
+    vo,
+    pager,
+    user,
+    password,
+    oidc_user,
+    oidc_password,
+    oidc_scope,
+    oidc_audience,
+    oidc_auto,
+    oidc_polling,
+    oidc_refresh_lifetime,
+    oidc_issuer,
+    certificate,
+    client_key,
+    ca_certificate,
+):
+    ctx.ensure_object(Arguments)
+    ctx.obj.start_time = time.time()
 
-    def module_help(self) -> str:
-        return ""
+    ctx.obj.no_pager = not pager
+    pager = get_pager()
+    use_rich = get_cli_config() == "rich"
 
-    def usage_example(self) -> list[str]:
-        return []
-
-    def parser(self, subparser):
-        command_parser = subparser.add_parser("ping", description="Ping the server", formatter_class=argparse.RawDescriptionHelpFormatter)
-        return command_parser
-
-    def __call__(self):
-        ping(self.args, self.client, self.logger, self.console, self.spinner)
-
-
-class Whoami(CommandBase):
-    def _operations(self):
-        return {}
-
-    def module_help(self) -> str:
-        return ""
-
-    def usage_example(self) -> list[str]:
-        return []
-
-    def parser(self, subparser):
-        command_parser = subparser.add_parser("whoami", description="See login information, test credentials", formatter_class=argparse.RawDescriptionHelpFormatter)
-        return command_parser
-
-    def __call__(self):
-        whoami_account(self.args, self.client, self.logger, self.console, self.spinner)
-
-
-class TestServer(CommandBase):
-    def _operations(self):
-        return {}
-
-    def module_help(self) -> str:
-        return ""
-
-    def usage_example(self) -> list[str]:
-        return []
-
-    def parser(self, subparser):
-        command_parser = subparser.add_parser("test-server", description="Test client against the server", formatter_class=argparse.RawDescriptionHelpFormatter)
-        return command_parser
-
-    def __call__(self):
-        test_server(self.args, self.client, self.logger, self.console, self.spinner)
-
-
-def main():
-    cli_config = get_cli_config()
     console = Console(theme=Theme(CLITheme.LOG_THEMES), soft_wrap=True)
     console.width = max(MIN_CONSOLE_WIDTH, console.width)
+    spinner = Status("Initializing spinner", spinner=CLITheme.SPINNER, spinner_style=CLITheme.SPINNER_STYLE, console=console)
 
-    spinner = Status('Initializing spinner', spinner=CLITheme.SPINNER, spinner_style=CLITheme.SPINNER_STYLE, console=console)
-    pager = get_pager()
+    ctx.obj.use_rich = use_rich
+    ctx.obj.spinner = spinner
+    ctx.obj.console = console
+    ctx.obj.pager = pager
 
-    parser_object = Commands._add_parsers()
-    if EXTRA_MODULES["argcomplete"]:
-        argcomplete.autocomplete(parser_object)
-    args = parser_object.parse_args()
-    if args.config is not None:
-        os.environ["RUCIO_CONFIG"] = args.config
-    if args.command is None:
-        parser_object.print_help()
-        sys.exit(FAILURE)
+    if use_rich:
+        install(console=console, word_wrap=True, width=min(console.width, MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
+        logger = setup_rich_logger(module_name=__name__, logger_name="user", verbose=verbose, console=console)
+    else:
+        logger = setup_logger(module_name=__name__, logger_name="user", verbose=verbose)
+    args = Arguments(
+        {
+            "config": config,
+            "host": host,
+            "auth_host": auth_host,
+            "auth_strategy": auth_strategy,
+            "timeout": timeout,
+            "user_agent": user_agent,
+            "VO": vo,
+            "username": user,
+            "password": password,
+            "oidc_username": oidc_user,
+            "oidc_password": oidc_password,
+            "oidc_scope": oidc_scope,
+            "oidc_audience": oidc_audience,
+            "oidc_auto": oidc_auto,
+            "oidc_polling": oidc_polling,
+            "oidc_refresh_lifetime": oidc_refresh_lifetime,
+            "oidc_issuer": oidc_issuer,
+            "certificate": certificate,
+            "client_key": client_key,
+            "ca_certificate": ca_certificate,
+        }
+    )  # TODO Future improvement - change `get_client` to take these args directly
+    client = get_client(args, logger)  # TODO Future improvement - use envvar functionality in click to remove conditionals checking env vars
 
     setup_gfal2_logger()
-
-    if cli_config == 'rich':
-        install(console=console, word_wrap=True, width=min(console.width, MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
-        logger = setup_rich_logger(module_name=__name__, logger_name='user', verbose=args.verbose, console=console)
-
-    else:
-        logger = setup_logger(module_name=__name__, logger_name="user", verbose=args.verbose)
-
-    client = get_client(args, logger)
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, logger))
 
-    Commands(logger, client, args, console, spinner)()
+    ctx.obj.client = client
+    ctx.obj.logger = logger
 
-    if cli_config == 'rich':
-        spinner.stop()
+    ctx.call_on_close(_teardown)
 
-    if console.is_terminal and not args.no_pager:
-        command_output = console.end_capture()
-        if command_output != '':
-            signal.signal(signal.SIGINT, signal.SIG_IGN)  # Do not allow the user to stop the program while sending to pager
-            pager(command_output)
+
+@click.pass_context
+def _teardown(ctx):
+    time_elapsed = time.time() - ctx.obj.start_time
+
+    if ctx.obj.use_rich:
+        ctx.obj.spinner.stop()
+    if ctx.obj.console.is_terminal and not ctx.obj.no_pager:
+        command_output = ctx.obj.console.end_capture()
+        if command_output == "" and ctx.obj.verbose:
+            print("Completed in %-0.4f sec." % (time_elapsed))
+        else:
+            if ctx.obj.verbose:
+                command_output += "Completed in %-0.4f sec." % (time_elapsed)
+            # Ignore SIGINT during pager execution.
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+            ctx.obj.pager(command_output)
+    else:
+        if ctx.obj.verbose:
+            print("Completed in %-0.4f sec." % (time_elapsed))
+
+
+@main.command(name="whoami", help="Get information about account whose token is used")
+@click_decorator
+def exe_whoami(ctx):
+    args = Arguments()
+    whoami_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+
+
+@main.command(name="ping", help="Ping Rucio server")
+@click_decorator
+def exe_ping(ctx):
+    args = Arguments()
+    ping(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+
+
+@main.command(name="test-server", help="Test client against the server")
+@click_decorator
+def exe_test_server(ctx):
+    args = Arguments()
+    test_server(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
