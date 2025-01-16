@@ -213,7 +213,11 @@ class Default(protocol.RSEProtocol):
         # "ping" to see if the server is available
         try:
             res = self.session.request('HEAD', self.path2pfn(''), verify=False, timeout=self.timeout, cert=self.cert)
-            if res.status_code != 200:
+            # REVISIT: this test checks some URL that doesn't correspond to
+            # any valid Rucio file.  Although this works for normal WebDAV
+            # endpoints, it fails for endpoints using presigned URLs.  As a
+            # work-around, accept 4xx status codes when using presigned URLs.
+            if res.status_code != 200 and not (using_presigned_urls and res.status_code < 500):
                 raise exception.ServiceUnavailable('Problem to connect %s : %s' % (self.path2pfn(''), res.text))
         except requests.exceptions.ConnectionError as error:
             raise exception.ServiceUnavailable('Problem to connect %s : %s' % (self.path2pfn(''), error))
