@@ -24,7 +24,7 @@ class Default(ngarc.Default):
 
             :param props: Properties derived from the RSE Repository
         """
-        super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
+        super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)  # type: ignore (logger might be None)
         self.attributes.pop('determinism_type', None)
         self.files = []
 
