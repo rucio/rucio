@@ -161,6 +161,7 @@ class Default(protocol.RSEProtocol):
             :raises RSEAccessDenied
         """
         credentials = credentials or {}
+        using_presigned_urls = self.rse['sign_url'] is not None
         try:
             parse_url = urlparse(self.path2pfn(''))
             self.server = f'{parse_url.scheme}://{parse_url.netloc}'
@@ -177,23 +178,29 @@ class Default(protocol.RSEProtocol):
         except KeyError:
             self.auth_type = 'cert'
 
-        try:
-            self.cert = credentials['cert']
-        except KeyError:
-            x509 = os.getenv('X509_USER_PROXY')
-            if not x509:
-                # Trying to get the proxy from the default location
-                proxy_path = '/tmp/x509up_u%s' % os.geteuid()
-                if os.path.isfile(proxy_path):
-                    self.cert = (proxy_path, proxy_path)
-                elif self.auth_token:
-                    # If no proxy is found, we set the cert to None and use the auth_token
-                    self.cert = None
-                    pass
+        if using_presigned_urls:
+            # Suppress all authentication, otherwise S3 servers will reject
+            # requests.
+            self.cert = None
+            self.auth_token = None
+        else:
+            try:
+                self.cert = credentials['cert']
+            except KeyError:
+                x509 = os.getenv('X509_USER_PROXY')
+                if not x509:
+                    # Trying to get the proxy from the default location
+                    proxy_path = '/tmp/x509up_u%s' % os.geteuid()
+                    if os.path.isfile(proxy_path):
+                        self.cert = (proxy_path, proxy_path)
+                    elif self.auth_token:
+                        # If no proxy is found, we set the cert to None and use the auth_token
+                        self.cert = None
+                        pass
+                    else:
+                        raise exception.RSEAccessDenied('X509_USER_PROXY is not set')
                 else:
-                    raise exception.RSEAccessDenied('X509_USER_PROXY is not set')
-            else:
-                self.cert = (x509, x509)
+                    self.cert = (x509, x509)
 
         try:
             self.timeout = credentials['timeout']
