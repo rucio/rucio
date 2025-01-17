@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.vcsversion import VERSION_INFO
-from rucio.version import canonical_version_string, vcs_version_string, version_string, version_string_with_vcs
+from rucio.core.vcsversion import VERSION_INFO
+from rucio.core.version import canonical_version_string, vcs_version_string, version_string, version_string_with_vcs
 
 
 class TestVersion:

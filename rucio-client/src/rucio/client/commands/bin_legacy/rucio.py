@@ -37,10 +37,11 @@ from rich.traceback import install
 from rich.tree import Tree
 from tabulate import tabulate
 
-# rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
-from rucio import version
 from rucio.client.commands.utils import exception_handler, get_client, setup_gfal2_logger, signal_handler
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, generate_table, get_cli_config, get_pager, print_output, setup_rich_logger
+
+# rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
+from rucio.core import version
 from rucio.core.common.client import detect_client_location
 from rucio.core.common.config import config_get, config_get_float
 from rucio.core.common.constants import ReplicaState

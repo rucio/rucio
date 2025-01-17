@@ -16,7 +16,7 @@
 from apispec import APISpec
 from apispec_webframeworks.flask import FlaskPlugin
 
-from rucio.vcsversion import VERSION_INFO
+from rucio.core.vcsversion import VERSION_INFO
 from rucio.web.rest.flaskapi.v1.main import application
 
 description_text = """Each resource can be accessed or modified using specially

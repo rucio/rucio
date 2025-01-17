@@ -24,11 +24,11 @@ from rich.theme import Theme
 from rich.traceback import install
 
 import rucio.client.commands as commands
-from rucio import version
 from rucio.client.commands.bin_legacy.rucio import get_client, ping, test_server, whoami_account
 from rucio.client.commands.command_base import CommandBase
 from rucio.client.commands.utils import exception_handler, setup_gfal2_logger, signal_handler
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, get_cli_config, get_pager, setup_rich_logger
+from rucio.core import version
 from rucio.core.common.extra import import_extras
 from rucio.core.common.utils import setup_logger
 

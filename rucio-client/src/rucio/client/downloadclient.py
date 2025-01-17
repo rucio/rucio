@@ -27,8 +27,8 @@ from queue import Empty, Queue, deque
 from threading import Thread
 from typing import TYPE_CHECKING, Any, Optional
 
-from rucio import version
 from rucio.client.client import Client
+from rucio.core import version
 from rucio.core.common.checksum import CHECKSUM_ALGO_DICT, GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM, adler32
 from rucio.core.common.client import detect_client_location
 from rucio.core.common.config import config_get

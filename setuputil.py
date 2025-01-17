@@ -120,7 +120,7 @@ def get_rucio_version() -> str:
     python_executable = "'" + sys.executable + "'"
     ver = run_shell_command(
         "PYTHONPATH=lib " + python_executable + " -c "
-        '"from rucio import version; print(version.version_string())"'
+        '"from rucio.core import version; print(version.version_string())"'
     )
     if not ver:
         raise RuntimeError("Could not fetch Rucio version")

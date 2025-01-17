@@ -23,8 +23,8 @@ import socket
 import time
 from typing import TYPE_CHECKING, Any, Final, Optional, Union, cast
 
-from rucio import version
 from rucio.client.client import Client
+from rucio.core import version
 from rucio.core.common.bittorrent import bittorrent_v2_merkle_sha256
 from rucio.core.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS, adler32, md5
 from rucio.core.common.client import detect_client_location

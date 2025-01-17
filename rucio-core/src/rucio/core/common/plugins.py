@@ -23,7 +23,7 @@ from packaging.specifiers import SpecifierSet
 from rucio.core.common import config
 from rucio.core.common.client import get_client_vo, is_client
 from rucio.core.common.exception import InvalidAlgorithmName, PolicyPackageIsNotVersioned, PolicyPackageVersionError
-from rucio.version import current_version
+from rucio.core.version import current_version
 
 if TYPE_CHECKING:
     from collections.abc import Callable

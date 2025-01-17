@@ -35,7 +35,7 @@ from requests import Response, Session
 from requests.exceptions import ConnectionError
 from requests.status_codes import codes
 
-from rucio import version
+from rucio.core import version
 from rucio.core.common import exception
 from rucio.core.common.config import config_get, config_get_bool, config_get_int
 from rucio.core.common.exception import CannotAuthenticate, ClientProtocolNotSupported, ConfigNotFound, MissingClientParameter, MissingModuleException, NoAuthInformation, ServerConnectionException
