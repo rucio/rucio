@@ -8,7 +8,7 @@ include setup.py
 include setup.cfg
 include pyproject.toml
 include requirements/requirements.server.txt
-include lib/rucio/db/migrate_repo/script.py.mako
+include lib/rucio/db/sqla/migrate_repo/script.py.mako
 include etc/rse-accounts.cfg.template
 include etc/rucio.cfg.atlas.client.template
 include etc/rucio.cfg.template
