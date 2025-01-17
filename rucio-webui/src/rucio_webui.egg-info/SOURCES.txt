@@ -1,0 +1,13 @@
+pyproject.toml
+src/rucio/ui/__init__.py
+src/rucio/ui/main.py
+src/rucio/ui/flask/__init__.py
+src/rucio/ui/flask/bp.py
+src/rucio/ui/flask/main.py
+src/rucio/ui/flask/common/__init__.py
+src/rucio/ui/flask/common/utils.py
+src/rucio_webui.egg-info/PKG-INFO
+src/rucio_webui.egg-info/SOURCES.txt
+src/rucio_webui.egg-info/dependency_links.txt
+src/rucio_webui.egg-info/requires.txt
+src/rucio_webui.egg-info/top_level.txt

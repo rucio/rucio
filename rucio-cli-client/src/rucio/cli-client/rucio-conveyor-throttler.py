@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+# Copyright European Organization for Nuclear Research (CERN) since 2012
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Conveyor is a daemon to manage file transfers.
+"""
+
+import argparse
+import signal
+
+from rucio.daemons.conveyor.throttler import run, stop
+
+
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
+    parser = argparse.ArgumentParser(description="The Conveyor-Throttler daemon is responsible for managing the internal queue of transfer requests. Depending on transfer limits of current and waiting transfers, it decides whether a transfer should be put in the queue or not.", epilog='''
+In this example, the transfer limit will be one transfer which means that there should be only one active transfer at the time.
+There will be two waiting transfer requests and no current active transfer.
+After running the daemon, there will be one transfer in the queue which can then be started.
+
+Setup the transfer limit::
+
+  $ python
+  from rucio.core.rse import set_rse_transfer_limits
+  set_rse_transfer_limits('MOCK2', 'User Subscriptions', max_transfers=1)
+  $ rucio-admin config set --section throttler --option 'User Subscriptions,MOCK2' --value 1
+
+If Rucio is running in multi-VO mode, then the RSE ID should be used in place of its name when setting the config::
+
+  $ rucio-admin rse info MOCK2
+  Settings:
+  =========
+    ...
+  Attributes:
+  ===========
+    ...
+  Protocols:
+  ==========
+    ...
+  Usage:
+  ======
+    ...
+    rse_id: 9c54c73cbd534450b2202a576f809f1f
+  $ rucio-admin config set --section throttler --option 'User Subscriptions,9c54c73cbd534450b2202a576f809f1f' --value 1
+
+Upload two files and create replication rules to the same RSE::
+
+  $ rucio upload --scope mock --rse MOCK --name file1 filename.txt
+  $ rucio add-rule mock:file 1 MOCK2
+  $ rucio upload --scope mock --rse MOCK --name file2 filename.txt
+  $ rucio add-rule mock:file2 1 MOCK2
+
+Check transfer requests::
+
+    $ python
+    from rucio.core.db.sqla import session,models
+    [request.to_dict() for request in session.get_session().query(models.Request).all()]
+    # [{'state': WAITING, ...}, {'state': WAITING, ...}
+
+Two transfer requests with the state 'WAITING' got created.
+
+Run the daemon::
+
+  $ rucio-conveyor-throttler --run-once
+
+Check transfer requests::
+
+    $ python
+    from rucio.core.db.sqla import session,models
+    [request.to_dict() for request in session.get_session().query(models.Request).all()]
+    # [{'state': WAITING, ...}, {'state': QUEUED, ...}
+
+Finally one of the transfer requests got put in the queue and can be picked up by the Conyevor-Submitter daemon to submit the transfer job to the transfertool.
+The other request will have to wait until one of the queued requests is done or until the transfer limit changes.
+''', formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--run-once", action="store_true", default=False,
+                        help='One iteration only')
+    parser.add_argument('--sleep-time', action="store", default=600, type=int,
+                        help='Seconds to sleep if few requests')
+    return parser
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, stop)
+    parser = get_parser()
+    args = parser.parse_args()
+    try:
+        run(once=args.run_once, sleep_time=args.sleep_time)
+    except KeyboardInterrupt:
+        stop()

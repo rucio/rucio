@@ -16,8 +16,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS, adler32, crc32, is_checksum_valid, md5, set_preferred_checksum, sha256
-from rucio.common.exception import ChecksumCalculationError
+from rucio.core.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS, adler32, crc32, is_checksum_valid, md5, set_preferred_checksum, sha256
+from rucio.core.common.exception import ChecksumCalculationError
 
 
 class TestChecksumUtils:
@@ -37,7 +37,7 @@ class TestChecksumUtils:
         set_preferred_checksum(mock_checksum)
 
         # This is a global variable, so it must be imported here
-        from rucio.common.checksum import PREFERRED_CHECKSUM
+        from rucio.core.common.checksum import PREFERRED_CHECKSUM
 
         assert PREFERRED_CHECKSUM == mock_checksum
         GLOBALLY_SUPPORTED_CHECKSUMS.pop()
@@ -47,7 +47,7 @@ class TestChecksumUtils:
         set_preferred_checksum(mock_checksum)
 
         # This is a global variable, so it must be imported here
-        from rucio.common.checksum import PREFERRED_CHECKSUM
+        from rucio.core.common.checksum import PREFERRED_CHECKSUM
 
         assert PREFERRED_CHECKSUM != mock_checksum
 

@@ -14,7 +14,7 @@
 
 import pytest
 
-from rucio.common.utils import generate_uuid as uuid
+from rucio.core.common.utils import generate_uuid as uuid
 
 
 @pytest.mark.dirty

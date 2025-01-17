@@ -21,8 +21,8 @@ from uuid import uuid4 as uuid
 
 import pytest
 
-from rucio.common import exception
-from rucio.common.checksum import adler32, md5
+from rucio.core.common import exception
+from rucio.core.common.checksum import adler32, md5
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import load_test_conf_file, skip_rse_tests_with_accounts
 

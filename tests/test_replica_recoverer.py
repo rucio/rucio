@@ -25,7 +25,7 @@ from rucio.core.did import set_metadata
 from rucio.core.replica import list_bad_replicas_status, list_replicas, update_replica_state
 from rucio.core.rse import add_rse_attribute
 from rucio.daemons.replicarecoverer.suspicious_replica_recoverer import run, stop
-from rucio.db.sqla.constants import BadFilesStatus, DIDType, ReplicaState
+from rucio.core.db.sqla.constants import BadFilesStatus, DIDType, ReplicaState
 from rucio.tests.common import execute
 
 

@@ -16,8 +16,8 @@ import os
 
 import pytest
 
-from rucio.common.constants import RseAttr
-from rucio.common.exception import UnsupportedOperation
+from rucio.core.common.constants import RseAttr
+from rucio.core.common.exception import UnsupportedOperation
 from rucio.core.credential import get_signed_url
 from rucio.core.replica import add_replicas
 from rucio.core.rse import add_protocol, add_rse_attribute

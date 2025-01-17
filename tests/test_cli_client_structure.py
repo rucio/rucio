@@ -16,8 +16,8 @@ import tempfile
 
 import pytest
 
-from rucio.common.exception import RucioException
-from rucio.common.utils import generate_uuid
+from rucio.core.common.exception import RucioException
+from rucio.core.common.utils import generate_uuid
 from rucio.tests.common import account_name_generator, execute, file_generator, rse_name_generator, scope_name_generator
 
 

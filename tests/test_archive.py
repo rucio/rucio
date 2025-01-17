@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.common.utils import generate_uuid
+from rucio.core.common.utils import generate_uuid
 from rucio.core.did import attach_dids, get_metadata
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_protocol, update_rse

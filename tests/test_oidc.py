@@ -24,16 +24,16 @@ from jwkest.jwt import JWT
 from oic import rndstr
 from sqlalchemy import select
 
-from rucio.common.config import config_get_bool
-from rucio.common.exception import CannotAuthenticate, DatabaseException, Duplicate
-from rucio.common.types import InternalAccount
+from rucio.core.common.config import config_get_bool
+from rucio.core.common.exception import CannotAuthenticate, DatabaseException, Duplicate
+from rucio.core.common.types import InternalAccount
 from rucio.core.account import add_account
 from rucio.core.authentication import redirect_auth_oidc, validate_auth_token
 from rucio.core.identity import add_account_identity
 from rucio.core.oidc import EXPECTED_OIDC_AUDIENCE, EXPECTED_OIDC_SCOPE, _token_cache_get, _token_cache_set, get_auth_oidc, get_token_for_account_operation, get_token_oidc, oidc_identity_string
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import AccountType, IdentityType
-from rucio.db.sqla.session import get_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.constants import AccountType, IdentityType
+from rucio.core.db.sqla.session import get_session
 from rucio.tests.common_server import get_vo
 
 NEW_TOKEN_DICT = {'access_token': 'eyJ3bG...',

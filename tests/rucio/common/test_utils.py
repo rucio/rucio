@@ -13,7 +13,7 @@
 # limitations under the License.
 import pytest
 
-from rucio.common.utils import _encode_params_as_url_query_string, build_url, invert_dict
+from rucio.core.common.utils import _encode_params_as_url_query_string, build_url, invert_dict
 
 
 class TestUtils:

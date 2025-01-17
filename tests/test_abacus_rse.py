@@ -15,13 +15,13 @@
 import pytest
 from sqlalchemy import delete
 
-from rucio.common.schema import get_schema_value
+from rucio.core.common.schema import get_schema_value
 from rucio.core.rse import get_rse_usage
 from rucio.daemons.abacus.rse import rse_update
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
-from rucio.db.sqla import models
-from rucio.db.sqla.session import get_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.session import get_session
 
 
 @pytest.mark.noparallel(reason='uses daemon, failing in parallel to other tests')

@@ -30,11 +30,11 @@ from rucio.client.client import Client
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_add_section, config_has_section, config_remove_option, config_set
-from rucio.common.constants import RseAttr
-from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, RucioException, UnsupportedAccountName, UnsupportedOperation
-from rucio.common.types import InternalAccount
-from rucio.common.utils import generate_uuid, get_tmp_dir, parse_response, ssh_sign
+from rucio.core.common.config import config_add_section, config_has_section, config_remove_option, config_set
+from rucio.core.common.constants import RseAttr
+from rucio.core.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, RucioException, UnsupportedAccountName, UnsupportedOperation
+from rucio.core.common.types import InternalAccount
+from rucio.core.common.utils import generate_uuid, get_tmp_dir, parse_response, ssh_sign
 from rucio.core import config as core_config
 from rucio.core.account_counter import add_counter
 from rucio.core.replica import add_replica
@@ -43,8 +43,8 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import add_rule
 from rucio.core.vo import map_vo
 from rucio.daemons.automatix.automatix import automatix
-from rucio.db.sqla import models
-from rucio.db.sqla import session as db_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla import session as db_session
 from rucio.gateway import vo as vo_gateway
 from rucio.gateway.account import add_account, list_accounts
 from rucio.gateway.account_limit import set_local_account_limit

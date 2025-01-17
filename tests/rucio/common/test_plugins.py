@@ -16,8 +16,8 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from packaging.specifiers import SpecifierSet
 
-from rucio.common.exception import PolicyPackageIsNotVersioned, PolicyPackageVersionError
-from rucio.common.plugins import _get_supported_versions_from_policy_package, check_policy_package_version
+from rucio.core.common.exception import PolicyPackageIsNotVersioned, PolicyPackageVersionError
+from rucio.core.common.plugins import _get_supported_versions_from_policy_package, check_policy_package_version
 
 
 class TestPolicyPackageVersion:

@@ -24,7 +24,7 @@ import sys  # noqa: E402
 import traceback  # noqa: E402
 
 from rucio.client import Client  # noqa: E402
-from rucio.common.exception import Duplicate  # noqa: E402
+from rucio.core.common.exception import Duplicate  # noqa: E402
 
 UNKNOWN = 3
 CRITICAL = 2

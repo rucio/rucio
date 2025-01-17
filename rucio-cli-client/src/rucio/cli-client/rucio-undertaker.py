@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+# Copyright European Organization for Nuclear Research (CERN) since 2012
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Undertaker is a daemon to manage expired did.
+"""
+
+import argparse
+import signal
+
+from rucio.daemons.undertaker.undertaker import run, stop
+
+
+def get_parser():
+    """
+    Returns the argparse parser.
+    """
+    parser = argparse.ArgumentParser(description="The Undertaker daemon is responsible for managing expired DIDs. It deletes DIDs, but not replicas by checking if there are DIDs where the 'expired_at' date property is older than the current timestamp.", epilog='''
+Create a DID that is already expired by setting its lifetime to -1::
+
+  $ python
+  from rucio.core.db.sqla.constants import DIDType
+  from rucio.client.didclient import DIDClient
+  client = DIDClient()
+  client.add_did(scope='mock', name='test', type=DIDType.DATASET, lifetime=-1)
+
+Check if the DID exists::
+
+  $ rucio list-dids mock:test
+  +--------------+--------------+
+  | SCOPE:NAME   | [DID TYPE]   |
+  |--------------+--------------|
+  | mock:test    | DATASET      |
+  +--------------+--------------+
+
+Run the daemon::
+
+  $ rucio-undertaker --run-once
+
+Check if the DID exists::
+
+  $ rucio list-dids mock:test
+  +--------------+--------------+
+  | SCOPE:NAME   | [DID TYPE]   |
+  |--------------+--------------|
+  +--------------+--------------+
+''', formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
+    parser.add_argument("--total-workers", action="store", default=1, type=int, help='Total number of workers')
+    parser.add_argument("--chunk-size", action="store", default=5, type=int, help='Chunk size')
+    parser.add_argument('--sleep-time', action="store", default=60, type=int, help='Concurrency control: thread sleep time after each chunk of work')
+    return parser
+
+
+if __name__ == "__main__":
+
+    signal.signal(signal.SIGTERM, stop)
+    parser = get_parser()
+    args = parser.parse_args()
+    try:
+        run(total_workers=args.total_workers, chunk_size=args.chunk_size, once=args.run_once,
+            sleep_time=args.sleep_time)
+    except KeyboardInterrupt:
+        stop()

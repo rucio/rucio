@@ -13,7 +13,7 @@
 # limitations under the License.
 from unittest.mock import Mock, patch
 
-from rucio.common.extra import import_extras
+from rucio.core.common.extra import import_extras
 
 
 class TestExtra:

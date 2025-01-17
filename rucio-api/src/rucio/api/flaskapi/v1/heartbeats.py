@@ -1,0 +1,127 @@
+# Copyright European Organization for Nuclear Research (CERN) since 2012
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import json
+
+from flask import Flask, Response, request
+
+from rucio.core.common.exception import AccessDenied, KeyNotFound, UnsupportedKeyType, UnsupportedValueType
+from rucio.core.common.utils import APIEncoder
+from rucio.gateway.heartbeat import create_heartbeat, list_heartbeats
+from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers
+
+
+class Heartbeat(ErrorHandlingMethodView):
+    """ REST API for Heartbeats. """
+
+    @check_accept_header_wrapper_flask(['application/json'])
+    def get(self):
+        """
+        ---
+        summary: List
+        description: List all heartbeats.
+        tags:
+          - Heartbeat
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    description: List of tuples [('Executable', 'Hostname', ...), ...]
+          401:
+            description: Invalid Auth Token
+          406:
+            description: Not acceptable
+        """
+        return Response(json.dumps(list_heartbeats(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')), cls=APIEncoder), content_type='application/json')
+
+    def post(self):
+        """
+        ---
+        summary: Create
+        tags:
+          - Heartbeat
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - bytes
+                properties:
+                  executable:
+                    description: Name of the executable.
+                    type: string
+                  hostname:
+                    description: Name of the host.
+                    type: string
+                  pid:
+                    description: UNIX Process ID as a number, e.g., 1234.
+                    type: integer
+                  older_than:
+                    description: Ignore specified heartbeats older than specified nr of seconds.
+                    type: integer
+                  payload:
+                    description: Payload identifier which can be further used to identify the work a certain thread is executing.
+                    type: string
+        responses:
+          200:
+            description: OK
+          400:
+            description: Cannot decode json parameter list.
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Key not found.
+        """
+        parameters = json_parameters()
+        try:
+            create_heartbeat(
+                executable=param_get(parameters, 'executable'),
+                hostname=param_get(parameters, 'hostname'),
+                pid=param_get(parameters, 'pid'),
+                older_than=param_get(parameters, 'older_than', default=None),
+                payload=param_get(parameters, 'payload', default=None),
+                issuer=request.environ.get('issuer'),
+                vo=request.environ.get('vo'),
+            )
+        except (UnsupportedValueType, UnsupportedKeyType) as error:
+            return generate_http_error_flask(400, error)
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
+        except KeyNotFound as error:
+            return generate_http_error_flask(404, error)
+        return 'OK', 200
+
+
+def blueprint():
+    bp = AuthenticatedBlueprint('heartbeats', __name__, url_prefix='/heartbeats')
+
+    heartbeat_view = Heartbeat.as_view('heartbeat')
+    bp.add_url_rule('', view_func=heartbeat_view, methods=['get', 'post'])
+
+    bp.after_request(response_headers)
+    return bp
+
+
+def make_doc():
+    """ Only used for sphinx documentation """
+    doc_app = Flask(__name__)
+    doc_app.register_blueprint(blueprint())
+    return doc_app

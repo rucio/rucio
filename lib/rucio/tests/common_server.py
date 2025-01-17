@@ -19,8 +19,8 @@ from sqlalchemy.orm import Session, aliased
 
 from rucio.core import config as core_config
 from rucio.core.vo import map_vo
-from rucio.db.sqla import models
-from rucio.db.sqla.session import get_session, transactional_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.session import get_session, transactional_session
 
 from .common import get_long_vo
 

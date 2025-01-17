@@ -17,8 +17,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from rucio.common.exception import NoDistance
-from rucio.common.utils import generate_uuid
+from rucio.core.common.exception import NoDistance
+from rucio.core.common.utils import generate_uuid
 from rucio.core import request as request_core
 from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
@@ -28,9 +28,9 @@ from rucio.core.request import list_and_mark_transfer_requests_and_source_replic
 from rucio.core.topology import Topology, get_hops
 from rucio.core.transfer import ProtocolFactory, build_transfer_paths
 from rucio.daemons.conveyor.common import assign_paths_to_transfertool_and_create_hops, pick_and_prepare_submission_path
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import RequestState, RSEType
-from rucio.db.sqla.session import get_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.constants import RequestState, RSEType
+from rucio.core.db.sqla.session import get_session
 
 
 def _prepare_submission(rses):

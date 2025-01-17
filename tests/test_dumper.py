@@ -23,7 +23,7 @@ from unittest import mock
 import pytest
 import requests
 
-from rucio.common import config, dumper
+from rucio.core.common import config, dumper
 from rucio.tests.common import make_temp_file, mock_open
 
 from .mocks import gfal2

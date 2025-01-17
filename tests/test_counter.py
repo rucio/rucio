@@ -21,7 +21,7 @@ from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_usage
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
-from rucio.db.sqla import models
+from rucio.core.db.sqla import models
 
 
 @pytest.mark.noparallel(reason='runs abacus daemons')

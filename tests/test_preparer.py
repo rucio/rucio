@@ -15,16 +15,16 @@
 
 import pytest
 
-from rucio.common.constants import RseAttr
+from rucio.core.common.constants import RseAttr
 from rucio.core.distance import add_distance, get_distances
 from rucio.core.replica import add_replicas
 from rucio.core.request import get_request, list_and_mark_transfer_requests_and_source_replicas, list_transfer_limits, set_transfer_limit
 from rucio.core.rse import RseCollection, RseData, add_rse_attribute
 from rucio.core.transfer import get_supported_transfertools
 from rucio.daemons.conveyor.preparer import preparer
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import RequestState
-from rucio.db.sqla.session import get_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.constants import RequestState
+from rucio.core.db.sqla.session import get_session
 
 
 @pytest.fixture

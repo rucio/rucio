@@ -18,10 +18,10 @@ import os
 
 import pytest
 
-from rucio.common.bittorrent import bittorrent_v2_merkle_sha256
-from rucio.common.exception import InvalidType
-from rucio.common.logging import formatted_logger
-from rucio.common.utils import Availability, parse_did_filter_from_string, retrying
+from rucio.core.common.bittorrent import bittorrent_v2_merkle_sha256
+from rucio.core.common.exception import InvalidType
+from rucio.core.common.logging import formatted_logger
+from rucio.core.common.utils import Availability, parse_did_filter_from_string, retrying
 
 
 class TestUtils:

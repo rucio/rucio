@@ -17,9 +17,9 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy import delete
 
-from rucio.common.config import config_get_bool
-from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid as uuid
+from rucio.core.common.config import config_get_bool
+from rucio.core.common.types import InternalAccount, InternalScope
+from rucio.core.common.utils import generate_uuid as uuid
 from rucio.core.account import get_usage
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids, detach_dids
@@ -29,9 +29,9 @@ from rucio.core.rse import add_rse_attribute
 from rucio.core.rule import add_rule, get_rule
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.judge.evaluator import re_evaluator
-from rucio.db.sqla.constants import DIDType, LockState
-from rucio.db.sqla.models import UpdatedDID
-from rucio.db.sqla.session import transactional_session
+from rucio.core.db.sqla.constants import DIDType, LockState
+from rucio.core.db.sqla.models import UpdatedDID
+from rucio.core.db.sqla.session import transactional_session
 from rucio.tests.common import RSE_namedtuple
 from rucio.tests.common_server import get_vo
 

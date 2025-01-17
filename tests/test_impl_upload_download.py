@@ -17,8 +17,8 @@ from os import path
 
 import pytest
 
-from rucio.common.utils import execute
-from rucio.common.utils import generate_uuid as uuid
+from rucio.core.common.utils import execute
+from rucio.core.common.utils import generate_uuid as uuid
 from rucio.tests.common import skip_rse_tests_with_accounts
 
 

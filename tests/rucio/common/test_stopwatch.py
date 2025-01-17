@@ -17,7 +17,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from rucio.common.stopwatch import Stopwatch
+from rucio.core.common.stopwatch import Stopwatch
 
 
 class TestStopwatch:

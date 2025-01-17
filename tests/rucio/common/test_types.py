@@ -14,7 +14,7 @@
 
 import pytest
 
-from rucio.common.types import InternalAccount, InternalScope, InternalType, _RepresentationCalculator
+from rucio.core.common.types import InternalAccount, InternalScope, InternalType, _RepresentationCalculator
 
 
 class TestInternalType:

@@ -15,7 +15,7 @@
 
 import pytest
 
-from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs
+from rucio.core.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs
 from rucio.core.account_counter import increase, update_account_counter
 from rucio.core.account_limit import set_global_account_limit, set_local_account_limit
 from rucio.core.rse_selector import RSESelector

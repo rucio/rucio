@@ -1,0 +1,4 @@
+dogpile.core==0.4.1
+redis==5.0.7
+Requests==2.32.3
+SQLAlchemy==2.0.31

@@ -1,0 +1,7 @@
+argcomplete==3.4.0
+dogpile.core==0.4.1
+Requests==2.32.3
+requests_kerberos==0.15.0
+rich==13.9.4
+tabulate==0.9.0
+typing_extensions==4.12.2

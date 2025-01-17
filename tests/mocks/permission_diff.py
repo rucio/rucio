@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
-    from rucio.common.types import InternalAccount
+    from rucio.core.common.types import InternalAccount
 
 
 def has_permission(issuer: "InternalAccount", action: str, kwargs: dict[str, Any], *, session: "Optional[Session]" = None) -> bool:

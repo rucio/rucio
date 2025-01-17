@@ -18,7 +18,7 @@ import pytest
 
 import rucio.common.schema
 import rucio.core.permission
-from rucio.common.types import InternalAccount
+from rucio.core.common.types import InternalAccount
 
 
 class TestPolicyPackage:

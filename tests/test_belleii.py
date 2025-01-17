@@ -17,8 +17,8 @@ from datetime import datetime
 import pytest
 from belleii_rucio_policy_package.schema import validate_schema
 
-from rucio.common.exception import InvalidObject
-from rucio.common.utils import extract_scope, generate_uuid
+from rucio.core.common.exception import InvalidObject
+from rucio.core.common.utils import extract_scope, generate_uuid
 from rucio.core.config import set as config_set
 from rucio.tests.common import did_name_generator, skip_non_belleii
 

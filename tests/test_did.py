@@ -16,10 +16,10 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from rucio.common import exception
-from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
-from rucio.common.types import InternalScope
-from rucio.common.utils import generate_uuid
+from rucio.core.common import exception
+from rucio.core.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
+from rucio.core.common.types import InternalScope
+from rucio.core.common.utils import generate_uuid
 from rucio.core.did import (
     add_did,
     add_did_to_followed,
@@ -41,8 +41,8 @@ from rucio.core.did import (
     touch_dids,
 )
 from rucio.core.replica import add_replica, get_replica
-from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.util import json_implemented
+from rucio.core.db.sqla.constants import DIDType
+from rucio.core.db.sqla.util import json_implemented
 from rucio.gateway import did, scope
 from rucio.tests.common import did_name_generator, rse_name_generator, scope_name_generator
 

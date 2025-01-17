@@ -14,16 +14,16 @@
 
 import pytest
 
-from rucio.common.config import config_get_bool
-from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid as uuid
+from rucio.core.common.config import config_get_bool
+from rucio.core.common.types import InternalAccount, InternalScope
+from rucio.core.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute
 from rucio.core.rule import add_rule, update_rule
 from rucio.daemons.judge.cleaner import rule_cleaner
-from rucio.db.sqla.constants import DIDType
+from rucio.core.db.sqla.constants import DIDType
 from rucio.tests.common_server import get_vo
 
 from .test_rule import create_files, tag_generator

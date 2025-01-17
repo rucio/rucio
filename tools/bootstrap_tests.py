@@ -27,10 +27,10 @@ os.chdir(base_path)
 
 
 from rucio.client import Client  # noqa: E402
-from rucio.common.config import config_get, config_get_bool  # noqa: E402
-from rucio.common.exception import Duplicate, DuplicateContent, RucioException  # noqa: E402
-from rucio.common.types import InternalAccount  # noqa: E402
-from rucio.common.utils import extract_scope  # noqa: E402
+from rucio.core.common.config import config_get, config_get_bool  # noqa: E402
+from rucio.core.common.exception import Duplicate, DuplicateContent, RucioException  # noqa: E402
+from rucio.core.common.types import InternalAccount  # noqa: E402
+from rucio.core.common.utils import extract_scope  # noqa: E402
 from rucio.core.account import add_account_attribute  # noqa: E402
 from rucio.core.vo import map_vo  # noqa: E402
 from rucio.gateway.vo import add_vo  # noqa: E402

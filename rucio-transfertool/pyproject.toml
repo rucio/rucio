@@ -1,0 +1,47 @@
+[project]
+name = "rucio-transfertool"
+description = "Rucio transfertools"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = []
+license = {text = "Apache License, Version 2.0"}
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'License :: OSI Approved :: Apache Software License',
+    'Intended Audience :: Information Technology',
+    'Intended Audience :: System Administrators',
+    'Operating System :: POSIX :: Linux',
+    'Natural Language :: English',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+]
+dependencies = [
+    "rucio-db",
+    "rucio-core",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+testing = [
+    "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[build-system]
+requires = ["setuptools>=61", "wheel", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+root = ".."
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "-v",
+    "--cov=rucio.transfertool", "--cov-report=term-missing",
+    "--import-mode=importlib",
+]

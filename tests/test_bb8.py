@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from rucio.common.exception import RuleNotFound, UnsupportedOperation
+from rucio.core.common.exception import RuleNotFound, UnsupportedOperation
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import attach_dids, set_metadata, set_status
 from rucio.core.lock import successful_transfer
@@ -30,7 +30,7 @@ from rucio.daemons.bb8.common import rebalance_rule
 from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.undertaker import undertaker
-from rucio.db.sqla.constants import RuleState
+from rucio.core.db.sqla.constants import RuleState
 
 from .test_rule import create_files, tag_generator
 

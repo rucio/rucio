@@ -16,8 +16,8 @@ import pytest
 
 import rucio.core.config as core_config
 from rucio.client.configclient import ConfigClient
-from rucio.common import exception
-from rucio.common.utils import generate_uuid
+from rucio.core.common import exception
+from rucio.core.common.utils import generate_uuid
 
 
 class TestConfigCore:

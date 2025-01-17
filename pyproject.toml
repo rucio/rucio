@@ -1,3 +1,32 @@
+[project]
+name = "rucio"
+description = "Rucio package"
+authors = [
+  {name = "Rucio Dev Team", email = "rucio-dev@cern.ch"},
+]
+maintainers = [
+  {name = "Rucio Dev Team", email = "rucio-dev@cern.ch"},
+]
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = []
+license = {text = "Apache License, Version 2.0"}
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'License :: OSI Approved :: Apache Software License',
+    'Intended Audience :: Information Technology',
+    'Intended Audience :: System Administrators',
+    'Operating System :: POSIX :: Linux',
+    'Natural Language :: English',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Environment :: No Input/Output (Daemon)',
+]
+dependencies = ["rucio-api", "rucio-cli-client", "rucio-client", "rucio-core"]
+dynamic = ["version"]
+
 [build-system]
 requires = ["setuptools", "wheel", "packaging"]
 build-backend = "setuptools.build_meta"

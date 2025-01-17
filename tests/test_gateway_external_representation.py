@@ -22,14 +22,14 @@ import pytest
 import rucio.core.account_counter as account_counter
 import rucio.gateway.account_limit as gateway_acc_lim
 import rucio.gateway.rse as gateway_rse
-from rucio.common.config import config_get_bool
-from rucio.common.types import InternalScope
-from rucio.common.utils import gateway_update_return_dict, generate_uuid
+from rucio.core.common.config import config_get_bool
+from rucio.core.common.types import InternalScope
+from rucio.core.common.utils import gateway_update_return_dict, generate_uuid
 from rucio.core.vo import add_vo, vo_exists
 from rucio.daemons.abacus import rse as abacus_rse
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
-from rucio.db.sqla import constants
+from rucio.core.db.sqla import constants
 from rucio.gateway.account import add_account, get_account_info, list_accounts
 from rucio.gateway.did import add_did, add_did_to_followed, attach_dids_to_dids, get_users_following_did, scope_list
 from rucio.gateway.exporter import export_data

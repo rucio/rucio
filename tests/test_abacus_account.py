@@ -16,15 +16,15 @@
 import pytest
 from sqlalchemy import delete
 
-from rucio.common.schema import get_schema_value
+from rucio.core.common.schema import get_schema_value
 from rucio.core.account import get_usage_history
 from rucio.core.account_counter import update_account_counter_history
 from rucio.core.account_limit import get_local_account_usage, set_local_account_limit
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
-from rucio.db.sqla import models
-from rucio.db.sqla.session import get_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.session import get_session
 
 
 @pytest.mark.noparallel(reason='uses daemon, failing in parallel to other tests, updates account')

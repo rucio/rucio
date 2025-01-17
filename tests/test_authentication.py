@@ -18,12 +18,12 @@ import time
 import pytest
 from requests import session
 
-from rucio.common.exception import AccessDenied, CannotAuthenticate, Duplicate
-from rucio.common.utils import ssh_sign
+from rucio.core.common.exception import AccessDenied, CannotAuthenticate, Duplicate
+from rucio.core.common.utils import ssh_sign
 from rucio.core.authentication import strip_x509_proxy_attributes
 from rucio.core.identity import add_account_identity, del_account_identity
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import IdentityType
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.constants import IdentityType
 from rucio.gateway.authentication import get_auth_token_saml, get_auth_token_ssh, get_auth_token_user_pass, get_ssh_challenge_token
 from rucio.tests.common import hdrdict, headers, loginhdr, vohdr
 

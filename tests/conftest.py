@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from rucio.client.replicaclient import ReplicaClient
     from rucio.client.rseclient import RSEClient
     from rucio.client.scopeclient import ScopeClient
-    from rucio.common.types import InternalAccount, InternalScope
+    from rucio.core.common.types import InternalAccount, InternalScope
 
     from .temp_factories import TemporaryDidFactory, TemporaryFileFactory, TemporaryRSEFactory
 
@@ -132,7 +132,7 @@ def vo() -> str:
 
 @pytest.fixture(scope='session')
 def second_vo() -> str:
-    from rucio.common.config import config_get_bool
+    from rucio.core.common.config import config_get_bool
     from rucio.core.vo import add_vo, vo_exists
     multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
     if not multi_vo:
@@ -255,28 +255,28 @@ def auth_token(
 
 @pytest.fixture(scope='module')
 def mock_scope(vo: str) -> "InternalScope":
-    from rucio.common.types import InternalScope
+    from rucio.core.common.types import InternalScope
 
     return InternalScope('mock', vo=vo)
 
 
 @pytest.fixture(scope='module')
 def test_scope(vo: str) -> "InternalScope":
-    from rucio.common.types import InternalScope
+    from rucio.core.common.types import InternalScope
 
     return InternalScope('test', vo=vo)
 
 
 @pytest.fixture(scope='module')
 def root_account(vo: str) -> "InternalAccount":
-    from rucio.common.types import InternalAccount
+    from rucio.core.common.types import InternalAccount
 
     return InternalAccount('root', vo=vo)
 
 
 @pytest.fixture(scope='module')
 def jdoe_account(vo: str) -> "InternalAccount":
-    from rucio.common.types import InternalAccount
+    from rucio.core.common.types import InternalAccount
 
     return InternalAccount('jdoe', vo=vo)
 
@@ -286,10 +286,10 @@ def random_account(vo: str) -> "Iterator[InternalAccount]":
     import random
     import string
 
-    from rucio.common.types import InternalAccount
+    from rucio.core.common.types import InternalAccount
     from rucio.core.account import add_account, del_account
-    from rucio.db.sqla import models
-    from rucio.db.sqla.constants import AccountType
+    from rucio.core.db.sqla import models
+    from rucio.core.db.sqla.constants import AccountType
     from rucio.tests.common_server import cleanup_db_deps
 
     account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for _ in range(10)), vo=vo)
@@ -305,7 +305,7 @@ def containerized_rses(rucio_client: "Client") -> list[tuple[str, str]]:
     Detects if containerized rses for xrootd & ssh are available in the testing environment.
     :return: A list of (rse_name, rse_id) tuples.
     """
-    from rucio.common.exception import InvalidRSEExpression
+    from rucio.core.common.exception import InvalidRSEExpression
 
     rses = []
     try:
@@ -388,8 +388,8 @@ def file_factory(tmp_path_factory: pytest.TempPathFactory) -> "Iterator[Temporar
 
 @pytest.fixture
 def scope_factory() -> "Callable[[Iterable[str], Optional[str]], tuple[str, list[InternalScope]]]":
-    from rucio.common.types import InternalAccount, InternalScope
-    from rucio.common.utils import generate_uuid
+    from rucio.core.common.types import InternalAccount, InternalScope
+    from rucio.core.common.utils import generate_uuid
     from rucio.core.scope import add_scope
 
     def create_scopes(
@@ -430,7 +430,7 @@ def tag_factory_class(class_scope_prefix: str) -> _TagFactory:
 
 @pytest.fixture
 def db_session() -> "Iterator[scoped_session]":
-    from rucio.db.sqla import session
+    from rucio.core.db.sqla import session
 
     db_session = session.get_session()
     yield db_session
@@ -466,8 +466,8 @@ def __create_in_memory_db_table(
     from sqlalchemy.pool import StaticPool
     from sqlalchemy.schema import Table
 
-    from rucio.db.sqla.models import ModelBase
-    from rucio.db.sqla.session import create_engine, get_maker
+    from rucio.core.db.sqla.models import ModelBase
+    from rucio.core.db.sqla.session import create_engine, get_maker
 
     engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
 
@@ -509,8 +509,8 @@ def message_mock() -> "Iterator[None]":
 
     from sqlalchemy import Column
 
-    from rucio.common.utils import generate_uuid
-    from rucio.db.sqla.models import GUID, CheckConstraint, Index, PrimaryKeyConstraint, String, Text
+    from rucio.core.common.utils import generate_uuid
+    from rucio.core.db.sqla.models import GUID, CheckConstraint, Index, PrimaryKeyConstraint, String, Text
 
     InMemoryMessage = __create_in_memory_db_table(
         'message_' + generate_uuid(),
@@ -545,9 +545,9 @@ def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
 
     from sqlalchemy import Column
 
-    from rucio.common.utils import generate_uuid
-    from rucio.db.sqla.models import PrimaryKeyConstraint, String
-    from rucio.db.sqla.session import get_session
+    from rucio.core.common.utils import generate_uuid
+    from rucio.core.db.sqla.models import PrimaryKeyConstraint, String
+    from rucio.core.db.sqla.session import get_session
 
     # Get the fixture parameters
     table_content = []
@@ -584,7 +584,7 @@ def file_config_mock(request: pytest.FixtureRequest) -> "Iterator[ConfigParser]"
     """
     from unittest import mock
 
-    from rucio.common.config import Config, config_add_section, config_has_section, config_set
+    from rucio.core.common.config import Config, config_add_section, config_has_section, config_set
 
     # Get the fixture parameters
     overrides = []
@@ -657,7 +657,7 @@ def metrics_mock() -> "Iterator[CollectorRegistry]":
 
 @pytest.fixture(scope='class')
 def scope_and_rse(mock_scope, test_scope):
-    from rucio.common.utils import execute
+    from rucio.core.common.utils import execute
 
     """
     Check if xrd containers rses for xrootd are available in the testing environment.

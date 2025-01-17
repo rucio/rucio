@@ -19,8 +19,8 @@ import pytest
 from dogpile.cache import make_region
 from sqlalchemy import and_, select
 
-from rucio.common.config import config_get, config_get_bool
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.core.common.config import config_get, config_get_bool
+from rucio.core.common.types import InternalAccount, InternalScope
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import failed_transfer, get_replica_locks, successful_transfer
@@ -31,9 +31,9 @@ from rucio.core.rule import add_rule, get_rule
 from rucio.core.transfer import cancel_transfers
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.judge.repairer import rule_repairer
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, ReplicaState, RuleState
-from rucio.db.sqla.session import get_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.constants import DIDType, ReplicaState, RuleState
+from rucio.core.db.sqla.session import get_session
 from rucio.tests.common import did_name_generator, rse_name_generator
 from rucio.tests.common_server import get_vo
 

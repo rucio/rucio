@@ -18,7 +18,7 @@ from configparser import NoOptionError, NoSectionError
 
 import pytest
 
-from rucio.common import config
+from rucio.core.common import config
 from rucio.rse.translation import RSEDeterministicTranslation
 
 

@@ -16,7 +16,7 @@ from urllib.parse import urlencode
 
 import pytest
 
-from rucio.common.constants import RseAttr
+from rucio.core.common.constants import RseAttr
 from rucio.core.config import set as config_set
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_protocol, add_rse, add_rse_attribute, del_rse

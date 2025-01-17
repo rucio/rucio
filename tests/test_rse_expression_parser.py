@@ -17,7 +17,7 @@ from string import ascii_lowercase, ascii_uppercase
 
 import pytest
 
-from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
+from rucio.core.common.exception import InvalidRSEExpression, RSEWriteBlocked
 from rucio.core import rse, rse_expression_parser
 
 

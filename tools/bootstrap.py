@@ -26,7 +26,7 @@ base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
 
-from rucio.db.sqla.util import build_database, create_base_vo, create_root_account  # noqa: E402
+from rucio.core.db.sqla.util import build_database, create_base_vo, create_root_account  # noqa: E402
 
 if __name__ == '__main__':
     build_database()

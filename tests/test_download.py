@@ -23,10 +23,10 @@ from zipfile import ZipFile
 import pytest
 
 from rucio.client.downloadclient import DownloadClient
-from rucio.common.config import config_add_section, config_set
-from rucio.common.exception import InputValidationError, NoFilesDownloaded, RucioException
-from rucio.common.types import InternalScope
-from rucio.common.utils import generate_uuid
+from rucio.core.common.config import config_add_section, config_set
+from rucio.core.common.exception import InputValidationError, NoFilesDownloaded, RucioException
+from rucio.core.common.types import InternalScope
+from rucio.core.common.utils import generate_uuid
 from rucio.core import did as did_core
 from rucio.core import scope as scope_core
 from rucio.core.rse import add_protocol

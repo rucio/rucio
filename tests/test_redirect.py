@@ -13,8 +13,8 @@
 # limitations under the License.
 
 from rucio.client.baseclient import BaseClient
-from rucio.common.config import config_get, config_get_bool
-from rucio.common.utils import generate_uuid
+from rucio.core.common.config import config_get, config_get_bool
+from rucio.core.common.utils import generate_uuid
 from rucio.tests.common import execute, get_long_vo
 
 

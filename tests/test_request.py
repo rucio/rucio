@@ -18,15 +18,15 @@ from typing import Union
 
 import pytest
 
-from rucio.common.config import config_get_bool
-from rucio.common.constants import RseAttr
-from rucio.common.utils import generate_uuid, parse_response
+from rucio.core.common.config import config_get_bool
+from rucio.core.common.constants import RseAttr
+from rucio.core.common.utils import generate_uuid, parse_response
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replica
 from rucio.core.request import TransferStatsManager, get_request_by_did, list_requests, list_requests_history, queue_requests, set_transfer_limit
 from rucio.core.rse import add_rse_attribute
-from rucio.db.sqla import constants, models
-from rucio.db.sqla.constants import RequestState, RequestType
+from rucio.core.db.sqla import constants, models
+from rucio.core.db.sqla.constants import RequestState, RequestType
 from rucio.tests.common import auth, hdrdict, headers, vohdr
 
 

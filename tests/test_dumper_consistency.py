@@ -17,7 +17,7 @@ import os
 from datetime import datetime
 from unittest import mock
 
-from rucio.common.dumper.consistency import Consistency, _try_to_advance, compare3, gnu_sort, min_value, parse_and_filter_file
+from rucio.core.common.dumper.consistency import Consistency, _try_to_advance, compare3, gnu_sort, min_value, parse_and_filter_file
 from rucio.tests.common import make_temp_file
 
 RSEPROTOCOL = {

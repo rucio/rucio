@@ -23,11 +23,11 @@ import pytest
 
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
-from rucio.common.checksum import adler32
-from rucio.common.config import config_add_section, config_set
-from rucio.common.constants import RseAttr
-from rucio.common.exception import InputValidationError, NoFilesUploaded, NotAllFilesUploaded, ResourceTemporaryUnavailable
-from rucio.common.utils import generate_uuid
+from rucio.core.common.checksum import adler32
+from rucio.core.common.config import config_add_section, config_set
+from rucio.core.common.constants import RseAttr
+from rucio.core.common.exception import InputValidationError, NoFilesUploaded, NotAllFilesUploaded, ResourceTemporaryUnavailable
+from rucio.core.common.utils import generate_uuid
 from rucio.core.rse import add_protocol, add_rse_attribute
 
 

@@ -15,16 +15,16 @@
 
 import pytest
 
-from rucio.common.exception import DataIdentifierNotFound
-from rucio.common.schema import get_schema_value
+from rucio.core.common.exception import DataIdentifierNotFound
+from rucio.core.common.schema import get_schema_value
 from rucio.core.did import add_did, get_did
 from rucio.core.replica import delete_replicas, get_cleaned_updated_collection_replicas
 from rucio.daemons.abacus import collection_replica
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
 from rucio.daemons.undertaker import undertaker
-from rucio.db.sqla import models, session
-from rucio.db.sqla.constants import DIDType, ReplicaState
+from rucio.core.db.sqla import models, session
+from rucio.core.db.sqla.constants import DIDType, ReplicaState
 from rucio.tests.common import did_name_generator
 
 

@@ -14,8 +14,8 @@
 
 import pytest
 
-from rucio.common.config import config_get_bool
-from rucio.common.utils import generate_uuid
+from rucio.core.common.config import config_get_bool
+from rucio.core.common.utils import generate_uuid
 from rucio.core.quarantined_replica import add_quarantined_replicas, delete_quarantined_replicas, list_quarantined_replicas
 from rucio.core.rse import get_rse_id
 from rucio.tests.common_server import get_vo

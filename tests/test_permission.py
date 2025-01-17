@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.common.config import config_get
-from rucio.common.types import InternalScope
+from rucio.core.common.config import config_get
+from rucio.core.common.types import InternalScope
 from rucio.core.account import add_account_attribute
 from rucio.core.scope import add_scope
 from rucio.gateway.permission import has_permission

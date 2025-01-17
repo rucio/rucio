@@ -23,11 +23,11 @@ import pytest
 from sqlalchemy import and_, delete, select, update
 
 import rucio.daemons.reaper.reaper
-from rucio.common.checksum import adler32
-from rucio.common.constants import RseAttr
-from rucio.common.exception import ReplicaNotFound, RequestNotFound
-from rucio.common.types import InternalAccount
-from rucio.common.utils import generate_uuid
+from rucio.core.common.checksum import adler32
+from rucio.core.common.constants import RseAttr
+from rucio.core.common.exception import ReplicaNotFound, RequestNotFound
+from rucio.core.common.types import InternalAccount
+from rucio.core.common.utils import generate_uuid
 from rucio.core import config as core_config
 from rucio.core import did as did_core
 from rucio.core import distance as distance_core
@@ -47,9 +47,9 @@ from rucio.daemons.conveyor.stager import stager
 from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.conveyor.throttler import throttler
 from rucio.daemons.reaper.reaper import reaper
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import LockState, ReplicaState, RequestState, RequestType, RSEType, RuleState
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.constants import LockState, ReplicaState, RequestState, RequestType, RSEType, RuleState
+from rucio.core.db.sqla.session import read_session, transactional_session
 from rucio.tests.common import skip_rse_tests_with_accounts
 from rucio.transfertool.fts3 import FTS3Transfertool
 from tests.mocks.mock_http_server import MockServer

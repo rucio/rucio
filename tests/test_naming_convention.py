@@ -14,11 +14,11 @@
 
 import pytest
 
-from rucio.common.exception import InvalidObject
-from rucio.common.types import InternalScope
-from rucio.common.utils import generate_uuid
+from rucio.core.common.exception import InvalidObject
+from rucio.core.common.types import InternalScope
+from rucio.core.common.utils import generate_uuid
 from rucio.core.naming_convention import add_naming_convention, delete_naming_convention, list_naming_conventions, validate_name
-from rucio.db.sqla.constants import KeyType
+from rucio.core.db.sqla.constants import KeyType
 
 
 @pytest.mark.noparallel(reason='changes global naming conventions, breaks other tests')

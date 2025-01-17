@@ -18,13 +18,13 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from rucio.common.exception import DuplicateCriteriaInDIDFilter
-from rucio.common.utils import generate_uuid
+from rucio.core.common.exception import DuplicateCriteriaInDIDFilter
+from rucio.core.common.utils import generate_uuid
 from rucio.core.did import add_did
 from rucio.core.did_meta_plugins import set_metadata
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
-from rucio.db.sqla import models
-from rucio.db.sqla.util import json_implemented
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.util import json_implemented
 
 
 class TestFilterEngineDummy:

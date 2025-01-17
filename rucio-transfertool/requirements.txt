@@ -1,0 +1,7 @@
+dogpile.core==0.4.1
+globus_sdk==3.41.0
+PyYAML==6.0.1
+PyYAML==6.0.2
+qbittorrent_api==2023.11.57
+Requests==2.32.3
+SQLAlchemy==2.0.31

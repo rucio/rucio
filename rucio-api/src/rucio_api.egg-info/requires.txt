@@ -1,0 +1,4 @@
+rucio-core
+
+[testing]
+pytest

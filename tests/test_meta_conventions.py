@@ -15,11 +15,11 @@
 import pytest
 from sqlalchemy import select
 
-from rucio.common.exception import InvalidValueForKey, RucioException, UnsupportedKeyType, UnsupportedValueType
-from rucio.common.utils import generate_uuid as uuid
+from rucio.core.common.exception import InvalidValueForKey, RucioException, UnsupportedKeyType, UnsupportedValueType
+from rucio.core.common.utils import generate_uuid as uuid
 from rucio.core.meta_conventions import add_key
-from rucio.db.sqla import models, session
-from rucio.db.sqla.constants import DIDType, KeyType
+from rucio.core.db.sqla import models, session
+from rucio.core.db.sqla.constants import DIDType, KeyType
 
 
 @pytest.mark.dirty

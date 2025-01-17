@@ -19,13 +19,13 @@ from sqlalchemy.exc import NoResultFound
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
-from rucio.common.exception import InvalidObject
-from rucio.common.schema import get_schema_value
+from rucio.core.common.exception import InvalidObject
+from rucio.core.common.schema import get_schema_value
 from rucio.core.did import add_dids, attach_dids
 from rucio.core.replica import add_replicas, delete_replicas, get_cleaned_updated_collection_replicas, list_datasets_per_rse, update_collection_replica
 from rucio.core.rse import add_protocol, add_rse, del_rse, get_rse_id
-from rucio.db.sqla import constants, models
-from rucio.db.sqla.constants import ReplicaState
+from rucio.core.db.sqla import constants, models
+from rucio.core.db.sqla.constants import ReplicaState
 from rucio.tests.common import did_name_generator, rse_name_generator
 
 

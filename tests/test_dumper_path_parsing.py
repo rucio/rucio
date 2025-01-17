@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.common.dumper.path_parsing import components, remove_prefix
+from rucio.core.common.dumper.path_parsing import components, remove_prefix
 
 
 class TestPathParsing:

@@ -27,9 +27,9 @@ from typing import IO, TYPE_CHECKING, Any, Literal, Optional
 import pytest
 import requests
 
-from rucio.common.config import config_get, config_get_bool, get_config_dirs
-from rucio.common.utils import execute
-from rucio.common.utils import generate_uuid as uuid
+from rucio.core.common.config import config_get, config_get_bool, get_config_dirs
+from rucio.core.common.utils import execute
+from rucio.core.common.utils import generate_uuid as uuid
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator

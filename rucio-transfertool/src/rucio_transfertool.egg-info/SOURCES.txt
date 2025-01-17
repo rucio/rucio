@@ -1,0 +1,16 @@
+pyproject.toml
+src/rucio/transfertool/__init__.py
+src/rucio/transfertool/bittorrent.py
+src/rucio/transfertool/bittorrent_driver.py
+src/rucio/transfertool/bittorrent_driver_qbittorrent.py
+src/rucio/transfertool/fts3.py
+src/rucio/transfertool/fts3_plugins.py
+src/rucio/transfertool/globus.py
+src/rucio/transfertool/globus_library.py
+src/rucio/transfertool/mock.py
+src/rucio/transfertool/transfertool.py
+src/rucio_transfertool.egg-info/PKG-INFO
+src/rucio_transfertool.egg-info/SOURCES.txt
+src/rucio_transfertool.egg-info/dependency_links.txt
+src/rucio_transfertool.egg-info/requires.txt
+src/rucio_transfertool.egg-info/top_level.txt

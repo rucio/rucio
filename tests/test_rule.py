@@ -24,9 +24,9 @@ from sqlalchemy import func, select
 
 import rucio.gateway.rule
 from rucio.client.ruleclient import RuleClient
-from rucio.common.config import config_get_bool
-from rucio.common.constants import RseAttr
-from rucio.common.exception import (
+from rucio.core.common.config import config_get_bool
+from rucio.core.common.constants import RseAttr
+from rucio.core.common.exception import (
     AccessDenied,
     DuplicateRule,
     InputValidationError,
@@ -41,10 +41,10 @@ from rucio.common.exception import (
     RuleReplaceFailed,
     UnsupportedOperation,
 )
-from rucio.common.policy import get_policy
-from rucio.common.schema import get_schema_value
-from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid as uuid
+from rucio.core.common.policy import get_policy
+from rucio.core.common.schema import get_schema_value
+from rucio.core.common.types import InternalAccount, InternalScope
+from rucio.core.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account_attribute, get_account, get_usage
 from rucio.core.account_limit import set_global_account_limit, set_local_account_limit
 from rucio.core.did import add_did, attach_dids, set_status
@@ -58,9 +58,9 @@ from rucio.core.scope import add_scope
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
 from rucio.daemons.judge.evaluator import re_evaluator
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import OBSOLETE, DIDType, LockState, RuleState
-from rucio.db.sqla.session import transactional_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.constants import OBSOLETE, DIDType, LockState, RuleState
+from rucio.core.db.sqla.session import transactional_session
 from rucio.gateway.account import add_account
 from rucio.tests.common import account_name_generator, did_name_generator, rse_name_generator
 from rucio.tests.common_server import get_vo

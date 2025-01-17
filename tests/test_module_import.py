@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.common.utils import execute
+from rucio.core.common.utils import execute
 
 
 class TestModuleImport:

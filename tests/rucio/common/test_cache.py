@@ -19,7 +19,7 @@ from dogpile.cache.backends.null import NullBackend
 from dogpile.cache.util import function_key_generator
 
 import rucio.common.cache as cache
-from rucio.common.cache import CacheKey, MemcacheRegion
+from rucio.core.common.cache import CacheKey, MemcacheRegion
 
 
 class TestCache:

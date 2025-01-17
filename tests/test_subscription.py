@@ -20,11 +20,11 @@ from json.decoder import JSONDecodeError
 import pytest
 from sqlalchemy import select
 
-from rucio.common.constants import RseAttr
-from rucio.common.exception import InvalidObject, SubscriptionDuplicate, SubscriptionNotFound
-from rucio.common.schema import get_schema_value
-from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid as uuid
+from rucio.core.common.constants import RseAttr
+from rucio.core.common.exception import InvalidObject, SubscriptionDuplicate, SubscriptionNotFound
+from rucio.core.common.schema import get_schema_value
+from rucio.core.common.types import InternalAccount, InternalScope
+from rucio.core.common.utils import generate_uuid as uuid
 from rucio.core import subscription as subscription_core
 from rucio.core.account import add_account
 from rucio.core.did import add_did, attach_dids, list_new_dids, set_new_dids, set_status
@@ -32,9 +32,9 @@ from rucio.core.rse import add_rse_attribute
 from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
 from rucio.daemons.transmogrifier.transmogrifier import get_subscriptions, run
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import AccountType, DIDType, RuleState
-from rucio.db.sqla.session import read_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.constants import AccountType, DIDType, RuleState
+from rucio.core.db.sqla.session import read_session
 from rucio.gateway.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription
 from rucio.tests.common import auth, did_name_generator, headers, rse_name_generator
 

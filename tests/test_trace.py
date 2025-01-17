@@ -20,8 +20,8 @@ import uuid
 
 import pytest
 
-from rucio.common.exception import InvalidObject, TraceValidationSchemaNotFound
-from rucio.common.schema.generic import IPv4orIPv6
+from rucio.core.common.exception import InvalidObject, TraceValidationSchemaNotFound
+from rucio.core.common.schema.generic import IPv4orIPv6
 from rucio.core.trace import SCHEMAS, validate_schema
 
 LOGGER = logging.getLogger(__name__)

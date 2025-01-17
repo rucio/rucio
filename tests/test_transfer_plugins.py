@@ -23,7 +23,7 @@ from rucio.core import rule as rule_core
 from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas
 from rucio.core.topology import Topology
 from rucio.core.transfer import ProtocolFactory, build_transfer_paths
-from rucio.db.sqla.session import get_session
+from rucio.core.db.sqla.session import get_session
 from rucio.transfertool.fts3 import FTS3Transfertool, build_job_params
 from rucio.transfertool.fts3_plugins import FTS3TapeMetadataPlugin
 
@@ -277,7 +277,7 @@ def test_transfer_over_limit(file_config_mock, did_factory, rse_factory, root_ac
         logger=logging.log,
     )
 
-    from rucio.common.exception import InvalidRequest
+    from rucio.core.common.exception import InvalidRequest
 
     with pytest.raises(InvalidRequest):
         job_params = fts3_tool._file_from_transfer(transfer_path[0], job_params)

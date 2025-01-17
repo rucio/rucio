@@ -23,9 +23,9 @@ import geoip2.database
 import pytest
 
 import rucio.core.config as core_config
-from rucio.common.config import config_get
-from rucio.common.constants import RseAttr
-from rucio.common.utils import parse_replicas_from_string
+from rucio.core.common.config import config_get
+from rucio.core.common.constants import RseAttr
+from rucio.core.common.utils import parse_replicas_from_string
 from rucio.core import replica_sorter, rse_expression_parser
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_protocol, add_rse, add_rse_attribute, del_rse, del_rse_attribute

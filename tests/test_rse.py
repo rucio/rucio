@@ -16,11 +16,11 @@ import pytest
 from sqlalchemy import and_, select
 
 from rucio.client.replicaclient import ReplicaClient
-from rucio.common import exception
-from rucio.common.checksum import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
-from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RseAttr
-from rucio.common.exception import Duplicate, InputValidationError, InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSENotFound, RSEOperationNotSupported, RSEProtocolNotSupported
-from rucio.common.schema import get_schema_value
+from rucio.core.common import exception
+from rucio.core.common.checksum import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
+from rucio.core.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RseAttr
+from rucio.core.common.exception import Duplicate, InputValidationError, InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSENotFound, RSEOperationNotSupported, RSEProtocolNotSupported
+from rucio.core.common.schema import get_schema_value
 from rucio.core.account_limit import get_rse_account_usage, set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.request import delete_transfer_limit, set_transfer_limit
@@ -45,8 +45,8 @@ from rucio.core.rse import (
 )
 from rucio.core.rule import add_rule
 from rucio.daemons.abacus.account import account_update
-from rucio.db.sqla import models, session
-from rucio.db.sqla.constants import DIDType, RSEType
+from rucio.core.db.sqla import models, session
+from rucio.core.db.sqla.constants import DIDType, RSEType
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import auth, did_name_generator, hdrdict, headers, rse_name_generator
 

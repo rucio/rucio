@@ -17,19 +17,19 @@ from datetime import datetime, timedelta
 import pytest
 from sqlalchemy import select
 
-from rucio.common.config import config_get_bool
-from rucio.common.exception import RuleNotFound
-from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid as uuid
+from rucio.core.common.config import config_get_bool
+from rucio.core.common.exception import RuleNotFound
+from rucio.core.common.types import InternalAccount, InternalScope
+from rucio.core.common.utils import generate_uuid as uuid
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute
 from rucio.core.rule import add_rule, approve_rule, deny_rule, get_rule, list_rules
 from rucio.daemons.judge.injector import rule_injector
-from rucio.db.sqla.constants import DIDType, RuleState
-from rucio.db.sqla.models import ReplicationRule
-from rucio.db.sqla.session import transactional_session
+from rucio.core.db.sqla.constants import DIDType, RuleState
+from rucio.core.db.sqla.models import ReplicationRule
+from rucio.core.db.sqla.session import transactional_session
 from rucio.tests.common_server import get_vo
 
 from .test_rule import create_files, tag_generator

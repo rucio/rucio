@@ -17,8 +17,8 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import text
 
-from rucio.common.exception import InputValidationError
-from rucio.db.sqla.session import NullPool, QueuePool, SingletonThreadPool, _get_engine_poolclass, get_session
+from rucio.core.common.exception import InputValidationError
+from rucio.core.db.sqla.session import NullPool, QueuePool, SingletonThreadPool, _get_engine_poolclass, get_session
 
 
 def test_db_connection():
@@ -43,7 +43,7 @@ def test_config_poolclass():
 @pytest.mark.noparallel(reason='Changes an internal method of MethodView.')
 def test_pooloverload():
     """ DB (WEB): Test response to a DatabaseException due to Pool Overflow """
-    from rucio.common.exception import DatabaseException
+    from rucio.core.common.exception import DatabaseException
     from rucio.web.rest.flaskapi.v1.ping import Ping
 
     # Create a new ErrorHandlingMethodView as_view

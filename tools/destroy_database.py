@@ -22,7 +22,7 @@ os.chdir(base_path)
 
 import argparse  # noqa: E402
 
-from rucio.db.sqla.util import destroy_database, drop_everything  # noqa: E402
+from rucio.core.db.sqla.util import destroy_database, drop_everything  # noqa: E402
 
 if __name__ == '__main__':
 

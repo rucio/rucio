@@ -17,13 +17,13 @@ import string
 
 import pytest
 
-from rucio.common.config import config_get_bool
-from rucio.common.exception import IdentityError, IdentityNotFound
-from rucio.common.types import InternalAccount
-from rucio.common.utils import generate_uuid as uuid
+from rucio.core.common.config import config_get_bool
+from rucio.core.common.exception import IdentityError, IdentityNotFound
+from rucio.core.common.types import InternalAccount
+from rucio.core.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account, del_account
 from rucio.core.identity import add_account_identity, add_identity, del_account_identity, del_identity, list_identities, verify_identity
-from rucio.db.sqla.constants import AccountType, IdentityType
+from rucio.core.db.sqla.constants import AccountType, IdentityType
 from rucio.tests.common import account_name_generator, auth, hdrdict, headers, rfc2253_dn_generator
 from rucio.tests.common_server import get_vo
 

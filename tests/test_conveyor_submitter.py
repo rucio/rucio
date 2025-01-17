@@ -20,8 +20,8 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import and_, delete, func, select, update
 
-from rucio.common.constants import RseAttr
-from rucio.common.exception import RequestNotFound
+from rucio.core.common.constants import RseAttr
+from rucio.core.common.exception import RequestNotFound
 from rucio.core import config as core_config
 from rucio.core import distance as distance_core
 from rucio.core import replica as replica_core
@@ -30,9 +30,9 @@ from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
 from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.reaper.reaper import reaper
-from rucio.db.sqla.constants import RequestState
-from rucio.db.sqla.models import Request, Source
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.core.db.sqla.constants import RequestState
+from rucio.core.db.sqla.models import Request, Source
+from rucio.core.db.sqla.session import read_session, transactional_session
 from tests.ruciopytest import NoParallelGroups
 
 

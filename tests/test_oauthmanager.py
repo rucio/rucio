@@ -22,8 +22,8 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.sql.expression import true
 
 from rucio.daemons.oauthmanager.oauthmanager import run, stop
-from rucio.db.sqla import models
-from rucio.db.sqla.session import get_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.session import get_session
 
 new_token_dict = {'access_token': '',
                   'expires_in': 3599,

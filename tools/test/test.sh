@@ -36,7 +36,7 @@ function wait_for_httpd() {
 
 function wait_for_database() {
     echo 'Waiting for database to be ready'
-    while ! python3 -c "from rucio.db.sqla.session import wait_for_database; wait_for_database()"
+    while ! python3 -c "from rucio.core.db.sqla.session import wait_for_database; wait_for_database()"
     do
         if (( SECONDS > 60 ))
         then

@@ -18,15 +18,15 @@ from json import dumps, loads
 import pytest
 
 from rucio.client.rseclient import RSEClient
-from rucio.common.exception import InvalidType, RucioException, UnsupportedOperation
-from rucio.common.utils import clean_pfns, generate_uuid
+from rucio.core.common.exception import InvalidType, RucioException, UnsupportedOperation
+from rucio.core.common.utils import clean_pfns, generate_uuid
 from rucio.core.did import delete_dids
 from rucio.core.replica import add_replicas, declare_bad_file_replicas, get_bad_pfns, get_bad_replicas_backlog, get_pfn_to_rse, get_replicas_state, list_bad_replicas, list_bad_replicas_status, list_replicas
 from rucio.daemons.badreplicas.minos import run as minos_run
 from rucio.daemons.badreplicas.minos_temporary_expiration import run as minos_temp_run
 from rucio.daemons.badreplicas.necromancer import REGION
 from rucio.daemons.badreplicas.necromancer import run as necromancer_run
-from rucio.db.sqla.constants import BadFilesStatus, BadPFNStatus, DIDType, ReplicaState
+from rucio.core.db.sqla.constants import BadFilesStatus, BadPFNStatus, DIDType, ReplicaState
 from rucio.tests.common import auth, headers
 
 

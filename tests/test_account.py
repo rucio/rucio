@@ -16,13 +16,13 @@ from json import loads
 
 import pytest
 
-from rucio.common.config import config_get
-from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
-from rucio.common.types import InternalAccount
-from rucio.common.utils import generate_uuid as uuid
+from rucio.core.common.config import config_get
+from rucio.core.common.exception import AccountNotFound, Duplicate, InvalidObject
+from rucio.core.common.types import InternalAccount
+from rucio.core.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account_attribute, del_account_attribute, list_account_attributes, list_identities
 from rucio.core.identity import add_account_identity, add_identity
-from rucio.db.sqla.constants import AccountStatus, IdentityType
+from rucio.core.db.sqla.constants import AccountStatus, IdentityType
 from rucio.gateway.account import account_exists, add_account, del_account, get_account_info, update_account
 from rucio.tests.common import account_name_generator, auth, headers, loginhdr, skip_non_belleii, vohdr
 

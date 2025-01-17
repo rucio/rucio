@@ -23,14 +23,14 @@ from sqlalchemy import and_, delete, or_
 
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
-from rucio.common.schema import get_schema_value
-from rucio.common.types import DIDDict, FileToUploadDict, InternalAccount, InternalScope, PathTypeAlias
-from rucio.common.utils import execute, generate_uuid
+from rucio.core.common.schema import get_schema_value
+from rucio.core.common.types import DIDDict, FileToUploadDict, InternalAccount, InternalScope, PathTypeAlias
+from rucio.core.common.utils import execute, generate_uuid
 from rucio.core import did as did_core
 from rucio.core import rse as rse_core
-from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.session import transactional_session
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.constants import DIDType
+from rucio.core.db.sqla.session import transactional_session
 from rucio.tests.common import did_name_generator
 from rucio.tests.common_server import cleanup_db_deps
 

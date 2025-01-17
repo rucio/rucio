@@ -19,15 +19,15 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from rucio.common.exception import ConfigNotFound, UnsupportedOperation
-from rucio.common.policy import REGION
-from rucio.common.utils import generate_uuid as uuid
+from rucio.core.common.exception import ConfigNotFound, UnsupportedOperation
+from rucio.core.common.policy import REGION
+from rucio.core.common.utils import generate_uuid as uuid
 from rucio.core import config as core_config
 from rucio.core.did import get_metadata, set_metadata
 from rucio.core.lifetime_exception import add_exception
 from rucio.core.rule import add_rule, get_rule
 from rucio.daemons.atropos.atropos import atropos
-from rucio.db.sqla.constants import DIDType
+from rucio.core.db.sqla.constants import DIDType
 from rucio.tests.common import skip_multivo
 
 

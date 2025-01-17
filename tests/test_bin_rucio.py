@@ -29,10 +29,10 @@ from rucio.client.lifetimeclient import LifetimeClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
-from rucio.common.checksum import md5
-from rucio.common.config import config_get, config_get_bool
-from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid, get_tmp_dir, render_json
+from rucio.core.common.checksum import md5
+from rucio.core.common.config import config_get, config_get_bool
+from rucio.core.common.types import InternalAccount, InternalScope
+from rucio.core.common.utils import generate_uuid, get_tmp_dir, render_json
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import account_name_generator, execute, file_generator, get_long_vo, rse_name_generator, scope_name_generator
 
@@ -363,7 +363,7 @@ class TestBinRucio:
         # removing replica -> file on RSE should be overwritten
         # (simulating an upload error, where a part of the file is uploaded but the replica is not registered)
         if 'SUITE' not in environ or environ['SUITE'] != 'client':
-            from rucio.db.sqla import models, session
+            from rucio.core.db.sqla import models, session
             db_session = session.get_session()
             internal_scope = InternalScope(self.user, **self.vo)
             for model in [models.RSEFileAssociation, models.ReplicaLock, models.ReplicationRule, models.DidMeta, models.DataIdentifier]:
@@ -1857,7 +1857,7 @@ class TestBinRucio:
         """ CLIENT (USER): list account usage. """
         from rucio.core.account_counter import increase
         from rucio.daemons.abacus import account as abacus_account
-        from rucio.db.sqla import models, session
+        from rucio.core.db.sqla import models, session
 
         db_session = session.get_session()
         for model in [models.AccountUsage, models.AccountLimit, models.AccountGlobalLimit, models.UpdatedAccountCounter]:

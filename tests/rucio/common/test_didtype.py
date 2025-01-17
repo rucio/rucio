@@ -14,8 +14,8 @@
 
 import pytest
 
-from rucio.common.didtype import DID
-from rucio.common.exception import DIDError
+from rucio.core.common.didtype import DID
+from rucio.core.common.exception import DIDError
 
 
 class TestDIDType:

@@ -16,8 +16,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, MissingClientParameter, RucioException
-from rucio.common.utils import execute
+from rucio.core.common.exception import CannotAuthenticate, ClientProtocolNotSupported, MissingClientParameter, RucioException
+from rucio.core.common.utils import execute
 from rucio.tests.common import remove_config
 from tests.mocks.mock_http_server import MockServer
 
@@ -27,7 +27,7 @@ def client_token_path_override(file_config_mock, function_scope_prefix, tmp_path
     """
     Ensure each running client has a different path for the token, otherwise tests cannot run in parallel
     """
-    from rucio.common.config import config_set
+    from rucio.core.common.config import config_set
     config_set('client', 'auth_token_file_path', str(tmp_path / f'{function_scope_prefix}token'))
 
 
@@ -35,7 +35,7 @@ def client_token_path_override(file_config_mock, function_scope_prefix, tmp_path
 class TestBaseClient:
     """ To test Clients"""
 
-    from rucio.common.config import config_get
+    from rucio.core.common.config import config_get
 
     cacert = config_get('test', 'cacert')
     usercert = config_get('test', 'usercert')
@@ -149,7 +149,7 @@ class TestRucioClients:
         creds = {'username': 'ddmlab', 'password': 'secret'}
 
         from rucio.client.client import Client
-        from rucio.common.config import config_get
+        from rucio.core.common.config import config_get
 
         cacert = config_get('test', 'cacert')
         client = Client(account='root', ca_cert=cacert, auth_type='userpass', creds=creds, vo=vo)
