@@ -1559,7 +1559,7 @@ class OAuthRequest(BASE, ModelBase):
     state: Mapped[str] = mapped_column(String(50))
     nonce: Mapped[Optional[str]] = mapped_column(String(50))
     access_msg: Mapped[Optional[str]] = mapped_column(String(2048))
-    redirect_msg: Mapped[Optional[str]] = mapped_column(String(2048))
+    redirect_msg: Mapped[Optional[str]] = mapped_column(String(4000))
     refresh_lifetime: Mapped[Optional[int]] = mapped_column(Integer())
     ip: Mapped[Optional[str]] = mapped_column(String(39), nullable=True)
     expired_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow() + timedelta(seconds=600))  # 10 min lifetime by default
