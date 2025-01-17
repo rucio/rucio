@@ -29,7 +29,7 @@ openssl x509 -req -days $DAYS -CAcreateserial -extfile <(printf "keyUsage = crit
 cat "ruciouser.pem" "ruciouser.key.pem" > "ruciouser.certkey.pem"
 
 # The service certificates
-for CN in rucio fts xrd1 xrd2 xrd3 xrd4 xrd5 minio indigoiam keycloak web1
+for CN in rucio fts xrd1 xrd2 xrd3 xrd4 xrd5 minio indigoiam keycloak web1 dirac-server
 do
   SAN="subjectAltName=DNS:$CN,DNS:localhost,DNS:$CN.default.svc.cluster.local"
   openssl req -new -newkey rsa:2048 -noenc -keyout "hostcert_$CN.key.pem" -subj "/CN=$CN" > "hostcert_$CN.csr"

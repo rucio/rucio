@@ -1,0 +1,9 @@
+export DIRAC_ROOT_PATH=/opt/dirac
+export DIRAC=/opt/dirac/diracos
+
+# CAs path for SSL verification
+export X509_CERT_DIR=${X509_CERT_DIR:-"/opt/dirac/etc/grid-security/certificates"}
+export X509_VOMS_DIR=${X509_VOMS_DIR:-"/opt/dirac/etc/grid-security/vomsdir"}
+export X509_VOMSES=${X509_VOMSES:-"/opt/dirac/etc/grid-security/vomses"}
+
+. $DIRAC/diracosrc
