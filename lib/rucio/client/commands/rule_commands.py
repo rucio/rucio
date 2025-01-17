@@ -20,7 +20,7 @@ from rucio.client.commands.utils import Arguments, click_decorator
 @click.group()
 @click.help_option("-h", "--help")
 def rule():
-    pass
+    """View and define rules for creating replicas of DIDs"""
 
 
 @rule.command("add")
@@ -41,7 +41,7 @@ def rule():
 @click.option("--account", help="The account owning the rule")
 @click.option("--skip-duplicates/--no-skip-duplicates", default=False, help="Skip duplicate rules")
 @click_decorator
-def add_(ctx, dids, copies, rses, weight, lifetime, grouping, locked, source_rses, notify, activity, comment, ask_approval, delay_injection, account, skip_duplicates):
+def add_(ctx, dids, copies, rses, weight, asynchronous, lifetime, grouping, locked, source_rses, notify, activity, comment, ask_approval, delay_injection, account, skip_duplicates):
     """Add replication rule to define how replicas of a list of DIDs are created on RSEs."""
     args = Arguments(
         {
@@ -60,21 +60,22 @@ def add_(ctx, dids, copies, rses, weight, lifetime, grouping, locked, source_rse
             "rule_account": account,
             "source_replica_expression": source_rses,
             "ignore_duplicate": skip_duplicates,
+            "asynchronous": asynchronous,
         }
     )
     add_rule(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @rule.command("remove")
-@click.argument("rule-id/dids")
+@click.argument("rule-id-dids")
 @click.option("--purge-replicas/--no-purge-replicas", default=False, help="Purge rule replicas")
 @click.option("--all/--not-all", "_all", default=False, help="Delete all the rules, even the ones that are not owned by the account")
 @click.option("--rses", "--rse-exp", help="The RSE expression. Must be specified if a DID is provided.")  # TODO mutual inclusive group
 @click.option("--account", help="The account of the rule that must be deleted")
 @click_decorator
-def remove(ctx, rule_id_dids, _all, rses, account):
+def remove(ctx, rule_id_dids, _all, rses, account, purge_replicas):
     """Remove an existing rule. Supply [rule-id] if know, or use [DID] and --rses to remove all rules for DIDs on RSEs matching the expression"""
-    args = Arguments({"delete_all": _all, "rule_account": account, "rule_id": rule_id_dids, "rses": rses})
+    args = Arguments({"purge_replicas": purge_replicas, "delete_all": _all, "rule_account": account, "rule_id": rule_id_dids, "rses": rses})
     delete_rule(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -108,7 +109,7 @@ def move(ctx, rule_id, rses, activity, source_rses):
 
 
 @rule.command("update")
-@click.argument("rule-id", nargs=-1)
+@click.argument("rule-id", nargs=1)
 @click.option("--lifetime", type=int, help="Rule lifetime (in seconds)")
 @click.option("--locked/--unlocked", default=False, help="Rule locking")
 @click.option("--source-rses", help="RSE Expression for RSEs to be considered for source replicas")

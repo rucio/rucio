@@ -17,15 +17,10 @@ from rucio.client.commands.bin_legacy.rucio_admin import delete_config_option, g
 from rucio.client.commands.utils import Arguments, click_decorator
 
 
-def abort_if_false(ctx, param, value):
-    if not value:
-        ctx.abort()
-
-
-@click.group(help="Modify the rucio.cfg")
+@click.group()
 @click.help_option("-h", "--help")
 def config():
-    pass
+    "Modify the rucio.cfg"
 
 
 # TODO Limit to just the section names
@@ -34,7 +29,7 @@ def config():
 @click.option("-k", "--key", help="Show key's value, section required.")
 @click_decorator
 def list_(ctx, section, key):
-    # """List all sections"""
+    """List the sections or content of sections in the rucio.cfg"""
     get_config(Arguments({"section": section, "key": key}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -42,17 +37,17 @@ def list_(ctx, section, key):
 # TODO Swap so that it can be accessed via [-s section] --key value
 @config.command("add")
 @click.option("-s", "--section", help="Section name", required=True)
-@click.option("-o", "--option", type=(str, str))
+@click.option("-o", "--option", type=(str, str), required=True)
 @click_decorator
 def add_(ctx, section, option):
     """
     Add a new key/value to a section.
 
-    |b
+    \b
     Example, Add a key to an existing section:
         $ rucio config add --section my-section -o key value
     """
-    args = Arguments({"section": section, "key": option[0], "value": option[1]})
+    args = Arguments({"section": section, "option": option[0], "value": option[1]})
     set_config_option(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -63,7 +58,7 @@ def add_(ctx, section, option):
 @click_decorator
 def remove(ctx, section, key):
     """Remove the section.key from the config."""
-    args = Arguments({"section": section, "key": key})
+    args = Arguments({"section": section, "option": key})
     delete_config_option(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
