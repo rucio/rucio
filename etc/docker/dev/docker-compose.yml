@@ -483,6 +483,7 @@ services:
       - ../../certs/rucio_ca.crl.r0:/etc/grid-security/certificates/5fca1cb1.r0
       - ../../certs/hostcert_dirac-server.pem:/opt/dirac/etc/grid-security/hostcert.pem:z
       - ../../certs/hostcert_dirac-server.key.pem:/opt/dirac/etc/grid-security/hostkey.pem:z
+      - ../../../:/rucio_source:ro
   dirac-db:
     profiles:
       - dirac
