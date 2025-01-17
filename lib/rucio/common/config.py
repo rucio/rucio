@@ -160,7 +160,7 @@ def config_get(
         use_cache: bool = True,
         expiration_time: int = 900,
         convert_type_fnc: 'Callable[[str], _T]' = lambda x: x,
-) -> Union[_T, _U]:
+rucio=None) -> Union[_T, _U]:
     """
     Return the string value for a given option in a section
 
