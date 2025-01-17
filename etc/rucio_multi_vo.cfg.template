@@ -60,7 +60,7 @@ default = sqlite:////tmp/rucio.db
 #default = oracle://_____________:___________@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT=______))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=_____________)))
 #schema=atlas_rucio  # only for cern oracle
 #default = mysql+pymysql://rucio:rucio@localhost/rucio
-#default = postgresql://rucio:rucio@localhost/rucio
+#default = postgresql+psycopg://rucio:rucio@localhost/rucio
 pool_recycle=3600
 echo=0
 pool_reset_on_return=rollback

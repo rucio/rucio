@@ -30,7 +30,8 @@ python-swiftclient==4.6.0                                   # swift_extras
 argcomplete==3.4.0                                          # argcomplete_extras; Bash tab completion for argparse
 python-magic==0.4.27                                        # dumper_extras; File type identification using libmagic
 cx_oracle==8.3.0                                            # oracle_extras
-psycopg2-binary==2.9.9                                      # postgresql_extras
+psycopg[pool]==3.2.3                                        # postgresql
+psycopg-binary==3.2.3; implementation_name=="cpython"       # postgresql binary optimizations
 PyMySQL==1.1.1                                              # mysql_extras
 PyYAML==6.0.1                                               # globus_extras and used for reading test configuration files
 globus-sdk==3.41.0                                          # globus_extras
