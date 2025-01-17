@@ -41,8 +41,8 @@ build/
 covhtml
 dist/
 examples/whip/results/
-*rucio.egg-info
-*rucio_clients.egg-info
+*.egg
+*.egg-info
 cache/
 changed_files.txt
 docs/
