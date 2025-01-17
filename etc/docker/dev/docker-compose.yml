@@ -458,3 +458,39 @@ services:
     depends_on:
       iam-db:
         condition: service_healthy
+  dirac-server:
+    image: dirac-server
+    hostname: dirac-server
+    build:
+      context: ./dirac/
+      args:
+        DIRACOS_VERSION: ${DIRACOS_VERSION:}
+        DIRAC_VERSION: ${DIRAC_VERSION}
+        RUCIO_VERSION: ${RUCIO_VERSION}
+        USERID: ${USERID}
+        GROUPID: ${GROUPID}
+    privileged: true
+    depends_on:
+      dirac-db:
+        condition: service_healthy
+    ports:
+      - ${DIRAC_WEB_HOST_PORT}:8443
+    volumes:
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:ro
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/rucio_ca.pem
+      - ../../certs/rucio_ca.crl.r0:/etc/grid-security/certificates/rucio_ca.crl.r0
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0
+      - ../../certs/rucio_ca.crl.r0:/etc/grid-security/certificates/5fca1cb1.r0
+      - ../../certs/hostcert_dirac-server.pem:/opt/dirac/etc/grid-security/hostcert.pem:z
+      - ../../certs/hostcert_dirac-server.key.pem:/opt/dirac/etc/grid-security/hostkey.pem:z
+  dirac-db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: dirac-db-root
+      MYSQL_USER: Dirac
+      MYSQL_PASSWORD: dirac-db
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 10s
+      start_period: 30s

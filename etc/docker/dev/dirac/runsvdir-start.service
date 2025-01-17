@@ -1,0 +1,10 @@
+[Unit]
+Description=Runit Process Supervisor
+
+[Service]
+ExecStart=/opt/dirac/sbin/runsvdir-start
+Restart=always
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
