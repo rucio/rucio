@@ -204,7 +204,7 @@ def id_list(ctx, account_name):
 @click_decorator
 def id_add(ctx, account_name, type_, id, email, password):
     """Add a new identity for [account-name]"""
-    args = Arguments({"account": account_name, "authtype": type_, "id": id, "email": email, "password": password})
+    args = Arguments({"account": account_name, "authtype": type_, "identity": id, "email": email, "password": password})
     identity_add(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
