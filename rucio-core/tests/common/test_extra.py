@@ -17,13 +17,13 @@ from rucio.core.common.extra import import_extras
 
 
 class TestExtra:
-    @patch('rucio.common.extra.importlib')
+    @patch('rucio.core.common.extra.importlib')
     def test_import_extras(self, mock_importlib):
         mock_module = Mock()
         mock_importlib.import_module.return_value = mock_module
         assert import_extras(['module1']) == {'module1': mock_module}
 
-    @patch('rucio.common.extra.importlib')
+    @patch('rucio.core.common.extra.importlib')
     def test_import_extras_importerror(self, mock_importlib):
         mock_importlib.import_module.side_effect = [ModuleNotFoundError, ImportError]
         assert import_extras(['module1', 'module2']) == {'module1': None, 'module2': None}

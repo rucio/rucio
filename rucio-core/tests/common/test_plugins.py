@@ -58,21 +58,21 @@ class TestPolicyPackageVersion:
     ])
     def test_check_policy_package_version_exceptions(self, raised_exception):
         package = 'bad_package'
-        with patch('rucio.common.plugins._get_supported_versions_from_policy_package', side_effect=raised_exception):
+        with patch('rucio.core.common.plugins._get_supported_versions_from_policy_package', side_effect=raised_exception):
             assert check_policy_package_version(package) is None
 
     def test_check_policy_package_version_supported(self):
         package = 'supported_package'
-        with patch('rucio.common.plugins._get_supported_versions_from_policy_package', return_value=SpecifierSet('>=1.0,!=2.0')):
-            with patch('rucio.common.plugins.current_version', return_value='1.7'):
+        with patch('rucio.core.common.plugins._get_supported_versions_from_policy_package', return_value=SpecifierSet('>=1.0,!=2.0')):
+            with patch('rucio.core.common.plugins.current_version', return_value='1.7'):
                 assert check_policy_package_version(package) is None
 
     def test_check_policy_package_version_unsupported(self):
         package = 'unsupported_package'
         rucio_version = '3.0'
         supported_versions = SpecifierSet('>=1.0,!=3.0')
-        with patch('rucio.common.plugins._get_supported_versions_from_policy_package', return_value=supported_versions):
-            with patch('rucio.common.plugins.current_version', return_value=rucio_version):
+        with patch('rucio.core.common.plugins._get_supported_versions_from_policy_package', return_value=supported_versions):
+            with patch('rucio.core.common.plugins.current_version', return_value=rucio_version):
                 with pytest.raises(PolicyPackageVersionError) as e:
                     check_policy_package_version(package)
                 assert e.value.package == package

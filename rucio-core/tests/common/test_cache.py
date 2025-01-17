@@ -18,7 +18,7 @@ from dogpile.cache.backends.memcached import PyMemcacheBackend
 from dogpile.cache.backends.null import NullBackend
 from dogpile.cache.util import function_key_generator
 
-import rucio.common.cache as cache
+import rucio.core.common.cache as cache
 from rucio.core.common.cache import CacheKey, MemcacheRegion
 
 

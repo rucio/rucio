@@ -21,7 +21,7 @@ from rucio.core.common.stopwatch import Stopwatch
 
 
 class TestStopwatch:
-    @patch('rucio.common.stopwatch.time')
+    @patch('rucio.core.common.stopwatch.time')
     def test_restart(self, mock_time):
         mock_now = Mock()
         mock_time.monotonic.return_value = mock_now
@@ -29,14 +29,14 @@ class TestStopwatch:
         assert watch._t_start == mock_now
         assert watch._t_end is None
 
-    @patch('rucio.common.stopwatch.time')
+    @patch('rucio.core.common.stopwatch.time')
     def test_now(self, mock_time):
         mock_now = Mock()
         mock_time.monotonic.return_value = mock_now
         watch = Stopwatch()
         assert watch._now() == mock_now
 
-    @patch('rucio.common.stopwatch.time')
+    @patch('rucio.core.common.stopwatch.time')
     def test_stop(self, mock_time):
         mock_now = Mock()
         mock_time.monotonic.return_value = mock_now
@@ -50,7 +50,7 @@ class TestStopwatch:
                                     (1, 3, 7),
                                     (50.03, 80.58, 99.99),
                              ])
-    @patch('rucio.common.stopwatch.time')
+    @patch('rucio.core.common.stopwatch.time')
     def test_elapsed(self, mock_time, now_1, now_2, now_3):
         mock_time.monotonic.side_effect = [now_1, now_2, now_3]
         watch = Stopwatch()
