@@ -45,8 +45,8 @@ def make_warning():
                 "set-limits": "account limit add",
                 "get-limits": "account limit list",
                 "delete-limits": "account limit remove",
-                "ban": "account update --ban True",
-                "unban": "account update --ban False",
+                "ban": "account update --ban",
+                "unban": "account update --unban",
                 "list-attributes": "account attribute list",
                 "add-attribute": "account attribute add",
                 "delete-attribute": "account attribute remove",
@@ -61,7 +61,8 @@ def make_warning():
                 "set-attribute": "rse attribute add",
                 "delete-attribute": "rse attribute remove",
                 "delete-distance": "rse distance remove",
-                "get-distance": "rse distance list",
+                "get-distance": "rse distance show",
+                "set-distance": "rse distance update",
                 "get-attribute": "rse attribute list",
                 "add-protocol": "rse protocol add",
                 "delete-protocol": "rse protocol remove",
@@ -76,15 +77,7 @@ def make_warning():
             "scope": {"-h": "scope -h", "add": "scope add", "list": "scope list"},
             "config": {"-h": "config -h", "get": "config list", "set": "config add", "delete": "config remove"},
             "subscription": {"-h": "subscription -h", "add": "subscription add", "list": "subscription", "update": "subscription update", "reevaluate": "subscription touch"},
-            "replicas": {
-                "-h": "replica -h",
-                "quarantine": "replica state quarantine",
-                "declare-bad": "replica state bad",
-                "declare-temporary-unavailable":
-                "replica state unavailable",
-                "set-tombstone": "replica remove",
-                "list-pfns": "replica list file --pfns"
-            },
+            "replicas": {"-h": "replica -h", "quarantine": "replica state update quarantine", "declare-bad": "replica state update bad", "declare-temporary-unavailable": "replica state update unavailable", "set-tombstone": "replica remove"},
         }
         try:
             new_command = command_map[first_command]
