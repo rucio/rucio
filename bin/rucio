@@ -83,7 +83,7 @@ def map_legacy_command() -> Optional[list[str]]:
             "list-rules": ["rule", "list"],
             "list-rules-history": ["rule", "history"],
             "update-rule": ["rule", "update"],
-            "move-rule": ["rule", "update", "--move"],
+            "move-rule": ["rule", "move"],
             "list-rses": ["rse", "list"],
             "list-suspicious-replicas": ["replica", "state", "suspicious"],
             "list-rse-attributes": ["rse", "attribute", "list"],
