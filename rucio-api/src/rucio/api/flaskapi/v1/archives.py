@@ -17,9 +17,9 @@ from typing import TYPE_CHECKING
 
 from flask import Flask, Response, request
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, parse_scope_name, response_headers, try_stream
 from rucio.gateway.did import list_archive_content
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, parse_scope_name, response_headers, try_stream
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

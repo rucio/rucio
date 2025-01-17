@@ -21,20 +21,28 @@ classifiers = [
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3.9',
-    'Programming Language :: Python :: 3.10',
+'Programming Language :: Python :: 3.10',
     'Environment :: No Input/Output (Daemon)',
 ]
 dependencies = ["rucio-api", "rucio-cli-client", "rucio-client", "rucio-core"]
+
 dynamic = ["version"]
 
+[project.optional-dependencies]
+testing = ["pytest>=8.1"]
+
+[tool.setuptools]
+packages = []
+
 [build-system]
-requires = ["setuptools", "wheel", "packaging"]
+requires = ["setuptools>=61", "wheel", "packaging", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
+consider_namespace_packages = true
 pythonpath = [
   ".",
-  "lib",
+  "rucio-core"
 ]
 
 [tool.coverage.report]
@@ -47,10 +55,6 @@ exclude_also = [
 
 [tool.ruff]
 line-length = 256
-
-extend-include = [
-    "bin/*",
-]
 
 # Exclude a variety of commonly ignored directories.
 exclude = [
@@ -172,7 +176,7 @@ known-first-party = ["rucio"]
     'S605', # Starting a process with a shell
 ]
 
-'lib/rucio/db/sqla/migrate_repo/versions/*.py' = [
+'rucio-core/src/rucio/core/db/sqla/migrate_repo/versions/*.py' = [
     'S608'  # Hardcoded SQL expression
 ]
 

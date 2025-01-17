@@ -93,8 +93,8 @@ FROM python as mod_wsgi
 FROM python as rucio-runtime
     WORKDIR /usr/local/src/rucio
     COPY tools tools
-    COPY bin bin
-    COPY lib lib
+    COPY rucio-cli-client rucio-cli-clie t
+    COPY rucio-core rucio-core
     COPY etc etc
     COPY tests tests
     COPY requirements requirements
@@ -158,7 +158,7 @@ FROM rucio-runtime as final
     COPY --from=mod_wsgi /etc/httpd/conf.modules.d/05-wsgi-python.conf  /etc/httpd/conf.modules.d/05-wsgi-python.conf
 
     WORKDIR /opt/rucio
-    RUN cp -r /usr/local/src/rucio/{lib,bin,tools,etc,tests} ./
+    RUN cp -r /usr/local/src/rucio/{rucio-core,tools,etc,tests} ./
 
     RUN ldconfig
 

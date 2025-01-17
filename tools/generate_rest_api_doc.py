@@ -16,8 +16,8 @@
 from apispec import APISpec
 from apispec_webframeworks.flask import FlaskPlugin
 
+from rucio.api.flaskapi.v1.main import application
 from rucio.core.vcsversion import VERSION_INFO
-from rucio.web.rest.flaskapi.v1.main import application
 
 description_text = """Each resource can be accessed or modified using specially
 formed URLs and the standard HTTP methods:
@@ -86,7 +86,7 @@ ExceptionClass ExceptionMessage
 ```
 
 Where ExceptionClass refers to [`Rucio
-Exceptions`](https://github.com/rucio/rucio/blob/58efd21b5e21182df80bef3dbe8befa636e440b8/lib/rucio/common/exception.py).
+Exceptions`](rucio-core/src/rucio/core/common/exception.py).
 """
 
 

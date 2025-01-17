@@ -126,8 +126,7 @@ def render_pydoc_markdown(rucio_src: str):
             except FileExistsError:
                 pass  # ignore existing
 
-    lib_path = os.path.join(rucio_src, "lib")
-    client_module_path = pathlib.Path(lib_path, "rucio/client")
+    client_module_path = pathlib.Path(os.path.join(rucio_src, "rucio-cli-client"))
     client_module_excludes = {"__pycache__", "__init__", "dq2client"}
     client_modules = [
         module_path.with_suffix("").name
@@ -138,7 +137,7 @@ def render_pydoc_markdown(rucio_src: str):
     client_api_output_file = os.environ.get("RUCIO_CLIENT_API_OUTPUT", default="docs/rucio_client_api.md")
     create_parent_directory(client_api_output_file)
 
-    rest_api_path = os.path.join(lib_path, "rucio/web/rest/flaskapi/v1/")
+    client_module_path = pathlib.Path(os.path.join(rucio_src, "rucio-api/src/rucio/api/flaskapi/v1/"))
     rest_api_output_file = os.environ.get("RUCIO_REST_API_OUTPUT", default="docs/rucio_rest_api.md")
     create_parent_directory(rest_api_output_file)
 
@@ -148,13 +147,13 @@ def render_pydoc_markdown(rucio_src: str):
                 RenderParams(
                     title="Rucio client API",
                     fh=client_api_fh,
-                    args=("--search-path", lib_path, *client_modules_args),
+                    args=("--search-path", rucio_src, *client_modules_args),
                     out_file=client_api_output_file,
                 ),
                 RenderParams(
                     title="Rucio REST API",
                     fh=rest_api_fh,
-                    args=("--search-path", rest_api_path),
+                    args=("--search-path", rucio_src),
                     out_file=rest_api_output_file,
                 ),
             ]
@@ -181,12 +180,12 @@ def render_bin_help_pages(rucio_src: str):
 
         return inner
 
-    bin_path = pathlib.Path(rucio_src) / "bin"
+    bin_path = pathlib.Path(rucio_src) / "rucio-cli-client"
     bin_help_output_path = os.environ.get("RUCIO_BIN_HELP_OUTPUT", default="docs/bin")
     bin_help_output_path = pathlib.Path(bin_help_output_path)
     bin_help_output_path.mkdir(parents=True, exist_ok=True)
     excludes = {}
-    os.environ["PYTHONPATH"] = os.path.join(rucio_src, "lib")
+    os.environ["PYTHONPATH"] = rucio_src
 
     def generate_procs():
         for runnable_path in bin_path.iterdir():

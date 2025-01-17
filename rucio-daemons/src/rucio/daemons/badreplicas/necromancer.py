@@ -23,17 +23,17 @@ from typing import TYPE_CHECKING, Optional
 from dogpile.cache.api import NO_VALUE
 from sqlalchemy.exc import DatabaseError
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.core.common import exception
 from rucio.core.common.cache import MemcacheRegion
 from rucio.core.common.config import config_get_int
 from rucio.core.common.exception import DatabaseException
 from rucio.core.common.logging import setup_logging
+from rucio.core.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, ReplicaState
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import get_bad_replicas_backlog, get_replicas_state, list_bad_replicas
 from rucio.core.rule import get_evaluation_backlog, update_rules_for_bad_replica, update_rules_for_lost_replica
 from rucio.daemons.common import HeartbeatHandler, run_daemon
-from rucio.core.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, ReplicaState
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -169,7 +169,7 @@ def run(threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int =
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     if once:

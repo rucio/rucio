@@ -1,4 +1,5 @@
 pyproject.toml
+requirements.txt
 src/rucio/cli-client/rucio-abacus-account.py
 src/rucio/cli-client/rucio-abacus-collection-replica.py
 src/rucio/cli-client/rucio-abacus-rse.py

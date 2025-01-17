@@ -19,19 +19,19 @@ import logging
 import threading
 from typing import TYPE_CHECKING, Optional
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.core.common import exception
 from rucio.core.common.config import config_get, config_get_bool, config_get_float, config_get_int, config_get_list
 from rucio.core.common.logging import setup_logging
 from rucio.core.common.schema import get_schema_value
 from rucio.core.common.stopwatch import Stopwatch
+from rucio.core.db.sqla.constants import RequestState, RequestType
 from rucio.core.monitor import MetricManager
 from rucio.core.request import RequestWithSources, list_and_mark_transfer_requests_and_source_replicas
 from rucio.core.topology import ExpiringObjectCache, Topology
 from rucio.core.transfer import DEFAULT_MULTIHOP_TOMBSTONE_DELAY, TRANSFERTOOL_CLASSES_BY_NAME, ProtocolFactory, list_transfer_admin_accounts, transfer_path_str
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
 from rucio.daemons.conveyor.common import get_conveyor_rses, pick_and_prepare_submission_path, submit_transfer
-from rucio.core.db.sqla.constants import RequestState, RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 from rucio.transfertool.globus import GlobusTransferTool
 
@@ -351,7 +351,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)

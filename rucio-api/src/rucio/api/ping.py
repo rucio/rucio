@@ -14,8 +14,8 @@
 
 from flask import Flask
 
+from rucio.api.flaskapi.v1.ping import blueprint as metrics_blueprint
 from rucio.core.common.logging import setup_logging
-from rucio.web.rest.flaskapi.v1.ping import blueprint as metrics_blueprint
 
 # Allow to run the /ping endpoint as a separate application on a separate PORT
 

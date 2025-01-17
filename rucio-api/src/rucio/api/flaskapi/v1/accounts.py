@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from flask import Flask, Response, jsonify, redirect, request
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
 from rucio.core.common.exception import AccessDenied, AccountNotFound, CounterNotFound, Duplicate, IdentityError, InvalidObject, RSENotFound, RuleNotFound, ScopeNotFound
 from rucio.core.common.utils import APIEncoder, render_json
 from rucio.gateway.account import add_account, add_account_attribute, del_account, del_account_attribute, get_account_info, get_usage_history, list_account_attributes, list_accounts, list_identities, update_account
@@ -25,8 +27,6 @@ from rucio.gateway.account_limit import get_global_account_limit, get_global_acc
 from rucio.gateway.identity import add_account_identity, del_account_identity
 from rucio.gateway.rule import list_replication_rules
 from rucio.gateway.scope import add_scope, get_scopes
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

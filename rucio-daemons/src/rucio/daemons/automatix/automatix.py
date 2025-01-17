@@ -24,7 +24,7 @@ from json import load
 from os import remove, rmdir
 from typing import TYPE_CHECKING, Any, Optional
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.core.common import exception
@@ -286,7 +286,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException(
             "Database was not updated, daemon won't start"
         )

@@ -18,13 +18,13 @@ from typing import TYPE_CHECKING
 import flask
 from flask import Flask, Response
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, parse_scope_name, response_headers, try_stream
 from rucio.core.common.exception import RequestNotFound
 from rucio.core.common.utils import APIEncoder, render_json
-from rucio.core.rse import get_rses_with_attribute_value
 from rucio.core.db.sqla.constants import RequestState
+from rucio.core.rse import get_rses_with_attribute_value
 from rucio.gateway import request
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, parse_scope_name, response_headers, try_stream
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

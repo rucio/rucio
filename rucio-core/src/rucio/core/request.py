@@ -36,15 +36,15 @@ from rucio.core.common.constants import RseAttr
 from rucio.core.common.exception import InvalidRSEExpression, RequestNotFound, RucioException, UnsupportedOperation
 from rucio.core.common.types import FilterDict, InternalAccount, InternalScope, LoggerFunction, RequestDict
 from rucio.core.common.utils import chunks, generate_uuid
+from rucio.core.db.sqla import filter_thread_work, models
+from rucio.core.db.sqla.constants import LockState, ReplicaState, RequestErrMsg, RequestState, RequestType, TransferLimitDirection
+from rucio.core.db.sqla.session import read_session, stream_session, transactional_session
+from rucio.core.db.sqla.util import temp_table_mngr
 from rucio.core.distance import get_distances
 from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import RseCollection, RseData, get_rse_attribute, get_rse_name, get_rse_vo
 from rucio.core.rse_expression_parser import parse_expression
-from rucio.core.db.sqla import filter_thread_work, models
-from rucio.core.db.sqla.constants import LockState, ReplicaState, RequestErrMsg, RequestState, RequestType, TransferLimitDirection
-from rucio.core.db.sqla.session import read_session, stream_session, transactional_session
-from rucio.core.db.sqla.util import temp_table_mngr
 
 RequestAndState = namedtuple('RequestAndState', ['request_id', 'request_state'])
 
@@ -1142,7 +1142,7 @@ def get_request_by_did(
     :param scope:          The scope of the data identifier.
     :param name:           The name of the data identifier.
     :param rse_id:         The destination RSE ID of the request.
-    :param request_type:   The type of request as rucio.db.sqla.constants.RequestType.
+    :param request_type:   The type of request as rucio.core.db.sqla.constants.RequestType.
     :param session:        Database session to use.
     :returns:              Request as a dictionary.
     """
@@ -1191,7 +1191,7 @@ def get_request_history_by_did(
     :param scope:          The scope of the data identifier.
     :param name:           The name of the data identifier.
     :param rse_id:         The destination RSE ID of the request.
-    :param request_type:   The type of request as rucio.db.sqla.constants.RequestType.
+    :param request_type:   The type of request as rucio.core.db.sqla.constants.RequestType.
     :param session:        Database session to use.
     :returns:              Request as a dictionary.
     """

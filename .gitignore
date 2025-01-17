@@ -42,7 +42,7 @@ covhtml
 dist/
 examples/whip/results/
 *.egg
-*.egg-info
+*.egg-info/
 cache/
 changed_files.txt
 docs/

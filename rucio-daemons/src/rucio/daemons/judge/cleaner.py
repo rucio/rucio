@@ -27,15 +27,15 @@ from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.exc import DatabaseError
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.core.common import exception
 from rucio.core.common.exception import DatabaseException, RuleNotFound, UnsupportedOperation
 from rucio.core.common.logging import setup_logging
+from rucio.core.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX
+from rucio.core.db.sqla.util import get_db_time
 from rucio.core.monitor import MetricManager
 from rucio.core.rule import delete_rule, get_expired_rules
 from rucio.daemons.common import HeartbeatHandler, run_daemon
-from rucio.core.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX
-from rucio.core.db.sqla.util import get_db_time
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -137,7 +137,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     client_time, db_time = datetime.utcnow(), get_db_time()

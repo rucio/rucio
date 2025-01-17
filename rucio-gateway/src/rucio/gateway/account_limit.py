@@ -14,14 +14,14 @@
 
 from typing import TYPE_CHECKING, Any, Union
 
-import rucio.common.exception
+import rucio.core.common.exception
 import rucio.gateway.permission
-from rucio.core.common.types import InternalAccount, RSEResolvedGlobalAccountLimitDict
-from rucio.core.common.utils import gateway_update_return_dict
 from rucio.core import account_limit as account_limit_core
 from rucio.core.account import account_exists
-from rucio.core.rse import get_rse_id, get_rse_name
+from rucio.core.common.types import InternalAccount, RSEResolvedGlobalAccountLimitDict
+from rucio.core.common.utils import gateway_update_return_dict
 from rucio.core.db.sqla.session import read_session, transactional_session
+from rucio.core.rse import get_rse_id, get_rse_name
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -178,12 +178,12 @@ def set_local_account_limit(
     kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id, 'bytes': bytes_}
     auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_local_account_limit', kwargs=kwargs, session=session)
     if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not set account limits. %s' % (issuer, auth_result.message))
+        raise rucio.core.common.exception.AccessDenied('Account %s can not set account limits. %s' % (issuer, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
     if not account_exists(account=internal_account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+        raise rucio.core.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
     account_limit_core.set_local_account_limit(account=internal_account, rse_id=rse_id, bytes_=bytes_, session=session)
 
@@ -212,12 +212,12 @@ def set_global_account_limit(
     kwargs = {'account': account, 'rse_expression': rse_expression, 'bytes': bytes_}
     auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_global_account_limit', kwargs=kwargs, session=session)
     if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not set account limits. %s' % (issuer, auth_result.message))
+        raise rucio.core.common.exception.AccessDenied('Account %s can not set account limits. %s' % (issuer, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
     if not account_exists(account=internal_account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+        raise rucio.core.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
     account_limit_core.set_global_account_limit(account=internal_account, rse_expression=rse_expression, bytes_=bytes_, session=session)
 
@@ -247,12 +247,12 @@ def delete_local_account_limit(
     kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id}
     auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='delete_local_account_limit', kwargs=kwargs, session=session)
     if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not delete account limits. %s' % (issuer, auth_result.message))
+        raise rucio.core.common.exception.AccessDenied('Account %s can not delete account limits. %s' % (issuer, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
     if not account_exists(account=internal_account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+        raise rucio.core.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
     return account_limit_core.delete_local_account_limit(account=internal_account, rse_id=rse_id, session=session)
 
@@ -281,12 +281,12 @@ def delete_global_account_limit(
     kwargs = {'account': account, 'rse_expression': rse_expression}
     auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='delete_global_account_limit', kwargs=kwargs, session=session)
     if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not delete global account limits. %s' % (issuer, auth_result.message))
+        raise rucio.core.common.exception.AccessDenied('Account %s can not delete global account limits. %s' % (issuer, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
     if not account_exists(account=internal_account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+        raise rucio.core.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
     return account_limit_core.delete_global_account_limit(account=internal_account, rse_expression=rse_expression, session=session)
 
@@ -319,12 +319,12 @@ def get_local_account_usage(
     kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id}
     auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='get_local_account_usage', kwargs=kwargs, session=session)
     if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not list account usage. %s' % (issuer, auth_result.message))
+        raise rucio.core.common.exception.AccessDenied('Account %s can not list account usage. %s' % (issuer, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
     if not account_exists(account=internal_account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+        raise rucio.core.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
     return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_local_account_usage(account=internal_account, rse_id=rse_id, session=session)]
 
@@ -353,11 +353,11 @@ def get_global_account_usage(
     kwargs = {'account': account, 'rse_expression': rse_expression}
     auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='get_global_account_usage', kwargs=kwargs, session=session)
     if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not list global account usage. %s' % (issuer, auth_result.message))
+        raise rucio.core.common.exception.AccessDenied('Account %s can not list global account usage. %s' % (issuer, auth_result.message))
 
     internal_account = InternalAccount(account, vo=vo)
 
     if not account_exists(account=internal_account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+        raise rucio.core.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
     return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_global_account_usage(account=internal_account, rse_expression=rse_expression, session=session)]

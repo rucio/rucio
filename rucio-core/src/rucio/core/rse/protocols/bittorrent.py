@@ -29,7 +29,7 @@ EXTRA_MODULES = import_extras(['libtorrent'])
 
 lt = None
 if EXTRA_MODULES['libtorrent']:
-    import libtorrent as lt  # pylint: disable=E0401
+    #import libtorrent as lt  # pylint: disable=E0401
 
 if getattr(rsemanager, 'CLIENT_MODE', None):
     from rucio.client.didclient import DIDClient

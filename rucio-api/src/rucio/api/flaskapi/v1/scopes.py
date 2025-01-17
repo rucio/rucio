@@ -14,10 +14,10 @@
 
 from flask import Flask, jsonify, request
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, response_headers
 from rucio.core.common.exception import AccountNotFound, Duplicate, ScopeNotFound
 from rucio.gateway.scope import add_scope, get_scopes, list_scopes
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, response_headers
 
 
 class Scope(ErrorHandlingMethodView):

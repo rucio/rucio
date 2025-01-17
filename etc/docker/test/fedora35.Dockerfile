@@ -58,8 +58,8 @@ RUN mkdir -p /var/log/rucio/trace && \
 # copy everything else except the git-dir (anything above is cache-friendly)
 COPY .flake8 .pep8 .pycodestyle pylintrc setuputil.py setup.py setup_rucio.py setup_rucio_client.py setup_webui.py ./
 COPY tools tools
-COPY bin bin
-COPY lib lib
+COPY rucio-cli-client rucio-cli-client
+COPY rucio-core rucio-core
 COPY tests tests
 
 # Install Rucio server + dependencies
@@ -67,6 +67,6 @@ RUN python -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,ker
     python -m pip list
 
 WORKDIR /opt/rucio
-RUN cp -r /usr/local/src/rucio/{lib,bin,tools,etc,tests} ./
+RUN cp -r /usr/local/src/rucio/{rucio-core,rucio-cli-client,tools,etc,tests} ./
 
 CMD ["httpd","-D","FOREGROUND"]

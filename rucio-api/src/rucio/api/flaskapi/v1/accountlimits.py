@@ -16,10 +16,10 @@ from typing import TYPE_CHECKING
 
 from flask import Flask, request
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, generate_http_error_flask, json_parameters, param_get, response_headers
 from rucio.core.common.exception import AccessDenied, AccountNotFound, RSENotFound
 from rucio.gateway.account_limit import delete_global_account_limit, delete_local_account_limit, set_global_account_limit, set_local_account_limit
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, generate_http_error_flask, json_parameters, param_get, response_headers
 
 if TYPE_CHECKING:
     from flask.typing import ResponseReturnValue

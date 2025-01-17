@@ -20,8 +20,7 @@ services:
       - ../../certs/ssh/ruciouser_sshkey:/root/.ssh/ruciouser_sshkey:z
       - ./rucio/idpsecrets.json:/opt/rucio/etc/idpsecrets.json:ro
       - ../../../tools:/opt/rucio/tools:Z
-      - ../../../bin:/opt/rucio/bin:Z
-      - ../../../lib:/opt/rucio/lib:Z
+      - ../../../rucio-cli-client:/opt/rucio/bin:Z
       - ../../../tests:/opt/rucio/tests:Z
       - ../../../:/rucio_source:ro
     environment:
@@ -47,8 +46,8 @@ services:
       - ../../certs/ssh/ruciouser_sshkey:/root/.ssh/ruciouser_sshkey:z
       - ./rucio/idpsecrets.json:/opt/rucio/etc/idpsecrets.json:ro
       - ../../../tools:/opt/rucio/tools:Z
-      - ../../../bin:/opt/rucio/bin:Z
-      - ../../../lib:/opt/rucio/lib:Z
+      - ../../../rucio-cli-client:/opt/rucio/rucio-cli-client:Z
+      - ../../../rucio-core:/opt/rucio/rucio-core:Z
       - ../../../tests:/opt/rucio/tests:Z
       - ../../../:/rucio_source:ro
     environment:

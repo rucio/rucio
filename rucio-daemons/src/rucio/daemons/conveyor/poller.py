@@ -29,19 +29,19 @@ from typing import TYPE_CHECKING, Any, Optional
 from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
+from rucio.core import request as request_core
+from rucio.core import transfer as transfer_core
 from rucio.core.common.config import config_get, config_get_bool
 from rucio.core.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.core.common.logging import setup_logging
 from rucio.core.common.stopwatch import Stopwatch
 from rucio.core.common.types import InternalAccount, LoggerFunction
 from rucio.core.common.utils import dict_chunks
-from rucio.core import request as request_core
-from rucio.core import transfer as transfer_core
+from rucio.core.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, RequestState, RequestType
 from rucio.core.monitor import MetricManager
 from rucio.core.topology import ExpiringObjectCache, Topology
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
-from rucio.core.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, RequestState, RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 
 if TYPE_CHECKING:
@@ -263,7 +263,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
     parsed_activity_shares = None

@@ -16,7 +16,7 @@ import importlib
 
 import pytest
 
-import rucio.common.schema
+import rucio.core.common.schema
 import rucio.core.permission
 from rucio.core.common.types import InternalAccount
 
@@ -47,14 +47,14 @@ class TestPolicyPackage:
     # to generic for others
     def test_diff_based_schema(self):
         # replace schema module with our mock one
-        old_module = rucio.common.schema.schema_modules['def']
-        rucio.common.schema.schema_modules['def'] = importlib.import_module('tests.mocks.schema_diff')
+        old_module = rucio.core.common.schema.schema_modules['def']
+        rucio.core.common.schema.schema_modules['def'] = importlib.import_module('tests.mocks.schema_diff')
 
         # check that overriden value is as expected
-        assert rucio.common.schema.get_schema_value('SCOPE_LENGTH') == 50
+        assert rucio.core.common.schema.get_schema_value('SCOPE_LENGTH') == 50
 
         # check that omitted value falls back to generic module
-        assert rucio.common.schema.get_schema_value('NAME_LENGTH') == 250
+        assert rucio.core.common.schema.get_schema_value('NAME_LENGTH') == 250
 
         # restore original schema module
-        rucio.common.schema.schema_modules['def'] = old_module
+        rucio.core.common.schema.schema_modules['def'] = old_module

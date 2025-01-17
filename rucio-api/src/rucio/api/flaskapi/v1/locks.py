@@ -14,11 +14,11 @@
 
 from flask import Flask, request
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parse, parse_scope_name, response_headers, try_stream
 from rucio.core.common.exception import RSENotFound
 from rucio.core.common.utils import render_json
 from rucio.gateway.lock import get_dataset_locks, get_dataset_locks_bulk, get_dataset_locks_by_rse
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parse, parse_scope_name, response_headers, try_stream
 
 
 class LockByRSE(ErrorHandlingMethodView):

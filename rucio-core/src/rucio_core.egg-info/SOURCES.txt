@@ -1,3 +1,4 @@
+old-requirements.txt
 pyproject.toml
 requirements.txt
 src/rucio/core/__init__.py
@@ -37,6 +38,8 @@ src/rucio/core/subscription.py
 src/rucio/core/topology.py
 src/rucio/core/trace.py
 src/rucio/core/transfer.py
+src/rucio/core/vcsversion.py
+src/rucio/core/version.py
 src/rucio/core/vo.py
 src/rucio/core/volatile_replica.py
 src/rucio/core/common/__init__.py
@@ -68,6 +71,7 @@ src/rucio/core/common/schema/generic.py
 src/rucio/core/common/schema/generic_multi_vo.py
 src/rucio/core/db/__init__.py
 src/rucio/core/db/sqla/__init__.py
+src/rucio/core/db/sqla/alembicrevision.py
 src/rucio/core/db/sqla/constants.py
 src/rucio/core/db/sqla/models.py
 src/rucio/core/db/sqla/sautils.py
@@ -76,6 +80,7 @@ src/rucio/core/db/sqla/types.py
 src/rucio/core/db/sqla/util.py
 src/rucio/core/db/sqla/migrate_repo/__init__.py
 src/rucio/core/db/sqla/migrate_repo/env.py
+src/rucio/core/db/sqla/migrate_repo/script.py.mako
 src/rucio/core/db/sqla/migrate_repo/versions/01eaf73ab656_add_new_rule_notification_state_progress.py
 src/rucio/core/db/sqla/migrate_repo/versions/0437a40dbfd1_add_eol_at_in_rules.py
 src/rucio/core/db/sqla/migrate_repo/versions/0f1adb7a599a_create_transfer_hops_table.py
@@ -241,3 +246,4 @@ src/rucio_core.egg-info/SOURCES.txt
 src/rucio_core.egg-info/dependency_links.txt
 src/rucio_core.egg-info/requires.txt
 src/rucio_core.egg-info/top_level.txt
+tests/test_version.py

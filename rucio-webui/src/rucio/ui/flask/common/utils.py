@@ -23,11 +23,11 @@ from urllib.parse import quote, unquote
 
 from flask import Response, make_response, redirect, render_template, request
 
+from rucio.core import identity as identity_core
+from rucio.core import vo as vo_core
 from rucio.core.common.config import config_get, config_get_bool
 from rucio.core.common.exception import CannotAuthenticate
 from rucio.core.common.extra import import_extras
-from rucio.core import identity as identity_core
-from rucio.core import vo as vo_core
 from rucio.core.db.sqla.constants import AccountType, IdentityType
 from rucio.gateway import authentication as auth
 from rucio.gateway import identity
@@ -81,31 +81,6 @@ VARIABLE_VALUE_REGEX = re.compile(r"^[\w\- /=,.+*#()\[\]]*$", re.UNICODE)
 # TO-DO !!! Remove passing data with account and other params to the functions
 # catch these from the webpy input() storage object
 # will allow to remove also lines around each use of select_account_name
-
-
-def prepare_saml_request(environ, data):
-    """
-    TODO: Validate for Flask
-    Prepare a webpy request for SAML
-    :param environ: Flask request.environ object
-    :param data: GET or POST data
-    """
-    if environ.get('mod_wsgi.url_scheme') == 'https':
-        ret = {
-            'https': 'on' if environ.get('modwsgi.url_scheme') == 'https' else 'off',
-            'http_host': environ.get('HTTP_HOST'),
-            'server_port': environ.get('SERVER_PORT'),
-            'script_name': environ.get('SCRIPT_NAME'),
-            # Uncomment if using ADFS as IdP
-            # 'lowercase_urlencoding': True,
-        }
-        if data:
-            ret['get_data'] = data
-            ret['post_data'] = data
-        return ret
-
-    return None
-
 
 def add_cookies(response: Response, cookie: Optional['Iterable[dict[str, Any]]'] = None) -> Response:
     """

@@ -1,9 +1,15 @@
 {
     "include": [
-        "lib"
+        "rucio-api",
+        "rucio-cli-client",
+        "rucio-client",
+        "rucio-core",
+        "rucio-daemons",
+        "rucio-gateway",
+        "rucio-transfertool",
     ],
     "exclude": [
-        "lib/rucio/db"
+        "rucio-core/src/rucio/core/db"
     ],
     "pythonVersion": "3.10",
     "typeCheckingMode": "basic",

@@ -21,11 +21,11 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
+from rucio.core.account_counter import fill_account_counter_history_table, get_updated_account_counters, update_account_counter
 from rucio.core.common import exception
 from rucio.core.common.logging import setup_logging
 from rucio.core.common.utils import get_thread_with_periodic_running_function
-from rucio.core.account_counter import fill_account_counter_history_table, get_updated_account_counters, update_account_counter
 from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 if TYPE_CHECKING:
@@ -97,7 +97,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     if once:

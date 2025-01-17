@@ -17,13 +17,13 @@ from typing import TYPE_CHECKING
 from flask import Blueprint, Flask, jsonify, request
 from werkzeug.datastructures import Headers
 
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, response_headers
 from rucio.core import version
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, response_headers
 
 if TYPE_CHECKING:
     from typing import Optional
 
-    from rucio.web.rest.flaskapi.v1.types import HeadersType
+    from rucio.api.flaskapi.v1.types import HeadersType
 
 
 class Ping(ErrorHandlingMethodView):

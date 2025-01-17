@@ -3,5 +3,5 @@ coverage:
     patch:
       default:
         paths:
-          - "lib/rucio/version*"
-          - "lib/rucio/common/*"
+          - ""rucio-core/src/rucio/core/version*"
+          - "rucio-core/src/rucio/core/common/*"

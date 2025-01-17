@@ -1,4 +1,5 @@
 pyproject.toml
+requirements.txt
 src/rucio/api/__init__.py
 src/rucio/api/main.py
 src/rucio/api/metrics.py
@@ -36,6 +37,8 @@ src/rucio/api/flaskapi/v1/subscriptions.py
 src/rucio/api/flaskapi/v1/traces.py
 src/rucio/api/flaskapi/v1/types.py
 src/rucio/api/flaskapi/v1/vos.py
+src/rucio/api/flaskapi/v1/templates/auth_crash.html
+src/rucio/api/flaskapi/v1/templates/auth_granted.html
 src/rucio_api.egg-info/PKG-INFO
 src/rucio_api.egg-info/SOURCES.txt
 src/rucio_api.egg-info/dependency_links.txt

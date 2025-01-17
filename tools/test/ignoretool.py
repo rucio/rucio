@@ -20,8 +20,8 @@ import os
 PACKAGES = [
     'rucio',
     'rucio.client',
-    'rucio.common',
-    'rucio.common.schema',
+    'rucio.core.common',
+    'rucio.core.common.schema',
     'rucio.rse.protocols',
     'rucio.rse',
     # 'rucio.tests'  do not include tests
@@ -29,7 +29,7 @@ PACKAGES = [
 
 
 def package_directories(packages):
-    for directory in map(lambda p: 'lib/' + p.replace('.', '/'), packages):
+    for directory in map(lambda p: './' + p.replace('.', '/'), packages):
         yield directory
 
 
@@ -47,14 +47,14 @@ def main():
         ignore_dirs = []
         include_dirs = set(package_directories(PACKAGES))
 
-        for root, dirs, files in os.walk('lib/'):
-            if '__pycache__' not in root and root != 'lib/' and root not in include_dirs:
+        for root, dirs, files in os.walk('./'):
+            if '__pycache__' not in root and root != './' and root not in include_dirs:
                 ignore_dirs.append(root)
 
         if ignore_dirs:
-            print('--ignore=' + ','.join(ignore_dirs), 'lib/rucio/')
+            print('--ignore=' + ','.join(ignore_dirs), './')
         else:
-            print('lib/rucio/')
+            print('.')
 
 
 if __name__ == '__main__':

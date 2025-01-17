@@ -16,6 +16,8 @@ from json import dumps
 
 from flask import Flask, Response, jsonify, request
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
 from rucio.core.common.exception import (
     AccessDenied,
     CounterNotFound,
@@ -63,8 +65,6 @@ from rucio.gateway.rse import (
     update_rse,
 )
 from rucio.rse import rsemanager
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
 
 
 class RSEs(ErrorHandlingMethodView):

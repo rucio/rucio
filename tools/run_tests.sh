@@ -75,7 +75,7 @@ if test ${pip_only}; then
 fi
 
 echo 'Cleaning *.pyc files'
-find lib -iname "*.pyc" -print0 | xargs -0 rm
+find . -iname "*.pyc" -print0 | xargs -0 rm
 
 echo 'Cleaning old authentication tokens'
 rm -rf /tmp/.rucio_*/
@@ -101,14 +101,14 @@ fi
 
 if test ${lint}; then
     echo 'Running flake8 code style checker'
-    flake8 --exclude=*.cfg bin/* lib/ tools/*.py
+    flake8 --exclude=*.cfg tools/*.py
     if [ $? != 0 ]; then
         echo 'Checker failed, aborting.'
         exit 1
     fi
 
     echo 'Running pylint code style checker'
-    pylint bin/* lib/ tools/*.py
+    pylint tools/*.py
     if [ $? != 0 ]; then
 	      echo 'Checker failed, aborting.'
 	      exit 1

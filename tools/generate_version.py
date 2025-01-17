@@ -55,6 +55,6 @@ VERSION_INFO = {
 """ % (True, GIT_VERSION, BRANCH_NICK, REVID, REVNO))
     VERSION_FILE.close()
 
-    WEBUI_VERSION_FILE = open("lib/rucio/web/ui/static/webui_version", 'w')
+    WEBUI_VERSION_FILE = open("rucio-webui/src/rucio/ui/static/webui_version", 'w')
     WEBUI_VERSION_FILE.write('%s' % GIT_VERSION)
     WEBUI_VERSION_FILE.close()

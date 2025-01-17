@@ -154,7 +154,7 @@ Development tricks
 Server changes
 ~~~~~~~~~~~~~~
 
-If you edit server-side files, e.g. in `lib/rucio/web`, and your changes are not showing up then it is usually helpful to flush the memcache and force the webserver to restart without having to restart the container. Inside the container execute::
+If you edit server-side files, e.g. in `rucio-webui`, and your changes are not showing up then it is usually helpful to flush the memcache and force the webserver to restart without having to restart the container. Inside the container execute::
 
     echo 'flush_all' | nc localhost 11211 && httpd -k graceful
 

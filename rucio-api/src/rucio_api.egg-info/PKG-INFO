@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: rucio-api
-Version: 35.0.1.dev315+gd6885e191.d20250116
+Version: 35.0.1.dev319+g27e7199fb.d20250117
 Summary: Rucio REST API
 License: Apache License, Version 2.0
 Classifier: Development Status :: 5 - Production/Stable

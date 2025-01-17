@@ -1260,7 +1260,7 @@ def setup_logger(
     :param module_name: __name__ of the module that is calling this method
     :param logger_name: name of the logger, typically name of the module.
     :param logger_level: if not given, fetched from config.
-    :param verbose: verbose option set in bin/rucio
+    :param verbose: verbose option set in rucio-cli-client/rucio
     '''
     # helper method for cfg check
     def _force_cfg_log_level(cfg_option: str) -> bool:

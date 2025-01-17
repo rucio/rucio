@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: rucio-core
-Version: 35.0.1.dev315+gd6885e191.d20250116
+Version: 35.0.1.dev319+g27e7199fb.d20250117
 Summary: Rucio core
 License: Apache License, Version 2.0
 Classifier: Development Status :: 5 - Production/Stable
@@ -25,8 +25,6 @@ Requires-Dist: Flask==3.1.0
 Requires-Dist: geoip2==4.8.0
 Requires-Dist: globus_sdk==3.41.0
 Requires-Dist: jsonschema==4.23.0
-Requires-Dist: libtorrent==2.0.9
-Requires-Dist: MySQL-python==1.2.5
 Requires-Dist: oic==1.7.0
 Requires-Dist: packaging==24.2
 Requires-Dist: paramiko==3.4.1
@@ -36,7 +34,7 @@ Requires-Dist: psycopg2_binary==2.9.9
 Requires-Dist: pyjwkest==1.4.2
 Requires-Dist: pymemcache==4.0.0
 Requires-Dist: pymongo==4.10.1
-Requires-Dist: PyMySQL==1.1.1
+Requires-Dist: pymysql==1.1.1
 Requires-Dist: python_magic==0.4.27
 Requires-Dist: referencing==0.35.1
 Requires-Dist: Requests==2.32.3

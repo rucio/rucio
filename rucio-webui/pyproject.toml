@@ -42,6 +42,6 @@ root = ".."
 testpaths = ["tests"]
 addopts = [
     "-v",
-    "--cov=rucio.webui", "--cov-report=term-missing",
+    "--cov=rucio.ui", "--cov-report=term-missing",
     "--import-mode=importlib",
 ]

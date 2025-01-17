@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.web.rest.flaskapi.v1.main import application
+from rucio.api.flaskapi.v1.main import application
 
 if __name__ == '__main__':
     application.run()

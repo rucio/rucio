@@ -28,7 +28,9 @@ from urllib.parse import urlparse
 from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
+from rucio.core import replica as replica_core
+from rucio.core import request as request_core
 from rucio.core.common.cache import MemcacheRegion
 from rucio.core.common.config import config_get_bool, config_get_list
 from rucio.core.common.exception import DatabaseException, ReplicaNotFound, RequestNotFound, RSEProtocolNotSupported, UnsupportedOperation
@@ -36,15 +38,13 @@ from rucio.core.common.logging import setup_logging
 from rucio.core.common.stopwatch import Stopwatch
 from rucio.core.common.types import InternalAccount, LoggerFunction, RequestDict
 from rucio.core.common.utils import chunks
-from rucio.core import replica as replica_core
-from rucio.core import request as request_core
+from rucio.core.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, BadFilesStatus, ReplicaState, RequestState, RequestType
+from rucio.core.db.sqla.session import transactional_session
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import list_rses
 from rucio.core.topology import ExpiringObjectCache, Topology
 from rucio.core.transfer import ProtocolFactory
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
-from rucio.core.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, BadFilesStatus, ReplicaState, RequestState, RequestType
-from rucio.core.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -228,7 +228,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
     cached_topology = ExpiringObjectCache(ttl=300, new_obj_fnc=lambda: Topology())

@@ -39,7 +39,9 @@ build-backend = "setuptools.build_meta"
 root = ".."
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = [
+    "rucio-core/tests",
+]
 addopts = [
     "-v",
     "--cov=rucio.client", "--cov-report=term-missing",

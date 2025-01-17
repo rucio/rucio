@@ -24,15 +24,15 @@ from typing import TYPE_CHECKING, Optional, TypedDict, Union
 
 from sqlalchemy import null
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.core.common import exception
 from rucio.core.common.logging import setup_logging
+from rucio.core.db.sqla.constants import RequestState, TransferLimitDirection
 from rucio.core.monitor import MetricManager
 from rucio.core.request import get_request_stats, re_sync_all_transfer_limits, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo, reset_stale_waiting_requests, set_transfer_limit_stats
 from rucio.core.rse import RseCollection, RseData
 from rucio.core.transfer import applicable_rse_transfer_limits
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
-from rucio.core.db.sqla.constants import RequestState, TransferLimitDirection
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -149,7 +149,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     throttler(once=once, sleep_time=sleep_time)

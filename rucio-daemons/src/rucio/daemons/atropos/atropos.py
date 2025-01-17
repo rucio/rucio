@@ -21,18 +21,18 @@ from sys import exc_info
 from traceback import format_exception
 from typing import TYPE_CHECKING
 
+import rucio.core.db.sqla.util
 import rucio.core.lifetime_exception
-import rucio.db.sqla.util
 from rucio.core.common import exception
 from rucio.core.common.exception import InvalidRSEExpression, RuleNotFound
 from rucio.core.common.logging import setup_logging
+from rucio.core.db.sqla.constants import LifetimeExceptionsState
 from rucio.core.did import set_metadata
 from rucio.core.lock import get_dataset_locks
 from rucio.core.rse import get_rse_name, get_rse_vo
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rules_beyond_eol, update_rule
 from rucio.daemons.common import run_daemon
-from rucio.core.db.sqla.constants import LifetimeExceptionsState
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -212,7 +212,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     if once:

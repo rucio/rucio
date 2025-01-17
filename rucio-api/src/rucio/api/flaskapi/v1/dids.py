@@ -17,6 +17,8 @@ from json import dumps
 
 from flask import Flask, Response, request
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_list, json_parameters, json_parse, param_get, parse_scope_name, response_headers, try_stream
 from rucio.core.common.exception import (
     AccessDenied,
     DatabaseException,
@@ -70,8 +72,6 @@ from rucio.gateway.did import (
     set_status,
 )
 from rucio.gateway.rule import list_associated_replication_rules_for_file, list_replication_rules
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_list, json_parameters, json_parse, param_get, parse_scope_name, response_headers, try_stream
 
 
 class Scope(ErrorHandlingMethodView):

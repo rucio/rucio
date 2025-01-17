@@ -21,7 +21,7 @@ from datetime import datetime
 from json import dumps, loads
 from typing import TYPE_CHECKING, Any, Optional
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.core.common.config import config_get
 from rucio.core.common.constants import RseAttr
 from rucio.core.common.exception import (
@@ -41,6 +41,7 @@ from rucio.core.common.logging import setup_logging
 from rucio.core.common.stopwatch import Stopwatch
 from rucio.core.common.types import InternalAccount, InternalScope, LoggerFunction
 from rucio.core.common.utils import chunks
+from rucio.core.db.sqla.constants import DIDType, SubscriptionState
 from rucio.core.did import get_metadata, list_new_dids, set_new_dids
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_id, list_rse_attributes, list_rses, rse_exists
@@ -49,7 +50,6 @@ from rucio.core.rse_selector import resolve_rse_expression
 from rucio.core.rule import add_rule, get_rule, list_rules
 from rucio.core.subscription import list_subscriptions, update_subscription
 from rucio.daemons.common import run_daemon
-from rucio.core.db.sqla.constants import DIDType, SubscriptionState
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -729,7 +729,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise DatabaseException("Database was not updated, daemon won't start")
 
     if once:

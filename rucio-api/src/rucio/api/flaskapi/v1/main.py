@@ -18,10 +18,10 @@ import logging
 
 from flask import Flask
 
+from rucio.api.flaskapi.v1.common import CORSMiddleware
 from rucio.core.common.config import config_get
 from rucio.core.common.exception import ConfigurationError
 from rucio.core.common.logging import setup_logging
-from rucio.web.rest.flaskapi.v1.common import CORSMiddleware
 
 DEFAULT_ENDPOINTS = [
     'accountlimits',
@@ -58,7 +58,7 @@ def apply_endpoints(app, modules):
         try:
             # searches for module names locally
             blueprint_module = importlib.import_module('.' + blueprint_module,
-                                                       package='rucio.web.rest.flaskapi.v1')
+                                                       package='rucio.api.flaskapi.v1')
         except ImportError:
             raise ConfigurationError(f'Could not load "{blueprint_module}" provided in the endpoints configuration value')
 

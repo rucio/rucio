@@ -22,16 +22,16 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import DatabaseError
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.core.common import exception
 from rucio.core.common.exception import DatabaseException, DataIdentifierNotFound, ReplicaNotFound
 from rucio.core.common.logging import setup_logging
 from rucio.core.common.utils import chunks
+from rucio.core.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, BadFilesStatus, ReplicaState
+from rucio.core.db.sqla.session import get_session
 from rucio.core.did import get_metadata
 from rucio.core.replica import bulk_delete_bad_replicas, get_replicas_state, list_expired_temporary_unavailable_replicas, update_replicas_states
 from rucio.daemons.common import run_daemon
-from rucio.core.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, BadFilesStatus, ReplicaState
-from rucio.core.db.sqla.session import get_session
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -146,7 +146,7 @@ def run(threads: int = 1, bulk: int = 100, once: bool = False, sleep_time: int =
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     if once:

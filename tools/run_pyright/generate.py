@@ -24,11 +24,6 @@ from .utils import save_json
 if TYPE_CHECKING:
     from argparse import ArgumentParser, Namespace
 
-PATHS = (
-    'lib/',
-)
-
-
 def setup_parser(parser: 'ArgumentParser') -> None:
     parser.description = """
     Invokes Pyright to generate a report of current typing errors and warnings.
@@ -57,7 +52,7 @@ def generate(args: 'Namespace') -> int:
 
 def _run_pyright() -> dict[str, Any]:
     """Runs the pyright type-checker and returns its output as json."""
-    cmdline = ['pyright', '--outputjson', *PATHS]
+    cmdline = ['pyright', '--outputjson', '.']
     try:
         process = subprocess.run(cmdline, stdout=subprocess.PIPE)
         return json.loads(process.stdout)

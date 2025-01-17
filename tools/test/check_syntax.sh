@@ -15,15 +15,11 @@
 # limitations under the License.
 
 if [ -z "$SYNTAX_FLAKE_ARGS" ]; then
-    SYNTAX_FLAKE_ARGS="--exclude=\"*.cfg\" bin/* lib/ tools/*.py"
+    SYNTAX_FLAKE_ARGS="--exclude=\"*.cfg\" tools/*.py"
 fi
 
 if [ -z "$SYNTAX_PYLINT_ARGS" ]; then
-    SYNTAX_PYLINT_ARGS="lib/rucio/"
-fi
-
-if [ -z "$SYNTAX_PYLINT_BIN_ARGS" ]; then
-    SYNTAX_PYLINT_BIN_ARGS="bin/*"
+    SYNTAX_PYLINT_ARGS="."
 fi
 
 
@@ -51,8 +47,8 @@ else
     echo "PYLINT on $SYNTAX_PYLINT_ARGS PASSED"
 fi
 
-# disable no-name-in-module since bin/rucio clashes with lib/rucio
-PYTHONPATH=lib pylint --rcfile=pylintrc --errors-only --disable no-name-in-module $SYNTAX_PYLINT_BIN_ARGS
+# disable no-name-in-module since rucio-cli clashes with lib/rucio
+PYTHONPATH=. pylint --rcfile=pylintrc --errors-only --disable no-name-in-module $SYNTAX_PYLINT_BIN_ARGS
 
 if [ $? -ne 0 ]; then
     echo "PYLINT on $SYNTAX_PYLINT_BIN_ARGS FAILED"

@@ -25,8 +25,8 @@ import time
 import traceback
 from typing import TYPE_CHECKING
 
+import rucio.core.db.sqla.util
 import rucio.core.rse as rse_core
-import rucio.db.sqla.util
 from rucio.core.common import exception
 from rucio.core.common.config import config_get_bool
 from rucio.core.common.exception import ResourceTemporaryUnavailable, RSEAccessDenied, RSENotFound, ServiceUnavailable, SourceNotFound, VONotFound
@@ -216,7 +216,7 @@ def run(
     rses = rses or []
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.info('main: starting processes')

@@ -18,16 +18,16 @@ from typing import TYPE_CHECKING
 from flask import Blueprint, Flask, redirect, request
 from werkzeug.datastructures import Headers
 
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, extract_vo, generate_http_error_flask, parse_scope_name, try_stream
 from rucio.core.common.exception import DataIdentifierNotFound, ReplicaNotFound, SortingAlgorithmNotSupported
 from rucio.core.replica_sorter import site_selector, sort_replicas
 from rucio.gateway.replica import list_replicas
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, extract_vo, generate_http_error_flask, parse_scope_name, try_stream
 
 if TYPE_CHECKING:
     from typing import Optional
 
+    from rucio.api.flaskapi.v1.types import HeadersType
     from rucio.core.common.types import IPDict, ReplicaDict
-    from rucio.web.rest.flaskapi.v1.types import HeadersType
 
 
 class MetaLinkRedirector(ErrorHandlingMethodView):

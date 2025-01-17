@@ -27,17 +27,17 @@ from sqlalchemy.sql.expression import bindparam, case, false, null, select, true
 
 import rucio.core.replica  # import add_replicas
 import rucio.core.rule
-from rucio.common import exception
-from rucio.common.config import config_get_bool, config_get_int
-from rucio.common.utils import chunks, is_archive
 from rucio.core import did_meta_plugins
+from rucio.core.common import exception
+from rucio.core.common.config import config_get_bool, config_get_int
+from rucio.core.common.utils import chunks, is_archive
+from rucio.core.db.sqla import filter_thread_work, models
+from rucio.core.db.sqla.constants import BadFilesStatus, DIDAvailability, DIDReEvaluation, DIDType, RuleState
+from rucio.core.db.sqla.session import read_session, stream_session, transactional_session
+from rucio.core.db.sqla.util import temp_table_mngr
 from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
 from rucio.core.naming_convention import validate_name
-from rucio.db.sqla import filter_thread_work, models
-from rucio.db.sqla.constants import BadFilesStatus, DIDAvailability, DIDReEvaluation, DIDType, RuleState
-from rucio.db.sqla.session import read_session, stream_session, transactional_session
-from rucio.db.sqla.util import temp_table_mngr
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping, Sequence
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from sqlalchemy.sql._typing import ColumnExpressionArgument
     from sqlalchemy.sql.selectable import Select
 
-    from rucio.common.types import InternalAccount, InternalScope, LoggerFunction
+    from rucio.core.common.types import InternalAccount, InternalScope, LoggerFunction
 
 
 METRICS = MetricManager(module=__name__)

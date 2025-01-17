@@ -20,8 +20,8 @@ import sys
 
 import tabulate
 
-import rucio.common.dumper.consistency as consistency
-import rucio.common.dumper.data_models as data_models
+import rucio.core.common.dumper.consistency as consistency
+import rucio.core.common.dumper.data_models as data_models
 from rucio.core.common.dumper import error
 
 logger = logging.getLogger('rucio-dumper')

@@ -21,11 +21,12 @@ from urllib.parse import urlparse
 from flask import Blueprint, Flask, Response, redirect, render_template, request
 from werkzeug.datastructures import Headers
 
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, error_headers, extract_vo, generate_http_error_flask, get_account_from_verified_identity
+from rucio.core.authentication import strip_x509_proxy_attributes
 from rucio.core.common.config import config_get
 from rucio.core.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, IdentityError, IdentityNotFound
 from rucio.core.common.extra import import_extras
 from rucio.core.common.utils import date_to_str
-from rucio.core.authentication import strip_x509_proxy_attributes
 from rucio.gateway.authentication import (
     get_auth_oidc,
     get_auth_token_gss,
@@ -39,7 +40,6 @@ from rucio.gateway.authentication import (
     refresh_cli_auth_token,
     validate_auth_token,
 )
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, error_headers, extract_vo, generate_http_error_flask, get_account_from_verified_identity
 
 if TYPE_CHECKING:
 
@@ -50,7 +50,7 @@ EXTRA_MODULES = import_extras(['onelogin'])
 if EXTRA_MODULES['onelogin']:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth  # pylint: disable=import-error
 
-    from rucio.web.ui.flask.common.utils import prepare_saml_request
+    from rucio.api.utils import prepare_saml_request
 
 
 class UserPass(ErrorHandlingMethodView):

@@ -14,10 +14,10 @@
 
 from flask import Flask, jsonify, request
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers
 from rucio.core.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedKeyType, UnsupportedValueType
 from rucio.gateway.meta_conventions import add_key, add_value, list_keys, list_values
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers
 
 
 class MetaConventions(ErrorHandlingMethodView):

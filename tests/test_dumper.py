@@ -68,7 +68,7 @@ def test_cacert_config_returns_a_string():
     assert isinstance(dumper.cacert_config(config, '.'), str)
 
 
-@mock.patch('rucio.common.config.config_get')
+@mock.patch('rucio.core.common.config.config_get')
 def test_cacert_config_returns_false_if_no_cert_configured(mock_get):
     mock_get.return_value = ''
     assert not dumper.cacert_config(config, '.')
@@ -141,13 +141,13 @@ def test_to_date_format():
     assert isinstance(dumper.to_datetime(DATE_MILLISECONDS), datetime)
 
 
-@mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
+@mock.patch('rucio.core.common.dumper.ddmendpoint_preferred_protocol')
 def test_ddmendpoint_url_builds_url_from_ddmendpoint_preferred_protocol(mock_get):
     mock_get.return_value = RSEPROTOCOL
     assert dumper.ddmendpoint_url('SOMEENDPOINT') == 'root://example.com:1094//atlasdatadisk/'
 
 
-@mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
+@mock.patch('rucio.core.common.dumper.ddmendpoint_preferred_protocol')
 def test_ddmendpoint_url_fails_on_unexistent_entry(mock_get):
     mock_get.side_effect = StopIteration()
     with pytest.raises(StopIteration):

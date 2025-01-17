@@ -17,17 +17,17 @@ import threading
 from time import time
 from typing import TYPE_CHECKING, Optional
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
+from rucio.core import transfer as transfer_core
 from rucio.core.common import exception
 from rucio.core.common.config import config_get_list
 from rucio.core.common.exception import RucioException
 from rucio.core.common.logging import setup_logging
-from rucio.core import transfer as transfer_core
+from rucio.core.db.sqla.constants import RequestState, RequestType
 from rucio.core.request import RequestWithSources, list_and_mark_transfer_requests_and_source_replicas, transition_requests_state_if_possible
 from rucio.core.topology import ExpiringObjectCache, Topology
 from rucio.core.transfer import ProtocolFactory, build_transfer_paths, list_transfer_admin_accounts, prepare_transfers
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
-from rucio.core.db.sqla.constants import RequestState, RequestType
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -62,7 +62,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     cached_topology = ExpiringObjectCache(ttl=300, new_obj_fnc=lambda: Topology(ignore_availability=ignore_availability))

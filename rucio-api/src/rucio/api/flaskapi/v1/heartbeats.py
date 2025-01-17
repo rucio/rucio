@@ -16,11 +16,11 @@ import json
 
 from flask import Flask, Response, request
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers
 from rucio.core.common.exception import AccessDenied, KeyNotFound, UnsupportedKeyType, UnsupportedValueType
 from rucio.core.common.utils import APIEncoder
 from rucio.gateway.heartbeat import create_heartbeat, list_heartbeats
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers
 
 
 class Heartbeat(ErrorHandlingMethodView):

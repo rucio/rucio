@@ -73,7 +73,7 @@ fake_rrd_download, fake_rrd_download_calls = mock_fn_wrapper('')
 fake_consistency_dump, fake_consistency_dump_calls = mock_fn_wrapper('')
 
 
-@mock.patch('rucio.common.dumper.consistency.Consistency.dump', side_effect=fake_consistency_dump)
+@mock.patch('rucio.core.common.dumper.consistency.Consistency.dump', side_effect=fake_consistency_dump)
 @mock.patch('rucio.daemons.auditor.hdfs.ReplicaFromHDFS.download', side_effect=fake_rrd_download)
 @mock.patch('rucio.daemons.auditor.srmdumps.download_rse_dump', side_effect=fake_gfal_download)
 def test_auditor_download_dumps_with_expected_dates(mocked_srmdumps, mocked_hdfs, mocked_auditor_consistency):

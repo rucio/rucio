@@ -1,4 +1,5 @@
 pyproject.toml
+requirements.txt
 src/rucio/transfertool/__init__.py
 src/rucio/transfertool/bittorrent.py
 src/rucio/transfertool/bittorrent_driver.py

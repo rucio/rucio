@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
     from flask.typing import ResponseReturnValue
 
-    from rucio.web.rest.flaskapi.v1.types import HeadersType
+    from rucio.api.flaskapi.v1.types import HeadersType
 
 ResponseTypeVar = TypeVar('ResponseTypeVar', bound=flask.wrappers.Response)
 

@@ -14,11 +14,11 @@
 
 from flask import Flask, request
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
 from rucio.core.common.exception import AccessDenied, AccountNotFound, Duplicate, UnsupportedOperation, VONotFound
 from rucio.core.common.utils import render_json
 from rucio.gateway.vo import add_vo, list_vos, recover_vo_root_identity, update_vo
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
 
 
 class VOs(ErrorHandlingMethodView):

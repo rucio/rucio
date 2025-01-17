@@ -26,16 +26,16 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import stomp
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
+from rucio.core import request as request_core
+from rucio.core import transfer as transfer_core
 from rucio.core.common import exception
 from rucio.core.common.config import config_get, config_get_bool, config_get_int
 from rucio.core.common.logging import setup_logging
 from rucio.core.common.policy import get_policy
-from rucio.core import request as request_core
-from rucio.core import transfer as transfer_core
+from rucio.core.db.sqla.session import transactional_session
 from rucio.core.monitor import MetricManager
 from rucio.daemons.common import HeartbeatHandler
-from rucio.core.db.sqla.session import transactional_session
 from rucio.transfertool.fts3 import FTS3CompletionMessageTransferStatusReport
 
 if TYPE_CHECKING:
@@ -233,7 +233,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.info('starting receiver thread')

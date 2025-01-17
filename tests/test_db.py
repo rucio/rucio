@@ -43,8 +43,8 @@ def test_config_poolclass():
 @pytest.mark.noparallel(reason='Changes an internal method of MethodView.')
 def test_pooloverload():
     """ DB (WEB): Test response to a DatabaseException due to Pool Overflow """
+    from rucio.api.flaskapi.v1.ping import Ping
     from rucio.core.common.exception import DatabaseException
-    from rucio.web.rest.flaskapi.v1.ping import Ping
 
     # Create a new ErrorHandlingMethodView as_view
     ping_view = Ping.as_view('ping')
@@ -56,7 +56,7 @@ def test_pooloverload():
 
     patch_flask = patch('flask.request', spec=T)
 
-    patch_getheaders = patch('rucio.web.rest.flaskapi.v1.ping.Ping.get_headers')
+    patch_getheaders = patch('rucio.api.flaskapi.v1.ping.Ping.get_headers')
     patch_dispatch = patch(
         'flask.views.MethodView.dispatch_request',
         side_effect=DatabaseException("QueuePool Exception Somehow")

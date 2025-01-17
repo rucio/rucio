@@ -14,11 +14,11 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
-import rucio.common.exception
+import rucio.core.common.exception
 import rucio.gateway.permission
+from rucio.core import scope as core_scope
 from rucio.core.common.schema import validate_schema
 from rucio.core.common.types import InternalAccount, InternalScope
-from rucio.core import scope as core_scope
 from rucio.core.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
@@ -70,7 +70,7 @@ def add_scope(
     kwargs = {'scope': scope, 'account': account}
     auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_scope', kwargs=kwargs, session=session)
     if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not add scope. %s' % (issuer, auth_result.message))
+        raise rucio.core.common.exception.AccessDenied('Account %s can not add scope. %s' % (issuer, auth_result.message))
 
     internal_scope = InternalScope(scope, vo=vo)
     internal_account = InternalAccount(account, vo=vo)

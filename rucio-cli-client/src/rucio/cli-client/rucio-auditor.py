@@ -26,8 +26,8 @@ from datetime import datetime
 from functools import partial
 from multiprocessing import Event, Pipe, Process, Queue
 
-import rucio.common.config as config
-import rucio.common.dumper as dumper
+import rucio.core.common.config as config
+import rucio.core.common.dumper as dumper
 import rucio.daemons.auditor
 from rucio.client.rseclient import RSEClient
 from rucio.core.common.exception import RSENotFound

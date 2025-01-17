@@ -142,12 +142,12 @@ def setup_rich_logger(
     """
     Factory method to set logger with RichHandler.
 
-    The function is a copy of the method in rucio.common.utils setup_logger() with minor changes.
+    The function is a copy of the method in rucio.core.common.utils setup_logger() with minor changes.
 
     :param module_name: __name__ of the module that is calling this method
     :param logger_name: name of the logger, typically name of the module.
     :param logger_level: if not given, fetched from config.
-    :param verbose: verbose option set in bin/rucio
+    :param verbose: verbose option set in rucio-cli-client/rucio
     :param console: Rich console object
     :returns: logger with RichHandler
     """

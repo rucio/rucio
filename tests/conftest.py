@@ -209,8 +209,8 @@ def download_client() -> "DownloadClient":
 def rest_client() -> "Iterator[FlaskClient]":
     from flask.testing import FlaskClient
 
+    from rucio.api.flaskapi.v1.main import application
     from rucio.tests.common import print_response
-    from rucio.web.rest.flaskapi.v1.main import application
 
     class WrappedFlaskClient(FlaskClient):
         def __init__(self, *args, **kwargs):
@@ -286,8 +286,8 @@ def random_account(vo: str) -> "Iterator[InternalAccount]":
     import random
     import string
 
-    from rucio.core.common.types import InternalAccount
     from rucio.core.account import add_account, del_account
+    from rucio.core.common.types import InternalAccount
     from rucio.core.db.sqla import models
     from rucio.core.db.sqla.constants import AccountType
     from rucio.tests.common_server import cleanup_db_deps
@@ -492,7 +492,7 @@ def __create_in_memory_db_table(
     InMemoryBase.metadata.create_all(engine)
 
     # Register the new table with the associated engine into the sqlalchemy sessionmaker
-    # In theory, this code must be protected by rucio.db.scla.session._LOCK, but this code will be executed
+    # In theory, this code must be protected by rucio.core.db.sqla.session._LOCK, but this code will be executed
     # during test case initialization, so there is no risk here to have concurrent calls from within the
     # same process
     senssionmaker = get_maker()
@@ -593,7 +593,7 @@ def file_config_mock(request: pytest.FixtureRequest) -> "Iterator[ConfigParser]"
         overrides = params.get("overrides", overrides)
 
     parser = Config().parser
-    with mock.patch('rucio.common.config.get_config', side_effect=lambda: parser):
+    with mock.patch('rucio.core.common.config.get_config', side_effect=lambda: parser):
         for section, option, value in (overrides or []):
             if not config_has_section(section):
                 config_add_section(section)

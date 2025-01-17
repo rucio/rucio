@@ -21,6 +21,8 @@ from xml.sax.saxutils import escape
 
 from flask import Flask, Response, request
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
 from rucio.core.common.config import config_get, config_get_int
 from rucio.core.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core.common.exception import (
@@ -39,8 +41,8 @@ from rucio.core.common.exception import (
     SortingAlgorithmNotSupported,
 )
 from rucio.core.common.utils import APIEncoder, parse_response, render_json
-from rucio.core.replica_sorter import sort_replicas
 from rucio.core.db.sqla.constants import BadFilesStatus
+from rucio.core.replica_sorter import sort_replicas
 from rucio.gateway.quarantined_replica import quarantine_file_replicas
 from rucio.gateway.replica import (
     add_bad_dids,
@@ -61,8 +63,6 @@ from rucio.gateway.replica import (
     set_tombstone,
     update_replicas_states,
 )
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
 
 if TYPE_CHECKING:
     from rucio.core.common.types import IPDict

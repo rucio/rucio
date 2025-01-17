@@ -29,12 +29,13 @@ from configparser import NoOptionError, NoSectionError
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Optional
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.core.common.config import config_get, config_get_bool
 from rucio.core.common.constants import SuspiciousAvailability
 from rucio.core.common.exception import DatabaseException, DuplicateRule, VONotFound
 from rucio.core.common.logging import setup_logging
 from rucio.core.common.types import InternalAccount, LoggerFunction
+from rucio.core.db.sqla.util import get_db_time
 from rucio.core.did import get_metadata
 from rucio.core.replica import (
     add_bad_pfns,
@@ -47,7 +48,6 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import add_rule
 from rucio.core.vo import list_vos
 from rucio.daemons.common import run_daemon
-from rucio.core.db.sqla.util import get_db_time
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -591,7 +591,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
     client_time, db_time = datetime.utcnow(), get_db_time()

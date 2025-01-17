@@ -131,7 +131,7 @@ class GlobusTransferTool(Transfertool):
         dest_path = files[0]['destinations'][0]
         self.logger(logging.INFO, 'dest_path: %s' % dest_path)
 
-        # TODO: rucio.common.utils.construct_url logic adds unnecessary '/other' into file path
+        # TODO: rucio.core.common.utils.construct_url logic adds unnecessary '/other' into file path
         # s = dest_path.split('/') # s.remove('other') # dest_path = '/'.join(s)
 
         destination_endpoint_id = files[0]['metadata']['dest_globus_endpoint_id']

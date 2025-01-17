@@ -30,7 +30,7 @@ from requests import post
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.client import Client
 from rucio.core.common import exception
 from rucio.core.common.config import config_get, config_get_options
@@ -316,7 +316,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.info('activating C-3PO')

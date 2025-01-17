@@ -47,7 +47,7 @@ def _is_multivo():
 @functools.cache
 def _get_generic_schema_module():
     GENERIC_FALLBACK = 'generic_multi_vo' if _is_multivo() else 'generic'
-    return importlib.import_module('rucio.common.schema.' + GENERIC_FALLBACK)
+    return importlib.import_module('rucio.core.common.schema.' + GENERIC_FALLBACK)
 
 
 # multi-VO version loads schema per-VO on demand
@@ -70,9 +70,9 @@ if not _is_multivo():
                 POLICY = config.config_get('policy', 'schema', check_config_table=False)
             except (NoOptionError, NoSectionError):
                 POLICY = GENERIC_FALLBACK
-            POLICY = 'rucio.common.schema.' + POLICY.lower()
+            POLICY = 'rucio.core.common.schema.' + POLICY.lower()
     else:
-        POLICY = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
+        POLICY = 'rucio.core.common.schema.' + GENERIC_FALLBACK.lower()
 
     try:
         module = importlib.import_module(POLICY)
@@ -82,7 +82,7 @@ if not _is_multivo():
         try:
             LOGGER.warning('Unable to load schema module %s from policy package, falling back to %s'
                            % (POLICY, GENERIC_FALLBACK))
-            POLICY = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
+            POLICY = 'rucio.core.common.schema.' + GENERIC_FALLBACK.lower()
             module = importlib.import_module(POLICY)
         except ModuleNotFoundError:
             raise exception.PolicyPackageNotFound(POLICY)
@@ -113,9 +113,9 @@ def load_schema_for_vo(vo: str) -> None:
                 POLICY = config.config_get('policy', 'schema', check_config_table=False)
             except (NoOptionError, NoSectionError):
                 POLICY = GENERIC_FALLBACK
-            POLICY = 'rucio.common.schema.' + POLICY.lower()
+            POLICY = 'rucio.core.common.schema.' + POLICY.lower()
     else:
-        POLICY = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
+        POLICY = 'rucio.core.common.schema.' + GENERIC_FALLBACK.lower()
 
     try:
         module = importlib.import_module(POLICY)
@@ -125,7 +125,7 @@ def load_schema_for_vo(vo: str) -> None:
         try:
             LOGGER.warning('Unable to load schema module %s from policy package, falling back to %s'
                            % (POLICY, GENERIC_FALLBACK))
-            POLICY = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
+            POLICY = 'rucio.core.common.schema.' + GENERIC_FALLBACK.lower()
             module = importlib.import_module(POLICY)
         except ModuleNotFoundError:
             raise exception.PolicyPackageNotFound(POLICY)

@@ -3,9 +3,6 @@ include AUTHORS
 include LICENSE
 include ChangeLog
 include README.md
-include setuputil.py
-include setup.py
-include setup.cfg
 include pyproject.toml
 include requirements/requirements.client.txt
 include etc/rse-accounts.cfg.template
@@ -18,7 +15,7 @@ prune .coverage
 prune build/
 prune covhtml
 prune doc/
-prune lib/rucio*egg-info/
+prune *rucio*egg-info/
 prune tools/patches
 prune .venv
 prune .DS_Store

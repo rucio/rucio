@@ -17,16 +17,16 @@ from typing import TYPE_CHECKING
 from flask import Flask, request
 from werkzeug.datastructures import Headers
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, extract_vo, generate_http_error_flask, response_headers
 from rucio.core.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, SUPPORTED_SIGN_URL_SERVICES
 from rucio.core.common.exception import CannotAuthenticate
 from rucio.gateway.credential import get_signed_url
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, extract_vo, generate_http_error_flask, response_headers
 
 if TYPE_CHECKING:
     from typing import Optional
 
-    from rucio.web.rest.flaskapi.v1.types import HeadersType
+    from rucio.api.flaskapi.v1.types import HeadersType
 
 
 class SignURL(ErrorHandlingMethodView):

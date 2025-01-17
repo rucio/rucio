@@ -18,13 +18,13 @@ from typing import TYPE_CHECKING
 from flask import Blueprint, Flask, request
 from werkzeug.datastructures import Headers
 
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, json_parameters, response_headers
 from rucio.core.nongrid_trace import trace
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, json_parameters, response_headers
 
 if TYPE_CHECKING:
     from typing import Optional
 
-    from rucio.web.rest.flaskapi.v1.types import HeadersType
+    from rucio.api.flaskapi.v1.types import HeadersType
 
 
 class XAODTrace(ErrorHandlingMethodView):

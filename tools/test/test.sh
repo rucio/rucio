@@ -56,7 +56,7 @@ if [ "$SUITE" == "client" ]; then
 
 elif [ "$SUITE" == "client_syntax" ]; then
     srchome
-    CLIENT_BIN_FILES="bin/rucio bin/rucio-admin"
+    CLIENT_BIN_FILES="rucio-cli-client/src/rucio/cli-client/rucio rucio-cli-client/src/rucio/cli-client/rucio-admin"
     SYNTAX_PYLINT_ARGS="$(tools/test/ignoretool.py --pylint)"
     SYNTAX_FLAKE_ARGS="$(tools/test/ignoretool.py --flake8) $CLIENT_BIN_FILES tests/test_clients.py tests/test_bin_rucio.py tests/test_module_import.py"
     export SYNTAX_PYLINT_ARGS

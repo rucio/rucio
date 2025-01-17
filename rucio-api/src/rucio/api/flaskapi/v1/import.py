@@ -14,10 +14,10 @@
 
 from flask import Flask, request
 
+from rucio.api.flaskapi.authenticated_bp import AuthenticatedBlueprint
+from rucio.api.flaskapi.v1.common import ErrorHandlingMethodView, json_parameters, response_headers
 from rucio.core.common.utils import parse_response
 from rucio.gateway.importer import import_data
-from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, json_parameters, response_headers
 
 
 class Import(ErrorHandlingMethodView):

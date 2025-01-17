@@ -19,7 +19,7 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.core.common import exception
 from rucio.core.common.logging import setup_logging
 from rucio.core.common.utils import get_thread_with_periodic_running_function
@@ -80,7 +80,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     hostname = socket.gethostname()

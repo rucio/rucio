@@ -31,14 +31,14 @@ from rucio.core.common.exception import AccessDenied, DatabaseException, DataIde
 from rucio.core.common.schema import get_schema_value
 from rucio.core.common.utils import clean_pfns, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
+from rucio.core.db.sqla import models
+from rucio.core.db.sqla.constants import OBSOLETE, BadPFNStatus, DIDType, ReplicaState
+from rucio.core.db.sqla.session import transactional_session
 from rucio.core.did import add_did, attach_dids, get_did, get_did_atime, list_files, set_status
 from rucio.core.replica import add_bad_dids, add_replica, add_replicas, delete_replicas, get_bad_pfns, get_replica, get_replica_atime, get_replicas_state, get_RSEcoverage_of_dataset, list_replicas, set_tombstone, touch_replica, update_replica_state
 from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import minos
 from rucio.daemons.badreplicas.minos_temporary_expiration import minos_tu_expiration
-from rucio.core.db.sqla import models
-from rucio.core.db.sqla.constants import OBSOLETE, BadPFNStatus, DIDType, ReplicaState
-from rucio.core.db.sqla.session import transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import Mime, accept, auth, did_name_generator, execute, headers
 
@@ -1183,10 +1183,10 @@ def test_client_list_replicas_streaming_error(content_type, vo, did_client, repl
             def stream_with_context(generator):
                 yield from generator
 
-        with mock.patch('rucio.web.rest.flaskapi.v1.common.flask', new=FakeFlask()), \
-                mock.patch('rucio.web.rest.flaskapi.v1.replicas.request', new=FakeRequest()), \
-                mock.patch('rucio.web.rest.flaskapi.v1.replicas.list_replicas', side_effect=api_returns):
-            from rucio.web.rest.flaskapi.v1.replicas import ListReplicas
+        with mock.patch('rucio.api.flaskapi.v1.common.flask', new=FakeFlask()), \
+                mock.patch('rucio.api.flaskapi.v1.replicas.request', new=FakeRequest()), \
+                mock.patch('rucio.api.flaskapi.v1.replicas.list_replicas', side_effect=api_returns):
+            from rucio.api.flaskapi.v1.replicas import ListReplicas
             list_replicas_restapi = ListReplicas()
             list_replicas_restapi.post()
             # for debugging when this test fails

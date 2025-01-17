@@ -16,7 +16,7 @@
 from flask import Flask
 
 from rucio.core.common.logging import setup_logging
-from rucio.web.ui.flask import bp
+from rucio.ui.flask import bp
 
 setup_logging()
 application = Flask(__name__)

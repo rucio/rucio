@@ -85,7 +85,7 @@ class TestConsistency:
         'path20,A',
     ]
 
-    @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
+    @mock.patch('rucio.core.common.dumper.ddmendpoint_preferred_protocol')
     def test_consistency_manual_correct_file_default_args(self, mock_get, tmp_path):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
@@ -106,7 +106,7 @@ class TestConsistency:
         )
         assert len(list(consistency)) == 0
 
-    @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
+    @mock.patch('rucio.core.common.dumper.ddmendpoint_preferred_protocol')
     def test_consistency_manual_lost_file(self, mock_get, tmp_path):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
@@ -132,7 +132,7 @@ class TestConsistency:
         assert consistency[0].apparent_status == 'LOST'
         assert consistency[0].path == 'user/someuser/aa/bb/user.someuser.filename2'
 
-    @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
+    @mock.patch('rucio.core.common.dumper.ddmendpoint_preferred_protocol')
     def test_consistency_manual_transient_file_is_not_lost(self, mock_get, tmp_path):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
@@ -156,7 +156,7 @@ class TestConsistency:
         )
         assert len(list(consistency)) == 0
 
-    @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
+    @mock.patch('rucio.core.common.dumper.ddmendpoint_preferred_protocol')
     def test_consistency_manual_dark_file(self, mock_get, tmp_path):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
@@ -183,7 +183,7 @@ class TestConsistency:
         assert consistency[0].apparent_status == 'DARK'
         assert consistency[0].path == 'user/someuser/aa/bb/user.someuser.filename2'
 
-    @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
+    @mock.patch('rucio.core.common.dumper.ddmendpoint_preferred_protocol')
     def test_consistency_manual_multiple_slashes_in_storage_dump_do_not_generate_false_positive(self, mock_get, tmp_path):
         ''' DUMPER '''
         rucio_dump = 'MOCK_SCRATCHDISK\tuser.someuser\tuser.someuser.filename\t19028d77\t189468\t2015-09-20 21:22:04\tuser/someuser/aa/bb/user.someuser.filename\t2015-09-20 21:22:17\tA\n'
@@ -209,7 +209,7 @@ class TestConsistency:
 
     @mock.patch('requests.Session.head', side_effect=mocked_requests)
     @mock.patch('requests.Session.get', side_effect=mocked_requests)
-    @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol', return_value=RSEPROTOCOL)
+    @mock.patch('rucio.core.common.dumper.ddmendpoint_preferred_protocol', return_value=RSEPROTOCOL)
     def test_consistency(self, mock_dumper_get, mock_request_get, mock_request_head, tmp_path):
         ''' DUMPER '''
         storage_dump = (

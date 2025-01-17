@@ -114,7 +114,7 @@ class LockState(Enum):
 
 
 class ReplicaState(Enum):
-    # Update rucio.common.constants at the same time than this
+    # Update rucio.core.common.constants at the same time than this
     AVAILABLE = 'A'
     UNAVAILABLE = 'U'
     COPYING = 'C'

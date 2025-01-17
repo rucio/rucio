@@ -15,10 +15,10 @@
 
 from flask import Blueprint, make_response, render_template, request
 
+from rucio.api.flaskapi.v1.common import generate_http_error_flask
 from rucio.core.common.config import config_get, config_get_bool
 from rucio.gateway.authentication import get_auth_token_x509
-from rucio.web.rest.flaskapi.v1.common import generate_http_error_flask
-from rucio.web.ui.flask.common.utils import AUTH_ISSUERS, SAML_SUPPORT, USERPASS_SUPPORT, authenticate, finalize_auth, get_token, oidc_auth, saml_auth, userpass_auth, x509token_auth
+from rucio.ui.flask.common.utils import AUTH_ISSUERS, SAML_SUPPORT, USERPASS_SUPPORT, authenticate, finalize_auth, get_token, oidc_auth, saml_auth, userpass_auth, x509token_auth
 
 MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
 POLICY = config_get('policy', 'permission')

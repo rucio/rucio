@@ -34,7 +34,7 @@ install_requires, extras_require = match_define_requirements('client', clients_r
 name = 'rucio-clients'
 packages = ['rucio', 'rucio.client',
             'rucio.client.commands', 'rucio.client.commands.bin_legacy',
-            'rucio.common', 'rucio.common.schema',
+            'rucio.core.common', 'rucio.core.common.schema',
             'rucio.rse.protocols', 'rucio.rse']
 description = "Rucio Client Lite Package"
 data_files = [
@@ -46,10 +46,10 @@ scripts = ['bin/rucio', 'bin/rucio-admin']
 
 if os.path.exists('build/'):
     shutil.rmtree('build/')
-if os.path.exists('lib/rucio_clients.egg-info/'):
-    shutil.rmtree('lib/rucio_clients.egg-info/')
-if os.path.exists('lib/rucio.egg-info/'):
-    shutil.rmtree('lib/rucio.egg-info/')
+if os.path.exists('rucio_clients.egg-info/'):
+    shutil.rmtree('rucio_clients.egg-info/')
+if os.path.exists('rucio.egg-info/'):
+    shutil.rmtree('rucio.egg-info/')
 
 # For using SSO login option, install these RPM packages: libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel
 

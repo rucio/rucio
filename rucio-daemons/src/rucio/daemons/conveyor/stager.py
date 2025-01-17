@@ -20,14 +20,14 @@ import logging
 import threading
 from typing import TYPE_CHECKING, Any, Optional
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.core.common import exception
 from rucio.core.common.config import config_get_bool
 from rucio.core.common.logging import setup_logging
+from rucio.core.db.sqla.constants import RequestType
 from rucio.core.monitor import MetricManager
 from rucio.daemons.conveyor.common import get_conveyor_rses
 from rucio.daemons.conveyor.submitter import submitter
-from rucio.core.db.sqla.constants import RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 
 if TYPE_CHECKING:
@@ -104,7 +104,7 @@ def run(
     activities = activities or []
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)

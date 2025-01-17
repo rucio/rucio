@@ -8,14 +8,14 @@ include setup.py
 include setup.cfg
 include pyproject.toml
 include requirements/requirements.server.txt
-recursive-include lib/rucio/web/ui *
+recursive-include rucio-webui *
 prune dist
 prune examples
 prune .coverage
 prune build/
 prune covhtml
 prune doc/
-prune lib/rucio*egg-info/
+prune rucio*egg-info/
 prune tools/patches
 prune .venv
 prune .DS_Store

@@ -36,7 +36,7 @@ dialect=postgresql
 starting_rev=
 
 # Do not modify this
-script_location = lib/rucio/db/sqla/migrate_repo/
+script_location = rucio-core/src/rucio/core/db/sqla/migrate_repo/
 
 # Logging configuration
 [loggers]

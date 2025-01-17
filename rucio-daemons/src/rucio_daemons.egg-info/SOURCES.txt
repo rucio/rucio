@@ -1,5 +1,6 @@
 README.md
 pyproject.toml
+requirements.txt
 src/rucio/daemons/__init__.py
 src/rucio/daemons/common.py
 src/rucio/daemons/abacus/__init__.py

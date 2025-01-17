@@ -46,9 +46,9 @@ create_missing_python_type_annotations_report() {
     # This does not include tests, tools, database and bin files.
     # :param $1: The name of the output file.
 
-    flake8 lib/rucio \
+    flake8 . \
         --ignore=ANN101 \
-        --exclude tools,lib/rucio/db,lib/rucio/client,lib/rucio/common,lib/rucio/rse,bin \
+        --exclude tools,rucio-core/src/rucio/core/db,rucio-client/src/rucio/client,rucio-core/src/rucio/core/common,rucio-core/src/rucio/core/rse,rucio-cli/src/rucio/cli \
         --output-file $1 \
         --select ANN || true
 }

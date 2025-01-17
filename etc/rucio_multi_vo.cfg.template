@@ -224,7 +224,7 @@ gcs = /opt/rucio/etc/google-cloud-storage-test.json
 signature_lifetime = 3600
 
 [saml]
-config_path = /opt/rucio/lib/rucio/web/ui/common/saml/
+config_path = /opt/rucio-webui/src/rucio/ui/flask/common/saml/
 
 [oidc]
 idpsecrets = /opt/rucio/etc/idpsecrets.json

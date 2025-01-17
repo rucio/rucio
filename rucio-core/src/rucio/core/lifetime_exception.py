@@ -20,16 +20,16 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-import rucio.common.policy
+import rucio.core.common.policy
 from rucio.core.common.config import config_get, config_get_int, config_get_list
 from rucio.core.common.constants import RseAttr
 from rucio.core.common.exception import ConfigNotFound, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, RucioException, UnsupportedOperation
 from rucio.core.common.utils import generate_uuid, str_to_date
-from rucio.core.message import add_message
-from rucio.core.rse import list_rse_attributes
 from rucio.core.db.sqla import models
 from rucio.core.db.sqla.constants import DIDType, LifetimeExceptionsState
 from rucio.core.db.sqla.session import read_session, stream_session, transactional_session
+from rucio.core.message import add_message
+from rucio.core.rse import list_rse_attributes
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
@@ -278,7 +278,7 @@ def define_eol(
     :param rses:     List of RSEs.
     :param session:  The database session in use.
     """
-    policy = rucio.common.policy.get_policy()
+    policy = rucio.core.common.policy.get_policy()
     if policy != 'atlas':
         return None
 
@@ -297,7 +297,7 @@ def define_eol(
         did = session.execute(query).scalar_one()
     except NoResultFound:
         return None
-    policy_dict = rucio.common.policy.get_lifetime_policy()
+    policy_dict = rucio.core.common.policy.get_lifetime_policy()
     did_type = 'other'
     if scope.external.startswith('mc'):  # type: ignore
         did_type = 'mc'

@@ -1,4 +1,5 @@
 pyproject.toml
+requirements.txt
 src/rucio/gateway/__init__.py
 src/rucio/gateway/account.py
 src/rucio/gateway/account_limit.py

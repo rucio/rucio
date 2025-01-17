@@ -36,7 +36,7 @@ import requests
 import stomp
 from requests.auth import HTTPBasicAuth
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.core.common.config import (
     config_get,
     config_get_bool,
@@ -745,7 +745,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
 
-    if rucio.db.sqla.util.is_old_db():
+    if rucio.core.db.sqla.util.is_old_db():
         raise DatabaseException("Database was not updated, daemon won't start")
 
     logging.info("starting hermes threads")

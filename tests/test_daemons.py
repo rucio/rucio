@@ -16,7 +16,7 @@ from unittest import mock
 
 import pytest
 
-import rucio.db.sqla.util
+import rucio.core.db.sqla.util
 from rucio.core.common import exception
 from rucio.daemons.abacus import account, collection_replica, rse
 from rucio.daemons.atropos import atropos
@@ -72,11 +72,11 @@ ids = [mod.__name__ for mod in DAEMONS]
 
 
 @pytest.mark.parametrize('daemon', argvalues=DAEMONS, ids=ids)
-@mock.patch('rucio.db.sqla.util.is_old_db')
+@mock.patch('rucio.core.db.sqla.util.is_old_db')
 def test_fail_on_old_database(mock_is_old_db, daemon):
     """ DAEMON: Test daemon failure on old database """
     mock_is_old_db.return_value = True
-    assert rucio.db.sqla.util.is_old_db() is True
+    assert rucio.core.db.sqla.util.is_old_db() is True
 
     with pytest.raises(exception.DatabaseException, match='Database was not updated, daemon won\'t start'):
         daemon.run()

@@ -21,16 +21,16 @@ echo "Downgrading the DB to base"
 alembic downgrade base
 
 echo "Check if is_old_db function is returning false after the full downgrade (tests it without alembic)"
-PYTHONPATH=lib python3 -c 'import sys; import rucio.db.sqla.util; sys.exit(1 if rucio.db.sqla.util.is_old_db() else 0);'
+PYTHONPATH=rucio-core python3 -c 'import sys; import rucio.core.db.sqla.util; sys.exit(1 if rucio.core.db.sqla.util.is_old_db() else 0);'
 
 echo "Updating the DB to head-1"
 alembic upgrade head-1
 
 echo "Check if is_old_db function is returning true before the full upgrade"
-PYTHONPATH=lib python3 -c 'import sys; import rucio.db.sqla.util; sys.exit(0 if rucio.db.sqla.util.is_old_db() else 1);'
+PYTHONPATH=rucio-core python3 -c 'import sys; import rucio.core.db.sqla.util; sys.exit(0 if rucio.core.db.sqla.util.is_old_db() else 1);'
 
 echo "Upgrading the DB to head"
 alembic upgrade head
 
 echo "Check if is_old_db function returns false after the full upgrade"
-PYTHONPATH=lib python3 -c 'import sys; import rucio.db.sqla.util; sys.exit(1 if rucio.db.sqla.util.is_old_db() else 0);'
+PYTHONPATH=rucio-core python3 -c 'import sys; import rucio.core.db.sqla.util; sys.exit(1 if rucio.core.db.sqla.util.is_old_db() else 0);'

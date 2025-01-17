@@ -8,8 +8,6 @@ Flask==3.1.0
 geoip2==4.8.0
 globus_sdk==3.41.0
 jsonschema==4.23.0
-libtorrent==2.0.9
-MySQL-python==1.2.5
 oic==1.7.0
 packaging==24.2
 paramiko==3.4.1
@@ -19,7 +17,7 @@ psycopg2_binary==2.9.9
 pyjwkest==1.4.2
 pymemcache==4.0.0
 pymongo==4.10.1
-PyMySQL==1.1.1
+pymysql==1.1.1
 python_magic==0.4.27
 referencing==0.35.1
 Requests==2.32.3

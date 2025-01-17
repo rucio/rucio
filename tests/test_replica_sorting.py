@@ -23,10 +23,10 @@ import geoip2.database
 import pytest
 
 import rucio.core.config as core_config
+from rucio.core import replica_sorter, rse_expression_parser
 from rucio.core.common.config import config_get
 from rucio.core.common.constants import RseAttr
 from rucio.core.common.utils import parse_replicas_from_string
-from rucio.core import replica_sorter, rse_expression_parser
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_protocol, add_rse, add_rse_attribute, del_rse, del_rse_attribute
 from rucio.tests.common import Mime, accept, auth, headers, rse_name_generator, vohdr
@@ -417,7 +417,7 @@ def test_not_sorting_lan_replicas(vo, rest_client, auth_token, protocols_setup, 
     # invalidate cache for parse_expression('site=…')
     rse_expression_parser.REGION.invalidate()
 
-    with mock.patch('rucio.web.rest.flaskapi.v1.replicas.sort_replicas', side_effect=fake_sort_replicas):
+    with mock.patch('rucio.api.flaskapi.v1.replicas.sort_replicas', side_effect=fake_sort_replicas):
         response = rest_client.post(
             '/replicas/list',
             headers=headers(auth(auth_token), vohdr(vo), accept(content_type)),
@@ -482,7 +482,7 @@ def test_sort_geoip_address_not_found_error(vo, rest_client, auth_token, protoco
 
     # now set config to not ignore errors
     core_config.set("core", "geoip_ignore_error", False)
-    
+
     # invalidate cache for __get_distance so that __get_geoip_db is called
     replica_sorter.REGION.invalidate()
 
@@ -499,7 +499,7 @@ def test_sort_geoip_address_not_found_error(vo, rest_client, auth_token, protoco
 
     # reset to ignore errors for other tests
     core_config.set("core", "geoip_ignore_error", True)
-    
+
 
 @pytest.mark.noparallel(reason='fails when run in parallel, replicas should not be changed')
 def test_get_sorted_list_replicas_no_metalink(vo, rest_client, auth_token, protocols_setup, mock_scope):
