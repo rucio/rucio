@@ -23,6 +23,12 @@ openssl req -x509 -new -batch -key rucio_ca.key.pem -days $DAYS -out rucio_ca.pe
 hash=$(openssl x509 -noout -hash -in rucio_ca.pem)
 ln -sf rucio_ca.pem $hash.0
 
+# Generate CRL, needed by DIRAC
+touch index.txt
+echo 1000 > crlnumber
+openssl ca -config openssl.cnf -gencrl -keyfile rucio_ca.key.pem -cert rucio_ca.pem -out rucio_ca.crl.r0 -passin env:PASSPHRASE
+rm index.txt crlnumber
+
 # User certificate.
 openssl req -new -newkey rsa:2048 -noenc -keyout ruciouser.key.pem -subj "/CN=Rucio User" > ruciouser.csr
 openssl x509 -req -days $DAYS -CAcreateserial -extfile <(printf "keyUsage = critical, digitalSignature, keyEncipherment") -in ruciouser.csr -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out ruciouser.pem
