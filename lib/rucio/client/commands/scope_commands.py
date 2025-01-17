@@ -20,7 +20,7 @@ from rucio.client.commands.utils import Arguments, click_decorator
 @click.group()
 @click.help_option("-h", "--help")
 def scope():
-    pass
+    """Interact with scopes - a logical grouping of DIDs"""
 
 
 @scope.command("add")
@@ -34,7 +34,7 @@ def add_(ctx, account, scope_name):
 
 
 @scope.command("list")
-@click.option("-a", "--account", help="Filter by associated account", default=False)
+@click.option("-a", "--account", help="Filter by associated account", required=False)
 @click_decorator
 def list_(ctx, account):
     """List existing scopes"""
