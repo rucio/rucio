@@ -105,7 +105,7 @@ if __name__ == "__main__":
     parser.add_argument("-h", "--help", action="store_true")
     parser.add_argument("--version", action="store_true")
 
-    args, _ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()  # NOQA: E1120
 
     logger = setup_logger(module_name=__name__)
 
@@ -130,4 +130,4 @@ if __name__ == "__main__":
             else:
                 sys.argv = ["rucio", "-h"]
 
-            main()
+            main()  # NOQA: E1120
