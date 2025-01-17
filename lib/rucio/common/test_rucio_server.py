@@ -46,7 +46,7 @@ def get_scope_and_rses():
 
     scope = 'test'
     account = 'root'
-    cmd = f"rucio scope add -s {scope} -a {account}"
+    cmd = f"rucio scope add {scope} --account {account}"
     _, out, err = execute(cmd)
     print(out, err)
     return scope, rses
@@ -107,7 +107,7 @@ class TestRucioServer(unittest.TestCase):
         tmp_dsn = 'tests.rucio_client_test_server_' + uuid()
 
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3} {4} {1}:{5}'.format(self.rse, self.scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {1}:{5}'.format(self.rse, self.scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
