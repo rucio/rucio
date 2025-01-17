@@ -464,7 +464,7 @@ services:
     build:
       context: ./dirac/
       args:
-        DIRACOS_VERSION: ${DIRACOS_VERSION:}
+        DIRACOS_VERSION: ${DIRACOS_VERSION}
         DIRAC_VERSION: ${DIRAC_VERSION}
         RUCIO_VERSION: ${RUCIO_VERSION}
         USERID: ${USERID}
