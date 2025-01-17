@@ -115,7 +115,7 @@ def test_account_identities(rucio_client):
     tmp_account = account_name_generator()
     execute(f"rucio account add {tmp_account} USER")
 
-    cmd = "rucio -v account identity list"
+    cmd = "rucio account identity list"
     exitcode, _, _ = execute(cmd)
     assert exitcode == 2  # Error raised when account is not included
 
