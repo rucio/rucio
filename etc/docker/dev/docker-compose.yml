@@ -459,6 +459,8 @@ services:
       iam-db:
         condition: service_healthy
   dirac-server:
+    profiles:
+      - dirac
     image: dirac-server
     hostname: dirac-server
     build:
@@ -467,8 +469,6 @@ services:
         DIRACOS_VERSION: ${DIRACOS_VERSION}
         DIRAC_VERSION: ${DIRAC_VERSION}
         RUCIO_VERSION: ${RUCIO_VERSION}
-        USERID: ${USERID}
-        GROUPID: ${GROUPID}
     privileged: true
     depends_on:
       dirac-db:
@@ -484,6 +484,8 @@ services:
       - ../../certs/hostcert_dirac-server.pem:/opt/dirac/etc/grid-security/hostcert.pem:z
       - ../../certs/hostcert_dirac-server.key.pem:/opt/dirac/etc/grid-security/hostkey.pem:z
   dirac-db:
+    profiles:
+      - dirac
     image: mysql:8
     environment:
       MYSQL_ROOT_PASSWORD: dirac-db-root
