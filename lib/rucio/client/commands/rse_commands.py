@@ -42,7 +42,7 @@ from rucio.client.commands.utils import Arguments, click_decorator
 @click.group()
 @click.help_option("-h", "--help")
 def rse():
-    pass
+    """Manage Rucio Storage Elements (RSEs)"""
 
 
 @rse.command("list")
@@ -78,7 +78,7 @@ def add_(ctx, rse_name, non_deterministic):
 @click.confirmation_option(prompt="Are you sure you want to delete this RSE?")
 @click_decorator
 def remove(ctx, rse_name):
-    """Permentately disable an RSE. WARNING: You may not be able to recover this RSE!"""
+    """Permanently disable an RSE. WARNING: You may not be able to recover this RSE!"""
     disable_rse(Arguments({"rse": rse_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -90,18 +90,18 @@ def update(ctx, rse_name, option):
     """
     Update an RSE's setting.
 
-    |b
+    \b
     Example:
         $ rucio rse update my-rse --option availability_write True
     """
-    args = Arguments({"rse": rse_name, "key": option[0], "value": option[1]})
+    args = Arguments({"rse": rse_name, "param": option[0], "value": option[1]})
     update_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @rse.group()
 @click.help_option("-h", "--help")
 def distance():
-    pass
+    """Manage the relative distance between RSEs for transfer prioritization calculations"""
 
 
 @distance.command("show")
@@ -110,7 +110,7 @@ def distance():
 @click_decorator
 def distance_show(ctx, source_rse, destination_rse):
     """Display distance information from SOURCE-RSE to DESTINATION-RSE"""
-    get_distance_rses(Arguments({"source": source_rse, "destination_rse": destination_rse}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    get_distance_rses(Arguments({"source": source_rse, "destination": destination_rse}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @distance.command("add")
@@ -152,7 +152,7 @@ def distance_update(ctx, source_rse, destination_rse, distance, ranking):
 @rse.group()
 @click.help_option("-h", "--help")
 def attribute():
-    pass
+    """Interact with RSE Attributes"""
 
 
 @attribute.command("list")
@@ -170,7 +170,7 @@ def attr_list_(ctx, rse_name):
 def attr_add_(ctx, rse_name, option):
     """Add a new attribute for an RSE
 
-    |b
+    \b
     Example:
         $ rucio rse attribute add my-rse --option My-Attribute True
     """
@@ -193,6 +193,7 @@ def attr_add_(ctx, rse_name, option):
 @click.option("-attr", "--attribute", help="Attribute to remove", required=True)
 @click_decorator
 def attr_remove(ctx, rse_name, attribute):
+    """Remove an existing attribute from an RSE"""
     args = Arguments({"rse": rse_name, "key": attribute, "value": None})
     delete_attribute_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
@@ -210,7 +211,7 @@ def limit():
 def limit_add(ctx, rse_name, limit):
     """Add a usage limit to an RSE
 
-    |b
+    \b
     Example, add a limit of 1KB to XRD1 named "MinFreeSpace":
         $ rucio rse limit add XRD1 --limit MinFreeSpace 10000
     """
@@ -231,13 +232,13 @@ def limit_remove(ctx, rse_name, limit):
 @rse.group()
 @click.help_option("-h", "--help")
 def protocol():
-    pass
+    """Manage RSE transfer protocols"""
 
 
 # TODO Better loader for json types
 @protocol.command("add")
 @click.argument("rse-name")
-@click.option("--host-name", help="Endpoint hostname", required=True)
+@click.option("--host", "--host-name", help="Endpoint hostname", required=True)
 @click.option("--scheme", help="Endpoint URL scheme", required=True)
 @click.option("--prefix", help="Endpoint URL path prefix", required=True)
 @click.option("--space-token", help="Space token name (SRM-only)")
@@ -247,17 +248,17 @@ def protocol():
 @click.option("--domain-json", type=json.loads, help="JSON describing the WAN / LAN setup")
 @click.option("--extended-attributes-json", type=json.loads, help="JSON describing any extended attributes")
 @click_decorator
-def protocol_add(ctx, rse_name, host_name, scheme, prefix, space_token, web_service_path, port, impl, domain_json, extended_attributes_json):
+def protocol_add(ctx, rse_name, host, scheme, prefix, space_token, web_service_path, port, impl, domain_json, extended_attributes_json):
     """
     Add a new protocol for an RSE used for transferring files
 
-    |b
+    \b
     Example, adding a default protocol hosted at jdoes.test.org to the RSE JDOE_DATADISK
         $ rucio rse protocol add JDOE_DATADISK --host-name jdoes.test.org --scheme gsiftp --prefix '/atlasdatadisk/rucio/' --port 8443'
 
     """
     args = Arguments(
-        {"rse": rse_name, "hostname": host_name, "ext_attr_json": extended_attributes_json, "scheme": scheme, "prefix": prefix, "space_token": space_token, "web_service_path": web_service_path, "port": port, "impl": impl, "domain_json": domain_json}
+        {"rse": rse_name, "hostname": host, "ext_attr_json": extended_attributes_json, "scheme": scheme, "prefix": prefix, "space_token": space_token, "web_service_path": web_service_path, "port": port, "impl": impl, "domain_json": domain_json}
     )
     add_protocol_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
@@ -277,7 +278,7 @@ def protocol_remove(ctx, rse_name, host_name, scheme, port):
 @rse.group()
 @click.help_option("-h", "--help")
 def qos():
-    """"""
+    """Interact with the QoS model"""
 
 
 @qos.command("add")

@@ -20,13 +20,13 @@ from rucio.client.commands.utils import Arguments, click_decorator
 @click.group()
 @click.help_option("-h", "--help")
 def did():
-    pass
+    """Manage Data Identifiers - the source data objects"""
 
 
 @did.command("list")
 @click.option("-r", "--recursive/--no-recursive", default=False, help="List data identifiers recursively.")
 @click.option(
-    "--filter",
+    "--filter", "filter_",
     help="""
     Single or logically combined filtering expression(s) either in the form <key><operator><value>
     or <value1><operator1><key><operator2><value2> (compound inequality).
@@ -36,15 +36,15 @@ def did():
     """,
 )  # TODO Shorten this help and make supplying this easier
 @click.option("--short/--no-short", default=False, help="Dump the list of DIDs")
-@click.argument("did-pattern", nargs=1)
+@click.argument("did-pattern", nargs=-1)
 @click_decorator
-def list_(ctx):
+def list_(ctx, did_pattern, recursive, filter_, short):
     """
     List the Data IDentifiers matching certain pattern.
     Only the collections (i.e. dataset or container) are returned by default.
     With the filter option, you can specify a list of metadata that the Data IDentifier should match
     """
-    args = Arguments()
+    args = Arguments({"did": did_pattern, "recursive": recursive, "filter": filter_, "short": short})
     list_dids(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -54,7 +54,7 @@ def list_(ctx):
 @click.option("--pfn", hidden=True)
 @click.option("--guid", hidden=True)
 @click_decorator
-def show(ctx, dids, parent):
+def show(ctx, dids, parent, pfn, guid):
     """List attributes, statuses, or parents for data identifiers"""
     if parent:
         for did in dids:
@@ -114,7 +114,7 @@ def remove(ctx, dids, undo):
 @did.group()
 @click.help_option("-h", "--help")
 def content():
-    pass
+    """Manage contents of collection type DIDs"""
 
 
 @content.command("history")
@@ -159,7 +159,7 @@ def content_list_(ctx, dids, short):
 @did.group()
 @click.help_option("-h", "--help")
 def metadata():
-    pass
+    """Manage metadata for DIDs"""
 
 
 @metadata.command("add")
@@ -177,6 +177,7 @@ def meta_add_(ctx, did, option):
 @click.option("--key", help="Key to remove from a DID's metadata.")
 @click_decorator
 def meta_remove(ctx, did, key):
+    """Remove metadata from a DID"""
     args = Arguments({"did": did, "key": key})
     delete_metadata(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
@@ -187,5 +188,5 @@ def meta_remove(ctx, did, key):
 @click_decorator
 def meta_list_(ctx, dids, plugin):
     """List metadata for a list of DIDs"""
-    args = Arguments({"did": did, "plugin": plugin})
+    args = Arguments({"dids": dids, "plugin": plugin})
     get_metadata(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

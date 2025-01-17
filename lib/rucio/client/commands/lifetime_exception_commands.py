@@ -20,7 +20,7 @@ from rucio.client.commands.utils import Arguments, click_decorator
 @click.group()
 @click.help_option("-h", "--help")
 def lifetime_exception():
-    pass
+    """Interact with the lifetime exception model"""
 
 
 @lifetime_exception.command("add")

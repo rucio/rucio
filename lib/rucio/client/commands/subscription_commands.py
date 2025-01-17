@@ -17,18 +17,19 @@ from rucio.client.commands.bin_legacy.rucio_admin import add_subscription, list_
 from rucio.client.commands.utils import Arguments, click_decorator
 
 
-@click.group(help="The methods for automated and regular processing of some specific rules")
+@click.group()
 @click.help_option("-h", "--help")
 def subscription():
-    pass
+    "The methods for automated and regular processing of some specific rules"
 
 
 @subscription.command("show")
-@click.option("-a", "--account", "subs_account", help="Account associated with the subscription")
+@click.option("-a", "--account", help="Account associated with the subscription")
 @click.option("--long/--no-long", help="Show extended information about the subscription")
-@click.argument("subscription-name", nargs=1)
+@click.argument("subscription-name")
 @click_decorator
 def list_(ctx, subscription_name, account, long):
+    """Show the attributes of a subscription [SUBSCRIPTION-NAME]"""
     args = Arguments({"subs_account": account, "name": subscription_name, "long": long})
     list_subscriptions(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
@@ -36,30 +37,30 @@ def list_(ctx, subscription_name, account, long):
 @subscription.command("update")
 @click.argument("subscription-name")
 @click.option("--filter", "did_filter", help='Json serializable DID filter (eg \'{"scope": ["tests"], "project": ["data12_8TeV"]}\')', required=True)
-@click.option("--rules", help='List of replication rules (eg \'[{"activity": "Functional Tests", "copies": 2, "rse_expression": "tier=2", "lifetime": 3600, "weight": "mou"}]\')', required=True)
-@click.option("--comments", help="Comments on subscription")
+@click.option("--rule", help='List of replication rules (eg \'[{"activity": "Functional Tests", "copies": 2, "rse_expression": "tier=2", "lifetime": 3600, "weight": "mou"}]\')', required=True)
+@click.option("--comment", help="Comments on subscription")
 @click.option("--lifetime", type=int, help="Subscription lifetime (in days)")
 @click.option("--account", help="Account name")
 @click.option("--priority", help="The priority of the subscription")
 @click_decorator
-def update(ctx, subscription_name, did_filter, rules, comments, lifetime, account, priority):
+def update(ctx, subscription_name, did_filter, rule, comment, lifetime, account, priority):
     """Update a subscription [SUBSCRIPTION-NAME] to have new properties"""
-    args = Arguments({"name": subscription_name, "filter": did_filter, "replication_rules": rules, "comments": comments, "lifetime": lifetime, "subs_account": account, "priority": priority})
+    args = Arguments({"name": subscription_name, "filter": did_filter, "replication_rules": rule, "comments": comment, "lifetime": lifetime, "subs_account": account, "priority": priority})
     update_subscription(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @subscription.command("add")
 @click.argument("subscription-name")
 @click.option("--filter", "did_filter", help='Json serializable DID filter (eg \'{"scope": ["tests"], "project": ["data12_8TeV"]}\')', required=True)
-@click.option("--rules", help='List of replication rules (eg \'[{"activity": "Functional Tests", "copies": 2, "rse_expression": "tier=2", "lifetime": 3600, "weight": "mou"}]\')', required=True)
-@click.option("--comments", help="Comments on subscription")
+@click.option("--rule", help='List of replication rules (eg \'[{"activity": "Functional Tests", "copies": 2, "rse_expression": "tier=2", "lifetime": 3600, "weight": "mou"}]\')', required=True)
+@click.option("--comment", help="Comments on subscription")
 @click.option("--lifetime", type=int, help="Subscription lifetime (in days)")
 @click.option("--account", help="Account name")
 @click.option("--priority", help="The priority of the subscription")
 @click_decorator
-def add_(ctx, subscription_name, did_filter, rules, comments, lifetime, account, priority):
+def add_(ctx, subscription_name, did_filter, rule, comment, lifetime, account, priority):
     """Create a new subscription with the name [SUBSCRIPTION-NAME]"""
-    args = Arguments({"name": subscription_name, "filter": did_filter, "replication_rules": rules, "comments": comments, "lifetime": lifetime, "subs_account": account, "priority": priority})
+    args = Arguments({"name": subscription_name, "filter": did_filter, "replication_rules": rule, "comments": comment, "lifetime": lifetime, "subs_account": account, "priority": priority})
     add_subscription(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -68,4 +69,6 @@ def add_(ctx, subscription_name, did_filter, rules, comments, lifetime, account,
 @click_decorator
 def touch(ctx, dids):
     """Reevaluate list of DIDs against all active subscriptions"""
+    # TODO make reeval accept dids as a list
+    dids = ",".join(dids)
     reevaluate_did_for_subscription(Arguments({"dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

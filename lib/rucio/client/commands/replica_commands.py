@@ -21,13 +21,13 @@ from rucio.client.commands.utils import Arguments, click_decorator
 @click.group()
 @click.help_option("-h", "--help")
 def replica():
-    pass
+    """Manage replicas - DIDs with locations on RSEs"""
 
 
 @replica.group("list")
 @click.help_option("-h", "--help")
 def replica_list():
-    pass
+    """List replicas (file or collection-types)"""
 
 
 @replica_list.command("file")
@@ -63,6 +63,7 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
 @click.argument("dids", nargs=-1)
 @click.option("--deep/--no-deep", default=False, help="Make a deep check, checking the contents of datasets in datasets")
 @click.option("--csv/--no-csv", help="Write output to comma separated values", default=False)
+@click_decorator
 def list_dataset(ctx, dids, deep, csv):
     """List dataset replicas"""
     args = Arguments({"dids": dids, "deep": deep, "csv": csv})
@@ -75,13 +76,15 @@ def list_dataset(ctx, dids, deep, csv):
 @click_decorator
 def remove(ctx, dids, rse):
     "Set a replica for removal by adding a tombstone which will mark the replica as ready for deletion by a reaper daemon"
+    # TODO: Fix set_tombstone to not expect a comma separated DID str
+    dids = ",".join(dids)
     set_tombstone(Arguments({"dids": dids, "rse": rse}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @replica.group()
 @click.help_option("-h", "--help")
 def state():
-    pass
+    """Manage the state of replicas"""
 
 
 @state.command("list")
@@ -134,6 +137,7 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
 @click.option("--duration", required=True, type=int, help="Timeout (in seconds) after which the replicas will become available again")
 @click_decorator
 def update_unavailable(ctx, replicas, reason, as_file, duration):
+    """Declare a replica unavailable"""
     args = {"reason": reason, "duration": duration}
     if as_file:
         args["inputfile"] = replicas
@@ -148,10 +152,12 @@ def update_unavailable(ctx, replicas, reason, as_file, duration):
 @click.option("--rse", "--rse-name")  # TODO What does this do?
 @click_decorator
 def update_quarantine(ctx, replicas, as_file, rse):
+    """Quarantine a replica"""
     args = {"rse": rse}
     if as_file:
         args["paths_file"] = replicas
     else:
         args["paths_list"] = replicas
 
+    # TODO Add a reason option
     quarantine_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
