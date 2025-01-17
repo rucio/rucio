@@ -30,7 +30,7 @@ from sqlalchemy.schema import CreateSchema, CreateTable, DropConstraint, DropTab
 from sqlalchemy.sql.ddl import DropSchema
 from sqlalchemy.sql.expression import select, text
 
-from rucio import alembicrevision
+from rucio.core.db.sqla import alembicrevision
 from rucio.core.common.cache import MemcacheRegion
 from rucio.core.common.config import config_get, config_get_list
 from rucio.core.common.schema import get_schema_value
