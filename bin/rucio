@@ -93,7 +93,7 @@ if __name__ == "__main__":
     is_legacy = '--legacy' in sys.argv
 
     if (first_command in commands) and not is_legacy:
-        main()
+        main()  # NOQA: E1120
 
     elif is_legacy:
         warning = make_warning()
@@ -115,4 +115,4 @@ if __name__ == "__main__":
             else:
                 sys.argv = ["rucio", "-h"]
 
-            main()
+            main()  # NOQA: E1120
