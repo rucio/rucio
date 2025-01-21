@@ -23,7 +23,6 @@ import sys
 import tempfile
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
-import gfal2
 import magic
 import requests
 
@@ -307,6 +306,8 @@ def gfal_download_to_file(url: str, file_: "IO") -> None:
     Download the file in `url` storing it in the `file_` file-like
     object.
     '''
+    import gfal2  # pylint: disable=import-outside-toplevel
+
     logger = logging.getLogger('dumper.__init__')
     ctx = gfal2.creat_context()  # pylint: disable=no-member
     infile = ctx.open(url, 'r')
