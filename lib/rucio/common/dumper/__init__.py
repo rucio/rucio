@@ -126,7 +126,7 @@ else:
 # pylint: enable=no-member
 
 
-def isplaintext(filename: "GenericPath") -> bool:
+def is_plaintext(filename: "GenericPath") -> bool:
     '''
     Returns True if `filename` has mimetype == 'text/plain'.
     '''
@@ -142,7 +142,7 @@ def smart_open(filename: "GenericPath") -> Optional[Union["TextIO", gzip.GzipFil
     handle it.
     '''
     f = None
-    if isplaintext(filename):
+    if is_plaintext(filename):
         f = open(filename, 'rt')
     else:
         file_type = mimetype(filename)
