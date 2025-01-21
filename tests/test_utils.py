@@ -161,6 +161,7 @@ def test_retrying():
     assert len(attempts) == 1
 
 
+@pytest.mark.xfail(run=False, reason='libtorrent dependency is temporarily disabled: https://github.com/rucio/rucio/issues/6853')
 def test_bittorrent_sa256_merkle(file_factory):
 
     def _sha256_merkle_via_libtorrent(file, piece_size=0):

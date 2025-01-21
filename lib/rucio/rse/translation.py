@@ -34,22 +34,26 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
     def __init__(self, vo: str = 'def'):
         super().__init__()
 
-        self.register(RSEDeterministicScopeTranslation._default, "def")
-
         logger = logging.getLogger(__name__)
 
         try:
-            # Use the function defined in the policy package if it's configured so
             algorithm_name = config.config_get('policy', self._algorithm_type)
         except (NoOptionError, NoSectionError, RuntimeError):
-            # Don't use a function from the policy package. Use one defined in this class according to vo
-            logger.debug("PFN2LFN function will not be fetched from the policy package")
+            logger.debug("PFN2LFN: no algorithm specified in the config.")
             if super()._supports(self._algorithm_type, vo):
                 algorithm_name = vo
             else:
                 algorithm_name = "def"
+            logger.debug("PFN2LFN: Falling back to %s algorithm.", 'default' if algorithm_name == 'def' else algorithm_name)
 
         self.parser = self.get_parser(algorithm_name)
+
+    @classmethod
+    def _module_init_(cls) -> None:
+        """
+        Registers the included scope extraction algorithms
+        """
+        cls.register(cls._default, "def")
 
     @classmethod
     def get_parser(cls, algorithm_name: str) -> 'Callable[..., Any]':
@@ -88,7 +92,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         return name, scope
 
 
-RSEDeterministicScopeTranslation()
+RSEDeterministicScopeTranslation._module_init_()  # pylint: disable=protected-access
 
 
 class RSEDeterministicTranslation(PolicyPackageAlgorithms):

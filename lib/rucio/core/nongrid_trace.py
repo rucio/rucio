@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Union, overload
 
 import stomp
 
-from rucio.common.config import config_get, config_get_int
+from rucio.common.config import config_get, config_get_int, config_get_list
 from rucio.common.logging import rucio_log_formatter
 from rucio.core.monitor import MetricManager
 
@@ -58,7 +58,7 @@ ROTATING_LOGGER.addHandler(ROTATING_HANDLER)
 
 BROKERS_ALIAS, BROKERS_RESOLVED = [], []
 try:
-    BROKERS_ALIAS = [b.strip() for b in config_get('nongrid-trace', 'brokers').split(',')]
+    BROKERS_ALIAS = config_get_list('nongrid-trace', 'brokers')
 except:
     raise Exception('Could not load brokers from configuration')
 

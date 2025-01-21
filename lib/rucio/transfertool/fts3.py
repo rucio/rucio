@@ -110,6 +110,9 @@ _SCITAGS_NEXT_REFRESH = datetime.datetime.utcnow()
 _SCITAGS_EXP_ID = None
 _SCITAGS_ACTIVITY_IDS = {}
 
+FTS_FILE_EXISTS_ERROR_MSG = 'Destination file exists and is on tape'  # used in FTS  >= 3.12.12
+FTS_FILE_EXISTS_ERROR_MSG_LEGACY = 'Destination file exists and overwrite is not enabled'  # Error message used in FTS < 3.12.12, checked in Rucio for backwards compatibility
+
 
 def _scitags_ids(logger: "LoggerFunction" = logging.log) -> "tuple[int | None, dict[str, int]]":
     """
@@ -614,9 +617,9 @@ class Fts3TransferStatusReport(TransferStatusReport):
     def _transfer_link(self) -> str:
         return '%s/fts3/ftsmon/#/job/%s' % (self._fts_address.replace('8446', '8449'), self._transfer_id)
 
-    def _find_attribute_updates(self, request: dict, new_state: RequestState, reason: str, overwrite_corrupted_files: Optional[bool] = None) -> Optional[dict[str, Any]]:
+    def _find_attribute_updates(self, request: dict, new_state: RequestState, reason: Optional[str], overwrite_corrupted_files: Optional[bool] = None) -> Optional[dict[str, Any]]:
         attributes = None
-        if new_state == RequestState.FAILED and 'Destination file exists and overwrite is not enabled' in (reason or ''):
+        if new_state == RequestState.FAILED and (reason and any(s in reason for s in (FTS_FILE_EXISTS_ERROR_MSG, FTS_FILE_EXISTS_ERROR_MSG_LEGACY))):
             dst_file = self._file_metadata.get('dst_file', {})
             if self._dst_file_set_and_file_corrupted(request, dst_file):
                 if overwrite_corrupted_files:
@@ -669,7 +672,7 @@ class Fts3TransferStatusReport(TransferStatusReport):
         return False
 
     @classmethod
-    def _is_recoverable_fts_overwrite_error(cls, request: dict[str, Any], reason: str,
+    def _is_recoverable_fts_overwrite_error(cls, request: dict[str, Any], reason: Optional[str],
                                             file_metadata: dict[str, Any]) -> bool:
         """
         Verify the special case when FTS cannot copy a file because destination exists and overwrite is disabled,
@@ -686,7 +689,7 @@ class Fts3TransferStatusReport(TransferStatusReport):
         dst_type = file_metadata.get('dst_type', None)
         METRICS.counter('overwrite.check.{rsetype}.{rse}').labels(rse=file_metadata["dst_rse"], rsetype=dst_type).inc()
 
-        if 'Destination file exists and overwrite is not enabled' in (reason or ''):
+        if reason and any(s in reason for s in (FTS_FILE_EXISTS_ERROR_MSG, FTS_FILE_EXISTS_ERROR_MSG_LEGACY)):
             if cls._dst_file_set_and_file_correct(request, dst_file):
                 if dst_type == 'DISK' or dst_file.get('file_on_tape'):
                     METRICS.counter('overwrite.ok.{rsetype}.{rse}').labels(rse=file_metadata["dst_rse"], rsetype=dst_type).inc()
@@ -870,7 +873,6 @@ class FTS3Transfertool(Transfertool):
 
     def __init__(self,
                  external_host: str,
-                 oidc_account: Optional[str] = None,
                  oidc_support: bool = False,
                  vo: Optional[str] = None,
                  group_bulk: int = 1,

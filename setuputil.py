@@ -26,9 +26,12 @@ clients_requirements_table = {
         'requests',
         'urllib3',
         'dogpile-cache',
+        'packaging',
         'tabulate',
         'jsonschema',
         'dataclasses',
+        'rich',
+        'typing_extensions'
     ],
     'ssh': ['paramiko'],
     'kerberos': [
@@ -70,7 +73,6 @@ server_requirements_table = {
         'boto3',
         'sqlalchemy',
         'alembic',
-        'packaging'
         'pymemcache',
         'python-dateutil',
         'stomp-py',
