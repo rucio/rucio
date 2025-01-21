@@ -128,7 +128,8 @@ def is_plaintext(filename: "GenericPath") -> bool:
     Returns True if `filename` has mimetype == 'text/plain'.
     """
     mime = get_libmagic_wrapper()
-    return mime.from_file(filename) =='text/plain'
+    return mime.from_file(filename) == 'text/plain'
+
 
 def smart_open(filename: "GenericPath") -> Optional[Union["TextIO", gzip.GzipFile]]:
     '''
@@ -140,10 +141,11 @@ def smart_open(filename: "GenericPath") -> Optional[Union["TextIO", gzip.GzipFil
     if is_plaintext(filename):
         f = open(filename, 'rt')
     else:
-        file_type = mimetype(filename)
-        if file_type.find('gzip') > -1:
+        mime = get_libmagic_wrapper()
+        file_type = mime.from_file(filename)
+        if file_type in ['application/gzip', 'application/x-gzip']:
             f = gzip.GzipFile(filename, 'rt')
-        elif file_type.find('bzip2') > -1:
+        elif file_type == 'application/x-bzip2':
             f = bz2.open(filename, 'rt')
         else:
             pass  # Not supported format
