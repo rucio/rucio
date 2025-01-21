@@ -21,10 +21,11 @@ import os
 import re
 import sys
 import tempfile
+from functools import cache
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
-import magic
 import requests
+from magic import Magic
 
 from rucio.common import config
 from rucio.core.rse import get_rse_id, get_rse_protocols
@@ -114,26 +115,20 @@ RESULTS_DIR = 'results'
 CHUNK_SIZE = 4194304  # 4MiB
 
 
-# There are two Python modules with the name `magic`, luckily both do
-# the same thing.
-# pylint: disable=no-member
-if 'open' in dir(magic):
-    _mime = magic.open(magic.MAGIC_MIME)
-    _mime.load()
-    mimetype = _mime.file
-else:
-    mimetype = lambda filename: magic.from_file(filename, mime=True)  # NOQA
-# pylint: enable=no-member
+@cache
+def get_libmagic_wrapper() -> Magic:
+    """
+    Returns a libmagic wrapper.
+    """
+    return Magic(mime=True)
 
 
 def is_plaintext(filename: "GenericPath") -> bool:
-    '''
+    """
     Returns True if `filename` has mimetype == 'text/plain'.
-    '''
-    if os.path.islink(filename):
-        filename = os.readlink(filename)
-    return mimetype(filename).split(';')[0] == 'text/plain'
-
+    """
+    mime = get_libmagic_wrapper()
+    return mime.from_file(filename) =='text/plain'
 
 def smart_open(filename: "GenericPath") -> Optional[Union["TextIO", gzip.GzipFile]]:
     '''
