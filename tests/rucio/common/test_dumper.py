@@ -15,7 +15,7 @@
 from rucio.common.dumper.path_parsing import components, remove_prefix
 
 
-class TestPathParsing:
+class TestDumperPathParsing:
     def test_remove_prefix(self):
         prefix = ['a', 'b', 'c', 'd']
 
