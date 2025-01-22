@@ -23,7 +23,7 @@ from unittest import mock
 import pytest
 import requests
 
-from rucio.common import config, dumper
+from rucio.common import dumper
 from rucio.tests.common import make_temp_file, mock_open
 
 from .mocks import gfal2
@@ -52,16 +52,6 @@ class MockResponse:
 
     def json(self):
         return self.json_data
-
-
-def test_cacert_config_returns_a_string():
-    assert isinstance(dumper.cacert_config(config, '.'), str)
-
-
-@mock.patch('rucio.common.config.config_get')
-def test_cacert_config_returns_false_if_no_cert_configured(mock_get):
-    mock_get.return_value = ''
-    assert not dumper.cacert_config(config, '.')
 
 
 def test_smart_open_for_text_file():
