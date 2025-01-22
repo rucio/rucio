@@ -90,14 +90,21 @@ def cacert_config(config: "ModuleType", rucio_home: str) -> Optional[Union["File
     logger = logging.getLogger('dumper.__init__')
     try:
         cacert = config.config_get('client', 'ca_cert').replace('$RUCIO_HOME', rucio_home)
-    except (ConfigNotFound, KeyError, NoOptionError, NoSectionError):
+    except ConfigNotFound:
+        logger.warning('Configuration file not found.')
+        cacert = None
+    except (KeyError, NoOptionError, NoSectionError):
+        logger.warning('CA Certificate configuration not found.')
         cacert = None
 
-    if not cacert or not os.path.exists(cacert):
-        logger.warning('Configured CA Certificate file "%s" not found: Host certificate verification disabled', cacert)
-        cacert = False
+    if cacert and os.path.exists(cacert):
+        return cacert
+    else:
+        logger.warning('Configured CA Certificate file "%s" not found', cacert)
 
-    return cacert
+    logger.warning('Host certificate verification disabled.')
+
+    return False
 
 
 def rucio_home() -> str:
