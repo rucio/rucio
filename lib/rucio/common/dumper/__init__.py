@@ -69,7 +69,7 @@ def error(text: str, exit_code: int = 1) -> None:
     logger = logging.getLogger('dumper.__init__')
     logger.error(text)
     sys.stderr.write(text + '\n')
-    exit(1)
+    exit(exit_code)
 
 
 def mkdir(dir_: "StrOrBytesPath") -> None:
