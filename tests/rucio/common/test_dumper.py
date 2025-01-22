@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import bz2
+import uuid
 from unittest.mock import Mock, patch
 
 import pytest
@@ -58,6 +60,27 @@ class TestDumper:
     def test_cacert_config_set_but_does_not_exist(self, temp_config_file, file_config_mock):
         with patch('os.path.exists', Mock(return_value=False)):
             assert dumper.cacert_config(config, '.') is False
+
+    def test_smart_open_plaintext(self, tmp_path):
+        file_name = str(uuid.uuid4())
+        full_path = tmp_path / file_name
+        file_content = str(uuid.uuid4())
+        full_path.write_text(file_content, encoding="utf-8")
+
+        opened_file = dumper.smart_open(full_path)
+        assert opened_file.name == str(full_path)
+        assert opened_file.read() == file_content
+
+    def test_smart_open_bz2(self, tmp_path):
+        file_name = str(uuid.uuid4())
+        full_path = tmp_path / file_name
+        file_content_uncompressed = str(uuid.uuid4())
+        compressor = bz2.BZ2Compressor()
+        file_content = compressor.compress(str.encode(file_content_uncompressed)) + compressor.flush()
+        full_path.write_bytes(file_content)
+
+        opened_file = dumper.smart_open(full_path)
+        assert opened_file.read() == file_content_uncompressed
 
 
 class TestDumperPathParsing:
