@@ -15,6 +15,7 @@
 import bz2
 import gzip
 import uuid
+from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pytest
@@ -93,6 +94,18 @@ class TestDumper:
 
         opened_file = dumper.smart_open(full_path)
         assert opened_file.read() == file_content_uncompressed
+
+    @pytest.mark.parametrize("in_string", [
+        "2015-03-10 14:00:35",
+        "2015-03-10T14:00:35.5",
+        "2015-03-10T14:00:35.500",
+    ], ids=[
+        "seconds",
+        "tenths",
+        "milliseconds",
+    ])
+    def test_to_datetime(self, in_string):
+        assert dumper.to_datetime(in_string) == datetime(2015, 3, 10, 14, 0, 35)
 
 
 class TestDumperPathParsing:
