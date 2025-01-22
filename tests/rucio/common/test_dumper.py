@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import bz2
+import gzip
 import uuid
 from unittest.mock import Mock, patch
 
@@ -70,6 +71,17 @@ class TestDumper:
         opened_file = dumper.smart_open(full_path)
         assert opened_file.name == str(full_path)
         assert opened_file.read() == file_content
+
+    def test_smart_open_gzip(self, tmp_path):
+        file_name = str(uuid.uuid4())
+        full_path = tmp_path / file_name
+        file_content_uncompressed = str(uuid.uuid4())
+        file_content = gzip.compress(bytes(file_content_uncompressed, 'utf-8'))
+        full_path.write_bytes(file_content)
+
+        opened_file = dumper.smart_open(full_path)
+        opened_file_content = opened_file.read().decode('utf-8')
+        assert opened_file_content == file_content_uncompressed
 
     def test_smart_open_bz2(self, tmp_path):
         file_name = str(uuid.uuid4())
