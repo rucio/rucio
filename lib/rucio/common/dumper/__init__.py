@@ -208,7 +208,6 @@ def temp_file(
 
 
 DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
-DATETIME_FORMAT_FULL = '%Y-%m-%dT%H:%M:%S'
 MILLISECONDS_RE = re.compile(r'\.(\d{3})Z$')
 
 
