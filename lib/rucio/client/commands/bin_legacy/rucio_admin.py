@@ -1972,7 +1972,7 @@ def get_parser():
                                                               '"""""""""""""\n'
                                                               '::\n'
                                                               '\n'
-                                                              '    $ rucio-admin rse add-protocol --hostname jdoes.test.org --scheme gsiftp --prefix \'/atlasdatadisk/rucio/\' --port 8443 JDOE_DATADISK\n'
+                                                              '    $ rucio-admin rse add-protocol --hostname jdoes.test.org --scheme davs --prefix \'/atlasdatadisk/rucio/\' --port 8443 JDOE_DATADISK\n'
                                                               '\n'
                                                               'Note: no printed stdout.\n'
                                                               'Note: examples of optional parameters::\n'
@@ -2006,7 +2006,7 @@ def get_parser():
                                                               '"""""""""""""\n'
                                                               '::\n'
                                                               '\n'
-                                                              '   $ rucio-admin rse delete-protocol  --scheme gsiftp JDOE_DATADISK\n'
+                                                              '   $ rucio-admin rse delete-protocol  --scheme davs JDOE_DATADISK\n'
                                                               '\n'
                                                               'Note: no printed stdout.\n'
                                                               '\n')

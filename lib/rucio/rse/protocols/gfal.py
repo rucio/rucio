@@ -183,7 +183,7 @@ class Default(protocol.RSEProtocol):
             gfal2.set_verbose(gfal2.verbose_level.warning)
 
         self.__ctx = gfal2.creat_context()  # pylint: disable=no-member
-        self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
+        self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
         self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
         auth_configured = False

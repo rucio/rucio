@@ -124,7 +124,7 @@ class MetaLinkRedirector(ErrorHandlingMethodView):
         }
 
         dids = [{'scope': scope, 'name': name}]
-        schemes = request.args.getlist('schemes') or ['http', 'https', 'root', 'gsiftp', 'srm', 'davs']
+        schemes = request.args.getlist('schemes') or ['http', 'https', 'root', 'srm', 'davs']
         sortby = request.args.get('select', default=None)
         sortby = request.args.get('sort', default=sortby)
 

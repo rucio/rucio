@@ -751,7 +751,7 @@ def _retry_protocol_stat(protocol, pfn):
 
 def __check_compatible_scheme(dest_scheme, src_scheme):
     """
-    Check if two schemes are compatible, such as srm and gsiftp
+    Check if two schemes are compatible, such as srm and davs
 
     :param dest_scheme:    Destination scheme
     :param src_scheme:     Source scheme

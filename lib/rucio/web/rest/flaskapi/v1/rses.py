@@ -863,7 +863,7 @@ class LFNS2PFNS(ErrorHandlingMethodView):
           required: True
         - name: scheme
           in: query
-          description: Optional argument to help with the protocol selection (e.g., http / gsiftp / srm)
+          description: Optional argument to help with the protocol selection (e.g., http / davs / srm)
           schema:
             type: string
         - name: domain

@@ -1757,7 +1757,7 @@ def list_rse_usage(args, client, logger, console, spinner):
         spinner.start()
 
     all_usages = client.get_rse_usage(rse=args.rse, filters={'per_account': args.show_accounts})
-    select_usages = [u for u in all_usages if u['source'] not in ('srm', 'gsiftp', 'webdav')]
+    select_usages = [u for u in all_usages if u['source'] not in ('srm', 'webdav')]
 
     if cli_config == 'rich':
         output = []
