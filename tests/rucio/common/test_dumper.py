@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import Mock, patch
+
 import pytest
 
-from rucio.common import dumper
+from rucio.common import config, dumper
 from rucio.common.dumper.path_parsing import components, remove_prefix
 
 
@@ -24,6 +26,38 @@ class TestDumper:
         with pytest.raises(SystemExit) as excinfo:
             dumper.error('message', code)
         assert excinfo.value.code == code
+
+    @pytest.mark.parametrize("file_config_mock", [
+        {"overrides": [('client', 'ca_cert', '/opt/rucio/etc/web/ca.crt')]},
+    ], indirect=True)
+    def test_cacert_config_exists(self, temp_config_file, file_config_mock):
+        with patch('os.path.exists', Mock(return_value=True)):
+            assert dumper.cacert_config(config, '.') == '/opt/rucio/etc/web/ca.crt'
+
+    @pytest.mark.parametrize("file_config_mock", [
+        {"overrides": [('client', 'ca_cert', '')]},
+        {"overrides": [('client', '', '')]},
+        {"overrides": [('', '', '')]}],
+        ids=[
+            "ca_cert_empty",
+            "no_option",
+            "no_section"
+        ],
+        indirect=True)
+    def test_cacert_config_not_set(self, temp_config_file, file_config_mock):
+        with patch('os.path.exists', Mock(return_value=True)):
+            assert dumper.cacert_config(config, '.') is False
+
+    def test_cacert_config_no_cfg_found(self):
+        with patch('os.path.exists', Mock(return_value=True)):
+            assert dumper.cacert_config(config, '.') is False
+
+    @pytest.mark.parametrize("file_config_mock", [
+        {"overrides": [('client', 'ca_cert', '/opt/rucio/etc/web/ca.crt')]},
+    ], indirect=True)
+    def test_cacert_config_set_but_does_not_exist(self, temp_config_file, file_config_mock):
+        with patch('os.path.exists', Mock(return_value=False)):
+            assert dumper.cacert_config(config, '.') is False
 
 
 class TestDumperPathParsing:
