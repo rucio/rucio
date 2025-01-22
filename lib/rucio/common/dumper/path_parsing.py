@@ -13,8 +13,12 @@
 # limitations under the License.
 
 import logging
+from typing import TYPE_CHECKING
 
 logger = logging.getLogger('rucio_dumps')
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def prefix(agis_data, endpoint_name):
@@ -25,7 +29,7 @@ def prefix(agis_data, endpoint_name):
     return ddmendpoint_data['endpoint']
 
 
-def remove_prefix(prefix, path):
+def remove_prefix(prefix: 'Iterable', path: 'Iterable') -> 'Iterable':
     iprefix = iter(prefix)
     ipath = iter(path)
     try:
@@ -59,6 +63,6 @@ def remove_prefix(prefix, path):
     return rest
 
 
-def components(path):
+def components(path: str) -> list[str]:
     components = path.strip().strip('/').split('/')
     return [component for component in components if component != '']
