@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import tempfile
+from configparser import NoOptionError, NoSectionError
 from functools import cache
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
@@ -28,6 +29,7 @@ import requests
 from magic import Magic
 
 from rucio.common import config
+from rucio.common.exception import ConfigNotFound
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -88,7 +90,7 @@ def cacert_config(config: "ModuleType", rucio_home: str) -> Optional[Union["File
     logger = logging.getLogger('dumper.__init__')
     try:
         cacert = config.config_get('client', 'ca_cert').replace('$RUCIO_HOME', rucio_home)
-    except KeyError:
+    except (ConfigNotFound, KeyError, NoOptionError, NoSectionError):
         cacert = None
 
     if not cacert or not os.path.exists(cacert):
