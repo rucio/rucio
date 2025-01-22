@@ -39,19 +39,23 @@ class TestDumperPathParsing:
         prefix = ['a', 'b', 'c', 'd']
         assert remove_prefix(prefix, input_path) == expected_output
 
+    @pytest.mark.parametrize("expected_output", [
+        ('rucio/group10/perf-jets/02/1a/group10.perf-jets.data12_8TeV.periodI.physics_HadDelayed.jmr.2015.01.29.v01.log.4770484.000565.log.tgz'),
+        ('rucio/user/zxi/fd/73/user.zxi.361100.PowhegPythia8EvtGen.DAOD_TOPQ1.e3601_s2576_s2132_r6630_r6264_p2363.08-12-15.log.6249615.000015.log.tgz'),
+        ('rucio/group/det-ibl/00/5d/group.det-ibl.6044653.BTAGSTREAM._000014.root'),
+        ('SAM/testfile17-GET-ATLASSCRATCHDISK'),
+    ], ids=[
+        "normal_path",
+        "user_path",
+        "group_path",
+        "sam_path",
+    ])
+    def test_real_sample(self, expected_output):
+        prefix = components('/pnfs/grid.sara.nl/data/atlas/atlasscratchdisk/')
+        input = prefix + components(expected_output)
+        assert '/'.join(remove_prefix(prefix, input)) == expected_output
+
     def test_remove_prefix_empty_prefix(self):
         prefix = []
         path = ['a', 'b', 'c', 'd']
         assert remove_prefix(prefix, path) == path
-
-    def test_real_sample(self):
-        prefix = components('/pnfs/grid.sara.nl/data/atlas/atlasscratchdisk/')
-        path_regular = components('/pnfs/grid.sara.nl/data/atlas/atlasscratchdisk/rucio/group10/perf-jets/02/1a/group10.perf-jets.data12_8TeV.periodI.physics_HadDelayed.jmr.2015.01.29.v01.log.4770484.000565.log.tgz')
-        path_user = components('/pnfs/grid.sara.nl/data/atlas/atlasscratchdisk/rucio/user/zxi/fd/73/user.zxi.361100.PowhegPythia8EvtGen.DAOD_TOPQ1.e3601_s2576_s2132_r6630_r6264_p2363.08-12-15.log.6249615.000015.log.tgz')
-        path_group = components('/pnfs/grid.sara.nl/data/atlas/atlasscratchdisk/rucio/group/det-ibl/00/5d/group.det-ibl.6044653.BTAGSTREAM._000014.root')
-        path_sam = components('/pnfs/grid.sara.nl/data/atlas/atlasscratchdisk/SAM/testfile17-GET-ATLASSCRATCHDISK')
-
-        assert '/'.join(remove_prefix(prefix, path_regular)) == 'rucio/group10/perf-jets/02/1a/group10.perf-jets.data12_8TeV.periodI.physics_HadDelayed.jmr.2015.01.29.v01.log.4770484.000565.log.tgz', 'Normal path inside directory rucio/'
-        assert '/'.join(remove_prefix(prefix, path_user)) == 'rucio/user/zxi/fd/73/user.zxi.361100.PowhegPythia8EvtGen.DAOD_TOPQ1.e3601_s2576_s2132_r6630_r6264_p2363.08-12-15.log.6249615.000015.log.tgz', 'User path inside rucio/'
-        assert '/'.join(remove_prefix(prefix, path_group)) == 'rucio/group/det-ibl/00/5d/group.det-ibl.6044653.BTAGSTREAM._000014.root', 'Group path inside rucio/'
-        assert '/'.join(remove_prefix(prefix, path_sam)) == 'SAM/testfile17-GET-ATLASSCRATCHDISK', 'SAM path (outside rucio/)'
