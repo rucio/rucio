@@ -15,7 +15,6 @@
 import json
 import os
 import tempfile
-from datetime import datetime
 from io import StringIO
 from unittest import mock
 
@@ -27,9 +26,6 @@ from rucio.tests.common import mock_open
 
 from .mocks import gfal2
 
-DATE_SECONDS = "2015-03-10 14:00:35"
-DATE_TENTHS = "2015-03-10T14:00:35.5"
-DATE_MILLISECONDS = "2015-03-10T14:00:35.5"
 RSEPROTOCOL = {
     "hostname": "example.com",
     "scheme": "root",
@@ -96,12 +92,6 @@ def test_temp_file_cleanup_on_exception_with_final_name():
     finally:
         assert not os.path.exists(tmp_path)
         assert not os.path.exists(final_name)
-
-
-def test_to_date_format():
-    assert isinstance(dumper.to_datetime(DATE_SECONDS), datetime)
-    assert isinstance(dumper.to_datetime(DATE_TENTHS), datetime)
-    assert isinstance(dumper.to_datetime(DATE_MILLISECONDS), datetime)
 
 
 @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
