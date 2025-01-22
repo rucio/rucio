@@ -14,7 +14,16 @@
 
 import pytest
 
+from rucio.common import dumper
 from rucio.common.dumper.path_parsing import components, remove_prefix
+
+
+class TestDumper:
+    @pytest.mark.parametrize("code", [2, 3, 500])
+    def test_error(self, code):
+        with pytest.raises(SystemExit) as excinfo:
+            dumper.error('message', code)
+        assert excinfo.value.code == code
 
 
 class TestDumperPathParsing:

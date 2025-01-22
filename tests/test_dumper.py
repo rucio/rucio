@@ -54,11 +54,6 @@ class MockResponse:
         return self.json_data
 
 
-def test_error_ends_the_program():
-    with pytest.raises(SystemExit):
-        dumper.error('message', 2)
-
-
 def test_cacert_config_returns_a_string():
     assert isinstance(dumper.cacert_config(config, '.'), str)
 
