@@ -208,7 +208,6 @@ def temp_file(
 
 
 DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
-MILLISECONDS_RE = re.compile(r'\.(\d{3})Z$')
 
 
 def to_datetime(str_or_datetime: Union[datetime.datetime, str]) -> Optional[datetime.datetime]:
@@ -239,13 +238,11 @@ def to_datetime(str_or_datetime: Union[datetime.datetime, str]) -> Optional[date
             'Trying to parse "%s" date with resolution of milliseconds',
             str_or_datetime,
         )
-        milliseconds = int(MILLISECONDS_RE.search(str_or_datetime).group(1))
-        str_or_datetime = MILLISECONDS_RE.sub('', str_or_datetime)
         date = datetime.datetime.strptime(
             str_or_datetime,
-            DATETIME_FORMAT,
-        )
-        date = date + datetime.timedelta(microseconds=milliseconds * 1000)
+            # Adding milliseconds to the datetime format
+            DATETIME_FORMAT + '.%f',
+        ).replace(microsecond=0)
     return date
 
 
