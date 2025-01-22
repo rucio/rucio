@@ -152,7 +152,7 @@ def smart_open(filename: "GenericPath") -> Optional[Union["TextIO", gzip.GzipFil
         mime = get_libmagic_wrapper()
         file_type = mime.from_file(filename)
         if file_type in ['application/gzip', 'application/x-gzip']:
-            f = gzip.GzipFile(filename, 'rt')
+            f = gzip.GzipFile(filename, 'r')
         elif file_type == 'application/x-bzip2':
             f = bz2.open(filename, 'rt')
         else:
