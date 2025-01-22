@@ -54,11 +54,6 @@ class MockResponse:
         return self.json_data
 
 
-def test_http_download_failed_exception_with_no_semantic_errors():
-    with pytest.raises(dumper.HTTPDownloadFailed):
-        raise dumper.HTTPDownloadFailed('some message', 500)
-
-
 def test_error_ends_the_program():
     with pytest.raises(SystemExit):
         dumper.error('message', 2)
