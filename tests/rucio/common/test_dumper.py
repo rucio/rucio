@@ -12,27 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+
 from rucio.common.dumper.path_parsing import components, remove_prefix
 
 
 class TestDumperPathParsing:
-    def test_remove_prefix(self):
+    @pytest.mark.parametrize("input_path, expected_output", [
+        (['a', 'b', 'c', 'd', 'e', 'f'], ['e', 'f']),
+        (['c', 'd', 'e', 'f'], ['e', 'f']),
+        (['e', 'f', 'g'], ['e', 'f', 'g']),
+        (['c', 'a', 'e', 'f'], ['c', 'a', 'e', 'f']),
+        (['d', 'a', 'e'], ['a', 'e']),
+        (['a', 'b', 'c', 'd'], []),
+        (['a', 'b', 'c', 'd'], []),
+    ], ids=[
+        "full",
+        "relative",
+        "exclusive",
+        "mixed",
+        "mixed2",
+        "prefix",
+        "empty_path",
+    ])
+    def test_remove_prefix(self, input_path, expected_output):
         prefix = ['a', 'b', 'c', 'd']
+        assert remove_prefix(prefix, input_path) == expected_output
 
-        full = ['a', 'b', 'c', 'd', 'e', 'f']  # -> e,f
-        relative = ['c', 'd', 'e', 'f']  # -> e,f
-        exclusive = ['e', 'f', 'g']  # -> e,f,g
-        mixed = ['c', 'a', 'e', 'f']  # -> c,a,e,f
-        mixed2 = ['d', 'a', 'e']  # -> a,e
-
-        assert remove_prefix(prefix, full) == ['e', 'f']
-        assert remove_prefix(prefix, relative) == ['e', 'f']
-        assert remove_prefix(prefix, exclusive) == ['e', 'f', 'g']
-        assert remove_prefix(prefix, mixed) == ['c', 'a', 'e', 'f']
-        assert remove_prefix(prefix, mixed2) == ['a', 'e']
-        assert remove_prefix(prefix, prefix) == []
-        assert remove_prefix([], relative) == relative
-        assert remove_prefix(prefix, []) == []
+    def test_remove_prefix_empty_prefix(self):
+        prefix = []
+        path = ['a', 'b', 'c', 'd']
+        assert remove_prefix(prefix, path) == path
 
     def test_real_sample(self):
         prefix = components('/pnfs/grid.sara.nl/data/atlas/atlasscratchdisk/')
