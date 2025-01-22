@@ -21,14 +21,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 
-def prefix(agis_data, endpoint_name):
-    ddmendpoint_data = list(filter(
-        lambda d: d['name'] == endpoint_name,
-        agis_data,
-    ))[0]
-    return ddmendpoint_data['endpoint']
-
-
 def remove_prefix(prefix: 'Iterable', path: 'Iterable') -> 'Iterable':
     iprefix = iter(prefix)
     ipath = iter(path)
