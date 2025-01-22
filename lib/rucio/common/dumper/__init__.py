@@ -91,7 +91,7 @@ def cacert_config(config: "ModuleType", rucio_home: str) -> Optional[Union["File
     except KeyError:
         cacert = None
 
-    if cacert is None or not os.path.exists(cacert):
+    if not cacert or not os.path.exists(cacert):
         logger.warning('Configured CA Certificate file "%s" not found: Host certificate verification disabled', cacert)
         cacert = False
 
