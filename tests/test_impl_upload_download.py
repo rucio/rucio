@@ -146,7 +146,7 @@ class TestImplUploadDownload:
         print(out)
         print(err)
         # get the rule for the file
-        cmd = r"rucio rule list --did {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(scope, tmp_file1.name)
+        cmd = r"rucio rule list {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(scope, tmp_file1.name)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -157,7 +157,7 @@ class TestImplUploadDownload:
         exitcode, out, err = execute(cmd)
         print(out, err)
         # delete the physical file
-        cmd = 'rucio replica list file --pfns --did {0}:{1}'.format(scope, tmp_file1.name)
+        cmd = 'rucio replica list file --pfns {0}:{1}'.format(scope, tmp_file1.name)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
