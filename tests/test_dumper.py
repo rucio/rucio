@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import bz2
 import json
 import os
 import tempfile
@@ -24,7 +23,7 @@ import pytest
 import requests
 
 from rucio.common import dumper
-from rucio.tests.common import make_temp_file, mock_open
+from rucio.tests.common import mock_open
 
 from .mocks import gfal2
 
@@ -52,22 +51,6 @@ class MockResponse:
 
     def json(self):
         return self.json_data
-
-
-def test_smart_open_for_text_file():
-    tmp = make_temp_file('/tmp', 'abcdef')
-    assert hasattr(dumper.smart_open(tmp), 'read')  # check if object is file - python2/3 compatibility
-    os.unlink(tmp)
-
-
-def test_smart_open_for_bz2_file():
-    fd, path = tempfile.mkstemp()
-    comp = bz2.BZ2Compressor()
-    with os.fdopen(fd, 'wb') as f:
-        f.write(comp.compress(b'abcdef'))
-        f.write(comp.flush())
-    assert not isinstance(dumper.smart_open(path), bz2.BZ2File)
-    os.unlink(path)
 
 
 def test_temp_file_with_final_name_creates_a_tmp_file_and_then_removes_it():
