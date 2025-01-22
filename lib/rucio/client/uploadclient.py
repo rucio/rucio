@@ -81,6 +81,16 @@ class UploadClient:
         self.tracing = tracing
         if not self.tracing:
             logger(logging.DEBUG, 'Tracing is turned off.')
+        if self.client.account is None:
+            self.logger(logging.DEBUG, 'No account specified, querying rucio.')
+            try:
+                acc = self.client.whoami()
+                if acc is None:
+                    raise InputValidationError('account not specified and rucio has no account with your identity')
+                self.client.account = acc['account']
+            except RucioException as e:
+                raise InputValidationError('account not specified and problem with rucio: %s' % e)
+            self.logger(logging.DEBUG, 'Discovered account as "%s"' % self.client.account)
         self.default_file_scope: Final[str] = 'user.' + self.client.account
         self.rses = {}
         self.rse_expressions = {}
