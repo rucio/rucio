@@ -28,7 +28,6 @@ import requests
 from magic import Magic
 
 from rucio.common import config
-from rucio.core.rse import get_rse_id, get_rse_protocols
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -243,6 +242,7 @@ def to_datetime(str_or_datetime: Union[datetime.datetime, str]) -> Optional[date
 
 
 def ddmendpoint_preferred_protocol(ddmendpoint: str) -> "RSEProtocolDict":
+    from rucio.core.rse import get_rse_id, get_rse_protocols  # pylint: disable=import-outside-toplevel
     return next(p for p in get_rse_protocols(get_rse_id(ddmendpoint))['protocols'] if p['domains']['wan']['read'] == 1)
 
 
