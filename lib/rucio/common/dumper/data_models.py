@@ -66,6 +66,7 @@ class DataModel:
                 raise err
 
         self.date = None
+        self.rse = None
 
     @classmethod
     def get_fieldnames(cls) -> list[str]:
