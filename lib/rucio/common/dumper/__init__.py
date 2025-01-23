@@ -25,6 +25,12 @@ from configparser import NoOptionError, NoSectionError
 from functools import cache
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
+try:
+    # requires non-Python package pre-requisites that break unit tests
+    import gfal2
+except ModuleNotFoundError:
+    pass
+
 import requests
 from magic import Magic
 
@@ -308,8 +314,6 @@ def gfal_download_to_file(url: str, file_: "IO") -> None:
     Download the file in `url` storing it in the `file_` file-like
     object.
     '''
-    import gfal2  # pylint: disable=import-outside-toplevel
-
     logger = logging.getLogger('dumper.__init__')
     ctx = gfal2.creat_context()  # pylint: disable=no-member
     infile = ctx.open(url, 'r')
