@@ -114,10 +114,7 @@ def setup_activemq(
     brokers_alias = []
     brokers_resolved = []
     try:
-        brokers_alias = [
-            broker.strip()
-            for broker in config_get("messaging-hermes", "brokers").split(",")
-        ]
+        brokers_alias = config_get_list("messaging-hermes", "brokers")
     except:
         raise Exception("Could not load brokers from configuration")
 

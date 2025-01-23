@@ -179,7 +179,7 @@ class Replicas(ErrorHandlingMethodView):
           description: The sorting algorithm.
           schema:
             type: string
-            enum: ["geoip", "closeness", "dynamic", "ranking", "random"]
+            enum: ["geoip", "random"]
         - name: limit
           in: query
           description: The maximum number of replicas returned.
@@ -523,12 +523,12 @@ class ListReplicas(ErrorHandlingMethodView):
             type: integer
         - name: select
           in: query
-          description: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
+          description: Requested sorting of the result, e.g., 'geoip', 'random'.
           schema:
             type: string
         - name: sort
           in: query
-          description: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
+          description: Requested sorting of the result, e.g., 'geoip', 'random'.
           schema:
             type: string
         requestBody:
@@ -558,7 +558,7 @@ class ListReplicas(ErrorHandlingMethodView):
                     items:
                       type: string
                   sort:
-                    description: Requested sorting of the result, e.g., 'geoip', 'closeness', 'dynamic', 'ranking', 'random'.
+                    description: Requested sorting of the result, e.g., 'geoip', 'random'.
                     type: string
                   unavailable:
                     description: If unavailable rse should be considered.
