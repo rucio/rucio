@@ -18,12 +18,15 @@ import os
 import tempfile
 import uuid
 from datetime import datetime
+from io import StringIO
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
 from rucio.common import config, dumper
 from rucio.common.dumper.path_parsing import components, remove_prefix
+from rucio.tests.common import mock_open
 
 
 class TestDumper:
@@ -152,6 +155,71 @@ class TestDumper:
         with patch('rucio.common.dumper.ddmendpoint_preferred_protocol', Mock(side_effect=StopIteration())):
             with pytest.raises(StopIteration):
                 dumper.ddmendpoint_url('SOMEENDPOINT')
+
+    def test_http_download_to_file_without_session_uses_requests_get(self):
+        with patch('requests.get') as mock_get:
+            response = requests.Response()
+            response.status_code = 200
+            iter_content_mock = Mock()
+            iter_content_mock.return_value = ['content']
+            response.iter_content = iter_content_mock
+            mock_get.return_value = response
+            stringio = StringIO()
+
+            dumper.http_download_to_file('http://example.com', stringio)
+
+            stringio.seek(0)
+            assert stringio.read() == 'content'
+
+    def test_http_download_to_file_with_session(self):
+        response = requests.Response()
+        response.status_code = 200
+        iter_content_mock = Mock()
+        iter_content_mock.return_value = ['content']
+        response.iter_content = iter_content_mock
+
+        stringio = StringIO()
+        session = requests.Session()
+        session_get_mock = Mock()
+        session_get_mock.return_value = response
+        session.get = session_get_mock
+
+        dumper.http_download_to_file('http://example.com', stringio, session)
+        stringio.seek(0)
+        assert stringio.read() == 'content'
+
+    def test_http_download_to_file_throws_exception_on_error(self):
+        response = requests.Response()
+        response.status_code = 404
+        iter_content_mock = Mock()
+        iter_content_mock.return_value = ['content']
+        response.iter_content = iter_content_mock
+
+        stringio = StringIO()
+        session = requests.Session()
+        session_get_mock = Mock()
+        session_get_mock.return_value = response
+        session.get = session_get_mock
+
+        with pytest.raises(dumper.HTTPDownloadFailed):
+            dumper.http_download_to_file('http://example.com', stringio, session)
+
+    def test_http_download_creates_file_with_content(self):
+        response = requests.Response()
+        response.status_code = 200
+        iter_content_mock = Mock()
+        iter_content_mock.return_value = ['abc']
+        response.iter_content = iter_content_mock
+
+        with patch('requests.get') as mock_get:
+            stringio = StringIO()
+            mock_get.return_value = response
+
+            with mock_open(dumper, stringio):
+                dumper.http_download('http://example.com', 'filename')
+
+            stringio.seek(0)
+            assert stringio.read() == 'abc'
 
 
 class TestDumperPathParsing:
