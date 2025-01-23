@@ -691,3 +691,18 @@ def scope_and_rse(mock_scope, test_scope):
     if len(rses) == 0:
         return mock_scope, 'MOCK-POSIX'
     return test_scope, rses[0]
+
+
+@pytest.fixture
+def rse_protocol() -> "Iterator[dict[str, Any]]":
+    yield {
+        "hostname": "example.com",
+        "scheme": "root",
+        "port": 1094,
+        "prefix": "//defdatadisk/rucio/",
+        "domains": {
+            "wan": {
+                "read": 1,
+            }
+        },
+    }
