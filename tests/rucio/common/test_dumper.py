@@ -86,7 +86,7 @@ class TestDumper:
         full_path.write_bytes(file_content)
 
         opened_file = dumper.smart_open(full_path)
-        opened_file_content = opened_file.read().decode('utf-8')
+        opened_file_content = opened_file.read()
         assert opened_file_content == file_content_uncompressed
 
     def test_smart_open_bz2(self, tmp_path):
