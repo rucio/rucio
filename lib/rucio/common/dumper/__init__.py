@@ -145,7 +145,7 @@ def is_plaintext(filename: "GenericPath") -> bool:
     return mime.from_file(filename) == 'text/plain'
 
 
-def smart_open(filename: "GenericPath") -> Optional[Union["TextIO", gzip.GzipFile]]:
+def smart_open(filename: "GenericPath") -> Optional["TextIO"]:
     '''
     Returns an open file object if `filename` is plain text, else assumes
     it is a bzip2 compressed file and returns a file-like object to
@@ -158,7 +158,7 @@ def smart_open(filename: "GenericPath") -> Optional[Union["TextIO", gzip.GzipFil
         mime = get_libmagic_wrapper()
         file_type = mime.from_file(filename)
         if file_type in ['application/gzip', 'application/x-gzip']:
-            f = gzip.GzipFile(filename, 'r')
+            f = gzip.open(filename, 'rt')
         elif file_type == 'application/x-bzip2':
             f = bz2.open(filename, 'rt')
         else:
