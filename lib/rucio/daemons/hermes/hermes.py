@@ -514,6 +514,33 @@ def aggregate_to_influx(
     return 204
 
 
+def build_message_dict(
+        bulk: int,
+        worker_number: int,
+        total_workers: int,
+        message_dict: dict[str, list[dict[str, Any]]],
+        logger: "LoggerFunction",
+        service: str = ""
+) -> None:
+    start_time = time.time()
+    messages = retrieve_messages(
+        bulk=bulk,
+        old_mode=False,
+        thread=worker_number,
+        total_threads=total_workers,
+        service_filter=service
+    )
+
+    if messages and service not in message_dict:
+        message_dict[service] = messages.copy()
+        logger(
+            logging.DEBUG,
+            "Retrieved %i messages retrieved in %s seconds",
+            len(messages),
+            time.time() - start_time,
+        )
+
+
 def hermes(once: bool = False, bulk: int = 1000, sleep_time: int = 10) -> None:
     """
     Creates a Hermes Worker that can submit messages to different services (InfluXDB, ElasticSearch, ActiveMQ)
@@ -582,30 +609,30 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
 
     worker_number, total_workers, logger = heartbeat_handler.live()
     message_dict = {}
-    message_ids = []
-    start_time = time.time()
-    messages = retrieve_messages(
-        bulk=bulk,
-        old_mode=False,
-        thread=worker_number,
-        total_threads=total_workers,
-    )
+    query_by_service = config_get_bool("hermes", "query_by_service", default=False)
 
-    to_delete = []
-    if messages:
-        for message in messages:
-            service = message["services"]
-            if service not in message_dict:
-                message_dict[service] = []
-            message_dict[service].append(message)
-            message_ids.append(message["id"])
-        logger(
-            logging.DEBUG,
-            "Retrieved %i messages retrieved in %s seconds",
-            len(messages),
-            time.time() - start_time,
+    # query_by_service is a toggleable behaviour switch between collecting bulk number of messages across all services when false, to collecting bulk messages from each service when true.
+    if query_by_service:
+        for service in services_list:
+            build_message_dict(
+                bulk=bulk,
+                worker_number=worker_number,
+                total_workers=total_workers,
+                message_dict=message_dict,
+                logger=logger,
+                service=service
+            )
+    else:
+        build_message_dict(
+            bulk=bulk,
+            worker_number=worker_number,
+            total_workers=total_workers,
+            message_dict=message_dict,
+            logger=logger
         )
 
+    if message_dict:
+        to_delete = []
         if "influx" in message_dict and influx_endpoint:
             # For influxDB, bulk submission, either everything succeeds or fails
             t_time = time.time()
