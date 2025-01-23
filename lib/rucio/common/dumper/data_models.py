@@ -92,7 +92,7 @@ class DataModel:
 
     @classmethod
     def csv_header(
-        cls, 
+        cls,
         fields: Optional["Iterable[str]"] = None
     ) -> str:
         """
@@ -103,7 +103,7 @@ class DataModel:
         return ','.join(fields)
 
     def formated_fields(
-        self, 
+        self,
         print_fields: Optional["Iterable[str]"] = None
     ) -> list[str]:
         """
@@ -121,7 +121,7 @@ class DataModel:
         return fields
 
     def csv(
-        self, 
+        self,
         fields: Optional["Iterable[str]"] = None
     ) -> str:
         """
@@ -131,30 +131,30 @@ class DataModel:
 
     @classmethod
     def tabulate_from(
-        cls, 
-        iter_: "Iterable[DataModel]", 
-        format_: str = 'simple', 
+        cls,
+        iter_: "Iterable[DataModel]",
+        format_: str = 'simple',
         fields: Optional["Iterable[str]"] = None
     ) -> str:
         return tabulate(
             (row.formated_fields(fields) for row in iter_),
-            (t[0] for t in cls.SCHEMA),
+            (t[0] for t in cls.SCHEMA),  # type: ignore
             format_,
         )
 
     @classmethod
     def each(
-        cls, 
-        file: "TextIO", 
-        rse: Optional[str] = None, 
-        date: Optional[Union[str, datetime.datetime]] = None, 
+        cls,
+        file: "TextIO",
+        rse: Optional[str] = None,
+        date: Optional[Union[str, datetime.datetime]] = None,
         filter_: Optional["Callable"] = None
     ) -> "Iterator[DataModel]":
         if filter_ is None:
 
             def placeholder_filter(record: "DataModel") -> bool:
                 return True
-            
+
             filter_ = placeholder_filter
         for line in file:
             record = cls.parse_line(line, rse, date)
@@ -163,9 +163,9 @@ class DataModel:
 
     @classmethod
     def parse_line(
-        cls, 
-        line: str, 
-        rse: Optional[str] = None, 
+        cls,
+        line: str,
+        rse: Optional[str] = None,
         date: Optional[Union[str, datetime.datetime]] = None
     ) -> "DataModel":
         fields = (field.strip() for field in line.split('\t'))
@@ -176,9 +176,9 @@ class DataModel:
 
     @classmethod
     def download(
-        cls, 
-        rse: str, 
-        date: Union[str, datetime.datetime] = 'latest', 
+        cls,
+        rse: str,
+        date: Union[str, datetime.datetime] = 'latest',
         cache_dir: str = DUMPS_CACHE_DIR
     ) -> str:
         """
@@ -230,17 +230,17 @@ class DataModel:
 
     @classmethod
     def dump(
-        cls, 
-        rse: str, 
-        date: Union[str, datetime.datetime] = 'latest', 
+        cls,
+        rse: str,
+        date: Union[str, datetime.datetime] = 'latest',
         filter_: Optional["Callable"] = None
-    ):
+    ) -> "Iterator[DataModel]":
         filename = cls.download(rse, date)
 
         # Should check errors, content size at least
         file = smart_open(filename)
 
-        return cls.each(file, rse, date, filter_)
+        return cls.each(file, rse, date, filter_)  # type: ignore (file could be None)
 
 
 class Dataset(DataModel):
