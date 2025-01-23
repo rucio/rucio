@@ -88,7 +88,6 @@ def test_returns_a_list_of_links():
 def test_identifies_known_protocols():
     """ test_protocol_identifies_known_protocols """
     assert srmdumps.protocol('davs://some/example') == 'davs'
-    assert srmdumps.protocol('gsiftp://some/example') == 'gsiftp'
     assert srmdumps.protocol('http://some/example') == 'http'
     assert srmdumps.protocol('https://some/example') == 'https'
     assert srmdumps.protocol('root://some/example') == 'root'

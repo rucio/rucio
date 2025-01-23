@@ -299,7 +299,7 @@ class RSEClient(BaseClient):
         :param protocol_domain: The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL' (as default).
         :param operation: The name of the requested operation (read, write, or delete).
                           If None, all operations are queried.
-        :param scheme: The identifier of the requested protocol (gsiftp, https, davs, etc).
+        :param scheme: The identifier of the requested protocol (https, davs, etc).
 
         :returns: A dictionary of LFN / PFN pairs.
         :raises RSENotFound: if the RSE doesn't exist.
