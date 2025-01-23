@@ -14,6 +14,8 @@
 
 import bz2
 import gzip
+import os
+import tempfile
 import uuid
 from datetime import datetime
 from unittest.mock import Mock, patch
@@ -106,6 +108,41 @@ class TestDumper:
     ])
     def test_to_datetime(self, in_string):
         assert dumper.to_datetime(in_string) == datetime(2015, 3, 10, 14, 0, 35)
+
+    def test_temp_file_with_final_name_creates_a_tmp_file_and_then_removes_it(self, tmp_path):
+        final_name = tempfile.mktemp()
+        with dumper.temp_file(tmp_path, final_name) as (_, temp_file_path):
+            temp_file_path = os.path.join(tmp_path, temp_file_path)
+            assert os.path.exists(temp_file_path)
+            assert not os.path.exists(final_name)
+
+        assert os.path.exists(final_name)
+        assert not os.path.exists(temp_file_path)
+
+    def test_temp_file_with_final_name_creates_a_tmp_file_and_keeps_it(self, tmp_path):
+        with dumper.temp_file(tmp_path) as (_, temp_file_path):
+            temp_file_path = os.path.join(tmp_path, temp_file_path)
+            assert os.path.exists(temp_file_path)
+
+        assert os.path.exists(temp_file_path)
+
+    def test_temp_file_cleanup_on_exception(self, tmp_path):
+        try:
+            with dumper.temp_file(tmp_path) as (_, temp_file_path):
+                tmp_path = os.path.join(tmp_path, temp_file_path)
+                raise Exception
+        except Exception:
+            assert not os.path.exists(temp_file_path)
+
+    def test_temp_file_cleanup_on_exception_with_final_name(self, tmp_path):
+        final_name = tempfile.mktemp()
+        try:
+            with dumper.temp_file(tmp_path, final_name) as (_, temp_file_patb):
+                temp_file_patb = os.path.join(tmp_path, temp_file_patb)
+                raise Exception
+        except Exception:
+            assert not os.path.exists(temp_file_patb)
+            assert not os.path.exists(final_name)
 
 
 class TestDumperPathParsing:
