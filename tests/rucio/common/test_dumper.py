@@ -144,6 +144,15 @@ class TestDumper:
             assert not os.path.exists(temp_file_patb)
             assert not os.path.exists(final_name)
 
+    def test_ddmendpoint_url_builds_url_from_ddmendpoint_preferred_protocol(self, rse_protocol):
+        with patch('rucio.common.dumper.ddmendpoint_preferred_protocol', Mock(return_value=rse_protocol)):
+            assert dumper.ddmendpoint_url('SOMEENDPOINT') == 'root://example.com:1094//defdatadisk/'
+
+    def test_ddmendpoint_url_fails_on_unexistent_entry(self):
+        with patch('rucio.common.dumper.ddmendpoint_preferred_protocol', Mock(side_effect=StopIteration())):
+            with pytest.raises(StopIteration):
+                dumper.ddmendpoint_url('SOMEENDPOINT')
+
 
 class TestDumperPathParsing:
     @pytest.mark.parametrize("input_path, expected_output", [
