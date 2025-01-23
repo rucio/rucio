@@ -30,11 +30,10 @@ from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get, config_get_bool
+from rucio.common.config import config_get, config_get_bool, config_get_float
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.types import InternalAccount, LoggerFunction
 from rucio.common.utils import dict_chunks
 from rucio.core import request as request_core
 from rucio.core import transfer as transfer_core
@@ -48,6 +47,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
     from types import FrameType
 
+    from rucio.common.types import LoggerFunction
     from rucio.daemons.common import HeartbeatHandler
     from rucio.transfertool.transfertool import Transfertool
 
@@ -116,9 +116,9 @@ def _handle_requests(
         timeout: Optional[int],
         transfertool: str,
         transfer_stats_manager: request_core.TransferStatsManager,
-        oidc_account: Optional[str],
+        oidc_support: bool,
         *,
-        logger: LoggerFunction = logging.log,
+        logger: "LoggerFunction" = logging.log,
 ) -> None:
     transfs.sort(key=lambda t: (t['external_host'] or '',
                                 t['scope'].vo if multi_vo else '',
@@ -136,15 +136,9 @@ def _handle_requests(
 
                 transfertool_kwargs = {}
                 if transfertool_cls.external_name == FTS3Transfertool.external_name:
-                    account = None
-                    if oidc_account:
-                        if vo:
-                            account = InternalAccount(oidc_account, vo=vo)
-                        else:
-                            account = InternalAccount(oidc_account)
                     transfertool_kwargs.update({
                         'vo': vo,
-                        'oidc_account': account,
+                        'oidc_support': oidc_support,
                     })
 
                 transfertool_obj = transfertool_cls(external_host=external_host, **transfertool_kwargs)
@@ -176,13 +170,9 @@ def poller(
     """
     Main loop to check the status of a transfer primitive with a transfertool.
     """
-
-    timeout = config_get('conveyor', 'poll_timeout', default=None, raise_exception=False)
-    if timeout:
-        timeout = float(timeout)
-
+    timeout = config_get_float('conveyor', 'poll_timeout', default=None, raise_exception=False)
     multi_vo = config_get_bool('common', 'multi_vo', False, None)
-    oidc_account = config_get('conveyor', 'poller_oidc_account', False, None)
+    oidc_support = config_get_bool('conveyor', 'poller_oidc_support', default=False, raise_exception=False)
 
     executable = DAEMON_NAME
 
@@ -227,7 +217,7 @@ def poller(
             fts_bulk=fts_bulk,
             multi_vo=multi_vo,
             timeout=timeout,  # type: ignore (unclear if timeout is meant to be int or float)
-            oidc_account=oidc_account,
+            oidc_support=oidc_support,
             transfertool=transfertool,  # type: ignore (transfertool is not None)
             transfer_stats_manager=transfer_stats_manager,
         )

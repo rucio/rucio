@@ -440,10 +440,14 @@ def db_session() -> "Iterator[scoped_session]":
 
 def __get_fixture_param(request: pytest.FixtureRequest) -> Any:
     fixture_param = getattr(request, "param", None)
-    if not fixture_param and request.instance:
+    try:
+        mark_iterable = request.instance.pytestmark
+    except AttributeError:
+        mark_iterable = None
+    if not fixture_param and mark_iterable:
         # Parametrize support is incomplete for legacy unittest test cases
         # Manually retrieve the parameters from the list of marks:
-        mark = next(iter(filter(lambda m: m.name == 'parametrize', request.instance.pytestmark)), None)
+        mark = next(iter(filter(lambda m: m.name == 'parametrize', mark_iterable)), None)
         if mark:
             fixture_param = mark.args[1][0]
     return fixture_param
@@ -571,6 +575,22 @@ def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
 
     with mock.patch('rucio.core.config.models.Config', new=InMemoryConfig):
         yield
+
+
+@pytest.fixture(scope="session")
+def temp_config_file() -> "Iterator[ConfigParser]":
+    """
+    Session-scoped fixture that generates a temporary file and sets it as the Rucio config file.
+    Used to test when no Rucio config file is already present.
+    """
+    import tempfile
+
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(delete=True) as temp:
+        # Set the environment variable to the name of the temporary file
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setenv("RUCIO_CONFIG", temp.name)
+            yield mp
 
 
 @pytest.fixture

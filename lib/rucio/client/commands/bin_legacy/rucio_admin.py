@@ -447,10 +447,11 @@ def info_rse(args, client, logger, console, spinner):
                 else:
                     print('    ' + item + ': ' + str(protocol[item]))
 
-    if cli_config == 'rich':
-        table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
-        output.append(Padding.indent(table, 2))
+        if cli_config == 'rich':
+            table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+            output.append(Padding.indent(table, 2))
 
+    if cli_config == 'rich':
         header = ['SOURCE', 'USED', 'FILES', 'FREE', 'TOTAL', 'UPDATED AT']
         key2id = {header[i].lower().replace(' ', '_'): i for i in range(len(header))}
         table_data = []

@@ -17,10 +17,11 @@
 import configparser
 import json
 import os
+from functools import cache
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, overload
 
 from rucio.common import exception
-from rucio.common.exception import ConfigNotFound, DatabaseException
+from rucio.common.exception import ConfigLoadingError, ConfigNotFound, DatabaseException
 
 _T = TypeVar('_T')
 _U = TypeVar('_U')
@@ -656,7 +657,6 @@ def __config_get_table(
     :raises ConfigNotFound
     :raises DatabaseException
     """
-    global __CONFIG
     try:
         from rucio.core.config import get as core_config_get
         return core_config_get(section, option, default=default, session=session, use_cache=use_cache,
@@ -665,7 +665,7 @@ def __config_get_table(
         if raise_exception and default is None:
             raise err
         if clean_cached:
-            __CONFIG = None
+            clean_cached_config()
         return default
 
 
@@ -753,21 +753,15 @@ def get_rse_credentials(path_to_credentials_file: Optional[Union[str, os.PathLik
     return credentials
 
 
-__CONFIG = None
-
-
+@cache
 def get_config() -> configparser.ConfigParser:
     """Factory function for the configuration class. Returns the ConfigParser instance."""
-    global __CONFIG
-    if __CONFIG is None:
-        __CONFIG = Config()
-    return __CONFIG.parser
+    return Config().parser
 
 
 def clean_cached_config() -> None:
     """Deletes the cached config singleton instance."""
-    global __CONFIG
-    __CONFIG = None
+    get_config.cache_clear()
 
 
 class Config:
@@ -790,7 +784,4 @@ class Config:
                     '\n\t' + '\n\t'.join(configs))
 
         if not self.parser.read(self.configfile) == [self.configfile]:
-            raise ConfigNotFound(
-                'Could not load Rucio configuration file. '
-                'Rucio tried loading the following configuration file:'
-                '\n\t' + self.configfile)
+            raise ConfigLoadingError(self.configfile)

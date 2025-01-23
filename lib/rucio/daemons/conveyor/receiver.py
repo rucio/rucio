@@ -28,7 +28,7 @@ import stomp
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.logging import setup_logging
 from rucio.common.policy import get_policy
 from rucio.core import request as request_core
@@ -134,7 +134,7 @@ def receiver(
     brokers_alias = []
     brokers_resolved = []
     try:
-        brokers_alias = [b.strip() for b in config_get('messaging-fts3', 'brokers').split(',')]
+        brokers_alias = config_get_list('messaging-fts3', 'brokers')
     except Exception:
         raise Exception('Could not load brokers from configuration')
 

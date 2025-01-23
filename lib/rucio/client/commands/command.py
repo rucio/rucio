@@ -65,11 +65,17 @@ class Commands:
 
     @staticmethod
     def _add_parsers() -> argparse.ArgumentParser:
-        parser = argparse.ArgumentParser(description='CLI Rucio Client. (Use --legacy to view CLI from <36.0)')
+        all_commands = Commands._all_commands()
+        groups = ""
+        for command_name, command in all_commands.items():
+            help = command(None, None, None, None, None).module_help().split('\n')[0]  # type: ignore
+            groups += f"    {command_name.ljust(20)}{help}\n"
+        description = f'CLI Rucio Client. (Use --legacy to view CLI from <36.0)\n\nPossible Arguments:\n{groups} \nView `rucio <command> -h` for more information and subcommands.'
+        parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawDescriptionHelpFormatter)
         Commands._main_parser(parser)
 
-        subparsers = parser.add_subparsers(dest="command", help="Command to execute, see `{command} -h` for more details and subcommands.")
-        for command in Commands._all_commands().values():
+        subparsers = parser.add_subparsers(dest="command", help=argparse.SUPPRESS)
+        for command in all_commands.values():
             command(None, None, None, None, None).parser(subparsers)  # type: ignore
 
         return parser

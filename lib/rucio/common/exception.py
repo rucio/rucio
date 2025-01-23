@@ -1167,3 +1167,18 @@ class ChecksumCalculationError(RucioException):
         self.filepath = filepath
         self._message = 'An error occurred while calculating the %s checksum of file %s.' % (self.algorithm_name, self.filepath)
         self.error_code = 111
+
+
+class ConfigLoadingError(RucioException):
+    """
+    An error occurred while loading the configuration.
+    """
+    def __init__(
+            self,
+            config_file: str,
+            *args,
+            **kwargs
+    ):
+        super(ConfigLoadingError, self).__init__(*args, **kwargs)
+        self._message = 'Could not load Rucio configuration file. Rucio tried loading the following configuration file:\n\t %s' % (config_file)
+        self.error_code = 112

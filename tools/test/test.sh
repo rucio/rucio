@@ -68,21 +68,6 @@ elif [ "$SUITE" == "syntax" ]; then
     srchome
     tools/test/check_syntax.sh
 
-elif [ "$SUITE" == "docs" ]; then
-    python3 $SOURCE_PATH/tools/merge_rucio_configs.py --use-env \
-        -s "$CFG_PATH"/rucio_autotests_common.cfg "$CFG_PATH"/rucio_sqlite.cfg \
-        -d "$SOURCE_PATH"/etc/rucio.cfg
-    srchome
-    export RUCIO_CLIENT_API_OUTPUT="rucio_client_api.md"
-    export RUCIO_REST_API_OUTPUT="rucio_rest_api.md"
-    tools/generate_doc.py
-    test -s $RUCIO_CLIENT_API_OUTPUT
-    test -s $RUCIO_REST_API_OUTPUT
-
-    export REST_API_DOC_FILENAME="api_doc.yaml"
-    tools/generate_rest_api_doc.py > $REST_API_DOC_FILENAME
-    tools/test/check_rest_api_documentation.sh $REST_API_DOC_FILENAME
-
 elif [ "$SUITE" == "votest" ]; then
     wait_for_database
     VOTEST_HELPER=$RUCIO_HOME/tools/test/votest_helper.py

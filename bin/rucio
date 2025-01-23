@@ -41,8 +41,8 @@ def map_legacy_command() -> Optional[list[str]]:
     new_command = None
     if command not in ("-h", "--version", None):
         command_map = {
-            "list-file-replicas": ["replica", "list"],
-            "list-dataset-replicas": ["replica", "dataset"],
+            "list-file-replicas": ["replica", "list", "file"],
+            "list-dataset-replicas": ["replica", "list", "dataset"],
             "add-dataset": ["did", "add", "--type dataset"],
             "add-container": ["did", "add", "--type container"],
             "attach": ["did", "content", "add"],
@@ -64,11 +64,11 @@ def map_legacy_command() -> Optional[list[str]]:
             "set-metadata": ["did", "metadata", "add"],
             "delete-metadata": ["did", "metadata", "remove"],
             "list-rse-usage": ["rse", "show"],
-            "list-account-usage": ["account", "usage"],
+            "list-account-usage": ["account", "limit", "list"],
             "list-account-limits": ["account", "limit", "list"],
             "add-rule": ["rule", "add"],
             "delete-rule": ["rule", "remove"],
-            "rule-info": ["rule", "info"],
+            "rule-info": ["rule", "show"],
             "list-rules": ["rule", "list"],
             "list-rules-history": ["rule", "history"],
             "update-rule": ["rule", "update"],
