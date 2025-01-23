@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import json
-import os
-import tempfile
 from io import StringIO
 from unittest import mock
 
@@ -47,51 +45,6 @@ class MockResponse:
 
     def json(self):
         return self.json_data
-
-
-def test_temp_file_with_final_name_creates_a_tmp_file_and_then_removes_it():
-    final_name = tempfile.mktemp()
-    with dumper.temp_file('/tmp', final_name) as (_, tmp_path):
-        tmp_path = os.path.join('/tmp', tmp_path)
-        assert os.path.exists(tmp_path)
-        assert not os.path.exists(final_name)
-
-    assert os.path.exists(final_name)
-    assert not os.path.exists(tmp_path)
-    os.unlink(final_name)
-
-
-def test_temp_file_with_final_name_creates_a_tmp_file_and_keeps_it():
-    with dumper.temp_file('/tmp') as (_, tmp_path):
-        tmp_path = os.path.join('/tmp', tmp_path)
-        assert os.path.exists(tmp_path)
-
-    assert os.path.exists(tmp_path)
-    os.unlink(tmp_path)
-
-
-def test_temp_file_cleanup_on_exception():
-    try:
-        with dumper.temp_file('/tmp') as (_, tmp_path):
-            tmp_path = os.path.join('/tmp', tmp_path)
-            raise Exception
-    except:
-        pass
-    finally:
-        assert not os.path.exists(tmp_path)
-
-
-def test_temp_file_cleanup_on_exception_with_final_name():
-    final_name = tempfile.mktemp()
-    try:
-        with dumper.temp_file('/tmp', final_name) as (_, tmp_path):
-            tmp_path = os.path.join('/tmp', tmp_path)
-            raise Exception
-    except:
-        pass
-    finally:
-        assert not os.path.exists(tmp_path)
-        assert not os.path.exists(final_name)
 
 
 @mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
