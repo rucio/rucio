@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import bz2
+import glob
 import gzip
 import os
 import tempfile
@@ -25,6 +26,7 @@ import pytest
 import requests
 
 from rucio.common import config, dumper
+from rucio.common.dumper import data_models
 from rucio.common.dumper.path_parsing import components, remove_prefix
 from rucio.tests.common import mock_open
 
@@ -220,6 +222,282 @@ class TestDumper:
 
             stringio.seek(0)
             assert stringio.read() == 'abc'
+
+
+class TestDumperDataModel:
+    VALID_DUMP = '''\
+CERN-PROD_DATADISK	data12_8TeV	AOD.04972924._000218.pool.root.1	1045a406	127508132	2015-03-10 14:00:24	data12_8TeV/5b/ea/AOD.04972924._000218.pool.root.1	2015-03-15 08:33:09
+CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690922	2015-03-10 14:00:24	 data12_8TeV/7a/a6/ESD.04972924._000218.pool.root.1	2015-03-10 14:00:35
+'''
+    VALID_DUMP_NO_EOL = '''\
+CERN-PROD_DATADISK	data12_8TeV	AOD.04972924._000218.pool.root.1	1045a406	127508132	2015-03-10 14:00:24	data12_8TeV/5b/ea/AOD.04972924._000218.pool.root.1	2015-03-15 08:33:09
+CERN-PROD_DATADISK	data12_8TeV	ESD.04972924._000218.pool.root.1	a6152bbc	2498690922	2015-03-10 14:00:24	 data12_8TeV/7a/a6/ESD.04972924._000218.pool.root.1	2015-03-10 14:00:35'''
+
+    DATE_SECONDS = "2015-03-10 14:00:35"
+    DATE_TENTHS = "2015-03-10T14:00:35.5"
+
+    class _DataConcrete(data_models.DataModel):
+        URI = 'data_concrete'
+        SCHEMA = (
+            ('a', str),
+            ('b', str),
+            ('c', str),
+            ('d', str),
+            ('e', int),
+            ('f', dumper.to_datetime),
+            ('g', str),
+            ('h', dumper.to_datetime),
+        )
+
+    data_list = [
+        'aa',
+        'bb',
+        'cc',
+        'dd',
+        '42',
+        DATE_SECONDS,
+        'ee',
+        DATE_TENTHS,
+    ]
+    data_concrete = _DataConcrete(*data_list)
+
+    def test_field_names(self):
+        assert self._DataConcrete.get_fieldnames() == list('abcdefgh')
+
+    def test_pprint(self):
+        expected_format = ''.join([
+            'a: aa\n',
+            'b: bb\n',
+            'c: cc\n',
+            'd: dd\n',
+            'e: 42\n',
+            'f: 2015-03-10 14:00:35\n',
+            'g: ee\n',
+            'h: 2015-03-10 14:00:35\n',
+        ])
+        assert self.data_concrete.pprint() == expected_format
+
+    def test_data_models_are_indexable(self):
+        assert self.data_concrete[0] == 'aa'
+
+    def test_csv_header(self):
+        assert self._DataConcrete.csv_header() == 'a,b,c,d,e,f,g,h'
+
+    def test_formated_fields(self):
+        assert self.data_concrete.formated_fields(print_fields=('a', 'e')) == ['aa', '42']
+
+    def test_csv(self):
+        assert self.data_concrete.csv(fields=('a', 'e')) == 'aa,42'
+
+    def test_csv_default_formatting(self):
+        assert self.data_concrete.csv() == 'aa,bb,cc,dd,42,2015-03-10T14:00:35,ee,2015-03-10T14:00:35'
+
+    def test_each(self):
+        tsv_dump = ['\t'.join(self.data_list)]
+        records = list(self._DataConcrete.each(tsv_dump))
+        assert len(records) == 1
+        assert records[0].a == 'aa'
+
+    def test_each_with_filter(self):
+        tsv_dump = ['\t'.join(self.data_list)]
+        tsv_dump.append(tsv_dump[0].replace('aa', 'xx'))
+        records = list(self._DataConcrete.each(tsv_dump, filter_=lambda x: x.a == 'xx'))
+        assert len(records) == 1
+        assert records[0].a == 'xx'
+
+    def test_each_without_eol(self):
+        dump_file = self.VALID_DUMP.splitlines(True)
+        assert 2 == len(list(self._DataConcrete.each(dump_file)))
+
+    def test_parse_line_valid_line(self):
+        for line in self.VALID_DUMP.splitlines(True):
+            self._DataConcrete.parse_line(line)
+
+    def test_wrong_number_of_fields(self):
+        with pytest.raises(TypeError):
+            self._DataConcrete.parse_line('asdasd\taasdsa\n')
+
+    def test_wrong_format_of_fields(self):
+        with pytest.raises(ValueError):
+            self._DataConcrete.parse_line('a\ta\ta\ta\ta\ta\ta\ta\n')
+
+    @patch('requests.Session.get')
+    @patch('requests.Session.head')
+    def test_download_with_fixed_date(self, mock_request_head, mock_request_get, tmp_path):
+        response = requests.Response()
+        response.status_code = 200
+        iter_content_mock = Mock()
+        iter_content_mock.return_value = ['content']
+        response.iter_content = iter_content_mock
+
+        mock_request_get.return_value = response
+        mock_request_head.return_value = response
+
+        self._DataConcrete.download(
+            'SOMEENDPOINT',
+            date=datetime.strptime('01-01-2015', '%d-%m-%Y'),
+            cache_dir=tmp_path,
+        )
+        downloaded = glob.glob(
+            os.path.join(
+                tmp_path,
+                '_dataconcrete_SOMEENDPOINT_01-01-2015_*',
+            )
+        )
+        assert len(downloaded) == 1
+        with open(downloaded[0]) as fil:
+            assert fil.read() == 'content'
+
+    @patch('requests.Session.get')
+    @patch('requests.Session.head')
+    def test_download_empty_date(self, mock_request_head, mock_request_get, tmp_path):
+        """ test_download_with_date_latest_should_make_a_head_query_with_empty_date_and_name_the_output_file_according_to_the_content_disposition_header """
+        response = requests.Response()
+        response.status_code = 200
+        response.headers['content-disposition'] = 'filename=01-01-2015'
+        iter_content_mock = Mock()
+        iter_content_mock.return_value = ['content']
+        response.iter_content = iter_content_mock
+
+        mock_request_get.return_value = response
+        mock_request_head.return_value = response
+
+        self._DataConcrete.download(
+            'SOMEENDPOINT',
+            date='latest',
+            cache_dir=tmp_path,
+        )
+        downloaded = glob.glob(
+            os.path.join(
+                tmp_path,
+                '_dataconcrete_SOMEENDPOINT_01-01-2015_*',
+            )
+        )
+        assert len(downloaded) == 1
+        with open(downloaded[0]) as fil:
+            assert fil.read() == 'content'
+
+    @patch('requests.Session.get')
+    @patch('requests.Session.head')
+    def test_raises_exception(self, mock_request_head, mock_request_get, tmp_path):
+        response = requests.Response()
+        response.status_code = 500
+        mock_request_get.return_value = response
+        mock_request_head.return_value = response
+
+        with pytest.raises(dumper.HTTPDownloadFailed):
+            self._DataConcrete.download(
+                'SOMEENDPOINT',
+                date=datetime.strptime('01-01-2015', '%d-%m-%Y'),
+                cache_dir=tmp_path,
+            )
+
+
+class TestDumperCompleteDataset:
+
+    def test_creation_with_7_parameters(self):
+        complete_dataset = data_models.CompleteDataset(
+            'RSE',
+            'scope',
+            'name',
+            'owner',
+            '42',
+            '2015-01-01 23:00:00',
+            '2015-01-01 23:00:00',
+        )
+        assert complete_dataset.state is None
+
+    def test_creation_with_8_parameters(self):
+        complete_dataset = data_models.CompleteDataset(
+            'RSE',
+            'scope',
+            'name',
+            'owner',
+            '42',
+            '2015-01-01 23:00:00',
+            '2015-01-01 23:00:00',
+            'A',
+        )
+        assert complete_dataset.state == 'A'
+
+    def test_empty_size_is_none(self):
+        complete_dataset = data_models.CompleteDataset(
+            'RSE',
+            'scope',
+            'name',
+            'owner',
+            '',
+            '2015-01-01 23:00:00',
+            '2015-01-01 23:00:00',
+            'A',
+        )
+        assert complete_dataset.size is None
+
+
+class TestDumperReplica:
+
+    def test_replica_with_8_parameters(self):
+        replica = data_models.Replica(
+            'RSE',
+            'scope',
+            'name',
+            'checksum',
+            '42',
+            '2015-01-01 23:00:00',
+            'path',
+            '2015-01-01 23:00:00',
+        )
+        assert replica.state == 'None'
+
+    def test_replica_with_9_parameters(self):
+        replica = data_models.Replica(
+            'RSE',
+            'scope',
+            'name',
+            'checksum',
+            '42',
+            '2015-01-01 23:00:00',
+            'path',
+            '2015-01-01 23:00:00',
+            'A',
+        )
+        assert replica.state == 'A'
+
+
+class TestDumperFilter:
+
+    replica_1 = data_models.Replica(
+        'RSE',
+        'scope',
+        'name',
+        'checksum',
+        '42',
+        '2015-01-01 23:00:00',
+        'path',
+        '2015-01-01 23:00:00',
+        'A',
+    )
+    replica_2 = data_models.Replica(
+        'RSE',
+        'scope',
+        'name',
+        'checksum',
+        '42',
+        '2015-01-01 23:00:00',
+        'path',
+        '2015-01-01 23:00:00',
+        'U',
+    )
+
+    def test_simple_condition(self):
+        filter_ = data_models.Filter('state=A', data_models.Replica)
+        assert filter_.match(self.replica_1)
+        assert not filter_.match(self.replica_2)
+
+    def test_multiple_conditions(self):
+        filter_ = data_models.Filter('size=42,state=A', data_models.Replica)
+        assert filter_.match(self.replica_1)
+        assert not filter_.match(self.replica_2)
 
 
 class TestDumperPathParsing:
