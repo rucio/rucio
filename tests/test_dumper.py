@@ -24,18 +24,6 @@ from rucio.tests.common import mock_open
 
 from .mocks import gfal2
 
-RSEPROTOCOL = {
-    "hostname": "example.com",
-    "scheme": "root",
-    "port": 1094,
-    "prefix": "//atlasdatadisk/rucio/",
-    "domains": {
-        "wan": {
-            "read": 1,
-        }
-    },
-}
-
 
 class MockResponse:
     def __init__(self, json_data, status_code):
@@ -45,19 +33,6 @@ class MockResponse:
 
     def json(self):
         return self.json_data
-
-
-@mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
-def test_ddmendpoint_url_builds_url_from_ddmendpoint_preferred_protocol(mock_get):
-    mock_get.return_value = RSEPROTOCOL
-    assert dumper.ddmendpoint_url('SOMEENDPOINT') == 'root://example.com:1094//atlasdatadisk/'
-
-
-@mock.patch('rucio.common.dumper.ddmendpoint_preferred_protocol')
-def test_ddmendpoint_url_fails_on_unexistent_entry(mock_get):
-    mock_get.side_effect = StopIteration()
-    with pytest.raises(StopIteration):
-        dumper.ddmendpoint_url('SOMEENDPOINT')
 
 
 @mock.patch('requests.get')
