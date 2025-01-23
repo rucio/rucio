@@ -18,9 +18,16 @@ import os
 import re
 import subprocess
 import tempfile
+from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 from rucio.common import dumper
 from rucio.common.dumper import DUMPS_CACHE_DIR, data_models, error, path_parsing
+
+if TYPE_CHECKING:
+    from argparse import Namespace, _SubParsersAction
+    from collections.abc import Callable, Iterable, Iterator
+
+    from _typeshed import SupportsNext
 
 subcommands = ['consistency', 'consistency-manual']
 
@@ -32,9 +39,19 @@ class Consistency(data_models.DataModel):
     )
 
     @classmethod
-    def dump(cls, subcommand, ddm_endpoint, storage_dump, prev_date_fname=None, next_date_fname=None,
-             prev_date=None, next_date=None, sort_rucio_replica_dumps=True, date=None,
-             cache_dir=DUMPS_CACHE_DIR):
+    def dump(
+        cls,
+        subcommand: str,
+        ddm_endpoint: str,
+        storage_dump: str,
+        prev_date_fname: Optional[str] = None,
+        next_date_fname: Optional[str] = None,
+        prev_date: Optional[Union[str, datetime.datetime]] = None,
+        next_date: Optional[Union[str, datetime.datetime]] = None,
+        sort_rucio_replica_dumps: bool = True,
+        date: Optional[datetime.datetime] = None,
+        cache_dir: str = DUMPS_CACHE_DIR
+    ):
         logger = logging.getLogger('auditor.consistency')
         if subcommand == 'consistency':
             if prev_date is None:
@@ -54,7 +71,7 @@ class Consistency(data_models.DataModel):
 
         prefix_components = path_parsing.components(dumper.ddmendpoint_url(ddm_endpoint))
 
-        def parser(line):
+        def parser(line: str) -> str:
             '''
             Simple parser for Rucio replica dumps.
 
@@ -67,7 +84,7 @@ class Consistency(data_models.DataModel):
 
             return ','.join((path, status))
 
-        def strip_storage_dump(line):
+        def strip_storage_dump(line: str) -> str:
             '''
             Parser to have consistent paths in storage dumps.
 
@@ -84,26 +101,26 @@ class Consistency(data_models.DataModel):
 
         if sort_rucio_replica_dumps:
             prev_date_fname_sorted = gnu_sort(
-                parse_and_filter_file(prev_date_fname, parser=parser, cache_dir=cache_dir),
+                parse_and_filter_file(prev_date_fname, parser=parser, cache_dir=cache_dir),  # type: ignore
                 delimiter=',',
                 fieldspec='1',
                 cache_dir=cache_dir,
             )
 
             next_date_fname_sorted = gnu_sort(
-                parse_and_filter_file(next_date_fname, parser=parser, cache_dir=cache_dir),
+                parse_and_filter_file(next_date_fname, parser=parser, cache_dir=cache_dir),  # type: ignore
                 delimiter=',',
                 fieldspec='1',
                 cache_dir=cache_dir,
             )
         else:
             prev_date_fname_sorted = parse_and_filter_file(
-                prev_date_fname,
+                prev_date_fname,  # type: ignore
                 parser=parser,
                 cache_dir=cache_dir,
             )
             next_date_fname_sorted = parse_and_filter_file(
-                next_date_fname,
+                next_date_fname,  # type: ignore
                 parser=parser,
                 cache_dir=cache_dir,
             )
@@ -159,7 +176,10 @@ class Consistency(data_models.DataModel):
                             yield cls('DARK', path)
 
 
-def _try_to_advance(it, default=None):
+def _try_to_advance(
+        it: 'SupportsNext[str]',
+        default: Optional[str] = None
+) -> Optional[str]:
     try:
         el = next(it)
     except StopIteration:
@@ -167,21 +187,29 @@ def _try_to_advance(it, default=None):
     return el.strip()
 
 
-def min_value(*values):
+def min_value(*values: Optional[str]) -> str:
     '''
     Minimum between the input values, ignoring None
     '''
-    values = [value for value in values if value is not None]
-    if len(values) == 0:
+    values_without_none = cast(list[str], [value for value in values if value is not None])
+    if len(values_without_none) == 0:
         raise ValueError("Input contains 0 non-null values.")
-    return min(values)
+    return min(values_without_none)
 
 
-def split_if_not_none(value, sep=',', fields=2):
+def split_if_not_none(
+        value: Optional[str],
+        sep: str = ',',
+        fields: int = 2
+) -> Union[str, list]:
     return value.split(sep) if value is not None else ([None] * fields)
 
 
-def compare3(it0, it1, it2):
+def compare3(
+    it0: 'Iterable[str]',
+    it1: 'Iterable[str]',
+    it2: 'Iterable[str]'
+) -> 'Iterator[tuple[str, tuple[bool, bool, bool], tuple[Optional[str], Optional[str]]]]':
     '''
     Generator to compare 3 sorted iterables, in each
     iteration it yields a tuple of the form (current, (bool, bool, bool))
@@ -244,7 +272,14 @@ def compare3(it0, it1, it2):
             path2, status2 = split_if_not_none(v2)
 
 
-def parse_and_filter_file(filepath, parser=lambda s: s, filter_=lambda s: s, prefix=None, postfix='parsed', cache_dir=DUMPS_CACHE_DIR):
+def parse_and_filter_file(
+        filepath: str,
+        parser: 'Callable' = lambda s: s,
+        filter_: 'Callable' = lambda s: s,
+        prefix: Optional[str] = None,
+        postfix: str = 'parsed',
+        cache_dir: str = DUMPS_CACHE_DIR
+) -> str:
     '''
     Opens `filepath` as a read-only file, and for each line of the file
     for which the `filter_` function returns True, it writes a version
@@ -290,7 +325,13 @@ def parse_and_filter_file(filepath, parser=lambda s: s, filter_=lambda s: s, pre
     return output_path
 
 
-def gnu_sort(file_path, prefix=None, delimiter=None, fieldspec=None, cache_dir=DUMPS_CACHE_DIR):
+def gnu_sort(
+        file_path: str,
+        prefix: Optional[str] = None,
+        delimiter: Optional[str] = None,
+        fieldspec: Optional[str] = None,
+        cache_dir: str = DUMPS_CACHE_DIR
+) -> str:
     '''
     Sort the file with path `file_path` using the GNU sort command, the
     original file is unchanged, the output file is saved with path
@@ -336,7 +377,7 @@ def gnu_sort(file_path, prefix=None, delimiter=None, fieldspec=None, cache_dir=D
     return sorted_path
 
 
-def populate_args(argparser):
+def populate_args(argparser: '_SubParsersAction') -> None:
     # Option to download the rucio replica dumps automatically
     parser = argparser.add_parser(
         'consistency',
@@ -387,7 +428,7 @@ def populate_args(argparser):
 _date_re = re.compile(r'dump_(\d{8})')
 
 
-def _parse_args_consistency(args):
+def _parse_args_consistency(args: 'Namespace') -> dict[str, datetime.datetime]:
     args_dict = {}
 
     # Filename should contain the date
@@ -396,14 +437,14 @@ def _parse_args_consistency(args):
         error('The storage dump filename must be of the form '
               '"dump_YYYYMMDD" where the date correspond to the date '
               'of the newest files included')
-
-    date_str = date_str.group(1)
-    if date_str is None:
-        error('Invalid date {0}'.format(date_str))
-    try:
-        args_dict['date'] = date = datetime.datetime.strptime(date_str, '%Y%m%d')
-    except ValueError:
-        error('Invalid date {0}'.format(date_str))
+    else:
+        date_str = date_str.group(1)
+        if date_str is None:
+            error('Invalid date {0}'.format(date_str))
+        try:
+            args_dict['date'] = date = datetime.datetime.strptime(date_str, '%Y%m%d')
+        except ValueError:
+            error('Invalid date {0}'.format(date_str))
 
     if not os.path.exists(args.storage_dump):
         error('File "{0}" does not exist'.format(args.storage_dump))
@@ -430,7 +471,7 @@ def _parse_args_consistency(args):
     return args_dict
 
 
-def _parse_args_consistency_manual(args):
+def _parse_args_consistency_manual(args: 'Namespace') -> dict[str, Any]:
     args_dict = {}
     args_dict['prev_date_fname'] = args.replicas_before
     args_dict['next_date_fname'] = args.replicas_after
@@ -442,7 +483,7 @@ def _parse_args_consistency_manual(args):
     return args_dict
 
 
-def parse_args(args):
+def parse_args(args: 'Namespace') -> dict[str, Any]:
     args_dict = {}
     args_dict['subcommand'] = args.subcommand
     args_dict['ddm_endpoint'] = args.ddm_endpoint
