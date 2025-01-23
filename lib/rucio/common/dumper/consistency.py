@@ -37,6 +37,10 @@ class Consistency(data_models.DataModel):
              cache_dir=DUMPS_CACHE_DIR):
         logger = logging.getLogger('auditor.consistency')
         if subcommand == 'consistency':
+            if prev_date is None:
+                prev_date = 'latest'
+            if next_date is None:
+                next_date = 'latest'
             prev_date_fname = data_models.Replica.download(
                 ddm_endpoint, prev_date, cache_dir=cache_dir)
             next_date_fname = data_models.Replica.download(
