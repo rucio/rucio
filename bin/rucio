@@ -79,7 +79,7 @@ def map_legacy_command() -> Optional[list[str]]:
             "list-rules": ["rule", "list"],
             "list-rules-history": ["rule", "history"],
             "update-rule": ["rule", "update"],
-            "move-rule": ["rule", "update", "--move"],
+            "move-rule": ["rule", "move"],
             "list-rses": ["rse", "list"],
             "list-suspicious-replicas": ["replica", "state", "suspicious"],
             "list-rse-attributes": ["rse", "attribute", "list"],
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     is_legacy = '--legacy' in sys.argv
 
     if (first_command in commands) and not is_legacy:
-        main()
+        main()  # NOQA: E1120
 
     elif is_legacy:
         warning = make_warning()
@@ -124,4 +124,4 @@ if __name__ == "__main__":
             else:
                 sys.argv = ["rucio", "-h"]
 
-            main()
+            main()  # NOQA: E1120
