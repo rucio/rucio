@@ -71,7 +71,6 @@ def get_scope(did, client):
         scopes = client.list_scopes()
         scope, name = extract_scope(did, scopes)
         return scope, name
-    return None, did
 
 
 @exception_handler
@@ -82,7 +81,7 @@ def add_account(args, client, logger, console, spinner):
     Adds a new account. Specify metadata fields as arguments.
 
     """
-    client.add_account(account=args.account, type_=args.accounttype, email=args.accountemail)
+    client.add_account(account=args.account, type_=args.account_type, email=args.email)
     print('Added new account: %s' % args.account)
     return SUCCESS
 
@@ -95,8 +94,8 @@ def delete_account(args, client, logger, console, spinner):
     Delete account.
 
     """
-    client.delete_account(args.acnt)
-    print('Deleted account: %s' % args.acnt)
+    client.delete_account(args.account)
+    print('Deleted account: %s' % args.account)
     return SUCCESS
 
 
@@ -1524,8 +1523,8 @@ def get_parser():
                                                              '\n')
     add_account_parser.set_defaults(which='add_account')
     add_account_parser.add_argument('account', action='store', help='Account name')
-    add_account_parser.add_argument('--type', dest='accounttype', default='USER', help='Account Type (USER, GROUP, SERVICE)')
-    add_account_parser.add_argument('--email', dest='accountemail', action='store',
+    add_account_parser.add_argument('--type', dest='account_type', default='USER', help='Account Type (USER, GROUP, SERVICE)')
+    add_account_parser.add_argument('--email', dest='email', action='store',
                                     help='Email address associated with the account')
 
     # The disable_account command
@@ -1540,7 +1539,7 @@ def get_parser():
                                                                 '    Deleted account: jdoe-sister\n'
                                                                 '\n')
     delete_account_parser.set_defaults(which='delete_account')
-    delete_account_parser.add_argument('acnt', action='store', help='Account name')
+    delete_account_parser.add_argument('account', action='store', help='Account name')
 
     # The info_account command
     info_account_parser = account_subparser.add_parser('info',

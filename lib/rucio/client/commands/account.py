@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from argparse import SUPPRESS
 from typing import TYPE_CHECKING
 
@@ -60,20 +61,20 @@ class Account(CommandBase):
         parser.add_argument("--filters", dest="filters", action="store", help="Filter arguments in form `key=value,another_key=next_value`")
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--type", dest="accounttype", help="Account Type (USER, GROUP, SERVICE)", required=True)
+        parser.add_argument("--type", dest="account_type", help="Account Type", choices={"USER", "GROUP", "SERVICE"}, required=True)
         parser.add_argument("-a", "--account", dest="account", help="Account name", required=True)
-        parser.add_argument("--email", dest="accountemail", help="Add an email address associated with the account")
+        parser.add_argument("--email", dest="email", help="Add an email address associated with the account")
 
     def show_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-a", "--account", dest="account", help="Account name", required=True)
 
     def update_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-a", "--account", help="Account name", required=True)
-        parser.add_argument("--email", help="Account email")
-        parser.add_argument("--ban", type=bool, choices=(True, False), help='Ban the account, to disable it. Use --ban False to unban.', default=None)
+        parser.add_argument("-a", "--account", dest="account", help="Account name", required=True)
+        parser.add_argument("--email", dest="email", help="Account email")
+        parser.add_argument("--ban", dest="ban", type=bool, choices=(True, False), help='Ban the account, to disable it. Use --ban False to unban.', default=None)
 
     def remove_namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("-a", "--account", dest="acnt", action="store", help="Account name", required=True)
+        parser.add_argument("-a", "--account", dest="account", action="store", help="Account name", required=True)
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
@@ -120,7 +121,7 @@ class Attribute(Account):
         return {}
 
     def namespace(self, subparser):
-        subparser.add_argument("-a", "--account", help="Account name")
+        subparser.add_argument("-a", "--account", dest="account", help="Account name")
         subparser.add_argument("--key", dest="key", action="store", help="Attribute key")
         subparser.add_argument("--value", dest="value", action="store", help="Attribute value")
 
@@ -153,7 +154,7 @@ class Limit(Account):
         parser.add_argument("-a", "--account", dest="account", help="Account name", required=True)
         parser.add_argument("--rses", "--rse-exp", dest='rse', action="store", help="RSE expression")
         parser.add_argument("--bytes", action="store", help='Value can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"')
-        parser.add_argument("--locality", nargs="?", default="local", choices=["local", "global"], help="Global or local limit scope")
+        parser.add_argument("--locality", nargs="?", default="local", choices={"local", "global"}, help="Global or local limit scope")
         parser.add_argument("--human", default=True, help=SUPPRESS)
 
     def _operations(self) -> dict[str, "OperationDict"]:
@@ -186,10 +187,10 @@ class Identity(Account):
 
     def namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--account", dest="account", action="store", help="Account name", required=True)
-        parser.add_argument("--type", dest="authtype", action="store", choices=["X509", "GSS", "USERPASS", "SSH", "SAML", "OIDC"], help="Authentication type")
-        parser.add_argument("--id", dest="identity", action="store", help="Identity as a DNs for X509 IDs.")
+        parser.add_argument("--type", dest="authtype", action="store", choices={"X509", "GSS", "USERPASS", "SSH", "SAML", "OIDC"}, help="Authentication type")
+        parser.add_argument("--id", dest="identity", action="store", help="Identity as a DNs for X509 IDs")
         parser.add_argument("--email", dest="email", action="store", help="Email address associated with the identity")
-        parser.add_argument("--password", dest="password", action="store", help="Password if authtype is USERPASS")
+        parser.add_argument("--password", dest="password", action="store", help="Password if type is USERPASS")
         parser.add_argument("--human", default=True, help=SUPPRESS)
 
     def _operations(self) -> dict[str, "OperationDict"]:
