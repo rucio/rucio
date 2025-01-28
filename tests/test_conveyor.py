@@ -1252,7 +1252,7 @@ def test_overwrite_hops(overwrite_on_tape_topology, caches_mock, did_factory, fi
     else:
         # FTS only recently introduced the overwrite_hops parameter. It will be ignored on old
         # fts versions and the first hop will fail with the  file exists error
-        # TODO: remove this else after FTS 3.12 release and after updating rucio/fts container with the new release
+        # TODO: remove this else after FTS 3.12 release and after updating rucio/test-fts container with the new release
         request = __wait_for_state_transition(dst_rse_id=rse2_id, **did1)
         assert request['state'] == RequestState.FAILED
         assert 'Destination file exists and overwrite is not enabled' in request['err_msg']
