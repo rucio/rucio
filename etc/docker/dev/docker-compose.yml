@@ -134,7 +134,7 @@ services:
       - ./oracle_setup.sh:/container-entrypoint-initdb.d/oracle_setup.sh:Z
   fts:
     container_name: dev_fts_1
-    image: docker.io/rucio/fts
+    image: docker.io/rucio/test-fts
     platform: linux/amd64
     profiles:
       - storage
@@ -163,7 +163,7 @@ services:
       - MYSQL_ROOT_PASSWORD=fts
       - MYSQL_DATABASE=fts
   xrd1:
-    image: docker.io/rucio/xrootd
+    image: docker.io/rucio/test-xrootd
     platform: linux/amd64
     profiles:
       - storage
@@ -179,7 +179,7 @@ services:
         soft: 10240
         hard: 10240
   xrd2:
-    image: docker.io/rucio/xrootd
+    image: docker.io/rucio/test-xrootd
     platform: linux/amd64
     profiles:
       - storage
@@ -195,7 +195,7 @@ services:
         soft: 10240
         hard: 10240
   xrd3:
-    image: docker.io/rucio/xrootd
+    image: docker.io/rucio/test-xrootd
     platform: linux/amd64
     profiles:
       - storage
@@ -211,7 +211,7 @@ services:
         soft: 10240
         hard: 10240
   xrd4:
-    image: docker.io/rucio/xrootd
+    image: docker.io/rucio/test-xrootd
     platform: linux/amd64
     profiles:
       - storage
@@ -227,7 +227,7 @@ services:
         soft: 10240
         hard: 10240
   xrd5:
-    image: docker.io/rucio/xrootd
+    image: docker.io/rucio/test-xrootd
     platform: linux/amd64
     profiles:
       - storage
@@ -250,7 +250,7 @@ services:
         soft: 10240
         hard: 10240
   web1:
-    image: rucio/webdav
+    image: rucio/test-webdav
     platform: linux/amd64
     environment:
       - QBITTORRENT_UI_USERNAME=rucio
@@ -277,7 +277,7 @@ services:
       - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key:Z
     command: ["server", "/data"]
   ssh1:
-    image: docker.io/rucio/ssh
+    image: docker.io/rucio/test-ssh
     platform: linux/amd64
     profiles:
       - storage
