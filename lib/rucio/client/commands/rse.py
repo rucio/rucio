@@ -62,7 +62,7 @@ class RSE(CommandBase):
     def usage_example(self) -> list[str]:
         return [
             "$ rucio rse list # Show all current RSEs, can also access with",
-            "$ rucio rse list --rses 'deterministic=True' # Show all RSEs that match the RSE Expression 'deterministic=True'",
+            "$ rucio rse list --rses 'deterministic=True'  # Show all RSEs that match the RSE Expression 'deterministic=True'",
             "$ rucio rse remove --rse RemoveThisRSE  # Disable an RSE by name",
             "$ rucio rse add --rse CreateANewRSE  # add a new RSE named CreateANewRSE",
             "$ rucio rse update --rse rse123456 --setting deterministic --value False  # Make an RSE Non-Deterministic",
@@ -125,8 +125,8 @@ class Attribute(RSE):
     def usage_example(self) -> list[str]:
         return [
             "$ rucio rse attribute list --rse ThisRSE  # Show all the attributes for a given RSE",
-            "$ rucio rse attribute list --rse ThisRSE --key name # Show all the attribute 'name' for a given RSE",
-            "$ rucio rse attribute add --rse ThisRSE --key given-attribute --value updated # Set the attribute 'given-attribute' to 'updated' for an RSE",
+            "$ rucio rse attribute list --rse ThisRSE --key name  # Show all the attribute 'name' for a given RSE",
+            "$ rucio rse attribute add --rse ThisRSE --key given-attribute --value updated  # Set the attribute 'given-attribute' to 'updated' for an RSE",
         ]
 
     def add(self):
@@ -148,10 +148,15 @@ class Distance(RSE):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "Show distances between RSEs"},
-            "add": {"call": self.add, "docs": "Add or update a distance between RSEs"},
-            "remove": {"call": self.remove, "docs": "Delete the distance between a pair of RSEs. The mandatory parameters are source and destination"},
-            "set": {"call": self.set_, "docs": "Update the distance between a pair of RSE that already have a distance between them"},
+            "list": {"call": self.list_, "docs": "Show distances between RSEs",
+                     "namespace": self.list_namespace},
+            "add": {"call": self.add, "docs": "Add a distance between RSEs", "namespace": self.add_namespace},
+            "remove": {"call": self.remove,
+                       "docs": "Delete the distance between a pair of RSEs",
+                       "namespace": self.remove_namespace},
+            "set": {"call": self.set_,
+                    "docs": "Update the distance between a pair of RSE that already have a distance between them",
+                    "namespace": self.set_namespace},
         }
 
     def usage_example(self) -> list[str]:
@@ -162,10 +167,19 @@ class Distance(RSE):
             "$ rucio rse distance set --source rse1 --destination rse2 --distance 20  # Update an existing distance",
         ]
 
-    def namespace(self, parser: "ArgumentParser") -> None:
-        parser.add_argument("--source", dest="source", action="store", help="Source RSE name")
-        parser.add_argument("--destination", dest="destination", action="store", help="Destination RSE name")
+    def list_namespace(self, parser: "ArgumentParser") -> None:
+        parser.add_argument("--source", dest="source", help="Source RSE name")
+        parser.add_argument("--destination", dest="destination", help="Destination RSE name")
+
+    def remove_namespace(self, parser: "ArgumentParser") -> None:
+        self.list_namespace(parser)
+
+    def add_namespace(self, parser: "ArgumentParser") -> None:
+        self.list_namespace(parser)
         parser.add_argument("--distance", dest="distance", type=int, help="Distance between RSEs")
+
+    def set_namespace(self, parser: "ArgumentParser") -> None:
+        self.add_namespace(parser)
 
     def list_(self):
         get_distance_rses(self.args, self.client, self.logger, self.console, self.spinner)
@@ -258,7 +272,7 @@ class QOS(RSE):
         return [
             "$ rucio rse qospolicy list --rse JDOE_DATADISK  # List QoS Policy for a given RSE",
             "$ rucio rse qospolicy add --rse JDOE_DATADISK --policy SLOW_BUT_CHEAP  # Add a SLOW_BUT_CHEAP policy to the JDOE_DATADISK RSE",
-            "$ rucio rse qospolicy remove --rse  JDOE_DATADISK --policy SLOW_BUT_CHEAP  # Remove the same policy",
+            "$ rucio rse qospolicy remove --rse JDOE_DATADISK --policy SLOW_BUT_CHEAP  # Remove the same policy",
         ]
 
     def add(self):
