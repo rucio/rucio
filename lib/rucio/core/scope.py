@@ -70,7 +70,7 @@ def add_scope(scope, account, *, session: "Session"):
 
 
 @read_session
-def bulk_add_scopes(scopes, account, skipExisting=False, *, session: "Session"):
+def bulk_add_scopes(scopes, account, skip_existing=False, *, session: "Session"):
     """ add a group of scopes, this call should not be exposed to users.
 
     :param scopes: a list of scopes to be added.
@@ -82,7 +82,7 @@ def bulk_add_scopes(scopes, account, skipExisting=False, *, session: "Session"):
         try:
             add_scope(scope, account, session=session)
         except Duplicate:
-            if not skipExisting:
+            if not skip_existing:
                 raise
 
 
