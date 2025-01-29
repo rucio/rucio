@@ -32,6 +32,8 @@ import rucio.daemons.auditor
 from rucio.client.rseclient import RSEClient
 from rucio.common.exception import RSENotFound
 
+RETRY_AFTER = 60 * 60 * 24 * 14  # Two weeks
+
 
 def setup_pipe_logger(pipe, loglevel):
     logger = logging.getLogger('auditor')
@@ -47,7 +49,6 @@ def setup_pipe_logger(pipe, loglevel):
 
 
 def main(args):
-    RETRY_AFTER = 60 * 60 * 24 * 14  # Two weeks
 
     nprocs = args.nprocs
     if nprocs < 1:

@@ -71,6 +71,13 @@ _METADATA = MetaData(schema=DEFAULT_SCHEMA_NAME)
 _MAKER, _ENGINE, _LOCK = None, None, Lock()
 
 
+SQLA_CONFIG_POOLCLASS_MAPPING = {
+    'queuepool': QueuePool,
+    'singletonthreadpool': SingletonThreadPool,
+    'nullpool': NullPool,
+}
+
+
 class BASE(DeclarativeBase):
     metadata = _METADATA
 
@@ -188,12 +195,6 @@ def _get_engine_poolclass(poolclass: str) -> Pool:
     :returns: The corresponding SQLAlchemy Pool class.
     :raises InputValidationError: if config value doesn't correspond to an SQLAlchemy Pool class.
     """
-
-    SQLA_CONFIG_POOLCLASS_MAPPING = {
-        'queuepool': QueuePool,
-        'singletonthreadpool': SingletonThreadPool,
-        'nullpool': NullPool,
-    }
 
     poolclass = poolclass.lower()
 

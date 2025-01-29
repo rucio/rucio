@@ -51,6 +51,9 @@ if TYPE_CHECKING:
         docs: NotRequired[str]
         namespace: NotRequired[Callable]
 
+SUCCESS = 0
+FAILURE = 1
+
 
 def exception_handler(function):
     verbosity = ("-v" in sys.argv) or ("--verbose" in sys.argv)
@@ -58,8 +61,6 @@ def exception_handler(function):
 
     @wraps(function)
     def new_funct(*args, **kwargs):
-        SUCCESS = 0
-        FAILURE = 1
         try:
             return function(*args, **kwargs)
         except NotImplementedError as error:
