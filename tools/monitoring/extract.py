@@ -33,8 +33,8 @@ class ElasticConn:
     def __init__(self, host_port, auth):
         self.__es = es.Elasticsearch([host_port[0]], http_auth=auth, consumer_port=host_port[1])
 
-    def index_data(self, indexName, body):
-        res = self.__es.index(index=indexName, body=body)
+    def index_data(self, index_name, body):
+        res = self.__es.index(index=index_name, body=body)
         print(res)
         return res["result"] == "created"
 

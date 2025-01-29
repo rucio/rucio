@@ -190,7 +190,7 @@ class MockADMINClientISSOIDC(MagicMock):
         return None
 
     @classmethod
-    def parse_response(cls, AuthorizationResponse, info=None, sformat="urlencoded"):
+    def parse_response(cls, authorization_response, info=None, sformat="urlencoded"):
         return None
 
 
@@ -217,13 +217,13 @@ class MockClientOIDC(MagicMock):
         return None
 
     @classmethod
-    def parse_response(cls, AuthorizationResponse, info=None, sformat="urlencoded"):
+    def parse_response(cls, authorization_response, info=None, sformat="urlencoded"):
         return None
 
     client_secret = 'topsecret_nr1'
 
     @classmethod
-    def do_any(cls, Message, endpoint=None, state=None, request_args=None, authn_method=None):
+    def do_any(cls, message, endpoint=None, state=None, request_args=None, authn_method=None):
         oidc_tokens = EXCHANGED_TOKEN_DICT.copy()
         oidc_token_dict = dencode_access_token(request_args['subject_token'])
         user_sub = oidc_token_dict['identity'].split(',')[0].split('=')[1]
@@ -259,7 +259,7 @@ class MockADMINClientOtherISSOIDC(MagicMock):
         return None
 
     @classmethod
-    def parse_response(cls, AuthorizationResponse, info=None, sformat="urlencoded"):
+    def parse_response(cls, authorization_response, info=None, sformat="urlencoded"):
         return None
 
 
