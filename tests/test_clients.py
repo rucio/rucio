@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, MissingClientParameter, RucioException
+from rucio.common.exception import CannotAuthenticate, ClientProtocolNotFound, ClientProtocolNotSupported, MissingClientParameter, RucioException
 from rucio.common.utils import execute
 from rucio.tests.common import remove_config
 from tests.mocks.mock_http_server import MockServer
@@ -88,13 +88,53 @@ class TestBaseClient:
         with pytest.raises(MissingClientParameter):
             BaseClient(account='root', ca_cert=self.cacert, auth_type='x509', creds=creds, vo=vo)
 
-    def testClientProtocolNotSupported(self, vo):
-        """ CLIENTS (BASECLIENT): try to pass an host with a not supported protocol."""
+    def testClientRucioProtocolNotSupported(self, vo):
+        """ CLIENTS (BASECLIENT): try to pass a rucio host with a not supported protocol."""
         creds = {'username': 'ddmlab', 'password': 'secret'}
         from rucio.client.baseclient import BaseClient
 
         with pytest.raises(ClientProtocolNotSupported):
-            BaseClient(rucio_host='localhost', auth_host='junk://localhost', account='root', auth_type='userpass', creds=creds, vo=vo)
+            BaseClient(rucio_host='junk://localhost', auth_host='http://localhost', account='root', auth_type='userpass', creds=creds, vo=vo)
+
+    def testClientAuthProtocolNotSupported(self, vo):
+        """ CLIENTS (BASECLIENT): try to pass an auth host with a not supported protocol."""
+        creds = {'username': 'ddmlab', 'password': 'secret'}
+        from rucio.client.baseclient import BaseClient
+
+        with pytest.raises(ClientProtocolNotSupported):
+            BaseClient(rucio_host='https://localhost', auth_host='junk://localhost', account='root', auth_type='userpass', creds=creds, vo=vo)
+
+    def testClientRucioAndAuthProtocolNotSupported(self, vo):
+        """ CLIENTS (BASECLIENT): try to pass both a rucio and auth host with a not supported protocol."""
+        creds = {'username': 'ddmlab', 'password': 'secret'}
+        from rucio.client.baseclient import BaseClient
+
+        with pytest.raises(ClientProtocolNotSupported):
+            BaseClient(rucio_host='junk://localhost', auth_host='junk://localhost', account='root', auth_type='userpass', creds=creds, vo=vo)
+
+    def testClientRucioProtocolNotFound(self, vo):
+        """ CLIENTS (BASECLIENT): try to pass a rucio host with a missing protocol."""
+        creds = {'username': 'ddmlab', 'password': 'secret'}
+        from rucio.client.baseclient import BaseClient
+
+        with pytest.raises(ClientProtocolNotFound):
+            BaseClient(rucio_host='localhost', auth_host='https://localhost', account='root', auth_type='userpass', creds=creds, vo=vo)
+
+    def testClientAuthProtocolNotFound(self, vo):
+        """ CLIENTS (BASECLIENT): try to pass an auth host with a not supported protocol."""
+        creds = {'username': 'ddmlab', 'password': 'secret'}
+        from rucio.client.baseclient import BaseClient
+
+        with pytest.raises(ClientProtocolNotFound):
+            BaseClient(rucio_host='http://localhost', auth_host='localhost', account='root', auth_type='userpass', creds=creds, vo=vo)
+
+    def testClientRucioAndAuthProtocolNotFound(self, vo):
+        """ CLIENTS (BASECLIENT): try to pass both a rucio and auth host with a missing protocol."""
+        creds = {'username': 'ddmlab', 'password': 'secret'}
+        from rucio.client.baseclient import BaseClient
+
+        with pytest.raises(ClientProtocolNotFound):
+            BaseClient(rucio_host='localhost', auth_host='localhost', account='root', auth_type='userpass', creds=creds, vo=vo)
 
     def testRetryOn502AlwaysFail(self, vo):
         """ CLIENTS (BASECLIENT): Ensure client retries on 502 error codes, but fails on repeated errors"""
