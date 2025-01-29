@@ -44,6 +44,8 @@ DEBUG, INFO, WARN, ERROR = "DEBUG", "INFO ", "WARN ", "ERROR"
 # filename for locking
 LOCK_NAME = ".LOCK"
 
+MAXFD = 1024
+
 # Session ID
 sessid = "%s.%s" % (int(time.time()), os.getpid())
 
@@ -1059,7 +1061,6 @@ class Pcache:
         os.dup2(n, i)
         os.dup2(n, o)
         os.dup2(n, e)
-        MAXFD = 1024
         try:
             import resource  # Resource usage information.
             maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
