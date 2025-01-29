@@ -38,7 +38,7 @@ from requests.status_codes import codes
 from rucio import version
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
-from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, ConfigNotFound, MissingClientParameter, MissingModuleException, NoAuthInformation, ServerConnectionException
+from rucio.common.exception import CannotAuthenticate, ClientProtocolNotFound, ClientProtocolNotSupported, ConfigNotFound, MissingClientParameter, MissingModuleException, NoAuthInformation, ServerConnectionException
 from rucio.common.extra import import_extras
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, setup_logger, ssh_sign
 
@@ -157,11 +157,18 @@ class BaseClient:
         rucio_scheme = urlparse(self.host).scheme
         auth_scheme = urlparse(self.auth_host).scheme
 
-        if rucio_scheme != 'http' and rucio_scheme != 'https':
-            raise ClientProtocolNotSupported('\'%s\' not supported' % rucio_scheme)
+        rucio_scheme_allowed = ['http', 'https']
+        auth_scheme_allowed = ['http', 'https']
 
-        if auth_scheme != 'http' and auth_scheme != 'https':
-            raise ClientProtocolNotSupported('\'%s\' not supported' % auth_scheme)
+        if not rucio_scheme:
+            raise ClientProtocolNotFound(host=self.host, protocols_allowed=rucio_scheme_allowed)
+        elif rucio_scheme not in rucio_scheme_allowed:
+            raise ClientProtocolNotSupported(host=self.host, protocol=rucio_scheme, protocols_allowed=rucio_scheme_allowed)
+
+        if not auth_scheme:
+            raise ClientProtocolNotFound(host=self.auth_host, protocols_allowed=auth_scheme_allowed)
+        elif auth_scheme not in auth_scheme_allowed:
+            raise ClientProtocolNotSupported(host=self.auth_host, protocol=auth_scheme, protocols_allowed=auth_scheme_allowed)
 
         if (rucio_scheme == 'https' or auth_scheme == 'https') and ca_cert is None:
             self.logger.debug('HTTPS is required, but no ca_cert was passed. Trying to get it from X509_CERT_DIR.')
