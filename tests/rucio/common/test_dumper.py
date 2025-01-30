@@ -763,7 +763,7 @@ class TestDumperConsistency:
         ])
         assert value == expected
 
-    def test_compare3_file_name_with_comma_in_storage_dump_ATLDDMOPS_4105(self):
+    def test_compare3_file_name_with_comma_in_storage_dump(self):
         rucio_replica_dump = 'user/mfauccig/8d/46/user.mfauccig.410000.PowhegPythiaEvtGen.DAOD_TOPQ1.e3698_s2608_s2183_r6630_r6264_p2377.v1.log.6466214.000001.log.tgz,A'
         storage_dump = 'user/mdobre/01/6b/user.mdobre.C1C1bkg.WWVBH,nometcut.0711.log.4374089.000029.log.tgz'
         value = list(compare3([rucio_replica_dump], [storage_dump], [rucio_replica_dump]))
