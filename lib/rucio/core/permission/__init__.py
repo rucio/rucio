@@ -41,93 +41,93 @@ except (NoOptionError, NoSectionError):
 
 # in multi-vo mode packages are loaded on demand when needed
 if not multivo:
-    GENERIC_FALLBACK = 'generic'
+    generic_fallback = 'generic'
 
     if config.config_has_section('permission'):
         try:
-            FALLBACK_POLICY = config.config_get('permission', 'policy')
+            fallback_policy = config.config_get('permission', 'policy')
         except (NoOptionError, NoSectionError):
-            FALLBACK_POLICY = GENERIC_FALLBACK
+            fallback_policy = generic_fallback
     elif config.config_has_section('policy'):
         try:
-            FALLBACK_POLICY = config.config_get('policy', 'permission')
+            fallback_policy = config.config_get('policy', 'permission')
         except (NoOptionError, NoSectionError):
-            FALLBACK_POLICY = GENERIC_FALLBACK
+            fallback_policy = generic_fallback
     else:
-        FALLBACK_POLICY = GENERIC_FALLBACK
+        fallback_policy = generic_fallback
 
     if config.config_has_section('policy'):
         try:
             if 'RUCIO_POLICY_PACKAGE' in environ:
-                POLICY = environ['RUCIO_POLICY_PACKAGE']
+                policy = environ['RUCIO_POLICY_PACKAGE']
             else:
-                POLICY = config.config_get('policy', 'package', check_config_table=False)
-            check_policy_package_version(POLICY)
-            POLICY = POLICY + ".permission"
+                policy = config.config_get('policy', 'package', check_config_table=False)
+            check_policy_package_version(policy)
+            policy = policy + ".permission"
         except (NoOptionError, NoSectionError):
             # fall back to old system for now
-            POLICY = 'rucio.core.permission.' + FALLBACK_POLICY.lower()
+            policy = 'rucio.core.permission.' + fallback_policy.lower()
     else:
-        POLICY = 'rucio.core.permission.' + GENERIC_FALLBACK.lower()
+        policy = 'rucio.core.permission.' + generic_fallback.lower()
 
     try:
-        module = importlib.import_module(POLICY)
+        module = importlib.import_module(policy)
     except ModuleNotFoundError:
         # if policy package does not contain permission module, load fallback module instead
         # this allows a policy package to omit modules that do not need customisation
         try:
             LOGGER.warning('Unable to load permission module %s from policy package, falling back to %s'
-                           % (POLICY, FALLBACK_POLICY))
-            POLICY = 'rucio.core.permission.' + FALLBACK_POLICY.lower()
-            module = importlib.import_module(POLICY)
+                           % (policy, fallback_policy))
+            policy = 'rucio.core.permission.' + fallback_policy.lower()
+            module = importlib.import_module(policy)
         except ModuleNotFoundError:
-            raise exception.PolicyPackageNotFound(POLICY)
+            raise exception.PolicyPackageNotFound(policy)
         except ImportError:
-            raise exception.ErrorLoadingPolicyPackage(POLICY)
+            raise exception.ErrorLoadingPolicyPackage(policy)
     except ImportError:
-        raise exception.ErrorLoadingPolicyPackage(POLICY)
+        raise exception.ErrorLoadingPolicyPackage(policy)
 
     permission_modules["def"] = module
 
 
 def load_permission_for_vo(vo: str) -> None:
-    GENERIC_FALLBACK = 'generic_multi_vo'
+    generic_fallback = 'generic_multi_vo'
     if config.config_has_section('policy'):
         try:
             env_name = 'RUCIO_POLICY_PACKAGE_' + vo.upper()
             if env_name in environ:
-                POLICY = environ[env_name]
+                policy = environ[env_name]
             else:
-                POLICY = config.config_get('policy', 'package-' + vo)
-            check_policy_package_version(POLICY)
-            POLICY = POLICY + ".permission"
+                policy = config.config_get('policy', 'package-' + vo)
+            check_policy_package_version(policy)
+            policy = policy + ".permission"
         except (NoOptionError, NoSectionError):
             # fall back to old system for now
             try:
-                POLICY = config.config_get('policy', 'permission')
+                policy = config.config_get('policy', 'permission')
             except (NoOptionError, NoSectionError):
-                POLICY = GENERIC_FALLBACK
-            POLICY = 'rucio.core.permission.' + POLICY.lower()
+                policy = generic_fallback
+            policy = 'rucio.core.permission.' + policy.lower()
     else:
-        POLICY = 'rucio.core.permission.' + GENERIC_FALLBACK.lower()
+        policy = 'rucio.core.permission.' + generic_fallback.lower()
 
     try:
-        module = importlib.import_module(POLICY)
+        module = importlib.import_module(policy)
     except ModuleNotFoundError:
         # if policy package does not contain permission module, load fallback module instead
         # this allows a policy package to omit modules that do not need customisation
         try:
             LOGGER.warning('Unable to load permission module %s from policy package, falling back to %s'
-                           % (POLICY, GENERIC_FALLBACK))
-            POLICY = 'rucio.core.permission.' + GENERIC_FALLBACK.lower()
-            module = importlib.import_module(POLICY)
+                           % (policy, generic_fallback))
+            policy = 'rucio.core.permission.' + generic_fallback.lower()
+            module = importlib.import_module(policy)
         except ModuleNotFoundError:
-            raise exception.PolicyPackageNotFound(POLICY)
+            raise exception.PolicyPackageNotFound(policy)
         except ImportError:
-            raise exception.ErrorLoadingPolicyPackage(POLICY)
-        raise exception.PolicyPackageNotFound(POLICY)
+            raise exception.ErrorLoadingPolicyPackage(policy)
+        raise exception.PolicyPackageNotFound(policy)
     except ImportError:
-        raise exception.ErrorLoadingPolicyPackage(POLICY)
+        raise exception.ErrorLoadingPolicyPackage(policy)
 
     permission_modules[vo] = module
 

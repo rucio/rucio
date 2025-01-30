@@ -1476,10 +1476,10 @@ class SAML(ErrorHandlingMethodView):
             return '', 200, headers
 
         # Path to the SAML config folder
-        SAML_PATH = config_get('saml', 'config_path')
+        saml_path = config_get('saml', 'config_path')
 
         req = prepare_saml_request(request.environ, dict(request.args.items(multi=False)))
-        auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
+        auth = OneLogin_Saml2_Auth(req, custom_base_path=saml_path)
 
         headers.set('X-Rucio-SAML-Auth-URL', auth.login())
         return '', 200, headers
@@ -1500,9 +1500,9 @@ class SAML(ErrorHandlingMethodView):
         if not EXTRA_MODULES['onelogin']:
             return "SAML not configured on the server side.", 200, [('X-Rucio-Auth-Token', '')]
 
-        SAML_PATH = config_get('saml', 'config_path')
+        saml_path = config_get('saml', 'config_path')
         req = prepare_saml_request(request.environ, dict(request.args.items(multi=False)))
-        auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
+        auth = OneLogin_Saml2_Auth(req, custom_base_path=saml_path)
 
         auth.process_response()
         errors = auth.get_errors()

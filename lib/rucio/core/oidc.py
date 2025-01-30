@@ -219,11 +219,11 @@ def __initialize_oidc_clients() -> None:
     """
 
     try:
-        ALL_OIDC_CLIENTS = __get_rucio_oidc_clients()
+        all_oidc_clients = __get_rucio_oidc_clients()
         global OIDC_CLIENTS
         global OIDC_ADMIN_CLIENTS
-        OIDC_CLIENTS = ALL_OIDC_CLIENTS[0]
-        OIDC_ADMIN_CLIENTS = ALL_OIDC_CLIENTS[1]
+        OIDC_CLIENTS = all_oidc_clients[0]
+        OIDC_ADMIN_CLIENTS = all_oidc_clients[1]
     except Exception as error:
         logging.debug("OIDC clients not properly loaded: %s", error)
         pass
