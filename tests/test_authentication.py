@@ -288,7 +288,7 @@ def test_many_tokens(vo, root_account, db_session):
     print(get_auth_token_user_pass(account='root', username='ddmlab', password='secret', appid='test', ip='127.0.0.1', vo=vo))
 
 
-def test_non_JWT_validation():
+def test_non_jwt_validation():
     """ AUTHENTICATION: passing a fake X-Rucio-Auth-Token that looks like a JWT """
     from rucio.gateway.authentication import validate_auth_token
     with pytest.raises(CannotAuthenticate):

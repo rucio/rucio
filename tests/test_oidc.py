@@ -186,7 +186,7 @@ class MockADMINClientISSOIDC(MagicMock):
         return oidc_tokens
 
     @classmethod
-    def construct_AuthorizationRequest(cls, request_args=None):
+    def construct_AuthorizationRequest(cls, request_args=None):  # noqa: N802 (method name defined in pyoidc)
         return None
 
     @classmethod
@@ -213,7 +213,7 @@ class MockClientOIDC(MagicMock):
             return NEW_TOKEN_DICT
 
     @classmethod
-    def construct_AuthorizationRequest(cls, request_args=None):
+    def construct_AuthorizationRequest(cls, request_args=None):  # noqa: N802 (method name defined in pyoidc)
         return None
 
     @classmethod
@@ -255,7 +255,7 @@ class MockADMINClientOtherISSOIDC(MagicMock):
         return oidc_tokens
 
     @classmethod
-    def construct_AuthorizationRequest(cls, request_args=None):
+    def construct_AuthorizationRequest(cls, request_args=None):  # noqa: N802 (method name defined in pyoidc)
         return None
 
     @classmethod
@@ -773,7 +773,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_1(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_1(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_useraccREQ_hasSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -857,7 +857,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_2(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_2(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_useraccREQ_hasSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -958,7 +958,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_3(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_3(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_useraccREQ_NOSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1001,7 +1001,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_4(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_4(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_useraccREQ_NOSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1067,7 +1067,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_5(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_5(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_adminaccREQ_NOSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1131,7 +1131,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_6(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_6(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_adminaccREQ_hasSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1209,7 +1209,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_7(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_7(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_adminaccREQ_hasSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1293,7 +1293,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_8(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_8(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_adminaccREQ_NOSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1364,7 +1364,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_9(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_9(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_adminaccREQ_NOSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1428,7 +1428,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_10(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_10(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_adminaccREQ_hasSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1506,7 +1506,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_11(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_11(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_adminaccREQ_hasSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1590,7 +1590,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_12(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_12(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_adminaccREQ_NOSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1683,7 +1683,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_13(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_13(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_useraccREQ_hasSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1770,7 +1770,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_14(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_14(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_useraccREQ_hasSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1859,7 +1859,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_15(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_15(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_useraccREQ_NOSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1901,7 +1901,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_16(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_16(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_useraccREQ_NOSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token

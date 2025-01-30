@@ -201,7 +201,7 @@ class PlacementAlgorithm:
                 net_metrics_type = None
                 for metric_type in ('fts', 'fax', 'perfsonar', 'dashb'):
                     net_metrics_type = metric_type
-                    net_metrics = self._nmc.getMbps(src_site, metric_type)
+                    net_metrics = self._nmc.get_Mbps(src_site, metric_type)
                     if net_metrics:
                         break
                 if len(net_metrics) == 0:  # type: ignore
@@ -227,7 +227,7 @@ class PlacementAlgorithm:
                         if ((site_added_files + meta['length']) > self._max_files_hour_rse):
                             continue
 
-                        queued = self._nmc.getQueuedFiles(src_site, dst_site)
+                        queued = self._nmc.get_queued_files(src_site, dst_site)
 
                         # logging.debug('queued %s -> %s: %d' % (src_site, dst_site, queued))
                         if queued > 0:

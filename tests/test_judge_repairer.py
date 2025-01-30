@@ -90,7 +90,7 @@ class TestJudgeRepairer:
         set_local_account_limit(cls.root, cls.rse4_id, -1)
         set_local_account_limit(cls.root, cls.rse5_id, -1)
 
-    def test_to_repair_a_rule_with_NONE_grouping_whose_transfer_failed(self):
+    def test_to_repair_a_rule_with_none_grouping_whose_transfer_failed(self):
         """ JUDGE REPAIRER: Test to repair a rule with 1 failed transfer (lock)"""
 
         rule_repairer(once=True)  # Clean out the repairer
@@ -117,7 +117,7 @@ class TestJudgeRepairer:
         assert (get_replica(scope=files[2]['scope'], name=files[2]['name'], rse_id=failed_rse_id)['state'] == ReplicaState.UNAVAILABLE)
         assert (get_replica(scope=files[2]['scope'], name=files[2]['name'], rse_id=failed_rse_id)['lock_cnt'] == 0)
 
-    def test_to_repair_a_rule_with_ALL_grouping_whose_transfer_failed(self):
+    def test_to_repair_a_rule_with_all_grouping_whose_transfer_failed(self):
         """ JUDGE REPAIRER: Test to repair a rule with 1 failed transfer (lock)"""
 
         rule_repairer(once=True)  # Clean out the repairer
@@ -141,7 +141,7 @@ class TestJudgeRepairer:
         assert (get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id == get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id)
         assert (get_replica_locks(scope=files[1]['scope'], name=files[1]['name'])[0].rse_id == get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id)
 
-    def test_to_repair_a_rule_with_DATASET_grouping_whose_transfer_failed(self):
+    def test_to_repair_a_rule_with_dataset_grouping_whose_transfer_failed(self):
         """ JUDGE REPAIRER: Test to repair a rule with 1 failed transfer (lock)"""
 
         rule_repairer(once=True)  # Clean out the repairer
@@ -275,7 +275,7 @@ class TestJudgeRepairer:
         # assert (RuleState.REPLICATING == get_rule(rule_id)['state'])
         # assert (get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id == get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id)
 
-    def test_to_repair_a_rule_with_NONE_grouping_whose_transfer_failed_and_flipping_to_other_rse(self):
+    def test_to_repair_a_rule_with_none_grouping_whose_transfer_failed_and_flipping_to_other_rse(self):
         """ JUDGE REPAIRER: Test to repair a rule with 1 failed transfer and flip to other rse(lock)"""
 
         rule_repairer(once=True)  # Clean out the repairer
