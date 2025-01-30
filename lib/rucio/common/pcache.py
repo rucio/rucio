@@ -44,6 +44,8 @@ DEBUG, INFO, WARN, ERROR = "DEBUG", "INFO ", "WARN ", "ERROR"
 # filename for locking
 LOCK_NAME = ".LOCK"
 
+MAXFD = 1024
+
 # Session ID
 sessid = "%s.%s" % (int(time.time()), os.getpid())
 
@@ -131,7 +133,7 @@ def unitize(x: int) -> str:
 
 class Pcache:
 
-    def Usage(self) -> None:
+    def usage(self) -> None:
         msg = """Usage: %s [flags] copy_prog [copy_flags] input output""" % self.progname
         sys.stderr.write("%s\n" % msg)  # py3, py2
     #  print>>sys.stderr, "  flags are: "
@@ -227,7 +229,7 @@ class Pcache:
             # TODO: move checksum/size validation from lsm to pcache
         except getopt.GetoptError as err:
             sys.stderr.write("%s\n" % str(err))
-            self.Usage()
+            self.usage()
             self.fail(100)
 
         for opt, arg in opts:
@@ -356,7 +358,7 @@ class Pcache:
 
         # Fail on extra args
         if not self.scratch_dir:
-            self.Usage()
+            self.usage()
             self.fail(100)
 
         # hardcoded pcache dir
@@ -417,7 +419,7 @@ class Pcache:
 
         # Fail on extra args
         if not scratch_dir:
-            self.Usage()
+            self.usage()
             self.fail(100)
 
         # If the source is lfn:, execute original command, no further action
@@ -491,7 +493,7 @@ class Pcache:
 
         # Must have a list of arguments
         if (self.parse_args(args[1:])):
-            self.Usage()
+            self.usage()
             self.fail(100)
 
         # Cache dir may have been wiped
@@ -522,7 +524,7 @@ class Pcache:
 
         # Fail on extra args
         if (len(self.args) < 3):
-            self.Usage()
+            self.usage()
             self.fail(100)
 
         self.copy_util = self.args[0]
@@ -1059,7 +1061,6 @@ class Pcache:
         os.dup2(n, i)
         os.dup2(n, o)
         os.dup2(n, e)
-        MAXFD = 1024
         try:
             import resource  # Resource usage information.
             maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]

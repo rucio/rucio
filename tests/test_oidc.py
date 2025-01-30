@@ -186,11 +186,11 @@ class MockADMINClientISSOIDC(MagicMock):
         return oidc_tokens
 
     @classmethod
-    def construct_AuthorizationRequest(cls, request_args=None):
+    def construct_AuthorizationRequest(cls, request_args=None):  # noqa: N802 (method name defined in pyoidc)
         return None
 
     @classmethod
-    def parse_response(cls, AuthorizationResponse, info=None, sformat="urlencoded"):
+    def parse_response(cls, authorization_response, info=None, sformat="urlencoded"):
         return None
 
 
@@ -213,17 +213,17 @@ class MockClientOIDC(MagicMock):
             return NEW_TOKEN_DICT
 
     @classmethod
-    def construct_AuthorizationRequest(cls, request_args=None):
+    def construct_AuthorizationRequest(cls, request_args=None):  # noqa: N802 (method name defined in pyoidc)
         return None
 
     @classmethod
-    def parse_response(cls, AuthorizationResponse, info=None, sformat="urlencoded"):
+    def parse_response(cls, authorization_response, info=None, sformat="urlencoded"):
         return None
 
     client_secret = 'topsecret_nr1'
 
     @classmethod
-    def do_any(cls, Message, endpoint=None, state=None, request_args=None, authn_method=None):
+    def do_any(cls, message, endpoint=None, state=None, request_args=None, authn_method=None):
         oidc_tokens = EXCHANGED_TOKEN_DICT.copy()
         oidc_token_dict = dencode_access_token(request_args['subject_token'])
         user_sub = oidc_token_dict['identity'].split(',')[0].split('=')[1]
@@ -255,11 +255,11 @@ class MockADMINClientOtherISSOIDC(MagicMock):
         return oidc_tokens
 
     @classmethod
-    def construct_AuthorizationRequest(cls, request_args=None):
+    def construct_AuthorizationRequest(cls, request_args=None):  # noqa: N802 (method name defined in pyoidc)
         return None
 
     @classmethod
-    def parse_response(cls, AuthorizationResponse, info=None, sformat="urlencoded"):
+    def parse_response(cls, authorization_response, info=None, sformat="urlencoded"):
         return None
 
 
@@ -773,7 +773,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_1(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_1(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_useraccREQ_hasSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -818,12 +818,12 @@ class TestAuthCoreAPIoidc:
         EXCHANGED_TOKEN_DICT['access_token'] = expected_access_token_strpart
         expected_access_token = encode_access_token([expected_access_token_strpart, req_scope, req_audience, self.adminClientSUB, 'https://test_issuer/'])
         # for  OIDC_ADMIN_CLIENTS in __get_admin_token_oidc we need to mock result of __get_rucio_oidc_clients
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -857,7 +857,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_2(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_2(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_useraccREQ_hasSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -917,12 +917,12 @@ class TestAuthCoreAPIoidc:
         EXCHANGED_TOKEN_DICT['access_token'] = not_expected_access_token_strpart
         not_expected_access_token = encode_access_token([not_expected_access_token_strpart, req_scope, req_audience, self.adminClientSUB, 'https://test_issuer/'])
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -958,7 +958,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_3(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_3(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_useraccREQ_NOSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -976,12 +976,12 @@ class TestAuthCoreAPIoidc:
         """
         # ---------------------------
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # setting conditions of the test
@@ -1001,7 +1001,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_4(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_4(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_useraccREQ_NOSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1048,12 +1048,12 @@ class TestAuthCoreAPIoidc:
         db_token = get_token_row(expected_preexisting_access_token_2, account=final_token_account, session=self.db_session)
         assert db_token
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -1067,7 +1067,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_5(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_5(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_adminaccREQ_NOSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1096,12 +1096,12 @@ class TestAuthCoreAPIoidc:
         expected_access_token_1 = encode_access_token([expected_access_token_strpart, req_scope, req_audience, self.adminClientSUB, 'https://test_issuer/'])
         expected_access_token_2 = encode_access_token([expected_access_token_strpart, req_scope, req_audience, self.adminClientSUB_otherISS, 'https://test_other_issuer/'])
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -1131,7 +1131,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_6(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_6(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_adminaccREQ_hasSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1174,12 +1174,12 @@ class TestAuthCoreAPIoidc:
         EXCHANGED_TOKEN_DICT['access_token'] = expected_access_token_strpart
         expected_access_token = encode_access_token([expected_access_token_strpart, req_scope, req_audience, self.adminClientSUB_otherISS, final_token_issuer_2])
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -1209,7 +1209,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_7(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_7(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_adminaccREQ_hasSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1259,12 +1259,12 @@ class TestAuthCoreAPIoidc:
         db_token = get_token_row(preexisting_final_access_token, account=final_token_account, session=self.db_session)
         assert db_token
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -1293,7 +1293,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_8(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_8(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminON_adminaccREQ_NOSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1330,12 +1330,12 @@ class TestAuthCoreAPIoidc:
         assert db_token
         # ---------------------------
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -1364,7 +1364,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_9(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_9(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_adminaccREQ_NOSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1393,12 +1393,12 @@ class TestAuthCoreAPIoidc:
         expected_access_token_1 = encode_access_token([expected_access_token_strpart, req_scope, req_audience, self.adminClientSUB, 'https://test_issuer/'])
         expected_access_token_2 = encode_access_token([expected_access_token_strpart, req_scope, req_audience, self.adminClientSUB_otherISS, 'https://test_other_issuer/'])
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -1428,7 +1428,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_10(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_10(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_adminaccREQ_hasSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1471,12 +1471,12 @@ class TestAuthCoreAPIoidc:
         EXCHANGED_TOKEN_DICT['access_token'] = expected_access_token_strpart
         expected_access_token = encode_access_token([expected_access_token_strpart, req_scope, req_audience, self.adminClientSUB_otherISS, final_token_issuer_2])
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -1506,7 +1506,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_11(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_11(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_adminaccREQ_hasSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1556,12 +1556,12 @@ class TestAuthCoreAPIoidc:
         db_token = get_token_row(preexisting_final_access_token, account=final_token_account, session=self.db_session)
         assert db_token
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -1590,7 +1590,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_12(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_12(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_adminaccREQ_NOSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1627,12 +1627,12 @@ class TestAuthCoreAPIoidc:
         assert db_token
         # ---------------------------
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -1683,7 +1683,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_13(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_13(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_useraccREQ_hasSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1730,12 +1730,12 @@ class TestAuthCoreAPIoidc:
         EXCHANGED_TOKEN_DICT['access_token'] = expected_access_token_strpart
         expected_access_token = encode_access_token([expected_access_token_strpart, req_scope, req_audience, 'knownsub', 'https://test_issuer/'])
         # for  OIDC_ADMIN_CLIENTS in __get_admin_token_oidc we need to mock result of __get_rucio_oidc_clients
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockClientOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockClientOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockClientOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockClientOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -1770,7 +1770,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_14(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_14(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_useraccREQ_hasSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1830,12 +1830,12 @@ class TestAuthCoreAPIoidc:
         EXCHANGED_TOKEN_DICT['access_token'] = expected_access_token_strpart
         hypothetical_exchange_access_token = encode_access_token([expected_access_token_strpart, req_scope, req_audience, 'knownsub', 'https://test_issuer/'])
         # for  OIDC_ADMIN_CLIENTS in __get_admin_token_oidc we need to mock result of __get_rucio_oidc_clients
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockClientOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockClientOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockClientOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockClientOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -1859,7 +1859,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_15(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_15(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_useraccREQ_NOSUBtoken_NoFinalPreexistingToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1877,12 +1877,12 @@ class TestAuthCoreAPIoidc:
         """
         # ---------------------------
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # setting conditions of the test
@@ -1901,7 +1901,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.OIDC_ADMIN_CLIENTS')
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_AT_for_account_operation_16(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
+    def test_get_at_for_account_operation_16(self, mock_clients, mock_oidc_client, admin_clients, validate_jwt_dict):
         """ Request for OIDC token for FTS transfer (adminOFF_useraccREQ_NOSUBtoken_HasPreexistingFinalToken)
            Setting initial conditions:
               - requesting Rucio Admin token
@@ -1948,12 +1948,12 @@ class TestAuthCoreAPIoidc:
         db_token = get_token_row(expected_preexisting_access_token_2, account=final_token_account, session=self.db_session)
         assert db_token
         # mocking additional objects
-        MockAdminOIDCClients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
-                                'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
-        admin_clients.__getitem__.side_effect = MockAdminOIDCClients.__getitem__
-        admin_clients.__iter__.side_effect = MockAdminOIDCClients.__iter__
-        admin_clients.__contains__.side_effect = MockAdminOIDCClients.__contains__
-        admin_clients.keys.side_effect = MockAdminOIDCClients.keys
+        mock_admin_oidc_clients = {'https://test_other_issuer/': MockADMINClientOtherISSOIDC(client_id=self.adminClientSUB_otherISS),
+                                   'https://test_issuer/': MockADMINClientISSOIDC(client_id=self.adminClientSUB)}
+        admin_clients.__getitem__.side_effect = mock_admin_oidc_clients.__getitem__
+        admin_clients.__iter__.side_effect = mock_admin_oidc_clients.__iter__
+        admin_clients.__contains__.side_effect = mock_admin_oidc_clients.__contains__
+        admin_clients.keys.side_effect = mock_admin_oidc_clients.keys
         validate_jwt_dict.side_effect = validate_jwt
         mock_oidc_client.side_effect = get_mock_oidc_client
         # ---------------------------
@@ -1965,27 +1965,27 @@ class TestAuthCoreAPIoidc:
 
 
 def test_token_cache() -> None:
-    KEY = str(uuid.uuid1())
-    assert _token_cache_get(KEY) is None
+    key = str(uuid.uuid1())
+    assert _token_cache_get(key) is None
 
     valid_token = JWT().pack([{
         'exp': int((datetime.utcnow() + timedelta(hours=1)).timestamp())
     }])
-    _token_cache_set(KEY, valid_token)
-    assert _token_cache_get(KEY) == valid_token
+    _token_cache_set(key, valid_token)
+    assert _token_cache_get(key) == valid_token
 
     invalid_token = 'invalid'
-    _token_cache_set(KEY, invalid_token)
-    assert _token_cache_get(KEY) is None
+    _token_cache_set(key, invalid_token)
+    assert _token_cache_get(key) is None
 
     below_min_lifetime_token = JWT().pack([{
         'exp': int((datetime.utcnow() + timedelta(minutes=1)).timestamp())
     }])
-    _token_cache_set(KEY, below_min_lifetime_token)
-    assert _token_cache_get(KEY) is None
+    _token_cache_set(key, below_min_lifetime_token)
+    assert _token_cache_get(key) is None
 
     expired_token = JWT().pack([{
         'exp': int((datetime.utcnow() - timedelta(minutes=1)).timestamp())
     }])
-    _token_cache_set(KEY, expired_token)
-    assert _token_cache_get(KEY) is None
+    _token_cache_set(key, expired_token)
+    assert _token_cache_get(key) is None

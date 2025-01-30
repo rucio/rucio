@@ -252,8 +252,8 @@ def test_saml_success(vo, rest_client):
 
     response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict), vohdr(vo)))
     if not response.headers.get('X-Rucio-Auth-Token'):
-        SAML_auth_url = response.headers.get('X-Rucio-SAML-Auth-URL')
-        response = session().post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+        saml_auth_url = response.headers.get('X-Rucio-SAML-Auth-URL')
+        response = session().post(saml_auth_url, data=userpass, verify=False, allow_redirects=True)
         response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict)))
 
     assert response.status_code == 200
@@ -269,8 +269,8 @@ def test_saml_fail(vo, rest_client):
 
     response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict), vohdr(vo)))
     if not response.headers.get('X-Rucio-Auth-Token'):
-        SAML_auth_url = response.headers.get('X-Rucio-SAML-Auth-URL')
-        response = session().post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+        saml_auth_url = response.headers.get('X-Rucio-SAML-Auth-URL')
+        response = session().post(saml_auth_url, data=userpass, verify=False, allow_redirects=True)
         response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict)))
 
     assert response.status_code == 401
@@ -288,7 +288,7 @@ def test_many_tokens(vo, root_account, db_session):
     print(get_auth_token_user_pass(account='root', username='ddmlab', password='secret', appid='test', ip='127.0.0.1', vo=vo))
 
 
-def test_non_JWT_validation():
+def test_non_jwt_validation():
     """ AUTHENTICATION: passing a fake X-Rucio-Auth-Token that looks like a JWT """
     from rucio.gateway.authentication import validate_auth_token
     with pytest.raises(CannotAuthenticate):

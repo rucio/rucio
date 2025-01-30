@@ -56,7 +56,7 @@ def test_trace_ip():
     """
     Allow either IPv4 or IPv6 addresses as traceIp fields
     """
-    TEST_SCHEMA = {
+    test_schema = {
         "type": "object",
         "properties": {
             "eventType": {"enum": ["test"]},
@@ -64,7 +64,7 @@ def test_trace_ip():
         }
     }
 
-    SCHEMAS['test'] = TEST_SCHEMA
+    SCHEMAS['test'] = test_schema
 
     valid_ips = [
         "::ffff:134.158.121.5",

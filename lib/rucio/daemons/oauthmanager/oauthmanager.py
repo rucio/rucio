@@ -53,7 +53,7 @@ graceful_stop = threading.Event()
 DAEMON_NAME = 'oauth-manager'
 
 
-def OAuthManager(once: bool = False, max_rows: int = 100, sleep_time: int = 300) -> None:
+def oauth_manager(once: bool = False, max_rows: int = 100, sleep_time: int = 300) -> None:
     """
     Main loop to delete all expired tokens, refresh tokens eligible
     for refresh and delete all expired OAuth session parameters.
@@ -178,10 +178,10 @@ def run(once: bool = False, threads: int = 1, max_rows: int = 100, sleep_time: i
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
     if once:
-        OAuthManager(once, max_rows, sleep_time)
+        oauth_manager(once, max_rows, sleep_time)
     else:
         logging.info('OAuth Manager starting %s threads', str(threads))
-        threads = [threading.Thread(target=OAuthManager,
+        threads = [threading.Thread(target=oauth_manager,
                                     kwargs={'once': once,
                                             'max_rows': max_rows,
                                             'sleep_time': sleep_time}) for i in range(0, threads)]

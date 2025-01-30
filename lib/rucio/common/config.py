@@ -31,6 +31,9 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
+LEGACY_SECTION_NAME = {}
+LEGACY_OPTION_NAME = {}
+
 
 def convert_to_any_type(value: str) -> Union[bool, int, float, str]:
     if value.lower() in ['true', 'yes', 'on']:
@@ -225,8 +228,6 @@ def get_legacy_config(section: str, option: str):
     :param option: The option of the new config.
     :returns: The string value of the legacy option if one is found, None otherwise.
     """
-    LEGACY_SECTION_NAME = {}
-    LEGACY_OPTION_NAME = {}
 
     section = LEGACY_SECTION_NAME.get(section, section)
     option = LEGACY_OPTION_NAME.get(option, option)

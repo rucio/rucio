@@ -29,7 +29,7 @@ class NetworkMetricsCollector:
         self._r = StrictRedis(host=config_get('c3po-network-metrics', 'redis_host'), port=config_get_int('c3po-network-metrics', 'redis_port'))
         self._prefix = config_get('c3po-network-metrics', 'prefix')
 
-    def getMbps(
+    def get_Mbps(  # noqa: N802
             self,
             src: str,
             type_: str
@@ -56,7 +56,7 @@ class NetworkMetricsCollector:
 
         return ret
 
-    def getQueuedFiles(
+    def get_queued_files(
             self,
             src: str,
             dst: str

@@ -30,11 +30,27 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def add_rse(rse, issuer, vo='def', deterministic=True, volatile=False, city=None, region_code=None,
-            country_name=None, continent=None, time_zone=None, ISP=None,
-            staging_area=False, rse_type=None, latitude=None, longitude=None, ASN=None,
-            availability_read: "Optional[bool]" = None, availability_write: "Optional[bool]" = None,
-            availability_delete: "Optional[bool]" = None, *, session: "Session"):
+def add_rse(
+    rse,
+    issuer,
+    vo='def',
+    deterministic=True,
+    volatile=False,
+    city=None,
+    region_code=None,
+    country_name=None,
+    continent=None,
+    time_zone=None,
+    ISP=None,  # noqa: N803
+    staging_area=False,
+    rse_type=None,
+    latitude=None,
+    longitude=None,
+    ASN=None,  # noqa: N803
+    availability_read: "Optional[bool]" = None,
+    availability_write: "Optional[bool]" = None,
+    availability_delete: "Optional[bool]" = None, *, session: "Session"
+):
     """
     Creates a new Rucio Storage Element(RSE).
 

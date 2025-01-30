@@ -32,7 +32,7 @@ from rucio.common.schema import get_schema_value
 from rucio.common.utils import clean_pfns, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
 from rucio.core.did import add_did, attach_dids, get_did, get_did_atime, list_files, set_status
-from rucio.core.replica import add_bad_dids, add_replica, add_replicas, delete_replicas, get_bad_pfns, get_replica, get_replica_atime, get_replicas_state, get_RSEcoverage_of_dataset, list_replicas, set_tombstone, touch_replica, update_replica_state
+from rucio.core.replica import add_bad_dids, add_replica, add_replicas, delete_replicas, get_bad_pfns, get_replica, get_replica_atime, get_replicas_state, get_rse_coverage_of_dataset, list_replicas, set_tombstone, touch_replica, update_replica_state
 from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import minos
 from rucio.daemons.badreplicas.minos_temporary_expiration import minos_tu_expiration
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from .temp_factories import TemporaryRSEFactory
 
 
-def mocked_VP_requests_get(*args, **kwargs):
+def mocked_vp_requests_get(*args, **kwargs):
     """This method will be used by the mock to replace requests.get to VP server."""
     class MockResponse:
         def __init__(self, json_data, status_code):
@@ -79,7 +79,7 @@ def mocked_VP_requests_get(*args, **kwargs):
 
 class TestReplicaCore:
 
-    @mock.patch('rucio.core.replica.requests.get', side_effect=mocked_VP_requests_get)
+    @mock.patch('rucio.core.replica.requests.get', side_effect=mocked_vp_requests_get)
     @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Hard-coded ATLAS PFN convention')
     def test_cache_replicas(self, mock_get, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Test listing replicas with cached root protocol """
@@ -616,7 +616,7 @@ class TestReplicaCore:
         for replica in list(list_replicas([{'scope': mock_scope, 'name': dsn}], all_states=True)):
             assert replica["states"][rse_id] == "BAD"
 
-    def test_get_RSE_coverage_of_dataset(self, rse_factory, mock_scope, root_account):
+    def test_get_rse_coverage_of_dataset(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): test RSE coverage retrieval """
         _, rse1_id = rse_factory.make_mock_rse()
         _, rse2_id = rse_factory.make_mock_rse()
@@ -626,7 +626,7 @@ class TestReplicaCore:
         add_did(scope=mock_scope, name=dsn, did_type='DATASET', account=root_account)
 
         # test empty dataset
-        cov = get_RSEcoverage_of_dataset(scope=mock_scope, name=dsn)
+        cov = get_rse_coverage_of_dataset(scope=mock_scope, name=dsn)
         print(cov)
         assert cov == {}
         # add files/replicas
@@ -638,7 +638,7 @@ class TestReplicaCore:
             add_replica(rse_id=rse3_id, scope=mock_scope, name=dsn + '_%06d.data' % i, bytes_=100, account=root_account)
 
         attach_dids(scope=mock_scope, name=dsn, dids=[{'scope': mock_scope, 'name': dsn + '_%06d.data' % i} for i in range(1, 16)], account=root_account)
-        cov = get_RSEcoverage_of_dataset(scope=mock_scope, name=dsn)
+        cov = get_rse_coverage_of_dataset(scope=mock_scope, name=dsn)
         print(cov)
         assert cov[rse1_id] == 700
         assert cov[rse2_id] == 300

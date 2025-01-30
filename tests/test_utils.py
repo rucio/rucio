@@ -78,7 +78,7 @@ class TestUtils:
     def test_availability_with_none(self):
         assert Availability(write=False).integer == 5
 
-    def test_availability_from_integer_None(self):
+    def test_availability_from_integer_none(self):
         assert Availability.from_integer(None) == Availability(None, None, None)
 
 

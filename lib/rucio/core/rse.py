@@ -377,9 +377,28 @@ def _group_query_result_by_rse_id(stmt, *, session: "Session") -> 'Iterator[tupl
 
 
 @transactional_session
-def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
-            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability_read: Optional[bool] = None,
-            availability_write: Optional[bool] = None, availability_delete: Optional[bool] = None, *, session: "Session"):
+def add_rse(
+    rse,
+    vo='def',
+    deterministic=True,
+    volatile=False,
+    city=None,
+    region_code=None,
+    country_name=None,
+    continent=None,
+    time_zone=None,
+    ISP=None,  # noqa: N803
+    staging_area=False,
+    rse_type=RSEType.DISK,
+    longitude=None,
+    latitude=None,
+    ASN=None,  # noqa: N803
+    availability_read: Optional[bool] = None,
+    availability_write: Optional[bool] = None,
+    availability_delete: Optional[bool] = None,
+    *,
+    session: "Session"
+):
     """
     Add a rse with the given location name.
 
