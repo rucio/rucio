@@ -526,7 +526,7 @@ class BaseClient:
         self.auth_token = result.headers['x-rucio-auth-token']
         return True
 
-    def __refresh_token_OIDC(self) -> bool:
+    def __refresh_token_oidc(self) -> bool:
         """
         Checks if there is active refresh token and if so returns
         either active token with expiration timestamp or requests a new
@@ -580,7 +580,7 @@ class BaseClient:
                    \nRucio Auth Server when attempting token refresh.")
             return False
 
-    def __get_token_OIDC(self) -> bool:
+    def __get_token_oidc(self) -> bool:
         """
         First authenticates the user via a Identity Provider server
         (with user's username & password), by specifying oidc_scope,
@@ -701,7 +701,7 @@ class BaseClient:
             with fdopen(file_d, "w") as f_exp_epoch:
                 f_exp_epoch.write(str(self.token_exp_epoch))
             move(file_n, self.token_exp_epoch_file)
-            self.__refresh_token_OIDC()
+            self.__refresh_token_oidc()
         return True
 
     def __get_token_x509(self) -> bool:
@@ -877,7 +877,7 @@ class BaseClient:
                     raise CannotAuthenticate('x509 authentication failed for account=%s with identity=%s' % (self.account,
                                                                                                              self.creds))
             elif self.auth_type == 'oidc':
-                if not self.__get_token_OIDC():
+                if not self.__get_token_oidc():
                     raise CannotAuthenticate('OIDC authentication failed for account=%s' % self.account)
 
             elif self.auth_type == 'gss':
@@ -921,7 +921,7 @@ class BaseClient:
         except Exception:
             raise
         if self.auth_oidc_refresh_active and self.auth_type == 'oidc':
-            self.__refresh_token_OIDC()
+            self.__refresh_token_oidc()
         self.logger.debug('got token from file')
         return True
 
