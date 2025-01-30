@@ -14,10 +14,10 @@
 
 import os
 import sys
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any, Optional
 from urllib.parse import urlparse
+from xml.etree import ElementTree
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -96,7 +96,7 @@ class _PropfindFile:
     size: Optional[int]
 
     @classmethod
-    def from_xml_node(cls, node: ET.Element):
+    def from_xml_node(cls, node: ElementTree.Element):
         """Extract file properties from a `<{DAV:}response>` node."""
 
         xml_href = node.find('./{DAV:}href')
@@ -133,8 +133,8 @@ class _PropfindResponse:
         """
 
         try:
-            xml = ET.fromstring(document)  # noqa: S314
-        except ET.ParseError as ex:
+            xml = ElementTree.fromstring(document)  # noqa: S314
+        except ElementTree.ParseError as ex:
             raise ValueError("Couldn't parse XML document") from ex
 
         if xml.tag != '{DAV:}multistatus':
@@ -537,7 +537,7 @@ class Default(protocol.RSEProtocol):
         headers = {'Depth': '0'}
 
         try:
-            root = ET.fromstring(self.session.request('PROPFIND', endpoint_basepath, verify=False, headers=headers, cert=self.session.cert).text)  # noqa: S314
+            root = ElementTree.fromstring(self.session.request('PROPFIND', endpoint_basepath, verify=False, headers=headers, cert=self.session.cert).text)  # noqa: S314
             usedsize = root[0][1][0].find('{DAV:}quota-used-bytes').text
             try:
                 unusedsize = root[0][1][0].find('{DAV:}quota-available-bytes').text
