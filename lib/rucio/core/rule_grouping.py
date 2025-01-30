@@ -1448,7 +1448,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
             for ds_scope, ds_name in datasets:
                 ds = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic_depth=DIDType.FILE, session=session)  # this will be retrieved again later on -> could be optimized
                 nbytes += ds['bytes']
-                one_rse_coverage = rucio.core.replica.get_RSEcoverage_of_dataset(scope=ds_scope, name=ds_name, session=session)
+                one_rse_coverage = rucio.core.replica.get_rse_coverage_of_dataset(scope=ds_scope, name=ds_name, session=session)
                 for rse_id, bytes_ in one_rse_coverage.items():
                     rse_coverage[rse_id] = bytes_ + rse_coverage.get(rse_id, 0)
 
@@ -1474,7 +1474,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
 
             if rule.grouping == RuleGrouping.DATASET:
                 # calculate target RSEs
-                rse_coverage = rucio.core.replica.get_RSEcoverage_of_dataset(scope=ds_scope, name=ds_name, session=session)
+                rse_coverage = rucio.core.replica.get_rse_coverage_of_dataset(scope=ds_scope, name=ds_name, session=session)
                 # prnt(rse_coverage)
                 preferred_rse_ids = [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)]
                 # prnt(preferred_rse_ids)
