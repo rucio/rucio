@@ -16,9 +16,9 @@ import bz2
 import glob
 import logging
 import os
-import queue as Queue
 import select
 from datetime import datetime, timedelta
+from queue import Empty as EmptyQueue
 from typing import TYPE_CHECKING, Optional
 
 from rucio.common import config
@@ -238,7 +238,7 @@ def check(
     while not terminate.is_set():
         try:
             rse, attempts = queue.get(timeout=30)
-        except Queue.Empty:
+        except EmptyQueue:
             continue
         start = datetime.now()
         try:
