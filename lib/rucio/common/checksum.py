@@ -137,8 +137,8 @@ def crc32(file: "FileDescriptorOrPath") -> str:
     :returns: string of 32 hexadecimal digits
     """
     prev = 0
-    for eachLine in open(file, "rb"):
-        prev = zlib.crc32(eachLine, prev)
+    for each_line in open(file, "rb"):
+        prev = zlib.crc32(each_line, prev)
     return "%X" % (prev & 0xFFFFFFFF)
 
 

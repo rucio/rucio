@@ -38,7 +38,7 @@ def upgrade():
         add_column("rses", sa.Column("availability_write", sa.Boolean, server_default=true()), schema=schema)
         add_column("rses", sa.Column("availability_delete", sa.Boolean, server_default=true()), schema=schema)
 
-        RSE = sa.sql.table(
+        rse = sa.sql.table(
             "rses",
             sa.Column("id", GUID()),
             sa.Column("availability", sa.Integer),
@@ -50,9 +50,9 @@ def upgrade():
 
         conn = get_bind()
 
-        conn.execute(RSE.update().where(RSE.c.availability.in_([0, 1, 2, 3])).values({"availability_read": False}))
-        conn.execute(RSE.update().where(RSE.c.availability.in_([0, 1, 4, 5])).values({"availability_write": False}))
-        conn.execute(RSE.update().where(RSE.c.availability.in_([0, 2, 4, 6])).values({"availability_delete": False}))
+        conn.execute(rse.update().where(rse.c.availability.in_([0, 1, 2, 3])).values({"availability_read": False}))
+        conn.execute(rse.update().where(rse.c.availability.in_([0, 1, 4, 5])).values({"availability_write": False}))
+        conn.execute(rse.update().where(rse.c.availability.in_([0, 2, 4, 6])).values({"availability_delete": False}))
 
 
 def downgrade():

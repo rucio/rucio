@@ -205,18 +205,18 @@ class TestCore:
         from dogpile.cache.api import NO_VALUE
 
         # create RSEs A, B, C (structured into namedtuples)
-        rseA, rseB, rseC = (
+        rse_a, rse_b, rse_c = (
             RSE_namedtuple(*rse_factory.make_mock_rse()) for _ in range(3)
         )
         rsekey, rseval = tag_generator(), tag_generator()
-        add_rse_attribute(rseA.id, rsekey, rseval)
+        add_rse_attribute(rse_a.id, rsekey, rseval)
 
         # create DID (dataset is easiest)
         dataset = did_factory.make_dataset()
 
         # create source replica expression
         if delete_rse:
-            source_replica_expression = rseA.name
+            source_replica_expression = rse_a.name
         else:
             source_replica_expression = f"{rsekey}={rseval}"
 
@@ -224,7 +224,7 @@ class TestCore:
         rule = {
             "account": root_account,
             "copies": 1,
-            "rse_expression": rseB.name,
+            "rse_expression": rse_b.name,
             "source_replica_expression": source_replica_expression
         }
         ruledict = add_rules([dataset], [rule])
@@ -232,16 +232,16 @@ class TestCore:
 
         # delete RSE-A (or otherwise unmatching from source replica expr)
         if delete_rse:
-            del_rse(rseA.id)
+            del_rse(rse_a.id)
         else:
-            del_rse_attribute(rseA.id, rsekey)
+            del_rse_attribute(rse_a.id, rsekey)
 
         # must remove cached entries for the Source Replica Expression
         caches_mock[0].set(sha256(source_replica_expression.encode()).hexdigest(), NO_VALUE)
 
         # move-rule asserts correct error
         with pytest.raises(InvalidSourceReplicaExpression):
-            move_rule(rule_id, rseC.name)
+            move_rule(rule_id, rse_c.name)
 
     def test_add_rule_to_file_ask_approval(self, vo, mock_scope, jdoe_account):
         """ REPLICATION RULE (CORE): Add a replication rule, asking approval"""
