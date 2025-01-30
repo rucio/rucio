@@ -81,7 +81,6 @@ def add_subscription(name: str,
     except (NoOptionError, NoSectionError, RuntimeError):
         keep_history = False
 
-    SubscriptionHistory = models.SubscriptionHistory
     retroactive = bool(retroactive)  # Force boolean type, necessary for strict SQL
     state = SubscriptionState.ACTIVE
     if retroactive:
@@ -99,18 +98,18 @@ def add_subscription(name: str,
                                            retroactive=retroactive,
                                            policyid=priority, comments=comments)
     if keep_history:
-        subscription_history = SubscriptionHistory(id=new_subscription.id,
-                                                   name=new_subscription.name,
-                                                   filter=new_subscription.filter,
-                                                   account=new_subscription.account,
-                                                   replication_rules=new_subscription.replication_rules,
-                                                   state=new_subscription.state,
-                                                   lifetime=new_subscription.lifetime,
-                                                   retroactive=new_subscription.retroactive,
-                                                   policyid=new_subscription.policyid,
-                                                   comments=new_subscription.comments,
-                                                   created_at=datetime.datetime.utcnow(),
-                                                   updated_at=datetime.datetime.utcnow())
+        subscription_history = models.SubscriptionHistory(id=new_subscription.id,
+                                                          name=new_subscription.name,
+                                                          filter=new_subscription.filter,
+                                                          account=new_subscription.account,
+                                                          replication_rules=new_subscription.replication_rules,
+                                                          state=new_subscription.state,
+                                                          lifetime=new_subscription.lifetime,
+                                                          retroactive=new_subscription.retroactive,
+                                                          policyid=new_subscription.policyid,
+                                                          comments=new_subscription.comments,
+                                                          created_at=datetime.datetime.utcnow(),
+                                                          updated_at=datetime.datetime.utcnow())
     try:
         new_subscription.save(session=session)
         if keep_history:
@@ -171,7 +170,6 @@ def update_subscription(name: str,
         values['state'] = SubscriptionState.INACTIVE
         values['expired_at'] = datetime.datetime.utcnow()
 
-    SubscriptionHistory = models.SubscriptionHistory
     try:
         stmt = select(
             models.Subscription
@@ -191,20 +189,20 @@ def update_subscription(name: str,
 
         subscription.update(values)
         if keep_history and current_subscription_state != new_subscription_state:
-            subscription_history = SubscriptionHistory(id=subscription.id,
-                                                       name=subscription.name,
-                                                       filter=subscription.filter,
-                                                       account=subscription.account,
-                                                       replication_rules=subscription.replication_rules,
-                                                       state=subscription.state,
-                                                       lifetime=subscription.lifetime,
-                                                       retroactive=subscription.retroactive,
-                                                       policyid=subscription.policyid,
-                                                       comments=subscription.comments,
-                                                       last_processed=subscription.last_processed,
-                                                       expired_at=subscription.expired_at,
-                                                       updated_at=datetime.datetime.utcnow(),
-                                                       created_at=subscription.created_at)
+            subscription_history = models.SubscriptionHistory(id=subscription.id,
+                                                              name=subscription.name,
+                                                              filter=subscription.filter,
+                                                              account=subscription.account,
+                                                              replication_rules=subscription.replication_rules,
+                                                              state=subscription.state,
+                                                              lifetime=subscription.lifetime,
+                                                              retroactive=subscription.retroactive,
+                                                              policyid=subscription.policyid,
+                                                              comments=subscription.comments,
+                                                              last_processed=subscription.last_processed,
+                                                              expired_at=subscription.expired_at,
+                                                              updated_at=datetime.datetime.utcnow(),
+                                                              created_at=subscription.created_at)
             subscription_history.save(session=session)
     except NoResultFound:
         raise SubscriptionNotFound(f"Subscription for account '{account}' named '{name}' not found")
