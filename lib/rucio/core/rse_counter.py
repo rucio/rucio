@@ -178,9 +178,8 @@ def fill_rse_counter_history_table(*, session: "Session"):
 
     :param session: Database session in use.
     """
-    RSEUsageHistory = models.RSEUsageHistory
     stmt = select(
         models.RSEUsage
     )
     for usage in session.execute(stmt).scalars().all():
-        RSEUsageHistory(rse_id=usage['rse_id'], used=usage['used'], files=usage['files'], source=usage['source']).save(session=session)
+        models.RSEUsageHistory(rse_id=usage['rse_id'], used=usage['used'], files=usage['files'], source=usage['source']).save(session=session)
