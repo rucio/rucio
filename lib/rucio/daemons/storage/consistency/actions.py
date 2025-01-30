@@ -443,7 +443,7 @@ def process_dark_files(
                 logger(logging.INFO, 'Processing a dark file:\n RSE %s  Scope: %s  Name: %s'
                        % (rse, scope, name))
                 rse_id = get_rse_id(rse=rse)
-                Intscope = InternalScope(scope=scope, vo=issuer.vo)
+                internal_scope = InternalScope(scope=scope, vo=issuer.vo)
                 lfns = [{'scope': scope, 'name': name}]
 
                 attributes = get_rse_info(rse=rse)
@@ -452,7 +452,7 @@ def process_dark_files(
                 url = pfns[pfn_key]
                 urls = [url]
                 paths = parse_pfns(attributes, urls, operation='delete')
-                replicas = [{'scope': Intscope, 'rse_id': rse_id, 'name': name,
+                replicas = [{'scope': internal_scope, 'rse_id': rse_id, 'name': name,
                              'path': paths[url]['path'] + paths[url]['name']}]
                 add_quarantined_replicas(rse_id, replicas, session=None)
                 deleted_files += 1

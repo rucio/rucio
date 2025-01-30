@@ -609,14 +609,14 @@ class BaseClient:
         request_auth_url = build_url(self.auth_host, path='auth/oidc')
         # requesting authorization URL specific to the user & Rucio OIDC Client
         self.logger.debug("Initial auth URL request headers %s to files" % str(headers))
-        OIDC_auth_res = self._send_request(request_auth_url, headers=headers, get_token=True)
-        self.logger.debug("Response headers %s and text %s" % (str(OIDC_auth_res.headers), str(OIDC_auth_res.text)))
+        oidc_auth_res = self._send_request(request_auth_url, headers=headers, get_token=True)
+        self.logger.debug("Response headers %s and text %s" % (str(oidc_auth_res.headers), str(oidc_auth_res.text)))
         # with the obtained authorization URL we will contact the Identity Provider to get to the login page
-        if 'X-Rucio-OIDC-Auth-URL' not in OIDC_auth_res.headers:
+        if 'X-Rucio-OIDC-Auth-URL' not in oidc_auth_res.headers:
             print("Rucio Client did not succeed to get AuthN/Z URL from the Rucio Auth Server. \
                                    \nThis could be due to wrongly requested/configured scope, audience or issuer.")
             return False
-        auth_url = OIDC_auth_res.headers['X-Rucio-OIDC-Auth-URL']
+        auth_url = oidc_auth_res.headers['X-Rucio-OIDC-Auth-URL']
         if not self.creds['oidc_auto']:
             print("\nPlease use your internet browser, go to:")
             print("\n    " + auth_url + "    \n")
@@ -841,11 +841,11 @@ class BaseClient:
         url = build_url(self.auth_host, path='auth/saml')
 
         result = None
-        SAML_auth_result = self._send_request(url, get_token=True)
-        if SAML_auth_result.headers['X-Rucio-Auth-Token']:
-            return SAML_auth_result.headers['X-Rucio-Auth-Token']
-        SAML_auth_url = SAML_auth_result.headers['X-Rucio-SAML-Auth-URL']
-        result = self._send_request(SAML_auth_url, type_='POST', data=userpass, verify=False)
+        saml_auth_result = self._send_request(url, get_token=True)
+        if saml_auth_result.headers['X-Rucio-Auth-Token']:
+            return saml_auth_result.headers['X-Rucio-Auth-Token']
+        saml_auth_url = saml_auth_result.headers['X-Rucio-SAML-Auth-URL']
+        result = self._send_request(saml_auth_url, type_='POST', data=userpass, verify=False)
         result = self._send_request(url, get_token=True)
 
         if not result:

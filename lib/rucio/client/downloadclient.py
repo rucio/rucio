@@ -1675,8 +1675,8 @@ class DownloadClient:
         num_successful = 0
         num_failed = 0
         for item in output_items:
-            clientState = item.get('clientState', FileDownloadState.FAILED)
-            if clientState in success_states:
+            client_state = item.get('clientState', FileDownloadState.FAILED)
+            if client_state in success_states:
                 num_successful += 1
             else:
                 num_failed += 1
