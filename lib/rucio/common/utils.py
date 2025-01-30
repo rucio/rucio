@@ -1347,7 +1347,7 @@ def daemon_sleep(
         graceful_stop.wait(sleep_time - time_diff)
 
 
-class retry:
+class retry:  # noqa: N801
     """Retry callable object with configuragle number of attempts"""
 
     def __init__(self, func: 'Callable[..., Any]', *args, **kwargs):

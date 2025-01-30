@@ -32,7 +32,7 @@ class WorkloadCollector:
     the average and maximum number of running jobs for a sliding window.
     """
 
-    class __WorkloadCollector:
+    class __WorkloadCollector:  # noqa: N801
         """
         Private class needed implement singleton.
         """
