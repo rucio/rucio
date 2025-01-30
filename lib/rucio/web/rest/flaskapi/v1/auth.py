@@ -939,7 +939,7 @@ class GSS(ErrorHandlingMethodView):
         return '', 200, headers
 
 
-class x509(ErrorHandlingMethodView):
+class x509(ErrorHandlingMethodView):  # noqa: N801
     """
     Authenticate a Rucio account temporarily via an x509 certificate.
     """
