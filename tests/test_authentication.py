@@ -252,8 +252,8 @@ def test_saml_success(vo, rest_client):
 
     response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict), vohdr(vo)))
     if not response.headers.get('X-Rucio-Auth-Token'):
-        SAML_auth_url = response.headers.get('X-Rucio-SAML-Auth-URL')
-        response = session().post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+        saml_auth_url = response.headers.get('X-Rucio-SAML-Auth-URL')
+        response = session().post(saml_auth_url, data=userpass, verify=False, allow_redirects=True)
         response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict)))
 
     assert response.status_code == 200
@@ -269,8 +269,8 @@ def test_saml_fail(vo, rest_client):
 
     response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict), vohdr(vo)))
     if not response.headers.get('X-Rucio-Auth-Token'):
-        SAML_auth_url = response.headers.get('X-Rucio-SAML-Auth-URL')
-        response = session().post(SAML_auth_url, data=userpass, verify=False, allow_redirects=True)
+        saml_auth_url = response.headers.get('X-Rucio-SAML-Auth-URL')
+        response = session().post(saml_auth_url, data=userpass, verify=False, allow_redirects=True)
         response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict)))
 
     assert response.status_code == 401

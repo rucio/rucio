@@ -476,10 +476,10 @@ def __create_in_memory_db_table(
     engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
 
     # Create a class which inherits from ModelBase. This will allow us to use the rucio-specific methods like .save()
-    DeclarativeObj = type('DeclarativeObj{}'.format(name), (ModelBase,), {})
+    DeclarativeObj = type('DeclarativeObj{}'.format(name), (ModelBase,), {})  # noqa: N806
     # Create a new declarative base and map the previously created object into the base
     mapper_registry = registry()
-    InMemoryBase = mapper_registry.generate_base(name='InMemoryBase{}'.format(name))
+    InMemoryBase = mapper_registry.generate_base(name='InMemoryBase{}'.format(name))  # noqa: N806
     table_args = tuple(columns) + tuple(kwargs.get('table_args', ())) + (
         Column("created_at", DateTime, default=datetime.datetime.utcnow),
         Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
@@ -516,7 +516,7 @@ def message_mock() -> "Iterator[None]":
     from rucio.common.utils import generate_uuid
     from rucio.db.sqla.models import GUID, CheckConstraint, Index, PrimaryKeyConstraint, String, Text
 
-    InMemoryMessage = __create_in_memory_db_table(
+    in_memory_message = __create_in_memory_db_table(
         'message_' + generate_uuid(),
         Column('id', GUID(), default=generate_uuid),
         Column('event_type', String(256)),
@@ -529,7 +529,7 @@ def message_mock() -> "Iterator[None]":
                     Index('MESSAGES_SERVICES_IDX', 'services', 'event_type'))
     )
 
-    with mock.patch('rucio.core.message.Message', new=InMemoryMessage):
+    with mock.patch('rucio.core.message.Message', new=in_memory_message):
         yield
 
 
@@ -559,7 +559,7 @@ def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
     if params:
         table_content = params.get("table_content", table_content)
 
-    InMemoryConfig = __create_in_memory_db_table(
+    in_memory_config = __create_in_memory_db_table(
         'configs_' + generate_uuid(),
         Column('section', String(128)),
         Column('opt', String(128)),
@@ -570,10 +570,10 @@ def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
     # Fill the table with the requested mock data
     session = get_session()()
     for section, option, value in (table_content or []):
-        InMemoryConfig(section=section, opt=option, value=value).save(flush=True, session=session)
+        in_memory_config(section=section, opt=option, value=value).save(flush=True, session=session)
     session.commit()
 
-    with mock.patch('rucio.core.config.models.Config', new=InMemoryConfig):
+    with mock.patch('rucio.core.config.models.Config', new=in_memory_config):
         yield
 
 

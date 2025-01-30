@@ -962,7 +962,7 @@ def parse_did_filter_from_string_fe(
     """
     # lookup table unifying all comprehended operators to a nominal suffix.
     # note that the order matters as the regex engine is eager, e.g. don't want to evaluate '<=' as '<' and '='.
-    operators_suffix_LUT = OrderedDict({
+    operators_suffix_lut = OrderedDict({
         '<=': 'lte',
         '>=': 'gte',
         '==': '',
@@ -973,11 +973,11 @@ def parse_did_filter_from_string_fe(
     })
 
     # lookup table mapping operator opposites, used to reverse compound inequalities.
-    operator_opposites_LUT = {
+    operator_opposites_lut = {
         'lt': 'gt',
         'lte': 'gte'
     }
-    operator_opposites_LUT.update({op2: op1 for op1, op2 in operator_opposites_LUT.items()})
+    operator_opposites_lut.update({op2: op1 for op1, op2 in operator_opposites_lut.items()})
 
     filters = []
     if input_string:
@@ -989,13 +989,13 @@ def parse_did_filter_from_string_fe(
             for and_group in and_groups:
                 and_group = and_group.strip()
                 # tokenise this AND clause using operators as delimiters.
-                tokenisation_regex = "({})".format('|'.join(operators_suffix_LUT.keys()))
+                tokenisation_regex = "({})".format('|'.join(operators_suffix_lut.keys()))
                 and_group_split_by_operator = list(filter(None, re.split(tokenisation_regex, and_group)))
                 if len(and_group_split_by_operator) == 3:       # this is a one-sided inequality or expression
                     key, operator, value = [token.strip() for token in and_group_split_by_operator]
 
                     # substitute input operator with the nominal operator defined by the LUT, <operators_suffix_LUT>.
-                    operator_mapped = operators_suffix_LUT.get(operator)
+                    operator_mapped = operators_suffix_lut.get(operator)
 
                     filter_key_full = key
                     if operator_mapped is not None:
@@ -1012,8 +1012,8 @@ def parse_did_filter_from_string_fe(
                     value1, operator1, key, operator2, value2 = [token.strip() for token in and_group_split_by_operator]
 
                     # substitute input operator with the nominal operator defined by the LUT, <operators_suffix_LUT>.
-                    operator1_mapped = operator_opposites_LUT.get(operators_suffix_LUT.get(operator1))
-                    operator2_mapped = operators_suffix_LUT.get(operator2)
+                    operator1_mapped = operator_opposites_lut.get(operators_suffix_lut.get(operator1))
+                    operator2_mapped = operators_suffix_lut.get(operator2)
 
                     filter_key1_full = filter_key2_full = key
                     if operator1_mapped is not None and operator2_mapped is not None:

@@ -42,10 +42,10 @@ def test_bb8_rebalance_rule(vo, root_account, jdoe_account, rse_factory, mock_sc
     rse2, rse2_id = rse_factory.make_posix_rse()
 
     # Add Tags
-    T1 = tag_generator()
-    T2 = tag_generator()
-    add_rse_attribute(rse1_id, T1, True)
-    add_rse_attribute(rse2_id, T2, True)
+    tag_1 = tag_generator()
+    tag_2 = tag_generator()
+    add_rse_attribute(rse1_id, tag_1, True)
+    add_rse_attribute(rse2_id, tag_2, True)
 
     # Add fake weights
     add_rse_attribute(rse1_id, "fakeweight", 10)
@@ -109,14 +109,14 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
     rse4, rse4_id = rses[3]
 
     # Add Tags
-    # RSE 1 and 2 nmatch expression T1=true
-    # RSE 3 and 4 nmatch expression T2=true
-    T1 = tag_generator()
-    T2 = tag_generator()
-    add_rse_attribute(rse1_id, T1, True)
-    add_rse_attribute(rse2_id, T1, True)
-    add_rse_attribute(rse3_id, T2, True)
-    add_rse_attribute(rse4_id, T2, True)
+    # RSE 1 and 2 nmatch expression tag_1=true
+    # RSE 3 and 4 nmatch expression tag_2=true
+    tag_1 = tag_generator()
+    tag_2 = tag_generator()
+    add_rse_attribute(rse1_id, tag_1, True)
+    add_rse_attribute(rse2_id, tag_1, True)
+    add_rse_attribute(rse3_id, tag_2, True)
+    add_rse_attribute(rse4_id, tag_2, True)
 
     # Add fake weights
     add_rse_attribute(rse1_id, "fakeweight", 10)
@@ -249,7 +249,7 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
     # Now run BB8
 
     re_evaluator(once=True, sleep_time=30, did_limit=None)
-    bb8_run(once=True, rse_expression='%s=true' % str(T1), move_subscriptions=False, use_dump=False, sleep_time=300, threads=1, dry_run=False)
+    bb8_run(once=True, rse_expression='%s=true' % str(tag_1), move_subscriptions=False, use_dump=False, sleep_time=300, threads=1, dry_run=False)
 
     for rule_id in rules:
         rule = get_rule(rule_id)
