@@ -129,6 +129,11 @@ known-first-party = ["rucio"]
 "typing.Type".msg = "Use built-in `type` instead."
 "typing.ValuesView".msg = "Use `collections.abc.ValuesView` instead."
 
+[tool.ruff.lint.pep8-naming]
+extend-ignore-names = [
+    "do_GET" # http.server method name
+]
+
 [tool.ruff.lint.per-file-ignores]
 'tests/*.py' = [
     'S101', # Usage of assert

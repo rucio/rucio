@@ -1121,7 +1121,7 @@ class FTSWrapper(FTS3Transfertool):
         self.on_submit(file)
         return file
 
-    def _FTS3Transfertool__bulk_query_responses(self, jobs_response, requests_by_eid):
+    def _FTS3Transfertool__bulk_query_responses(self, jobs_response, requests_by_eid):  # noqa: N802
         self.on_receive(jobs_response)
         return super()._FTS3Transfertool__bulk_query_responses(jobs_response, requests_by_eid)
 

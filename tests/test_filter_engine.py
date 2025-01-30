@@ -28,7 +28,7 @@ from rucio.db.sqla.util import json_implemented
 
 
 class TestFilterEngineDummy:
-    def test_InputSanitisation(self):
+    def test_input_sanitisation(self):
         filters = FilterEngine('  TestKeyword1  =  True  ,  TestKeyword2   =   0; 1 < TestKeyword4 <= 2', strict_coerce=False).filters
         filters_expected = [[('TestKeyword1', operator.eq, 1),
                              ('TestKeyword2', operator.eq, 0)],
@@ -48,17 +48,17 @@ class TestFilterEngineDummy:
         with pytest.raises(ValueError):
             FilterEngine('name >= *', strict_coerce=False)
 
-    def test_OperatorsEqualNotEqual(self):
+    def test_operators_equal_not_equal(self):
         assert FilterEngine('True = True', strict_coerce=False).evaluate()
         assert FilterEngine('True != False', strict_coerce=False).evaluate()
 
-    def test_OneSidedInequality(self):
+    def test_one_sided_inequality(self):
         assert FilterEngine('1 < 2', strict_coerce=False).evaluate()
         assert not FilterEngine('1 > 2', strict_coerce=False).evaluate()
         assert FilterEngine('1 <= 1', strict_coerce=False).evaluate()
         assert FilterEngine('1 >= 1', strict_coerce=False).evaluate()
 
-    def test_CompoundInequality(self):
+    def test_compound_inequality(self):
         assert FilterEngine('3 > 2 > 1', strict_coerce=False).evaluate()
         assert not FilterEngine('1 > 2 > 3', strict_coerce=False).evaluate()
         with pytest.raises(DuplicateCriteriaInDIDFilter):
@@ -66,7 +66,7 @@ class TestFilterEngineDummy:
         with pytest.raises(DuplicateCriteriaInDIDFilter):
             FilterEngine('1 < 2 > 3', strict_coerce=False)
 
-    def test_AndGroups(self):
+    def test_and_groups(self):
         assert FilterEngine('True = True, False = False', strict_coerce=False).evaluate()
         assert not FilterEngine('True = True, False = True', strict_coerce=False).evaluate()
         assert FilterEngine('3 > 2, 2 > 1', strict_coerce=False).evaluate()
@@ -74,7 +74,7 @@ class TestFilterEngineDummy:
         assert not FilterEngine('1 > 2, 2 > 3', strict_coerce=False).evaluate()
         assert not FilterEngine('1 > 2, 4 > 3 > 2', strict_coerce=False).evaluate()
 
-    def test_OrGroups(self):
+    def test_or_groups(self):
         assert FilterEngine('True = True; True = True', strict_coerce=False).evaluate()
         assert FilterEngine('True = True; True = False', strict_coerce=False).evaluate()
         assert not FilterEngine('True = False; False = True', strict_coerce=False).evaluate()
@@ -83,11 +83,11 @@ class TestFilterEngineDummy:
         assert not FilterEngine('1 > 2; 2 > 3', strict_coerce=False).evaluate()
         assert FilterEngine('1 > 2; 4 > 3 > 2', strict_coerce=False).evaluate()
 
-    def test_AndOrGroups(self):
+    def test_and_or_groups(self):
         assert FilterEngine('1 > 2, 4 > 3 > 2; True=True', strict_coerce=False).evaluate()
         assert not FilterEngine('1 > 2, 4 > 3 > 2; True=False', strict_coerce=False).evaluate()
 
-    def test_BackwardsCompatibilityCreatedAfter(self):
+    def test_backwards_compatibility_created_after(self):
         test_expressions = {
             "created_after=1900-01-01 00:00:00": [[('created_at', operator.ge, datetime(1900, 1, 1, 0, 0))]],
             "created_after=1900-01-01T00:00:00": [[('created_at', operator.ge, datetime(1900, 1, 1, 0, 0))]],
@@ -98,7 +98,7 @@ class TestFilterEngineDummy:
             filters = FilterEngine(input_datetime_expression, strict_coerce=False).filters
             assert filters == filters_expected
 
-    def test_BackwardsCompatibilityCreatedBefore(self):
+    def test_backwards_compatibility_created_before(self):
         test_expressions = {
             "created_before=1900-01-01 00:00:00": [[('created_at', operator.le, datetime(1900, 1, 1, 0, 0))]],
             "created_before=1900-01-01T00:00:00": [[('created_at', operator.le, datetime(1900, 1, 1, 0, 0))]],
@@ -109,7 +109,7 @@ class TestFilterEngineDummy:
             filters = FilterEngine(input_datetime_expression, strict_coerce=False).filters
             assert filters == filters_expected
 
-    def test_BackwardsCompatibilityLength(self):
+    def test_backwards_compatibility_length(self):
         test_expressions = {
             'length > 0': [[('length', operator.gt, 0)]],
             'length < 0': [[('length', operator.lt, 0)]],
@@ -121,7 +121,7 @@ class TestFilterEngineDummy:
             filters = FilterEngine(input_length_expression, strict_coerce=False).filters
             assert filters == filters_expected
 
-    def test_typecastString(self):
+    def test_typecast_string(self):
         test_expressions = {
             'testkeyint1 = 0': int,
             'testkeyfloat1 = 0.5': float,
@@ -144,17 +144,17 @@ class TestFilterEngineDummy:
 
 class TestFilterEngineReal:
 
-    def _create_tmp_DID(self, scope, account, did_type='DATASET'):
+    def _create_tmp_did(self, scope, account, did_type='DATASET'):
         did_name = 'fe_test_did_%s' % generate_uuid()
         add_did(scope=scope, name=did_name, did_type=did_type, account=account)
         return did_name
 
-    def test_OperatorsEqualNotEqual(self, db_session, mock_scope, root_account):
+    def test_operators_equal_not_equal(self, db_session, mock_scope, root_account):
         # Plugin: DID
         #
-        did_name1 = self._create_tmp_DID(mock_scope, root_account)
-        did_name2 = self._create_tmp_DID(mock_scope, root_account)
-        did_name3 = self._create_tmp_DID(mock_scope, root_account)
+        did_name1 = self._create_tmp_did(mock_scope, root_account)
+        did_name2 = self._create_tmp_did(mock_scope, root_account)
+        did_name3 = self._create_tmp_did(mock_scope, root_account)
         set_metadata(scope=mock_scope, name=did_name1, key='run_number', value=1)
         set_metadata(scope=mock_scope, name=did_name2, key='run_number', value=2)
 
@@ -176,9 +176,9 @@ class TestFilterEngineReal:
         # Plugin: JSON
         #
         if json_implemented(session=db_session):
-            did_name1 = self._create_tmp_DID(mock_scope, root_account)
-            did_name2 = self._create_tmp_DID(mock_scope, root_account)
-            did_name3 = self._create_tmp_DID(mock_scope, root_account)
+            did_name1 = self._create_tmp_did(mock_scope, root_account)
+            did_name2 = self._create_tmp_did(mock_scope, root_account)
+            did_name3 = self._create_tmp_did(mock_scope, root_account)
             set_metadata(scope=mock_scope, name=did_name1, key='testkeyint1', value=1)
             set_metadata(scope=mock_scope, name=did_name2, key='testkeyint2', value=2)
             set_metadata(scope=mock_scope, name=did_name3, key='testkeyint3', value=2)
@@ -206,10 +206,10 @@ class TestFilterEngineReal:
             dids = set(dids)
             assert 0 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)
 
-    def test_OneSidedInequality(self, db_session, mock_scope, root_account):
+    def test_one_sided_inequality(self, db_session, mock_scope, root_account):
         # Plugin: DID
         #
-        did_name = self._create_tmp_DID(mock_scope, root_account)
+        did_name = self._create_tmp_did(mock_scope, root_account)
         set_metadata(scope=mock_scope, name=did_name, key='run_number', value=1)
 
         dids = []
@@ -244,7 +244,7 @@ class TestFilterEngineReal:
         # Plugin: JSON
         #
         if json_implemented(session=db_session):
-            did_name = self._create_tmp_DID(mock_scope, root_account)
+            did_name = self._create_tmp_did(mock_scope, root_account)
             set_metadata(scope=mock_scope, name=did_name, key='testkeyint1', value=1)
 
             dids = []
@@ -291,10 +291,10 @@ class TestFilterEngineReal:
             dids = set(dids)
             assert 1 != list(map(lambda did: did.name == did_name, dids)).count(True)
 
-    def test_CompoundInequality(self, db_session, mock_scope, root_account):
+    def test_compound_inequality(self, db_session, mock_scope, root_account):
         # Plugin: DID
         #
-        did_name = self._create_tmp_DID(mock_scope, root_account)
+        did_name = self._create_tmp_did(mock_scope, root_account)
         set_metadata(scope=mock_scope, name=did_name, key='run_number', value=1)
 
         dids = []
@@ -322,7 +322,7 @@ class TestFilterEngineReal:
         # Plugin: JSON
         #
         if json_implemented(session=db_session):
-            did_name = self._create_tmp_DID(mock_scope, root_account)
+            did_name = self._create_tmp_did(mock_scope, root_account)
             set_metadata(scope=mock_scope, name=did_name, key='testkeyint1', value=1)
 
             dids = []
@@ -358,12 +358,12 @@ class TestFilterEngineReal:
             dids = set(dids)
             assert 1 != list(map(lambda did: did.name == did_name, dids)).count(True)
 
-    def test_AndGroups(self, db_session, mock_scope, root_account):
+    def test_and_groups(self, db_session, mock_scope, root_account):
         # Plugin: DID
         #
-        did_name1 = self._create_tmp_DID(mock_scope, root_account)
-        did_name2 = self._create_tmp_DID(mock_scope, root_account)
-        did_name3 = self._create_tmp_DID(mock_scope, root_account)
+        did_name1 = self._create_tmp_did(mock_scope, root_account)
+        did_name2 = self._create_tmp_did(mock_scope, root_account)
+        did_name3 = self._create_tmp_did(mock_scope, root_account)
         set_metadata(scope=mock_scope, name=did_name1, key='run_number', value='1')
         set_metadata(scope=mock_scope, name=did_name2, key='project', value="test")
         set_metadata(scope=mock_scope, name=did_name3, key='run_number', value='1')
@@ -387,9 +387,9 @@ class TestFilterEngineReal:
         # Plugin: JSON
         #
         if json_implemented(session=db_session):
-            did_name1 = self._create_tmp_DID(mock_scope, root_account)
-            did_name2 = self._create_tmp_DID(mock_scope, root_account)
-            did_name3 = self._create_tmp_DID(mock_scope, root_account)
+            did_name1 = self._create_tmp_did(mock_scope, root_account)
+            did_name2 = self._create_tmp_did(mock_scope, root_account)
+            did_name3 = self._create_tmp_did(mock_scope, root_account)
             set_metadata(scope=mock_scope, name=did_name1, key='testkeyint1', value='1')
             set_metadata(scope=mock_scope, name=did_name2, key='testkeystr1', value="test")
             set_metadata(scope=mock_scope, name=did_name3, key='testkeyint1', value='1')
@@ -417,12 +417,12 @@ class TestFilterEngineReal:
             dids = set(dids)
             assert 0 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)
 
-    def test_OrGroups(self, db_session, mock_scope, root_account):
+    def test_or_groups(self, db_session, mock_scope, root_account):
         # Plugin: DID
         #
-        did_name1 = self._create_tmp_DID(mock_scope, root_account)
-        did_name2 = self._create_tmp_DID(mock_scope, root_account)
-        did_name3 = self._create_tmp_DID(mock_scope, root_account)
+        did_name1 = self._create_tmp_did(mock_scope, root_account)
+        did_name2 = self._create_tmp_did(mock_scope, root_account)
+        did_name3 = self._create_tmp_did(mock_scope, root_account)
         set_metadata(scope=mock_scope, name=did_name1, key='run_number', value='1')
         set_metadata(scope=mock_scope, name=did_name2, key='project', value="test")
         set_metadata(scope=mock_scope, name=did_name3, key='run_number', value='1')
@@ -467,9 +467,9 @@ class TestFilterEngineReal:
         # Plugin: JSON
         #
         if json_implemented(session=db_session):
-            did_name1 = self._create_tmp_DID(mock_scope, root_account)
-            did_name2 = self._create_tmp_DID(mock_scope, root_account)
-            did_name3 = self._create_tmp_DID(mock_scope, root_account)
+            did_name1 = self._create_tmp_did(mock_scope, root_account)
+            did_name2 = self._create_tmp_did(mock_scope, root_account)
+            did_name3 = self._create_tmp_did(mock_scope, root_account)
             set_metadata(scope=mock_scope, name=did_name1, key='testkeyint1', value='1')
             set_metadata(scope=mock_scope, name=did_name2, key='testkeystr1', value="test")
             set_metadata(scope=mock_scope, name=did_name3, key='testkeyint1', value='1')
@@ -530,12 +530,12 @@ class TestFilterEngineReal:
             dids = set(dids)
             assert 3 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 1, 2, 3
 
-    def test_AndOrGroups(self, db_session, mock_scope, root_account):
+    def test_and_or_groups(self, db_session, mock_scope, root_account):
         # Plugin: DID
         #
-        did_name1 = self._create_tmp_DID(mock_scope, root_account)
-        did_name2 = self._create_tmp_DID(mock_scope, root_account)
-        did_name3 = self._create_tmp_DID(mock_scope, root_account)
+        did_name1 = self._create_tmp_did(mock_scope, root_account)
+        did_name2 = self._create_tmp_did(mock_scope, root_account)
+        did_name3 = self._create_tmp_did(mock_scope, root_account)
         set_metadata(scope=mock_scope, name=did_name1, key='run_number', value='1')
         set_metadata(scope=mock_scope, name=did_name2, key='project', value="test")
         set_metadata(scope=mock_scope, name=did_name3, key='run_number', value='1')
@@ -557,9 +557,9 @@ class TestFilterEngineReal:
         # Plugin: JSON
         #
         if json_implemented(session=db_session):
-            did_name1 = self._create_tmp_DID(mock_scope, root_account)
-            did_name2 = self._create_tmp_DID(mock_scope, root_account)
-            did_name3 = self._create_tmp_DID(mock_scope, root_account)
+            did_name1 = self._create_tmp_did(mock_scope, root_account)
+            did_name2 = self._create_tmp_did(mock_scope, root_account)
+            did_name3 = self._create_tmp_did(mock_scope, root_account)
             set_metadata(scope=mock_scope, name=did_name1, key='testkeyint1', value='1')
             set_metadata(scope=mock_scope, name=did_name2, key='testkeystr1', value="test")
             set_metadata(scope=mock_scope, name=did_name3, key='testkeyint1', value='1')
@@ -587,9 +587,9 @@ class TestFilterEngineReal:
             dids = set(dids)
             assert 1 == list(map(lambda did: did.name in (did_name1, did_name2, did_name3), dids)).count(True)  # 3
 
-    def test_BackwardsCompatibilityCreatedAfter(self, db_session, mock_scope, root_account):
+    def test_backwards_compatibility_created_after(self, db_session, mock_scope, root_account):
         before = datetime.strftime(datetime.utcnow() - timedelta(seconds=1), "%Y-%m-%dT%H:%M:%S.%fZ")  # w/ -1s buffer
-        did_name = self._create_tmp_DID(mock_scope, root_account)
+        did_name = self._create_tmp_did(mock_scope, root_account)
 
         dids = []
         stmt = FilterEngine('created_after={}'.format(before), model_class=models.DataIdentifier).create_sqla_query(additional_model_attributes=[models.DataIdentifier.name])
@@ -597,8 +597,8 @@ class TestFilterEngineReal:
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
-    def test_BackwardsCompatibilityCreatedBefore(self, db_session, mock_scope, root_account):
-        did_name = self._create_tmp_DID(mock_scope, root_account)
+    def test_backwards_compatibility_created_before(self, db_session, mock_scope, root_account):
+        did_name = self._create_tmp_did(mock_scope, root_account)
         after = datetime.strftime(datetime.utcnow() + timedelta(seconds=1), "%Y-%m-%dT%H:%M:%S.%fZ")  # w/ +1s buffer
 
         dids = []
@@ -607,8 +607,8 @@ class TestFilterEngineReal:
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
-    def test_BackwardsCompatibilityLength(self, db_session, mock_scope, root_account):
-        did_name = self._create_tmp_DID(mock_scope, root_account)
+    def test_backwards_compatibility_length(self, db_session, mock_scope, root_account):
+        did_name = self._create_tmp_did(mock_scope, root_account)
         set_metadata(scope=mock_scope, name=did_name, key='length', value='10')
 
         dids = []
@@ -635,14 +635,14 @@ class TestFilterEngineReal:
         dids = set(dids)
         assert 1 == list(map(lambda did: did.name == did_name, dids)).count(True)
 
-    def test_Wildcards(self, db_session, mock_scope, root_account):
+    def test_wildcards(self, db_session, mock_scope, root_account):
         # Plugin: DID
         #
-        did_name1 = self._create_tmp_DID(mock_scope, root_account)
-        did_name2 = self._create_tmp_DID(mock_scope, root_account)
-        did_name3 = self._create_tmp_DID(mock_scope, root_account)
-        did_name4 = self._create_tmp_DID(mock_scope, root_account)
-        did_name5 = self._create_tmp_DID(mock_scope, root_account)
+        did_name1 = self._create_tmp_did(mock_scope, root_account)
+        did_name2 = self._create_tmp_did(mock_scope, root_account)
+        did_name3 = self._create_tmp_did(mock_scope, root_account)
+        did_name4 = self._create_tmp_did(mock_scope, root_account)
+        did_name5 = self._create_tmp_did(mock_scope, root_account)
         set_metadata(scope=mock_scope, name=did_name1, key='project', value="test1")
         set_metadata(scope=mock_scope, name=did_name2, key='project', value="test2")
         set_metadata(scope=mock_scope, name=did_name3, key='project', value="anothertest1")
@@ -676,11 +676,11 @@ class TestFilterEngineReal:
         # Plugin: JSON
         #
         if json_implemented(session=db_session):
-            did_name1 = self._create_tmp_DID(mock_scope, root_account)
-            did_name2 = self._create_tmp_DID(mock_scope, root_account)
-            did_name3 = self._create_tmp_DID(mock_scope, root_account)
-            did_name4 = self._create_tmp_DID(mock_scope, root_account)
-            did_name5 = self._create_tmp_DID(mock_scope, root_account)
+            did_name1 = self._create_tmp_did(mock_scope, root_account)
+            did_name2 = self._create_tmp_did(mock_scope, root_account)
+            did_name3 = self._create_tmp_did(mock_scope, root_account)
+            did_name4 = self._create_tmp_did(mock_scope, root_account)
+            did_name5 = self._create_tmp_did(mock_scope, root_account)
             set_metadata(scope=mock_scope, name=did_name1, key='testkeystr1', value="test1")
             set_metadata(scope=mock_scope, name=did_name2, key='testkeystr1', value="test2")
             set_metadata(scope=mock_scope, name=did_name3, key='testkeystr1', value="anothertest1")
