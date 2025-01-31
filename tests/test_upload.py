@@ -55,8 +55,16 @@ def scope(vo, containerized_rses, test_scope, mock_scope):
     else:
         return str(mock_scope)
 
-
-def test_upload_single(rse, scope, upload_client, download_client, file_factory):
+@pytest.mark.parametrize("file_config_mock", [
+    { # Use rucio.cfg as-is.
+    },
+    { # Remove "account" from the "[client]" section.
+        "removes": [
+            ('client', 'account')
+        ]
+    },
+], indirect=True)
+def test_upload_single(file_config_mock, rse, scope, upload_client, download_client, file_factory):
     local_file = file_factory.file_generator()
     download_dir = file_factory.base_dir
     fn = os.path.basename(local_file)

@@ -67,8 +67,10 @@ def pytest_make_parametrize_id(
 ) -> Optional[str]:
     if argname == 'file_config_mock':
         cfg = {}
-        for section, option, value in val['overrides']:
+        for section, option, value in val.get('overrides', []):
             cfg.setdefault(section, {})[option] = value
+        for section, option in val.get('removes', []):
+            cfg.setdefault(section, {})[option] = "[REMOVED]"
         return argname + str(cfg)
     if argname == 'core_config_mock':
         cfg = {}
@@ -604,13 +606,15 @@ def file_config_mock(request: pytest.FixtureRequest) -> "Iterator[ConfigParser]"
     """
     from unittest import mock
 
-    from rucio.common.config import Config, config_add_section, config_has_section, config_set
+    from rucio.common.config import Config, config_add_section, config_has_option, config_has_section, config_remove_option, config_set
 
     # Get the fixture parameters
     overrides = []
+    removes = []
     params = __get_fixture_param(request)
     if params:
         overrides = params.get("overrides", overrides)
+        removes = params.get("removes", removes)
 
     parser = Config().parser
     with mock.patch('rucio.common.config.get_config', side_effect=lambda: parser):
@@ -618,6 +622,9 @@ def file_config_mock(request: pytest.FixtureRequest) -> "Iterator[ConfigParser]"
             if not config_has_section(section):
                 config_add_section(section)
             config_set(section, option, value)
+        for section, option in (removes or []):
+            if config_has_section(section) and config_has_option(section, option):
+                config_remove_option(section, option)
         yield parser
 
 
