@@ -15,10 +15,14 @@
 
 import argparse
 import sys
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from rucio.client.commands.bin_legacy.rucio import main as main_legacy
 from rucio.client.commands.command import main
+from rucio.common.utils import setup_logger
+
+if TYPE_CHECKING:
+    from logging import Logger
 
 
 def _get_first_command(args: list[str]) -> Optional[str]:
@@ -31,15 +35,15 @@ def _get_first_command(args: list[str]) -> Optional[str]:
     )
 
 
-def make_warning():
-    base_warning = "\nWARNING: This method is being deprecated."
+def make_warning(logger: "Logger") -> None:
+    base_warning = "This method is being deprecated."
     new_command = map_legacy_command()
     if new_command is not None:
-        warning = f"{base_warning}\nPlease replace your command with `rucio {' '.join(new_command)}`.\n"
+        warning = f"{base_warning} Please replace your command with `rucio {' '.join(new_command)}`"
     else:
-        warning = base_warning + "\nPlease view rucio -h for an updated help menu.\n"
+        warning = base_warning + " Please view rucio -h for an updated help menu."
 
-    return warning
+    logger.warning(warning)
 
 
 def map_legacy_command() -> Optional[list[str]]:
@@ -96,7 +100,7 @@ def map_legacy_command() -> Optional[list[str]]:
 
 if __name__ == "__main__":
     commands = ("-h", "--help", "--version", "account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download")
-
+    logger = setup_logger(module_name=__name__)
     first_command = _get_first_command(sys.argv[1:])
 
     is_legacy = '--legacy' in sys.argv
@@ -105,19 +109,17 @@ if __name__ == "__main__":
         main()
 
     elif is_legacy:
-        warning = make_warning()
-        print(warning)
+        make_warning(logger)
         sys.argv.pop(sys.argv.index('--legacy'))
         main_legacy()
 
     else:
-        warning = make_warning()
-        print(warning)
+        make_warning(logger)
         try:
             main_legacy()
         # Make a custom warning - show the new help menu when invalid commands are called.
         except argparse.ArgumentError:
-            print("Invalid argument(s) - %s " % sys.argv[1:])
+            logger.error("Invalid argument(s) - %s " % sys.argv[1:])
             command = map_legacy_command()
             if command is not None:
                 sys.argv = ["rucio"] + command + ["-h"]
