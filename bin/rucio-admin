@@ -15,10 +15,13 @@
 import sys
 
 from rucio.client.commands.bin_legacy.rucio_admin import main as main_legacy
+from rucio.common.utils import setup_logger
 
 
 def make_warning():
-    base_warning = "\nWARNING: This method is being deprecated."
+    logger = setup_logger(module_name=__name__)
+
+    base_warning = "This method is being deprecated."
     args = [arg for arg in sys.argv if arg[0] != "-" or arg in ("-h", "--help", "--version")]
     try:
         first_command = args[1]
@@ -88,11 +91,11 @@ def make_warning():
         except KeyError:
             new_command = "-h"
 
-        warning = f"{base_warning}\nPlease replace your command with `rucio {new_command}`.\n"
+        warning = f"{base_warning} Please replace your command with `rucio {new_command}`"
     else:
-        warning = base_warning + "\nPlease view rucio -h for an updated help menu.\n"
+        warning = base_warning + " Please view rucio -h for an updated help menu."
 
-    print(warning)
+    logger.warning(warning)
 
 
 if __name__ == "__main__":
