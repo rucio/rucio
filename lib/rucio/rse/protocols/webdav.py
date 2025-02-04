@@ -259,14 +259,16 @@ class Default(protocol.RSEProtocol):
 
             :param pfn: Physical file name of requested file
             :param dest: Name and path of the files when stored at the client
-            :param transfer_timeout: Transfer timeout (in seconds) - dummy
+            :param transfer_timeout: Transfer timeout (in seconds)
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSEAccessDenied
         """
         path = self.path2pfn(pfn)
         chunksize = 1024
+        transfer_timeout = self.timeout if transfer_timeout is None else transfer_timeout
+
         try:
-            result = self.session.get(path, verify=False, stream=True, timeout=self.timeout, cert=self.cert)
+            result = self.session.get(path, verify=False, stream=True, timeout=transfer_timeout, cert=self.cert)
             if result and result.status_code in [200, ]:
                 length = None
                 if 'content-length' in result.headers:
@@ -297,7 +299,7 @@ class Default(protocol.RSEProtocol):
             :param source: Physical file name
             :param target: Name of the file on the storage system e.g. with prefixed scope
             :param source_dir Path where the to be transferred files are stored in the local file system
-            :param transfer_timeout Transfer timeout (in seconds) - dummy
+            :param transfer_timeout Transfer timeout (in seconds)
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSEAccessDenied
         """
@@ -305,11 +307,13 @@ class Default(protocol.RSEProtocol):
         full_name = source_dir + '/' + source if source_dir else source
         directories = path.split('/')
         # Try the upload without testing the existence of the destination directory
+        transfer_timeout = self.timeout if transfer_timeout is None else transfer_timeout
+
         try:
             if not os.path.exists(full_name):
                 raise exception.SourceNotFound()
             it = UploadInChunks(full_name, 10000000, progressbar)
-            result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=self.timeout, cert=self.cert)
+            result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=transfer_timeout, cert=self.cert)
             if result.status_code in [200, 201]:
                 return
             if result.status_code in [409, ]:
@@ -323,7 +327,7 @@ class Default(protocol.RSEProtocol):
                     if not os.path.exists(full_name):
                         raise exception.SourceNotFound()
                     it = UploadInChunks(full_name, 10000000, progressbar)
-                    result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=self.timeout, cert=self.cert)
+                    result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=transfer_timeout, cert=self.cert)
                     if result.status_code in [200, 201]:
                         return
                     if result.status_code in [409, ]:
