@@ -43,7 +43,6 @@ class TestDeterministicTranslation:
         )
         assert translator.path("foo", "bar") == "foo/4e/99/bar"
 
-    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Test ATLAS hash convention')
     def test_default_hash(self):
         """LFN2PFN: Translate to path using default algorithm (Success)"""
         translator = RSEDeterministicTranslation(
