@@ -642,6 +642,7 @@ def get_metadata(
     :param scope: The scope name.
     :param name: The data identifier name.
     :param vo: The VO to act on.
+    :param plugin: The metadata plugin to query, 'ALL' for all available plugins
     :param session: The database session in use.
     """
 
@@ -655,6 +656,7 @@ def get_metadata(
 def get_metadata_bulk(
     dids: 'Iterable[dict[str, Any]]',
     inherit: bool = False,
+    plugin: str = 'DID_COLUMN',
     vo: str = 'def',
     *,
     session: "Session"
@@ -663,6 +665,7 @@ def get_metadata_bulk(
     Get metadata for a list of dids
     :param dids:               A list of dids.
     :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
+    :param plugin:             The metadata plugin to query, 'ALL' for all available plugins
     :param vo:                 The VO to act on.
     :param session: The database session in use.
     """
@@ -670,7 +673,7 @@ def get_metadata_bulk(
     validate_schema(name='dids', obj=dids, vo=vo)
     for entry in dids:
         entry['scope'] = InternalScope(entry['scope'], vo=vo)
-    meta = did.get_metadata_bulk(dids, inherit=inherit, session=session)
+    meta = did.get_metadata_bulk(dids, inherit=inherit, plugin=plugin, session=session)
     for met in meta:
         yield gateway_update_return_dict(met, session=session)
 
