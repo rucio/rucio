@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-import calendar
 import datetime
 import json
 import uuid
@@ -51,11 +50,8 @@ class Trace(ErrorHandlingMethodView):
           trace(payload): A function to handle the processed payload.
         """
         # generate entry timestamp
-        payload["traceTimeentry"] = datetime.datetime.utcnow()
-        payload["traceTimeentryUnix"] = (
-            calendar.timegm(payload["traceTimeentry"].timetuple())
-            + payload["traceTimeentry"].microsecond / 1e6
-        )
+        payload["traceTimeentry"] = datetime.datetime.now(datetime.timezone.utc)
+        payload["traceTimeentryUnix"] = payload["traceTimeentry"].timestamp()
 
         # guess client IP
         payload["traceIp"] = request.headers.get(
