@@ -1341,8 +1341,8 @@ class FTS3Transfertool(Transfertool):
         except Exception:
             self.logger(logging.WARNING, 'Could not get config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
         if result and result.status_code == 200:
-            C = result.json()
-            config_se = C[storage_element]
+            result_json = result.json()
+            config_se = result_json[storage_element]
             return config_se
         raise Exception('Could not get the configuration of %s , status code returned : %s', (storage_element, result.status_code if result else None))
 
@@ -1410,8 +1410,8 @@ class FTS3Transfertool(Transfertool):
         except Exception:
             self.logger(logging.WARNING, 'Could not set the config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
         if result and result.status_code == 200:
-            configSe = result.json()
-            return configSe
+            config_se = result.json()
+            return config_se
         raise Exception('Could not set the configuration of %s , status code returned : %s', (storage_element, result.status_code if result else None))
 
     def set_se_status(self, storage_element: str, message: str, ban: bool = True, timeout: Optional[int] = None) -> int:

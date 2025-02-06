@@ -20,6 +20,8 @@
 
 """
 
+from typing import Optional
+
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 
 
@@ -93,11 +95,12 @@ class ClientParameterMismatch(RucioException):
 
 class ClientProtocolNotSupported(RucioException):
     """
-    RucioException
+    Client protocol not supported
     """
-    def __init__(self, *args):
+
+    def __init__(self, host: str, protocol: str, protocols_allowed: Optional[list[str]] = None, *args):
         super(ClientProtocolNotSupported, self).__init__(*args)
-        self._message = "Client protocol not supported."
+        self._message = f"Client protocol '{protocol}' not supported when connecting to host '{host}'.{' Allowed protocols: ' + ', '.join(protocols_allowed) if protocols_allowed else ''}"
         self.error_code = 6
 
 
@@ -1182,3 +1185,14 @@ class ConfigLoadingError(RucioException):
         super(ConfigLoadingError, self).__init__(*args, **kwargs)
         self._message = 'Could not load Rucio configuration file. Rucio tried loading the following configuration file:\n\t %s' % (config_file)
         self.error_code = 112
+
+
+class ClientProtocolNotFound(RucioException):
+    """
+    Missing protocol in client configuration (e.g. no http/https in url).
+    """
+
+    def __init__(self, host: str, protocols_allowed: Optional[list[str]] = None, *args):
+        super(ClientProtocolNotFound, self).__init__(*args)
+        self._message = f"Client protocol missing when connecting to host '{host}'.{' Allowed protocols: ' + ', '.join(protocols_allowed) if protocols_allowed else ''}"
+        self.error_code = 113

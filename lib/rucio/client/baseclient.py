@@ -38,7 +38,7 @@ from requests.status_codes import codes
 from rucio import version
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
-from rucio.common.exception import CannotAuthenticate, ClientProtocolNotSupported, ConfigNotFound, MissingClientParameter, MissingModuleException, NoAuthInformation, ServerConnectionException
+from rucio.common.exception import CannotAuthenticate, ClientProtocolNotFound, ClientProtocolNotSupported, ConfigNotFound, MissingClientParameter, MissingModuleException, NoAuthInformation, ServerConnectionException
 from rucio.common.extra import import_extras
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, setup_logger, ssh_sign
 
@@ -157,11 +157,18 @@ class BaseClient:
         rucio_scheme = urlparse(self.host).scheme
         auth_scheme = urlparse(self.auth_host).scheme
 
-        if rucio_scheme != 'http' and rucio_scheme != 'https':
-            raise ClientProtocolNotSupported('\'%s\' not supported' % rucio_scheme)
+        rucio_scheme_allowed = ['http', 'https']
+        auth_scheme_allowed = ['http', 'https']
 
-        if auth_scheme != 'http' and auth_scheme != 'https':
-            raise ClientProtocolNotSupported('\'%s\' not supported' % auth_scheme)
+        if not rucio_scheme:
+            raise ClientProtocolNotFound(host=self.host, protocols_allowed=rucio_scheme_allowed)
+        elif rucio_scheme not in rucio_scheme_allowed:
+            raise ClientProtocolNotSupported(host=self.host, protocol=rucio_scheme, protocols_allowed=rucio_scheme_allowed)
+
+        if not auth_scheme:
+            raise ClientProtocolNotFound(host=self.auth_host, protocols_allowed=auth_scheme_allowed)
+        elif auth_scheme not in auth_scheme_allowed:
+            raise ClientProtocolNotSupported(host=self.auth_host, protocol=auth_scheme, protocols_allowed=auth_scheme_allowed)
 
         if (rucio_scheme == 'https' or auth_scheme == 'https') and ca_cert is None:
             self.logger.debug('HTTPS is required, but no ca_cert was passed. Trying to get it from X509_CERT_DIR.')
@@ -519,7 +526,7 @@ class BaseClient:
         self.auth_token = result.headers['x-rucio-auth-token']
         return True
 
-    def __refresh_token_OIDC(self) -> bool:
+    def __refresh_token_oidc(self) -> bool:
         """
         Checks if there is active refresh token and if so returns
         either active token with expiration timestamp or requests a new
@@ -573,7 +580,7 @@ class BaseClient:
                    \nRucio Auth Server when attempting token refresh.")
             return False
 
-    def __get_token_OIDC(self) -> bool:
+    def __get_token_oidc(self) -> bool:
         """
         First authenticates the user via a Identity Provider server
         (with user's username & password), by specifying oidc_scope,
@@ -602,14 +609,14 @@ class BaseClient:
         request_auth_url = build_url(self.auth_host, path='auth/oidc')
         # requesting authorization URL specific to the user & Rucio OIDC Client
         self.logger.debug("Initial auth URL request headers %s to files" % str(headers))
-        OIDC_auth_res = self._send_request(request_auth_url, headers=headers, get_token=True)
-        self.logger.debug("Response headers %s and text %s" % (str(OIDC_auth_res.headers), str(OIDC_auth_res.text)))
+        oidc_auth_res = self._send_request(request_auth_url, headers=headers, get_token=True)
+        self.logger.debug("Response headers %s and text %s" % (str(oidc_auth_res.headers), str(oidc_auth_res.text)))
         # with the obtained authorization URL we will contact the Identity Provider to get to the login page
-        if 'X-Rucio-OIDC-Auth-URL' not in OIDC_auth_res.headers:
+        if 'X-Rucio-OIDC-Auth-URL' not in oidc_auth_res.headers:
             print("Rucio Client did not succeed to get AuthN/Z URL from the Rucio Auth Server. \
                                    \nThis could be due to wrongly requested/configured scope, audience or issuer.")
             return False
-        auth_url = OIDC_auth_res.headers['X-Rucio-OIDC-Auth-URL']
+        auth_url = oidc_auth_res.headers['X-Rucio-OIDC-Auth-URL']
         if not self.creds['oidc_auto']:
             print("\nPlease use your internet browser, go to:")
             print("\n    " + auth_url + "    \n")
@@ -694,7 +701,7 @@ class BaseClient:
             with fdopen(file_d, "w") as f_exp_epoch:
                 f_exp_epoch.write(str(self.token_exp_epoch))
             move(file_n, self.token_exp_epoch_file)
-            self.__refresh_token_OIDC()
+            self.__refresh_token_oidc()
         return True
 
     def __get_token_x509(self) -> bool:
@@ -834,11 +841,11 @@ class BaseClient:
         url = build_url(self.auth_host, path='auth/saml')
 
         result = None
-        SAML_auth_result = self._send_request(url, get_token=True)
-        if SAML_auth_result.headers['X-Rucio-Auth-Token']:
-            return SAML_auth_result.headers['X-Rucio-Auth-Token']
-        SAML_auth_url = SAML_auth_result.headers['X-Rucio-SAML-Auth-URL']
-        result = self._send_request(SAML_auth_url, type_='POST', data=userpass, verify=False)
+        saml_auth_result = self._send_request(url, get_token=True)
+        if saml_auth_result.headers['X-Rucio-Auth-Token']:
+            return saml_auth_result.headers['X-Rucio-Auth-Token']
+        saml_auth_url = saml_auth_result.headers['X-Rucio-SAML-Auth-URL']
+        result = self._send_request(saml_auth_url, type_='POST', data=userpass, verify=False)
         result = self._send_request(url, get_token=True)
 
         if not result:
@@ -870,7 +877,7 @@ class BaseClient:
                     raise CannotAuthenticate('x509 authentication failed for account=%s with identity=%s' % (self.account,
                                                                                                              self.creds))
             elif self.auth_type == 'oidc':
-                if not self.__get_token_OIDC():
+                if not self.__get_token_oidc():
                     raise CannotAuthenticate('OIDC authentication failed for account=%s' % self.account)
 
             elif self.auth_type == 'gss':
@@ -914,7 +921,7 @@ class BaseClient:
         except Exception:
             raise
         if self.auth_oidc_refresh_active and self.auth_type == 'oidc':
-            self.__refresh_token_OIDC()
+            self.__refresh_token_oidc()
         self.logger.debug('got token from file')
         return True
 

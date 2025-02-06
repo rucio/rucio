@@ -62,7 +62,7 @@ class TestCurlRucio:
         print(out, )
         assert 'X-Rucio-Auth-Token' in out
 
-    def test_get_auth_GSS(self):
+    def test_get_auth_gss(self):
         """AUTH (CURL): Test auth token retrieval with via gss"""
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" %s --cert %s --key %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token' % (self.cacert, self.vo_header, self.usercert, self.userkey, self.auth_host)
         exitcode, out, err = execute(cmd)

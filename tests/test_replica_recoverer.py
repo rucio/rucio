@@ -341,8 +341,8 @@ class TestReplicaRecoverer:
             # Any combination of datatype and scope can be given any action.
             # For the test, the actions for json_testentry1 and json_testentry2 have been arbitrarily chosen.
             # Entries that are higher up in the JSON file have priority over those that are below them.
-            json_HITS = {"action": "declare bad", "datatype": ["HITS"], "scope": []}
-            json_RAW = {"action": "ignore", "datatype": ["RAW"], "scope": []}
+            json_hits = {"action": "declare bad", "datatype": ["HITS"], "scope": []}
+            json_raw = {"action": "ignore", "datatype": ["RAW"], "scope": []}
             # json_testentry1 and json_testentry2 need to be above the other entries, otherwise
             # they will always "lose" to an entry with either "datatype": [] or "scope": [].
             # "datatype": [] and "scope": [] are wildcards; they stand for every datatype or scope.
@@ -353,8 +353,8 @@ class TestReplicaRecoverer:
             json_testentry5 = {"action": "ignore", "datatype": ["testtypeignore"], "scope": []}
             json_testentry6 = {"action": "declare bad", "datatype": [], "scope": [str(self.scope_declarebad)]}
             json_testentry7 = {"action": "ignore", "datatype": [], "scope": [str(self.scope_ignore)]}
-            json_data.append(json_HITS)
-            json_data.append(json_RAW)
+            json_data.append(json_hits)
+            json_data.append(json_raw)
             json_data.append(json_testentry1)
             json_data.append(json_testentry2)
             json_data.append(json_testentry3)

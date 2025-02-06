@@ -23,10 +23,14 @@ import logging
 import operator
 import os
 import re
+from typing import TYPE_CHECKING, Any, Optional, TextIO, Union
 
 from tabulate import tabulate
 
 from rucio.common.dumper import DUMPS_CACHE_DIR, HTTPDownloadFailed, get_requests_session, http_download_to_file, smart_open, temp_file, to_datetime
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Iterator
 
 
 class DataModel:
@@ -35,12 +39,12 @@ class DataModel:
     """
 
     BASE_URL = 'https://rucio-hadoop.cern.ch/'
-    _FIELD_NAMES = None
+    _FIELD_NAMES: Optional[list[str]] = None
     SCHEMA = []
     URI = None
     name = None
 
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         if len(args) != len(self.SCHEMA):
             raise TypeError(
                 'Wrong number of parameters (fields) to initialize {0} '
@@ -62,6 +66,7 @@ class DataModel:
                 raise err
 
         self.date = None
+        self.rse = None
 
     @classmethod
     def get_fieldnames(cls) -> list[str]:
@@ -72,7 +77,7 @@ class DataModel:
             cls._FIELD_NAMES = [name for name, _ in cls.SCHEMA]
         return cls._FIELD_NAMES
 
-    def pprint(self):
+    def pprint(self) -> str:
         """
         Pretty print the dump
         """
@@ -80,14 +85,17 @@ class DataModel:
             ['{0}: {1}\n'.format(attr, getattr(self, attr)) for attr, _ in self.SCHEMA]
         )
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Any:
         """
         Return the item
         """
         return getattr(self, self.SCHEMA[index][0])
 
     @classmethod
-    def csv_header(cls, fields=None):
+    def csv_header(
+        cls,
+        fields: Optional["Iterable[str]"] = None
+    ) -> str:
         """
         Add the CSV header if necessary
         """
@@ -95,7 +103,10 @@ class DataModel:
             fields = (field for field, _ in cls.SCHEMA)
         return ','.join(fields)
 
-    def formated_fields(self, print_fields=None):
+    def formated_fields(
+        self,
+        print_fields: Optional["Iterable[str]"] = None
+    ) -> list[str]:
         """
         Reformat the fields
         """
@@ -110,31 +121,54 @@ class DataModel:
             fields.append(str(field))
         return fields
 
-    def csv(self, fields=None):
+    def csv(
+        self,
+        fields: Optional["Iterable[str]"] = None
+    ) -> str:
         """
         Generate a CSV line
         """
         return ','.join(self.formated_fields(fields))
 
     @classmethod
-    def tabulate_from(cls, iter_, format_='simple', fields=None):
+    def tabulate_from(
+        cls,
+        iter_: "Iterable[DataModel]",
+        format_: str = 'simple',
+        fields: Optional["Iterable[str]"] = None
+    ) -> str:
         return tabulate(
             (row.formated_fields(fields) for row in iter_),
-            (t[0] for t in cls.SCHEMA),
+            (t[0] for t in cls.SCHEMA),  # type: ignore
             format_,
         )
 
     @classmethod
-    def each(cls, file, rse=None, date=None, filter_=None):
+    def each(
+        cls,
+        file: "TextIO",
+        rse: Optional[str] = None,
+        date: Optional[Union[str, datetime.datetime]] = None,
+        filter_: Optional["Callable"] = None
+    ) -> "Iterator[DataModel]":
         if filter_ is None:
-            filter_ = lambda x: True  # NOQA
+
+            def placeholder_filter(record: "DataModel") -> bool:
+                return True
+
+            filter_ = placeholder_filter
         for line in file:
             record = cls.parse_line(line, rse, date)
             if filter_(record):
                 yield record
 
     @classmethod
-    def parse_line(cls, line, rse=None, date=None):
+    def parse_line(
+        cls,
+        line: str,
+        rse: Optional[str] = None,
+        date: Optional[Union[str, datetime.datetime]] = None
+    ) -> "DataModel":
         fields = (field.strip() for field in line.split('\t'))
         instance = cls(*fields)
         instance.rse = rse
@@ -142,7 +176,12 @@ class DataModel:
         return instance
 
     @classmethod
-    def download(cls, rse, date='latest', cache_dir=DUMPS_CACHE_DIR):
+    def download(
+        cls,
+        rse: str,
+        date: Union[str, datetime.datetime] = 'latest',
+        cache_dir: str = DUMPS_CACHE_DIR
+    ) -> str:
         """
         Downloads the requested dump and returns an open read-only mode file
         like object.
@@ -191,13 +230,18 @@ class DataModel:
         return path
 
     @classmethod
-    def dump(cls, rse, date='latest', filter_=None):
+    def dump(
+        cls,
+        rse: str,
+        date: Union[str, datetime.datetime] = 'latest',
+        filter_: Optional["Callable"] = None
+    ) -> "Iterator[DataModel]":
         filename = cls.download(rse, date)
 
         # Should check errors, content size at least
         file = smart_open(filename)
 
-        return cls.each(file, rse, date, filter_)
+        return cls.each(file, rse, date, filter_)  # type: ignore (file could be None)
 
 
 class Dataset(DataModel):
@@ -226,7 +270,7 @@ class CompleteDataset(DataModel):
         ('last_access', to_datetime),
     )
 
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         logger = logging.getLogger('auditor.data_models')
         super(CompleteDataset, self).__init__(*args[0:7])
         if len(args) == 8:
@@ -252,7 +296,7 @@ class Replica(DataModel):
         ('state', str),
     )
 
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         logger = logging.getLogger('auditor.data_models')
         if len(args) == 8:
             args = list(args)
@@ -269,7 +313,7 @@ class Replica(DataModel):
 class Filter:
     _Condition = collections.namedtuple('_Condition', ('comparator', 'attribute', 'expected'))
 
-    def __init__(self, filter_str, record_class):
+    def __init__(self, filter_str: str, record_class: DataModel) -> None:
         '''
         Filter objects allow to match a DataModel subclass instance against
         one or more conditions.
@@ -300,7 +344,7 @@ class Filter:
                 expected=parser(expected),
             ))
 
-    def match(self, record):
+    def match(self, record: DataModel) -> bool:
         '''
         :param record: DataModel subclass instance.
         :returns: True if record matches all the conditions in this filter,

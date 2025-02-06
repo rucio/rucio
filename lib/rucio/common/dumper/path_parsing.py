@@ -17,15 +17,18 @@ import logging
 logger = logging.getLogger('rucio_dumps')
 
 
-def prefix(agis_data, endpoint_name):
-    ddmendpoint_data = list(filter(
-        lambda d: d['name'] == endpoint_name,
-        agis_data,
-    ))[0]
-    return ddmendpoint_data['endpoint']
+def remove_prefix(prefix: list[str], path: list[str]) -> list[str]:
+    """
+    Remove the specified prefix from the given path.
 
+    :param prefix: The prefix to be removed from the path.
+    :param path: The path from which the prefix should be removed.
 
-def remove_prefix(prefix, path):
+    :return: The path with the prefix removed.
+            If the prefix is not found at the start of the path, the original path is returned.
+            If the path is a subset of the prefix, an empty list is returned.
+    """
+
     iprefix = iter(prefix)
     ipath = iter(path)
     try:
@@ -59,6 +62,14 @@ def remove_prefix(prefix, path):
     return rest
 
 
-def components(path):
+def components(path: str) -> list[str]:
+    """
+    Extracts and returns the non-empty components of a given path.
+
+    :param path: input path string to be parsed.
+
+    :return: list of non-empty components of the path.
+    """
+
     components = path.strip().strip('/').split('/')
     return [component for component in components if component != '']

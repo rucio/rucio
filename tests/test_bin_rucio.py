@@ -1154,7 +1154,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert not err
+        assert "ERROR" not in err
 
         # list-file-replicas should, by default, list replicas from blocklisted rses
         cmd = 'rucio list-file-replicas {}'.format(tmp_dataset)
@@ -1215,7 +1215,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
-        assert not err
+        assert "ERROR" not in err
         rule = out.split('\n')[-2]
         assert re.match(r'^\w+$', rule)
         # check if rule exist for the file
@@ -1256,7 +1256,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert not err
+        assert "ERROR" not in err
         rule = out.split('\n')[-2]
         cmd = "rucio rule-info {0}".format(rule)
         print(self.marker + cmd)
@@ -1373,7 +1373,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
-        assert not err
+        assert "ERROR" not in err
         rule = out.split('\n')[-2]
         assert re.match(r'^\w+$', rule)
 
@@ -1383,7 +1383,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
-        assert not err
+        assert "ERROR" not in err
         new_rule = out.split('\n')[-2]  # trimming new line character
 
         # check if rule exist for the file
@@ -1445,7 +1445,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
-        assert not err
+        assert "ERROR" not in err
         rule = out.split('\n')[-2]
         assert re.match(r'^\w+$', rule)
         # move rule
@@ -1456,7 +1456,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert not err
+        assert "ERROR" not in err
         new_rule_id = out.split('\n')[-2]  # trimming new line character
 
         # check if rule exist for the file
@@ -2099,21 +2099,21 @@ class TestBinRucio:
             tmp_rse = rse_name_generator()
             cmd = f'rucio-admin rse add {tmp_rse}'
             exitcode, out, err = execute(cmd)
-            assert not err
+            assert "ERROR" not in err
 
             self.account_client.set_local_account_limit('root', tmp_rse, -1)
 
             cmd = (f'rucio-admin rse set-attribute --rse {tmp_rse}'
                    f' --key spacetoken --value RULELOC{i}')
             exitcode, out, err = execute(cmd)
-            assert not err
+            assert "ERROR" not in err
 
         # PREPARING THE RULES
         # add rule
         rule_expr = "spacetoken=RULELOC0"
         cmd = f"rucio add-rule {self.user}:{tmp_fname} 1 '{rule_expr}'"
         exitcode, out, err = execute(cmd)
-        assert not err
+        assert "ERROR" not in err
         # get the rules for the file
         cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".\
             format(self.user, tmp_file[5:])
@@ -2126,7 +2126,7 @@ class TestBinRucio:
         cmd = f"rucio move-rule {parentrule_id} '{new_rule_expr}'"
         exitcode, out, err = execute(cmd)
         childrule_id = out.split('\n')[-2]
-        assert err == ''
+        assert "ERROR" not in err
 
         # check if new rule exists for the file
         cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_fname)
@@ -2156,21 +2156,21 @@ class TestBinRucio:
         tmp_rse = rse_name_generator()
         cmd = f'rucio-admin rse add {tmp_rse}'
         exitcode, out, err = execute(cmd)
-        assert not err
+        assert "ERROR" not in err
 
         self.account_client.set_local_account_limit('root', tmp_rse, -1)
 
         cmd = (f'rucio-admin rse set-attribute --rse {tmp_rse}'
                f' --key spacetoken --value RULELOC')
         exitcode, out, err = execute(cmd)
-        assert not err
+        assert "ERROR" not in err
 
         # PREPARING THE RULES
         # add rule
         rule_expr = "spacetoken=RULELOC"
         cmd = f"rucio add-rule {self.user}:{tmp_fname} 1 '{rule_expr}'"
         exitcode, out, err = execute(cmd)
-        assert not err
+        assert "ERROR" not in err
 
         # get the rules for the file
         cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".\
@@ -2353,7 +2353,7 @@ class TestBinRucio:
         exitcode, out, err = execute("rucio-admin rse update --setting country_name --value France --rse {}".format(self.def_rse))
         print(out, err)
         assert exitcode == 0
-        assert not err
+        assert "ERROR" not in err
 
     @pytest.mark.noparallel(reason='Modify config')
     def test_lifetime_cli(self):

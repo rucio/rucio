@@ -427,9 +427,9 @@ def saml_auth(method, data=None):
     :param rendered_tpl: page to be rendered
     :returns: rendered final page or a page with error message
     """
-    SAML_PATH = join(dirname(__file__), 'saml/')
+    saml_path = join(dirname(__file__), 'saml/')
     req = prepare_saml_request(request.environ, data)
-    samlauth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
+    samlauth = OneLogin_Saml2_Auth(req, custom_base_path=saml_path)
     saml_user_data = request.cookies.get('saml-user-data')
     if not MULTI_VO:
         ui_vo = 'def'

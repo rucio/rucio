@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import config
 from rucio.common.constants import RseAttr
+from rucio.common.exception import ConfigNotFound
 from rucio.common.plugins import PolicyPackageAlgorithms
 
 if TYPE_CHECKING:
@@ -38,7 +39,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
 
         try:
             algorithm_name = config.config_get('policy', self._algorithm_type)
-        except (NoOptionError, NoSectionError, RuntimeError):
+        except (ConfigNotFound, NoOptionError, NoSectionError, RuntimeError):
             logger.debug("PFN2LFN: no algorithm specified in the config.")
             if super()._supports(self._algorithm_type, vo):
                 algorithm_name = vo
@@ -193,45 +194,6 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
             scope = scope.replace('.', '/')
         return '%s/%s' % (scope, name)
 
-    @staticmethod
-    def __ligo(scope, name, rse, rse_attrs, protocol_attrs):
-        """
-        Given a LFN, convert it directly to a path using the Caltech schema
-
-        e.g.,: ER8:H-H1_HOFT_C02-1126256640-4096 ->
-               ER8/hoft_C02/H1/H-H1_HOFT_C02-11262/H-H1_HOFT_C02-1126256640-4096
-
-        :param scope: Scope of the LFN (observing run: ER8, O2, postO1, ...)
-        :param name: File name of the LFN (E.g., H-H1_HOFT_C02-1126256640-4096.gwf)
-        :param rse: RSE for PFN (ignored)
-        :param rse_attrs: RSE attributes for PFN (ignored)
-        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
-        :returns: Path for use in the PFN generation.
-        """
-        del rse
-        del rse_attrs
-        del protocol_attrs
-        from ligo_rucio import lfn2pfn as ligo_lfn2pfn  # pylint: disable=import-error
-        return ligo_lfn2pfn.ligo_lab(scope, name, None, None, None)
-
-    @staticmethod
-    def __xenon(scope, name, rse, rse_attrs, protocol_attrs):
-        """
-        Given a LFN, turn it into a two level sub-directory structure based on the scope
-        plus a third level based on the name
-        :param scope: Scope of the LFN.
-        :param name: File name of the LFN.
-        :param rse: RSE for PFN (ignored)
-        :param rse_attrs: RSE attributes for PFN (ignored)
-        :param protocol_attrs: RSE protocol attributes for PFN (ignored)
-        :returns: Path for use in the PFN generation.
-        """
-        del rse
-        del rse_attrs
-        del protocol_attrs
-
-        return '%s/%s/%s/%s' % (scope[0:7], scope[4:len(scope)], name.split('-')[0] + "-" + name.split('-')[1], name)
-
     @classmethod
     def _module_init_(cls):
         """
@@ -239,12 +201,10 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         """
         cls.register(cls.__hash, "hash")
         cls.register(cls.__identity, "identity")
-        cls.register(cls.__ligo, "ligo")
-        cls.register(cls.__xenon, "xenon")
         policy_module = None
         try:
             policy_module = config.config_get('policy', 'lfn2pfn_module')
-        except (NoOptionError, NoSectionError):
+        except (ConfigNotFound, NoOptionError, NoSectionError):
             pass
         if policy_module:
             # TODO: The import of importlib is done like this due to a dependency issue with python 2.6 and incompatibility of the module with py3.x

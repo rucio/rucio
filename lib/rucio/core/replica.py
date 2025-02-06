@@ -4438,7 +4438,7 @@ def set_tombstone(
 
 
 @read_session
-def get_RSEcoverage_of_dataset(
+def get_rse_coverage_of_dataset(
     scope: "InternalScope",
     name: str,
     *,

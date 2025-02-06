@@ -551,7 +551,7 @@ class FilterEngine:
         """
         A (more) human readable format of <filters>.
         """
-        operators_conversion_LUT_inv = {op2: op1 for op1, op2 in OPERATORS_CONVERSION_LUT.items()}
+        operators_conversion_lut_inv = {op2: op1 for op1, op2 in OPERATORS_CONVERSION_LUT.items()}
 
         filters = '\n'
         for or_group in self._filters:
@@ -559,10 +559,10 @@ class FilterEngine:
                 key, oper, value = and_group
                 if isinstance(key, InstrumentedAttribute):
                     key = and_group[0].key
-                if operators_conversion_LUT_inv[oper] == "":
+                if operators_conversion_lut_inv[oper] == "":
                     oper = "eq"
                 else:
-                    oper = operators_conversion_LUT_inv[oper]
+                    oper = operators_conversion_lut_inv[oper]
                 if isinstance(value, InstrumentedAttribute):
                     value = and_group[2].key  # type: ignore
                 elif isinstance(value, DIDType):

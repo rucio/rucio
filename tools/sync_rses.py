@@ -54,10 +54,10 @@ def main(argv):
             staging_area = repo_data[rse].get('staging_area')
             continent = repo_data[rse].get('continent')
             time_zone = repo_data[rse].get('time_zone')
-            ISP = repo_data[rse].get('ISP')
+            isp = repo_data[rse].get('ISP')
             c.add_rse(rse, deterministic=deterministic, volatile=volatile,
                       region_code=region_code, country_name=country_name, staging_area=staging_area,
-                      continent=continent, time_zone=time_zone, ISP=ISP)
+                      continent=continent, time_zone=time_zone, ISP=isp)
         except Duplicate:
             print(f'{rse} already added')
         except InvalidObject as err:

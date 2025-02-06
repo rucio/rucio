@@ -21,14 +21,21 @@ import os
 import re
 import sys
 import tempfile
+from configparser import NoOptionError, NoSectionError
+from functools import cache
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
-import gfal2
-import magic
+try:
+    # requires non-Python package pre-requisites that break unit tests
+    import gfal2
+except ModuleNotFoundError:
+    pass
+
 import requests
+from magic import Magic
 
 from rucio.common import config
-from rucio.core.rse import get_rse_id, get_rse_protocols
+from rucio.common.exception import ConfigNotFound
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -70,7 +77,7 @@ def error(text: str, exit_code: int = 1) -> None:
     logger = logging.getLogger('dumper.__init__')
     logger.error(text)
     sys.stderr.write(text + '\n')
-    exit(1)
+    exit(exit_code)
 
 
 def mkdir(dir_: "StrOrBytesPath") -> None:
@@ -89,14 +96,21 @@ def cacert_config(config: "ModuleType", rucio_home: str) -> Optional[Union["File
     logger = logging.getLogger('dumper.__init__')
     try:
         cacert = config.config_get('client', 'ca_cert').replace('$RUCIO_HOME', rucio_home)
-    except KeyError:
+    except ConfigNotFound:
+        logger.warning('Configuration file not found.')
+        cacert = None
+    except (KeyError, NoOptionError, NoSectionError):
+        logger.warning('CA Certificate configuration not found.')
         cacert = None
 
-    if cacert is None or not os.path.exists(cacert):
-        logger.warning('Configured CA Certificate file "%s" not found: Host certificate verification disabled', cacert)
-        cacert = False
+    if cacert and os.path.exists(cacert):
+        return cacert
+    else:
+        logger.warning('Configured CA Certificate file "%s" not found', cacert)
 
-    return cacert
+    logger.warning('Host certificate verification disabled.')
+
+    return False
 
 
 def rucio_home() -> str:
@@ -115,41 +129,37 @@ RESULTS_DIR = 'results'
 CHUNK_SIZE = 4194304  # 4MiB
 
 
-# There are two Python modules with the name `magic`, luckily both do
-# the same thing.
-# pylint: disable=no-member
-if 'open' in dir(magic):
-    _mime = magic.open(magic.MAGIC_MIME)
-    _mime.load()
-    mimetype = _mime.file
-else:
-    mimetype = lambda filename: magic.from_file(filename, mime=True)  # NOQA
-# pylint: enable=no-member
+@cache
+def get_libmagic_wrapper() -> Magic:
+    """
+    Returns a libmagic wrapper.
+    """
+    return Magic(mime=True)
 
 
-def isplaintext(filename: "GenericPath") -> bool:
-    '''
+def is_plaintext(filename: "GenericPath") -> bool:
+    """
     Returns True if `filename` has mimetype == 'text/plain'.
-    '''
-    if os.path.islink(filename):
-        filename = os.readlink(filename)
-    return mimetype(filename).split(';')[0] == 'text/plain'
+    """
+    mime = get_libmagic_wrapper()
+    return mime.from_file(filename) == 'text/plain'
 
 
-def smart_open(filename: "GenericPath") -> Optional[Union["TextIO", gzip.GzipFile]]:
+def smart_open(filename: "GenericPath") -> Optional["TextIO"]:
     '''
     Returns an open file object if `filename` is plain text, else assumes
     it is a bzip2 compressed file and returns a file-like object to
     handle it.
     '''
     f = None
-    if isplaintext(filename):
+    if is_plaintext(filename):
         f = open(filename, 'rt')
     else:
-        file_type = mimetype(filename)
-        if file_type.find('gzip') > -1:
-            f = gzip.GzipFile(filename, 'rt')
-        elif file_type.find('bzip2') > -1:
+        mime = get_libmagic_wrapper()
+        file_type = mime.from_file(filename)
+        if file_type in ['application/gzip', 'application/x-gzip']:
+            f = gzip.open(filename, 'rt')
+        elif file_type == 'application/x-bzip2':
             f = bz2.open(filename, 'rt')
         else:
             pass  # Not supported format
@@ -204,8 +214,6 @@ def temp_file(
 
 
 DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
-DATETIME_FORMAT_FULL = '%Y-%m-%dT%H:%M:%S'
-MILLISECONDS_RE = re.compile(r'\.(\d{3})Z$')
 
 
 def to_datetime(str_or_datetime: Union[datetime.datetime, str]) -> Optional[datetime.datetime]:
@@ -236,17 +244,16 @@ def to_datetime(str_or_datetime: Union[datetime.datetime, str]) -> Optional[date
             'Trying to parse "%s" date with resolution of milliseconds',
             str_or_datetime,
         )
-        milliseconds = int(MILLISECONDS_RE.search(str_or_datetime).group(1))
-        str_or_datetime = MILLISECONDS_RE.sub('', str_or_datetime)
         date = datetime.datetime.strptime(
             str_or_datetime,
-            DATETIME_FORMAT,
-        )
-        date = date + datetime.timedelta(microseconds=milliseconds * 1000)
+            # Adding milliseconds to the datetime format
+            DATETIME_FORMAT + '.%f',
+        ).replace(microsecond=0)
     return date
 
 
 def ddmendpoint_preferred_protocol(ddmendpoint: str) -> "RSEProtocolDict":
+    from rucio.core.rse import get_rse_id, get_rse_protocols  # pylint: disable=import-outside-toplevel
     return next(p for p in get_rse_protocols(get_rse_id(ddmendpoint))['protocols'] if p['domains']['wan']['read'] == 1)
 
 

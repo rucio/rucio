@@ -71,6 +71,13 @@ _METADATA = MetaData(schema=DEFAULT_SCHEMA_NAME)
 _MAKER, _ENGINE, _LOCK = None, None, Lock()
 
 
+SQLA_CONFIG_POOLCLASS_MAPPING = {
+    'queuepool': QueuePool,
+    'singletonthreadpool': SingletonThreadPool,
+    'nullpool': NullPool,
+}
+
+
 class BASE(DeclarativeBase):
     metadata = _METADATA
 
@@ -163,7 +170,7 @@ def psql_convert_decimal_to_float(dbapi_conn, connection_rec) -> None:
     except:
         raise RucioException('Trying to use PostgreSQL without psycopg2 or psycopg2-binary installed!')
 
-    DEC2FLOAT = psycopg2.extensions.new_type(psycopg2.extensions.DECIMAL.values,
+    DEC2FLOAT = psycopg2.extensions.new_type(psycopg2.extensions.DECIMAL.values,  # noqa: N806
                                              'DEC2FLOAT',
                                              lambda value, curs: float(value) if value is not None else None)
     psycopg2.extensions.register_type(DEC2FLOAT)
@@ -188,12 +195,6 @@ def _get_engine_poolclass(poolclass: str) -> Pool:
     :returns: The corresponding SQLAlchemy Pool class.
     :raises InputValidationError: if config value doesn't correspond to an SQLAlchemy Pool class.
     """
-
-    SQLA_CONFIG_POOLCLASS_MAPPING = {
-        'queuepool': QueuePool,
-        'singletonthreadpool': SingletonThreadPool,
-        'nullpool': NullPool,
-    }
 
     poolclass = poolclass.lower()
 
