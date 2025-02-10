@@ -186,6 +186,7 @@ class Default(protocol.RSEProtocol):
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
         self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
+        self.__ctx.set_opt_boolean("HTTP PLUGIN", "RETRIEVE_BEARER_TOKEN", False)
         auth_configured = False
         if self.auth_token:
             self.__ctx.set_opt_string("BEARER", "TOKEN", self.auth_token)
