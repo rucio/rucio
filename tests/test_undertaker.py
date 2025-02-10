@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from datetime import datetime, timedelta
 from logging import getLogger
 
 import pytest
 
-from rucio.common.policy import get_policy
 from rucio.common.types import InternalScope
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_dids, attach_dids, get_did, list_expired_dids, set_metadata
@@ -100,12 +100,9 @@ class TestUndertaker:
         for did in list_expired_dids(limit=1000):
             assert (did['scope'], did['name']) != (dsn['scope'], dsn['name'])
 
+    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='ATLAS-specific test')
     def test_atlas_archival_policy(self, vo, mock_scope, root_account, jdoe_account):
         """ UNDERTAKER (CORE): Test the atlas archival policy. """
-        if get_policy() != 'atlas':
-            LOG.info("Skipping atlas-specific test")
-            return
-
         nbdatasets = 5
         nbfiles = 5
 
