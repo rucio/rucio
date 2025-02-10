@@ -80,7 +80,8 @@ def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None,
     conn = engine.connect()
     trans = conn.begin()
     inspector = reflection.Inspector.from_engine(engine)
-    metadata = MetaData(bind=conn, reflect=True)
+    metadata = MetaData()
+    metadata.reflect(bind=conn)
     dialect = engine.dialect.name
 
     # Gather all the columns that need updating and all relevant foreign key constraints
@@ -187,7 +188,8 @@ def remove_vo(vo, commit_changes=False, skip_history=False):
     conn = engine.connect()
     trans = conn.begin()
     inspector = reflection.Inspector.from_engine(engine)
-    metadata = MetaData(bind=conn, reflect=True)
+    metadata = MetaData()
+    metadata.reflect(bind=conn)
     dialect = engine.dialect.name
 
     # Gather all the columns that need deleting and all relevant foreign key constraints
