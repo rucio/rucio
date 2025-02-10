@@ -489,12 +489,9 @@ class Default(protocol.RSEProtocol):
 
         try:
             for path in paths:
-                if self.__gfal2_exist(path) == 0:
-                    ret = ctx.unlink(str(path))
-                    if ret:
-                        return ret
-                else:
-                    raise exception.SourceNotFound
+                ret = ctx.unlink(str(path))
+                if ret:
+                    return ret
             return ret
         except gfal2.GError as error:  # pylint: disable=no-member
             if error.code == errno.ENOENT or 'No such file' in str(error):
