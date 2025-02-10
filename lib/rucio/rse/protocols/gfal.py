@@ -489,7 +489,10 @@ class Default(protocol.RSEProtocol):
 
         try:
             for path in paths:
-                ret = ctx.unlink(str(path))
+                # GFAL does a PROPFIND request before DELETE when the scheme is
+                # davs://, which is wasteful.
+                path = re.sub('^davs://', 'https://', str(path))
+                ret = ctx.unlink(path)
                 if ret:
                     return ret
             return ret
