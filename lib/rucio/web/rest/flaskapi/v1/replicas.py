@@ -1372,7 +1372,7 @@ class DatasetReplicas(ErrorHandlingMethodView):
                 for row in list_dataset_replicas(scope=scope, name=name, deep=_deep, vo=vo):
                     yield dumps(row, cls=APIEncoder) + '\n'
 
-            deep = request.args.get('deep', default=False)
+            deep = True
 
             return try_stream(generate(_deep=deep, vo=request.environ.get('vo')))
         except ValueError as error:
@@ -1522,7 +1522,7 @@ class DatasetReplicasVP(ErrorHandlingMethodView):
                 for row in list_dataset_replicas_vp(scope=scope, name=name, deep=_deep, vo=vo):
                     yield dumps(row, cls=APIEncoder) + '\n'
 
-            deep = request.args.get('deep', default=False)
+            deep = True
 
             return try_stream(generate(_deep=deep, vo=request.environ.get('vo')))
         except ValueError as error:
