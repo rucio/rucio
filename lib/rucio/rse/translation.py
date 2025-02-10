@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import hashlib
+import importlib
 import logging
 from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING, Any, Optional
@@ -207,9 +208,6 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         except (ConfigNotFound, NoOptionError, NoSectionError):
             pass
         if policy_module:
-            # TODO: The import of importlib is done like this due to a dependency issue with python 2.6 and incompatibility of the module with py3.x
-            # More information https://github.com/rucio/rucio/issues/875
-            import importlib
             importlib.import_module(policy_module)
 
         cls._DEFAULT_LFN2PFN = config.get_lfn2pfn_algorithm_default()
