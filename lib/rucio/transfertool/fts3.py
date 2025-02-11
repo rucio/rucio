@@ -38,7 +38,8 @@ from rucio.common.utils import APIEncoder, chunks, deep_merge_dict
 from rucio.core.monitor import MetricManager
 from rucio.core.oidc import request_token
 from rucio.core.request import get_source_rse, get_transfer_error
-from rucio.core.rse import determine_audience_for_rse, determine_scope_for_rse, get_rse_supported_checksums_from_attributes
+from rucio.core.rse import determine_audience_for_rse, determine_file_scope_for_path, determine_scope_for_rse, get_rse_supported_checksums_from_attributes
+from rucio.core.token_issuer import request_access_token
 from rucio.db.sqla.constants import RequestState
 from rucio.transfertool.fts3_plugins import FTS3TapeMetadataPlugin
 from rucio.transfertool.transfertool import TransferStatusReport, Transfertool, TransferToolBuilder
@@ -910,7 +911,11 @@ class FTS3Transfertool(Transfertool):
         if oidc_support:
             fts_hostname = urlparse(external_host).hostname
             if fts_hostname is not None:
-                token = request_token(audience=fts_hostname, scope='fts')
+                if config_get_bool("oidc", "rucio_token_issuer", raise_exception=False, default=False):
+                    token_payload = request_access_token(scope='fts', audience=fts_hostname)
+                    token = token_payload["access_token"]
+                else:
+                    token = request_token(audience=fts_hostname, scope='fts')
                 if token is not None:
                     self.logger(logging.INFO, 'Using a token to authenticate with FTS instance %s', fts_hostname)
                     self.token = token
@@ -1030,14 +1035,28 @@ class FTS3Transfertool(Transfertool):
             t_file['source_tokens'] = []
             for source in transfer.sources:
                 src_audience = determine_audience_for_rse(rse_id=source.rse.id)
-                src_scope = determine_scope_for_rse(rse_id=source.rse.id, scopes=['storage.read'], extra_scopes=['offline_access'])
-                t_file['source_tokens'].append(request_token(src_audience, src_scope))
+                if config_get_bool("oidc", "rucio_token_issuer", raise_exception=False, default=False):
+                    src_protocol = transfer.source_protocol(source)
+                    [src_lfn] = src_protocol.parse_pfns([transfer.source_url(source)]).values()
+                    src_scope = determine_file_scope_for_path(rse_id=source.rse.id, scopes=['storage.read'], file_path=src_lfn['path'] + src_lfn['name'])
+                    token_payload = request_access_token(scope=src_scope, audience=src_audience)
+                    t_file['source_tokens'].append(token_payload["access_token"])
+                else:
+                    src_scope = determine_scope_for_rse(rse_id=source.rse.id, scopes=['storage.read'], extra_scopes=['offline_access'])
+                    t_file['source_tokens'].append(request_token(src_audience, src_scope))
 
             dst_audience = determine_audience_for_rse(transfer.dst.rse.id)
             # FIXME: At the time of writing, StoRM requires `storage.read` in
             # order to perform a stat operation.
-            dst_scope = determine_scope_for_rse(transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], extra_scopes=['offline_access'])
-            t_file['destination_tokens'] = [request_token(dst_audience, dst_scope)]
+            if config_get_bool("oidc", "rucio_token_issuer", raise_exception=False, default=False):
+                dest_protocol = transfer.dest_protocol()
+                [dest_lfn] = dest_protocol.parse_pfns([transfer.dest_url]).values()
+                dst_scope = determine_file_scope_for_path(rse_id=transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], file_path=dest_lfn['path'] + dest_lfn['name'])
+                token_payload = request_access_token(scope=dst_scope, audience=dst_audience)
+                t_file['destination_tokens'] = [token_payload["access_token"]]
+            else:
+                dst_scope = determine_scope_for_rse(transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], extra_scopes=['offline_access'])
+                t_file['destination_tokens'] = [request_token(dst_audience, dst_scope)]
 
         if isinstance(self.scitags_exp_id, int):
             activity_id = self.scitags_activity_ids.get(rws.activity)
