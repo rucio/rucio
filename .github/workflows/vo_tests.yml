@@ -1,9 +1,9 @@
 name: VO-specific tests
 
 on:
-  - pull_request
-  - push
-  - workflow_dispatch
+  pull_request:
+  push:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
