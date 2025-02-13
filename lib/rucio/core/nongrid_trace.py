@@ -31,11 +31,11 @@ METRICS = MetricManager(module=__name__)
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
 
-CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get('nongrid-trace', 'loglevel', raise_exception=False, default='DEBUG').upper())
-CONFIG_TRACE_LOGFORMAT = config_get('nongrid-trace', 'logformat', raise_exception=False, default='%(message)s')
-CONFIG_TRACE_TRACEDIR = config_get('nongrid-trace', 'tracedir', raise_exception=False, default='/var/log/rucio')
-CONFIG_TRACE_MAXBYTES = config_get_int('nongrid-trace', 'maxbytes', raise_exception=False, default=1000000000)
-CONFIG_TRACE_BACKUPCOUNT = config_get_int('nongrid-trace', 'backupCount', raise_exception=False, default=10)
+CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get('nongrid-trace', 'loglevel', default='DEBUG').upper())
+CONFIG_TRACE_LOGFORMAT = config_get('nongrid-trace', 'logformat', default='%(message)s')
+CONFIG_TRACE_TRACEDIR = config_get('nongrid-trace', 'tracedir', default='/var/log/rucio')
+CONFIG_TRACE_MAXBYTES = config_get_int('nongrid-trace', 'maxbytes', default=1000000000)
+CONFIG_TRACE_BACKUPCOUNT = config_get_int('nongrid-trace', 'backupCount', default=10)
 
 # reset root logger handlers. Otherwise everything from ROTATING_LOGGER will also end up in the apache logs.
 logging.getLogger().handlers = []
