@@ -83,15 +83,15 @@ if PROMETHEUS_MULTIPROC_DIR:
 
 
 SERVER = config_get('monitor', 'carbon_server', raise_exception=False, default=None)
-PORT = config_get_int('monitor', 'carbon_port', raise_exception=False, default=8125)
-SCOPE = config_get('monitor', 'user_scope', raise_exception=False, default='rucio')
+PORT = config_get_int('monitor', 'carbon_port', default=8125)
+SCOPE = config_get('monitor', 'user_scope', default='rucio')
 STATSD_CLIENT = None
 if SERVER is not None:
     STATSD_CLIENT = StatsClient(host=SERVER, port=PORT, prefix=SCOPE)
 
-ENABLE_METRICS = config_get_bool('monitor', 'enable_metrics', raise_exception=False, default=False)
+ENABLE_METRICS = config_get_bool('monitor', 'enable_metrics', default=False)
 if ENABLE_METRICS:
-    METRICS_PORT = config_get_int('monitor', 'metrics_port', raise_exception=False, default=8080)
+    METRICS_PORT = config_get_int('monitor', 'metrics_port', default=8080)
     start_http_server(METRICS_PORT, registry=REGISTRY)
 
 COUNTERS = {}

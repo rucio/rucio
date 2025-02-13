@@ -206,9 +206,9 @@ class StompConnectionManager:
         cert_file = config_get(config_section, 'ssl_cert_file', default=None, raise_exception=False)
         username = config_get(config_section, 'username', default=None, raise_exception=False)
         password = config_get(config_section, 'password', default=None, raise_exception=False)
-        nonssl_port = config_get_int(config_section, 'nonssl_port', default=0, raise_exception=False)
+        nonssl_port = config_get_int(config_section, 'nonssl_port', default=0)
         timeout = config_get_float(config_section, 'timeout', default=None, raise_exception=False)
-        heartbeats = tuple(config_get_list(config_section, 'heartbeats', default=[0., 0.], raise_exception=False))
+        heartbeats = tuple(config_get_list(config_section, 'heartbeats', default=[0., 0.])
         reconnect_attempts = config_get_int(config_section, 'reconnect_attempts', default=100)
         if use_ssl and (key_file is None or cert_file is None):
             self._logger(logging.ERROR, "If use_ssl is True in config you must provide both 'ssl_cert_file' "
