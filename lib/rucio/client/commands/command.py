@@ -115,22 +115,12 @@ class Commands:
         )
         auth_args.add_argument("--oidc-audience", help="Defines which audience are tokens requested for.")
         auth_args.add_argument(
-            "--oidc-auto",
-            default=False,
-            action="store_true",
-            help="""
-                If not specified, username and password credentials are not required and users will be given a URL to use in their browser.
-                If specified, the users explicitly trust Rucio with their IdP credentials.
-             """
-        )
-        auth_args.add_argument(
             "--oidc-polling",
             default=False,
             action="store_true",
             help="""
                 If not specified, user will be asked to enter a code returned by the browser to the command line.
                 If --polling is set, Rucio Client should get the token without any further interaction of the user.
-                This option is active only if --auto is *not* specified.
             """
         )
         auth_args.add_argument(

@@ -1610,10 +1610,7 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
 
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
-@pytest.mark.parametrize("file_config_mock", [
-    {"overrides": [('oidc', 'admin_issuer', 'indigoiam')]},
-], indirect=True)
-def test_transfer_with_tokens(vo, did_factory, root_account, caches_mock, file_config_mock):
+def test_transfer_with_tokens(vo, did_factory, root_account, caches_mock):
     src_rse = 'WEB1'
     src_rse_id = rse_core.get_rse_id(rse=src_rse, vo=vo)
     dst_rse = 'XRD5'

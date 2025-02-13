@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 def refresh_cli_auth_token(
     token_string: str,
     account: str,
+    issuer_nickname: Optional[str] = None,
     vo: str = 'def',
     *,
     session: "Session"
@@ -45,7 +46,7 @@ def refresh_cli_auth_token(
     :return: tuple of (access token, expiration epoch), None otherswise
     """
     internal_account = InternalAccount(account, vo=vo)
-    return oidc.refresh_cli_auth_token(token_string, internal_account, session=session)
+    return oidc.refresh_cli_auth_token(token_string, internal_account, issuer_nickname=issuer_nickname, vo=vo, session=session)
 
 
 @transactional_session
@@ -94,12 +95,6 @@ def get_auth_oidc(
                        defines which user's info the user allows to provide
                        to the Rucio Client.
     :param audience: audience for which tokens are requested ('rucio' is the default)
-    :param auto: If True, the function will return authorization URL to the Rucio Client
-                 which will log-in with user's IdP credentials automatically.
-                 Also it will instruct the IdP to return an AuthZ code to another Rucio REST
-                 endpoint /oidc_token. If False, the function will return a URL
-                 to be used by the user in the browser in order to authenticate via IdP
-                 (which will then return with AuthZ code to /oidc_code REST endpoint).
     :param polling: If True, '_polling' string will be appended to the access_msg
                     in the DB oauth_requests table to inform the authorization stage
                     that the Rucio Client is polling the server for a token
@@ -115,7 +110,7 @@ def get_auth_oidc(
     # no permission layer for the moment !
 
     internal_account = InternalAccount(account, vo=vo)
-    return oidc.get_auth_oidc(internal_account, session=session, **kwargs)
+    return oidc.get_auth_oidc(internal_account, vo=vo, session=session, **kwargs)
 
 
 @transactional_session
@@ -126,7 +121,7 @@ def get_token_oidc(
     session: "Session"
 ) -> Optional[dict[str, Optional[Union[str, bool]]]]:
     """
-    After Rucio User got redirected to Rucio /auth/oidc_token (or /auth/oidc_code)
+    After Rucio User got redirected to Rucio /auth/oidc_code
     REST endpoints with authz code and session state encoded within the URL.
     These parameters are used to eventually gets user's info and tokens from IdP.
 
@@ -134,9 +129,9 @@ def get_token_oidc(
     :param ip: IP address of the client as a string.
     :param session: The database session in use.
 
-    :returns: One of the following tuples: ("fetchcode", <code>); ("token", <token>);
+    :returns: One of the following tuples: ("token", <token>);
               ("polling", True); The result depends on the authentication strategy being used
-              (no auto, auto, polling).
+              (polling).
     """
     # no permission layer for the moment !
     return oidc.get_token_oidc(auth_query_string, ip, session=session)
