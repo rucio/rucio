@@ -47,7 +47,13 @@ def add_messages(messages: "MessagesListType", *, session: "Session") -> None:
     :param session: The database session to use.
     """
     services = []
-    for service in config_get_list('hermes', 'services_list', raise_exception=False, default='activemq,email', session=session):
+    for service in config_get_list(
+        "hermes",
+        "services_list",
+        raise_exception=False,
+        default="activemq,email",
+        session=session,
+    ):
         try:
             HermesService(service.upper())
         except ValueError as err:
@@ -56,27 +62,25 @@ def add_messages(messages: "MessagesListType", *, session: "Session") -> None:
 
     msgs = []
     for message in messages:
-        event_type = message['event_type']
-        payload = message['payload']
+        event_type = message["event_type"]
+        payload = message["payload"]
         for service in services:
-            msg = {'services': service, 'event_type': event_type}
+            msg = {"services": service, "event_type": event_type}
             try:
-                if event_type == 'email' and service != 'email':
+                if event_type == "email" and service != "email":
                     continue
-                if service == 'email' and event_type != 'email':
+                if service == "email" and event_type != "email":
                     continue
                 msg_payload = json.dumps(payload, cls=APIEncoder)
-                msg['payload'] = msg_payload
+                msg["payload"] = msg_payload
                 if len(msg_payload) > MAX_MESSAGE_LENGTH:
-                    msg['payload_nolimit'] = msg_payload
-                    msg['payload'] = 'nolimit'
+                    msg["payload_nolimit"] = msg_payload
+                    msg["payload"] = "nolimit"
                 msgs.append(msg)
             except TypeError as err:  # noqa: F841
-                raise InvalidObject(f'Invalid JSON for payload: {err}')
+                raise InvalidObject(f"Invalid JSON for payload: {err}")
     for messages_chunk in chunks(msgs, 1000):
-        stmt = insert(
-            Message
-        )
+        stmt = insert(Message)
         session.execute(stmt, messages_chunk)
 
 
@@ -91,19 +95,21 @@ def add_message(event_type: str, payload: dict, *, session: "Session") -> None:
     :param payload: The message payload. Will be persisted as JSON.
     :param session: The database session to use.
     """
-    add_messages([{'event_type': event_type, 'payload': payload}], session=session)
+    add_messages([{"event_type": event_type, "payload": payload}], session=session)
 
 
 @transactional_session
-def retrieve_messages(bulk: int = 1000,
-                      thread: "Optional[int]" = None,
-                      total_threads: "Optional[int]" = None,
-                      event_type: "Optional[str]" = None,
-                      lock: bool = False,
-                      old_mode: bool = True,
-                      service_filter: "Optional[str]" = None,
-                      *,
-                      session: "Session") -> "MessagesListType":
+def retrieve_messages(
+    bulk: int = 1000,
+    thread: "Optional[int]" = None,
+    total_threads: "Optional[int]" = None,
+    event_type: "Optional[str]" = None,
+    lock: bool = False,
+    old_mode: bool = True,
+    service_filter: "Optional[str]" = None,
+    *,
+    session: "Session",
+) -> "MessagesListType":
     """
     Retrieve up to $bulk messages.
 
@@ -119,24 +125,19 @@ def retrieve_messages(bulk: int = 1000,
     """
     messages = []
     try:
-        stmt_subquery = select(
-            Message.id
-        ).order_by(
-            Message.created_at
+        stmt_subquery = select(Message.id).order_by(Message.created_at)
+        stmt_subquery = filter_thread_work(
+            session=session,
+            query=stmt_subquery,
+            total_threads=total_threads,
+            thread_id=thread,
         )
-        stmt_subquery = filter_thread_work(session=session, query=stmt_subquery, total_threads=total_threads, thread_id=thread)
         if service_filter:
-            stmt_subquery = stmt_subquery.where(
-                Message.services == service_filter
-            )
+            stmt_subquery = stmt_subquery.where(Message.services == service_filter)
         elif event_type:
-            stmt_subquery = stmt_subquery.where(
-                Message.event_type == event_type
-            )
+            stmt_subquery = stmt_subquery.where(Message.event_type == event_type)
         elif old_mode:
-            stmt_subquery = stmt_subquery.where(
-                Message.event_type != 'email'
-            )
+            stmt_subquery = stmt_subquery.where(Message.event_type != "email")
 
         # Step 1:
         # MySQL does not support limits in nested queries, limit on the outer query instead.
@@ -148,48 +149,42 @@ def retrieve_messages(bulk: int = 1000,
             Message.created_at,
             Message.event_type,
             Message.payload,
-            Message.services
+            Message.services,
         )
-        if session.bind.dialect.name == 'mysql':
-            stmt = stmt.where(
-                Message.id.in_(stmt_subquery)
-            )
+        if session.bind.dialect.name == "mysql":
+            stmt = stmt.where(Message.id.in_(stmt_subquery))
         else:
-            stmt_subquery = stmt_subquery.limit(
-                bulk
-            )
-            stmt = stmt.where(
-                Message.id.in_(stmt_subquery)
-            ).with_for_update(
+            stmt_subquery = stmt_subquery.limit(bulk)
+            stmt = stmt.where(Message.id.in_(stmt_subquery)).with_for_update(
                 nowait=True
             )
 
         # Step 2:
         # MySQL does not support limits in nested queries, limit on the outer query instead.
         # This is not as performant, but the best we can get from MySQL.
-        if session.bind.dialect.name == 'mysql':
-            stmt = stmt.limit(
-                bulk
-            )
+        if session.bind.dialect.name == "mysql":
+            stmt = stmt.limit(bulk)
 
         # Step 3:
         # Assemble message object
-        for id_, created_at, event_type, payload, services in session.execute(stmt).all():
-            message = {'id': id_,
-                       'created_at': created_at,
-                       'event_type': event_type,
-                       'services': services}
+        for id_, created_at, event_type, payload, services in session.execute(
+            stmt
+        ).all():
+            message = {
+                "id": id_,
+                "created_at": created_at,
+                "event_type": event_type,
+                "services": services,
+            }
 
             # Only switch SQL context when necessary
-            if payload == 'nolimit':
-                nolimit_stmt = select(
-                    Message.payload_nolimit
-                ).where(
-                    Message.id == id_
+            if payload == "nolimit":
+                nolimit_stmt = select(Message.payload_nolimit).where(Message.id == id_)
+                message["payload"] = json.loads(
+                    str(session.execute(nolimit_stmt).scalar_one())
                 )
-                message['payload'] = json.loads(str(session.execute(nolimit_stmt).scalar_one()))
             else:
-                message['payload'] = json.loads(str(payload))
+                message["payload"] = json.loads(str(payload))
 
             messages.append(message)
 
@@ -208,27 +203,21 @@ def delete_messages(messages: "MessagesListType", *, session: "Session") -> None
     """
     message_condition = []
     for message in messages:
-        message_condition.append(Message.id == message['id'])
-        if len(message['payload']) > MAX_MESSAGE_LENGTH:
-            message['payload_nolimit'] = message.pop('payload')
+        message_condition.append(Message.id == message["id"])
+        if len(message["payload"]) > MAX_MESSAGE_LENGTH:
+            message["payload_nolimit"] = message.pop("payload")
 
     try:
         if message_condition:
-            stmt = delete(
-                Message
-            ).prefix_with(
-                '/*+ INDEX(messages MESSAGES_ID_PK) */',
-                dialect='oracle'
-            ).where(
-                or_(*message_condition)
-            ).execution_options(
-                synchronize_session=False
+            stmt = (
+                delete(Message)
+                .prefix_with("/*+ INDEX(messages MESSAGES_ID_PK) */", dialect="oracle")
+                .where(or_(*message_condition))
+                .execution_options(synchronize_session=False)
             )
             session.execute(stmt)
 
-            stmt = insert(
-                MessageHistory
-            )
+            stmt = insert(MessageHistory)
             session.execute(stmt, messages)
     except IntegrityError as e:
         raise RucioException(e.args)
@@ -243,18 +232,16 @@ def truncate_messages(*, session: "Session") -> None:
     """
 
     try:
-        stmt = delete(
-            Message
-        ).execution_options(
-            synchronize_session=False
-        )
+        stmt = delete(Message).execution_options(synchronize_session=False)
         session.execute(stmt)
     except IntegrityError as e:
         raise RucioException(e.args)
 
 
 @transactional_session
-def update_messages_services(messages: "MessagesListType", services: str, *, session: "Session") -> None:
+def update_messages_services(
+    messages: "MessagesListType", services: str, *, session: "Session"
+) -> None:
     """
     Update the services for all messages with the given IDs.
 
@@ -264,24 +251,19 @@ def update_messages_services(messages: "MessagesListType", services: str, *, ses
     """
     message_condition = []
     for message in messages:
-        message_condition.append(Message.id == message['id'])
-        if len(message['payload']) > MAX_MESSAGE_LENGTH:
-            message['payload_nolimit'] = message.pop('payload')
+        message_condition.append(Message.id == message["id"])
+        if len(message["payload"]) > MAX_MESSAGE_LENGTH:
+            message["payload_nolimit"] = message.pop("payload")
 
     try:
         if message_condition:
-            stmt = update(
-                Message
-            ).prefix_with(
-                '/*+ INDEX(messages MESSAGES_ID_PK) */',
-                dialect='oracle'
-            ).where(
-                or_(*message_condition)
-            ).execution_options(
-                synchronize_session=False
-            ).values({
-                Message.services: services
-            })
+            stmt = (
+                update(Message)
+                .prefix_with("/*+ INDEX(messages MESSAGES_ID_PK) */", dialect="oracle")
+                .where(or_(*message_condition))
+                .execution_options(synchronize_session=False)
+                .values({Message.services: services})
+            )
             session.execute(stmt)
 
     except IntegrityError as err:

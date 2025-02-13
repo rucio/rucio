@@ -73,7 +73,9 @@ class HermesListener(ListenerBase):
     """
 
 
-def deliver_emails(messages: "Iterable[dict[str, Any]]", logger: "LoggerFunction") -> list[int]:
+def deliver_emails(
+    messages: "Iterable[dict[str, Any]]", logger: "LoggerFunction"
+) -> list[int]:
     """
     Sends emails
 
@@ -89,11 +91,11 @@ def deliver_emails(messages: "Iterable[dict[str, Any]]", logger: "LoggerFunction
     )
     to_delete = []
     for message in messages:
-        if message['event_type'] == 'email':
-            msg = MIMEText(message['payload']['body'])
-            msg['From'] = email_from
-            msg['To'] = ', '.join(message['payload']['to'])
-            msg['Subject'] = message['payload']['subject']
+        if message["event_type"] == "email":
+            msg = MIMEText(message["payload"]["body"])
+            msg["From"] = email_from
+            msg["To"] = ", ".join(message["payload"]["to"])
+            msg["Subject"] = message["payload"]["subject"]
 
             try:
                 if send_email:
@@ -113,9 +115,7 @@ def deliver_emails(messages: "Iterable[dict[str, Any]]", logger: "LoggerFunction
 
 
 def submit_to_elastic(
-        messages: "Iterable[dict[str, Any]]",
-        endpoint: str,
-        logger: "LoggerFunction"
+    messages: "Iterable[dict[str, Any]]", endpoint: str, logger: "LoggerFunction"
 ) -> int:
     """
     Aggregate a list of message to ElasticSearch
@@ -127,20 +127,21 @@ def submit_to_elastic(
     :returns:                  HTTP status code. 200 and 204 OK. Rest is failure.
     """
     text = ""
-    elastic_username = config_get("hermes", "elastic_username",
-                                  raise_exception=False, default=None)
-    elastic_password = config_get("hermes", "elastic_password",
-                                  raise_exception=False, default=None)
+    elastic_username = config_get(
+        "hermes", "elastic_username", raise_exception=False, default=None
+    )
+    elastic_password = config_get(
+        "hermes", "elastic_password", raise_exception=False, default=None
+    )
     auth = None
     if elastic_username and elastic_password:
         auth = HTTPBasicAuth(elastic_username, elastic_password)
 
     for message in messages:
         text += '{ "index":{ } }\n%s\n' % json.dumps(message, default=default)
-    res = requests.post(endpoint,
-                        data=text,
-                        headers={"Content-Type": "application/json"},
-                        auth=auth)
+    res = requests.post(
+        endpoint, data=text, headers={"Content-Type": "application/json"}, auth=auth
+    )
     return res.status_code
 
 
@@ -148,7 +149,7 @@ def aggregate_to_influx(
     messages: "Iterable[dict[str, Any]]",
     bin_size: str,
     endpoint: str,
-    logger: "LoggerFunction"
+    logger: "LoggerFunction",
 ) -> int:
     """
     Aggregate a list of message using a certain bin_size
@@ -170,9 +171,11 @@ def aggregate_to_influx(
         payload = message["payload"]
         if event_type in ["transfer-failed", "transfer-done"]:
             if not payload["transferred_at"]:
-                logger(logging.WARNING,
-                       "No transferred_at for message. Reason : %s",
-                       payload["reason"])
+                logger(
+                    logging.WARNING,
+                    "No transferred_at for message. Reason : %s",
+                    payload["reason"],
+                )
                 continue
             transferred_at = time.strptime(
                 payload["transferred_at"], "%Y-%m-%d %H:%M:%S"
@@ -222,12 +225,14 @@ def aggregate_to_influx(
     for timestamp, entries in bins.items():
         for key, metrics in entries.items():
             event_type = key.split(",")[0]
-            points += (f"{key!s} "
-                       f"nb_{event_type!s}_done={metrics[0]!s},"
-                       f"bytes_{event_type!s}_done={metrics[1]!s},"
-                       f"nb_{event_type!s}_failed={metrics[2]!s},"
-                       f"bytes_{event_type!s}_failed={metrics[3]!s} "
-                       rf"{timestamp!s}\n")
+            points += (
+                f"{key!s} "
+                f"nb_{event_type!s}_done={metrics[0]!s},"
+                f"bytes_{event_type!s}_done={metrics[1]!s},"
+                f"nb_{event_type!s}_failed={metrics[2]!s},"
+                f"bytes_{event_type!s}_failed={metrics[3]!s} "
+                rf"{timestamp!s}\n"
+            )
 
     influx_token = config_get("hermes", "influxdb_token", False, None)
     headers = {}
@@ -241,12 +246,12 @@ def aggregate_to_influx(
 
 
 def build_message_dict(
-        bulk: int,
-        worker_number: int,
-        total_workers: int,
-        message_dict: dict[str, list[dict[str, Any]]],
-        logger: "LoggerFunction",
-        service: str = ""
+    bulk: int,
+    worker_number: int,
+    total_workers: int,
+    message_dict: dict[str, list[dict[str, Any]]],
+    logger: "LoggerFunction",
+    service: str = "",
 ) -> None:
     start_time = time.time()
     messages = retrieve_messages(
@@ -254,7 +259,7 @@ def build_message_dict(
         old_mode=False,
         thread=worker_number,
         total_threads=total_workers,
-        service_filter=service
+        service_filter=service,
     )
 
     if messages and service not in message_dict:
@@ -323,8 +328,12 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             logger(logging.ERROR, str(err))
     conns = None
     if "activemq" in services_list:
-        conn_mgr = StompConnectionManager(config_section='messaging-hermes', logger=logger)
-        conn_mgr.set_listener_factory("rucio-hermes", HermesListener, heartbeats=conn_mgr.config.heartbeats)
+        conn_mgr = StompConnectionManager(
+            config_section="messaging-hermes", logger=logger
+        )
+        conn_mgr.set_listener_factory(
+            "rucio-hermes", HermesListener, heartbeats=conn_mgr.config.heartbeats
+        )
 
     worker_number, total_workers, logger = heartbeat_handler.live()
     message_dict = {}
@@ -340,7 +349,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                 total_workers=total_workers,
                 message_dict=message_dict,
                 logger=logger,
-                service=service
+                service=service,
             )
     else:
         build_message_dict(
@@ -348,7 +357,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             worker_number=worker_number,
             total_workers=total_workers,
             message_dict=message_dict,
-            logger=logger
+            logger=logger,
         )
 
     if message_dict:
@@ -432,7 +441,9 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
         if "activemq" in message_dict and conns:
             t_time = time.time()
             try:
-                messages_sent = conn_mgr.deliver_messages(messages=message_dict["activemq"])
+                messages_sent = conn_mgr.deliver_messages(
+                    messages=message_dict["activemq"]
+                )
                 logger(
                     logging.INFO,
                     "%s messages successfully submitted to ActiveMQ in %s seconds",
@@ -453,7 +464,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             "updated_at": message["created_at"],
             "payload": str(message["payload"]),
             "event_type": message["event_type"],
-            "services": message["services"]
+            "services": message["services"],
         }
         for message in to_delete
     ]
@@ -481,7 +492,7 @@ def run(
     Starts up the hermes threads.
     """
     setup_logging(process_name=DAEMON_NAME)
-    logger = formatted_logger(logging.log, DAEMON_NAME + ' %s')
+    logger = formatted_logger(logging.log, DAEMON_NAME + " %s")
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException("Database was not updated, daemon won't start")
@@ -489,7 +500,9 @@ def run(
     logger(logging.INFO, "starting hermes threads")
     thread_list = []
     for _ in range(threads):
-        her_thread = threading.Thread(target=hermes, kwargs={"once": once, "bulk": bulk, "sleep_time": sleep_time})
+        her_thread = threading.Thread(
+            target=hermes, kwargs={"once": once, "bulk": bulk, "sleep_time": sleep_time}
+        )
         her_thread.start()
         thread_list.append(her_thread)
 
