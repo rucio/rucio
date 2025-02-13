@@ -24,7 +24,7 @@ import pytest
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.common.checksum import adler32
-from rucio.common.config import config_add_section, config_set
+from rucio.common.config import config_add_section, config_has_option, config_set
 from rucio.common.constants import RseAttr
 from rucio.common.exception import InputValidationError, NoFilesUploaded, NotAllFilesUploaded, ResourceTemporaryUnavailable
 from rucio.common.utils import generate_uuid
@@ -55,8 +55,18 @@ def scope(vo, containerized_rses, test_scope, mock_scope):
     else:
         return str(mock_scope)
 
-
-def test_upload_single(rse, scope, upload_client, download_client, file_factory):
+@pytest.mark.parametrize("file_config_mock", [
+    { # Use rucio.cfg as-is.
+    },
+    pytest.param(
+    { # Remove "account" from the "[client]" section.
+        "removes": [
+            ('client', 'account')
+        ]
+    }, marks=pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'multi_vo',
+                                reason="See https://github.com/rucio/rucio/issues/7394"))
+], indirect=True)
+def test_upload_single(file_config_mock, rse, scope, upload_client, download_client, file_factory):
     local_file = file_factory.file_generator()
     download_dir = file_factory.base_dir
     fn = os.path.basename(local_file)
