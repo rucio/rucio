@@ -35,7 +35,7 @@ def is_multi_vo(*, session: "Session") -> bool:
     Check whether this instance is configured for multi-VO
     returns: Boolean True if running in multi-VO
     """
-    return config_get_bool('common', 'multi_vo', raise_exception=False, default=False, session=session)
+    return config_get_bool('common', 'multi_vo', default=False, session=session)
 
 
 @transactional_session

@@ -42,7 +42,7 @@ SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
               'scp': ['scp'],
               'rsync': ['rsync'],
               'rclone': ['rclone']}
-if config_get_bool('transfers', 'srm_https_compatibility', raise_exception=False, default=False):
+if config_get_bool('transfers', 'srm_https_compatibility', default=False):
     SCHEME_MAP['srm'].append('https')
     SCHEME_MAP['https'].append('srm')
     SCHEME_MAP['srm'].append('davs')

@@ -171,8 +171,8 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
     dataset_lifetime = config_get_int(
         "automatix", "dataset_lifetime", raise_exception=False, default=0
     )
-    account = config_get("automatix", "account", raise_exception=False, default="root")
-    scope = config_get("automatix", "scope", raise_exception=False, default="test")
+    account = config_get("automatix", "account", default="root")
+    scope = config_get("automatix", "scope", default="test")
     client = Client(account=account)
     vo = map_vo(client.vo)  # type: ignore
     filters = {"scope": InternalScope("*", vo=vo)}

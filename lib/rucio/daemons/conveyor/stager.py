@@ -107,7 +107,7 @@ def run(
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
-    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    multi_vo = config_get_bool('common', 'multi_vo', default=False)
     working_rses = None
     if rses or include_rses or exclude_rses:
         working_rses = get_conveyor_rses(rses, include_rses, exclude_rses, vos)

@@ -85,7 +85,7 @@ def get_rses_to_process(
 
     :returns: A list of RSEs to process
     """
-    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    multi_vo = config_get_bool('common', 'multi_vo', default=False)
     if not multi_vo:
         if vos:
             logging.log(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')
@@ -453,11 +453,11 @@ def run_once(
     logger(logging.INFO, 'Reaper started')
 
     # try to get auto exclude parameters from the config table. Otherwise use CLI parameters.
-    auto_exclude_threshold = config_get_int('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold, raise_exception=False)
-    auto_exclude_timeout = config_get_int('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout, raise_exception=False)
+    auto_exclude_threshold = config_get_int('reaper', 'auto_exclude_threshold', default=auto_exclude_threshold)
+    auto_exclude_timeout = config_get_int('reaper', 'auto_exclude_timeout', default=auto_exclude_timeout)
     # Check if there is a Judge Evaluator backlog
-    max_evaluator_backlog_count = config_get_int('reaper', 'max_evaluator_backlog_count', default=None, raise_exception=False)
-    max_evaluator_backlog_duration = config_get_int('reaper', 'max_evaluator_backlog_duration', default=None, raise_exception=False)
+    max_evaluator_backlog_count = config_get_int('reaper', 'max_evaluator_backlog_count', raise_exception=False)
+    max_evaluator_backlog_duration = config_get_int('reaper', 'max_evaluator_backlog_duration', raise_exception=False)
     if max_evaluator_backlog_count or max_evaluator_backlog_duration:
         backlog = get_evaluation_backlog()
         count_is_hit = max_evaluator_backlog_count and backlog[0] and backlog[0] > max_evaluator_backlog_count

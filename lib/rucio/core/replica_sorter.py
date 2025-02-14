@@ -69,10 +69,10 @@ def extract_file_from_tar_gz(
 
 def __download_geoip_db(destination: 'StrPath') -> None:
     edition_id = GEOIP_DB_EDITION
-    download_url = config_get('core', 'geoip_download_url', raise_exception=False, default=None)
-    verify_tls = config_get_bool('core', 'geoip_download_verify_tls', raise_exception=False, default=True)
+    download_url = config_get('core', 'geoip_download_url', raise_exception=False)
+    verify_tls = config_get_bool('core', 'geoip_download_verify_tls', default=True)
     if not download_url:
-        licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default=None)
+        licence_key = config_get('core', 'geoip_licence_key', raise_exception=False)
         if not licence_key:
             raise Exception('Cannot download GeoIP database: licence key not provided')
         download_url = 'https://download.maxmind.com/app/geoip_download?edition_id=%s&license_key=%s&suffix=tar.gz' % (edition_id, licence_key)
@@ -93,7 +93,7 @@ def __download_geoip_db(destination: 'StrPath') -> None:
 
 def __geoip_db() -> geoip2.database.Reader:
     db_path = Path(f'/tmp/{GEOIP_DB_EDITION}.mmdb')
-    db_expire_delay = timedelta(days=config_get_int('core', 'geoip_expire_delay', raise_exception=False, default=30))
+    db_expire_delay = timedelta(days=config_get_int('core', 'geoip_expire_delay', default=30))
 
     must_download = False
     if not db_path.is_file():
@@ -179,7 +179,7 @@ def __download_custom_distance_table() -> None:
     and a numerical distance value. Any additional fields are silently ignored.
     """
     db_path = Path('/tmp/rucio_custom_distance_table.csv')
-    db_expire_delay = timedelta(days=config_get_int('core', 'custom_distance_expire_delay', raise_exception=False, default=30))
+    db_expire_delay = timedelta(days=config_get_int('core', 'custom_distance_expire_delay', default=30))
 
     # check if need to download the file
     must_download = False
@@ -191,7 +191,7 @@ def __download_custom_distance_table() -> None:
         must_download = True
 
     if must_download:
-        download_url = config_get('core', 'custom_distance_download_url', raise_exception=False, default=None)
+        download_url = config_get('core', 'custom_distance_download_url', raise_exception=False)
         if download_url is None:
             raise Exception('Cannot download custom distance table: no URL provided')
         result = requests.get(download_url, stream=True, verify=False)
@@ -301,7 +301,7 @@ def sort_replicas(
 
     # all sorts must be stable to preserve the priority (the Python standard sorting functions always are stable)
     if selection == 'geoip':
-        replicas = sort_geoip(dictreplica, client_location, ignore_error=config_get_bool('core', 'geoip_ignore_error', raise_exception=False, default=True))
+        replicas = sort_geoip(dictreplica, client_location, ignore_error=config_get_bool('core', 'geoip_ignore_error', default=True))
     elif selection == 'custom_table':
         replicas = sort_custom(dictreplica, client_location)
     elif selection == 'random':

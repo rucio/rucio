@@ -41,7 +41,7 @@ class TestBinRucio:
 
     def conf_vo(self):
         self.vo = {}
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        if config_get_bool('common', 'multi_vo', default=False):
             if 'SUITE' not in environ or environ['SUITE'] != 'client':
                 # Server test, we can use short VO via DB for internal tests
                 from rucio.tests.common_server import get_vo

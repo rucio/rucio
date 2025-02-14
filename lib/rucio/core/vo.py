@@ -61,7 +61,7 @@ def add_vo(vo: str, description: str, email: str, *, session: "Session") -> None
     :param email: Contact email for the VO.
     :param session: The db session in use.
     """
-    if not config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+    if not config_get_bool('common', 'multi_vo', default=False):
         raise exception.UnsupportedOperation('VO operations cannot be performed in single VO mode.')
 
     if len(vo) != 3:
@@ -100,7 +100,7 @@ def list_vos(*, session: "Session") -> list[dict[str, Any]]:
     :param session: The db session in use.
     :returns: List of VO dictionaries.
     """
-    if not config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+    if not config_get_bool('common', 'multi_vo', default=False):
         raise exception.UnsupportedOperation('VO operations cannot be performed in single VO mode.')
 
     stmt = select(
@@ -128,7 +128,7 @@ def update_vo(vo: str, parameters: dict[str, Any], *, session: "Session") -> Non
     :param parameters: A dictionary with the new properties.
     :param session: The db session in use.
     """
-    if not config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+    if not config_get_bool('common', 'multi_vo', default=False):
         raise exception.UnsupportedOperation('VO operations cannot be performed in single VO mode.')
 
     try:
@@ -166,4 +166,4 @@ def map_vo(vo: str) -> str:
     # Newline is ignored by regexp if at end of string, so test for that as well.
     if not LONG_VO_RE.match(vo) or '\n' in vo:
         raise exception.RucioException('Invalid characters in VO name.')
-    return config_get("vo-map", vo, raise_exception=False, default=vo)
+    return config_get("vo-map", vo, default=vo)

@@ -41,13 +41,13 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 
-CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
+CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', default='DEBUG').upper())
 
-CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get('trace', 'loglevel', raise_exception=False, default='DEBUG').upper())
-CONFIG_TRACE_LOGFORMAT = config_get('trace', 'logformat', raise_exception=False, default='%(message)s')
-CONFIG_TRACE_TRACEDIR = config_get('trace', 'tracedir', raise_exception=False, default='/var/log/rucio/trace')
-CONFIG_TRACE_MAXBYTES = config_get_int('trace', 'maxbytes', raise_exception=False, default=1000000000)
-CONFIG_TRACE_BACKUPCOUNT = config_get_int('trace', 'backupCount', raise_exception=False, default=10)
+CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get('trace', 'loglevel', default='DEBUG').upper())
+CONFIG_TRACE_LOGFORMAT = config_get('trace', 'logformat', default='%(message)s')
+CONFIG_TRACE_TRACEDIR = config_get('trace', 'tracedir', default='/var/log/rucio/trace')
+CONFIG_TRACE_MAXBYTES = config_get_int('trace', 'maxbytes', default=1000000000)
+CONFIG_TRACE_BACKUPCOUNT = config_get_int('trace', 'backupCount', default=10)
 
 # reset root logger handlers. Otherwise everything from ROTATING_LOGGER will also end up in the apache logs.
 logging.getLogger().handlers = []

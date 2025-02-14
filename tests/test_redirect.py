@@ -24,7 +24,7 @@ class TestReplicaHeaderRedirection:
         rse1, rse1_id = rse_factory.make_rse(scheme='https', protocol_impl='rucio.rse.protocols.mock.Default')
         rse2, rse2_id = rse_factory.make_rse(scheme='https', protocol_impl='rucio.rse.protocols.mock.Default')
 
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        if config_get_bool('common', 'multi_vo', default=False):
             vo_header = '-H "X-Rucio-VO: %s"' % get_long_vo()
         else:
             vo_header = ''
@@ -67,7 +67,7 @@ class TestReplicaMetalinkRedirection:
         rse1, _ = rse_factory.make_rse(scheme='https', protocol_impl='rucio.rse.protocols.mock.Default')
         rse2, _ = rse_factory.make_rse(scheme='https', protocol_impl='rucio.rse.protocols.mock.Default')
 
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        if config_get_bool('common', 'multi_vo', default=False):
             vo_header = '-H "X-Rucio-VO: %s"' % get_long_vo()
         else:
             vo_header = ''
