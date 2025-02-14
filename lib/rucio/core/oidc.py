@@ -298,7 +298,7 @@ def __get_init_oidc_client(token_object: models.Token = None, token_type: str = 
                      "state": kwargs.get('state', rndstr()),
                      "nonce": kwargs.get('nonce', rndstr())}
         auth_args["scope"] = token_object.oidc_scope if token_object else kwargs.get('scope', " ")
-        if config_get_bool('oidc', 'supports_audience', raise_exception=False, default=True):
+        if config_get_bool('oidc', 'supports_audience', default=True):
             auth_args["audience"] = token_object.audience if token_object else kwargs.get('audience', " ")
 
         if token_object:
