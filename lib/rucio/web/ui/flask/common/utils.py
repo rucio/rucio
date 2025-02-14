@@ -68,12 +68,12 @@ if not AUTH_TYPE:
         AUTH_ISSUERS = []
 
 # check if userpass login is enabled
-USERPASS_SUPPORT = config_get_bool('webui', 'userpass_support', raise_exception=False, default=True)
+USERPASS_SUPPORT = config_get_bool('webui', 'userpass_support', default=True)
 
-MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+MULTI_VO = config_get_bool('common', 'multi_vo', default=False)
 
 # Additional error message that can have VO specific information for the user, e.g., support mailing list.
-ADDITIONAL_ERROR_MSG = config_get("webui", "additional_error_msg", raise_exception=False, default="")
+ADDITIONAL_ERROR_MSG = config_get("webui", "additional_error_msg", default="")
 
 # excluded characters for injected JavaScript variables
 VARIABLE_VALUE_REGEX = re.compile(r"^[\w\- /=,.+*#()\[\]]*$", re.UNICODE)
