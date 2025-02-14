@@ -514,7 +514,7 @@ def get_conveyor_rses(
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     :return:              List of working rses
     """
-    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    multi_vo = config_get_bool('common', 'multi_vo', default=False)
     if not multi_vo:
         if vos:
             logger(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')
