@@ -33,6 +33,7 @@ from rucio.common.checksum import PREFERRED_CHECKSUM
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.constants import FTS_COMPLETE_STATE, FTS_JOB_TYPE, FTS_STATE, RseAttr
 from rucio.common.exception import DuplicateFileTransferSubmission, TransferToolTimeout, TransferToolWrongAnswer
+from rucio.common.policy import get_policy
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import APIEncoder, chunks, deep_merge_dict
 from rucio.core.monitor import MetricManager
@@ -1369,10 +1370,7 @@ class FTS3Transfertool(Transfertool):
 
         params_dict = {storage_element: {'operations': {}, 'se_info': {}}}
         if staging is not None:
-            try:
-                policy = config_get('policy', 'permission')
-            except Exception:
-                self.logger(logging.WARNING, 'Could not get policy from config')
+            policy = get_policy()
             params_dict[storage_element]['operations'] = {policy: {'staging': staging}}
         # A lot of try-excepts to avoid dictionary overwrite's,
         # see https://stackoverflow.com/questions/27118687/updating-nested-dictionaries-when-data-has-existing-key/27118776

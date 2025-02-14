@@ -29,7 +29,6 @@ from sqlalchemy import and_, delete, exists, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import asc, false, func, null, true
-from sqlalchemy.sql.functions import coalesce
 
 from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.constants import RseAttr
@@ -494,8 +493,6 @@ def list_and_mark_transfer_requests_and_source_replicas(
     if request_type is None:
         request_type = [RequestType.TRANSFER]
 
-    now = datetime.datetime.utcnow()
-
     sub_requests = select(
         models.Request.id,
         models.Request.request_type,
@@ -527,7 +524,11 @@ def list_and_mark_transfer_requests_and_source_replicas(
         models.ReplicationRule,
         models.Request.rule_id == models.ReplicationRule.id
     ).where(
-        coalesce(models.ReplicationRule.expires_at, now) >= now
+        or_(models.ReplicationRule.child_rule_id != null(),
+            and_(models.ReplicationRule.child_rule_id == null(),
+                 models.ReplicationRule.expires_at == null()),
+            and_(models.ReplicationRule.child_rule_id == null(),
+                 models.ReplicationRule.expires_at > datetime.datetime.utcnow()))
     ).join(
         models.RSE,
         models.RSE.id == models.Request.dest_rse_id

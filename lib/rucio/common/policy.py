@@ -13,10 +13,11 @@
 # limitations under the License.
 
 import json
+import logging
 import os
 from configparser import NoOptionError, NoSectionError
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
@@ -24,17 +25,25 @@ from dogpile.cache.api import NoValue
 from rucio.common.config import config_get
 from rucio.common.exception import UndefinedPolicy
 
+if TYPE_CHECKING:
+    from rucio.common.types import LoggerFunction
+
 REGION = make_region().configure('dogpile.cache.memory',
                                  expiration_time=900)
 
 
-def get_policy() -> str:
+def get_policy(logger: 'LoggerFunction' = logging.log) -> str:
     policy = REGION.get('policy')
     if isinstance(policy, NoValue):
         try:
             policy = config_get('policy', 'permission')
         except (NoOptionError, NoSectionError):
-            policy = 'atlas'
+            try:
+                policy = config_get('permission', 'policy')
+            except (NoOptionError, NoSectionError):
+                policy = 'def'
+                logger(logging.WARNING, "Policy not specified, falling back to 'def'")
+        policy = os.environ.get('POLICY', policy)
         REGION.set('policy', policy)
     return policy
 

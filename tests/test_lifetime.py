@@ -33,6 +33,7 @@ from rucio.tests.common import skip_multivo
 
 @pytest.mark.noparallel(reason='Race conditions with the other tests in test_lifetime.py, they all modify and use the config.')
 @skip_multivo(reason='only valid for ATLAS')
+@pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='ATLAS-specific test')
 def test_lifetime_creation_core(root_account, rse_factory, mock_scope, did_factory):
     """
     Test the creation of a lifetime exception on the core side
@@ -101,6 +102,7 @@ def test_lifetime_creation_core(root_account, rse_factory, mock_scope, did_facto
 
 @pytest.mark.noparallel(reason='Race conditions with the other tests in test_lifetime.py, they all modify and use the config.')
 @skip_multivo(reason='only valid for ATLAS')
+@pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='ATLAS-specific test')
 def test_lifetime_truncate_expiration(root_account, rse_factory, mock_scope, did_factory, rucio_client):
     """
     Test the duration of a lifetime exception is truncated if max_extension is defined
@@ -134,6 +136,7 @@ def test_lifetime_truncate_expiration(root_account, rse_factory, mock_scope, did
 
 @pytest.mark.noparallel(reason='Race conditions with the other tests in test_lifetime.py, they all modify and use the config.')
 @skip_multivo(reason='only valid for ATLAS')
+@pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='ATLAS-specific test')
 def test_lifetime_creation_client(root_account, rse_factory, mock_scope, did_factory, rucio_client):
     """
     Test the creation of a lifetime exception on the client side and that the exception can be listed with the client
@@ -210,6 +213,7 @@ def test_lifetime_creation_client(root_account, rse_factory, mock_scope, did_fac
 @skip_multivo(reason='only valid for ATLAS')
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='Uses daemons. Write a configuration file')
+@pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='ATLAS-specific test')
 def test_atropos(root_account, rse_factory, mock_scope, did_factory, rucio_client):
     """
     Test the behaviour of atropos

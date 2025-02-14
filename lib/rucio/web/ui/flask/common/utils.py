@@ -26,6 +26,7 @@ from flask import Response, make_response, redirect, render_template, request
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import CannotAuthenticate
 from rucio.common.extra import import_extras
+from rucio.common.policy import get_policy
 from rucio.core import identity as identity_core
 from rucio.core import vo as vo_core
 from rucio.db.sqla.constants import AccountType, IdentityType
@@ -236,7 +237,7 @@ def access_granted(valid_token_dict, template, title):
     :param template: the template name that should be rendered
     :returns: rendered base temmplate with template content
     """
-    policy = config_get('policy', 'permission')
+    policy = get_policy()
     return render_template(template, token=valid_token_dict['token'], account=valid_token_dict['account'], vo=valid_token_dict['vo'], policy=policy, title=title)
 
 

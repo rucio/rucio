@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 import rucio.core.permission.generic
 from rucio.common import config, exception
 from rucio.common.plugins import check_policy_package_version
+from rucio.common.policy import get_policy
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -43,17 +44,8 @@ except (NoOptionError, NoSectionError):
 if not multivo:
     generic_fallback = 'generic'
 
-    if config.config_has_section('permission'):
-        try:
-            fallback_policy = config.config_get('permission', 'policy')
-        except (NoOptionError, NoSectionError):
-            fallback_policy = generic_fallback
-    elif config.config_has_section('policy'):
-        try:
-            fallback_policy = config.config_get('policy', 'permission')
-        except (NoOptionError, NoSectionError):
-            fallback_policy = generic_fallback
-    else:
+    fallback_policy = get_policy()
+    if fallback_policy == 'def':
         fallback_policy = generic_fallback
 
     if config.config_has_section('policy'):
