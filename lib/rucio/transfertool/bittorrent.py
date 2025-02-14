@@ -58,7 +58,7 @@ class BittorrentTransfertool(Transfertool):
         self._drivers_by_rse_id = {}
         self.ca_cert, self.ca_key = None, None
 
-        self.tracker = config_get('transfers', 'bittorrent_tracker_addr', raise_exception=False, default=None)
+        self.tracker = config_get('transfers', 'bittorrent_tracker_addr', raise_exception=False)
 
     @classmethod
     def _pick_management_api_driver_cls(cls: "type[BittorrentTransfertool]", rse: "RseData") -> Optional[type['BittorrentDriver']]:
