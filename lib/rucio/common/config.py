@@ -166,29 +166,27 @@ def config_get(
         convert_type_fnc: 'Callable[[str], _T]' = lambda x: x,
 ) -> Union[_T, _U]:
     """
-    Retrieve the value of a configuration option.
+    Return the configuration value for a given option in a section.
 
-    The function first attempts to get the option from the configuration file.
-    If not found and check_config_table is True, it checks the configuration table.
-    If still not found:
-      - When a non-None default is provided, that value is returned.
-      - When default is None and raise_exception is True, an exception is raised.
-      - When default is None and raise_exception is False, None is returned.
+    First, the configuration file is checked. If the option is not found,
+    and if called from a server/daemon (with check_config_table enabled),
+    the configuration table is queried.
 
     Parameters:
-      - section: The configuration section.
-      - option: The configuration option.
-      - raise_exception: If True, an exception is raised when the option is not found.
-      - default: The value to return if the option is not found.
-      - clean_cached: Clears the cached configuration if no value is found.
-      - check_config_table: Checks the configuration table if the option is missing in the file.
-      - session: The database session to use.
-      - use_cache: Whether to use caching for database queries.
-      - expiration_time: Cache expiration time in seconds.
-      - convert_type_fnc: Function to convert the retrieved string to the desired type.
+      section: the named section.
+      option: the named option.
+      raise_exception: whether to raise an exception (NoOptionError, NoSectionError, or RuntimeError)
+                       if the option is not found. When a non-None default is provided, this parameter is redundant.
+      default: the value to return if the option is not found. If no value is desired, omit it.
+      clean_cached: clears the cached configuration instance if no value is found.
+      check_config_table: indicates whether to check the configuration table if the option is missing.
+      session: the database session to use (only applicable for server/daemon calls).
+      use_cache: whether to use caching for server/daemon calls.
+      expiration_time: the cache expiration time in seconds.
+      convert_type_fnc: a function used to convert the retrieved configuration value.
 
     Returns:
-      The configuration value, possibly converted to a specific type.
+      the configuration value.
 
     Raises:
       NoOptionError, NoSectionError, or RuntimeError if the option is not found and no default is provided.
@@ -648,21 +646,22 @@ def __config_get_table(
     Retrieve a configuration value from the configuration table in the database.
 
     Parameters:
-      - section: The configuration section.
-      - option: The configuration option.
-      - raise_exception: If True, an exception is raised when the option is not found.
-      - default: The value to return if the option is not found.
-      - clean_cached: Clears the cached configuration if the option is not found.
-      - session: The database session to use.
-      - use_cache: Whether to use caching for database queries.
-      - expiration_time: Cache expiration time in seconds.
-      - convert_type_fnc: Function to convert the retrieved string to the desired type.
+      section: the named section.
+      option: the named option.
+      raise_exception: whether to raise an exception (ConfigNotFound) if the option is not found.
+                       When a non-None default is provided, this parameter is redundant.
+      default: the value to return if the option is not found. If no value is desired, omit it.
+      clean_cached: clears the cached configuration if no value is found.
+      session: the database session to use.
+      use_cache: whether to use caching for database queries.
+      expiration_time: the cache expiration time in seconds.
+      convert_type_fnc: a function used to convert the retrieved configuration value.
 
     Returns:
-      The configuration value, possibly converted to a specific type.
+      the configuration value from the configuration table.
 
     Raises:
-      ConfigNotFound or DatabaseException if the configuration is not found and raise_exception is True.
+      ConfigNotFound or DatabaseException if the option is not found and no default is provided.
     """
     try:
         from rucio.core.config import get as core_config_get
