@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 
-CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
+CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', default='DEBUG').upper())
 
 CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get('nongrid-trace', 'loglevel', default='DEBUG').upper())
 CONFIG_TRACE_LOGFORMAT = config_get('nongrid-trace', 'logformat', default='%(message)s')
