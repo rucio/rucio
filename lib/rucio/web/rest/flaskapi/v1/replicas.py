@@ -683,7 +683,7 @@ class ListReplicas(ErrorHandlingMethodView):
             signature_lifetime = param_get(parameters, 'signature_lifetime')
         else:
             # hardcoded default of 10 minutes if config is not parseable
-            signature_lifetime = config_get_int('credentials', 'signature_lifetime', raise_exception=False, default=600)
+            signature_lifetime = config_get_int('credentials', 'signature_lifetime', default=600)
         resolve_archives = param_get(parameters, 'resolve_archives', default=True)
         resolve_parents = param_get(parameters, 'resolve_parents', default=False)
         updated_after = param_get(parameters, 'updated_after', default=None)
