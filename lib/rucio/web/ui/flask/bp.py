@@ -20,7 +20,7 @@ from rucio.gateway.authentication import get_auth_token_x509
 from rucio.web.rest.flaskapi.v1.common import generate_http_error_flask
 from rucio.web.ui.flask.common.utils import AUTH_ISSUERS, SAML_SUPPORT, USERPASS_SUPPORT, authenticate, finalize_auth, get_token, oidc_auth, saml_auth, userpass_auth, x509token_auth
 
-MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+MULTI_VO = config_get_bool('common', 'multi_vo', default=False)
 POLICY = config_get('policy', 'permission')
 ATLAS_URLS = ()
 OTHER_URLS = ()
