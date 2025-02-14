@@ -221,7 +221,7 @@ def run(
 
     logging.info('main: starting processes')
 
-    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    multi_vo = config_get_bool('common', 'multi_vo', default=False)
     if not multi_vo:
         if vos:
             logging.warning('Ignoring argument vos, this is only applicable in a multi-VO setup.')
