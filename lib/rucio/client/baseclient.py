@@ -268,13 +268,6 @@ class BaseClient:
                     creds['oidc_issuer'] = config_get('client', 'oidc_issuer', False, None)
                 if 'oidc_audience' not in creds or creds['oidc_audience'] is None:
                     creds['oidc_audience'] = config_get('client', 'oidc_audience', False, None)
-                if 'oidc_auto' not in creds or creds['oidc_auto'] is False:
-                    creds['oidc_auto'] = config_get_bool('client', 'oidc_auto', False, False)
-                if creds['oidc_auto']:
-                    if 'oidc_username' not in creds or creds['oidc_username'] is None:
-                        creds['oidc_username'] = config_get('client', 'oidc_username', False, None)
-                    if 'oidc_password' not in creds or creds['oidc_password'] is None:
-                        creds['oidc_password'] = config_get('client', 'oidc_password', False, None)
                 if 'oidc_scope' not in creds or creds['oidc_scope'] == 'openid profile':
                     creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
                 if 'oidc_polling' not in creds or creds['oidc_polling'] is False:
@@ -542,7 +535,7 @@ class BaseClient:
             with open(self.token_exp_epoch_file, 'r') as token_epoch_file:
                 try:
                     self.token_exp_epoch = int(token_epoch_file.readline())
-                except:
+                except ValueError:
                     self.token_exp_epoch = None
 
         if self.token_exp_epoch is None:
@@ -593,17 +586,13 @@ class BaseClient:
 
         :returns: True if the token was successfully received. False otherwise.
         """
-        oidc_scope = str(self.creds['oidc_scope'])
-        headers = {'X-Rucio-Client-Authorize-Auto': str(self.creds['oidc_auto']),
-                   'X-Rucio-Client-Authorize-Polling': str(self.creds['oidc_polling']),
+        headers = {'X-Rucio-Client-Authorize-Polling': str(self.creds['oidc_polling']),
                    'X-Rucio-Client-Authorize-Scope': str(self.creds['oidc_scope']),
                    'X-Rucio-Client-Authorize-Refresh-Lifetime': str(self.creds['oidc_refresh_lifetime'])}
         if self.creds['oidc_audience']:
             headers['X-Rucio-Client-Authorize-Audience'] = str(self.creds['oidc_audience'])
         if self.creds['oidc_issuer']:
             headers['X-Rucio-Client-Authorize-Issuer'] = str(self.creds['oidc_issuer'])
-        if self.creds['oidc_auto']:
-            userpass = {'username': self.creds['oidc_username'], 'password': self.creds['oidc_password']}
 
         result = None
         request_auth_url = build_url(self.auth_host, path='auth/oidc')
@@ -617,69 +606,37 @@ class BaseClient:
                                    \nThis could be due to wrongly requested/configured scope, audience or issuer.")
             return False
         auth_url = oidc_auth_res.headers['X-Rucio-OIDC-Auth-URL']
-        if not self.creds['oidc_auto']:
-            print("\nPlease use your internet browser, go to:")
-            print("\n    " + auth_url + "    \n")
-            print("and authenticate with your Identity Provider.")
+        print("\nPlease use your internet browser, go to:")
+        print("\n    " + auth_url + "    \n")
+        print("and authenticate with your Identity Provider.")
 
-            headers['X-Rucio-Client-Fetch-Token'] = 'True'
-            if self.creds['oidc_polling']:
-                timeout = 180
-                start = time.time()
-                print("In the next 3 minutes, Rucio Client will be polling \
-                                           \nthe Rucio authentication server for a token.")
-                print("----------------------------------------------")
-                while time.time() - start < timeout:
-                    result = self._send_request(auth_url, headers=headers, get_token=True)
-                    if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
-                        break
-                    time.sleep(2)
-            else:
-                print("Copy paste the code from the browser to the terminal and press enter:")
-                count = 0
-                while count < 3:
-                    fetchcode = input()
-                    fetch_url = build_url(self.auth_host, path='auth/oidc_redirect', params=fetchcode)
-                    result = self._send_request(fetch_url, headers=headers, get_token=True)
-                    if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
-                        break
-                    else:
-                        print("The Rucio Auth Server did not respond as expected. Please, "
-                              + "try again and make sure you typed the correct code.")  # NOQA: W503
-                        count += 1
-
-        else:
-            print("\nAccording to the OAuth2/OIDC standard you should NOT be sharing \n"
-                  + "your password with any 3rd party application, therefore, \n"  # NOQA: W503
-                  + "we strongly discourage you from following this --oidc-auto approach.")  # NOQA: W503
-            print("-------------------------------------------------------------------------")
-            auth_res = self._send_request(auth_url, get_token=True)
-            # getting the login URL and logging in the user
-            login_url = auth_res.url
+        headers['X-Rucio-Client-Fetch-Token'] = 'True'
+        if self.creds['oidc_polling']:
+            timeout = 180
             start = time.time()
-            result = self._send_request(login_url, type_='POST', data=userpass)
-
-            # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
-            # the user will get an OAuth error
-            if 'OAuth Error' in result.text:
-                self.logger.error('Identity Provider does not allow to proceed. Could be due \
-                           \nto misconfigured redirection server name of the Rucio OIDC Client.')
-                return False
-            # In case Rucio Client is not authorized to request information about this user yet,
-            # it will automatically authorize itself on behalf of the user.
-            if result.url == auth_url:
-                form_data = {}
-                for scope_item in oidc_scope.split():
-                    form_data["scope_" + scope_item] = scope_item
-                default_data = {"remember": "until-revoked",
-                                "user_oauth_approval": True,
-                                "authorize": "Authorize"}
-                form_data.update(default_data)
-                print('Automatically authorising request of the following info on behalf of user: %s', str(form_data))
-                self.logger.warning('Automatically authorising request of the following info on behalf of user: %s',
-                                    str(form_data))
-                # authorizing info request on behalf of the user until he/she revokes this authorization !
-                result = self._send_request(result.url, type_='POST', data=form_data)
+            print("In the next 3 minutes, Rucio Client will be polling \
+                                        \nthe Rucio authentication server for a token.")
+            print("----------------------------------------------")
+            while time.time() - start < timeout:
+                result = self._send_request(auth_url, headers=headers, get_token=True)
+                if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
+                    break
+                time.sleep(2)
+        else:
+            print("Copy paste the code from the browser to the terminal and press enter:")
+            count = 0
+            while count < 3:
+                fetchcode = input()
+                fetch_url = build_url(self.auth_host, path='auth/oidc_redirect', params=fetchcode)
+                result = self._send_request(fetch_url, headers=headers, get_token=True)
+                if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
+                    break
+                else:
+                    print(
+                        "The Rucio Auth Server did not respond as expected. Please, "
+                        + "try again and make sure you typed the correct code."
+                    )  # NOQA: W503
+                    count += 1
 
         if not result:
             self.logger.error('Cannot retrieve authentication token!')
@@ -960,8 +917,7 @@ class BaseClient:
             if self.creds['username'] is None or self.creds['password'] is None:
                 raise NoAuthInformation('No username or password passed')
         elif self.auth_type == 'oidc':
-            if self.creds['oidc_auto'] and (self.creds['oidc_username'] is None or self.creds['oidc_password'] is None):
-                raise NoAuthInformation('For automatic OIDC log-in with your Identity Provider username and password are required.')
+            pass
         elif self.auth_type == 'x509':
             if self.creds['client_cert'] is None:
                 raise NoAuthInformation('The path to the client certificate is required')
