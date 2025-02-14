@@ -73,7 +73,7 @@ def apply_endpoints(app, modules):
 
 
 try:
-    endpoints = config_get('api', 'endpoints', raise_exception=False, default='')
+    endpoints = config_get('api', 'endpoints', default='')
     endpoints = list(filter(bool, map(str.strip, endpoints.split(sep=','))))
 except RuntimeError:
     endpoints = None
