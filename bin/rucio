@@ -90,28 +90,32 @@ def map_legacy_command() -> Optional[list[str]]:
             "touch": ["did", "update", "--touch"],
             "add-lifetime-exception": ["lifetime-exception", "add"],
         }
-        try:
-            new_command = command_map[command]
-        except KeyError:
-            pass
+        new_command = command_map.get(command)
 
     return new_command
 
 
 if __name__ == "__main__":
-    commands = ("-h", "--help", "--version", "account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download")
+    commands = ("account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download")
+
+    parser = argparse.ArgumentParser(add_help=False)
+    # Check for legacy flag
+    parser.add_argument("--legacy", action="store_true")
+    # Check for commands in the new command list
+    parser.add_argument("-h", "--help", action="store_true")
+    parser.add_argument("--version", action="store_true")
+
+    args, _ = parser.parse_known_args()
+
     logger = setup_logger(module_name=__name__)
-    first_command = _get_first_command(sys.argv[1:])
 
-    is_legacy = '--legacy' in sys.argv
-
-    if (first_command in commands) and not is_legacy:
-        main()
-
-    elif is_legacy:
+    if args.legacy:
         make_warning(logger)
         sys.argv.pop(sys.argv.index('--legacy'))
         main_legacy()
+
+    elif (any(arg in commands for arg in sys.argv)) or args.help or args.version:
+        main()
 
     else:
         make_warning(logger)

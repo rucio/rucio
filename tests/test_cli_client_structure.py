@@ -21,6 +21,22 @@ from rucio.common.utils import generate_uuid
 from rucio.tests.common import account_name_generator, execute, file_generator, rse_name_generator, scope_name_generator
 
 
+def test_main_args():
+    specify_account = "rucio --account root --auth-strategy userpass whoami"
+    exitcode, out, err = execute(specify_account)
+
+    assert exitcode == 0
+    assert "This method is being deprecated" not in err
+    assert "root" in out
+
+    legacy_arg = "rucio --legacy --account root --auth-strategy userpass whoami"
+    exitcode, out, err = execute(legacy_arg)
+
+    assert exitcode == 0
+    assert "This method is being deprecated" in err
+    assert "root" in out
+
+
 def test_account(rucio_client):
     new_account = account_name_generator()
     command = f"rucio account add --type USER --account {new_account}"
