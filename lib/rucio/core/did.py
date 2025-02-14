@@ -2164,7 +2164,7 @@ def set_status(
     :param kwargs:  Keyword arguments of the form status_name=value.
     """
     statuses = ['open', ]
-    reevaluate_dids_at_close = config_get_bool('subscriptions', 'reevaluate_dids_at_close', raise_exception=False, default=False, session=session)
+    reevaluate_dids_at_close = config_get_bool('subscriptions', 'reevaluate_dids_at_close', default=False, session=session)
 
     update_stmt = update(
         models.DataIdentifier
