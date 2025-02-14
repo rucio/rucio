@@ -78,7 +78,7 @@ def test_userpass(rest_client, auth_token):
 
 def test_verify_userpass_identity():
     """ Test if an identity exists in the db, mapping to at least one account. """
-    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+    if config_get_bool('common', 'multi_vo', default=False):
         vo = {'vo': get_vo()}
     else:
         vo = {}
