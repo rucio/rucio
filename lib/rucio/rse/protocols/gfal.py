@@ -207,7 +207,7 @@ class Default(protocol.RSEProtocol):
             except gfal2.GError:  # pylint: disable=no-member
                 pass
         if not auth_configured:
-            proxy = config.config_get('client', 'client_x509_proxy', default=None, raise_exception=False)
+            proxy = config.config_get('client', 'client_x509_proxy', raise_exception=False)
             if proxy:
                 self.logger(logging.INFO, 'Configuring authentication to use {}'.format(proxy))
                 self.__ctx.set_opt_string("X509", "CERT", proxy)
