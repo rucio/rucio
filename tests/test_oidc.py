@@ -276,7 +276,7 @@ class TestAuthCoreAPIoidc:
     # pylint: disable=unused-argument
 
     def setup_method(self):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        if config_get_bool('common', 'multi_vo', default=False):
             self.vo = {'vo': get_vo()}
         else:
             self.vo = {}
