@@ -24,7 +24,7 @@ from rucio.tests.common_server import get_vo
 @pytest.mark.noparallel(reason='uses pre-defined rses')
 def test_quarantined_replicas():
     """ QUARANTINED REPLICA (CORE): Add, List and Delete quarantined replicas """
-    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+    if config_get_bool('common', 'multi_vo', default=False):
         vo = {'vo': get_vo()}
     else:
         vo = {}
