@@ -46,7 +46,7 @@ class TestJudgeEvaluator:
 
     @classmethod
     def setUpClass(cls):
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        if config_get_bool('common', 'multi_vo', default=False):
             cls.vo = {'vo': get_vo()}
         else:
             cls.vo = {}
