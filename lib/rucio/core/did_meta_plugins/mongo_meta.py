@@ -56,7 +56,7 @@ class MongoDidMeta(DidMetaPlugin):
             collection = config.config_get('metadata', 'mongo_collection')
 
         if user is None and config.config_has_section("metadata"):
-            user = config.config_get("metadata", "mongo_user", default=None)
+            user = config.config_get("metadata", "mongo_user")
 
         if user is not None:
             if password is None:
