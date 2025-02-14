@@ -176,7 +176,7 @@ def _get_max_time_in_queue_conf() -> dict[str, int]:
     Retrieve and parse the max_time_in_queue configuration value into a dictionary: {"activity": int}
     """
     max_time_in_queue = {}
-    timelife_conf = config_get('conveyor', 'max_time_in_queue', default='', raise_exception=False)
+    timelife_conf = config_get('conveyor', 'max_time_in_queue', default='')
     if timelife_conf:
         timelife_confs = timelife_conf.split(",")
         for conf in timelife_confs:
@@ -217,7 +217,7 @@ def submitter(
     if not request_type:
         request_type = [RequestType.TRANSFER]
 
-    partition_hash_var = config_get('conveyor', 'partition_hash_var', default=None, raise_exception=False)
+    partition_hash_var = config_get('conveyor', 'partition_hash_var', raise_exception=False)
 
     config_schemes = set(config_get_list('conveyor', 'scheme', raise_exception=False) or [])
     config_failover_schemes = set(config_get_list('conveyor', 'failover_scheme', raise_exception=False) or [])
@@ -242,9 +242,9 @@ def submitter(
     if config_failover_schemes.difference(failover_schemes):
         logging.info(f'Following failover schemes filtered out: {list(config_failover_schemes.difference(failover_schemes))}')
 
-    timeout = config_get_float('conveyor', 'submit_timeout', default=None, raise_exception=False)
+    timeout = config_get_float('conveyor', 'submit_timeout', raise_exception=False)
 
-    bring_online = config_get_int('conveyor', 'bring_online', default=43200, raise_exception=False)
+    bring_online = config_get_int('conveyor', 'bring_online', default=43200)
 
     max_time_in_queue = _get_max_time_in_queue_conf()
     logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)
@@ -354,7 +354,7 @@ def run(
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
-    multi_vo = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
+    multi_vo = config_get_bool('common', 'multi_vo', default=False)
     working_rses = None
     if rses or include_rses or exclude_rses:
         working_rses = get_conveyor_rses(rses, include_rses, exclude_rses, vos)
