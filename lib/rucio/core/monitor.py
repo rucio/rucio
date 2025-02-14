@@ -82,7 +82,7 @@ if PROMETHEUS_MULTIPROC_DIR:
     atexit.register(cleanup_prometheus_files_at_exit)
 
 
-SERVER = config_get('monitor', 'carbon_server', raise_exception=False, default=None)
+SERVER = config_get('monitor', 'carbon_server', raise_exception=False)
 PORT = config_get_int('monitor', 'carbon_port', default=8125)
 SCOPE = config_get('monitor', 'user_scope', default='rucio')
 STATSD_CLIENT = None
