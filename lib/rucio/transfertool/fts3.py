@@ -38,7 +38,7 @@ from rucio.common.utils import APIEncoder, chunks, deep_merge_dict
 from rucio.core.monitor import MetricManager
 from rucio.core.oidc import request_token
 from rucio.core.request import get_source_rse, get_transfer_error
-from rucio.core.rse import determine_audience_for_rse, determine_scope_for_rse, get_rse_supported_checksums_from_attributes
+from rucio.core.rse import determine_audience_for_rse, determine_scope_for_rse, get_rse_supported_checksums_from_attributes, get_read_scope_for_tokens, get_modify_scope_for_tokens
 from rucio.db.sqla.constants import RequestState
 from rucio.transfertool.fts3_plugins import FTS3TapeMetadataPlugin
 from rucio.transfertool.transfertool import TransferStatusReport, Transfertool, TransferToolBuilder
@@ -1030,13 +1030,15 @@ class FTS3Transfertool(Transfertool):
             t_file['source_tokens'] = []
             for source in transfer.sources:
                 src_audience = determine_audience_for_rse(rse_id=source.rse.id)
-                src_scope = determine_scope_for_rse(rse_id=source.rse.id, scopes=['storage.read'], extra_scopes=['offline_access'])
+                src_path = get_read_scope_for_tokens(transfer.source_url(source), rws, self.logger)
+                src_scope = determine_scope_for_rse(rse_id=source.rse.id, scopes=['storage.read'], extra_scopes=['offline_access'], file_path=src_path)
                 t_file['source_tokens'].append(request_token(src_audience, src_scope))
 
             dst_audience = determine_audience_for_rse(transfer.dst.rse.id)
             # FIXME: At the time of writing, StoRM requires `storage.read` in
             # order to perform a stat operation.
-            dst_scope = determine_scope_for_rse(transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], extra_scopes=['offline_access'])
+            dst_path = get_modify_scope_for_tokens(transfer.dest_url, rws, self.logger)
+            dst_scope = determine_scope_for_rse(transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], extra_scopes=['offline_access'], file_path=dst_path)
             t_file['destination_tokens'] = [request_token(dst_audience, dst_scope)]
 
         if isinstance(self.scitags_exp_id, int):
@@ -1098,6 +1100,14 @@ class FTS3Transfertool(Transfertool):
         # bulk submission
         params_dict = {'files': files, 'params': job_params}
         params_str = json.dumps(params_dict, cls=APIEncoder)
+
+        try:
+            myfile = files[0]
+            if myfile['activity'] == 'Debug':
+                self.logger(logging.WARNING, "Params: %s", params_str)
+
+        except Exception as error:
+            self.logger(logging.WARNING, "Could not print params: %s", str(error))
 
         post_result = None
         stopwatch = Stopwatch()
