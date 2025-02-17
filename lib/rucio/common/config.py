@@ -166,30 +166,30 @@ def config_get(
         convert_type_fnc: 'Callable[[str], _T]' = lambda x: x,
 ) -> Union[_T, _U]:
     """
-    Return the configuration value for a given option in a section.
+    Return the string value for a given option in a section
 
-    First, the configuration file is checked. If the option is not found,
-    and if called from a server/daemon (with check_config_table enabled),
-    the configuration table is queried.
+    First it looks at the configuration file and, if it is not found, check in the config table only if it is called
+    from a server/daemon (and if check_config_table is set).
 
-    Parameters:
-      section: the named section.
-      option: the named option.
-      raise_exception: whether to raise an exception (NoOptionError, NoSectionError, or RuntimeError)
-                       if the option is not found. When a non-None default is provided, this parameter is redundant.
-      default: the value to return if the option is not found. If no value is desired, omit it.
-      clean_cached: clears the cached configuration instance if no value is found.
-      check_config_table: indicates whether to check the configuration table if the option is missing.
-      session: the database session to use (only applicable for server/daemon calls).
-      use_cache: whether to use caching for server/daemon calls.
-      expiration_time: the cache expiration time in seconds.
-      convert_type_fnc: a function used to convert the retrieved configuration value.
+    :param section: the named section.
+    :param option: the named option.
+    :param raise_exception: Boolean to raise or not NoOptionError, NoSectionError or RuntimeError.
+    :param default: the default value if not found.
+    :param clean_cached: Deletes the cached config singleton instance if no config value is found
+    :param check_config_table: if not set, avoid looking at config table even if it is called from server/daemon
+    :param session: The database session in use. Only used if not found in config file and if it is called from
+                    server/daemon
+    :param use_cache: Boolean if the cache should be used. Only used if not found in config file and if it is called
+                      from server/daemon
+    :param expiration_time: Time after that the cached value gets ignored. Only used if not found in config file and if
+                            it is called from server/daemon
+    :param convert_type_fnc: A function used to parse the string config value into the desired destination type
 
-    Returns:
-      the configuration value.
+    :returns: the configuration value.
 
-    Raises:
-      NoOptionError, NoSectionError, or RuntimeError if the option is not found and no default is provided.
+    :raises NoOptionError
+    :raises NoSectionError
+    :raises RuntimeError
     """
     try:
         return convert_type_fnc(get_config().get(section, option))
@@ -643,25 +643,20 @@ def __config_get_table(
         convert_type_fnc: Optional['Callable[[str], _T]'],
 ) -> _T:
     """
-    Retrieve a configuration value from the configuration table in the database.
+    Search for a section-option configuration parameter in the configuration table
 
-    Parameters:
-      section: the named section.
-      option: the named option.
-      raise_exception: whether to raise an exception (ConfigNotFound) if the option is not found.
-                       When a non-None default is provided, this parameter is redundant.
-      default: the value to return if the option is not found. If no value is desired, omit it.
-      clean_cached: clears the cached configuration if no value is found.
-      session: the database session to use.
-      use_cache: whether to use caching for database queries.
-      expiration_time: the cache expiration time in seconds.
-      convert_type_fnc: a function used to convert the retrieved configuration value.
+    :param section: the named section.
+    :param option: the named option.
+    :param raise_exception: Boolean to raise or not ConfigNotFound.
+    :param default: the default value if not found.
+    :param session: The database session in use.
+    :param use_cache: Boolean if the cache should be used.
+    :param expiration_time: Time after that the cached value gets ignored.
 
-    Returns:
-      the configuration value from the configuration table.
+    :returns: the configuration value from the config table.
 
-    Raises:
-      ConfigNotFound or DatabaseException if the option is not found and no default is provided.
+    :raises ConfigNotFound
+    :raises DatabaseException
     """
     try:
         from rucio.core.config import get as core_config_get
