@@ -102,8 +102,6 @@ class Commands:
         auth_args.add_argument("-u", "--user", dest="username", help="username")
         auth_args.add_argument("-pwd", "--password", help="password")
         # Options for defining remaining OIDC parameters
-        auth_args.add_argument("--oidc-user", dest="oidc_username", help="OIDC username")
-        auth_args.add_argument("--oidc-password", help="OIDC password")
         auth_args.add_argument(
             "--oidc-scope",
             default="openid profile",
@@ -113,7 +111,6 @@ class Commands:
                 access token saved on the side of the currently used Rucio Client.
             """
         )
-        auth_args.add_argument("--oidc-audience", help="Defines which audience are tokens requested for.")
         auth_args.add_argument(
             "--oidc-polling",
             default=False,

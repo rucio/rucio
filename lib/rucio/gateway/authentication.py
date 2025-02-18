@@ -94,7 +94,6 @@ def get_auth_oidc(
     :param auth_scope: space separated list of scope names. Scope parameter
                        defines which user's info the user allows to provide
                        to the Rucio Client.
-    :param audience: audience for which tokens are requested ('rucio' is the default)
     :param polling: If True, '_polling' string will be appended to the access_msg
                     in the DB oauth_requests table to inform the authorization stage
                     that the Rucio Client is polling the server for a token

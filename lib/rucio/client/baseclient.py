@@ -266,8 +266,6 @@ class BaseClient:
                     creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime', False, None)
                 if 'oidc_issuer' not in creds or creds['oidc_issuer'] is None:
                     creds['oidc_issuer'] = config_get('client', 'oidc_issuer', False, None)
-                if 'oidc_audience' not in creds or creds['oidc_audience'] is None:
-                    creds['oidc_audience'] = config_get('client', 'oidc_audience', False, None)
                 if 'oidc_scope' not in creds or creds['oidc_scope'] == 'openid profile':
                     creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
                 if 'oidc_polling' not in creds or creds['oidc_polling'] is False:
@@ -589,8 +587,6 @@ class BaseClient:
         headers = {'X-Rucio-Client-Authorize-Polling': str(self.creds['oidc_polling']),
                    'X-Rucio-Client-Authorize-Scope': str(self.creds['oidc_scope']),
                    'X-Rucio-Client-Authorize-Refresh-Lifetime': str(self.creds['oidc_refresh_lifetime'])}
-        if self.creds['oidc_audience']:
-            headers['X-Rucio-Client-Authorize-Audience'] = str(self.creds['oidc_audience'])
         if self.creds['oidc_issuer']:
             headers['X-Rucio-Client-Authorize-Issuer'] = str(self.creds['oidc_issuer'])
 

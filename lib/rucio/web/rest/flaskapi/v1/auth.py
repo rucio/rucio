@@ -290,14 +290,6 @@ class OIDC(ErrorHandlingMethodView):
           in: header
           schema:
             type: string
-        - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE
-          in: header
-          schema:
-            type: string
-        - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUTO
-          in: header
-          schema:
-            type: string
         - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_ISSUER
           in: header
           schema:
@@ -335,7 +327,6 @@ class OIDC(ErrorHandlingMethodView):
         vo = extract_vo(request.headers)
         account = request.environ.get('HTTP_X_RUCIO_ACCOUNT', 'webui')
         auth_scope = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE', "")
-        audience = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE', "")
         issuer = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_ISSUER', None)
         polling = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_POLLING', False)
         refresh_lifetime = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_REFRESH_LIFETIME', None)
@@ -345,7 +336,6 @@ class OIDC(ErrorHandlingMethodView):
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
         try:
             kwargs = {'auth_scope': auth_scope,
-                      'audience': audience,
                       'issuer': issuer,
                       'polling': polling,
                       'refresh_lifetime': refresh_lifetime,

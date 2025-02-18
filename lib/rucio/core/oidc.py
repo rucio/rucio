@@ -34,7 +34,8 @@ from sqlalchemy.sql.expression import true
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.exception import CannotAuthenticate, CannotAuthorize, RucioException
-from rucio.common.utils import all_oidc_req_claims_present, build_url, chunks, val_to_space_sep_str
+from rucio.common.stopwatch import Stopwatch
+from rucio.common.utils import build_url, chunks, val_to_space_sep_str
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
 from rucio.core.monitor import MetricManager
@@ -488,8 +489,6 @@ def get_auth_oidc(
     :returns: Authorization URL as a string or a redirection URL.
     :raises: CannotAuthenticate if the account does not exist.
     """
-    # TO-DO - implement a check if that account already has a valid
-    # token with the required scope and audience and return such token !
     if not account_exists(account, session=session):
         logging.debug("Account %s does not exist.", account)
         return None
@@ -506,7 +505,7 @@ def get_auth_oidc(
             _auth_scopes_requested += EXTRA_OIDC_ACCESS_TOKEN_SCOPE
         auth_scope = " ".join(_auth_scopes_requested)
 
-    audience = kwargs.get('audience') or EXPECTED_OIDC_AUDIENCE
+    audience = EXPECTED_OIDC_AUDIENCE
     resource = None or EXPECTED_OIDC_RESOURCE
     issuer_nickname = kwargs.get('issuer', None)
 
@@ -590,10 +589,15 @@ def get_token_oidc(
     :returns: Dictionary with token information.
     :raises: CannotAuthenticate if the user session is invalid.
     """
+    stopwatch = Stopwatch()
     # parse auth_query_string
     parsed_authquery = parse_qs(auth_query_string)
-    state = parsed_authquery["state"][0]
-    code = parsed_authquery["code"][0]
+    try:
+        state = parsed_authquery["state"][0]
+        code = parsed_authquery["code"][0]
+    except KeyError:
+        error_msg = f"Authorization failed. Missing 'state' or 'code' in the query string: {auth_query_string}"
+        raise CannotAuthorize(error_msg)
     # getting oauth request params from the oauth_requests DB Table
     query = select(
         models.OAuthRequest
@@ -623,6 +627,7 @@ def get_token_oidc(
     client_params = {}
     for key in list(req_params):
         client_params[key] = val_to_space_sep_str(req_params[key])
+    METRICS.counter(name='IdP_authentication.code_granted').inc()
     data = {
         'grant_type': 'authorization_code',
         'code': code,
@@ -633,8 +638,17 @@ def get_token_oidc(
     if EXPECTED_OIDC_RESOURCE:
         data["resource"] = EXPECTED_OIDC_RESOURCE
 
-    response = requests.post(issuer_token_endpoint, data=data, timeout=10)
-    tokens = response.json()
+    try:
+        response = requests.post(issuer_token_endpoint, data=data, timeout=10)
+        response.raise_for_status()
+        tokens = response.json()
+    except requests.exceptions.RequestException as re:
+        raise CannotAuthorize(f"Failed to refresh token: {re}")
+    except ValueError as ve:
+        raise CannotAuthorize(f"Token refresh Decoding JSON failed: {ve}")
+    except Exception as e:
+        raise CannotAuthorize(f"Unexpected error occured: {e}")
+
     if "access_token" not in tokens or "id_token" not in tokens:
         raise CannotAuthenticate("ID token or access token missing in the response.")
 
@@ -670,12 +684,15 @@ def get_token_oidc(
     extra_dict: dict[str, Any] = {'state': state}
     if ip:
         extra_dict['ip'] = ip
+    METRICS.counter(name='success').inc()
     if 'refresh_token' in tokens:
         extra_dict['refresh_token'] = tokens['refresh_token']
         extra_dict['refresh'] = True
         extra_dict['refresh_lifetime'] = REFRESH_LIFETIME_H
         extra_dict['refresh_expired_at'] = datetime.utcnow() + timedelta(hours=REFRESH_LIFETIME_H)
+        METRICS.counter(name='IdP_authorization.refresh_token.saved').inc()
     new_token = __save_validated_token(tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
+    METRICS.counter(name='IdP_authorization.access_token.saved').inc()
     __delete_expired_tokens_account(account=account, session=session)
     if oauth_req_params.access_msg:
         if 'http' not in oauth_req_params.access_msg:
@@ -702,13 +719,14 @@ def get_token_oidc(
                 })
             session.execute(query)
             session.commit()
+            METRICS.timer('IdP_authorization').observe(stopwatch.elapsed)
             if '_polling' in oauth_req_params.access_msg:
                 return {'polling': True}
             elif 'http' in oauth_req_params.access_msg:
                 return {'webhome': oauth_req_params.access_msg, 'token': new_token}
             else:
                 return {'fetchcode': fetchcode}
-
+    METRICS.timer('IdP_authorization').observe(stopwatch.elapsed)
     return {'token': new_token}
 
 
@@ -789,8 +807,13 @@ def refresh_cli_auth_token(
 
         # if the new_token has same audience and scopes as the original
         # account_token --> return this token and exp timestamp to the user
-        if all_oidc_req_claims_present(new_token.oidc_scope, new_token.audience,
-                                       account_token.oidc_scope, account_token.audience):
+        new_scope_set = set(new_token.oidc_scope.split())
+        account_scope_set = set(account_token.oidc_scope.split())
+
+        new_audience_set = set(new_token.audience.split())
+        account_audience_set = set(account_token.audience.split())
+
+        if new_scope_set == account_scope_set and new_audience_set == account_audience_set:
             epoch_exp = int(floor((new_token.expired_at - datetime(1970, 1, 1)).total_seconds()))
             new_token_string = new_token.token
             return new_token_string, epoch_exp
@@ -987,10 +1010,12 @@ def __refresh_token_oidc(
 
     if token_object.refresh_token:
         refresh_token = token_object.refresh_token
+        _token = token_object.token
+        _decoded_token = jwt.decode(_token, options={"verify_signature": False})
         decoded_refresh_token = jwt.decode(refresh_token, options={"verify_signature": False})
     else:
         raise CannotAuthorize("No refresh token found")
-    issuer_url = decoded_refresh_token.get('iss')
+    issuer_url = _decoded_token.get('iss')
     idpsecret_config_loader = IDPSecretLoad()
     idp_config_vo = idpsecret_config_loader.get_vo_user_auth_config(vo, issuer_nickname=issuer_nickname)
     issuer_token_endpoint = get_discovery_metadata(issuer_url=issuer_url)["token_endpoint"]
@@ -1009,11 +1034,16 @@ def __refresh_token_oidc(
         data["resource"] = EXPECTED_OIDC_RESOURCE
 
     # Send the token refresh request
-    response = requests.post(issuer_token_endpoint, headers=headers, data=data, timeout=10)
-    if response.status_code != 200:
-        raise CannotAuthorize(f"Failed to refresh token: {response.text}")
-
-    oidc_tokens = response.json()
+    try:
+        response = requests.post(issuer_token_endpoint, headers=headers, data=data, timeout=10)
+        response.raise_for_status()
+        oidc_tokens = response.json()
+    except requests.exceptions.RequestException as re:
+        raise CannotAuthorize(f"Failed to refresh token: {re}")
+    except ValueError as ve:
+        raise CannotAuthorize(f"Refresh token request Decoding JSON failed: {ve}")
+    except Exception as e:
+        raise CannotAuthorize(f"Unexpected error occured: {e}")
 
     # Handle the response
     if 'error' in oidc_tokens:
@@ -1077,6 +1107,7 @@ def validate_jwt(
     else:
         audience_to_validate = EXPECTED_OIDC_AUDIENCE
     access_token_decoded = validate_token(token=token, issuer_url=issuer_url, audience=audience_to_validate, token_type=token_type, scopes=EXTRA_OIDC_ACCESS_TOKEN_SCOPE)
+    METRICS.counter(name='JSONWebToken.valid').inc()
     identity_string = oidc_identity_string(access_token_decoded['sub'], access_token_decoded['iss'])
     account = get_default_account(identity_string, IdentityType.OIDC, True, session=session)
     vo = account.vo
@@ -1096,11 +1127,25 @@ def validate_jwt(
         idpsecret_config_loader = IDPSecretLoad()
         auths = idpsecret_config_loader.get_vo_user_auth_config(vo)
         data = {"token": token}
-        response = requests.post(introspection_endpoint, headers=headers, auth=(str(auths["client_id"]), str(auths["client_secret"])), data=data, timeout=10)
-        if response.status_code == 200:
+        try:
+            response = requests.post(
+                introspection_endpoint,
+                headers=headers,
+                auth=(str(auths["client_id"]), str(auths["client_secret"])),
+                data=data,
+                timeout=10
+            )
+            response.raise_for_status()
             token_info = response.json()
-            if token_info.get("active", False):
-                token_dict['authz_scope'] = token_info['scope']
+        except requests.exceptions.RequestException as re:
+            raise CannotAuthorize(f"Failed to do token introspection: {re}")
+        except ValueError as ve:
+            raise CannotAuthenticate(f"Token introspection Decoding JSON failed:: {ve}")
+        except Exception as e:
+            raise CannotAuthenticate(f"Unexpected error occured: {e}")
+
+        if token_info.get("active", False):
+            token_dict['authz_scope'] = token_info['scope']
     token_dict["audience"] = access_token_decoded["aud"]
     token_dict["account"] = account
     acquired_scopes = token_dict.get('authz_scope', None)
@@ -1109,6 +1154,7 @@ def validate_jwt(
     else:
         if not (set(DEFAULT_ID_TOKEN_SCOPES + ID_TOKEN_EXTRA_SCOPES + EXTRA_OIDC_ACCESS_TOKEN_SCOPE)).issubset(set(acquired_scopes.split())):
             raise CannotAuthenticate(f"Presented token has scope {acquired_scopes} doesn't have required scope {str(DEFAULT_ID_TOKEN_SCOPES + ID_TOKEN_EXTRA_SCOPES + EXTRA_OIDC_ACCESS_TOKEN_SCOPE)}.")
+    METRICS.counter(name='JSONWebToken.saved').inc()
     __save_validated_token(token, token_dict, session=session)
     return cast("TokenValidationDict", token_dict)
 

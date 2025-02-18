@@ -221,7 +221,6 @@ class TestVORestAPI:
             'X-Rucio-Client-Authorize-Polling': polling,
             'X-Rucio-Client-Authorize-Scope': 'openid profile',
             'X-Rucio-Client-Authorize-Refresh-Lifetime': '96',
-            'X-Rucio-Client-Authorize-Audience': 'rucio',
             'X-Rucio-Client-Authorize-Issuer': issuer_nickname
         }
 
