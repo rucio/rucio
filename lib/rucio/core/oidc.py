@@ -643,11 +643,11 @@ def get_token_oidc(
         response.raise_for_status()
         tokens = response.json()
     except requests.exceptions.RequestException as re:
-        raise CannotAuthorize(f"Failed to refresh token: {re}")
+        raise CannotAuthorize(f"Failed to exchange code for token: {str(re)}")
     except ValueError as ve:
-        raise CannotAuthorize(f"Token refresh Decoding JSON failed: {ve}")
+        raise CannotAuthorize(f"Code exchange Decoding JSON failed: {str(ve)}")
     except Exception as e:
-        raise CannotAuthorize(f"Unexpected error occured: {e}")
+        raise CannotAuthorize(f"Unexpected error occured: {str(e)}")
 
     if "access_token" not in tokens or "id_token" not in tokens:
         raise CannotAuthenticate("ID token or access token missing in the response.")
@@ -807,9 +807,15 @@ def refresh_cli_auth_token(
 
         # if the new_token has same audience and scopes as the original
         # account_token --> return this token and exp timestamp to the user
+        if not new_token.oidc_scope or not account_token.oidc_scope:
+            logging.debug("No token could be returned for refresh operation for account %s.", account)
+            return None
+        if not new_token.audience or not account_token.audience:
+            logging.debug("No token could be returned for refresh operation for account %s.", account)
+            return None
+
         new_scope_set = set(new_token.oidc_scope.split())
         account_scope_set = set(account_token.oidc_scope.split())
-
         new_audience_set = set(new_token.audience.split())
         account_audience_set = set(account_token.audience.split())
 
@@ -1039,11 +1045,11 @@ def __refresh_token_oidc(
         response.raise_for_status()
         oidc_tokens = response.json()
     except requests.exceptions.RequestException as re:
-        raise CannotAuthorize(f"Failed to refresh token: {re}")
+        raise CannotAuthorize(f"Failed to refresh token: {str(re)}")
     except ValueError as ve:
-        raise CannotAuthorize(f"Refresh token request Decoding JSON failed: {ve}")
+        raise CannotAuthorize(f"Refresh token request Decoding JSON failed: {str(ve)}")
     except Exception as e:
-        raise CannotAuthorize(f"Unexpected error occured: {e}")
+        raise CannotAuthorize(f"Unexpected error occured: {str(e)}")
 
     # Handle the response
     if 'error' in oidc_tokens:
@@ -1138,11 +1144,11 @@ def validate_jwt(
             response.raise_for_status()
             token_info = response.json()
         except requests.exceptions.RequestException as re:
-            raise CannotAuthorize(f"Failed to do token introspection: {re}")
+            raise CannotAuthorize(f"Failed to do token introspection: {str(re)}")
         except ValueError as ve:
-            raise CannotAuthenticate(f"Token introspection Decoding JSON failed:: {ve}")
+            raise CannotAuthenticate(f"Token introspection Decoding JSON failed:: {str(ve)}")
         except Exception as e:
-            raise CannotAuthenticate(f"Unexpected error occured: {e}")
+            raise CannotAuthenticate(f"Unexpected error occured: {str(e)}")
 
         if token_info.get("active", False):
             token_dict['authz_scope'] = token_info['scope']

@@ -28,7 +28,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 from sqlalchemy import select
 
-from rucio.common.exception import CannotAuthenticate, IdentityError
+from rucio.common.exception import CannotAuthenticate, CannotAuthorize, IdentityError
 from rucio.common.types import InternalAccount
 from rucio.core.account import add_account, del_account
 from rucio.core.authentication import redirect_auth_oidc
@@ -530,7 +530,7 @@ def test_get_token_oidc_wrong_code(mock_post, mock_get_discovery_metadata, idp_s
     auth_query_string = f"code=wrongcode&state={state}"
 
     with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
-        with pytest.raises(CannotAuthenticate, match="ID token or access token missing in the response."):
+        with pytest.raises(CannotAuthorize, match="Failed to exchange code for token"):
             get_token_oidc(auth_query_string, session=db_session)
 
 
