@@ -547,12 +547,12 @@ def config_get_list(
         section: str,
         option: str,
         *,
-        default: list[str] = ...,
+        default: _T = ...,
         check_config_table: bool = ...,
         session: "Optional[Session]" = ...,
         use_cache: bool = ...,
         expiration_time: int = ...,
-) -> list[str]:
+) -> Union[list[str], _T]:
     ...
 
 
