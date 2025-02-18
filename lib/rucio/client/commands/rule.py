@@ -49,7 +49,7 @@ class Rule(CommandBase):
 
     def history_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--did", help="DID to look for rules")
-        parser.add_argument("--csv", action="store_true", help="Write output to a CSV")
+        parser.add_argument("--csv", action="store_true", help="CSV output with headers action, account, rse expression, time")
 
     def _common_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-a", "--account", dest="rule_account", action="store", help="The account of the rule")
@@ -81,6 +81,7 @@ class Rule(CommandBase):
     def show_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--rule-id", help="The rule ID, for accessing an existing rule.")
         parser.add_argument("--examine", action="store_true", help="Detailed analysis of transfer errors")
+        parser.add_argument("--csv", action="store_true", help='CSV output with headers matching Client.get_replication_rule or Client.examine_replication_rule')
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-a", "--account", dest="rule_account", action="store", help="The account of the rule")
