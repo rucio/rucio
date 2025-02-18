@@ -1631,30 +1631,27 @@ def list_rules_history(args, client, logger, console, spinner):
     for rule in client.list_replication_rule_full_history(scope, name):
         if rule['rule_id'] not in rule_dict:
             rule_dict.append(rule['rule_id'])
-            if cli_config == 'rich':
-                table_data.append(['Insertion', rule['account'], rule['rse_expression'], rule['created_at']])
-            else:
-                print('-' * 40)
-                print('Rule insertion')
-                print('Account : %s' % rule['account'])
-                print('RSE expression : %s' % (rule['rse_expression']))
-                print('Time : %s' % (rule['created_at']))
+            table_data.append(['Insertion', rule['account'], rule['rse_expression'], rule['created_at']])
         else:
             rule_dict.remove(rule['rule_id'])
-            if cli_config == 'rich':
-                table_data.append(['Deletion', rule['account'], rule['rse_expression'], rule['updated_at']])
-            else:
-                print('-' * 40)
-                print('Rule deletion')
-                print('Account : %s' % rule['account'])
-                print('RSE expression : %s' % (rule['rse_expression']))
-                print('Time : %s' % (rule['updated_at']))
+            table_data.append(['Deletion', rule['account'], rule['rse_expression'], rule['updated_at']])
 
-    if cli_config == 'rich':
+    if args.csv:
+        print('ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME', sep=',')
+        for rule in table_data:
+            print(rule[0], rule[1], rule[2], rule[3], sep=',')
+
+    elif cli_config == 'rich':
         table_data = sorted(table_data, key=lambda entry: entry[-1], reverse=True)
         table = generate_table(table_data, headers=['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME'])
         spinner.stop()
         print_output(table, console=console, no_pager=args.no_pager)
+    else:
+        for rule in table_data:
+            print(f"Rule {rule[0].lower()}")
+            print(f'Account : {rule[1]}')
+            print(f'RSE expression : {rule[2]}')
+            print(f'Time : {rule[3]}')
     return SUCCESS
 
 
@@ -2682,6 +2679,7 @@ You can filter by account::
     list_rules_history_parser = subparsers.add_parser('list-rules-history', help='List replication rules history for a DID.')
     list_rules_history_parser.set_defaults(function=list_rules_history)
     list_rules_history_parser.add_argument(dest='did', action='store', help='The Data IDentifier.')
+    list_rules_history_parser.add_argument("--csv", action='store_true', help='Print output to csv')
 
     # The update_rule command
     update_rule_parser = subparsers.add_parser('update-rule', help='Update replication rule.')

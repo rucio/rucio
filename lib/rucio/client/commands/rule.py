@@ -32,7 +32,7 @@ class Rule(CommandBase):
             "add": {"call": self.add, "docs": "Add replication rule to define number of replicas at sites", "namespace": self.add_namespace},
             "remove": {"call": self.remove, "docs": "Delete a replication rule", "namespace": self.remove_namespace},
             "show": {"call": self.show, "docs": "Retrieve information about a specific rule", "namespace": self.show_namespace},
-            "history": {"call": self.history, "docs": "List history of different replica rules impacting a DID", "namespace": self._common_namespace},
+            "history": {"call": self.history, "docs": "List history of different replica rules impacting a DID", "namespace": self.history_namespace},
             "update": {"call": self.update, "docs": "Update replication rule, can be used to move a rule from one RSE to another", "namespace": self.update_namespace},
             "list": {"call": self.list_, "docs": "List replication rules", "namespace": self.list_namespace},
         }
@@ -46,6 +46,10 @@ class Rule(CommandBase):
             "$ rucio rule update --rule-id rule123456 --suspend  # Suspend the execution of a rule",
             "$ rucio rule update --rule-id rule123456 --move --rses NewRSE # Copy an existing rule to a new RSE",
         ]
+
+    def history_namespace(self, parser: "ArgumentParser") -> None:
+        parser.add_argument("--did", help="DID to look for rules")
+        parser.add_argument("--csv", action="store_true", help="Write output to a CSV")
 
     def _common_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-a", "--account", dest="rule_account", action="store", help="The account of the rule")
