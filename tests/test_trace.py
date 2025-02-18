@@ -43,6 +43,44 @@ def test_submit_trace(rest_client):
     assert response.status_code == 201
 
 
+def test_bulk_submit_traces(rest_client):
+    """TRACE (REST): submit multiple traces via POST"""
+    payload = [
+        {
+            "uuid": str(uuid.uuid4()),  # str, because not JSON serializable
+            "string": "deadbeef",
+            "hex": 0xDEADBEEF,
+            "int": 3,
+            "float": 3.14,
+            "long": 314314314314314314,
+            "timestamp": time.time(),
+            "datetime_str": str(
+                datetime.datetime.utcnow()
+            ),  # str, because not JSON serializable
+            "boolean": True,
+        },
+        {
+            "uuid": str(uuid.uuid4()),  # str, because not JSON serializable
+            "string": "deadbeef",
+            "hex": 0xDEADBEEF,
+            "int": 3,
+            "float": 3.14,
+            "long": 314314314314314314,
+            "timestamp": time.time(),
+            "datetime_str": str(
+                datetime.datetime.utcnow()
+            ),  # str, because not JSON serializable
+            "boolean": True,
+        },
+    ]
+    response = rest_client.post(
+        "/traces/",
+        json=payload,
+        content_type=[("Content-Type", "application/octet-stream")],
+    )
+    assert response.status_code == 201
+
+
 def test_submit_trace_wrong_content_type(rest_client):
     """
     TRACE (REST): submit data with wrong Content-Type to check backwards-compatibility.
@@ -56,7 +94,7 @@ def test_trace_ip():
     """
     Allow either IPv4 or IPv6 addresses as traceIp fields
     """
-    TEST_SCHEMA = {
+    test_schema = {
         "type": "object",
         "properties": {
             "eventType": {"enum": ["test"]},
@@ -64,7 +102,7 @@ def test_trace_ip():
         }
     }
 
-    SCHEMAS['test'] = TEST_SCHEMA
+    SCHEMAS['test'] = test_schema
 
     valid_ips = [
         "::ffff:134.158.121.5",

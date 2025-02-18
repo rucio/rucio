@@ -108,14 +108,14 @@ def test_skip_requests_from_expired_rules(rse_factory, did_factory, root_account
     distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
 
     did = did_factory.upload_test_file(rse_name=src_rse_name)
-    rule_core.add_rule(dids=[did],
-                       account=root_account,
-                       copies=1,
-                       rse_expression=dst_rse_name, grouping='ALL',
-                       weight=None,
-                       lifetime=-1,
-                       locked=False,
-                       subscription_id=None)[0]
+    rule = rule_core.add_rule(dids=[did],
+                              account=root_account,
+                              copies=1,
+                              rse_expression=dst_rse_name, grouping='ALL',
+                              weight=None,
+                              lifetime=-1,
+                              locked=False,
+                              subscription_id=None)[0]
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     assert request_core.get_request(request_id=request['id'])['state'] == RequestState.QUEUED
 
@@ -124,6 +124,13 @@ def test_skip_requests_from_expired_rules(rse_factory, did_factory, root_account
               partition_wait_time=None, transfertools=['mock'],
               transfertype='single', filter_transfertool=None)
     assert request_core.get_request(request_id=request['id'])['state'] == RequestState.QUEUED
+
+    rule_core.move_rule(rule_id=rule, rse_expression=f'{dst_rse_name}&*')
+    submitter(once=True,
+              rses=[{'id': rse_id} for rse_id in (src_rse_id, dst_rse_id)],
+              partition_wait_time=None, transfertools=['mock'],
+              transfertype='single', filter_transfertool=None)
+    assert request_core.get_request(request_id=request['id'])['state'] == RequestState.SUBMITTED
 
 
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER])

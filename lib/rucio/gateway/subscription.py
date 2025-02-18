@@ -193,9 +193,9 @@ def list_subscriptions(
         if 'filter' in sub:
             fil = loads(sub['filter'])
             if 'account' in fil:
-                fil['account'] = [InternalAccount(acc, fromExternal=False).external for acc in fil['account']]
+                fil['account'] = [InternalAccount(acc, from_external=False).external for acc in fil['account']]
             if 'scope' in fil:
-                fil['scope'] = [InternalScope(sco, fromExternal=False).external for sco in fil['scope']]
+                fil['scope'] = [InternalScope(sco, from_external=False).external for sco in fil['scope']]
             sub['filter'] = dumps(fil)
 
         yield sub
@@ -272,9 +272,9 @@ def get_subscription_by_id(
     if 'filter' in sub:
         fil = loads(sub['filter'])
         if 'account' in fil:
-            fil['account'] = [InternalAccount(acc, fromExternal=False).external for acc in fil['account']]
+            fil['account'] = [InternalAccount(acc, from_external=False).external for acc in fil['account']]
         if 'scope' in fil:
-            fil['scope'] = [InternalScope(sco, fromExternal=False).external for sco in fil['scope']]
+            fil['scope'] = [InternalScope(sco, from_external=False).external for sco in fil['scope']]
         sub['filter'] = dumps(fil)
 
     return sub

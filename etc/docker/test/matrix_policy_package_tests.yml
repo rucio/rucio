@@ -88,12 +88,12 @@ atlas:
     - atlas
 
 belleii:
-  installation_cmd: ""
   config_overrides:
     permission: belleii
     extract_scope: belleii
     schema: belleii
     lfn2pfn_algorithm_default: "belleii"
+    package: belleii_rucio_policy_package
   tests:
     allow:
       - rucio_tests/test_belleii.py

@@ -20,6 +20,8 @@
 
 """
 
+from typing import Optional
+
 from rucio.common.constraints import AUTHORIZED_VALUE_TYPES
 
 
@@ -93,11 +95,12 @@ class ClientParameterMismatch(RucioException):
 
 class ClientProtocolNotSupported(RucioException):
     """
-    RucioException
+    Client protocol not supported
     """
-    def __init__(self, *args):
+
+    def __init__(self, host: str, protocol: str, protocols_allowed: Optional[list[str]] = None, *args):
         super(ClientProtocolNotSupported, self).__init__(*args)
-        self._message = "Client protocol not supported."
+        self._message = f"Client protocol '{protocol}' not supported when connecting to host '{host}'.{' Allowed protocols: ' + ', '.join(protocols_allowed) if protocols_allowed else ''}"
         self.error_code = 6
 
 
@@ -1068,14 +1071,14 @@ class PolicyPackageVersionError(PolicyPackageBaseException):
     """
     Policy package is not compatible with this version of Rucio.
     """
-    def __init__(self, package: str, rucio_version: str, supported_versions: list[str], *args):
+    def __init__(self, package: str, rucio_version: str, supported_versionset: str, *args):
         super(PolicyPackageVersionError, self).__init__(package, *args)
         self.rucio_version = rucio_version
-        self.supported_versions = supported_versions
+        self.supported_versionset = supported_versionset
         self._message = 'Policy package %s is not compatible with this Rucio version.\nRucio version: %s\nVersions supported by the package: %s' % (
             self.package,
             self.rucio_version,
-            self.supported_versions
+            self.supported_versionset
         )
         self.error_code = 103
 
@@ -1125,8 +1128,8 @@ class TraceValidationSchemaNotFound(RucioException):
     """
     Trace validation schema not found.
     """
-    def __init__(self, *args, **kwargs):
-        super(TraceValidationSchemaNotFound, self).__init__(*args, **kwargs)
+    def __init__(self, *args):
+        super(TraceValidationSchemaNotFound, self).__init__(*args)
         self._message = 'Trace validation schema not found.'
         self.error_code = 108
 
@@ -1139,3 +1142,57 @@ class PolicyPackageIsNotVersioned(PolicyPackageBaseException):
         super(PolicyPackageIsNotVersioned, self).__init__(package, *args)
         self._message = 'Policy package %s does not include information about which Rucio versions it supports.' % self.package
         self.error_code = 109
+
+
+class UnsupportedMetadataPlugin(RucioException):
+    """
+    Raised when attempting to use a metadata plugin that is not enabled on the server.
+    """
+    def __init__(self, *args):
+        super(UnsupportedMetadataPlugin, self).__init__(*args)
+        self._message = "The requested metadata plugin is not enabled on the server."
+        self.error_code = 110
+
+
+class ChecksumCalculationError(RucioException):
+    """
+    An error occurred while calculating the checksum.
+    """
+    def __init__(
+            self,
+            algorithm_name: str,
+            filepath: str,
+            *args,
+            **kwargs
+    ):
+        super(ChecksumCalculationError, self).__init__(*args, **kwargs)
+        self.algorithm_name = algorithm_name
+        self.filepath = filepath
+        self._message = 'An error occurred while calculating the %s checksum of file %s.' % (self.algorithm_name, self.filepath)
+        self.error_code = 111
+
+
+class ConfigLoadingError(RucioException):
+    """
+    An error occurred while loading the configuration.
+    """
+    def __init__(
+            self,
+            config_file: str,
+            *args,
+            **kwargs
+    ):
+        super(ConfigLoadingError, self).__init__(*args, **kwargs)
+        self._message = 'Could not load Rucio configuration file. Rucio tried loading the following configuration file:\n\t %s' % (config_file)
+        self.error_code = 112
+
+
+class ClientProtocolNotFound(RucioException):
+    """
+    Missing protocol in client configuration (e.g. no http/https in url).
+    """
+
+    def __init__(self, host: str, protocols_allowed: Optional[list[str]] = None, *args):
+        super(ClientProtocolNotFound, self).__init__(*args)
+        self._message = f"Client protocol missing when connecting to host '{host}'.{' Allowed protocols: ' + ', '.join(protocols_allowed) if protocols_allowed else ''}"
+        self.error_code = 113

@@ -6,6 +6,10 @@ on:
   schedule:
     - cron: '0 3 * * *'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   add_header:
     if: github.repository_owner == 'rucio' || github.event_name != 'schedule'

@@ -17,7 +17,7 @@ import datetime
 import hmac
 import time
 from hashlib import sha1
-from typing import Literal
+from typing import Optional
 from urllib.parse import urlencode, urlparse
 
 import boto3
@@ -27,7 +27,7 @@ from google.oauth2.service_account import Credentials
 
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, get_rse_credentials
-from rucio.common.constants import RseAttr
+from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, SUPPORTED_SIGN_URL_SERVICES, SUPPORTED_SIGN_URL_SERVICES_LITERAL, RseAttr
 from rucio.common.exception import UnsupportedOperation
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_attribute
@@ -40,10 +40,10 @@ METRICS = MetricManager(module=__name__)
 
 def get_signed_url(
         rse_id: str,
-        service: Literal['gsc', 's3', 'swift'],
-        operation: Literal['read', 'write', 'delete'],
+        service: SUPPORTED_SIGN_URL_SERVICES_LITERAL,
+        operation: RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL,
         url: str,
-        lifetime: int = 600
+        lifetime: Optional[int] = 600
 ) -> str:
     """
     Get a signed URL for a particular service and operation.
@@ -60,10 +60,10 @@ def get_signed_url(
 
     global CREDS_GCS
 
-    if service not in ['gcs', 's3', 'swift']:
+    if service not in SUPPORTED_SIGN_URL_SERVICES:
         raise UnsupportedOperation('Service must be "gcs", "s3" or "swift"')
 
-    if operation not in ['read', 'write', 'delete']:
+    if operation not in RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS:
         raise UnsupportedOperation('Operation must be "read", "write", or "delete"')
 
     if url is None or url == '':
@@ -84,10 +84,6 @@ def get_signed_url(
         components = urlparse(url)
         host = components.netloc
 
-        # select the correct operation
-        operations = {'read': 'GET', 'write': 'PUT', 'delete': 'DELETE'}
-        operation = operations[operation]
-
         # special case to test signature, force epoch time
         if lifetime is None:
             lifetime = 0
@@ -100,8 +96,11 @@ def get_signed_url(
         # sign the path only
         path = components.path
 
+        # Map operations
+        operations = {'read': 'GET', 'write': 'PUT', 'delete': 'DELETE'}
+
         # assemble message to sign
-        to_sign = "%s\n\n\n%s\n%s" % (operation, lifetime, path)
+        to_sign = "%s\n\n\n%s\n%s" % (operations[operation], lifetime, path)
 
         # create URL-capable signature
         # first character is always a '=', remove it
@@ -213,7 +212,7 @@ def get_signed_url(
         else:
             swiftop = 'DELETE'
 
-        expires = int(time.time() + lifetime)
+        expires = int(time.time() + lifetime)  # type: ignore (lifetime could be None)
 
         # create signed URL
         with METRICS.timer('signswift'):

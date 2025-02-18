@@ -23,10 +23,11 @@ import pytest
 from sqlalchemy import and_, delete, select, update
 
 import rucio.daemons.reaper.reaper
+from rucio.common.checksum import adler32
 from rucio.common.constants import RseAttr
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
 from rucio.common.types import InternalAccount
-from rucio.common.utils import adler32, generate_uuid
+from rucio.common.utils import generate_uuid
 from rucio.core import config as core_config
 from rucio.core import did as did_core
 from rucio.core import distance as distance_core
@@ -40,7 +41,7 @@ from rucio.core.account_limit import set_local_account_limit
 from rucio.daemons.conveyor.finisher import finisher
 from rucio.daemons.conveyor.poller import poller
 from rucio.daemons.conveyor.preparer import preparer
-from rucio.daemons.conveyor.receiver import GRACEFUL_STOP as receiver_graceful_stop
+from rucio.daemons.conveyor.receiver import GRACEFUL_STOP as RECEIVER_GRACEFUL_STOP
 from rucio.daemons.conveyor.receiver import Receiver, receiver
 from rucio.daemons.conveyor.stager import stager
 from rucio.daemons.conveyor.submitter import submitter
@@ -519,9 +520,9 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
         assert msg_done['payload']['dataset'] == dataset['name']
         assert msg_done['payload']['transfer_link'].startswith('https://fts:8449/')
     finally:
-        receiver_graceful_stop.set()
+        RECEIVER_GRACEFUL_STOP.set()
         receiver_thread.join(timeout=5)
-        receiver_graceful_stop.clear()
+        RECEIVER_GRACEFUL_STOP.clear()
 
 
 @skip_rse_tests_with_accounts
@@ -573,9 +574,9 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         assert __get_source(request_id=request['id'], src_rse_id=src_rse_id, **did).ranking == -1
         assert request['state'] == RequestState.QUEUED
     finally:
-        receiver_graceful_stop.set()
+        RECEIVER_GRACEFUL_STOP.set()
         receiver_thread.join(timeout=5)
-        receiver_graceful_stop.clear()
+        RECEIVER_GRACEFUL_STOP.clear()
 
 
 @skip_rse_tests_with_accounts
@@ -617,9 +618,9 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
         # Two hops; both handled by receiver
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_receiver_update_request_state_total', labels={'updated': 'True'}) >= 2
     finally:
-        receiver_graceful_stop.set()
+        RECEIVER_GRACEFUL_STOP.set()
         receiver_thread.join(timeout=5)
-        receiver_graceful_stop.clear()
+        RECEIVER_GRACEFUL_STOP.clear()
 
 
 @skip_rse_tests_with_accounts
@@ -686,9 +687,9 @@ def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_
             rse_core.update_rse(rse_id=dst_rse_id, parameters={'rse_type': RSEType.DISK})
             rse_core.del_rse_attribute(dst_rse_id, RseAttr.ARCHIVE_TIMEOUT)
 
-            receiver_graceful_stop.set()
+            RECEIVER_GRACEFUL_STOP.set()
             receiver_thread.join(timeout=5)
-            receiver_graceful_stop.clear()
+            RECEIVER_GRACEFUL_STOP.clear()
 
 
 @skip_rse_tests_with_accounts
@@ -1120,7 +1121,7 @@ class FTSWrapper(FTS3Transfertool):
         self.on_submit(file)
         return file
 
-    def _FTS3Transfertool__bulk_query_responses(self, jobs_response, requests_by_eid):
+    def _FTS3Transfertool__bulk_query_responses(self, jobs_response, requests_by_eid):  # noqa: N802
         self.on_receive(jobs_response)
         return super()._FTS3Transfertool__bulk_query_responses(jobs_response, requests_by_eid)
 
@@ -1649,9 +1650,9 @@ def test_transfer_with_tokens(vo, did_factory, root_account, caches_mock, file_c
                 time.sleep(1)
             assert received_messages[request['id']]['job_metadata']['auth_method'] == 'oauth2'
         finally:
-            receiver_graceful_stop.set()
+            RECEIVER_GRACEFUL_STOP.set()
             receiver_thread.join(timeout=5)
-            receiver_graceful_stop.clear()
+            RECEIVER_GRACEFUL_STOP.clear()
 
 
 @pytest.mark.noparallel(groups=[NoParallelGroups.PREPARER])

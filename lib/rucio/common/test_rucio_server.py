@@ -36,27 +36,33 @@ def get_scope_and_rses():
 
     :return: A tuple (scope, rses) for the rucio client where scope is mock/test and rses is a list or (None, [None]) if no suitable rse exists.
     """
-    cmd = "rucio list-rses --rses 'test_container_xrd=True'"
+    cmd = "rucio rse list --rses 'test_container_xrd=True'"
     print(cmd)
     exitcode, out, err = execute(cmd)
     print(out, err)
     rses = out.split()
     if len(rses) == 0:
         return None, [None]
-    return 'test', rses
+
+    scope = 'test'
+    account = 'root'
+    cmd = f"rucio scope add -s {scope} -a {account}"
+    _, out, err = execute(cmd)
+    print(out, err)
+    return scope, rses
 
 
 def delete_rules(did):
     # get the rules for the file
     print('Deleting rules')
-    cmd = "rucio list-rules {0} | grep {0} | cut -f1 -d\\ ".format(did)
+    cmd = "rucio rule list {0} | grep {0} | cut -f1 -d\\ ".format(did)
     print(cmd)
     exitcode, out, err = execute(cmd)
     print(out, err)
     rules = out.split()
     # delete the rules for the file
     for rule in rules:
-        cmd = "rucio delete-rule {0}".format(rule)
+        cmd = "rucio rule remove {0}".format(rule)
         print(cmd)
         exitcode, out, err = execute(cmd)
 
@@ -101,7 +107,7 @@ class TestRucioServer(unittest.TestCase):
         tmp_dsn = 'tests.rucio_client_test_server_' + uuid()
 
         # Adding files to a new dataset
-        cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {1}:{5}'.format(self.rse, self.scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
+        cmd = 'rucio upload --rse {0} --scope {1} --files {2} {3} {4} {1}:{5}'.format(self.rse, self.scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -112,7 +118,7 @@ class TestRucioServer(unittest.TestCase):
         self.assertEqual(exitcode, 0)
 
         # List the files
-        cmd = 'rucio list-files {0}:{1}'.format(self.scope, tmp_dsn)
+        cmd = 'rucio did content list --did {0}:{1}'.format(self.scope, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -120,7 +126,7 @@ class TestRucioServer(unittest.TestCase):
         self.assertEqual(exitcode, 0)
 
         # List the replicas
-        cmd = 'rucio list-file-replicas {0}:{1}'.format(self.scope, tmp_dsn)
+        cmd = 'rucio replica list file --did {0}:{1}'.format(self.scope, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
@@ -128,7 +134,7 @@ class TestRucioServer(unittest.TestCase):
         self.assertEqual(exitcode, 0)
 
         # Downloading dataset
-        cmd = 'rucio download --dir /tmp/ {0}:{1}'.format(self.scope, tmp_dsn)
+        cmd = 'rucio download --dir /tmp/ --did {0}:{1}'.format(self.scope, tmp_dsn)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)

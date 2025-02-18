@@ -200,7 +200,6 @@ class AccountClient(BaseClient):
         :param account: The account name.
         :param identity: The identity key name. For example x509 DN, or a username.
         :param authtype: The type of the authentication (x509, gss, userpass).
-        :param default: If True, the account should be used by default with the provided identity.
         """
 
         data = dumps({'identity': identity, 'authtype': authtype})

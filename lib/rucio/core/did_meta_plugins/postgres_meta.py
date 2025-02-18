@@ -16,8 +16,9 @@ import json
 import operator
 from typing import TYPE_CHECKING
 
-import psycopg2
-import psycopg2.extras
+import psycopg
+from psycopg import sql
+from psycopg.rows import dict_row
 
 from rucio.common import config, exception
 from rucio.common.types import InternalScope
@@ -73,17 +74,20 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         self.jsonb_column = table_column_data
 
         self.table = table
-        self.client = psycopg2.connect(
+        self.client = psycopg.connect(
             host=host,
             port=port,
-            database=db,
+            dbname=db,
             user=user,
             password=password)
 
         # set search_path to include database schema by default
         cur = self.client.cursor()
-        statement = "SET search_path TO {};".format(db_schema)
-        cur.execute(statement)
+        cur.execute(
+            sql.SQL("SET search_path TO {}").format(
+                sql.Identifier(db_schema)
+            )
+        )
         cur.close()
 
         if not table_is_managed:                    # not managed by Rucio, so just verify table schema
@@ -97,17 +101,18 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         """
         Try to create a metadata table.
         """
-        table_clauses = (
-            ("id", "bigint", "NOT NULL", "GENERATED ALWAYS AS IDENTITY"),
-            ("vo", "varchar", "NOT NULL"),
-            ("scope", "varchar", "NOT NULL"),
-            ("name", "varchar", "NOT NULL"),
-            ("data", "jsonb", "DEFAULT", "'{}'::jsonb"),
-            ("UNIQUE", "(scope, name)")  # unique scope+name table constraint, required for ON CONFLICT
+        table_clauses = [
+            sql.SQL("id bigint NOT NULL GENERATED ALWAYS AS IDENTITY"),
+            sql.SQL("vo varchar NOT NULL"),
+            sql.SQL("scope varchar NOT NULL"),
+            sql.SQL("name varchar NOT NULL"),
+            sql.SQL("data jsonb DEFAULT '{}'::jsonb"),
+            sql.SQL("UNIQUE (scope, name)")  # unique scope+name table constraint, required for ON CONFLICT
+        ]
+        statement = sql.SQL("CREATE TABLE IF NOT EXISTS {} ({})").format(
+            sql.Identifier(self.table),
+            sql.SQL(', ').join(table_clauses)
         )
-        statement = "CREATE TABLE IF NOT EXISTS {} ({})".format(
-            self.table,
-            ', '.join([' '.join(clause) for clause in table_clauses]))
 
         cur = self.client.cursor()
         cur.execute(statement)
@@ -127,8 +132,11 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :raises: MetadataSchemaMismatchError
         """
         # Check mandatory columns are of right data type and have the right nullable qualifier.
-        statement = "SELECT column_name, data_type, is_nullable " \
-                    "FROM INFORMATION_SCHEMA.COLUMNS where table_name = '{}';".format(self.table)
+        statement = sql.SQL(
+            "SELECT column_name, data_type, is_nullable FROM INFORMATION_SCHEMA.COLUMNS where table_name = {}").format(
+            sql.Literal(self.table)
+        )
+
         cur = self.client.cursor()
         cur.execute(statement)
         existing_table_columns = cur.fetchall()
@@ -147,14 +155,19 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                         specification, existing_table_columns))
 
         # Check required table constraints exist.
-        statement = "SELECT con.contype AS constraint_type, " \
-                    "(SELECT array_agg(att.attname) FROM pg_attribute att " \
-                    " INNER JOIN unnest(con.conkey) unnest(conkey) ON unnest.conkey = att.attnum " \
-                    " WHERE att.attrelid = con.conrelid) AS columns " \
-                    "FROM pg_constraint con " \
-                    "INNER JOIN pg_class rel ON rel.oid = con.conrelid " \
-                    "INNER JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace " \
-                    "WHERE rel.relname = '{}';".format(self.table)
+        statement = sql.SQL(
+            "SELECT con.contype AS constraint_type, "  # type: ignore
+            "(SELECT array_agg(att.attname) FROM pg_attribute att "
+            " INNER JOIN unnest(con.conkey) unnest(conkey) ON unnest.conkey = att.attnum "
+            " WHERE att.attrelid = con.conrelid) AS columns "
+            "FROM pg_constraint con "
+            "INNER JOIN pg_class rel ON rel.oid = con.conrelid "
+            "INNER JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace "
+            "WHERE rel.relname = {}"
+        ).format(
+            sql.Literal(self.table)
+        )
+
         cur = self.client.cursor()
         cur.execute(statement)
         existing_table_constraints = cur.fetchall()  # list of (constraint_type, [columns])
@@ -170,9 +183,12 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                         constraint, len(existing_table_constraints)))
 
     def _drop_metadata_table(self):
-        statement = "DROP TABLE IF EXISTS {};".format(self.table)
         cur = self.client.cursor()
-        cur.execute(statement)
+        cur.execute(
+            sql.SQL("DROP TABLE IF EXISTS {}").format(
+                sql.Identifier(self.table)
+            )
+        )
         cur.close()
         self.client.commit()
 
@@ -185,8 +201,12 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :param session: The database session in use
         :returns: the metadata for the did
         """
-        statement = "SELECT data from {} ".format(self.table) + \
-                    "WHERE scope='{}' AND name='{}';".format(scope.internal, name)
+        statement = sql.SQL("SELECT data from {} WHERE scope = {} AND name = {}").format(
+            sql.Identifier(self.table),
+            sql.Literal(scope.internal),
+            sql.Literal(name)
+        )
+
         cur = self.client.cursor()
         cur.execute(statement)
         metadata = cur.fetchone()
@@ -221,9 +241,18 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :param session: The database session in use
         """
         # upsert metadata
-        statement = "INSERT INTO {} (scope, name, vo, data) ".format(self.table) + \
-                    "VALUES ('{}', '{}', '{}', '{}') ".format(scope.external, name, scope.vo, json.dumps(metadata)) + \
-                    "ON CONFLICT (scope, name) DO UPDATE set data = {}.data || EXCLUDED.data;".format(self.table)
+        statement = sql.SQL(
+            "INSERT INTO {} (scope, name, vo, data) VALUES ({}, {}, {}, {}) "  # type: ignore
+            "ON CONFLICT (scope, name) DO UPDATE set data = {}.data || EXCLUDED.data"
+        ).format(
+            sql.Identifier(self.table),
+            sql.Literal(scope.external),
+            sql.Literal(name),
+            sql.Literal(scope.vo),
+            sql.Literal(json.dumps(metadata)),
+            sql.Identifier(self.table)
+        )
+
         cur = self.client.cursor()
         cur.execute(statement)
         cur.close()
@@ -238,8 +267,12 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :param key: the key to be deleted
         :param session: the database session in use
         """
-        statement = "UPDATE {} ".format(self.table) + \
-                    "SET data = {}.data - '{}';".format(self.table, key)
+        statement = sql.SQL("UPDATE {} SET data = {}.data - {}").format(
+            sql.Identifier(self.table),
+            sql.Identifier(self.table),
+            sql.Literal(key)
+        )
+
         cur = self.client.cursor()
         cur.execute(statement)
         cur.close()
@@ -276,10 +309,13 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                 "'{}' metadata module does not currently support recursive searches".format(self.plugin_name.lower())
             )
 
-        statement = "SELECT * FROM {} WHERE {} ".format(self.table, postgres_query_str)
-        if limit:
-            statement += "LIMIT {}".format(limit)
-        cur = self.client.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        statement = sql.SQL("SELECT * FROM {} WHERE {} {}").format(
+            sql.Identifier(self.table),
+            sql.SQL(postgres_query_str),  # type: ignore
+            sql.SQL("LIMIT {}").format(sql.Literal(limit)) if limit else sql.SQL("")
+        )
+
+        cur = self.client.cursor(row_factory=dict_row)
         cur.execute(statement)
         query_result = cur.fetchall()
         cur.close()

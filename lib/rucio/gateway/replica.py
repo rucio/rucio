@@ -251,7 +251,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
             new_parents = []
             for p in rep['parents']:
                 scope, name = p.split(':')
-                scope = InternalScope(scope, fromExternal=False).external
+                scope = InternalScope(scope, from_external=False).external
                 new_parents.append('{}:{}'.format(scope, name))
             rep['parents'] = new_parents
 

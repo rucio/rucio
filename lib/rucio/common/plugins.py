@@ -18,6 +18,8 @@ import os
 from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from packaging.specifiers import SpecifierSet
+
 from rucio.common import config
 from rucio.common.client import get_client_vo, is_client
 from rucio.common.exception import InvalidAlgorithmName, PolicyPackageIsNotVersioned, PolicyPackageVersionError
@@ -39,7 +41,7 @@ def check_policy_package_version(package: str, logger: 'LoggerFunction' = loggin
     :param package: the fully qualified name of the policy package
     '''
     try:
-        supported_version = _get_supported_version_from_policy_package(package)
+        supported_versionset = _get_supported_versions_from_policy_package(package)
     except ImportError:
         logger(logging.DEBUG, 'Policy package %s not found' % package)
         return
@@ -48,11 +50,11 @@ def check_policy_package_version(package: str, logger: 'LoggerFunction' = loggin
         return
 
     rucio_version = current_version()
-    if rucio_version not in supported_version:
-        raise PolicyPackageVersionError(rucio_version=rucio_version, supported_versions=supported_version, package=package)
+    if rucio_version not in supported_versionset:
+        raise PolicyPackageVersionError(rucio_version=rucio_version, supported_versionset=str(supported_versionset), package=package)
 
 
-def _get_supported_version_from_policy_package(package: str) -> list[str]:
+def _get_supported_versions_from_policy_package(package: str) -> SpecifierSet:
     try:
         module = importlib.import_module(package)
     except ImportError as e:
@@ -61,10 +63,12 @@ def _get_supported_version_from_policy_package(package: str) -> list[str]:
     if not hasattr(module, 'SUPPORTED_VERSION'):
         raise PolicyPackageIsNotVersioned(package)
 
-    if isinstance(module.SUPPORTED_VERSION, list):
-        return module.SUPPORTED_VERSION
-    else:
-        return [module.SUPPORTED_VERSION]
+    supported_versionset = module.SUPPORTED_VERSION
+
+    if isinstance(supported_versionset, list):
+        supported_versionset = ','.join(supported_versionset)
+
+    return SpecifierSet(supported_versionset)
 
 
 class PolicyPackageAlgorithms:

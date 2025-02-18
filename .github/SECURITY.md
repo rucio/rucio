@@ -5,7 +5,9 @@
 Rucio follows a release policy, based on [semantic versioning](https://semver.org),
 with **major** (named) releases. Approximately every 4 months we produce a major 
 release with a version number like **x.0.0** (with x > 0). This release line is 
-maintained with minor/patch releases published every two weeks.
+maintained with minor/patch releases published every two weeks. Once a new major
+release line is released, the previous release line becomes inactive and will
+not be maintained!
 
 Typically once a year we will designate a release line a **Long-term Support** (LTS) 
 release line. This release line will be supported with **security** and **critical** 

@@ -13,16 +13,16 @@
 # limitations under the License.
 
 
-import calendar
 import datetime
+import json
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from flask import Blueprint, Flask, request
 from werkzeug.datastructures import Headers
 
 from rucio.core.trace import trace
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, json_parameters, response_headers
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, response_headers
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -31,6 +31,36 @@ if TYPE_CHECKING:
 
 
 class Trace(ErrorHandlingMethodView):
+
+    def __handle_payload_item(self, payload: dict) -> None:
+        """
+        Handles and processes a single trace payload item by adding various trace information.
+
+        Args:
+          payload (dict): The payload dictionary to be processed.
+
+        Modifies:
+          payload (dict): Adds the following keys to the payload:
+            - 'traceTimeentry': The current UTC timestamp.
+            - 'traceTimeentryUnix': The Unix timestamp with microsecond precision.
+            - 'traceIp': The client's IP address, either from 'X-Forwarded-For' header or remote address.
+            - 'traceId': A unique identifier for the trace, generated as a UUID without hyphens.
+
+        Calls:
+          trace(payload): A function to handle the processed payload.
+        """
+        # generate entry timestamp
+        payload["traceTimeentry"] = datetime.datetime.now(datetime.timezone.utc)
+        payload["traceTimeentryUnix"] = payload["traceTimeentry"].timestamp()
+
+        # guess client IP
+        payload["traceIp"] = request.headers.get(
+            "X-Forwarded-For", default=request.remote_addr
+        )
+
+        # generate unique ID
+        payload["traceId"] = str(uuid.uuid4()).replace("-", "").lower()
+        trace(payload=payload)
 
     def get_headers(self) -> "Optional[HeadersType]":
         headers = Headers()
@@ -57,8 +87,13 @@ class Trace(ErrorHandlingMethodView):
           content:
             application/json:
               schema:
-                description: The trace information.
+          oneOf:
+            - type: object
+              description: A single trace object.
+            - type: array
+              items:
                 type: object
+              description: A list of trace objects.
         responses:
           201:
             description: OK
@@ -66,21 +101,23 @@ class Trace(ErrorHandlingMethodView):
             description: Cannot decode json data.
         """
         headers = self.get_headers()
-        payload = json_parameters()
+        req_body: str = request.get_data(as_text=True)
+        payload: Union[list, dict, None] = json.loads(req_body) if req_body else None
 
-        # generate entry timestamp
-        payload['traceTimeentry'] = datetime.datetime.utcnow()
-        payload['traceTimeentryUnix'] = calendar.timegm(payload['traceTimeentry'].timetuple()) + payload['traceTimeentry'].microsecond / 1e6
+        if payload is None:
+            return (
+                "Invalid JSON data. Please provide a single trace as a JSON object or a list of trace objects.",
+                400,
+                headers,
+            )
 
-        # guess client IP
-        payload['traceIp'] = request.headers.get('X-Forwarded-For', default=request.remote_addr)
+        if isinstance(payload, list):
+            for item in payload:
+                self.__handle_payload_item(item)
+        else:
+            self.__handle_payload_item(payload)
 
-        # generate unique ID
-        payload['traceId'] = str(uuid.uuid4()).replace('-', '').lower()
-
-        trace(payload=payload)
-
-        return 'Created', 201, headers
+        return "Created", 201, headers
 
 
 def blueprint():

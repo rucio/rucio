@@ -16,7 +16,7 @@ import json
 from datetime import datetime
 from io import StringIO
 from re import match
-from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, Literal, Optional, TypeVar, Union, overload
 
 import sqlalchemy
 from dogpile.cache.api import NO_VALUE
@@ -27,9 +27,10 @@ from sqlalchemy.sql.expression import and_, delete, desc, false, func, or_, sele
 
 from rucio.common import exception, types, utils
 from rucio.common.cache import MemcacheRegion
+from rucio.common.checksum import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common.constants import RSE_SUPPORTED_PROTOCOL_OPERATIONS, RseAttr
-from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
+from rucio.common.constants import RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS, RSE_ATTRS_BOOL, RSE_ATTRS_STR, SUPPORTED_SIGN_URL_SERVICES_LITERAL, RseAttr
+from rucio.common.utils import Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import ReplicaState, RSEType
@@ -61,11 +62,15 @@ class RseData:
         self._limits = limits
         self._transfer_limits = transfer_limits
 
+    def _get_loaded_attribute(self, attribute_name: str) -> Any:
+        attribute = getattr(self, f'_{attribute_name}', None)
+        if attribute is None:
+            raise ValueError(f'{attribute_name} not loaded for rse {self}')
+        return attribute
+
     @property
     def name(self) -> str:
-        if self._name is None:
-            raise ValueError(f'name not loaded for rse {self}')
-        return self._name
+        return self._get_loaded_attribute('name')
 
     @name.setter
     def name(self, name):
@@ -73,39 +78,27 @@ class RseData:
 
     @property
     def columns(self) -> dict[str, Any]:
-        if self._columns is None:
-            raise ValueError(f'columns not loaded for rse {self}')
-        return self._columns
+        return self._get_loaded_attribute('columns')
 
     @property
     def attributes(self) -> dict[str, Any]:
-        if self._attributes is None:
-            raise ValueError(f'attributes not loaded for rse {self}')
-        return self._attributes
+        return self._get_loaded_attribute('attributes')
 
     @property
     def info(self) -> types.RSESettingsDict:
-        if self._info is None:
-            raise ValueError(f'info not loaded for rse {self}')
-        return self._info
+        return self._get_loaded_attribute('info')
 
     @property
     def usage(self) -> list[dict[str, Any]]:
-        if self._usage is None:
-            raise ValueError(f'usage not loaded for rse {self}')
-        return self._usage
+        return self._get_loaded_attribute('usage')
 
     @property
     def limits(self) -> dict[str, Any]:
-        if self._limits is None:
-            raise ValueError(f'limits not loaded for rse {self}')
-        return self._limits
+        return self._get_loaded_attribute('limits')
 
     @property
     def transfer_limits(self):
-        if self._transfer_limits is None:
-            raise ValueError(f'transfer_limits not loaded for rse {self}')
-        return self._transfer_limits
+        return self._get_loaded_attribute('transfer_limits')
 
     def __hash__(self):
         return hash(self.id)
@@ -384,9 +377,28 @@ def _group_query_result_by_rse_id(stmt, *, session: "Session") -> 'Iterator[tupl
 
 
 @transactional_session
-def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
-            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability_read: Optional[bool] = None,
-            availability_write: Optional[bool] = None, availability_delete: Optional[bool] = None, *, session: "Session"):
+def add_rse(
+    rse,
+    vo='def',
+    deterministic=True,
+    volatile=False,
+    city=None,
+    region_code=None,
+    country_name=None,
+    continent=None,
+    time_zone=None,
+    ISP=None,  # noqa: N803
+    staging_area=False,
+    rse_type=RSEType.DISK,
+    longitude=None,
+    latitude=None,
+    ASN=None,  # noqa: N803
+    availability_read: Optional[bool] = None,
+    availability_write: Optional[bool] = None,
+    availability_delete: Optional[bool] = None,
+    *,
+    session: "Session"
+):
     """
     Add a rse with the given location name.
 
@@ -886,7 +898,7 @@ def has_rse_attribute(rse_id, key, *, session: "Session"):
 
 
 @read_session
-def get_rses_with_attribute(key, *, session: "Session"):
+def get_rses_with_attribute(key, *, session: "Session") -> list[dict[str, Any]]:
     """
     Return all RSEs with a certain attribute.
 
@@ -957,6 +969,36 @@ def get_rses_with_attribute_value(key, value, vo='def', *, session: "Session"):
         return rse_list
 
     return result
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: Literal['sign_url'], use_cache: bool = True, *, session: "Session") -> Optional[SUPPORTED_SIGN_URL_SERVICES_LITERAL]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: Literal['sign_url'], use_cache: bool = True) -> Optional[SUPPORTED_SIGN_URL_SERVICES_LITERAL]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_STR', use_cache: bool = True) -> Optional[str]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_STR', use_cache: bool = True, *, session: "Session") -> Optional[str]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_BOOL', use_cache: bool = True) -> Optional[bool]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_BOOL', use_cache: bool = True, *, session: "Session") -> Optional[bool]:
+    ...
 
 
 @read_session
@@ -1290,7 +1332,7 @@ def add_protocol(
             if domain not in utils.rse_supported_protocol_domains():
                 raise exception.RSEProtocolDomainNotSupported(f"The protocol domain '{domain}' is not defined in the schema.")
             for op in parameter['domains'][domain]:
-                if op not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
+                if op not in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = parameter['domains'][domain][op]
@@ -1414,7 +1456,7 @@ def _format_get_rse_protocols(
             'verify_checksum': verify_checksum if verify_checksum is not None else True,
             'volatile': _rse['volatile']}
 
-    for op in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
+    for op in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
         info['%s_protocol' % op] = 1  # 1 indicates the default protocol
 
     for row in db_protocols:
@@ -1501,7 +1543,7 @@ def update_protocols(
             if domain not in utils.rse_supported_protocol_domains():
                 raise exception.RSEProtocolDomainNotSupported(f"The protocol domain '{domain}' is not defined in the schema.")
             for op in data['domains'][domain]:
-                if op not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
+                if op not in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = data['domains'][domain][op]
@@ -1869,7 +1911,7 @@ def determine_scope_for_rse(
         # a base which should be removed from the prefix (in order for '/' to
         # mean the entire resource associated with that issuer).
         prefix = protocol['prefix']
-        if base_path := get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH):
+        if base_path := get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH):  # type: ignore (session parameter missing)
             prefix = prefix.removeprefix(base_path)
         filtered_prefixes.add(prefix)
     all_scopes = [f'{s}:{p}' for s in scopes for p in filtered_prefixes] + list(extra_scopes)

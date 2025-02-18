@@ -21,7 +21,7 @@ from rucio.common.config import config_get, config_has_section
 from rucio.common.exception import ConfigNotFound
 
 if TYPE_CHECKING:
-    from rucio.common.types import IPDict
+    from rucio.common.types import IPWithLocationDict
 
 
 def is_client() -> bool:
@@ -66,7 +66,7 @@ def get_client_vo() -> str:
     return vo
 
 
-def detect_client_location() -> "IPDict":
+def detect_client_location() -> "IPWithLocationDict":
     """
     Normally client IP will be set on the server side (request.remote_addr)
     Here setting ip on the one seen by the host itself. There is no connection

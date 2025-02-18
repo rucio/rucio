@@ -18,7 +18,7 @@ import sys
 
 from setuptools import setup
 
-if sys.version_info < (3, 9):
+if sys.version_info < (3, 9):  # noqa: UP036 (pending https://github.com/rucio/rucio/issues/6971)
     print('ERROR: Rucio Client requires at least Python 3.9 to run.')
     sys.exit(1)
 
@@ -32,7 +32,9 @@ install_requires, extras_require = match_define_requirements('client', clients_r
 
 # Arguments to the setup script to build Basic/Lite distributions
 name = 'rucio-clients'
-packages = ['rucio', 'rucio.client', 'rucio.common', 'rucio.common.schema',
+packages = ['rucio', 'rucio.client',
+            'rucio.client.commands', 'rucio.client.commands.bin_legacy',
+            'rucio.common', 'rucio.common.schema',
             'rucio.rse.protocols', 'rucio.rse']
 description = "Rucio Client Lite Package"
 data_files = [

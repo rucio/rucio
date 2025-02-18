@@ -440,10 +440,14 @@ def db_session() -> "Iterator[scoped_session]":
 
 def __get_fixture_param(request: pytest.FixtureRequest) -> Any:
     fixture_param = getattr(request, "param", None)
-    if not fixture_param and request.instance:
+    try:
+        mark_iterable = request.instance.pytestmark
+    except AttributeError:
+        mark_iterable = None
+    if not fixture_param and mark_iterable:
         # Parametrize support is incomplete for legacy unittest test cases
         # Manually retrieve the parameters from the list of marks:
-        mark = next(iter(filter(lambda m: m.name == 'parametrize', request.instance.pytestmark)), None)
+        mark = next(iter(filter(lambda m: m.name == 'parametrize', mark_iterable)), None)
         if mark:
             fixture_param = mark.args[1][0]
     return fixture_param
@@ -472,10 +476,10 @@ def __create_in_memory_db_table(
     engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
 
     # Create a class which inherits from ModelBase. This will allow us to use the rucio-specific methods like .save()
-    DeclarativeObj = type('DeclarativeObj{}'.format(name), (ModelBase,), {})
+    DeclarativeObj = type('DeclarativeObj{}'.format(name), (ModelBase,), {})  # noqa: N806
     # Create a new declarative base and map the previously created object into the base
     mapper_registry = registry()
-    InMemoryBase = mapper_registry.generate_base(name='InMemoryBase{}'.format(name))
+    InMemoryBase = mapper_registry.generate_base(name='InMemoryBase{}'.format(name))  # noqa: N806
     table_args = tuple(columns) + tuple(kwargs.get('table_args', ())) + (
         Column("created_at", DateTime, default=datetime.datetime.utcnow),
         Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
@@ -512,7 +516,7 @@ def message_mock() -> "Iterator[None]":
     from rucio.common.utils import generate_uuid
     from rucio.db.sqla.models import GUID, CheckConstraint, Index, PrimaryKeyConstraint, String, Text
 
-    InMemoryMessage = __create_in_memory_db_table(
+    in_memory_message = __create_in_memory_db_table(
         'message_' + generate_uuid(),
         Column('id', GUID(), default=generate_uuid),
         Column('event_type', String(256)),
@@ -525,7 +529,7 @@ def message_mock() -> "Iterator[None]":
                     Index('MESSAGES_SERVICES_IDX', 'services', 'event_type'))
     )
 
-    with mock.patch('rucio.core.message.Message', new=InMemoryMessage):
+    with mock.patch('rucio.core.message.Message', new=in_memory_message):
         yield
 
 
@@ -555,7 +559,7 @@ def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
     if params:
         table_content = params.get("table_content", table_content)
 
-    InMemoryConfig = __create_in_memory_db_table(
+    in_memory_config = __create_in_memory_db_table(
         'configs_' + generate_uuid(),
         Column('section', String(128)),
         Column('opt', String(128)),
@@ -566,11 +570,27 @@ def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
     # Fill the table with the requested mock data
     session = get_session()()
     for section, option, value in (table_content or []):
-        InMemoryConfig(section=section, opt=option, value=value).save(flush=True, session=session)
+        in_memory_config(section=section, opt=option, value=value).save(flush=True, session=session)
     session.commit()
 
-    with mock.patch('rucio.core.config.models.Config', new=InMemoryConfig):
+    with mock.patch('rucio.core.config.models.Config', new=in_memory_config):
         yield
+
+
+@pytest.fixture(scope="session")
+def temp_config_file() -> "Iterator[ConfigParser]":
+    """
+    Session-scoped fixture that generates a temporary file and sets it as the Rucio config file.
+    Used to test when no Rucio config file is already present.
+    """
+    import tempfile
+
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(delete=True) as temp:
+        # Set the environment variable to the name of the temporary file
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setenv("RUCIO_CONFIG", temp.name)
+            yield mp
 
 
 @pytest.fixture
@@ -653,3 +673,36 @@ def metrics_mock() -> "Iterator[CollectorRegistry]":
             mock.patch('rucio.core.monitor.TIMINGS', new={}), \
             mock.patch('prometheus_client.values.ValueClass', new=values.MutexValue):
         yield registry
+
+
+@pytest.fixture(scope='class')
+def scope_and_rse(mock_scope, test_scope):
+    from rucio.common.utils import execute
+
+    """
+    Check if xrd containers rses for xrootd are available in the testing environment.
+    :return: A tuple (scope, rse) for the rucio client where scope is mock/test and rse is a string.
+    """
+    cmd = "rucio rse list --rses 'test_container_xrd=True'"
+    print(cmd)
+    exitcode, out, err = execute(cmd)
+    print(out, err)
+    rses = out.split()
+    if len(rses) == 0:
+        return mock_scope, 'MOCK-POSIX'
+    return test_scope, rses[0]
+
+
+@pytest.fixture
+def rse_protocol() -> "Iterator[dict[str, Any]]":
+    yield {
+        "hostname": "example.com",
+        "scheme": "root",
+        "port": 1094,
+        "prefix": "//defdatadisk/rucio/",
+        "domains": {
+            "wan": {
+                "read": 1,
+            }
+        },
+    }

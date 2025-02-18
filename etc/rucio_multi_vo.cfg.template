@@ -60,7 +60,7 @@ default = sqlite:////tmp/rucio.db
 #default = oracle://_____________:___________@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT=______))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=_____________)))
 #schema=atlas_rucio  # only for cern oracle
 #default = mysql+pymysql://rucio:rucio@localhost/rucio
-#default = postgresql://rucio:rucio@localhost/rucio
+#default = postgresql+psycopg://rucio:rucio@localhost/rucio
 pool_recycle=3600
 echo=0
 pool_reset_on_return=rollback
@@ -190,23 +190,6 @@ fts_servers = https://fts3-pilot.cern.ch:8446, https://fts3-devel.cern.ch:8446, 
 [auditor]
 cache = /opt/rucio/auditor-cache
 results = /opt/rucio/auditor-results
-
-[c3po]
-placement_algorithm = t2_free_space
-elastic_url = http://aianalytics01.cern.ch:9200
-redis_host = localhost
-redis_port = 6379
-
-[c3po-popularity]
-elastic_url = http://rucio-logger-prod-01.cern.ch:9200
-
-[c3po-site-mapper]
-panda_url = http://atlas-agis-api.cern.ch/request/pandaqueue/query/list/?json
-ddm_url = http://atlas-agis-api.cern.ch/request/ddmendpoint/query/list/?json
-
-[c3po-workload]
-panda_url = http://bigpanda.cern.ch/jobs/?category=analysis&jobstatus=running
-window = 604800
 
 [policy]
 #package = GenericMultiVORucioPolicy #doesn't exist
