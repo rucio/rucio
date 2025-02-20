@@ -499,8 +499,8 @@ def get_auth_oidc(
         auth_scope = " ".join(auth_scopes_default)
     else:
         _auth_scopes_requested = auth_scope_requested.split()
-        if not set(DEFAULT_ID_TOKEN_SCOPES).issubset(set(_auth_scopes_requested)):
-            CannotAuthenticate(f"Minimum required {DEFAULT_ID_TOKEN_SCOPES} is not requested")
+        if not set(auth_scopes_default).issubset(set(_auth_scopes_requested)):
+            _auth_scopes_requested.extend(scope for scope in auth_scopes_default if scope not in _auth_scopes_requested)
         if not set(EXTRA_OIDC_ACCESS_TOKEN_SCOPE).issubset(set(_auth_scopes_requested)):
             _auth_scopes_requested += EXTRA_OIDC_ACCESS_TOKEN_SCOPE
         auth_scope = " ".join(_auth_scopes_requested)
