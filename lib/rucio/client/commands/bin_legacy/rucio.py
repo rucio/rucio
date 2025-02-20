@@ -1671,7 +1671,9 @@ def list_rses(args, client, logger, console, spinner):
         spinner.start()
 
     rses = client.list_rses(args.rses)
-    if cli_config == 'rich':
+    if args.csv:
+        print(*(rse['rse'] for rse in rses), sep='\n')
+    elif cli_config == 'rich':
         table = generate_table([[rse['rse']] for rse in sorted(rses, key=lambda elem: elem['rse'])], headers=['RSE'], col_alignments=['left'])
         spinner.stop()
         print_output(table, console=console, no_pager=args.no_pager)
@@ -2713,6 +2715,7 @@ You can filter by account::
     list_rses_parser.set_defaults(function=list_rses)
     list_rses_parser.add_argument('--rses', dest='rses', action='store', help='The RSE filter expression. A comprehensive help about RSE expressions \
 can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/concepts/rse_expressions' + Color.END)
+    list_rses_parser.add_argument("--csv", action='store_true', help='Output a list of RSEs as a csv')
 
     # The list-suspicious-replicas command
     list_suspicious_replicas_parser = subparsers.add_parser('list-suspicious-replicas', help='Show the list of all replicas marked "suspicious".')

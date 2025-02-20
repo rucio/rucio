@@ -83,9 +83,11 @@ class RSE(CommandBase):
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--rses", "--rse-exp", dest="rses", help="RSE name or expression")
+        parser.add_argument("--csv", action='store_true', help="Output list of RSEs as a csv")
 
     def show_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--rse", "--rse-name", help="RSE name", required=True)
+        parser.add_argument("--csv", action='store_true', help="Output list of RSE property key and values as a csv")
 
     def list_(self):
         list_rses(self.args, self.client, self.logger, self.console, self.spinner)

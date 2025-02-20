@@ -327,7 +327,9 @@ def list_rses(args, client, logger, console, spinner):
         spinner.start()
 
     rses = client.list_rses()
-    if cli_config == 'rich':
+    if args.csv:
+        print(*(rse['rse'] for rse in rses), sep='\n')
+    elif cli_config == 'rich':
         table_data = [[rse['rse']] for rse in sorted(rses, key=lambda elem: elem['rse'])]
         table = generate_table(table_data, headers=['RSE'], col_alignments=['left'])
         spinner.stop()
@@ -1753,6 +1755,7 @@ def get_parser():
                                                       '\n'
                                                       '    $ rucio list-rses --rses \"tier=2&type=DATADISK\"\n'
                                                       '\n')
+    list_rse_parser.add_argument("--csv", action='store_true', help='Output a list of RSEs as a csv')
     list_rse_parser.set_defaults(which='list_rses')
 
     # The add_rse command
