@@ -205,6 +205,38 @@ class TestBinRucio:
         print(out, err)
         assert 'Added new scope to account: %s-%s\n' % (tmp_scp, tmp_acc) in out
 
+    def test_list_scopes(self):
+        """CLIENT(USER/ADMIN): List scope"""
+        # rucio-admin scope list filters out 'mock' - makes it impossible to verify a mock scope is included
+        tmp_account = account_name_generator()
+        exitcode, _, _ = execute(f'rucio-admin account add {tmp_account}')
+        assert exitcode == 0
+        tmp_scope = scope_name_generator()
+        exitcode, _, _ = execute(f'rucio-admin scope add --account {tmp_account} --scope {tmp_scope}')
+        assert exitcode == 0
+
+        cmd = "rucio-admin scope list"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+        # assert tmp_scope in out.split('\n')
+
+        cmd = "rucio-admin scope list --csv"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+        # assert tmp_scope in [o.rstrip('\n') for o in out.split(',')]
+
+        cmd = "rucio list-scopes"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert tmp_scope in out.split('\n')
+
+        cmd = "rucio list-scopes --csv"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert tmp_scope in out.split('\n')
+
     def test_add_rse(self):
         """CLIENT(ADMIN): Add RSE"""
         tmp_val = rse_name_generator()
