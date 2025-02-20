@@ -151,7 +151,9 @@ def list_accounts(args, client, logger, console, spinner):
         for key, value in [(_.split('=')[0], _.split('=')[1]) for _ in args.filters.split(',')]:
             filters[key] = value
     accounts = client.list_accounts(identity=args.identity, account_type=args.account_type, filters=filters)
-    if cli_config == 'rich':
+    if args.csv:
+        print(*(account['account'] for account in accounts), sep=',')
+    elif cli_config == 'rich':
         table = generate_table([[account['account']] for account in accounts], headers=['ACCOUNT'], col_alignments=['left'])
         spinner.stop()
         print_output(table, console=console, no_pager=args.no_pager)
@@ -1455,6 +1457,7 @@ def get_parser():
     list_account_parser.add_argument('--type', dest='account_type', action='store', help='Account Type (USER, GROUP, SERVICE)')
     list_account_parser.add_argument('--id', dest='identity', action='store', help='Identity (e.g. DN)')
     list_account_parser.add_argument('--filters', dest='filters', action='store', help='Filter arguments in form `key=value,another_key=next_value`')
+    list_account_parser.add_argument("--csv", action='store_true', help='List result as a csv')
     list_account_parser.set_defaults(which='list_accounts')
 
     # The list_account_attributes command
