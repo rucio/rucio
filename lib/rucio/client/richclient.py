@@ -15,7 +15,7 @@
 import logging
 import pydoc
 import re
-import subprocess
+import shutil
 import sys
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Union
@@ -309,16 +309,9 @@ def get_pager() -> 'Callable[[str], None]':
     :returns: pager
     """
     default_pager = 'less'
-    try:
-        result = subprocess.run([default_pager], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        less_available = result.returncode == 0
-    except Exception:
-        less_available = False
+    # Attempt to use the default pager if available.
+    if shutil.which(default_pager) is not None:
+        return lambda text: pydoc.pipepager(text, f'{default_pager} -FRSXKM')
 
-    def less_pager_function(text: str) -> None:
-        """Use the 'less' pager with -FRSXKM options."""
-        pydoc.pipepager(text, f'{default_pager} -FRSXKM')
-
-    if less_available:
-        return less_pager_function
+    # Fall back to pydoc.pager if the default pager is not available.
     return pydoc.pager
