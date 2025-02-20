@@ -495,7 +495,7 @@ def list_dids(args, client, logger, console, spinner):
         logger.error(e)
         return FAILURE
 
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching DIDs')
         spinner.start()
 
@@ -505,7 +505,13 @@ def list_dids(args, client, logger, console, spinner):
         else:
             table_data.append([f"{did['scope']}:{did['name']}", did['did_type']])
 
-    if cli_config == 'rich':
+    if args.csv:
+        if args.short:
+            print(*[did for did, _ in table_data], sep='\n')
+        else:
+            print(*[f"{did},{type_}" for did, type_ in table_data], sep='\n')
+
+    elif cli_config == 'rich':
         if args.short:
             table = generate_table([[did] for did, _ in table_data], headers=['SCOPE:NAME'], col_alignments=['left'])
         else:
@@ -667,7 +673,7 @@ def list_content(args, client, logger, console, spinner):
     """
 
     table_data = []
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching dataset contents')
         spinner.start()
 
@@ -679,7 +685,13 @@ def list_content(args, client, logger, console, spinner):
             else:
                 table_data.append([f"{content['scope']}:{content['name']}", content['type'].upper()])
 
-    if cli_config == 'rich':
+    if args.csv:
+        if args.short:
+            print(*[did for did, _ in table_data], sep='\n')
+        else:
+            print(*[f"{did},{type_}" for did, type_ in table_data], sep='\n')
+
+    elif cli_config == 'rich':
         if args.short:
             table = generate_table([[did] for did, _ in table_data], headers=['SCOPE:NAME'], col_alignments=['left'])
         else:
@@ -733,7 +745,7 @@ def list_parent_dids(args, client, logger, console, spinner):
     List parent data identifier.
     """
 
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching parent DIDs')
         spinner.start()
 
@@ -749,12 +761,16 @@ def list_parent_dids(args, client, logger, console, spinner):
                         dict_datasets[key].append(f"{rule['scope']}:{rule['name']}")
 
         for i, pfn in enumerate(dict_datasets):
-            if cli_config == 'rich':
+            if args.csv:
+                print(*[f"{pfn},{parent}" for parent in dict_datasets[pfn]], sep='\n')
+
+            elif cli_config == 'rich':
                 parent_tree = Tree('')
                 for parent in dict_datasets[pfn]:
                     parent_tree.add(parent)
                 table = generate_table([['PFN', pfn], ['Parents', parent_tree]], col_alignments=['left', 'left'], row_styles=['none'])
                 output.append(table)
+
             else:
                 print('PFN: ', pfn)
                 print('Parents: ', ','.join(dict_datasets[pfn]))
@@ -781,7 +797,9 @@ def list_parent_dids(args, client, logger, console, spinner):
                         dict_datasets[guid].append(f"{rule['scope']}:{rule['name']}")
 
         for i, guid in enumerate(dict_datasets):
-            if cli_config == 'rich':
+            if args.csv:
+                print(*[f"{guid},{parent}" for parent in dict_datasets[guid]], sep='\n')
+            elif cli_config == 'rich':
                 parent_tree = Tree('')
                 for parent in dict_datasets[guid]:
                     parent_tree.add(parent)
@@ -803,7 +821,9 @@ def list_parent_dids(args, client, logger, console, spinner):
             else:
                 table_data.append([f"{dataset['scope']}:{dataset['name']}", dataset['type']])
 
-        if cli_config == 'rich':
+        if args.csv:
+            print(*(f"{did},{type_}" for did, type_ in table_data), sep="\n")
+        elif cli_config == 'rich':
             table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
             spinner.stop()
             print_output(table, console=console, no_pager=args.no_pager)
@@ -862,7 +882,11 @@ def stat(args, client, logger, console, spinner):
     for i, did in enumerate(args.dids):
         scope, name = get_scope(did, client)
         info = client.get_did(scope=scope, name=name, dynamic_depth='DATASET')
-        if cli_config == 'rich':
+
+        if args.csv:
+            items = sorted(info.items())
+            print(*(f'{k},{v}' for k, v in items), sep='\n')
+        elif cli_config == 'rich':
             if i > 0:
                 output.append(Text(f'\nDID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
             elif len(args.dids) > 1:
@@ -2337,6 +2361,7 @@ You can filter by key/value, e.g.::
     ls_parser.add_argument('-r', '--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
     ls_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type.')
     ls_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
+    ls_parser.add_argument("--csv", action='store_true', help='Output as CSV, headers of DID name, Type (except when --short)')
     ls_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern.')
 
     list_parser = subparsers.add_parser('list-dids',
@@ -2380,6 +2405,7 @@ You can filter by key/value, e.g.::
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
     list_parser.add_argument('--filter', dest='filter', action='store', help='Single or logically combined filtering expression(s) either in the form <key><operator><value> or <value1><operator1><key><operator2><value2> (compound inequality). Keys are equivalent to columns in the DID table. Operators must belong to the set of (<=, >=, ==, !=, >, <). The following conventions for combining expressions are used: ";" represents the logical OR operator; "," represents the logical AND operator.')  # noqa: E501
     list_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
+    list_parser.add_argument("--csv", action='store_true', help='Output as CSV, headers of DID name, Type (except when --short)')
     list_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern')
 
     # The extended version of list_dids that goes through the plugin mechanism
@@ -2440,6 +2466,7 @@ You can filter by key/value, e.g.::
     list_parent_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
     list_parent_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
     list_parent_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
+    list_parent_parser.add_argument('--csv', action='store_true', help='Output as a csv, headers are either the pfn or guid, and the parent did')
 
     # argparse 2.7 does not allow aliases for commands, thus the list-parent-datasets is a copy&paste from list-parent-dids
     list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List parent DIDs for a given DID', description='List all parents Data IDentifier that contains the target Data IDentifier.',
@@ -2460,6 +2487,7 @@ You can filter by key/value, e.g.::
     list_parent_datasets_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
     list_parent_datasets_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
     list_parent_datasets_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
+    list_parent_datasets_parser.add_argument('--csv', action='store_true', help='Output as a csv')
 
     # The list-scopes command
     scope_list_parser = subparsers.add_parser('list-scopes', help='List all available scopes.',
@@ -2512,6 +2540,7 @@ You can filter by key/value, e.g.::
     list_content_parser.set_defaults(function=list_content)
     list_content_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
     list_content_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
+    list_content_parser.add_argument('--csv', action='store_true', help='Print as a CSV')
 
     # The list_content_history command
     list_content_history_parser = subparsers.add_parser('list-content-history', help='List the content history of a collection.')

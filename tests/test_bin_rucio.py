@@ -1682,6 +1682,58 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         assert re.search("Option recursive cannot be used with wildcards", err) is not None
 
+        # Verify it works as a csv
+        cmd = 'rucio list-dids {0}:{1} --recursive --short --csv'.format(tmp_scope, tmp_container_1)
+        exitcode, out, err = execute(cmd)
+        assert len([o for o in out.split('\n') if o != '']) == 3
+
+    @pytest.mark.dirty
+    def test_list_content_and_parent(self):
+        n_test = 5
+        tmp_dsn_name = 'Container' + rse_name_generator()
+        tmp_dsn_did = self.user + ':' + tmp_dsn_name
+        self.did_client.add_did(scope=self.user, name=tmp_dsn_name, did_type='CONTAINER')
+
+        files = [{'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'} for i in range(0, n_test)]
+        self.did_client.add_dids(files)
+
+        cmd = 'rucio attach {0}'.format(tmp_dsn_did)
+        for tmp_file in files:
+            cmd += ' {0}:{1}'.format(tmp_file['scope'], tmp_file['name'])
+        exitcode, _, _ = execute(cmd)
+        assert exitcode == 0
+
+        # standard
+        cmd = 'rucio list-content {0}'.format(tmp_dsn_did)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        # First and last are there
+        assert re.search(f"{self.user}:{files[0]['name']}", out) is not None
+        assert re.search(f"{self.user}:{files[-1]['name']}", out) is not None
+        # Check that it prints the type
+        assert "DATASET" in out
+
+        # just dids
+        cmd = 'rucio list-content {0} --short'.format(tmp_dsn_did)
+        exitcode, out, err = execute(cmd)
+        assert "DATASET" not in out  # Doesn't include the type
+
+        # And all as csv
+        cmd = 'rucio list-content {0} --short --csv'.format(tmp_dsn_did)
+        exitcode, out, err = execute(cmd)
+        assert len([o for o in out.split('\n') if o != '']) == n_test
+
+        # Show the parent of a given dataset
+        cmd = f'rucio list-parent-dids {self.user}:{files[0]["name"]}'
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert tmp_dsn_did in out
+
+        cmd = f'rucio list-parent-dids {self.user}:{files[0]["name"]} --csv'
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert out.split("\n")[0].split(',')[0] == tmp_dsn_did
+
     @pytest.mark.dirty
     def test_attach_many_dids(self):
         """ CLIENT(USER): Rucio attach many (>1000) DIDs """

@@ -308,6 +308,13 @@ def test_did_content(root_account, rucio_client):
     assert "ERROR" not in err
     assert container in out
 
+    # Test it can be found via csv
+    cmd = f"rucio did show --parent --did {scope}:{dataset} --csv"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert f"{scope}:{container}" in [o.rstrip('\n') for o in out.split(',')]
+
     cmd = f"rucio did content remove --did {scope}:{dataset} --from {scope}:{container}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
