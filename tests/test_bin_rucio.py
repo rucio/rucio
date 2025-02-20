@@ -123,6 +123,28 @@ class TestBinRucio:
         print(out, )
         assert 'Added new account: %s\n' % tmp_val in out
 
+    @pytest.mark.dirty
+    def test_list_account(self):
+        """CLIENT(ADMIN): List accounts"""
+        n_accounts = 5
+        tmp_accounts = [account_name_generator() for _ in range(n_accounts)]
+        for account in tmp_accounts:
+            execute(f'rucio-admin account add {account}')
+            execute(f'rucio-admin account add-attribute {account} --key test_list_account --value true')
+
+        cmd = 'rucio-admin account list'
+        exitcode, out, err = execute(cmd)
+        assert tmp_accounts[0] in out
+        assert tmp_accounts[-1] in out  # Test by induction
+
+        cmd = "rucio-admin account list --filter test_list_account=true"
+        exitcode, out, err = execute(cmd)
+        assert set([o for o in out.split("\n") if o != '']) == set(tmp_accounts)  # There's a little '' printed after
+
+        cmd = "rucio-admin account list --filter test_list_account=true --csv"
+        exitcode, out, err = execute(cmd)
+        assert set(o.rstrip('\n') for o in out.split(',')) == set(tmp_accounts)  # Last obj in list has a `\n` included
+
     def test_whoami(self):
         """CLIENT(USER): Rucio whoami"""
         cmd = 'rucio whoami'
