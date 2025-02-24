@@ -1196,3 +1196,13 @@ class ClientProtocolNotFound(RucioException):
         super(ClientProtocolNotFound, self).__init__(*args)
         self._message = f"Client protocol missing when connecting to host '{host}'.{' Allowed protocols: ' + ', '.join(protocols_allowed) if protocols_allowed else ''}"
         self.error_code = 113
+
+
+class ConnectionParameterNotFound(RucioException):
+    """
+    Thrown when a required connection parameter is missing.
+    """
+    def __init__(self, param: str, *args):
+        super(ConnectionParameterNotFound, self).__init__(*args)
+        self._message = f"Required connection parameter '{param}' is not provided."
+        self.error_code = 114
