@@ -235,7 +235,7 @@ def list_file_replicas(args, client, logger, console, spinner):
         print('The substitution parameter must equal --link="/pfn/dir:/dst/dir"')
         return FAILURE
 
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching file replicas')
         spinner.start()
 
@@ -261,12 +261,15 @@ def list_file_replicas(args, client, logger, console, spinner):
     if args.missing:
         for replica, rse in itertools.product(replicas, rses):
             if 'states' in replica and rse in replica['states'] and replica['states'].get(rse) != 'AVAILABLE':
-                if cli_config == 'rich':
+                if (cli_config == 'rich') and (not args.csv):
                     replica_state = f"[{CLITheme.REPLICA_STATE.get(ReplicaState[replica['states'].get(rse)].value, 'default')}]{ReplicaState[replica['states'].get(rse)].value}[/]"
                     table_data.append([replica['scope'], replica['name'], '({0}) {1}'.format(replica_state, rse)])
                 else:
                     table_data.append([replica['scope'], replica['name'], "({0}) {1}".format(ReplicaState[replica['states'].get(rse)].value, rse)])
-        if cli_config == 'rich':
+        if args.csv:
+            for row in table_data:
+                print(*row, sep=',')
+        elif cli_config == 'rich':
             table = generate_table(table_data, headers=['SCOPE', 'NAME', '(STATE) RSE'], col_alignments=['left', 'left', 'left'])
             spinner.stop()
             print_output(table, console=console, no_pager=args.no_pager)
@@ -292,7 +295,7 @@ def list_file_replicas(args, client, logger, console, spinner):
                 for pfn in replica['pfns']:
                     rse = replica['pfns'][pfn]['rse']
                     if replica['rses'].get(rse):
-                        if cli_config == 'rich':
+                        if (cli_config == 'rich') or (args.csv):
                             table_data.append([pfn])
                         else:
                             print(pfn)
@@ -301,11 +304,13 @@ def list_file_replicas(args, client, logger, console, spinner):
                 for pfn in replica['pfns']:
                     rse = replica['pfns'][pfn]['rse']
                     if replica['rses'][rse]:
-                        if cli_config == 'rich':
+                        if (cli_config == 'rich') and (not args.csv):
                             table_data.append([pfn])
                         else:
                             print(pfn)
-        if cli_config == 'rich':
+        if args.csv:
+            print(*(pfn[0] for pfn in table_data), sep='\n')
+        elif cli_config == 'rich':
             table = generate_table(table_data, headers=['PFN'], col_alignments=['left'])
             spinner.stop()
             print_output(table, console=console, no_pager=args.no_pager)
@@ -319,17 +324,22 @@ def list_file_replicas(args, client, logger, console, spinner):
                 for pfn in replica['pfns']:
                     rse = replica['pfns'][pfn]['rse']
                     if args.all_states:
-                        if cli_config == 'rich':
-                            replica_state = f"[{CLITheme.REPLICA_STATE.get(ReplicaState[replica['states'][rse]].value, 'default')}]{ReplicaState[replica['states'][rse]].value}[/]"
+                        replica_state = ReplicaState[replica['states'][rse]].value
+                        if args.csv:
+                            rse_string = [replica_state, rse, pfn]
+                        elif cli_config == 'rich':
+                            replica_state = f"[{CLITheme.REPLICA_STATE.get(replica_state, 'default')}]{replica_state}[/]"
                             # Less does not display hyperlinks well if the table is very wide.
                             if args.no_pager:
                                 rse_string = f'({replica_state}) {rse}: [u bright_blue link={pfn}]{pfn}[/]'
                             else:
                                 rse_string = f'({replica_state}) {rse}: [u bright_blue]{pfn}[/]'
                         else:
-                            rse_string = '({2}) {0}: {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
+                            rse_string = '({2}) {0}: {1}'.format(rse, pfn, replica_state)
                     else:
-                        if cli_config == 'rich':
+                        if args.csv:
+                            rse_string = [rse, pfn]
+                        elif cli_config == 'rich':
                             # Less does not display hyperlinks well if the table is very wide.
                             if args.no_pager:
                                 rse_string = f'{rse}: [u bright_blue link={pfn}]{pfn}[/]'
@@ -344,6 +354,9 @@ def list_file_replicas(args, client, logger, console, spinner):
                     else:
                         table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
 
+        if args.csv:
+            for row in table_data:
+                print(*row[:-1], *row[-1], sep=',')  # Last item in the row is of variable length, depending on other options.
         if cli_config == 'rich':
             table = generate_table(table_data, headers=header, col_alignments=['left', 'left', 'right', 'left', 'left'])
             spinner.stop()
@@ -2211,6 +2224,11 @@ To list the missing replica of a dataset of a given RSE-expression::
     list_file_replicas_parser.add_argument('--sort', dest='sort', default=None, action='store', help='Replica sort algorithm. Available options: geoip (default), random', required=False)
     list_file_replicas_parser.add_argument('--rses', dest='rses', default=None, action='store', help='The RSE filter expression. A comprehensive help about RSE expressions\
             can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/concepts/rse_expressions' + Color.END)
+    list_file_replicas_parser.add_argument(
+        '--csv',
+        action='store_true',
+        help='Display as csv, headers of scope, name filesize, adler32, rse, replica lfn (unless --short, --missing, or --pfn)'
+    )
 
     # The list-dataset-replicas command
     list_dataset_replicas_parser = subparsers.add_parser('list-dataset-replicas', help='List the dataset replicas.',

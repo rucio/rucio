@@ -2234,39 +2234,41 @@ class TestBinRucio:
 
     def test_rucio_list_file_replicas(self):
         """CLIENT(USER): List missing file replicas """
-        self.account_client.set_local_account_limit('root', self.def_rse, -1)
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
+        # This test assumes the scope already exists, not exactly the case
+        rse = self.def_rse
+        name = generate_uuid()
+        out = self.replica_client.add_replica(rse, self.user, name, 4, 'aaaaaaaa')
 
         # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value MARIOSPACEODYSSEY'.format(tmp_rse)
+        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value MARIOSPACEODYSSEY'.format(rse)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         # add rules
-        cmd = "rucio add-rule {0}:{1} 1 'spacetoken=MARIOSPACEODYSSEY'".format(self.user, tmp_file1[5:])
+        cmd = "rucio -a root add-rule {0}:{1} 1 'spacetoken=MARIOSPACEODYSSEY'".format(self.user, name)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(err)
         print(out)
 
-        cmd = 'rucio list-file-replicas {0}:{1} --rses "spacetoken=MARIOSPACEODYSSEY" --missing'.format(self.user, tmp_file1[5:])
+        cmd = 'rucio -a root list-file-replicas {0}:{1} --rses "spacetoken=MARIOSPACEODYSSEY" --missing'.format(self.user, name)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
-        assert tmp_file1[5:] in out
+        assert name[5:] in out
+
+        # List them out with csv
+        cmd = f'rucio -a root list-file-replicas {self.user}:{name} --csv'
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert name == out.split('\n')[0].split(',')[1]  # Second index is the name
+        pfn = out.split('\n')[0].split(',')[-1]  # pfn is the last index
+
+        cmd = f'rucio -a root list-file-replicas {self.user}:{name} --csv --pfn'
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert out.rstrip('\n') == pfn
 
     def test_rucio_create_rule_with_0_copies(self):
         """CLIENT(USER): The creation of a rule with 0 copies shouldn't be possible."""
