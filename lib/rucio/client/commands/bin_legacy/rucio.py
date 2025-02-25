@@ -1713,7 +1713,7 @@ def list_suspicious_replicas(args, client, logger, console, spinner):
     if args.nattempts:
         nattempts = args.nattempts
 
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching suspicious replicas')
         spinner.start()
 
@@ -1726,7 +1726,10 @@ def list_suspicious_replicas(args, client, logger, console, spinner):
     for rep in replicas:
         table_data.append([rep['rse'], rep['scope'], rep['created_at'], rep['cnt'], rep['name']])
 
-    if cli_config == 'rich':
+    if args.csv:
+        # Str convert required for datetime obj
+        print(*[','.join([str(r) for r in row]) for row in table_data], sep='\n')
+    elif cli_config == 'rich':
         table = generate_table(table_data, headers=['RSE EXPRESSION', 'SCOPE', 'CREATED AT', 'N-ATTEMPTS', 'FILE NAME'], col_alignments=['left', 'left', 'left', 'right', 'left'])
         spinner.stop()
         print_output(table, console=console, no_pager=args.no_pager)
@@ -2250,7 +2253,7 @@ To list the missing replica of a dataset of a given RSE-expression::
     list_dataset_replicas_parser.set_defaults(function=list_dataset_replicas)
     list_dataset_replicas_parser.add_argument(dest='dids', action='store', nargs='+', help='The name of the DID to search.')
     list_dataset_replicas_parser.add_argument('--deep', action='store_true', help='Make a deep check.')
-    list_dataset_replicas_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Comma Separated Value output.',)
+    list_dataset_replicas_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Output results as a ',)
 
     # The add-dataset command
     add_dataset_parser = subparsers.add_parser('add-dataset', help='Add a dataset to Rucio Catalog.',
@@ -2739,6 +2742,7 @@ can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/co
 can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/concepts/rse_expressions' + Color.END)
     list_suspicious_replicas_parser.add_argument('--younger_than', '--younger-than', new_option_string='--younger-than', dest='younger_than', action=StoreAndDeprecateWarningAction, help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00.')  # NOQA: E501
     list_suspicious_replicas_parser.add_argument('--nattempts', dest='nattempts', action='store', help='Minimum number of failed attempts to access a suspicious file.')
+    list_suspicious_replicas_parser.add_argument('--csv', action='store_true', help='Print output as csv, headers of rse expression, scope, created time, failed attemps, lfn')
 
     # The list-rses-attributes command
     list_rse_attributes_parser = subparsers.add_parser('list-rse-attributes', help='List the attributes of an RSE.', description='This command is useful to create RSE filter expressions.')
