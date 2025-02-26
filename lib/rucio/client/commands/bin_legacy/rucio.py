@@ -2042,6 +2042,7 @@ def add_lifetime_exception(args, client, logger, console, spinner):
                     else:
                         logger.info('%s:%s will be declared' % (scope, name))
                         datasets.append({'scope': scope, 'name': name})
+                        summary[4] += 1
 
     if not datasets:
         logger.error('Nothing to submit')
