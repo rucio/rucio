@@ -1987,7 +1987,8 @@ def add_lifetime_exception(args, client, logger, console, spinner):
         logger.error('inputfile is mandatory')
         return FAILURE
     with open(args.inputfile) as infile:
-        dids = list(set(line.strip() for line in infile))
+        # Deduplicate the content of the input file and ignore empty lines.
+        dids = set(did for line in infile if (did := line.strip()))
 
     dids_list = []
     containers = []
