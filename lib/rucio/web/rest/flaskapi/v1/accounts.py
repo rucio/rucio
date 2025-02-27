@@ -682,6 +682,13 @@ class Identities(ErrorHandlingMethodView):
         identity = param_get(parameters, 'identity')
         authtype = param_get(parameters, 'authtype')
         email = param_get(parameters, 'email')
+
+        issuer = request.environ.get('issuer')
+        vo = request.environ.get('vo')
+
+        if not issuer or not vo:
+            return 'Issuer and VO must be set.', 400
+
         try:
             add_account_identity(
                 identity_key=identity,
@@ -689,9 +696,9 @@ class Identities(ErrorHandlingMethodView):
                 account=account,
                 email=email,
                 password=param_get(parameters, 'password', default=None),
-                issuer=request.environ.get('issuer'),
+                issuer=issuer,
                 default=param_get(parameters, 'default', default=False),
-                vo=request.environ.get('vo'),
+                vo=vo,
             )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
@@ -788,8 +795,15 @@ class Identities(ErrorHandlingMethodView):
         parameters = json_parameters()
         identity = param_get(parameters, 'identity')
         authtype = param_get(parameters, 'authtype')
+
+        issuer = request.environ.get('issuer')
+        vo = request.environ.get('vo')
+
+        if not issuer or not vo:
+            return 'Issuer and VO must be set.', 400
+
         try:
-            del_account_identity(identity, authtype, account, request.environ.get('issuer'), vo=request.environ.get('vo'))
+            del_account_identity(identity, authtype, account, issuer, vo=vo)
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except (AccountNotFound, IdentityError) as error:
