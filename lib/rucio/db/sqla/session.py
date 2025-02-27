@@ -25,7 +25,6 @@ from threading import Lock
 from time import sleep
 from typing import TYPE_CHECKING, Any, Union
 
-from db.sqla.constants import DBSessionOperation
 from sqlalchemy import MetaData, create_engine, event, text
 from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, SQLAlchemyError, TimeoutError
 from sqlalchemy.orm import DeclarativeBase, Session, scoped_session, sessionmaker
@@ -35,6 +34,7 @@ from rucio.common.config import config_get
 from rucio.common.exception import DatabaseException, InputValidationError, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.utils import retrying
+from rucio.db.sqla.constants import DatabaseOperationType
 
 EXTRA_MODULES = import_extras(['MySQLdb', 'pymysql'])
 
@@ -510,14 +510,14 @@ def transactional_session(function: "Callable[P, R]") -> 'Callable':
           wait_fixed=500,
           stop_max_attempt_number=2)
 @contextmanager
-def db_session(operation: DBSessionOperation) -> "Iterator[Session]":
+def db_session(operation: DatabaseOperationType) -> "Iterator[Session]":
     session_scoped = get_session()
     session = session_scoped()
     session.begin()
 
     try:
         yield session
-        if operation is DBSessionOperation.WRITE:
+        if operation is DatabaseOperationType.WRITE:
             session.commit()
     except TimeoutError as error:
         session.rollback()
