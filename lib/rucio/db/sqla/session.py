@@ -16,6 +16,7 @@ import copy
 import logging
 import os
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from functools import update_wrapper
 from inspect import getfullargspec, isgeneratorfunction
@@ -24,6 +25,7 @@ from threading import Lock
 from time import sleep
 from typing import TYPE_CHECKING, Any, Union
 
+from db.sqla.constants import DBSessionOperation
 from sqlalchemy import MetaData, create_engine, event, text
 from sqlalchemy.exc import DatabaseError, DisconnectionError, OperationalError, SQLAlchemyError, TimeoutError
 from sqlalchemy.orm import DeclarativeBase, Session, scoped_session, sessionmaker
@@ -37,7 +39,7 @@ from rucio.common.utils import retrying
 EXTRA_MODULES = import_extras(['MySQLdb', 'pymysql'])
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
     from typing import Optional, ParamSpec, TypeVar
 
     from pymysql import Connection as MySQLConnection
@@ -499,3 +501,29 @@ def transactional_session(function: "Callable[P, R]") -> 'Callable':
         return result
 
     return _update_session_wrapper(new_funct, function)
+
+
+@retrying(retry_on_exception=retry_if_db_connection_error,
+          wait_fixed=500,
+          stop_max_attempt_number=2)
+@contextmanager
+def db_session(operation: DBSessionOperation) -> "Iterator[Session]":
+    session_scoped = get_session()
+    session = session_scoped()
+    session.begin()
+
+    try:
+        yield session
+        if operation is DBSessionOperation.WRITE:
+            session.commit()
+    except TimeoutError as error:
+        session.rollback()
+        raise DatabaseException(str(error))
+    except DatabaseError as error:
+        session.rollback()
+        raise DatabaseException(str(error))
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session_scoped.remove()
