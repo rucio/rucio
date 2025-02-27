@@ -74,8 +74,8 @@ class UserPass(ErrorHandlingMethodView):
         password = request.headers.get('X-Rucio-Password', default=None)
         email = request.headers.get('X-Rucio-Email', default=None)
 
-        if not username or not password:
-            return 'Username and Password must be set.', 400
+        if not username or not password or not email:
+            return 'Username, Email and Password must be set.', 400
 
         add_identity(username, 'userpass', email, password)
 
