@@ -184,6 +184,9 @@ class GSS(ErrorHandlingMethodView):
         gsscred = request.environ.get('REMOTE_USER')
         email = request.headers.get('X-Rucio-Email', default=None)
 
+        if not gsscred or not email:
+            return 'REMOTE_USER and email must be set.', 400
+
         add_identity(gsscred, 'gss', email=email)
         add_account_identity(
             identity_key=gsscred,
