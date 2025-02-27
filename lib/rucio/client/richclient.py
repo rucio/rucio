@@ -153,7 +153,7 @@ def setup_rich_logger(
     """
     # Helper method for cfg check.
     def _force_cfg_log_level(cfg_option: str) -> bool:
-        cfg_forced_modules = config_get('logging', cfg_option, raise_exception=False, default=None, clean_cached=True, check_config_table=False)
+        cfg_forced_modules = config_get('logging', cfg_option, raise_exception=False, clean_cached=True, check_config_table=False)
         if cfg_forced_modules and module_name is not None:
             if re.match(str(cfg_forced_modules), module_name):
                 return True
@@ -296,7 +296,7 @@ def get_cli_config() -> str:
 
     :returns: CLI type (Rich or tabulate)
     """
-    cli_type = config_get('experimental', 'cli', raise_exception=False, default='tabulate').lower()
+    cli_type = config_get('experimental', 'cli', default='tabulate').lower()
     if cli_type not in ['rich', 'tabulate']:
         cli_type = 'tabulate'
     return cli_type

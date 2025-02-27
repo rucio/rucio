@@ -171,25 +171,27 @@ def config_get(
     First it looks at the configuration file and, if it is not found, check in the config table only if it is called
     from a server/daemon (and if check_config_table is set).
 
+    Note: When a non-None default is provided, the raise_exception parameter is redundant and should be omitted.
+          Similarly, if raise_exception is True, it can be omitted since that is the default behavior.
+
     :param section: the named section.
     :param option: the named option.
-    :param raise_exception: Boolean to raise or not NoOptionError, NoSectionError or RuntimeError.
+    :param raise_exception: Boolean to raise or not NoOptionError, NoSectionError or RuntimeError;
+                            only used when no default is provided.
     :param default: the default value if not found.
     :param clean_cached: Deletes the cached config singleton instance if no config value is found
-    :param check_config_table: if not set, avoid looking at config table even if it is called from server/daemon
-    :param session: The database session in use. Only used if not found in config file and if it is called from
-                    server/daemon
-    :param use_cache: Boolean if the cache should be used. Only used if not found in config file and if it is called
-                      from server/daemon
-    :param expiration_time: Time after that the cached value gets ignored. Only used if not found in config file and if
-                            it is called from server/daemon
+    :param check_config_table: if not set, avoid looking at config table even if it is called from server/daemon;
+                               only used if not found in the config file.
+    :param session: The database session in use; only used if not found in the config file and if called from server/daemon
+    :param use_cache: Boolean if the cache should be used; only used if not found in the config file and if called from server/daemon
+    :param expiration_time: Time after which the cached value gets ignored; only used if not found in the config file and if called from server/daemon
     :param convert_type_fnc: A function used to parse the string config value into the desired destination type
 
     :returns: the configuration value.
 
-    :raises NoOptionError
-    :raises NoSectionError
-    :raises RuntimeError
+    :raises NoOptionError: if the option is not found and no default is provided.
+    :raises NoSectionError: if the section is not found and no default is provided.
+    :raises RuntimeError: if there is an error accessing the configuration.
     """
     try:
         return convert_type_fnc(get_config().get(section, option))
@@ -645,18 +647,22 @@ def __config_get_table(
     """
     Search for a section-option configuration parameter in the configuration table
 
+    Note: When a non-None default is provided, the raise_exception parameter is redundant and should be omitted.
+          Likewise, if raise_exception is True, it can be omitted since that is the default.
+
     :param section: the named section.
     :param option: the named option.
-    :param raise_exception: Boolean to raise or not ConfigNotFound.
+    :param raise_exception: Boolean to raise or not ConfigNotFound; only used when no default is provided.
     :param default: the default value if not found.
     :param session: The database session in use.
     :param use_cache: Boolean if the cache should be used.
-    :param expiration_time: Time after that the cached value gets ignored.
+    :param expiration_time: time after which the cached value gets ignored.
+    :param convert_type_fnc: a function used to convert the retrieved configuration value into the desired type.
 
     :returns: the configuration value from the config table.
 
-    :raises ConfigNotFound
-    :raises DatabaseException
+    :raises ConfigNotFound: if the configuration is not found and no default is provided.
+    :raises DatabaseException: if there is an error accessing the database.
     """
     try:
         from rucio.core.config import get as core_config_get

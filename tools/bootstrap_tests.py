@@ -92,8 +92,8 @@ def create_influxdb_database():
 if __name__ == '__main__':
     # Create config table including the long VO mappings
     reset_config_table()
-    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-        vo = {'vo': map_vo(config_get('client', 'vo', raise_exception=False, default='tst'))}
+    if config_get_bool('common', 'multi_vo', default=False):
+        vo = {'vo': map_vo(config_get('client', 'vo', default='tst'))}
         try:
             add_vo(new_vo=vo['vo'], issuer='super_root', description='A VO to test multi-vo features', email='N/A', vo='def')
         except Duplicate:

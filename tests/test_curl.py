@@ -27,7 +27,7 @@ class TestCurlRucio:
     '''
 
     vo_header = ''
-    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+    if config_get_bool('common', 'multi_vo', default=False):
         vo_header = '-H "X-Rucio-VO: %s"' % get_long_vo()
     cacert = config_get('test', 'cacert')
     usercert = config_get('test', 'usercert')

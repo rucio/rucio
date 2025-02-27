@@ -47,7 +47,7 @@ def add_messages(messages: "MessagesListType", *, session: "Session") -> None:
     :param session: The database session to use.
     """
     services = []
-    for service in config_get_list('hermes', 'services_list', raise_exception=False, default='activemq,email', session=session):
+    for service in config_get_list('hermes', 'services_list', default='activemq,email', session=session):
         try:
             HermesService(service.upper())
         except ValueError as err:

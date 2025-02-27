@@ -60,7 +60,7 @@ def add_account(
 
     # Reserve the name 'super_root' for multi_vo admins
     if account.external == 'super_root':
-        if not (vo == 'def' and config_get_bool('common', 'multi_vo', raise_exception=False, default=False)):
+        if not (vo == 'def' and config_get_bool('common', 'multi_vo', default=False)):
             raise exception.UnsupportedAccountName('The name "%s" cannot be used.' % account.external)
 
     new_account = models.Account(account=account, account_type=type_, email=email,

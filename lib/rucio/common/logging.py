@@ -382,7 +382,7 @@ class RucioFormatter(logging.Formatter):
 
 
 def rucio_log_formatter(process_name: Optional[str] = None) -> RucioFormatter:
-    config_logformat = config_get('common', 'logformat', raise_exception=False, default='%(asctime)s\t%(name)s\t%(process)d\t%(levelname)s\t%(message)s')
+    config_logformat = config_get('common', 'logformat', default='%(asctime)s\t%(name)s\t%(process)d\t%(levelname)s\t%(message)s')
     output_json = config_get_bool('common', 'logjson', default=False)
     additional_fields: 'Mapping[ECS_FIELDS, str]' = {}
     if process_name:
@@ -395,7 +395,7 @@ def setup_logging(application: Optional["Flask"] = None, process_name: Optional[
     Configures the logging by setting the output stream to stdout and
     configures log level and log format.
     """
-    config_loglevel = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
+    config_loglevel = getattr(logging, config_get('common', 'loglevel', default='DEBUG').upper())
 
     stdouthandler = logging.StreamHandler(stream=sys.stdout)
     stdouthandler.setFormatter(rucio_log_formatter(process_name=process_name))
