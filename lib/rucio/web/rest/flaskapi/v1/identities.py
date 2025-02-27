@@ -130,6 +130,9 @@ class X509(ErrorHandlingMethodView):
         dn = request.environ.get('SSL_CLIENT_S_DN')
         email = request.headers.get('X-Rucio-Email', default=None)
 
+        if not dn or not email:
+            return 'SSL_CLIENT_S_DN and email must be set.', 400
+
         add_identity(dn, 'x509', email=email)
         add_account_identity(
             identity_key=dn,
