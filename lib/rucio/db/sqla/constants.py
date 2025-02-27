@@ -201,6 +201,6 @@ class TransferLimitDirection(Enum):
     DESTINATION = 'D'
 
 
-class DBSessionOperation(Enum):
+class DatabaseOperationType(Enum):
     READ = 'read'
     WRITE = 'write'
