@@ -502,10 +502,7 @@ def test_reaper_without_rse_usage(vo, caches_mock):
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
-@pytest.mark.parametrize("file_config_mock", [
-    {"overrides": [('oidc', 'admin_issuer', 'indigoiam')]},
-], indirect=True)
-def test_deletion_with_tokens(vo, did_factory, root_account, caches_mock, file_config_mock):
+def test_deletion_with_tokens(vo, did_factory, root_account, caches_mock):
     rse_name = 'WEB1'
     did = did_factory.upload_test_file(rse_name)
     for rule in list(rule_core.list_associated_rules_for_file(**did)):
