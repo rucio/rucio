@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import sys
 from dataclasses import dataclass
@@ -161,6 +162,7 @@ class Default(protocol.RSEProtocol):
             :raises RSEAccessDenied
         """
         credentials = credentials or {}
+        using_presigned_urls = self.rse['sign_url'] is not None
         try:
             parse_url = urlparse(self.path2pfn(''))
             self.server = f'{parse_url.scheme}://{parse_url.netloc}'
@@ -177,23 +179,29 @@ class Default(protocol.RSEProtocol):
         except KeyError:
             self.auth_type = 'cert'
 
-        try:
-            self.cert = credentials['cert']
-        except KeyError:
-            x509 = os.getenv('X509_USER_PROXY')
-            if not x509:
-                # Trying to get the proxy from the default location
-                proxy_path = '/tmp/x509up_u%s' % os.geteuid()
-                if os.path.isfile(proxy_path):
-                    self.cert = (proxy_path, proxy_path)
-                elif self.auth_token:
-                    # If no proxy is found, we set the cert to None and use the auth_token
-                    self.cert = None
-                    pass
+        if using_presigned_urls:
+            # Suppress all authentication, otherwise S3 servers will reject
+            # requests.
+            self.cert = None
+            self.auth_token = None
+        else:
+            try:
+                self.cert = credentials['cert']
+            except KeyError:
+                x509 = os.getenv('X509_USER_PROXY')
+                if not x509:
+                    # Trying to get the proxy from the default location
+                    proxy_path = '/tmp/x509up_u%s' % os.geteuid()
+                    if os.path.isfile(proxy_path):
+                        self.cert = (proxy_path, proxy_path)
+                    elif self.auth_token:
+                        # If no proxy is found, we set the cert to None and use the auth_token
+                        self.cert = None
+                        pass
+                    else:
+                        raise exception.RSEAccessDenied('X509_USER_PROXY is not set')
                 else:
-                    raise exception.RSEAccessDenied('X509_USER_PROXY is not set')
-            else:
-                self.cert = (x509, x509)
+                    self.cert = (x509, x509)
 
         try:
             self.timeout = credentials['timeout']
@@ -205,11 +213,16 @@ class Default(protocol.RSEProtocol):
             self.session.headers.update({'Authorization': 'Bearer ' + self.auth_token})
         # "ping" to see if the server is available
         try:
-            res = self.session.request('HEAD', self.path2pfn(''), verify=False, timeout=self.timeout, cert=self.cert)
-            if res.status_code != 200:
-                raise exception.ServiceUnavailable('Problem to connect %s : %s' % (self.path2pfn(''), res.text))
+            test_url = self.path2pfn('')
+            res = self.session.request('HEAD', test_url, verify=False, timeout=self.timeout, cert=self.cert)
+            # REVISIT: this test checks some URL that doesn't correspond to
+            # any valid Rucio file.  Although this works for normal WebDAV
+            # endpoints, it fails for endpoints using presigned URLs.  As a
+            # work-around, accept 4xx status codes when using presigned URLs.
+            if res.status_code != 200 and not (using_presigned_urls and res.status_code < 500):
+                raise exception.ServiceUnavailable('Bad status code %s %s : %s' % (res.status_code, test_url, res.text))
         except requests.exceptions.ConnectionError as error:
-            raise exception.ServiceUnavailable('Problem to connect %s : %s' % (self.path2pfn(''), error))
+            raise exception.ServiceUnavailable('Problem to connect %s : %s' % (test_url, error))
         except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
 
@@ -552,3 +565,30 @@ class Default(protocol.RSEProtocol):
             return totalsize, unusedsize
         except Exception as error:
             raise exception.ServiceUnavailable(error)
+
+
+class NoRename(Default):
+    """ Implementing access to RSEs using the WebDAV protocol but without
+    renaming files on upload/download. Necessary for some storage endpoints.
+    """
+
+    def __init__(self, protocol_attr, rse_settings, logger=logging.log):
+        """ Initializes the object with information about the referred RSE.
+
+            :param protocol_attr:  Properties of the requested protocol.
+            :param rse_settings:   The RSE settings.
+            :param logger:         Optional decorated logger that can be passed from the calling daemons or servers.
+        """
+        super(NoRename, self).__init__(protocol_attr, rse_settings, logger=logger)
+        self.renaming = False
+        self.attributes.pop('determinism_type', None)
+
+    def rename(self, pfn, new_pfn):
+        """ Allows to rename a file stored inside the connected RSE.
+
+            :param pfn:      Current physical file name
+            :param new_pfn  New physical file name
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+        """
+        raise NotImplementedError
