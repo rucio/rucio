@@ -643,6 +643,16 @@ def test_rule(rucio_client, mock_scope):
     assert exitcode == 0
     assert "ERROR" not in err
 
+    cmd = f"rucio rule history --did {scope}:{name}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
+    cmd = f"rucio rule history --did {scope}:{name} --csv"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
 
 def test_scope():
     new_scope = scope_name_generator()
