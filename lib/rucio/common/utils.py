@@ -232,7 +232,7 @@ def str_to_date(string: str) -> Optional[datetime.datetime]:
 def val_to_space_sep_str(vallist: list[str]) -> str:
     """ Converts a list of values into a string of space separated values
 
-    :param vallist: the list of values to to convert into string
+    :param vallist: the list of values to convert into string
     :return: the string of space separated values or the value initially passed as parameter
     """
     try:
@@ -240,7 +240,7 @@ def val_to_space_sep_str(vallist: list[str]) -> str:
             return str(" ".join(vallist))
         else:
             return str(vallist)
-    except:
+    except Exception:
         return ''
 
 
@@ -1669,3 +1669,20 @@ def deep_merge_dict(source: dict, destination: dict) -> dict:
             destination[key] = value
 
     return destination
+
+
+def is_method_overridden(obj, base_cls, method_name):
+    """
+    Return True if `obj` (an instance of a subclass of `base_cls`) has overridden the given method_name from base_cls.
+    That is, `type(obj).<method_name>` is not the same function object as `base_cls.<method_name>`.
+
+    :param obj:         An instance of (a subclass of) base_cls.
+    :param base_cls:    The base class which may define the method.
+    :param method_name: Name of the method (str) to check.
+    :returns:           Boolean, True if the subclass provides a real override.
+    """
+    if not hasattr(obj, method_name):
+        return False
+    if getattr(type(obj), method_name, None) is getattr(base_cls, method_name, None):  # Caring for bound/unbound cases
+        return False
+    return True
