@@ -151,6 +151,12 @@ docstring-parser==0.11
     # via pydoc-markdown
 dogpile-cache==1.2.2
     # via -r requirements.server.txt
+elastic-transport==8.15.1
+    # via
+    #   -r requirements.server.txt
+    #   elasticsearch
+elasticsearch==8.15.1
+    # via -r requirements.server.txt
 exceptiongroup==1.2.1
     # via pytest
 execnet==2.1.1

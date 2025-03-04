@@ -178,5 +178,7 @@ jobs:
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_did_meta_plugins.py::TestDidMetaMongo
       - name: Test external metadata plugin (postgres)
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_did_meta_plugins.py::TestDidMetaExternalPostgresJSON
+      - name: Test external metadata plugin (elasticsearch)
+        run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_did_meta_plugins.py::TestDidMetaElastic
       - name: Stop containers
         run: docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata --profile iam down

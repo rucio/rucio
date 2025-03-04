@@ -86,6 +86,7 @@ server_requirements_table = {
     ],
     'oracle': ['cx_oracle'],
     'mongo': ['pymongo'],
+    'elastic': ['elasticsearch'],
     'postgresql': ['psycopg[binary,pool]'],
     'mysql': ['PyMySQL'],
     'kerberos': [
