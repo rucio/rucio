@@ -205,7 +205,6 @@ class RSEProtocol(ABC):
 
         return ret
 
-    @abstractmethod
     def exists(self, path):
         """
             Checks if the requested file is known by the referred RSE.

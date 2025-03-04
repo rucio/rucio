@@ -68,17 +68,6 @@ class Default(protocol.RSEProtocol):
         """
         return ''.join([self.rse['scheme'], '://%s' % self.rse['hostname'], path])
 
-    def exists(self, pfn):
-        """ Checks if the requested file is known by the referred RSE.
-
-            :param pfn: Physical file name
-
-            :returns: True if the file exists, False if it doesn't
-
-            :raise  ServiceUnavailable
-        """
-        raise NotImplementedError
-
     def connect(self):
         """ Establishes the actual connection to the referred RSE.
 
@@ -139,7 +128,7 @@ class Default(protocol.RSEProtocol):
             name = pfn.split('/')[-1]
             if name not in target:
                 target = None
-        except:
+        except Exception:
             target = None
             pass
 
@@ -149,7 +138,7 @@ class Default(protocol.RSEProtocol):
             # requests preferable
             try:
                 rcode, etag_meta = requests_etag(pfn, 300)
-            except:
+            except Exception:
                 pass
             # fallback to davix
             if rcode != 207:
