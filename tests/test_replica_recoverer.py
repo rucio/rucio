@@ -69,28 +69,28 @@ class TestReplicaRecoverer:
 
         for rse in [self.rse4suspicious, self.rse4recovery]:
             # Upload files with scope "mock_scope"
-            cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3} {4} {5} {6} {7} {8}'.format(rse, mock_scope.external, self.tmp_file1, self.tmp_file2, self.tmp_file3, self.tmp_file4, self.tmp_file5, self.tmp_file6, self.tmp_file12)
+            cmd = 'rucio -v upload --legacy --rse {0} --scope {1} {2} {3} {4} {5} {6} {7} {8}'.format(rse, mock_scope.external, self.tmp_file1, self.tmp_file2, self.tmp_file3, self.tmp_file4, self.tmp_file5, self.tmp_file6, self.tmp_file12)
             exitcode, out, err = execute(cmd)
             print("mock_scope:", exitcode, out, err)
             # checking if Rucio upload went OK
             assert exitcode == 0
 
             # Upload files with scope "scope_declarebad"
-            cmd = 'rucio -v upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(rse, self.scope_declarebad.external, self.tmp_file7, self.tmp_file9, self.tmp_file11, self.tmp_file13)
+            cmd = 'rucio -v upload --legacy --rse {0} --scope {1} {2} {3} {4} {5}'.format(rse, self.scope_declarebad.external, self.tmp_file7, self.tmp_file9, self.tmp_file11, self.tmp_file13)
             exitcode, out, err = execute(cmd)
             print("scope_declarebad:", exitcode, out, err)
             # checking if Rucio upload went OK
             assert exitcode == 0
 
             # Upload files with scope "scope_nopolicy"
-            cmd = 'rucio -v upload --rse {0} --scope {1} {2}'.format(rse, self.scope_nopolicy.external, self.tmp_file8)
+            cmd = 'rucio -v upload --legacy --rse {0} --scope {1} {2}'.format(rse, self.scope_nopolicy.external, self.tmp_file8)
             exitcode, out, err = execute(cmd)
             print("scope_nopolicy:", exitcode, out, err)
             # checking if Rucio upload went OK
             assert exitcode == 0
 
             # Upload files with scope "scope_nopolicy"
-            cmd = 'rucio -v upload --rse {0} --scope {1} {2}'.format(rse, self.scope_ignore.external, self.tmp_file10)
+            cmd = 'rucio -v upload --legacy --rse {0} --scope {1} {2}'.format(rse, self.scope_ignore.external, self.tmp_file10)
             exitcode, out, err = execute(cmd)
             print("scope_ignore:", exitcode, out, err)
             # checking if Rucio upload went OK
@@ -341,8 +341,8 @@ class TestReplicaRecoverer:
             # Any combination of datatype and scope can be given any action.
             # For the test, the actions for json_testentry1 and json_testentry2 have been arbitrarily chosen.
             # Entries that are higher up in the JSON file have priority over those that are below them.
-            json_HITS = {"action": "declare bad", "datatype": ["HITS"], "scope": []}
-            json_RAW = {"action": "ignore", "datatype": ["RAW"], "scope": []}
+            json_hits = {"action": "declare bad", "datatype": ["HITS"], "scope": []}
+            json_raw = {"action": "ignore", "datatype": ["RAW"], "scope": []}
             # json_testentry1 and json_testentry2 need to be above the other entries, otherwise
             # they will always "lose" to an entry with either "datatype": [] or "scope": [].
             # "datatype": [] and "scope": [] are wildcards; they stand for every datatype or scope.
@@ -353,8 +353,8 @@ class TestReplicaRecoverer:
             json_testentry5 = {"action": "ignore", "datatype": ["testtypeignore"], "scope": []}
             json_testentry6 = {"action": "declare bad", "datatype": [], "scope": [str(self.scope_declarebad)]}
             json_testentry7 = {"action": "ignore", "datatype": [], "scope": [str(self.scope_ignore)]}
-            json_data.append(json_HITS)
-            json_data.append(json_RAW)
+            json_data.append(json_hits)
+            json_data.append(json_raw)
             json_data.append(json_testentry1)
             json_data.append(json_testentry2)
             json_data.append(json_testentry3)
@@ -548,7 +548,7 @@ def test_vo_agnostic_rules(file_config_mock, replica_client, rse_factory, scope_
 
     replicas_without_types = [{'scope': scope_declarebad, 'name': tmp_file_delare_bad.name, 'type': DIDType.FILE}]
     for rse in [rse4suspicious, rse4recovery]:
-        cmd = f'rucio -v upload --rse {rse} --scope {scope_declarebad} {tmp_file_delare_bad}'
+        cmd = f'rucio -v upload --legacy --rse {rse} --scope {scope_declarebad} {tmp_file_delare_bad}'
         exitcode, _, _ = execute(cmd)
         assert exitcode == 0
 

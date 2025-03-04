@@ -25,8 +25,10 @@ from sqlalchemy.schema import CheckConstraint, ForeignKeyConstraint, Index, Prim
 from sqlalchemy.sql import Delete
 from sqlalchemy.types import LargeBinary
 
+# schema must be imported as a module to avoid circular imports with policy packages,
+# and it must be renamed to avoid conflicts with the policy package schema modules
+from rucio.common import schema as common_schema
 from rucio.common import utils
-from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope  # noqa: TCH001 (types are needed by SQLAlchemy)
 from rucio.db.sqla.constants import (
     AccountStatus,
@@ -317,7 +319,7 @@ class SoftModelBase(ModelBase):
 class Account(BASE, ModelBase):
     """Represents an account"""
     __tablename__ = 'accounts'
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     account_type: Mapped[AccountType] = mapped_column(Enum(AccountType, name='ACCOUNTS_TYPE_CHK',
                                                            create_constraint=True,
                                                            values_callable=lambda obj: [e.value for e in obj]))
@@ -336,7 +338,7 @@ class Account(BASE, ModelBase):
 class AccountAttrAssociation(BASE, ModelBase):
     """Represents an account"""
     __tablename__ = 'account_attr_map'
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     key: Mapped[str] = mapped_column(String(255))
     value: Mapped[Optional[Union[bool, str]]] = mapped_column(BooleanString(255))
     _table_args = (PrimaryKeyConstraint('account', 'key', name='ACCOUNT_ATTR_MAP_PK'),
@@ -367,7 +369,7 @@ class IdentityAccountAssociation(BASE, ModelBase):
     identity_type: Mapped[IdentityType] = mapped_column(Enum(IdentityType, name='ACCOUNT_MAP_ID_TYPE_CHK',
                                                              create_constraint=True,
                                                              values_callable=lambda obj: [e.value for e in obj]))
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     is_default: Mapped[bool] = mapped_column(Boolean(name='ACCOUNT_MAP_DEFAULT_CHK', create_constraint=True),
                                              default=False)
     _table_args = (PrimaryKeyConstraint('identity', 'identity_type', 'account', name='ACCOUNT_MAP_PK'),
@@ -380,8 +382,8 @@ class IdentityAccountAssociation(BASE, ModelBase):
 class Scope(BASE, ModelBase):
     """Represents a scope"""
     __tablename__ = 'scopes'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     is_default: Mapped[bool] = mapped_column(Boolean(name='SCOPES_DEFAULT_CHK', create_constraint=True),
                                              default=False)
     status: Mapped[ScopeStatus] = mapped_column(Enum(ScopeStatus, name='SCOPE_STATUS_CHK',
@@ -400,9 +402,9 @@ class Scope(BASE, ModelBase):
 class DataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
     __tablename__ = 'dids'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='DIDS_TYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]))
@@ -469,8 +471,8 @@ class DataIdentifier(BASE, ModelBase):
 class VirtualPlacements(BASE, ModelBase):
     """Represents virtual placements"""
     __tablename__ = 'virtual_placements'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     placements = mapped_column(JSON())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='VP_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='VP_FK')
@@ -479,8 +481,8 @@ class VirtualPlacements(BASE, ModelBase):
 
 class DidMeta(BASE, ModelBase):
     __tablename__ = 'did_meta'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     meta: Mapped[Optional[Union[str, dict[str, Any]]]] = mapped_column(JSON())
     did_type: Mapped[Optional[DIDType]] = mapped_column(Enum(DIDType, name='DID_META_DID_TYPE_CHK',
                                                              create_constraint=True,
@@ -492,8 +494,8 @@ class DidMeta(BASE, ModelBase):
 
 class DeletedDidMeta(BASE, ModelBase):
     __tablename__ = 'deleted_did_meta'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     did_type: Mapped[Optional[DIDType]] = mapped_column(Enum(DIDType, name='DEL_DID_META_DID_TYPE_CHK',
                                                              create_constraint=True,
                                                              values_callable=lambda obj: [e.value for e in obj]))
@@ -506,9 +508,9 @@ class DeletedDidMeta(BASE, ModelBase):
 class DeletedDataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
     __tablename__ = 'deleted_dids'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='DEL_DIDS_TYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]))
@@ -563,9 +565,9 @@ class DeletedDataIdentifier(BASE, ModelBase):
 class UpdatedDID(BASE, ModelBase):
     """Represents the recently updated dids"""
     __tablename__ = 'updated_dids'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     rule_evaluation_action: Mapped[DIDReEvaluation] = mapped_column(Enum(DIDReEvaluation, name='UPDATED_DIDS_RULE_EVAL_ACT_CHK',
                                                                          create_constraint=True,
                                                                          values_callable=lambda obj: [e.value for e in obj]))
@@ -578,15 +580,15 @@ class UpdatedDID(BASE, ModelBase):
 class BadReplica(BASE, ModelBase):
     """Represents the suspicious or bad replicas"""
     __tablename__ = 'bad_replicas'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    rse_id: Mapped[str] = mapped_column(GUID())
     reason: Mapped[Optional[str]] = mapped_column(String(255))
     state: Mapped[BadFilesStatus] = mapped_column(Enum(BadFilesStatus, name='BAD_REPLICAS_STATE_CHK',
                                                        create_constraint=True,
                                                        values_callable=lambda obj: [e.value for e in obj]),
                                                   default=BadFilesStatus.SUSPICIOUS)
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', 'state', 'created_at', name='BAD_REPLICAS_STATE_PK'),
@@ -608,7 +610,7 @@ class BadPFN(BASE, ModelBase):
                                                      values_callable=lambda obj: [e.value for e in obj]),
                                                 default=BadPFNStatus.SUSPICIOUS)
     reason: Mapped[Optional[str]] = mapped_column(String(255))
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     _table_args = (PrimaryKeyConstraint('path', 'state', name='BAD_PFNS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='BAD_PFNS_ACCOUNT_FK'))
@@ -617,13 +619,13 @@ class BadPFN(BASE, ModelBase):
 class QuarantinedReplica(BASE, ModelBase):
     """Represents the quarantined replicas"""
     __tablename__ = 'quarantined_replicas'
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    rse_id: Mapped[str] = mapped_column(GUID())
     path: Mapped[str] = mapped_column(String(1024))
     bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
     md5: Mapped[Optional[str]] = mapped_column(String(32))
     adler32: Mapped[Optional[str]] = mapped_column(String(8))
-    scope: Mapped[Optional[InternalScope]] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[Optional[str]] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    scope: Mapped[Optional[InternalScope]] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[Optional[str]] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     _table_args = (PrimaryKeyConstraint('rse_id', 'path', name='QURD_REPLICAS_STATE_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='QURD_REPLICAS_RSE_ID_FK'),
                    Index('QUARANTINED_REPLICAS_PATH_IDX', 'path', 'rse_id', unique=True))
@@ -632,13 +634,13 @@ class QuarantinedReplica(BASE, ModelBase):
 class QuarantinedReplicaHistory(BASE, ModelBase):
     """Represents the quarantined replicas history"""
     __tablename__ = 'quarantined_replicas_history'
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    rse_id: Mapped[str] = mapped_column(GUID())
     path: Mapped[str] = mapped_column(String(1024))
     bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
     md5: Mapped[Optional[str]] = mapped_column(String(32))
     adler32: Mapped[Optional[str]] = mapped_column(String(8))
-    scope: Mapped[Optional[InternalScope]] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[Optional[str]] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    scope: Mapped[Optional[InternalScope]] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[Optional[str]] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     __mapper_args__ = {
         'primary_key': [rse_id, path]  # Fake primary key for SQLA
@@ -674,10 +676,10 @@ class DIDMetaConventionsConstraint(BASE, ModelBase):
 class DataIdentifierAssociation(BASE, ModelBase):
     """Represents the map between containers/datasets and files"""
     __tablename__ = 'contents'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))  # dataset scope
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))    # dataset name
-    child_scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))  # Provenance scope
-    child_name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))    # Provenance name
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))  # dataset scope
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))    # dataset name
+    child_scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))  # Provenance scope
+    child_name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))    # Provenance name
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='CONTENTS_DID_TYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]))
@@ -702,10 +704,10 @@ class DataIdentifierAssociation(BASE, ModelBase):
 class ConstituentAssociation(BASE, ModelBase):
     """Represents the map between archives and constituents"""
     __tablename__ = 'archive_contents'
-    child_scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))    # Constituent file scope
-    child_name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))    # Constituent file name
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))          # Archive file scope
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))          # Archive file name
+    child_scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))    # Constituent file scope
+    child_name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))    # Constituent file name
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))          # Archive file scope
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))          # Archive file name
     bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
     adler32: Mapped[Optional[str]] = mapped_column(String(8))
     md5: Mapped[Optional[str]] = mapped_column(String(32))
@@ -725,10 +727,10 @@ class ConstituentAssociation(BASE, ModelBase):
 class ConstituentAssociationHistory(BASE, ModelBase):
     """Represents the map history between archives and constituents"""
     __tablename__ = 'archive_contents_history'
-    child_scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))    # Constituent file scope
-    child_name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))    # Constituent file name
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))          # Archive file scope
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))  # Archive file name
+    child_scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))    # Constituent file scope
+    child_name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))    # Constituent file name
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))          # Archive file scope
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))  # Archive file name
     bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
     adler32: Mapped[Optional[str]] = mapped_column(String(8))
     md5: Mapped[Optional[str]] = mapped_column(String(32))
@@ -743,10 +745,10 @@ class ConstituentAssociationHistory(BASE, ModelBase):
 class DataIdentifierAssociationHistory(BASE, ModelBase):
     """Represents the map history between containers/datasets and files"""
     __tablename__ = 'contents_history'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))          # dataset scope
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))  # dataset name
-    child_scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))          # Provenance scope
-    child_name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))  # Provenance name
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))          # dataset scope
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))  # dataset name
+    child_scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))          # Provenance scope
+    child_name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))  # Provenance name
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='CONTENTS_HIST_DID_TYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]))
@@ -772,7 +774,7 @@ class DataIdentifierAssociationHistory(BASE, ModelBase):
 class RSE(BASE, SoftModelBase):
     """Represents a Rucio Location"""
     __tablename__ = 'rses'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
     rse: Mapped[str] = mapped_column(String(255))
     vo: Mapped[str] = mapped_column(String(3), nullable=False, server_default='def')
     rse_type: Mapped[RSEType] = mapped_column(Enum(RSEType, name='RSES_TYPE_CHK',
@@ -810,7 +812,7 @@ class RSE(BASE, SoftModelBase):
 class RSELimit(BASE, ModelBase):
     """Represents RSE limits"""
     __tablename__ = 'rse_limits'
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    rse_id: Mapped[str] = mapped_column(GUID())
     name: Mapped[str] = mapped_column(String(255))
     value: Mapped[int] = mapped_column(BigInteger)
     _table_args = (PrimaryKeyConstraint('rse_id', 'name', name='RSE_LIMITS_PK'),
@@ -820,7 +822,7 @@ class RSELimit(BASE, ModelBase):
 class TransferLimit(BASE, ModelBase):
     """Represents limits used to throttle transfer requests"""
     __tablename__ = 'transfer_limits'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
     rse_expression: Mapped[str] = mapped_column(String(3000))
     activity: Mapped[Optional[str]] = mapped_column(String(50))
     direction: Mapped[TransferLimitDirection] = mapped_column(Enum(TransferLimitDirection, name='TRANSFER_LIMITS_DIRECTION_TYPE_CHK',
@@ -841,8 +843,8 @@ class TransferLimit(BASE, ModelBase):
 class RSETransferLimit(BASE, ModelBase):
     """Represents the binding of a transfer limit to an RSE as result of TransferLimit.rse_expression dereference"""
     __tablename__ = 'rse_transfer_limits'
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    limit_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    rse_id: Mapped[str] = mapped_column(GUID())
+    limit_id: Mapped[str] = mapped_column(GUID())
     _table_args = (PrimaryKeyConstraint('rse_id', 'limit_id', name='RSE_TRANSFER_LIMITS_PK'),
                    Index('RSE_TRANSFER_LIMITS_LIMIT_ID_IDX', 'limit_id', 'rse_id'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_TRANSFER_LIMITS_RSE_ID_FK'),
@@ -852,7 +854,7 @@ class RSETransferLimit(BASE, ModelBase):
 class RSEUsage(BASE, ModelBase):
     """Represents location usage"""
     __tablename__ = 'rse_usage'
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    rse_id: Mapped[str] = mapped_column(GUID())
     source: Mapped[str] = mapped_column(String(255))
     used: Mapped[Optional[int]] = mapped_column(BigInteger)
     free: Mapped[Optional[int]] = mapped_column(BigInteger)
@@ -864,7 +866,7 @@ class RSEUsage(BASE, ModelBase):
 class RSEUsageHistory(BASE, ModelBase):
     """Represents location usage history"""
     __tablename__ = 'rse_usage_history'
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    rse_id: Mapped[str] = mapped_column(GUID())
     source: Mapped[str] = mapped_column(String(255))
     used: Mapped[Optional[int]] = mapped_column(BigInteger)
     free: Mapped[Optional[int]] = mapped_column(BigInteger)
@@ -875,8 +877,8 @@ class RSEUsageHistory(BASE, ModelBase):
 class UpdatedRSECounter(BASE, ModelBase):
     """Represents the recently updated RSE counters"""
     __tablename__ = 'updated_rse_counters'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
+    rse_id: Mapped[str] = mapped_column(GUID())
     files: Mapped[int] = mapped_column(BigInteger)
     bytes: Mapped[int] = mapped_column(BigInteger)
     _table_args = (PrimaryKeyConstraint('id', name='UPDATED_RSE_CNTRS_PK'),
@@ -887,7 +889,7 @@ class UpdatedRSECounter(BASE, ModelBase):
 class RSEAttrAssociation(BASE, ModelBase):
     """Represents the map between RSEs and tags"""
     __tablename__ = 'rse_attr_map'
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    rse_id: Mapped[str] = mapped_column(GUID())
     key: Mapped[str] = mapped_column(String(255))
     value: Mapped[Optional[Union[bool, str]]] = mapped_column(BooleanString(255))
     _table_args = (PrimaryKeyConstraint('rse_id', 'key', name='RSE_ATTR_MAP_PK'),
@@ -898,7 +900,7 @@ class RSEAttrAssociation(BASE, ModelBase):
 class RSEProtocol(BASE, ModelBase):
     """Represents supported protocols of RSEs (Rucio Storage Elements)"""
     __tablename__ = 'rse_protocols'
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    rse_id: Mapped[str] = mapped_column(GUID())
     scheme: Mapped[str] = mapped_column(String(255))
     hostname: Mapped[str] = mapped_column(String(255), server_default='')  # For protocol without host e.g. POSIX on local file systems localhost is assumed as being default
     port: Mapped[int] = mapped_column(Integer, server_default='0')  # like host, for local protocol the port 0 is assumed to be default
@@ -921,7 +923,7 @@ class RSEProtocol(BASE, ModelBase):
 class RSEQoSAssociation(BASE, ModelBase):
     """Represents the mapping of RSEs"""
     __tablename__ = 'rse_qos_map'
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    rse_id: Mapped[str] = mapped_column(GUID())
     qos_policy: Mapped[str] = mapped_column(String(64))
     _table_args = (PrimaryKeyConstraint('rse_id', 'qos_policy', name='RSE_QOS_MAP_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='RSE_QOS_MAP_RSE_ID_FK'))
@@ -930,8 +932,8 @@ class RSEQoSAssociation(BASE, ModelBase):
 class AccountLimit(BASE, ModelBase):
     """Represents account limits"""
     __tablename__ = 'account_limits'
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
+    rse_id: Mapped[str] = mapped_column(GUID())
     bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
     _table_args = (PrimaryKeyConstraint('account', 'rse_id', name='ACCOUNT_LIMITS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_LIMITS_ACCOUNT_FK'),
@@ -941,7 +943,7 @@ class AccountLimit(BASE, ModelBase):
 class AccountGlobalLimit(BASE, ModelBase):
     """Represents account limits"""
     __tablename__ = 'account_glob_limits'
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     rse_expression: Mapped[str] = mapped_column(String(3000))
     bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
     _table_args = (PrimaryKeyConstraint('account', 'rse_expression', name='ACCOUNT_GLOBAL_LIMITS_PK'),
@@ -951,8 +953,8 @@ class AccountGlobalLimit(BASE, ModelBase):
 class AccountUsage(BASE, ModelBase):
     """Represents account usage"""
     __tablename__ = 'account_usage'
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
+    rse_id: Mapped[str] = mapped_column(GUID())
     files: Mapped[int] = mapped_column(BigInteger)
     bytes: Mapped[int] = mapped_column(BigInteger)
     _table_args = (PrimaryKeyConstraint('account', 'rse_id', name='ACCOUNT_USAGE_PK'),
@@ -963,8 +965,8 @@ class AccountUsage(BASE, ModelBase):
 class AccountUsageHistory(BASE, ModelBase):
     """Represents account usage history"""
     __tablename__ = 'account_usage_history'
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
+    rse_id: Mapped[str] = mapped_column(GUID())
     files: Mapped[int] = mapped_column(BigInteger)
     bytes: Mapped[int] = mapped_column(BigInteger)
     _table_args = (PrimaryKeyConstraint('account', 'rse_id', 'updated_at', name='ACCOUNT_USAGE_HISTORY_PK'),)
@@ -973,9 +975,9 @@ class AccountUsageHistory(BASE, ModelBase):
 class RSEFileAssociation(BASE, ModelBase):
     """Represents the map between locations and files"""
     __tablename__ = 'replicas'
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    rse_id: Mapped[str] = mapped_column(GUID())
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     bytes: Mapped[int] = mapped_column(BigInteger)
     md5: Mapped[Optional[str]] = mapped_column(String(32))
     adler32: Mapped[Optional[str]] = mapped_column(String(8))
@@ -993,7 +995,7 @@ class RSEFileAssociation(BASE, ModelBase):
                    CheckConstraint('STATE IS NOT NULL', name='REPLICAS_STATE_NN'),
                    CheckConstraint('bytes IS NOT NULL', name='REPLICAS_SIZE_NN'),
                    CheckConstraint('lock_cnt IS NOT NULL', name='REPLICAS_LOCK_CNT_NN'),
-                   Index('REPLICAS_PATH_IDX', 'path', mysql_length=get_schema_value('NAME_LENGTH')),
+                   Index('REPLICAS_PATH_IDX', 'path', mysql_length=common_schema.get_schema_value('NAME_LENGTH')),
                    Index('REPLICAS_STATE_IDX', 'state'),
                    Index('REPLICAS_RSE_ID_TOMBSTONE_IDX', 'rse_id', 'tombstone'))
 
@@ -1001,12 +1003,12 @@ class RSEFileAssociation(BASE, ModelBase):
 class CollectionReplica(BASE, ModelBase):
     """Represents replicas for datasets/collections"""
     __tablename__ = 'collection_replicas'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='COLLECTION_REPLICAS_TYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]))
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    rse_id: Mapped[str] = mapped_column(GUID())
     bytes: Mapped[int] = mapped_column(BigInteger)
     length: Mapped[int] = mapped_column(BigInteger)
     available_bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
@@ -1027,9 +1029,9 @@ class CollectionReplica(BASE, ModelBase):
 class UpdatedCollectionReplica(BASE, ModelBase):
     """Represents updates to replicas for datasets/collections"""
     __tablename__ = 'updated_col_rep'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='UPDATED_COL_REP_TYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]))
@@ -1043,9 +1045,9 @@ class UpdatedCollectionReplica(BASE, ModelBase):
 class RSEFileAssociationHistory(BASE, ModelBase):
     """Represents a short history of the deleted replicas"""
     __tablename__ = 'replicas_history'
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    rse_id: Mapped[str] = mapped_column(GUID())
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     bytes: Mapped[int] = mapped_column(BigInteger)
     _table_args = (PrimaryKeyConstraint('rse_id', 'scope', 'name', name='REPLICAS_HIST_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_HIST_RSE_ID_FK'),
@@ -1055,11 +1057,11 @@ class RSEFileAssociationHistory(BASE, ModelBase):
 class ReplicationRule(BASE, ModelBase):
     """Represents data identifier replication rules"""
     __tablename__ = 'rules'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
     subscription_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID())
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='RULES_DID_TYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]))
@@ -1128,11 +1130,11 @@ class ReplicationRule(BASE, ModelBase):
 class ReplicationRuleHistoryRecent(BASE, ModelBase):
     """Represents replication rules in the recent history"""
     __tablename__ = 'rules_hist_recent'
-    id: Mapped[uuid.UUID] = mapped_column(GUID())
+    id: Mapped[str] = mapped_column(GUID())
     subscription_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID())
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='RULES_HIST_RECENT_DIDTYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]))
@@ -1176,11 +1178,11 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
 class ReplicationRuleHistory(BASE, ModelBase):
     """Represents replication rules in the longterm history"""
     __tablename__ = 'rules_history'
-    id: Mapped[uuid.UUID] = mapped_column(GUID())
+    id: Mapped[str] = mapped_column(GUID())
     subscription_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID())
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='RULES_HISTORY_DIDTYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]))
@@ -1223,11 +1225,11 @@ class ReplicationRuleHistory(BASE, ModelBase):
 class ReplicaLock(BASE, ModelBase):
     """Represents replica locks"""
     __tablename__ = 'locks'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
-    rule_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    rule_id: Mapped[str] = mapped_column(GUID())
+    rse_id: Mapped[str] = mapped_column(GUID())
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
     state: Mapped[LockState] = mapped_column(Enum(LockState, name='LOCKS_STATE_CHK',
                                                   create_constraint=True,
@@ -1245,11 +1247,11 @@ class ReplicaLock(BASE, ModelBase):
 class DatasetLock(BASE, ModelBase):
     """Represents dataset locks"""
     __tablename__ = 'dataset_locks'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
-    rule_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    rule_id: Mapped[str] = mapped_column(GUID())
+    rse_id: Mapped[str] = mapped_column(GUID())
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     state: Mapped[LockState] = mapped_column(Enum(LockState, name='DATASET_LOCKS_STATE_CHK',
                                                   create_constraint=True,
                                                   values_callable=lambda obj: [e.value for e in obj]),
@@ -1270,9 +1272,9 @@ class DatasetLock(BASE, ModelBase):
 class UpdatedAccountCounter(BASE, ModelBase):
     """Represents the recently updated Account counters"""
     __tablename__ = 'updated_account_counters'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
+    rse_id: Mapped[str] = mapped_column(GUID())
     files: Mapped[int] = mapped_column(BigInteger)
     bytes: Mapped[int] = mapped_column(BigInteger)
     _table_args = (PrimaryKeyConstraint('id', name='UPDATED_ACCNT_CNTRS_PK'),
@@ -1284,18 +1286,18 @@ class UpdatedAccountCounter(BASE, ModelBase):
 class Request(BASE, ModelBase):
     """Represents a request for a single file with a third party service"""
     __tablename__ = 'requests'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
     request_type: Mapped[RequestType] = mapped_column(Enum(RequestType, name='REQUESTS_TYPE_CHK',
                                                            create_constraint=True,
                                                            values_callable=lambda obj: [e.value for e in obj]),
                                                       default=RequestType.TRANSFER)
-    scope: Mapped[Optional[InternalScope]] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[Optional[str]] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    scope: Mapped[Optional[InternalScope]] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[Optional[str]] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='REQUESTS_DIDTYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]),
                                               default=DIDType.FILE)
-    dest_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    dest_rse_id: Mapped[str] = mapped_column(GUID())
     source_rse_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID())
     attributes: Mapped[Optional[str]] = mapped_column(String(4000))
     state: Mapped[RequestState] = mapped_column(Enum(RequestState, name='REQUESTS_STATE_CHK',
@@ -1322,7 +1324,7 @@ class Request(BASE, ModelBase):
     estimated_transferred_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     staging_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     staging_finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    account: Mapped[Optional[InternalAccount]] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[Optional[InternalAccount]] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     last_processed_by: Mapped[Optional[str]] = mapped_column(String(64))
     last_processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
@@ -1345,9 +1347,9 @@ class Request(BASE, ModelBase):
 class TransferHop(BASE, ModelBase):
     """Represents source files for transfers"""
     __tablename__ = 'transfer_hops'
-    request_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    next_hop_request_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    initial_request_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    request_id: Mapped[str] = mapped_column(GUID())
+    next_hop_request_id: Mapped[str] = mapped_column(GUID())
+    initial_request_id: Mapped[str] = mapped_column(GUID())
     _table_args = (PrimaryKeyConstraint('request_id', 'next_hop_request_id', 'initial_request_id', name='TRANSFER_HOPS_PK'),
                    ForeignKeyConstraint(['initial_request_id'], ['requests.id'], name='TRANSFER_HOPS_INIT_REQ_ID_FK'),
                    ForeignKeyConstraint(['request_id'], ['requests.id'], name='TRANSFER_HOPS_REQ_ID_FK'),
@@ -1359,18 +1361,18 @@ class TransferHop(BASE, ModelBase):
 class RequestHistory(BASE, ModelBase):
     """Represents request history"""
     __tablename__ = 'requests_history'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
     request_type: Mapped[RequestType] = mapped_column(Enum(RequestType, name='REQUESTS_HIST_TYPE_CHK',
                                                            create_constraint=True,
                                                            values_callable=lambda obj: [e.value for e in obj]),
                                                       default=RequestType.TRANSFER)
-    scope: Mapped[Optional[InternalScope]] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[Optional[str]] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    scope: Mapped[Optional[InternalScope]] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[Optional[str]] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='REQUESTS_HIST_DIDTYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]),
                                               default=DIDType.FILE)
-    dest_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    dest_rse_id: Mapped[str] = mapped_column(GUID())
     source_rse_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID())
     attributes: Mapped[Optional[str]] = mapped_column(String(4000))
     state: Mapped[RequestState] = mapped_column(Enum(RequestState, name='REQUESTS_HIST_STATE_CHK',
@@ -1397,7 +1399,7 @@ class RequestHistory(BASE, ModelBase):
     estimated_transferred_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     staging_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     staging_finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    account: Mapped[Optional[InternalAccount]] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[Optional[InternalAccount]] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     priority: Mapped[Optional[int]] = mapped_column(Integer)
     transfertool: Mapped[Optional[str]] = mapped_column(String(64))
@@ -1411,11 +1413,11 @@ class RequestHistory(BASE, ModelBase):
 class Source(BASE, ModelBase):
     """Represents source files for transfers"""
     __tablename__ = 'sources'
-    request_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    dest_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    request_id: Mapped[str] = mapped_column(GUID())
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    rse_id: Mapped[str] = mapped_column(GUID())
+    dest_rse_id: Mapped[str] = mapped_column(GUID())
     url: Mapped[Optional[str]] = mapped_column(String(2048))
     bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
     ranking: Mapped[Optional[int]] = mapped_column(Integer())
@@ -1433,11 +1435,11 @@ class Source(BASE, ModelBase):
 class SourceHistory(BASE, ModelBase):
     """Represents history of source files for transfers"""
     __tablename__ = 'sources_history'
-    request_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
-    rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    dest_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    request_id: Mapped[str] = mapped_column(GUID())
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    rse_id: Mapped[str] = mapped_column(GUID())
+    dest_rse_id: Mapped[str] = mapped_column(GUID())
     url: Mapped[Optional[str]] = mapped_column(String(2048))
     bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
     ranking: Mapped[Optional[int]] = mapped_column(Integer())
@@ -1452,8 +1454,8 @@ class SourceHistory(BASE, ModelBase):
 class Distance(BASE, ModelBase):
     """Represents distance between rses"""
     __tablename__ = 'distances'
-    src_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    dest_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    src_rse_id: Mapped[str] = mapped_column(GUID())
+    dest_rse_id: Mapped[str] = mapped_column(GUID())
     distance: Mapped[Optional[int]] = mapped_column(Integer())
     _table_args = (PrimaryKeyConstraint('src_rse_id', 'dest_rse_id', name='DISTANCES_PK'),
                    ForeignKeyConstraint(['src_rse_id'], ['rses.id'], name='DISTANCES_SRC_RSES_FK'),
@@ -1464,11 +1466,11 @@ class Distance(BASE, ModelBase):
 class TransferStats(BASE, ModelBase):
     """Represents counters for transfer link usage"""
     __tablename__ = 'transfer_stats'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
     resolution: Mapped[int] = mapped_column(Integer)
     timestamp: Mapped[datetime] = mapped_column(DateTime)
-    dest_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
-    src_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    dest_rse_id: Mapped[str] = mapped_column(GUID())
+    src_rse_id: Mapped[str] = mapped_column(GUID())
     activity: Mapped[Optional[str]] = mapped_column(String(50))
     files_done: Mapped[int] = mapped_column(BigInteger)
     bytes_done: Mapped[int] = mapped_column(BigInteger)
@@ -1482,7 +1484,7 @@ class TransferStats(BASE, ModelBase):
 class Subscription(BASE, ModelBase):
     """Represents a subscription"""
     __tablename__ = 'subscriptions'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
     name: Mapped[str] = mapped_column(String(64))
     filter: Mapped[Optional[str]] = mapped_column(String(4000))
     replication_rules: Mapped[Optional[str]] = mapped_column(String(4000))
@@ -1492,7 +1494,7 @@ class Subscription(BASE, ModelBase):
                                                           values_callable=lambda obj: [e.value for e in obj]),
                                                      default=SubscriptionState.ACTIVE)
     last_processed: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow())
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     lifetime: Mapped[Optional[datetime]] = mapped_column(DateTime)
     comments: Mapped[Optional[str]] = mapped_column(String(4000))
     retroactive: Mapped[bool] = mapped_column(Boolean(name='SUBSCRIPTIONS_RETROACTIVE_CHK', create_constraint=True),
@@ -1509,7 +1511,7 @@ class Subscription(BASE, ModelBase):
 class SubscriptionHistory(BASE, ModelBase):
     """Represents a subscription history"""
     __tablename__ = 'subscriptions_history'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
     name: Mapped[str] = mapped_column(String(64))
     filter: Mapped[Optional[str]] = mapped_column(String(4000))
     replication_rules: Mapped[Optional[str]] = mapped_column(String(4000))
@@ -1519,7 +1521,7 @@ class SubscriptionHistory(BASE, ModelBase):
                                                           values_callable=lambda obj: [e.value for e in obj]),
                                                      default=SubscriptionState.ACTIVE)
     last_processed: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow())
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     lifetime: Mapped[Optional[datetime]] = mapped_column(DateTime)
     comments: Mapped[Optional[str]] = mapped_column(String(4000))
     retroactive: Mapped[bool] = mapped_column(Boolean(name='SUBS_HISTORY_RETROACTIVE_CHK', create_constraint=True),
@@ -1532,7 +1534,7 @@ class Token(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'tokens'
     token: Mapped[str] = mapped_column(String(3072))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     refresh_token: Mapped[Optional[str]] = mapped_column(String(3072), default=None)
     refresh: Mapped[bool] = mapped_column(Boolean(name='TOKENS_REFRESH_CHK', create_constraint=True),
                                           default=False)
@@ -1553,11 +1555,11 @@ class Token(BASE, ModelBase):
 class OAuthRequest(BASE, ModelBase):
     """Represents the authentication session parameters of OAuth 2.0 requests"""
     __tablename__ = 'oauth_requests'
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     state: Mapped[str] = mapped_column(String(50))
     nonce: Mapped[Optional[str]] = mapped_column(String(50))
     access_msg: Mapped[Optional[str]] = mapped_column(String(2048))
-    redirect_msg: Mapped[Optional[str]] = mapped_column(String(2048))
+    redirect_msg: Mapped[Optional[str]] = mapped_column(String(4000))
     refresh_lifetime: Mapped[Optional[int]] = mapped_column(Integer())
     ip: Mapped[Optional[str]] = mapped_column(String(39), nullable=True)
     expired_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow() + timedelta(seconds=600))  # 10 min lifetime by default
@@ -1570,7 +1572,7 @@ class OAuthRequest(BASE, ModelBase):
 class Message(BASE, ModelBase):
     """Represents the event messages"""
     __tablename__ = 'messages'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
     event_type: Mapped[str] = mapped_column(String(256))
     payload: Mapped[str] = mapped_column(String(4000))
     payload_nolimit: Mapped[Optional[str]] = mapped_column(Text)
@@ -1584,7 +1586,7 @@ class Message(BASE, ModelBase):
 class MessageHistory(BASE, ModelBase):
     """Represents the history of event messages"""
     __tablename__ = 'messages_history'
-    id: Mapped[uuid.UUID] = mapped_column(GUID())
+    id: Mapped[str] = mapped_column(GUID())
     event_type: Mapped[Optional[str]] = mapped_column(String(1024))
     payload: Mapped[Optional[str]] = mapped_column(String(4000))
     payload_nolimit: Mapped[Optional[str]] = mapped_column(Text)
@@ -1638,7 +1640,7 @@ class Heartbeat(BASE, ModelBase):
 class NamingConvention(BASE, ModelBase):
     """Represents naming conventions for name within a scope"""
     __tablename__ = 'naming_conventions'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
     regexp: Mapped[Optional[str]] = mapped_column(String(255))
     convention_type: Mapped[KeyType] = mapped_column(Enum(KeyType, name='CVT_TYPE_CHK',
                                                           create_constraint=True,
@@ -1650,13 +1652,13 @@ class NamingConvention(BASE, ModelBase):
 class LifetimeException(BASE, ModelBase):
     """Represents the exceptions to the lifetime model"""
     __tablename__ = 'lifetime_except'
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), default=utils.generate_uuid)
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='LIFETIME_EXCEPT_TYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]))
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     pattern: Mapped[Optional[str]] = mapped_column(String(255))
     comments: Mapped[Optional[str]] = mapped_column(String(4000))
     state: Mapped[LifetimeExceptionsState] = mapped_column(Enum(LifetimeExceptionsState, name='LIFETIME_EXCEPT_STATE_CHK',
@@ -1682,9 +1684,9 @@ class VO(BASE, ModelBase):
 class DidFollowed(BASE, ModelBase):
     """Represents the datasets followed by a user"""
     __tablename__ = 'dids_followed'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='DIDS_FOLLOWED_TYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]))
@@ -1700,9 +1702,9 @@ class DidFollowed(BASE, ModelBase):
 class FollowEvent(BASE, ModelBase):
     """Represents the events affecting the datasets which are followed"""
     __tablename__ = 'dids_followed_events'
-    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(get_schema_value('SCOPE_LENGTH')))
-    name: Mapped[str] = mapped_column(String(get_schema_value('NAME_LENGTH')))
-    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(get_schema_value('ACCOUNT_LENGTH')))
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     did_type: Mapped[DIDType] = mapped_column(Enum(DIDType, name='DIDS_FOLLOWED_EVENTS_TYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]))

@@ -62,15 +62,15 @@ class MultiprocessMutexValue(values.MultiProcessValue()):
         super().__init__(*args, **kwargs)
         self._lock = Lock()
 
-    def inc(self, amount):
+    def inc(self, amount: float) -> None:
         with self._lock:
             return super().inc(amount)
 
-    def set(self, value):
+    def set(self, value: float) -> None:
         with self._lock:
             return super().set(value)
 
-    def get(self):
+    def get(self) -> float:
         with self._lock:
             return super().get()
 
@@ -200,7 +200,7 @@ class _MultiMetric:
             return self
 
         return self.__class__(
-            prom=self._prom.labels(**labelkwargs),
+            prom=self._prom.labels(**labelkwargs),  # type: ignore
             statsd=self._statsd.format(**labelkwargs),
             documentation=self._documentation,
             labelnames=self._labelnames,
@@ -210,9 +210,9 @@ class _MultiMetric:
 
 class _MultiCounter(_MultiMetric):
 
-    def inc(self, delta=1):
+    def inc(self, delta: int = 1) -> None:
         delta = abs(delta)
-        self._prom.inc(delta)
+        self._prom.inc(delta)  # type: ignore
         if STATSD_CLIENT:
             STATSD_CLIENT.incr(self._statsd, delta)
 
@@ -222,8 +222,8 @@ class _MultiCounter(_MultiMetric):
 
 class _MultiGauge(_MultiMetric):
 
-    def set(self, value):
-        self._prom.set(value)
+    def set(self, value) -> None:
+        self._prom.set(value)  # type: ignore
         if STATSD_CLIENT:
             STATSD_CLIENT.gauge(self._statsd, value)
 
@@ -246,8 +246,8 @@ class _MultiTiming(_MultiMetric):
         self._histogram_buckets = tuple(buckets)
         super().__init__(statsd, prom, documentation, labelnames, registry)
 
-    def observe(self, value: float):
-        self._prom.observe(value)
+    def observe(self, value: float) -> None:
+        self._prom.observe(value)  # type: ignore
         if STATSD_CLIENT:
             STATSD_CLIENT.timing(self._statsd, value * 1000)
 

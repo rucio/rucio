@@ -57,7 +57,51 @@ class Client(AccountClient,
              DiracClient,
              LifetimeClient):
 
-    """Main client class for accessing Rucio resources. Handles the authentication."""
+    """
+        Main client class for accessing Rucio resources. Handles the authentication.
+
+        Note:
+            Used to access all client methods. Each entity client *can* be used to access methods, but using the main client class is recommended for ease of use.
+
+    For using general methods -
+
+
+    ```
+    from rucio.client import Client
+
+    client = Client()  # authenticate with config or environ settings
+    client.add_replication_rule(...)
+
+    client = Client(
+        rucio_host = "my_host",
+        auth_host = "my_auth_host",
+        account = "jdoe12345",
+        auth_type = "userpass",
+        creds = {
+            "username": "jdoe12345",
+            "password": "******",
+        }
+    ) # authenticate with kwargs
+    client.list_replicas(...)
+    ```
+
+    For using the upload and download clients -
+
+    ```
+    from rucio.client import Client
+    from rucio.client.uploadclient import UploadClient
+    from rucio.client.downloadclient import DownloadClient
+
+    client = Client(...) # Initialize a client using your preferred method
+
+    upload_client = UploadClient(client) # Pass forward the initialized client
+    upload_client.upload(items=...)
+
+    download_client = DownloadClient(client)
+    download_client.download_dids(items=...)
+    ```
+
+    """
 
     def __init__(self, **args):
         """

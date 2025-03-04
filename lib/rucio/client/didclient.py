@@ -92,7 +92,7 @@ class DIDClient(BaseClient):
             self,
             scope: str,
             name: str,
-            did_type: Literal['FILE', 'DATASET', 'CONTAINER'],
+            did_type: Literal['DATASET', 'CONTAINER'],
             statuses: Optional["Mapping[str, Any]"] = None,
             meta: Optional["Mapping[str, Any]"] = None,
             rules: Optional["Sequence[Mapping[str, Any]]"] = None,
@@ -105,7 +105,7 @@ class DIDClient(BaseClient):
 
         :param scope: The scope name.
         :param name: The data identifier name.
-        :param did_type: The data identifier type (file|dataset|container).
+        :param did_type: The data identifier type (dataset|container).
         :param statuses: Dictionary with statuses, e.g. {'monotonic':True}.
         :param meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
         :param rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
@@ -538,14 +538,16 @@ class DIDClient(BaseClient):
     def get_metadata_bulk(
             self,
             dids: "Sequence[Mapping[str, Any]]",
-            inherit: bool = False
+            inherit: bool = False,
+            plugin: str = "JSON",
     ) -> "Iterator[dict[str, Any]]":
         """
         Bulk get data identifier metadata
-        :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
         :param dids:               A list of dids.
+        :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
+        :param plugin:             The metadata plugin to query, 'ALL' for all available plugins
         """
-        data = {'dids': dids, 'inherit': inherit}
+        data = {'dids': dids, 'inherit': inherit, 'plugin': plugin}
         path = '/'.join([self.DIDS_BASEURL, 'bulkmeta'])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, type_='POST', data=dumps(data))

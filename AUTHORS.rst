@@ -67,6 +67,8 @@ Individual contributors to the source code
 - Aksel Lunde Aase <aksel.lunde.aase@gmail.com>, 2022
 - Elena Gazzarrini <gazzarrini.elena@gmail.com>, 2022-2023
 - Maximilian Linhoff, <maximilian.linhoff@tu-dortmund.de>, 2024
+- Eric Banzuzi, <eric.banzuzi@gmail.com>, 2024
+- Paul Millar, <paul.millar@desy.de>, 2025
 
 Organisations employing contributors
 ------------------------------------
@@ -95,3 +97,4 @@ Organisations employing contributors
 - University of Chicago (USA)
 - Purdue University (USA)
 - TU Dortmund University (Germany)
+- Deutsches Elektronen-Synchrotron DESY (Germany)

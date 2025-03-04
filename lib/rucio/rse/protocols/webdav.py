@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import sys
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any, Optional
 from urllib.parse import urlparse
+from xml.etree import ElementTree
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -96,7 +97,7 @@ class _PropfindFile:
     size: Optional[int]
 
     @classmethod
-    def from_xml_node(cls, node: ET.Element):
+    def from_xml_node(cls, node: ElementTree.Element):
         """Extract file properties from a `<{DAV:}response>` node."""
 
         xml_href = node.find('./{DAV:}href')
@@ -133,8 +134,8 @@ class _PropfindResponse:
         """
 
         try:
-            xml = ET.fromstring(document)  # noqa: S314
-        except ET.ParseError as ex:
+            xml = ElementTree.fromstring(document)  # noqa: S314
+        except ElementTree.ParseError as ex:
             raise ValueError("Couldn't parse XML document") from ex
 
         if xml.tag != '{DAV:}multistatus':
@@ -161,6 +162,7 @@ class Default(protocol.RSEProtocol):
             :raises RSEAccessDenied
         """
         credentials = credentials or {}
+        using_presigned_urls = self.rse['sign_url'] is not None
         try:
             parse_url = urlparse(self.path2pfn(''))
             self.server = f'{parse_url.scheme}://{parse_url.netloc}'
@@ -177,23 +179,29 @@ class Default(protocol.RSEProtocol):
         except KeyError:
             self.auth_type = 'cert'
 
-        try:
-            self.cert = credentials['cert']
-        except KeyError:
-            x509 = os.getenv('X509_USER_PROXY')
-            if not x509:
-                # Trying to get the proxy from the default location
-                proxy_path = '/tmp/x509up_u%s' % os.geteuid()
-                if os.path.isfile(proxy_path):
-                    self.cert = (proxy_path, proxy_path)
-                elif self.auth_token:
-                    # If no proxy is found, we set the cert to None and use the auth_token
-                    self.cert = None
-                    pass
+        if using_presigned_urls:
+            # Suppress all authentication, otherwise S3 servers will reject
+            # requests.
+            self.cert = None
+            self.auth_token = None
+        else:
+            try:
+                self.cert = credentials['cert']
+            except KeyError:
+                x509 = os.getenv('X509_USER_PROXY')
+                if not x509:
+                    # Trying to get the proxy from the default location
+                    proxy_path = '/tmp/x509up_u%s' % os.geteuid()
+                    if os.path.isfile(proxy_path):
+                        self.cert = (proxy_path, proxy_path)
+                    elif self.auth_token:
+                        # If no proxy is found, we set the cert to None and use the auth_token
+                        self.cert = None
+                        pass
+                    else:
+                        raise exception.RSEAccessDenied('X509_USER_PROXY is not set')
                 else:
-                    raise exception.RSEAccessDenied('X509_USER_PROXY is not set')
-            else:
-                self.cert = (x509, x509)
+                    self.cert = (x509, x509)
 
         try:
             self.timeout = credentials['timeout']
@@ -205,11 +213,16 @@ class Default(protocol.RSEProtocol):
             self.session.headers.update({'Authorization': 'Bearer ' + self.auth_token})
         # "ping" to see if the server is available
         try:
-            res = self.session.request('HEAD', self.path2pfn(''), verify=False, timeout=self.timeout, cert=self.cert)
-            if res.status_code != 200:
-                raise exception.ServiceUnavailable('Problem to connect %s : %s' % (self.path2pfn(''), res.text))
+            test_url = self.path2pfn('')
+            res = self.session.request('HEAD', test_url, verify=False, timeout=self.timeout, cert=self.cert)
+            # REVISIT: this test checks some URL that doesn't correspond to
+            # any valid Rucio file.  Although this works for normal WebDAV
+            # endpoints, it fails for endpoints using presigned URLs.  As a
+            # work-around, accept 4xx status codes when using presigned URLs.
+            if res.status_code != 200 and not (using_presigned_urls and res.status_code < 500):
+                raise exception.ServiceUnavailable('Bad status code %s %s : %s' % (res.status_code, test_url, res.text))
         except requests.exceptions.ConnectionError as error:
-            raise exception.ServiceUnavailable('Problem to connect %s : %s' % (self.path2pfn(''), error))
+            raise exception.ServiceUnavailable('Problem to connect %s : %s' % (test_url, error))
         except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
 
@@ -259,14 +272,16 @@ class Default(protocol.RSEProtocol):
 
             :param pfn: Physical file name of requested file
             :param dest: Name and path of the files when stored at the client
-            :param transfer_timeout: Transfer timeout (in seconds) - dummy
+            :param transfer_timeout: Transfer timeout (in seconds)
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSEAccessDenied
         """
         path = self.path2pfn(pfn)
         chunksize = 1024
+        transfer_timeout = self.timeout if transfer_timeout is None else transfer_timeout
+
         try:
-            result = self.session.get(path, verify=False, stream=True, timeout=self.timeout, cert=self.cert)
+            result = self.session.get(path, verify=False, stream=True, timeout=transfer_timeout, cert=self.cert)
             if result and result.status_code in [200, ]:
                 length = None
                 if 'content-length' in result.headers:
@@ -297,7 +312,7 @@ class Default(protocol.RSEProtocol):
             :param source: Physical file name
             :param target: Name of the file on the storage system e.g. with prefixed scope
             :param source_dir Path where the to be transferred files are stored in the local file system
-            :param transfer_timeout Transfer timeout (in seconds) - dummy
+            :param transfer_timeout Transfer timeout (in seconds)
 
             :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound, RSEAccessDenied
         """
@@ -305,11 +320,13 @@ class Default(protocol.RSEProtocol):
         full_name = source_dir + '/' + source if source_dir else source
         directories = path.split('/')
         # Try the upload without testing the existence of the destination directory
+        transfer_timeout = self.timeout if transfer_timeout is None else transfer_timeout
+
         try:
             if not os.path.exists(full_name):
                 raise exception.SourceNotFound()
             it = UploadInChunks(full_name, 10000000, progressbar)
-            result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=self.timeout, cert=self.cert)
+            result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=transfer_timeout, cert=self.cert)
             if result.status_code in [200, 201]:
                 return
             if result.status_code in [409, ]:
@@ -323,7 +340,7 @@ class Default(protocol.RSEProtocol):
                     if not os.path.exists(full_name):
                         raise exception.SourceNotFound()
                     it = UploadInChunks(full_name, 10000000, progressbar)
-                    result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=self.timeout, cert=self.cert)
+                    result = self.session.put(path, data=IterableToFileAdapter(it), verify=False, allow_redirects=True, timeout=transfer_timeout, cert=self.cert)
                     if result.status_code in [200, 201]:
                         return
                     if result.status_code in [409, ]:
@@ -537,7 +554,7 @@ class Default(protocol.RSEProtocol):
         headers = {'Depth': '0'}
 
         try:
-            root = ET.fromstring(self.session.request('PROPFIND', endpoint_basepath, verify=False, headers=headers, cert=self.session.cert).text)  # noqa: S314
+            root = ElementTree.fromstring(self.session.request('PROPFIND', endpoint_basepath, verify=False, headers=headers, cert=self.session.cert).text)  # noqa: S314
             usedsize = root[0][1][0].find('{DAV:}quota-used-bytes').text
             try:
                 unusedsize = root[0][1][0].find('{DAV:}quota-available-bytes').text
@@ -548,3 +565,30 @@ class Default(protocol.RSEProtocol):
             return totalsize, unusedsize
         except Exception as error:
             raise exception.ServiceUnavailable(error)
+
+
+class NoRename(Default):
+    """ Implementing access to RSEs using the WebDAV protocol but without
+    renaming files on upload/download. Necessary for some storage endpoints.
+    """
+
+    def __init__(self, protocol_attr, rse_settings, logger=logging.log):
+        """ Initializes the object with information about the referred RSE.
+
+            :param protocol_attr:  Properties of the requested protocol.
+            :param rse_settings:   The RSE settings.
+            :param logger:         Optional decorated logger that can be passed from the calling daemons or servers.
+        """
+        super(NoRename, self).__init__(protocol_attr, rse_settings, logger=logger)
+        self.renaming = False
+        self.attributes.pop('determinism_type', None)
+
+    def rename(self, pfn, new_pfn):
+        """ Allows to rename a file stored inside the connected RSE.
+
+            :param pfn:      Current physical file name
+            :param new_pfn  New physical file name
+
+            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
+        """
+        raise NotImplementedError

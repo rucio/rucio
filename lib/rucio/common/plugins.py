@@ -13,25 +13,71 @@
 # limitations under the License.
 
 import importlib
+import logging
 import os
 from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from packaging.specifiers import SpecifierSet
+
 from rucio.common import config
-from rucio.common.exception import InvalidAlgorithmName
+from rucio.common.client import get_client_vo, is_client
+from rucio.common.exception import InvalidAlgorithmName, PolicyPackageIsNotVersioned, PolicyPackageVersionError
+from rucio.version import current_version
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from rucio.common.types import LoggerFunction
+
 PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPackageAlgorithms')
+
+
+def check_policy_package_version(package: str, logger: 'LoggerFunction' = logging.log) -> None:
+
+    '''
+    Checks that the Rucio version supported by the policy package is compatible
+    with this version. Raises an exception if not.
+    :param package: the fully qualified name of the policy package
+    '''
+    try:
+        supported_versionset = _get_supported_versions_from_policy_package(package)
+    except ImportError:
+        logger(logging.DEBUG, 'Policy package %s not found' % package)
+        return
+    except PolicyPackageIsNotVersioned:
+        logger(logging.DEBUG, 'Policy package %s does not include information about which Rucio versions it supports' % package)
+        return
+
+    rucio_version = current_version()
+    if rucio_version not in supported_versionset:
+        raise PolicyPackageVersionError(rucio_version=rucio_version, supported_versionset=str(supported_versionset), package=package)
+
+
+def _get_supported_versions_from_policy_package(package: str) -> SpecifierSet:
+    try:
+        module = importlib.import_module(package)
+    except ImportError as e:
+        raise e
+
+    if not hasattr(module, 'SUPPORTED_VERSION'):
+        raise PolicyPackageIsNotVersioned(package)
+
+    supported_versionset = module.SUPPORTED_VERSION
+
+    if isinstance(supported_versionset, list):
+        supported_versionset = ','.join(supported_versionset)
+
+    return SpecifierSet(supported_versionset)
 
 
 class PolicyPackageAlgorithms:
     """
     Base class for Rucio Policy Package Algorithms
 
-    ALGORITHMS is of type Dict[str, Dict[str. Callable[..., Any]]]
-    where the key is the algorithm type and the value is a dictionary of algorithm names and their callables
+    ALGORITHMS is a dict where:
+        - the key is the algorithm type
+        - the value is a dictionary of algorithm names and their callables
     """
     _ALGORITHMS: dict[str, dict[str, 'Callable[..., Any]']] = {}
     _loaded_policy_modules = False
@@ -92,24 +138,9 @@ class PolicyPackageAlgorithms:
             # single policy package
             cls._try_importing_policy()
         else:
-            # determine whether on client or server
-            client = False
-            if 'RUCIO_CLIENT_MODE' not in os.environ:
-                if not config.config_has_section('database') and config.config_has_section('client'):
-                    client = True
-            else:
-                if os.environ['RUCIO_CLIENT_MODE']:
-                    client = True
-
             # on client, only register algorithms for selected VO
-            if client:
-                if 'RUCIO_VO' in os.environ:
-                    vo = os.environ['RUCIO_VO']
-                else:
-                    try:
-                        vo = str(config.config_get('client', 'vo'))
-                    except (NoOptionError, NoSectionError):
-                        vo = 'def'
+            if is_client():
+                vo = get_client_vo()
                 cls._try_importing_policy(vo)
             # on server, list all VOs and register their algorithms
             else:
@@ -123,7 +154,6 @@ class PolicyPackageAlgorithms:
     def _try_importing_policy(cls: type[PolicyPackageAlgorithmsT], vo: str = "") -> None:
         try:
             # import from utils here to avoid circular import
-            from rucio.common.utils import check_policy_package_version
 
             env_name = 'RUCIO_POLICY_PACKAGE' + ('' if not vo else '_' + vo.upper())
             package = getattr(os.environ, env_name, "")

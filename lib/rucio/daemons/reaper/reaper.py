@@ -16,6 +16,8 @@
 Reaper is a daemon to manage file deletion.
 '''
 
+import concurrent.futures.thread  # noqa (https://github.com/rucio/rucio/issues/6548)
+
 import functools
 import logging
 import random

@@ -25,6 +25,9 @@ from typing import TYPE_CHECKING, Any, Final, Optional, Union, cast
 
 from rucio import version
 from rucio.client.client import Client
+from rucio.common.bittorrent import bittorrent_v2_merkle_sha256
+from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS, adler32, md5
+from rucio.common.client import detect_client_location
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.constants import RseAttr
 from rucio.common.exception import (
@@ -42,7 +45,7 @@ from rucio.common.exception import (
     ScopeNotFound,
     ServiceUnavailable,
 )
-from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, adler32, bittorrent_v2_merkle_sha256, detect_client_location, execute, generate_uuid, make_valid_did, md5, retry, send_trace
+from rucio.common.utils import execute, generate_uuid, make_valid_did, retry, send_trace
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
@@ -78,6 +81,16 @@ class UploadClient:
         self.tracing = tracing
         if not self.tracing:
             logger(logging.DEBUG, 'Tracing is turned off.')
+        if self.client.account is None:
+            self.logger(logging.DEBUG, 'No account specified, querying rucio.')
+            try:
+                acc = self.client.whoami()
+                if acc is None:
+                    raise InputValidationError('account not specified and rucio has no account with your identity')
+                self.client.account = acc['account']
+            except RucioException as e:
+                raise InputValidationError('account not specified and problem with rucio: %s' % e)
+            self.logger(logging.DEBUG, 'Discovered account as "%s"' % self.client.account)
         self.default_file_scope: Final[str] = 'user.' + self.client.account
         self.rses = {}
         self.rse_expressions = {}

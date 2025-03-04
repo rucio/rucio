@@ -1,10 +1,14 @@
 name: Unit Tests
 
 on:
-    pull_request:
-    push:
-    schedule:
-      - cron: '0 3 * * *'
+  pull_request:
+  push:
+  schedule:
+    - cron: '0 3 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -12,7 +16,7 @@ jobs:
 
       strategy:
           matrix:
-            python-version: ["pypy3.9", "pypy3.10", "3.9", "3.10", "3.11", "3.12"]
+            python-version: ["3.9", "3.10", "3.11", "3.12"]
 
       steps:
           - uses: actions/checkout@v4
@@ -36,6 +40,6 @@ jobs:
             run: pytest tests/rucio --cov=lib/rucio
 
           - name: Upload coverage reports to Codecov
-            uses: codecov/codecov-action@v4.5.0
+            uses: codecov/codecov-action@v5.4.0
             with:
               token: ${{ secrets.CODECOV_TOKEN }}

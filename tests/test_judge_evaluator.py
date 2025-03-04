@@ -397,37 +397,37 @@ def test_judge_double_rule_on_container(
     Test the judge evaluator on a container with two rules. The order in which
     rules and datasets are added is relevant to the testcase.
 
-    1. A container C is created and a first dataset D1 is added to C.
-    2. A first rule A is created on the container C.
-    3. Then another dataset D2 is added to the container C.
-    4. Then a rule B is created on the container C.
+    1. A container is created and a first dataset (dataset_1) is added to it.
+    2. A first rule (rule_a) is created on the container.
+    3. Then another dataset (dataset_2) is added to the container.
+    4. Then a second rule (rule_b) is created on the container.
     5. Run judge-evaluator.
 
     NOTE I am unsure whether the judge-evaluator is expected to run here.
 
     We assert that both rules must be in state OK. Both rules must be applied to
-    each DID that can be traced back to the parent container C.
+    each DID that can be traced back to the parent container.
     """
     # create RSE, setup
-    RSE = RSE_namedtuple(*rse_factory.make_mock_rse())
+    mock_rse = RSE_namedtuple(*rse_factory.make_mock_rse())
     rsekey, rseval = tag_generator(), tag_generator()
-    add_rse_attribute(RSE.id, rsekey, rseval)
+    add_rse_attribute(mock_rse.id, rsekey, rseval)
 
-    # 1. create container C, add dataset D1 (with file F1)
-    C = did_factory.make_container()
-    D1 = did_factory.make_dataset()
-    attach_dids(dids=[D1], account=root_account, **C)
-    F1 = did_factory.random_file_did()
-    add_replica(rse_id=RSE.id, account=root_account, bytes_=10, **F1)
-    attach_dids(dids=[F1], account=root_account, **D1)
+    # 1. create container, add dataset_1 (with file_1)
+    container = did_factory.make_container()
+    dataset_1 = did_factory.make_dataset()
+    attach_dids(dids=[dataset_1], account=root_account, **container)
+    file_1 = did_factory.random_file_did()
+    add_replica(rse_id=mock_rse.id, account=root_account, bytes_=10, **file_1)
+    attach_dids(dids=[file_1], account=root_account, **dataset_1)
 
-    # 2. Add rule A to container C
-    # > bind C to RSE using RSE name
-    A, = add_rule(
-        dids=[C],
+    # 2. Add rule_a to container
+    # > bind container to RSE using RSE name
+    rule_a, = add_rule(
+        dids=[container],
         account=root_account,
         copies=1,
-        rse_expression=RSE.name,
+        rse_expression=mock_rse.name,
         grouping="DATASET",
         weight=None,
         lifetime=None,
@@ -435,17 +435,17 @@ def test_judge_double_rule_on_container(
         subscription_id=None
     )
 
-    # 3. Add dataset D2 to container C (with file F2)
-    D2 = did_factory.make_dataset()
-    attach_dids(dids=[D2], account=root_account, **C)
-    F2 = did_factory.random_file_did()
-    add_replica(rse_id=RSE.id, account=root_account, bytes_=10, **F2)
-    attach_dids(dids=[F2], account=root_account, **D2)
+    # 3. Add dataset_2 to container c (with file_2)
+    dataset_2 = did_factory.make_dataset()
+    attach_dids(dids=[dataset_2], account=root_account, **container)
+    file_2 = did_factory.random_file_did()
+    add_replica(rse_id=mock_rse.id, account=root_account, bytes_=10, **file_2)
+    attach_dids(dids=[file_2], account=root_account, **dataset_2)
 
-    # 4. Add rule B to container C
-    # > bind C to RSE using RSE attribute
-    B, = add_rule(
-        dids=[C],
+    # 4. Add rule_b to container
+    # > bind container to RSE using RSE attribute
+    rule_b, = add_rule(
+        dids=[container],
         account=root_account,
         copies=1,
         rse_expression=f"{rsekey}={rseval}",
@@ -460,7 +460,7 @@ def test_judge_double_rule_on_container(
     re_evaluator(once=True, did_limit=None)
 
     # Assertions
-    for ruleid in (A, B):
+    for ruleid in (rule_a, rule_b):
         locks = get_replica_locks_for_rule_id(ruleid)
         assert len(locks) == 2  # 2 locks
         assert all([lock["state"] == LockState.OK for lock in locks])  # all OK
@@ -476,16 +476,16 @@ def test_judge_double_container_with_existing_rule(
     Test the judge in attaching to a file structure with two nested
     containers. The root container has a rule.
     """
-    RSE = RSE_namedtuple(*rse_factory.make_mock_rse())
+    mock_rse = RSE_namedtuple(*rse_factory.make_mock_rse())
 
-    # create container C1 with rule
-    C1 = did_factory.make_container()
+    # create container container_1 with rule
+    container_1 = did_factory.make_container()
 
     add_rule(
-        dids=[C1],
+        dids=[container_1],
         account=root_account,
         copies=1,
-        rse_expression=RSE.name,
+        rse_expression=mock_rse.name,
         grouping='DATASET',
         weight=None,
         lifetime=None,
@@ -493,32 +493,32 @@ def test_judge_double_container_with_existing_rule(
         subscription_id=None
     )
 
-    # create setup: C2->D->F
-    C2 = did_factory.make_container()
-    D = did_factory.make_dataset()
-    F = did_factory.random_file_did()
-    add_replica(rse_id=RSE.id, account=root_account, bytes_=10, **F)
+    # create setup: container_2->dataset->file
+    container_2 = did_factory.make_container()
+    dataset = did_factory.make_dataset()
+    file = did_factory.random_file_did()
+    add_replica(rse_id=mock_rse.id, account=root_account, bytes_=10, **file)
 
-    attach_dids(dids=[F], account=root_account, **D)
-    attach_dids(dids=[D], account=root_account, **C2)
+    attach_dids(dids=[file], account=root_account, **dataset)
+    attach_dids(dids=[dataset], account=root_account, **container_2)
 
-    # attach setup to C1 (result: C1->C2->D->F)
-    attach_dids(dids=[C2], account=root_account, **C1)
+    # attach setup to container_1 (result: container_1->container_2->dataset->file)
+    attach_dids(dids=[container_2], account=root_account, **container_1)
 
     # fake judge
     re_evaluator(once=True, did_limit=None)
 
     # assertions
-    replicalocks = get_replica_locks(**F)
+    replicalocks = get_replica_locks(**file)
     assert len(replicalocks) == 1
     assert replicalocks[0].state == LockState.OK
-    datasetlocks = list(get_dataset_locks(**D))
+    datasetlocks = list(get_dataset_locks(**dataset))
     assert len(datasetlocks) == 1
     assert datasetlocks[0]["state"] == LockState.OK
 
     # detach again
-    detach_dids(dids=[C2], **C1)
+    detach_dids(dids=[container_2], **container_1)
     re_evaluator(once=True, did_limit=None)
 
-    assert not get_replica_locks(**F)
-    assert not get_replica_locks(**D)
+    assert not get_replica_locks(**file)
+    assert not get_replica_locks(**dataset)

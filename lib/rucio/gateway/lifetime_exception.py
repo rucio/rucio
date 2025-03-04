@@ -115,6 +115,7 @@ def update_exception(
     :param session:    The database session in use.
     """
     kwargs = {'exception_id': exception_id, 'vo': vo}
-    if not permission.has_permission(issuer=issuer, vo=vo, action='update_lifetime_exceptions', kwargs=kwargs, session=session):
-        raise exception.AccessDenied('Account %s can not update lifetime exceptions' % (issuer))
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='update_lifetime_exceptions', kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied('Account %s can not update lifetime exceptions. %s' % (issuer, auth_result.message))
     return lifetime_exception.update_exception(exception_id=exception_id, state=state, session=session)

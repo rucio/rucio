@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import configparser as ConfigParser
 import datetime
 import glob
 import hashlib
-import html.parser as HTMLParser
 import logging
 import operator
 import os
 import re
+from configparser import RawConfigParser
+from html.parser import HTMLParser
 from typing import IO, TYPE_CHECKING, Any, Optional
 
 import gfal2
@@ -49,7 +49,7 @@ __DUMPERCONFIGDIRS = list(
 OBJECTSTORE_NUM_TRIES = 30
 
 
-class Parser(ConfigParser.RawConfigParser):
+class Parser(RawConfigParser):
     '''
     RawConfigParser subclass that doesn't modify the the name of the options
     and removes any quotes around the string values.
@@ -137,7 +137,7 @@ def gfal_links(base_url: str) -> list[str]:
     return ['/'.join((base_url, f)) for f in ctxt.listdir(str(base_url))]
 
 
-class _LinkCollector(HTMLParser.HTMLParser):
+class _LinkCollector(HTMLParser):
     def __init__(self):
         super(_LinkCollector, self).__init__()
         self.links = []
@@ -244,7 +244,7 @@ def parse_configuration(conf_dirs: Optional[list[str]] = None) -> Parser:
 
 def download_rse_dump(
         rse: str,
-        configuration: ConfigParser.RawConfigParser,
+        configuration: RawConfigParser,
         date: Optional[datetime.datetime] = None,
         destdir: str = DUMPS_CACHE_DIR
 ) -> tuple[str, datetime.datetime]:
@@ -331,7 +331,7 @@ def download_rse_dump(
 
 def generate_url(
         rse: str,
-        config: ConfigParser.RawConfigParser
+        config: RawConfigParser
 ) -> tuple[str, str]:
     '''
     :param rse: Name of the endpoint.

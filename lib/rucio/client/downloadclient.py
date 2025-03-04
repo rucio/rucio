@@ -29,11 +29,13 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from rucio import version
 from rucio.client.client import Client
+from rucio.common.checksum import CHECKSUM_ALGO_DICT, GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM, adler32
+from rucio.common.client import detect_client_location
 from rucio.common.config import config_get
 from rucio.common.didtype import DID
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException
 from rucio.common.pcache import Pcache
-from rucio.common.utils import CHECKSUM_ALGO_DICT, GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM, adler32, detect_client_location, execute, extract_scope, generate_uuid, parse_replicas_from_file, parse_replicas_from_string, send_trace, sizefmt
+from rucio.common.utils import execute, extract_scope, generate_uuid, parse_replicas_from_file, parse_replicas_from_string, send_trace, sizefmt
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
@@ -323,8 +325,6 @@ class DownloadClient:
         :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
         :param sort: Select best replica by replica sorting algorithm. Available algorithms:
             ``geoip``       - based on src/dst IP topographical distance
-            ``closeness``   - based on src/dst closeness
-            ``dynamic``     - Rucio Dynamic Smart Sort (tm)
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -834,8 +834,6 @@ class DownloadClient:
         :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
         :param sort: Select best replica by replica sorting algorithm. Available algorithms:
             ``geoip``       - based on src/dst IP topographical distance
-            ``closeness``   - based on src/dst closeness
-            ``dynamic``     - Rucio Dynamic Smart Sort (tm)
 
         :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
 
@@ -1197,7 +1195,7 @@ class DownloadClient:
         if self.is_tape_excluded:
             try:
                 tape_rses = [endp['rse'] for endp in self.client.list_rses(rse_expression='istape=true')]
-            except:
+            except Exception:
                 logger(logging.DEBUG, 'No tapes found.')
 
         # Matches each dereferenced DID back to a list of input items
@@ -1677,8 +1675,8 @@ class DownloadClient:
         num_successful = 0
         num_failed = 0
         for item in output_items:
-            clientState = item.get('clientState', FileDownloadState.FAILED)
-            if clientState in success_states:
+            client_state = item.get('clientState', FileDownloadState.FAILED)
+            if client_state in success_states:
                 num_successful += 1
             else:
                 num_failed += 1

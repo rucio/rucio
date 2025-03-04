@@ -62,9 +62,9 @@ for meta_module_path in METADATA_PLUGIN_MODULE_PATHS:
         metadata_plugin_module = getattr(importlib.import_module(base_module), base_class)()
         METADATA_PLUGIN_MODULES.append(metadata_plugin_module)
     except ModuleNotFoundError:
-        raise exception.PolicyPackageNotFound('Module ' + meta_module_path + ' not found')
+        raise exception.PolicyPackageNotFound(meta_module_path)
     except ImportError:
-        raise exception.ErrorLoadingPolicyPackage('An error occurred while loading module ' + meta_module_path)
+        raise exception.ErrorLoadingPolicyPackage(meta_module_path)
 
 # Set restricted character set for metadata in form character: reason
 #
@@ -84,8 +84,9 @@ def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
     :param scope: The scope of the did.
     :param name: The data identifier name.
     :param plugin: (optional) Filter specific metadata plugins.
-    :returns: List of metadata for did.
-    :raises: NotImplementedError
+    :param session: (optional) The database session in use.
+    :returns: Dictionary containing metadata for did.
+    :raises: UnsupportedMetadataPlugin: If the specified plugin is not enabled/available
     """
     if plugin.lower() == "all":
         all_metadata = {}
@@ -97,7 +98,7 @@ def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
         for metadata_plugin in METADATA_PLUGIN_MODULES:
             if metadata_plugin.get_plugin_name().lower() == plugin.lower():
                 return metadata_plugin.get_metadata(scope, name, session=session)
-    raise NotImplementedError('Metadata plugin "%s" is not enabled on the server.' % plugin)
+    raise exception.UnsupportedMetadataPlugin(f'Metadata plugin "{plugin}" is not enabled on the server.')
 
 
 @transactional_session

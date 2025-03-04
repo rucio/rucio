@@ -24,9 +24,11 @@ from rucio.db.sqla.session import read_session
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from rucio.core.permission import PermissionResult
+
 
 @read_session
-def has_permission(issuer: str, action: str, kwargs: dict[str, Any], vo: str = 'def', *, session: "Session") -> bool:
+def has_permission(issuer: str, action: str, kwargs: dict[str, Any], vo: str = 'def', *, session: "Session") -> 'PermissionResult':
     """
     Checks if an account has the specified permission to
     execute an action with parameters.
@@ -62,6 +64,7 @@ def has_permission(issuer: str, action: str, kwargs: dict[str, Any], vo: str = '
             r['account'] = InternalAccount(r['account'], vo=vo)
     if 'dids' in kwargs:
         for d in kwargs['dids']:
+            d['scope'] = InternalScope(d['scope'], vo=vo)
             if 'rules' in d:
                 for r in d['rules']:
                     r['account'] = InternalAccount(r['account'], vo=vo)

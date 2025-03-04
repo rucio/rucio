@@ -16,20 +16,21 @@ import json
 from datetime import datetime
 from io import StringIO
 from re import match
-from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, Literal, Optional, TypeVar, Union, overload
 
 import sqlalchemy
-from dogpile.cache.api import NO_VALUE
+from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.exc import FlushError
-from sqlalchemy.sql.expression import and_, delete, desc, false, func, or_, select, true
+from sqlalchemy.sql.expression import Executable, and_, delete, desc, false, func, or_, select, true
 
 from rucio.common import exception, types, utils
 from rucio.common.cache import MemcacheRegion
+from rucio.common.checksum import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common.constants import RSE_SUPPORTED_PROTOCOL_OPERATIONS, RseAttr
-from rucio.common.utils import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS, Availability
+from rucio.common.constants import RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS, RSE_ATTRS_BOOL, RSE_ATTRS_STR, SUPPORTED_SIGN_URL_SERVICES_LITERAL, RseAttr
+from rucio.common.utils import Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import ReplicaState, RSEType
@@ -40,6 +41,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
     from sqlalchemy.orm import Session
+    from sqlalchemy.sql._typing import _ColumnsClauseArgument
+    from typing_extensions import Self
 
 T = TypeVar('T', bound="RseData")
 
@@ -51,7 +54,17 @@ class RseData:
     """
     Helper data class storing rse data grouped in one place.
     """
-    def __init__(self, id_, name: "Optional[str]" = None, columns=None, attributes=None, info=None, usage=None, limits=None, transfer_limits=None):
+    def __init__(
+            self,
+            id_: str,
+            name: Optional[str] = None,
+            columns: Optional[dict[str, Any]] = None,
+            attributes: Optional[dict[str, Any]] = None,
+            info: Optional[types.RSESettingsDict] = None,
+            usage: Optional[list[dict[str, Any]]] = None,
+            limits: Optional[dict[str, Any]] = None,
+            transfer_limits: Optional[dict[str, Any]] = None
+    ):
         self.id = id_
         self._name = name
         self._columns = columns
@@ -61,78 +74,80 @@ class RseData:
         self._limits = limits
         self._transfer_limits = transfer_limits
 
+    def _get_loaded_attribute(self, attribute_name: str) -> Any:
+        attribute = getattr(self, f'_{attribute_name}', None)
+        if attribute is None:
+            raise ValueError(f'{attribute_name} not loaded for rse {self}')
+        return attribute
+
     @property
     def name(self) -> str:
-        if self._name is None:
-            raise ValueError(f'name not loaded for rse {self}')
-        return self._name
+        return self._get_loaded_attribute('name')
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str) -> None:
         self._name = name
 
     @property
     def columns(self) -> dict[str, Any]:
-        if self._columns is None:
-            raise ValueError(f'columns not loaded for rse {self}')
-        return self._columns
+        return self._get_loaded_attribute('columns')
 
     @property
     def attributes(self) -> dict[str, Any]:
-        if self._attributes is None:
-            raise ValueError(f'attributes not loaded for rse {self}')
-        return self._attributes
+        return self._get_loaded_attribute('attributes')
 
     @property
     def info(self) -> types.RSESettingsDict:
-        if self._info is None:
-            raise ValueError(f'info not loaded for rse {self}')
-        return self._info
+        return self._get_loaded_attribute('info')
 
     @property
     def usage(self) -> list[dict[str, Any]]:
-        if self._usage is None:
-            raise ValueError(f'usage not loaded for rse {self}')
-        return self._usage
+        return self._get_loaded_attribute('usage')
 
     @property
     def limits(self) -> dict[str, Any]:
-        if self._limits is None:
-            raise ValueError(f'limits not loaded for rse {self}')
-        return self._limits
+        return self._get_loaded_attribute('limits')
 
     @property
-    def transfer_limits(self):
-        if self._transfer_limits is None:
-            raise ValueError(f'transfer_limits not loaded for rse {self}')
-        return self._transfer_limits
+    def transfer_limits(self) -> dict[str, Any]:
+        return self._get_loaded_attribute('transfer_limits')
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.id)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self._name is not None:
             return self._name
         return self.id
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if other is None:
             return False
         return self.id == other.id
 
-    def is_tape(self):
+    def is_tape(self) -> bool:
         if self.info['rse_type'] == RSEType.TAPE or self.info['rse_type'] == 'TAPE' or self.attributes.get(RseAttr.STAGING_REQUIRED, False):
             return True
         return False
 
-    def is_tape_or_staging_required(self):
+    def is_tape_or_staging_required(self) -> bool:
         if self.is_tape() or self.attributes.get(RseAttr.STAGING_REQUIRED, False):
             return True
         return False
 
     @read_session
-    def ensure_loaded(self, load_name=False, load_columns=False, load_attributes=False,
-                      load_info=False, load_usage=False, load_limits=False, load_transfer_limits=False, *, session: "Session"):
+    def ensure_loaded(
+        self,
+        load_name: bool = False,
+        load_columns: bool = False,
+        load_attributes: bool = False,
+        load_info: bool = False,
+        load_usage: bool = False,
+        load_limits: bool = False,
+        load_transfer_limits: bool = False,
+        *,
+        session: "Session"
+    ) -> "Self":
         if self._columns is None and load_columns:
             self._columns = get_rse(rse_id=self.id, session=session)
             self._name = self._columns['rse']
@@ -164,7 +179,7 @@ class RseData:
             include_deleted: bool = False,
             *,
             session: "Session"
-    ):
+    ) -> None:
         """
         Given a dict of RseData objects indexed by rse_id, ensure that the desired fields are initialised
         in all objects from the input.
@@ -308,15 +323,25 @@ class RseCollection(Generic[T]):
             for rse_id in rse_ids:
                 self.rse_id_to_data_map[rse_id] = self._rse_data_cls(rse_id)
 
-    def __getitem__(self, item):
+    def __getitem__(
+            self,
+            item: str
+    ) -> "T":
         return self.get_or_create(item)
 
-    def __setitem__(self, key, value):
+    def __setitem__(
+            self,
+            key: str,
+            value: "T"
+    ) -> None:
         rse_id = key
         rse_data = value
         self.rse_id_to_data_map[rse_id] = rse_data
 
-    def __contains__(self, item):
+    def __contains__(
+            self,
+            item: Any
+    ) -> bool:
         if isinstance(item, RseData):
             return item.id in self.rse_id_to_data_map
         if isinstance(item, str):
@@ -335,7 +360,7 @@ class RseCollection(Generic[T]):
     @transactional_session
     def ensure_loaded(
             self,
-            rse_ids: "Optional[Iterable[str]]" = None,
+            rse_ids: Optional["Iterable[str]"] = None,
             load_name: bool = False,
             load_columns: bool = False,
             load_attributes: bool = False,
@@ -345,7 +370,7 @@ class RseCollection(Generic[T]):
             include_deleted: bool = False,
             *,
             session: "Session",
-    ):
+    ) -> None:
         RseData.bulk_load(
             rse_id_to_data={rse_id: self.get_or_create(rse_id) for rse_id in rse_ids} if rse_ids else self.rse_id_to_data_map,
             load_name=load_name,
@@ -360,7 +385,11 @@ class RseCollection(Generic[T]):
 
 
 @stream_session
-def _group_query_result_by_rse_id(stmt, *, session: "Session") -> 'Iterator[tuple[str, list[Any]]]':
+def _group_query_result_by_rse_id(
+    stmt: "Executable",
+    *,
+    session: "Session"
+) -> 'Iterator[tuple[str, list[Any]]]':
     """
     Given a sqlalchemy query statement which fetches rows of two elements: (rse_id, object) ordered by rse_id.
     Will execute the query and return objects grouped by rse_id: (rse_id, [object1, object2])
@@ -384,9 +413,28 @@ def _group_query_result_by_rse_id(stmt, *, session: "Session") -> 'Iterator[tupl
 
 
 @transactional_session
-def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region_code=None, country_name=None, continent=None, time_zone=None,
-            ISP=None, staging_area=False, rse_type=RSEType.DISK, longitude=None, latitude=None, ASN=None, availability_read: Optional[bool] = None,
-            availability_write: Optional[bool] = None, availability_delete: Optional[bool] = None, *, session: "Session"):
+def add_rse(
+    rse: str,
+    vo: str = 'def',
+    deterministic: bool = True,
+    volatile: bool = False,
+    city: Optional[str] = None,
+    region_code: Optional[str] = None,
+    country_name: Optional[str] = None,
+    continent: Optional[str] = None,
+    time_zone: Optional[str] = None,
+    ISP: Optional[str] = None,  # noqa: N803
+    staging_area: bool = False,
+    rse_type: RSEType = RSEType.DISK,
+    longitude: Optional[float] = None,
+    latitude: Optional[float] = None,
+    ASN: Optional[str] = None,  # noqa: N803
+    availability_read: Optional[bool] = None,
+    availability_write: Optional[bool] = None,
+    availability_delete: Optional[bool] = None,
+    *,
+    session: "Session"
+) -> str:
     """
     Add a rse with the given location name.
 
@@ -447,7 +495,13 @@ def add_rse(rse, vo='def', deterministic=True, volatile=False, city=None, region
 
 
 @read_session
-def rse_exists(rse, vo='def', include_deleted=False, *, session: "Session"):
+def rse_exists(
+    rse: str,
+    vo: str = 'def',
+    include_deleted: bool = False,
+    *,
+    session: "Session"
+) -> bool:
     """
     Checks to see if RSE exists.
 
@@ -469,7 +523,11 @@ def rse_exists(rse, vo='def', include_deleted=False, *, session: "Session"):
 
 
 @transactional_session
-def del_rse(rse_id, *, session: "Session"):
+def del_rse(
+    rse_id: str,
+    *,
+    session: "Session"
+) -> None:
     """
     Disable a rse with the given rse id.
 
@@ -498,7 +556,11 @@ def del_rse(rse_id, *, session: "Session"):
 
 
 @transactional_session
-def restore_rse(rse_id, *, session: "Session"):
+def restore_rse(
+    rse_id: str,
+    *,
+    session: "Session"
+) -> None:
     """
     Restore a rse with the given rse id.
 
@@ -524,7 +586,11 @@ def restore_rse(rse_id, *, session: "Session"):
 
 
 @read_session
-def rse_is_empty(rse_id, *, session: "Session"):
+def rse_is_empty(
+    rse_id: str,
+    *,
+    session: "Session"
+) -> bool:
     """
     Check if a RSE is empty.
 
@@ -567,7 +633,11 @@ def _format_get_rse(
 
 
 @read_session
-def get_rse(rse_id, *, session: "Session"):
+def get_rse(
+    rse_id: str,
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Get a RSE or raise if it does not exist.
 
@@ -590,7 +660,13 @@ def get_rse(rse_id, *, session: "Session"):
 
 
 @read_session
-def get_rse_id(rse, vo='def', include_deleted=True, *, session: "Session"):
+def get_rse_id(
+    rse: str,
+    vo: str = 'def',
+    include_deleted: bool = True,
+    *,
+    session: "Session"
+) -> str:
     """
     Get a RSE ID or raise if it does not exist.
 
@@ -609,7 +685,7 @@ def get_rse_id(rse, vo='def', include_deleted=True, *, session: "Session"):
         else:
             cache_key = 'rse-id_{}'.format(rse).replace(' ', '.')
         result = REGION.get(cache_key)
-        if result != NO_VALUE:
+        if not isinstance(result, NoValue):
             return result
 
     try:
@@ -631,11 +707,18 @@ def get_rse_id(rse, vo='def', include_deleted=True, *, session: "Session"):
 
 
 @read_session
-def _get_rse_db_column(rse_id: str, column, cache_prefix: str, include_deleted: bool = True, *, session: "Session"):
+def _get_rse_db_column(
+    rse_id: str,
+    column: "_ColumnsClauseArgument",
+    cache_prefix: str,
+    include_deleted: bool = True,
+    *,
+    session: "Session"
+) -> Any:
     if include_deleted:
         cache_key = '{}_{}'.format(cache_prefix, rse_id)
         result = REGION.get(cache_key)
-        if result != NO_VALUE:
+        if not isinstance(result, NoValue):
             return result
 
     try:
@@ -656,7 +739,12 @@ def _get_rse_db_column(rse_id: str, column, cache_prefix: str, include_deleted: 
 
 
 @read_session
-def get_rse_name(rse_id: str, include_deleted: bool = True, *, session: "Session"):
+def get_rse_name(
+    rse_id: str,
+    include_deleted: bool = True,
+    *,
+    session: "Session"
+) -> str:
     """
     Get a RSE name or raise if it does not exist.
 
@@ -678,7 +766,12 @@ def get_rse_name(rse_id: str, include_deleted: bool = True, *, session: "Session
 
 
 @read_session
-def get_rse_vo(rse_id: str, include_deleted: bool = True, *, session: "Session"):
+def get_rse_vo(
+    rse_id: str,
+    include_deleted: bool = True,
+    *,
+    session: "Session"
+) -> str:
     """
     Get the VO for a given RSE id.
 
@@ -751,7 +844,13 @@ def list_rses(filters: Optional[dict[str, Any]] = None, *, session: "Session") -
 
 
 @transactional_session
-def add_rse_attribute(rse_id, key, value, *, session: "Session"):
+def add_rse_attribute(
+    rse_id: str,
+    key: str,
+    value: Union[bool, str],
+    *,
+    session: "Session"
+) -> bool:
     """ Adds a RSE attribute.
 
     :param rse_id: the rse id.
@@ -773,7 +872,12 @@ def add_rse_attribute(rse_id, key, value, *, session: "Session"):
 
 
 @transactional_session
-def del_rse_attribute(rse_id, key, *, session: "Session"):
+def del_rse_attribute(
+    rse_id: str,
+    key: str,
+    *,
+    session: "Session"
+) -> bool:
     """
     Delete a RSE attribute.
 
@@ -798,7 +902,12 @@ def del_rse_attribute(rse_id, key, *, session: "Session"):
 
 
 @read_session
-def list_rse_attributes(rse_id: str, use_cache: bool = False, *, session: "Session"):
+def list_rse_attributes(
+    rse_id: str,
+    use_cache: bool = False,
+    *,
+    session: "Session"
+) -> dict[str, Union[str, bool]]:
     """
     List RSE attributes for a RSE.
 
@@ -812,7 +921,7 @@ def list_rse_attributes(rse_id: str, use_cache: bool = False, *, session: "Sessi
     if use_cache:
         value = REGION.get(cache_key)
 
-        if value is not NO_VALUE:
+        if not isinstance(value, NoValue):
             return value
 
     rse_attrs = {}
@@ -833,7 +942,7 @@ def list_rse_attributes(rse_id: str, use_cache: bool = False, *, session: "Sessi
 
 @stream_session
 def _fetch_many_rses_attributes(
-        rse_id_temp_table,
+        rse_id_temp_table: Any,
         keys: Optional['Iterable[str]'] = None,
         *,
         session: "Session"
@@ -864,7 +973,12 @@ def _fetch_many_rses_attributes(
 
 
 @read_session
-def has_rse_attribute(rse_id, key, *, session: "Session"):
+def has_rse_attribute(
+    rse_id: str,
+    key: str,
+    *,
+    session: "Session"
+) -> bool:
     """
     Indicates whether the named key is present for the RSE.
 
@@ -886,7 +1000,11 @@ def has_rse_attribute(rse_id, key, *, session: "Session"):
 
 
 @read_session
-def get_rses_with_attribute(key, *, session: "Session"):
+def get_rses_with_attribute(
+    key: str,
+    *,
+    session: "Session"
+) -> list[dict[str, Any]]:
     """
     Return all RSEs with a certain attribute.
 
@@ -914,7 +1032,13 @@ def get_rses_with_attribute(key, *, session: "Session"):
 
 
 @read_session
-def get_rses_with_attribute_value(key, value, vo='def', *, session: "Session"):
+def get_rses_with_attribute_value(
+    key: str,
+    value: Union[bool, str],
+    vo: str = 'def',
+    *,
+    session: "Session"
+) -> list[dict[str, str]]:
     """
     Return all RSEs with a certain attribute.
 
@@ -930,7 +1054,7 @@ def get_rses_with_attribute_value(key, value, vo='def', *, session: "Session"):
         cache_key = 'av-%s-%s' % (key, value)
 
     result = REGION.get(cache_key)
-    if result is NO_VALUE:
+    if isinstance(result, NoValue):
 
         rse_list = []
 
@@ -959,6 +1083,36 @@ def get_rses_with_attribute_value(key, value, vo='def', *, session: "Session"):
     return result
 
 
+@overload
+def get_rse_attribute(rse_id: str, key: Literal['sign_url'], use_cache: bool = True, *, session: "Session") -> Optional[SUPPORTED_SIGN_URL_SERVICES_LITERAL]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: Literal['sign_url'], use_cache: bool = True) -> Optional[SUPPORTED_SIGN_URL_SERVICES_LITERAL]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_STR', use_cache: bool = True) -> Optional[str]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_STR', use_cache: bool = True, *, session: "Session") -> Optional[str]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_BOOL', use_cache: bool = True) -> Optional[bool]:
+    ...
+
+
+@overload
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_BOOL', use_cache: bool = True, *, session: "Session") -> Optional[bool]:
+    ...
+
+
 @read_session
 def get_rse_attribute(rse_id: str, key: str, use_cache: bool = True, *, session: "Session") -> Optional[Union[str, bool]]:
     """
@@ -976,7 +1130,7 @@ def get_rse_attribute(rse_id: str, key: str, use_cache: bool = True, *, session:
     if use_cache:
         value = REGION.get(cache_key)
 
-        if value is not NO_VALUE:
+        if not isinstance(value, NoValue):
             return value
 
     stmt = select(
@@ -1024,7 +1178,15 @@ def parse_checksum_support_attribute(checksum_attribute: str) -> list[str]:
 
 
 @transactional_session
-def set_rse_usage(rse_id, source, used, free, files=None, *, session: "Session"):
+def set_rse_usage(
+    rse_id: str,
+    source: str,
+    used: int,
+    free: int,
+    files: Optional[int] = None,
+    *,
+    session: "Session"
+) -> bool:
     """
     Set RSE usage information.
 
@@ -1049,7 +1211,13 @@ def set_rse_usage(rse_id, source, used, free, files=None, *, session: "Session")
 
 
 @read_session
-def get_rse_usage(rse_id, source=None, per_account=False, *, session: "Session"):
+def get_rse_usage(
+    rse_id: str,
+    source: Optional[str] = None,
+    per_account: bool = False,
+    *,
+    session: "Session"
+) -> list[dict[str, Any]]:
     """
     get rse usage information.
 
@@ -1175,14 +1343,19 @@ def delete_rse_limits(rse_id: str, name: "Optional[str]" = None, *, session: 'Se
         raise exception.RucioException(error.args)
 
 
-def _sanitize_rse_transfer_limit_dict(limit_dict):
+def _sanitize_rse_transfer_limit_dict(limit_dict: dict[str, Any]) -> dict[str, Any]:
     if limit_dict['activity'] == 'all_activities':
         limit_dict['activity'] = None
     return limit_dict
 
 
 @read_session
-def get_rse_transfer_limits(rse_id, activity=None, *, session: "Session"):
+def get_rse_transfer_limits(
+    rse_id: str,
+    activity: Optional[str] = None,
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Get RSE transfer limits.
 
@@ -1217,7 +1390,12 @@ def get_rse_transfer_limits(rse_id, activity=None, *, session: "Session"):
 
 
 @stream_session
-def list_rse_usage_history(rse_id, source=None, *, session: "Session"):
+def list_rse_usage_history(
+    rse_id: str,
+    source: Optional[str] = None,
+    *,
+    session: "Session"
+) -> 'Iterator[dict[str, Any]]':
     """
     List RSE usage history information.
 
@@ -1290,7 +1468,7 @@ def add_protocol(
             if domain not in utils.rse_supported_protocol_domains():
                 raise exception.RSEProtocolDomainNotSupported(f"The protocol domain '{domain}' is not defined in the schema.")
             for op in parameter['domains'][domain]:
-                if op not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
+                if op not in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = parameter['domains'][domain][op]
@@ -1335,7 +1513,12 @@ def add_protocol(
 
 
 @read_session
-def get_rse_protocols(rse_id, schemes=None, *, session: "Session") -> types.RSESettingsDict:
+def get_rse_protocols(
+    rse_id: str,
+    schemes: Optional[list[str]] = None,
+    *,
+    session: "Session"
+) -> types.RSESettingsDict:
     """
     Returns protocol information. Parameter combinations are: (operation OR default) XOR scheme.
 
@@ -1354,7 +1537,7 @@ def get_rse_protocols(rse_id, schemes=None, *, session: "Session") -> types.RSES
 
     terms = [models.RSEProtocol.rse_id == rse_id]
     if schemes:
-        if not type(schemes) is list:
+        if not isinstance(schemes, list):
             schemes = [schemes]
         terms.extend([models.RSEProtocol.scheme.in_(schemes)])
 
@@ -1414,7 +1597,7 @@ def _format_get_rse_protocols(
             'verify_checksum': verify_checksum if verify_checksum is not None else True,
             'volatile': _rse['volatile']}
 
-    for op in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
+    for op in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
         info['%s_protocol' % op] = 1  # 1 indicates the default protocol
 
     for row in db_protocols:
@@ -1446,7 +1629,7 @@ def _format_get_rse_protocols(
 
 
 @read_session
-def get_rse_info(rse_id, *, session: "Session") -> types.RSESettingsDict:
+def get_rse_info(rse_id: str, *, session: "Session") -> types.RSESettingsDict:
     """
     For historical reasons, related to usage of rsemanager, "rse_info" is equivalent to
     a cached call to get_rse_protocols without any schemes set.
@@ -1457,7 +1640,7 @@ def get_rse_info(rse_id, *, session: "Session") -> types.RSESettingsDict:
     """
     key = 'rse_info_%s' % rse_id
     result = REGION.get(key)
-    if result is NO_VALUE:
+    if isinstance(result, NoValue):
         result = get_rse_protocols(rse_id=rse_id, session=session)
         REGION.set(key, result)
     return result
@@ -1501,7 +1684,7 @@ def update_protocols(
             if domain not in utils.rse_supported_protocol_domains():
                 raise exception.RSEProtocolDomainNotSupported(f"The protocol domain '{domain}' is not defined in the schema.")
             for op in data['domains'][domain]:
-                if op not in RSE_SUPPORTED_PROTOCOL_OPERATIONS:
+                if op not in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
                     raise exception.RSEOperationNotSupported(f"Operation '{op}' not defined in schema.")
                 op_name = op if op.startswith('third_party_copy') else f'{op}_{domain}'.lower()
                 priority = data['domains'][domain][op]
@@ -1679,7 +1862,11 @@ def update_rse(rse_id: str, parameters: dict[str, Any], *, session: "Session"):
 
 
 @read_session
-def export_rse(rse_id, *, session: "Session"):
+def export_rse(
+    rse_id: str,
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Get the internal representation of an RSE.
 
@@ -1725,7 +1912,12 @@ def export_rse(rse_id, *, session: "Session"):
 
 
 @transactional_session
-def add_qos_policy(rse_id, qos_policy, *, session: "Session"):
+def add_qos_policy(
+    rse_id: str,
+    qos_policy: str,
+    *,
+    session: "Session"
+) -> bool:
     """
     Add a QoS policy from an RSE.
 
@@ -1757,7 +1949,12 @@ def add_qos_policy(rse_id, qos_policy, *, session: "Session"):
 
 
 @transactional_session
-def delete_qos_policy(rse_id, qos_policy, *, session: "Session"):
+def delete_qos_policy(
+    rse_id: str,
+    qos_policy: str,
+    *,
+    session: "Session"
+) -> bool:
     """
     Delete a QoS policy from an RSE.
 
@@ -1783,7 +1980,11 @@ def delete_qos_policy(rse_id, qos_policy, *, session: "Session"):
 
 
 @read_session
-def list_qos_policies(rse_id, *, session: "Session"):
+def list_qos_policies(
+    rse_id: str,
+    *,
+    session: "Session"
+) -> list[str]:
     """
     List all QoS policies of an RSE.
 
@@ -1809,13 +2010,15 @@ def list_qos_policies(rse_id, *, session: "Session"):
 
 
 @transactional_session
-def fill_rse_expired(rse_id, *, session: "Session"):
+def fill_rse_expired(
+    rse_id: str,
+    *,
+    session: "Session"
+) -> None:
     """
     Fill the rse_usage for source expired
 
     :param rse_id: The RSE id.
-
-    :returns: True if successful, except otherwise.
     """
     stmt = select(
         func.sum(models.RSEFileAssociation.bytes).label("bytes"),
@@ -1869,7 +2072,7 @@ def determine_scope_for_rse(
         # a base which should be removed from the prefix (in order for '/' to
         # mean the entire resource associated with that issuer).
         prefix = protocol['prefix']
-        if base_path := get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH):
+        if base_path := get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH):  # type: ignore (session parameter missing)
             prefix = prefix.removeprefix(base_path)
         filtered_prefixes.add(prefix)
     all_scopes = [f'{s}:{p}' for s in scopes for p in filtered_prefixes] + list(extra_scopes)

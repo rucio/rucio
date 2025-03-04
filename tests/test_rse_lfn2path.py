@@ -19,7 +19,7 @@ from configparser import NoOptionError, NoSectionError
 import pytest
 
 from rucio.common import config
-from rucio.rse.protocols.protocol import RSEDeterministicTranslation
+from rucio.rse.translation import RSEDeterministicTranslation
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE, changes global configuration value')
@@ -43,7 +43,7 @@ class TestDeterministicTranslation:
         )
         assert translator.path("foo", "bar") == "foo/4e/99/bar"
 
-    @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='Test ATLAS hash convention')
+    @pytest.mark.skipif(os.environ.get('POLICY') == 'belleii', reason='BelleII does not use hashed lfn2pfn')
     def test_default_hash(self):
         """LFN2PFN: Translate to path using default algorithm (Success)"""
         translator = RSEDeterministicTranslation(

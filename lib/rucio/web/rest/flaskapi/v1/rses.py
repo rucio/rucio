@@ -1334,7 +1334,7 @@ class Protocol(ErrorHandlingMethodView):
                 vo=request.environ.get('vo'),
                 scheme=scheme,
                 hostname=hostname,
-                port=port,
+                port=int(port) if port else None,
                 data=parameters,
             )
         except InvalidObject as error:
@@ -1389,7 +1389,14 @@ class Protocol(ErrorHandlingMethodView):
             description: Rse not found or protocol not supported
         """
         try:
-            del_protocols(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), scheme=scheme, hostname=hostname, port=port)
+            del_protocols(
+                rse,
+                issuer=request.environ.get('issuer'),
+                vo=request.environ.get('vo'),
+                scheme=scheme,
+                hostname=hostname,
+                port=int(port) if port else None
+            )
         except (RSEProtocolNotSupported, RSENotFound) as error:
             return generate_http_error_flask(404, error)
 

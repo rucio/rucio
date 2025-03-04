@@ -22,7 +22,6 @@ from rucio.daemons.abacus import account, collection_replica, rse
 from rucio.daemons.atropos import atropos
 from rucio.daemons.automatix import automatix
 from rucio.daemons.badreplicas import minos, minos_temporary_expiration, necromancer
-from rucio.daemons.c3po import c3po
 from rucio.daemons.cache import consumer
 from rucio.daemons.conveyor import finisher, poller, preparer, receiver, stager, submitter, throttler
 from rucio.daemons.follower import follower
@@ -44,7 +43,6 @@ DAEMONS = [
     minos,
     minos_temporary_expiration,
     necromancer,
-    c3po,
     consumer,
     finisher,
     poller,

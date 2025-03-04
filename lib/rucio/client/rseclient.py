@@ -24,7 +24,7 @@ from rucio.common.utils import build_url
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
-    from rucio.common.constants import RSE_SUPPORTED_PROTOCOL_DOMAINS_LITERAL, RSE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, SUPPORTED_PROTOCOLS_LITERAL
+    from rucio.common.constants import RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, RSE_SUPPORTED_PROTOCOL_DOMAINS_LITERAL, SUPPORTED_PROTOCOLS_LITERAL
 
 
 class RSEClient(BaseClient):
@@ -238,7 +238,7 @@ class RSEClient(BaseClient):
             self,
             rse: str,
             protocol_domain: "RSE_SUPPORTED_PROTOCOL_DOMAINS_LITERAL" = 'ALL',
-            operation: Optional["RSE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL"] = None,
+            operation: Optional["RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL"] = None,
             default: bool = False,
             scheme: Optional['SUPPORTED_PROTOCOLS_LITERAL'] = None
     ) -> Any:
@@ -287,7 +287,7 @@ class RSEClient(BaseClient):
             rse: str,
             lfns: 'Iterable[str]',
             protocol_domain: 'RSE_SUPPORTED_PROTOCOL_DOMAINS_LITERAL' = 'ALL',
-            operation: Optional['RSE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL'] = None,
+            operation: Optional['RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL'] = None,
             scheme: Optional['SUPPORTED_PROTOCOLS_LITERAL'] = None
     ) -> dict[str, str]:
         """
@@ -409,7 +409,7 @@ class RSEClient(BaseClient):
             self,
             rse: str,
             domain: 'RSE_SUPPORTED_PROTOCOL_DOMAINS_LITERAL',
-            operation: 'RSE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL',
+            operation: 'RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL',
             scheme_a: 'SUPPORTED_PROTOCOLS_LITERAL',
             scheme_b: 'SUPPORTED_PROTOCOLS_LITERAL'
     ) -> bool:

@@ -69,7 +69,7 @@ class CORSMiddleware:
                 response: Response = Response(status=200)
                 response.headers['Access-Control-Allow-Origin'] = request.origin
                 response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-                response.headers['Access-Control-Allow-Headers'] = '*'
+                response.headers['Access-Control-Allow-Headers'] = request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS')  # type: ignore (value could be None)
                 response.headers['Access-Control-Allow-Credentials'] = 'true'
                 return response(environ, start_response)
             response: Response = Response(status=403)
@@ -276,7 +276,7 @@ def generate_http_error_flask(
         exc_msg: Optional[str] = None,
         headers: Optional['HeadersType'] = None,
 ) -> "flask.Response":
-    """Utitily function to generate a complete HTTP error response.
+    """Utility function to generate a complete HTTP error response.
 
     :param status_code: The HTTP status code to generate a response for.
     :param exc: The name of the exception class or a RucioException object.

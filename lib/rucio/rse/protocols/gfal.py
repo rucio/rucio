@@ -22,8 +22,8 @@ import urllib.parse as urlparse
 from threading import Timer
 
 from rucio.common import config, exception
+from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM
 from rucio.common.constraints import STRING_TYPES
-from rucio.common.utils import GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM
 from rucio.rse.protocols import protocol
 
 try:
@@ -186,6 +186,7 @@ class Default(protocol.RSEProtocol):
         self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
         self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
+        self.__ctx.set_opt_boolean("HTTP PLUGIN", "RETRIEVE_BEARER_TOKEN", False)
         auth_configured = False
         if self.auth_token:
             self.__ctx.set_opt_string("BEARER", "TOKEN", self.auth_token)
@@ -488,12 +489,12 @@ class Default(protocol.RSEProtocol):
 
         try:
             for path in paths:
-                if self.__gfal2_exist(path) == 0:
-                    ret = ctx.unlink(str(path))
-                    if ret:
-                        return ret
-                else:
-                    raise exception.SourceNotFound
+                # GFAL does a PROPFIND request before DELETE when the scheme is
+                # davs://, which is wasteful.
+                path = re.sub('^davs://', 'https://', str(path))
+                ret = ctx.unlink(path)
+                if ret:
+                    return ret
             return ret
         except gfal2.GError as error:  # pylint: disable=no-member
             if error.code == errno.ENOENT or 'No such file' in str(error):

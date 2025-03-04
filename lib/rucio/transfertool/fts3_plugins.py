@@ -14,10 +14,9 @@
 
 import json
 import sys
-from configparser import NoSectionError
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
-from rucio.common.config import config_get_int, config_get_items
+from rucio.common.config import config_get_int
 from rucio.common.exception import InvalidRequest
 from rucio.common.plugins import PolicyPackageAlgorithms
 
@@ -34,7 +33,7 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
     """
 
     ALGORITHM_NAME = "fts3_tape_metadata_plugins"
-    _HINTS_NAME = "fts3_plugins_init"
+    _INIT_FUNC_NAME = "fts3_plugins_init"
     DEFAULT = "def"
 
     def __init__(self, policy_algorithm: str) -> None:
@@ -52,19 +51,15 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         if not self._supports(self.ALGORITHM_NAME, policy_algorithm):
             raise ValueError(f'Policy Algorithm {policy_algorithm} not found')
 
-        if self._supports(self._HINTS_NAME, policy_algorithm):
-            self._get_one_algorithm(self._HINTS_NAME, name=policy_algorithm)()
+        if self._supports(self._INIT_FUNC_NAME, policy_algorithm):
+            init_func = self._get_one_algorithm(self._INIT_FUNC_NAME, name=policy_algorithm)
+            init_func()
 
         self.set_in_hints = self._get_one_algorithm(self.ALGORITHM_NAME, name=policy_algorithm)
 
     @classmethod
     def _module_init(cls: type[FTS3TapeMetadataPluginType]) -> None:
-        cls.register(
-            "activity",
-            func=lambda x: cls._activity_hints(cls, x),  # type: ignore
-            init_func=lambda: cls._init_instance_activity_hints(cls))  # type: ignore
         cls.register(cls.DEFAULT, func=lambda x: cls._default(cls, x))  # type: ignore
-        cls.register("test", func=lambda x: cls._collocation(cls, cls._test_collocation, x))  # type: ignore
 
     @classmethod
     def register(cls: type[FTS3TapeMetadataPluginType], name: str, func: 'Callable', init_func: Optional['Callable'] = None) -> None:
@@ -77,42 +72,18 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         """
         super()._register(cls.ALGORITHM_NAME, algorithm_dict={name: func})
         if init_func is not None:
-            super()._register(cls._HINTS_NAME, algorithm_dict={name: init_func})
+            super()._register(cls._INIT_FUNC_NAME, algorithm_dict={name: init_func})
 
-    def _init_instance_activity_hints(self) -> None:
+    @staticmethod
+    def _collocation(collocation_func: 'Callable', hints: dict[str, Any]) -> dict[str, dict]:
         """
-            Load prorities for activities from the config
-        """
-        try:
-            self.prority_table = dict(config_get_items("tape_priority"))
-        except NoSectionError:
-            self.prority_table = {}
-
-    def _activity_hints(self, activity_kwargs: dict[str, str], default_prority: str = '20') -> dict[str, dict]:
-        """ Activity Hints - assign a priority based on activity"""
-        if "activity" in activity_kwargs:
-            activity = activity_kwargs["activity"].lower()
-
-        else:
-            raise InvalidRequest("`activity` field not found in passed metadata")
-
-        default_prority = self.prority_table.get("default", default_prority)
-        priority = self.prority_table.get(activity, default_prority)
-
-        return {"scheduling_hints": {"priority": priority}}
-
-    def _collocation(self, collocation_func: 'Callable', hints: dict[str, Any]) -> dict[str, dict]:
-        """
-        Wraps a 'collacation' style plugin for formatting
+        Wraps a 'collocation' style plugin for formatting
 
         :param collocation_func: Function that defines the collocation rules
         :param hints: kwargs utilized by the collocation rules
         :return: Collocation hints produced by the collocation_func, wrapped
         """
-        return {"collocation_hints": collocation_func(*hints)}
-
-    def _test_collocation(self, *hint: dict) -> dict[str, Any]:
-        return {"0": "", "1": "", "2": "", "3": ""}
+        return {"collocation_hints": collocation_func(**hints)}
 
     def _default(self, *hints: dict) -> dict:
         return {}
@@ -143,5 +114,39 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         return {"archive_metadata": hints}
 
 
+class ActivityBasedTransferPriorityPlugin(FTS3TapeMetadataPlugin):
+    def __init__(self, policy_algorithm: str = 'activity') -> None:
+        self.register(
+            policy_algorithm,
+            func=lambda x: self._get_activity_priority(x),
+            init_func=self._init_default_priority)
+        super().__init__(policy_algorithm)
+
+    def _init_default_priority(self) -> None:
+        self.default_priority = config_get_int(
+            "tape_priority",
+            option="default",
+            raise_exception=False,
+            default=20,
+        )
+
+    def _get_activity_priority(self, activity_kwargs: dict[str, str]) -> dict[str, dict]:
+        """ Activity Hints - assign a priority based on activity"""
+        if "activity" in activity_kwargs:
+            activity = activity_kwargs["activity"]
+        else:
+            raise InvalidRequest("`activity` field not found in passed metadata")
+
+        priority = config_get_int(
+            "tape_priority",
+            option=activity,
+            raise_exception=False,
+            default=self.default_priority,
+        )
+
+        return {"scheduling_hints": {"priority": priority}}
+
+
 # Register the policies
 FTS3TapeMetadataPlugin._module_init()
+ActivityBasedTransferPriorityPlugin()

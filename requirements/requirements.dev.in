@@ -8,7 +8,6 @@ flake8==6.1.0                                               # Wrapper around PyF
 pycodestyle==2.11.0                                         # New package replacing pep8; python_version < '3.9'
 pylint==3.0.2
 astroid==3.0.1
-virtualenv==20.26.3                                         # Virtual Python Environment builder
 xmltodict==0.13.0                                           # Makes working with XML feel like you are working with JSON
 pytz==2023.3.post1                                          # World timezone definitions, modern and historical
 pydoc-markdown==4.8.2                                       # Used for generating Markdown documentation for docusaurus
@@ -16,4 +15,5 @@ sh==2.0.7                                                   # Convenience librar
 apispec==6.6.1                                              # Generate OpenApi definition out of pydoc comments
 apispec-webframeworks                                       # Integration of apispec in Flask
 pip-tools==7.4.1                                            # Generate requirements files with pinned dependencies
-atlas-rucio-policy-package==0.0.2
+atlas-rucio-policy-package==0.4.0
+belleii-rucio-policy-package @ git+https://github.com/rucio/temporary-belle2-policy-package@v0.1.0

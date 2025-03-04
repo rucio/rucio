@@ -28,7 +28,7 @@ import rucio.db.sqla.util
 from rucio.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalScope, LoggerFunction
@@ -149,18 +149,14 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
 
     _, _, logger = heartbeat_handler.live()
     try:
-        rses = [
-            s.strip() for s in config_get("automatix", "rses").split(",")
-        ]  # TODO use config_get_list
+        rses = config_get_list("automatix", "rses")
     except (NoOptionError, NoSectionError, RuntimeError):
         logging.log(
             logging.ERROR,
             "Option rses not found in automatix section. Trying the legacy sites option",
         )
         try:
-            rses = [
-                s.strip() for s in config_get("automatix", "sites").split(",")
-            ]  # TODO use config_get_list
+            rses = config_get_list("automatix", "sites")
             logging.log(
                 logging.WARNING,
                 "Option sites found in automatix section. This option will be deprecated soon. Please update your config to use rses.",
@@ -190,6 +186,8 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
     logger(logging.DEBUG, "Probabilities %s", probabilities)
 
     cycle_stopwatch = Stopwatch()
+    successes = []
+    failures = []
     for rse in rses:
         stopwatch = Stopwatch()
         _, _, logger = heartbeat_handler.live()
@@ -239,24 +237,37 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
                     file_["dataset_meta"]["lifetime"] = dataset_lifetime
             files.append(file_)
         logger(logging.INFO, "Upload %s:%s to %s", scope, dsn, rse)
-        upload_client = UploadClient(client)
-        ret = upload_client.upload(files)
-        if ret == 0:
-            logger(logging.INFO, "%s successfully registered" % dsn)
-            METRICS.counter(name="addnewdataset.done").inc()
-            METRICS.counter(name="addnewfile.done").inc(nbfiles)
-            METRICS.timer(name='datasetinjection').observe(stopwatch.elapsed)
-        else:
-            logger(logging.INFO, "Error uploading files")
-        for physical_fname in physical_fnames:
-            remove(physical_fname)
-        rmdir(tmpdir)
+        try:
+            upload_client = UploadClient(client)
+            ret = upload_client.upload(files)
+            if ret == 0:
+                logger(logging.INFO, "%s successfully registered on %s", dsn, rse)
+                METRICS.counter(name="addnewdataset.done").inc()
+                METRICS.counter(name="addnewfile.done").inc(nbfiles)
+                METRICS.timer(name='datasetinjection').observe(stopwatch.elapsed)
+                successes.append(rse)
+            else:
+                logger(logging.INFO, "Error uploading files")
+                failures.append(rse)
+        except Exception as error:
+            logger(logging.ERROR, "Error uploading files on %s: %s", rse, str(error))
+            failures.append(rse)
+        finally:
+            for physical_fname in physical_fnames:
+                remove(physical_fname)
+            rmdir(tmpdir)
     logger(
         logging.INFO,
-        "It took %f seconds to upload one dataset on %s",
+        "It took %f seconds to upload datasets on %s RSEs: %s",
         cycle_stopwatch.elapsed,
-        str(rses),
+        len(successes),
+        str(successes),
     )
+    if failures:
+        logger(
+            logging.WARNING,
+            "Datasets could not be uploaded on %s RSEs: %s", len(failures), str(failures),
+        )
     return True
 
 

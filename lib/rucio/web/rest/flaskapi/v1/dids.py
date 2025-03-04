@@ -34,6 +34,7 @@ from rucio.common.exception import (
     RSENotFound,
     RuleNotFound,
     ScopeNotFound,
+    UnsupportedMetadataPlugin,
     UnsupportedOperation,
     UnsupportedStatus,
 )
@@ -87,28 +88,29 @@ class Scope(ErrorHandlingMethodView):
         - name: scope
           in: path
           description: The scope.
+          required: true
           schema:
             type: string
           style: simple
-        requestBody:
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  name:
-                    description: The name of the did.
-                    type: string
-                  recursive:
-                    description: If specified, also returns the child ids recursively.
-                    type: boolean
+        - name: name
+          in: query
+          description: The name of the data identifier (did).
+          required: false
+          schema:
+            type: string
+        - name: recursive
+          in: query
+          description: If true, retrieves child identifiers recursively for non-file types.
+          required: false
+          schema:
+            type: boolean
         responses:
           200:
             description: OK
             content:
               application/x-json-stream:
                 schema:
-                  description: Line separated dictionary of dids.
+                  description: Line-separated dictionary of dids.
                   type: array
                   items:
                     type: object
@@ -142,7 +144,7 @@ class Scope(ErrorHandlingMethodView):
                 for did in scope_list(scope=scope, name=name, recursive=recursive, vo=vo):
                     yield render_json(**did) + '\n'
 
-            recursive = 'recursive' in request.args
+            recursive = request.args.get('recursive', 'false').lower() in ['true', '1']
 
             return try_stream(
                 generate(
@@ -1321,6 +1323,8 @@ class Meta(ErrorHandlingMethodView):
                 schema:
                   description: A data identifier with all attributes.
                   type: object
+          400:
+            description: Bad Request - Invalid metadata plugin specified
           401:
             description: Invalid Auth Token
           404:
@@ -1339,6 +1343,8 @@ class Meta(ErrorHandlingMethodView):
             return Response(render_json(**meta), content_type='application/json')
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
+        except UnsupportedMetadataPlugin as error:
+            return generate_http_error_flask(400, error)
 
     def post(self, scope_name):
         """
@@ -1694,6 +1700,10 @@ class BulkMeta(ErrorHandlingMethodView):
                     description: Concatenated the metadata of the parent if set to true.
                     type: boolean
                     default: false
+                  plugin:
+                    description: The did meta plugin to query or "ALL" for all available plugins
+                    type: string
+                    default: "JSON"
         responses:
           200:
             description: OK
@@ -1717,10 +1727,11 @@ class BulkMeta(ErrorHandlingMethodView):
         parameters = json_parameters()
         dids = param_get(parameters, 'dids')
         inherit = param_get(parameters, 'inherit', default=False)
+        plugin = param_get(parameters, 'plugin', default='JSON')
 
         try:
             def generate(vo):
-                for meta in get_metadata_bulk(dids, inherit=inherit, vo=vo):
+                for meta in get_metadata_bulk(dids, inherit=inherit, plugin=plugin, vo=vo):
                     yield render_json(**meta) + '\n'
 
             return try_stream(generate(vo=request.environ.get('vo')))

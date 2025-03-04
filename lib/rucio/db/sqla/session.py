@@ -49,7 +49,6 @@ if TYPE_CHECKING:
     R = TypeVar('R')
     CallableTypeVar = TypeVar('CallableTypeVar', bound='Callable[..., Any]')
 
-
 try:
     main_script = os.path.basename(sys.argv[0])
     CURRENT_COMPONENT = main_script.split('-')[1]
@@ -69,6 +68,13 @@ DEFAULT_SCHEMA_NAME = config_get(DATABASE_SECTION, 'schema',
                                  raise_exception=False, default=None, check_config_table=False)
 _METADATA = MetaData(schema=DEFAULT_SCHEMA_NAME)
 _MAKER, _ENGINE, _LOCK = None, None, Lock()
+
+
+SQLA_CONFIG_POOLCLASS_MAPPING = {
+    'queuepool': QueuePool,
+    'singletonthreadpool': SingletonThreadPool,
+    'nullpool': NullPool,
+}
 
 
 class BASE(DeclarativeBase):
@@ -151,22 +157,20 @@ def mysql_convert_decimal_to_float(
 
 def psql_convert_decimal_to_float(dbapi_conn, connection_rec) -> None:
     """
-    The default datatype returned by psycopg2 for numerics is decimal.Decimal.
-    This type cannot be serialised to JSON, therefore we need to autoconvert to floats.
+    Configure the PostgreSQL connection to return numeric types as float instead of Decimal.
+    Psycopg3 provides this functionality through type adapters.
 
     :param dbapi_conn: DBAPI connection
     :param connection_rec: connection record
     """
-
     try:
-        import psycopg2.extensions  # pylint: disable=import-error
-    except:
-        raise RucioException('Trying to use PostgreSQL without psycopg2 or psycopg2-binary installed!')
-
-    DEC2FLOAT = psycopg2.extensions.new_type(psycopg2.extensions.DECIMAL.values,
-                                             'DEC2FLOAT',
-                                             lambda value, curs: float(value) if value is not None else None)
-    psycopg2.extensions.register_type(DEC2FLOAT)
+        import psycopg
+        # Register a global loader that converts numeric types to float
+        dbapi_conn.adapters.register_loader("numeric", psycopg.types.numeric.FloatLoader)
+    except ImportError:
+        raise RucioException('Trying to use PostgreSQL without psycopg installed!')
+    except Exception as error:
+        raise RucioException(f'Error setting up PostgreSQL Decimal to Float conversion: {str(error)}')
 
 
 def my_on_connect(dbapi_con, connection_record) -> None:
@@ -189,12 +193,6 @@ def _get_engine_poolclass(poolclass: str) -> Pool:
     :raises InputValidationError: if config value doesn't correspond to an SQLAlchemy Pool class.
     """
 
-    SQLA_CONFIG_POOLCLASS_MAPPING = {
-        'queuepool': QueuePool,
-        'singletonthreadpool': SingletonThreadPool,
-        'nullpool': NullPool,
-    }
-
     poolclass = poolclass.lower()
 
     if poolclass not in SQLA_CONFIG_POOLCLASS_MAPPING:
@@ -204,7 +202,7 @@ def _get_engine_poolclass(poolclass: str) -> Pool:
 
 
 def get_engine() -> 'Engine':
-    """ Creates a engine to a specific database.
+    """ Creates an engine to a specific database.
         :returns: engine
     """
     global _ENGINE
@@ -261,6 +259,7 @@ def get_dump_engine(
             print(statement.replace(')', ');\n'))
         else:
             print(statement)
+
     sql_connection = config_get(DATABASE_SECTION, 'default', check_config_table=False)
 
     engine = create_engine(sql_connection, echo=echo, strategy='mock', executor=dump)
@@ -387,12 +386,14 @@ def read_session(function: "Callable[P, R]"):
     This is useful if only SELECTs and the like are being done; anything involving
     INSERTs, UPDATEs etc should use transactional_session.
     '''
+
     @retrying(retry_on_exception=retry_if_db_connection_error,
               wait_fixed=500,
               stop_max_attempt_number=2)
     def new_funct(*args: "P.args", session: "Optional[Session]" = None, **kwargs):  # pylint:disable=missing-kwoa
         if isgeneratorfunction(function):
-            raise RucioException('read_session decorator should not be used with generator. Use stream_session instead.')
+            raise RucioException(
+                'read_session decorator should not be used with generator. Use stream_session instead.')
 
         if not session:
             session_scoped = get_session()
@@ -415,6 +416,7 @@ def read_session(function: "Callable[P, R]"):
             return function(*args, session=session, **kwargs)
         except Exception:
             raise
+
     return _update_session_wrapper(new_funct, function)
 
 
@@ -427,13 +429,15 @@ def stream_session(function: "Callable[P, R]"):
     This is useful if only SELECTs and the like are being done; anything involving
     INSERTs, UPDATEs etc should use transactional_session.
     '''
+
     @retrying(retry_on_exception=retry_if_db_connection_error,
               wait_fixed=500,
               stop_max_attempt_number=2)
     def new_funct(*args: "P.args", session: "Optional[Session]" = None, **kwargs):  # pylint:disable=missing-kwoa
 
         if not isgeneratorfunction(function):
-            raise RucioException('stream_session decorator should be used only with generator. Use read_session instead.')
+            raise RucioException(
+                'stream_session decorator should be used only with generator. Use read_session instead.')
 
         if not session:
             session_scoped = get_session()
@@ -469,6 +473,7 @@ def transactional_session(function: "Callable[P, R]") -> 'Callable':
 
     session is a sqlalchemy session, and you can get one calling get_session().
     '''
+
     def new_funct(
             *args: "P.args",
             session: "Optional[Session]" = None,
@@ -495,4 +500,5 @@ def transactional_session(function: "Callable[P, R]") -> 'Callable':
         else:
             result = function(*args, session=session, **kwargs)
         return result
+
     return _update_session_wrapper(new_funct, function)

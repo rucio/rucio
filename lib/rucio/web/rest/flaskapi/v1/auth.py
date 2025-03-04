@@ -185,7 +185,6 @@ class UserPass(ErrorHandlingMethodView):
         headers['Cache-Control'] = 'no-cache, no-store, max-age=0, must-revalidate'
         headers.add('Cache-Control', 'post-check=0, pre-check=0')
         headers['Pragma'] = 'no-cache'
-
         vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
         username = request.headers.get('X-Rucio-Username', default=None)
@@ -940,7 +939,7 @@ class GSS(ErrorHandlingMethodView):
         return '', 200, headers
 
 
-class x509(ErrorHandlingMethodView):
+class x509(ErrorHandlingMethodView):  # noqa: N801
     """
     Authenticate a Rucio account temporarily via an x509 certificate.
     """
@@ -1477,10 +1476,10 @@ class SAML(ErrorHandlingMethodView):
             return '', 200, headers
 
         # Path to the SAML config folder
-        SAML_PATH = config_get('saml', 'config_path')
+        saml_path = config_get('saml', 'config_path')
 
         req = prepare_saml_request(request.environ, dict(request.args.items(multi=False)))
-        auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
+        auth = OneLogin_Saml2_Auth(req, custom_base_path=saml_path)
 
         headers.set('X-Rucio-SAML-Auth-URL', auth.login())
         return '', 200, headers
@@ -1501,9 +1500,9 @@ class SAML(ErrorHandlingMethodView):
         if not EXTRA_MODULES['onelogin']:
             return "SAML not configured on the server side.", 200, [('X-Rucio-Auth-Token', '')]
 
-        SAML_PATH = config_get('saml', 'config_path')
+        saml_path = config_get('saml', 'config_path')
         req = prepare_saml_request(request.environ, dict(request.args.items(multi=False)))
-        auth = OneLogin_Saml2_Auth(req, custom_base_path=SAML_PATH)
+        auth = OneLogin_Saml2_Auth(req, custom_base_path=saml_path)
 
         auth.process_response()
         errors = auth.get_errors()

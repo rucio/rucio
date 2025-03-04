@@ -245,8 +245,8 @@ def update_exception(
     :param state:          The states to filter
     :param session:        The database session in use.
     """
-    ALLOWED_STATES = (LifetimeExceptionsState.APPROVED, LifetimeExceptionsState.REJECTED)
-    if state not in ALLOWED_STATES:
+    allowed_states = (LifetimeExceptionsState.APPROVED, LifetimeExceptionsState.REJECTED)
+    if state not in allowed_states:
         raise UnsupportedOperation
 
     query = update(

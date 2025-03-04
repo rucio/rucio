@@ -17,7 +17,8 @@ import os
 import re
 
 from rucio.common import exception
-from rucio.common.utils import PREFERRED_CHECKSUM, execute
+from rucio.common.checksum import PREFERRED_CHECKSUM
+from rucio.common.utils import execute
 from rucio.rse.protocols import protocol
 
 

@@ -28,10 +28,10 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 IMMUTABLE_KEYS = [
-    '_id',              # index key
-    'scope',            # generated on insert
-    'name',             # generated on insert
-    'vo'                # generated on insert
+    '_id',  # index key
+    'scope',  # generated on insert
+    'name',  # generated on insert
+    'vo'  # generated on insert
 ]
 
 
@@ -46,28 +46,40 @@ class MongoDidMeta(DidMetaPlugin):
         password: "Optional[str]" = None,
     ):
         super(MongoDidMeta, self).__init__()
-        if host is None:
-            host = config.config_get('metadata', 'mongo_service_host')
-        if port is None:
-            port = config.config_get_int('metadata', 'mongo_service_port')
-        if db is None:
-            db = config.config_get('metadata', 'mongo_db')
-        if collection is None:
-            collection = config.config_get('metadata', 'mongo_collection')
 
-        if user is None and config.config_has_section("metadata"):
-            user = config.config_get("metadata", "mongo_user", default=None)
+        # Validate required parameters.
+        con_params = {
+            'mongo_service_host': host,
+            'mongo_service_port': port,
+            'mongo_db': db,
+            'mongo_collection': collection,
+        }
 
-        if user is not None:
-            if password is None:
-                password = config.config_get("metadata", "mongo_password")
-            auth = "{user}:{password}@".format(user=user, password=password)
-        else:
-            auth = ""
+        for param in con_params:
+            if con_params[param] is None:
+                if config.config_has_option('metadata', param):
+                    con_params[param] = (
+                        config.config_get_int('metadata', param)
+                        if param == 'mongo_service_port'
+                        else config.config_get('metadata', param)
+                    )
+                else:
+                    raise exception.ConnectionParameterNotFound(param)
 
-        self.client = pymongo.MongoClient("mongodb://{auth}{host}:{port}/".format(auth=auth, host=host, port=port))
-        self.db = self.client[db]
-        self.col = self.db[collection]
+        if user is None and config.config_has_option('metadata', 'mongo_user'):
+            user = config.config_get('metadata', 'mongo_user', default=None)
+
+        if password is None and config.config_has_option('metadata', 'mongo_password'):
+            password = config.config_get('metadata', 'mongo_password')
+
+        # Set the auth (fallback to an anonymous connection if either user or password is not defined).
+        auth = "" if not user or not password else f"{user}:{password}@"
+
+        self.client = pymongo.MongoClient(
+            f"mongodb://{auth}{con_params['mongo_service_host']}:{con_params['mongo_service_port']}/"
+        )
+        self.db = self.client[con_params['mongo_db']]
+        self.col = self.db[con_params['mongo_collection']]
 
         self.plugin_name = "MONGO"
 
@@ -175,9 +187,10 @@ class MongoDidMeta(DidMetaPlugin):
 
         if recursive:
             # TODO: possible, but requires retrieving the results of a concurrent sqla query to call list_content on for datasets and containers
-            raise exception.UnsupportedOperation("'{}' metadata module does not currently support recursive searches".format(
-                self.plugin_name.lower()
-            ))
+            raise exception.UnsupportedOperation(
+                "'{}' metadata module does not currently support recursive searches".format(
+                    self.plugin_name.lower()
+                ))
 
         if long:
             query_result = self.col.find(mongo_query_str)
@@ -185,7 +198,7 @@ class MongoDidMeta(DidMetaPlugin):
                 query_result = query_result.limit(limit)
             for did in query_result:
                 did_full = "{}:{}".format(did['scope'], did['name'])
-                if did_full not in ignore_dids:         # aggregating recursive queries may contain duplicate DIDs
+                if did_full not in ignore_dids:  # aggregating recursive queries may contain duplicate DIDs
                     ignore_dids.add(did_full)
                     yield {
                         'scope': InternalScope(did['scope']),
@@ -200,7 +213,7 @@ class MongoDidMeta(DidMetaPlugin):
                 query_result = query_result.limit(limit)
             for did in query_result:
                 did_full = "{}:{}".format(did['scope'], did['name'])
-                if did_full not in ignore_dids:         # aggregating recursive queries may contain duplicate DIDs
+                if did_full not in ignore_dids:  # aggregating recursive queries may contain duplicate DIDs
                     ignore_dids.add(did_full)
                     yield did['name']
 

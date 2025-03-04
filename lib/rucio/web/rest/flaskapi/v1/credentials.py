@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from flask import Flask, request
 from werkzeug.datastructures import Headers
 
+from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, SUPPORTED_SIGN_URL_SERVICES
 from rucio.common.exception import CannotAuthenticate
 from rucio.gateway.credential import get_signed_url
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
@@ -177,10 +178,10 @@ class SignURL(ErrorHandlingMethodView):
             return generate_http_error_flask(400, ValueError.__name__, 'Parameter "url" not found', headers=headers)
         url = request.args.get('url')
 
-        if service not in ['gcs', 's3', 'swift']:
+        if service not in SUPPORTED_SIGN_URL_SERVICES:
             return generate_http_error_flask(400, ValueError.__name__, 'Parameter "svc" must be either empty(=gcs), gcs, s3 or swift', headers=headers)
 
-        if operation not in ['read', 'write', 'delete']:
+        if operation not in RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS:
             return generate_http_error_flask(400, ValueError.__name__, 'Parameter "op" must be either empty(=read), read, write, or delete.', headers=headers)
 
         result = get_signed_url(account, appid, ip, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)

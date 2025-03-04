@@ -21,7 +21,7 @@
 #sqlalchemy.url=oracle://user:pass@servicename
 #version_table_schema=rucio
 
-#sqlalchemy.url=postgresql://rucio:rucio@psql-hostname:5432/rucio
+#sqlalchemy.url=postgresql+psycopg://rucio:rucio@psql-hostname:5432/rucio
 #version_table_schema=rucio
 
 #sqlalchemy.url=mysql+pymysql://rucio:rucio@rucio-hostname:3306/rucio

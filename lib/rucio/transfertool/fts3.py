@@ -29,11 +29,13 @@ from requests.adapters import ReadTimeout
 from requests.packages.urllib3 import disable_warnings  # pylint: disable=import-error
 
 from rucio.common.cache import MemcacheRegion
+from rucio.common.checksum import PREFERRED_CHECKSUM
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.constants import FTS_COMPLETE_STATE, FTS_JOB_TYPE, FTS_STATE, RseAttr
 from rucio.common.exception import DuplicateFileTransferSubmission, TransferToolTimeout, TransferToolWrongAnswer
+from rucio.common.policy import get_policy
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.utils import PREFERRED_CHECKSUM, APIEncoder, chunks, deep_merge_dict
+from rucio.common.utils import APIEncoder, chunks, deep_merge_dict
 from rucio.core.monitor import MetricManager
 from rucio.core.oidc import request_token
 from rucio.core.request import get_source_rse, get_transfer_error
@@ -108,6 +110,9 @@ PATH_CHECKSUM_VALIDATION_STRATEGY: dict[tuple[str, str], str] = {
 _SCITAGS_NEXT_REFRESH = datetime.datetime.utcnow()
 _SCITAGS_EXP_ID = None
 _SCITAGS_ACTIVITY_IDS = {}
+
+FTS_FILE_EXISTS_ERROR_MSG = 'Destination file exists and is on tape'  # used in FTS  >= 3.12.12
+FTS_FILE_EXISTS_ERROR_MSG_LEGACY = 'Destination file exists and overwrite is not enabled'  # Error message used in FTS < 3.12.12, checked in Rucio for backwards compatibility
 
 
 def _scitags_ids(logger: "LoggerFunction" = logging.log) -> "tuple[int | None, dict[str, int]]":
@@ -613,9 +618,9 @@ class Fts3TransferStatusReport(TransferStatusReport):
     def _transfer_link(self) -> str:
         return '%s/fts3/ftsmon/#/job/%s' % (self._fts_address.replace('8446', '8449'), self._transfer_id)
 
-    def _find_attribute_updates(self, request: dict, new_state: RequestState, reason: str, overwrite_corrupted_files: Optional[bool] = None) -> Optional[dict[str, Any]]:
+    def _find_attribute_updates(self, request: dict, new_state: RequestState, reason: Optional[str], overwrite_corrupted_files: Optional[bool] = None) -> Optional[dict[str, Any]]:
         attributes = None
-        if new_state == RequestState.FAILED and 'Destination file exists and overwrite is not enabled' in (reason or ''):
+        if new_state == RequestState.FAILED and (reason and any(s in reason for s in (FTS_FILE_EXISTS_ERROR_MSG, FTS_FILE_EXISTS_ERROR_MSG_LEGACY))):
             dst_file = self._file_metadata.get('dst_file', {})
             if self._dst_file_set_and_file_corrupted(request, dst_file):
                 if overwrite_corrupted_files:
@@ -668,7 +673,7 @@ class Fts3TransferStatusReport(TransferStatusReport):
         return False
 
     @classmethod
-    def _is_recoverable_fts_overwrite_error(cls, request: dict[str, Any], reason: str,
+    def _is_recoverable_fts_overwrite_error(cls, request: dict[str, Any], reason: Optional[str],
                                             file_metadata: dict[str, Any]) -> bool:
         """
         Verify the special case when FTS cannot copy a file because destination exists and overwrite is disabled,
@@ -685,7 +690,7 @@ class Fts3TransferStatusReport(TransferStatusReport):
         dst_type = file_metadata.get('dst_type', None)
         METRICS.counter('overwrite.check.{rsetype}.{rse}').labels(rse=file_metadata["dst_rse"], rsetype=dst_type).inc()
 
-        if 'Destination file exists and overwrite is not enabled' in (reason or ''):
+        if reason and any(s in reason for s in (FTS_FILE_EXISTS_ERROR_MSG, FTS_FILE_EXISTS_ERROR_MSG_LEGACY)):
             if cls._dst_file_set_and_file_correct(request, dst_file):
                 if dst_type == 'DISK' or dst_file.get('file_on_tape'):
                     METRICS.counter('overwrite.ok.{rsetype}.{rse}').labels(rse=file_metadata["dst_rse"], rsetype=dst_type).inc()
@@ -869,7 +874,6 @@ class FTS3Transfertool(Transfertool):
 
     def __init__(self,
                  external_host: str,
-                 oidc_account: Optional[str] = None,
                  oidc_support: bool = False,
                  vo: Optional[str] = None,
                  group_bulk: int = 1,
@@ -1041,10 +1045,9 @@ class FTS3Transfertool(Transfertool):
             if isinstance(activity_id, int):
                 t_file['scitag'] = self.scitags_exp_id << 6 | activity_id
 
-        for plugin in self.tape_metadata_plugins:
-            plugin_hints = plugin.hints(t_file['metadata'])
-
-            t_file = deep_merge_dict(source=plugin_hints, destination=t_file)
+        if t_file['metadata']['dst_type'] == 'TAPE':
+            for plugin in self.tape_metadata_plugins:
+                t_file = deep_merge_dict(source=plugin.hints(t_file['metadata']), destination=t_file)
 
         return t_file
 
@@ -1339,8 +1342,8 @@ class FTS3Transfertool(Transfertool):
         except Exception:
             self.logger(logging.WARNING, 'Could not get config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
         if result and result.status_code == 200:
-            C = result.json()
-            config_se = C[storage_element]
+            result_json = result.json()
+            config_se = result_json[storage_element]
             return config_se
         raise Exception('Could not get the configuration of %s , status code returned : %s', (storage_element, result.status_code if result else None))
 
@@ -1367,10 +1370,7 @@ class FTS3Transfertool(Transfertool):
 
         params_dict = {storage_element: {'operations': {}, 'se_info': {}}}
         if staging is not None:
-            try:
-                policy = config_get('policy', 'permission')
-            except Exception:
-                self.logger(logging.WARNING, 'Could not get policy from config')
+            policy = get_policy()
             params_dict[storage_element]['operations'] = {policy: {'staging': staging}}
         # A lot of try-excepts to avoid dictionary overwrite's,
         # see https://stackoverflow.com/questions/27118687/updating-nested-dictionaries-when-data-has-existing-key/27118776
@@ -1408,8 +1408,8 @@ class FTS3Transfertool(Transfertool):
         except Exception:
             self.logger(logging.WARNING, 'Could not set the config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
         if result and result.status_code == 200:
-            configSe = result.json()
-            return configSe
+            config_se = result.json()
+            return config_se
         raise Exception('Could not set the configuration of %s , status code returned : %s', (storage_element, result.status_code if result else None))
 
     def set_se_status(self, storage_element: str, message: str, ban: bool = True, timeout: Optional[int] = None) -> int:
