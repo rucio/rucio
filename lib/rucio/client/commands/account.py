@@ -59,6 +59,7 @@ class Account(CommandBase):
         parser.add_argument("-a", "--account", dest="account", help="Account name")
         parser.add_argument("--id", dest="identity", action="store", help="Identity (e.g. DN)")
         parser.add_argument("--filters", dest="filters", action="store", help="Filter arguments in form `key=value,another_key=next_value`")
+        parser.add_argument("--csv", action='store_true', help="Output list of accounts as a csv")
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--type", dest="account_type", help="Account Type", choices={"USER", "GROUP", "SERVICE"}, required=True)
