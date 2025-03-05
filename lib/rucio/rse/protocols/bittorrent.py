@@ -187,9 +187,6 @@ class Default(RSEProtocol):
     def delete(self, path):
         raise NotImplementedError
 
-    def exists(self, path):
-        raise NotImplementedError
-
     def put(self, source, target, source_dir, transfer_timeout=None):
         raise NotImplementedError
 

@@ -28,7 +28,7 @@ from rucio.rse.protocols import protocol
 
 try:
     import gfal2  # pylint: disable=import-error
-except:
+except Exception:
     if 'RUCIO_CLIENT_MODE' not in os.environ:
         if not config.config_has_section('database'):
             raise exception.MissingDependency('Missing dependency : gfal2')
@@ -344,7 +344,12 @@ class Default(protocol.RSEProtocol):
 
         :raises SourceNotFound: if the source file was not found on the referred storage.
         """
+
         self.logger(logging.DEBUG, 'checking if file exists {}'.format(path))
+
+        if path is None:
+            # Action not supported
+            raise exception.RSEOperationNotSupported()
 
         try:
             status = self.__gfal2_exist(path)
@@ -515,7 +520,6 @@ class Default(protocol.RSEProtocol):
         try:
             if ctx.stat(str(path)):
                 return 0
-            return -1
         except gfal2.GError as error:  # pylint: disable=no-member
             if error.code == errno.ENOENT or 'No such file' in str(error):  # pylint: disable=no-member
                 return -1

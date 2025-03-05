@@ -266,18 +266,18 @@ def exists(rse_settings: types.RSESettingsDict, files, domain='wan', scheme=None
         :raises RSENotConnected: no connection to a specific storage has been established
     """
 
-    ret = {}
-    gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
-
     protocol = create_protocol(rse_settings, 'read', scheme=scheme, impl=impl, domain=domain, auth_token=auth_token, logger=logger)
     protocol.connect()
-    try:
-        protocol.exists(None)
-    except NotImplementedError:
+
+    from rucio.rse.protocols.protocol import RSEProtocol  # Placed it here to avoid possible circular imports
+    # Check if 'exists' is truly overridden on the read protocol
+    if not utils.is_method_overridden(protocol, RSEProtocol, 'exists'):
+        # If not overridden, optionally fall back to a write protocol
         protocol = create_protocol(rse_settings, 'write', scheme=scheme, domain=domain, auth_token=auth_token, logger=logger)
         protocol.connect()
-    except:
-        pass
+
+    ret = {}
+    gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
     files = [files] if not type(files) is list else files
     for f in files:
