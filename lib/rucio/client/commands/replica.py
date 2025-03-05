@@ -63,14 +63,10 @@ class Replica(CommandBase):
         parser.add_argument("--sort", help="Replica sort algorithm. Available options: geoip (default), random", required=False)
         parser.add_argument("--rses", "--rse-exp", dest="rses", help="The RSE filter expression")
         parser.add_argument("--human", default=True, help=SUPPRESS)
+        parser.add_argument("--csv", action="store_true", help='Display as csv, headers of scope, name filesize, adler32, rse, replica lfn (unless --short, --missing, or --pfn)')
 
         # Dataset options.
         parser.add_argument("--deep", action="store_true", help="Dataset option only: Make a deep check, checking the contents of datasets in datasets")
-        parser.add_argument(
-            "--csv",
-            action="store_true",
-            help="Dataset option only: Write output to comma separated values",
-        )
 
     def remove_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-d", "--did", dest="dids", help="DIDs to access, as comma separated values")
@@ -118,6 +114,7 @@ class State(Replica):
         parser.add_argument("--rses", "--rse-exp", dest="rse_expression", action="store", help="RSE name or expression")  # TODO remap rse_expression to rses (for consistency)
         parser.add_argument("--younger-than", help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00')  # NOQA: E501
         parser.add_argument("--nattempts", dest="nattempts", action="store", help="Minimum number of failed attempts to access a suspicious file")
+        parser.add_argument('--csv', action='store_true', help='Print output as csv, headers of rse expression, scope, created time, failed attemps, lfn')
 
     def update_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("state_type", choices=("bad", "unavailable", "quarantine"))
