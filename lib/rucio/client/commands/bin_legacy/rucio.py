@@ -1993,15 +1993,16 @@ def add_lifetime_exception(args, client, logger, console, spinner):
     dids_list = []
     containers = []
     datasets = []
-    error_types = ['Total DIDs',
-                   'DID not submitted because it is a file',
-                   'DID that are containers and were resolved',
-                   'DID not submitted because it is not part of the lifetime campaign',
-                   'DID successfully submitted including the one from containers resolved']
     for did in dids:
         scope, name = get_scope(did, client)
         dids_list.append({'scope': scope, 'name': name})
-    summary = {0: len(dids_list), 1: 0, 2: 0, 3: 0, 4: 0}
+    error_summary = {
+        "total_dids": {"description": "Total DIDs", "count": len(dids_list)},
+        "files_ignored": {"description": "DID not submitted because it is a file", "count": 0},
+        "containers_resolved": {"description": "DID that are containers and were resolved", "count": 0},
+        "not_in_lifetime_model": {"description": "DID not submitted because it is not part of the lifetime campaign", "count": 0},
+        "successfully_submitted": {"description": "DID successfully submitted including the one from containers resolved", "count": 0},
+    }
     chunk_limit = 500  # Server should be able to accept 1000
     dids_list_copy = deepcopy(dids_list)
     for chunk in chunks(dids_list_copy, chunk_limit):
@@ -2010,18 +2011,18 @@ def add_lifetime_exception(args, client, logger, console, spinner):
             dids_list.remove({'scope': scope, 'name': name})
             if meta['did_type'] == 'FILE':
                 logger.warning('%s:%s is a file. Will be ignored' % (scope, name))
-                summary[1] += 1
+                error_summary["files_ignored"]["count"] += 1
             elif meta['did_type'] == 'CONTAINER':
                 logger.warning('%s:%s is a container. It needs to be resolved' % (scope, name))
                 containers.append({'scope': scope, 'name': name})
-                summary[2] += 1
+                error_summary["containers_resolved"]["count"] += 1
             elif not meta['eol_at']:
                 logger.warning('%s:%s is not affected by the lifetime model' % (scope, name))
-                summary[3] += 1
+                error_summary["not_in_lifetime_model"]["count"] += 1
             else:
                 logger.info('%s:%s will be declared' % (scope, name))
                 datasets.append({'scope': scope, 'name': name})
-                summary[4] += 1
+                error_summary["successfully_submitted"]["count"] += 1
 
     for did in dids_list:
         scope = did['scope']
@@ -2039,12 +2040,11 @@ def add_lifetime_exception(args, client, logger, console, spinner):
                     logger.debug('%s:%s' % (scope, name))
                     if not meta['eol_at']:
                         logger.warning('%s:%s is not affected by the lifetime model' % (scope, name))
-                        summary[3] += 1
+                        error_summary["not_in_lifetime_model"]["count"] += 1
                     else:
                         logger.info('%s:%s will be declared' % (scope, name))
                         datasets.append({'scope': scope, 'name': name})
-                        summary[4] += 1
-
+                        error_summary["successfully_submitted"]["count"] += 1
     if not datasets:
         logger.error('Nothing to submit')
         return SUCCESS
@@ -2066,8 +2066,8 @@ def add_lifetime_exception(args, client, logger, console, spinner):
         return FAILURE
 
     logger.info('Exception successfully submitted. Summary below:')
-    for cnt, error in enumerate(error_types):
-        print('{0:100} {1:6d}'.format(error, summary[cnt]))
+    for key, data in error_summary.items():
+        print('{0:100} {1:6d}'.format(data["description"], data["count"]))
     return SUCCESS
 
 
