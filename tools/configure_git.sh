@@ -14,7 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-git remote add upstream https://github.com/rucio/rucio.git
+# Check if the upstream remote already exists
+if git remote get-url upstream &>/dev/null; then
+    echo "Remote 'upstream' already exists. Skipping addition."
+else
+    echo "Adding remote 'upstream'..."
+    git remote add upstream https://github.com/rucio/rucio.git
+fi
 
-cp tools/prepare-commit-msg .git/hooks/prepare-commit-msg
-chmod +x .git/hooks/prepare-commit-msg
+# Set up the prepare-commit-msg hook
+if [ -f .git/hooks/prepare-commit-msg ]; then
+    echo "Git hook 'prepare-commit-msg' already exists. Skipping copy."
+else
+    echo "Setting up Git hook..."
+    cp tools/prepare-commit-msg .git/hooks/prepare-commit-msg
+    chmod +x .git/hooks/prepare-commit-msg
+    echo "Git hook installed successfully."
+fi
