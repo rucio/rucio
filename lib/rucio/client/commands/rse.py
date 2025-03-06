@@ -220,7 +220,7 @@ class Protocol(RSE):
 
     def usage_example(self) -> list[str]:
         return [
-            "$ rucio rse protocol --hostname jdoes.test.org --scheme gsiftp --prefix '/atlasdatadisk/rucio/' --port 8443 --rse JDOE_DATADISK  # Add a new protocol on jdoe.test.org that uses gsiftp",
+            "$ rucio rse protocol --host jdoes.test.org --scheme gsiftp --prefix '/atlasdatadisk/rucio/' --port 8443 --rse JDOE_DATADISK  # Add a new protocol on jdoe.test.org that uses gsiftp",
             "$ rucio rse protocol remove --scheme gsiftp --rse JDOE_DATADISK # Remove the existing gsiftp protocol",
         ]
 
