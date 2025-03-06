@@ -24,12 +24,10 @@ if sys.version_info < (3, 9): # noqa: UP036 (pending https://github.com/rucio/ru
     sys.exit(1)
 
 try:
-    from setuputil import get_rucio_version, match_define_requirements, server_requirements_table
+    from setuputil import get_rucio_version, server_requirements_table
 except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-    from setuputil import get_rucio_version, match_define_requirements, server_requirements_table
-
-install_requires, extras_require = match_define_requirements('server', server_requirements_table)
+    from setuputil import get_rucio_version, server_requirements_table
 
 name = 'rucio'
 packages = find_packages(where='lib')
@@ -76,6 +74,6 @@ setup(
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Environment :: No Input/Output (Daemon)', ],
-    install_requires=install_requires,
-    extras_require=extras_require,
+    install_requires=server_requirements_table['install_requires'],
+    extras_require=server_requirements_table['extras_require'],
 )
