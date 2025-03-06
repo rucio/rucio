@@ -4,40 +4,40 @@ urllib3==1.26.19, <2                                        # HTTP library with 
 dogpile.cache==1.2.2                                        # Caching API plugins (1.1.2 is the first version to support pymemcache)
 tabulate==0.9.0                                             # Pretty-print tabular data
 jsonschema==4.23.0                                          # For JSON schema validation (Policy modules)
-SQLAlchemy==2.0.31                                          # DB backend
-alembic==1.13.2                                             # Lightweight database migration tool for SQLAlchemy
+SQLAlchemy==2.0.38                                          # DB backend
+alembic==1.14.1                                             # Lightweight database migration tool for SQLAlchemy
 pymemcache==4.0.0                                           # A comprehensive, fast, pure-Python memcached client (Used by Dogpile)
 python-dateutil==2.9.0.post0                                # Extensions to the standard datetime module
-stomp.py==8.1.2                                             # ActiveMQ Messaging Protocol
+stomp.py==8.2.0                                             # ActiveMQ Messaging Protocol
 statsd==4.0.1                                               # Needed to log into graphite with more than 1 Hz
-geoip2==4.8.0                                               # GeoIP2 API (for IPv6 support)
-google-auth==2.32.0                                         # Google authentication library for Python
-redis==5.0.7                                                # Python client for Redis key-value store
-Flask==3.0.3                                                # Python web framework
-werkzeug==3.0.6                                             # WSGI library
+geoip2==5.0.1                                               # GeoIP2 API (for IPv6 support)
+google-auth==2.38.0                                         # Google authentication library for Python
+redis==5.2.1                                                # Python client for Redis key-value store
+Flask==3.1.0                                                # Python web framework
+werkzeug==3.1.3                                             # WSGI library
 oic==1.7.0                                                  # for authentication via OpenID Connect protocol
-prometheus_client==0.20.0                                   # Python client for the Prometheus monitoring system
-boto3==1.34.142                                             # S3 boto protocol (new version)
+prometheus_client==0.21.1                                   # Python client for the Prometheus monitoring system
+boto3==1.37.5                                               # S3 boto protocol (new version)
 xmlsec==1.3.13, !=1.3.14                                    # Required to install pyproject.toml-based projects; 1.3.14 excluded due to https://github.com/xmlsec/python-xmlsec/issues/314
 packaging==24.1                                             # Packaging utilities
 
 # All dependencies needed in extras for rucio server/daemons should be defined here
-paramiko==3.4.1                                             # ssh_extras; SSH2 protocol library (also needed in the server)
+paramiko==3.5.1                                             # ssh_extras; SSH2 protocol library (also needed in the server)
 kerberos==1.3.1                                             # kerberos_extras for client and server
 pykerberos==1.2.4                                           # kerberos_extras for client and server
 requests-kerberos==0.15.0                                   # kerberos_extras for client and server
-python-swiftclient==4.6.0                                   # swift_extras
-argcomplete==3.4.0                                          # argcomplete_extras; Bash tab completion for argparse
+python-swiftclient==4.7.0                                   # swift_extras
+argcomplete==3.5.3                                          # argcomplete_extras; Bash tab completion for argparse
 python-magic==0.4.27                                        # dumper_extras; File type identification using libmagic
 cx_oracle==8.3.0                                            # oracle_extras
 psycopg[pool]==3.2.3                                        # postgresql
-psycopg-binary==3.2.3; implementation_name=="cpython"       # postgresql binary optimizations
+psycopg[binary]==3.2.3; implementation_name=="cpython"       # postgresql binary optimizations
 PyMySQL==1.1.1                                              # mysql_extras
-PyYAML==6.0.1                                               # globus_extras and used for reading test configuration files
+PyYAML==6.0.2                                               # globus_extras and used for reading test configuration files
 globus-sdk==3.41.0                                          # globus_extras
 python3-saml==1.16.0                                        # saml_extras
-pymongo==4.8.0                                              # pymongo (metadata plugin)
-elasticsearch==8.15.1                                        # elasticsearch ( metadata plugin)
+pymongo==4.11.2                                             # pymongo (metadata plugin)
+elasticsearch==8.15.1                                       # elasticsearch (metadata plugin)
 libtorrent==2.0.11                                          # Support for the bittorrent transfertool
-qbittorrent-api==2023.11.57                                 # qBittorrent plugin for the bittorrent tranfsertool
-rich==13.7.1                                                # For Rich terminal display
+qbittorrent-api==2025.2.0                                   # qBittorrent plugin for the bittorrent tranfsertool
+rich==13.9.4                                                # For Rich terminal display
