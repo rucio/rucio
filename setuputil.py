@@ -84,22 +84,24 @@ server_requirements_table = {
         'oic',
         'prometheus_client',
     ],
-    'oracle': ['cx_oracle'],
-    'mongo': ['pymongo'],
-    'elastic': ['elasticsearch'],
-    'postgresql': ['psycopg[binary,pool]'],
-    'mysql': ['PyMySQL'],
-    'kerberos': [
-        'kerberos',
-        'pykerberos',
-        'requests-kerberos',
-    ],
-    'globus': [
-        'PyYAML',
-        'globus-sdk',
-    ],
-    'saml': ['python3-saml'],
-    'dev': dev_requirements
+    'extras_require': {
+        'oracle': ['cx_oracle'],
+        'mongo': ['pymongo'],
+        'elastic': ['elasticsearch'],
+        'postgresql': ['psycopg[binary,pool]'],
+        'mysql': ['PyMySQL'],
+        'kerberos': [
+            'kerberos',
+            'pykerberos',
+            'requests-kerberos',
+        ],
+        'globus': [
+            'PyYAML',
+            'globus-sdk',
+        ],
+        'saml': ['python3-saml'],
+        'dev': dev_requirements
+    }
 }
 
 
