@@ -101,6 +101,7 @@ def retrieve_messages(bulk: int = 1000,
                       event_type: "Optional[str]" = None,
                       lock: bool = False,
                       old_mode: bool = True,
+                      service_filter: "Optional[str]" = None,
                       *, session: "Session") -> "MessagesListType":
     """
     Retrieve up to $bulk messages.
@@ -112,6 +113,7 @@ def retrieve_messages(bulk: int = 1000,
     :param lock: Select exclusively some rows.
     :param old_mode: If True, doesn't return email if event_type is None.
     :param session: The database session to use.
+    :param service_filter: When a service is supplied this queries the database for messages for that service.
 
     :returns messages: List of dictionaries {id, created_at, event_type, payload, services}
     """
@@ -123,6 +125,10 @@ def retrieve_messages(bulk: int = 1000,
             Message.created_at
         )
         stmt_subquery = filter_thread_work(session=session, query=stmt_subquery, total_threads=total_threads, thread_id=thread)
+        if service_filter:
+            stmt_subquery = stmt_subquery.where(
+                Message.services == service_filter
+            )
         if event_type:
             stmt_subquery = stmt_subquery.where(
                 Message.event_type == event_type
