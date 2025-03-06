@@ -30,18 +30,20 @@ clients_requirements_table = {
         'jsonschema',
         'dataclasses',
     ],
-    'ssh': ['paramiko'],
-    'kerberos': [
-        'kerberos',
-        'pykerberos',
-        'requests-kerberos',
-    ],
-    'swift': ['python-swiftclient'],
-    'argcomplete': ['argcomplete'],
-    'sftp': ['paramiko'],
-    'dumper': [
-        'python-magic',
-    ],
+    'extras_require': {
+        'ssh': ['paramiko'],
+        'kerberos': [
+            'kerberos',
+            'pykerberos',
+            'requests-kerberos',
+        ],
+        'swift': ['python-swiftclient'],
+        'argcomplete': ['argcomplete'],
+        'sftp': ['paramiko'],
+        'dumper': [
+            'python-magic',
+        ],
+    }
 }
 
 dev_requirements = [

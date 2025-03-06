@@ -23,12 +23,10 @@ if sys.version_info < (3, 9): # noqa: UP036 (pending https://github.com/rucio/ru
     sys.exit(1)
 
 try:
-    from setuputil import clients_requirements_table, get_rucio_version, match_define_requirements
+    from setuputil import clients_requirements_table, get_rucio_version
 except ImportError:
     sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-    from setuputil import clients_requirements_table, get_rucio_version, match_define_requirements
-
-install_requires, extras_require = match_define_requirements('client', clients_requirements_table)
+    from setuputil import clients_requirements_table, get_rucio_version
 
 # Arguments to the setup script to build Basic/Lite distributions
 name = 'rucio-clients'
@@ -77,6 +75,6 @@ setup(
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
     ],
-    install_requires=install_requires,
-    extras_require=extras_require,
+    install_requires=clients_requirements_table['install_requires'],
+    extras_require=clients_requirements_table['extras_require'],
 )
