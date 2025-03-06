@@ -11,15 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import subprocess
 import sys
-from typing import TYPE_CHECKING, Union
-
-from pkg_resources import parse_requirements, safe_name
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+from typing import Union
 
 clients_requirements_table = {
     'install_requires': [
@@ -126,52 +120,3 @@ def get_rucio_version() -> str:
     if not ver:
         raise RuntimeError("Could not fetch Rucio version")
     return str(ver)
-
-
-def _build_requirements_table_by_key(requirements_table: "Mapping[str, Iterable[str]]") -> tuple[dict[str, list[str]], dict[str, list[str]]]:
-    extras_require: dict[str, list[str]] = {}
-    req_table_by_key: dict[str, list[str]] = {}
-    for group in requirements_table.keys():
-        if group != 'install_requires' and group not in extras_require:
-            extras_require[group] = []
-        for key in map(str.lower, map(safe_name, requirements_table[group])):
-            if key in req_table_by_key:
-                req_table_by_key[key].append(group)
-            else:
-                req_table_by_key[key] = [group]
-    return req_table_by_key, extras_require
-
-
-def match_define_requirements(app_type: str, requirements_table: "Mapping[str, Iterable[str]]") -> tuple[list[str], dict[str, list[str]]]:
-    install_requires = []
-    req_table_by_key, extras_require = _build_requirements_table_by_key(requirements_table)
-    req_file_name = "requirements/requirements.{}.txt".format(app_type)
-
-    with open(req_file_name, 'r') as fhandle:
-        for req in parse_requirements(fhandle.readlines()):
-            if req.key in req_table_by_key:
-                for group in req_table_by_key[req.key]:
-                    print("requirement found", group, req, file=sys.stderr)
-                    if group == 'install_requires':
-                        install_requires.append(str(req))
-                    else:
-                        extras_require[group].append(str(req))
-            else:
-                print("requirement unused", req, "(from " + req.key + ")", file=sys.stderr)
-        sys.stderr.flush()
-
-    for extra, deps in extras_require.items():
-        if not deps:
-            raise RuntimeError('Empty extra: {}'.format(extra))
-
-    return install_requires, extras_require
-
-
-def list_all_requirements(app_type: str, requirements_table: "Mapping[str, Iterable[str]]") -> None:
-    req_table_by_key, _ = _build_requirements_table_by_key(requirements_table)
-    req_file_name = "requirements/requirements.{}.txt".format(app_type)
-
-    with open(req_file_name, 'r') as fhandle:
-        for req in parse_requirements(fhandle.readlines()):
-            if req.key in req_table_by_key:
-                print(str(req))
