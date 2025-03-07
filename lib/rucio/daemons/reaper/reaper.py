@@ -690,7 +690,6 @@ def run(
 
     :param threads:                The total number of workers.
     :param chunk_size:             The size of chunk for deletion.
-    :param threads_per_worker:     Total number of threads created by each worker.
     :param once:                   If True, only runs one iteration of the main loop.
     :param greedy:                 If True, delete right away replicas with tombstone.
     :param rses:                   List of RSEs the reaper should work against.
