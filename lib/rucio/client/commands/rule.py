@@ -51,7 +51,7 @@ class Rule(CommandBase):
         parser.add_argument("-a", "--account", dest="rule_account", action="store", help="The account of the rule")
         parser.add_argument("--activity", action="store", help="Activity to be used (e.g. User, Data Consolidation)")  # TODO More info on this
         parser.add_argument("--rule-id", help="The rule ID, for accessing an existing rule.")
-        parser.add_argument("--lifetime", dest="lifetime", action="store", type=int, help="Rule lifetime (in seconds)")
+        parser.add_argument("--lifetime", dest="lifetime", type=str, help="Rule lifetime (in seconds). Use 'None' for no set lifetime")
         parser.add_argument("--locked", action="store_true", help="Set the rule to locked")  # TODO More info on this
         parser.add_argument("--source-replica-expression", help="RSE Expression for RSEs to be considered for source replicas")
         parser.add_argument("--comment", dest="comment", action="store", help="Comment about the replication rule")
