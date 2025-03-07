@@ -165,7 +165,7 @@ def _activity_looper(
         if not once:
             if must_sleep:
                 time_diff = time.time() - actual_exe_time
-                time_to_sleep = max(1, sleep_time - time_diff)
+                time_to_sleep = max(1.0, sleep_time - time_diff)
                 activity_next_exe_time[activity] = time.time() + time_to_sleep
             else:
                 activity_next_exe_time[activity] = time.time() + 1

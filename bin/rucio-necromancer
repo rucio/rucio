@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''
+"""
 Necromancer Daemon : Bring the dead files back to life
-'''
+"""
 
 import argparse
 import signal

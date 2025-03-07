@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''
+"""
 Reaper is a daemon to manage file deletion.
-'''
+"""
 
 import concurrent.futures.thread  # noqa (https://github.com/rucio/rucio/issues/6548)
 
@@ -131,7 +131,7 @@ def get_rses_to_process(
         rses_to_process = [rse for rse in rses_to_process if rse not in excluded_rses]
 
     REGION.set(cache_key, rses_to_process)
-    logging.log(logging.INFO, 'Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses_to_process]))
+
     return rses_to_process
 
 
@@ -690,7 +690,6 @@ def run(
 
     :param threads:                The total number of workers.
     :param chunk_size:             The size of chunk for deletion.
-    :param threads_per_worker:     Total number of threads created by each worker.
     :param once:                   If True, only runs one iteration of the main loop.
     :param greedy:                 If True, delete right away replicas with tombstone.
     :param rses:                   List of RSEs the reaper should work against.
@@ -712,10 +711,10 @@ def run(
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.log(logging.INFO, 'main: starting processes')
-    rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
-    if not rses_to_process:
-        logging.log(logging.ERROR, 'Reaper: No RSEs found. Exiting.')
-        return
+
+    while not (rses_to_process := get_rses_to_process(rses, include_rses, exclude_rses, vos)):
+        logging.warning(f"Reaper: No RSEs found. Sleeping for {sleep_time} seconds and retrying.")
+        time.sleep(sleep_time)
 
     logging.log(logging.INFO, 'Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses_to_process]))
 

@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''
+"""
 Atropos Daemon : End the life of the rules according to the Lifetime Model
-'''
+"""
 
 import argparse
 import datetime
