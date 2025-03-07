@@ -712,10 +712,10 @@ def run(
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.log(logging.INFO, 'main: starting processes')
-    rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
-    if not rses_to_process:
-        logging.log(logging.ERROR, 'Reaper: No RSEs found. Exiting.')
-        return
+
+    while not (rses_to_process := get_rses_to_process(rses, include_rses, exclude_rses, vos)):
+        logging.warning(f"Reaper: No RSEs found. Sleeping for {sleep_time} seconds and retrying.")
+        time.sleep(sleep_time)
 
     logging.log(logging.INFO, 'Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses_to_process]))
 
