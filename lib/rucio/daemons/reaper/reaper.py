@@ -131,7 +131,7 @@ def get_rses_to_process(
         rses_to_process = [rse for rse in rses_to_process if rse not in excluded_rses]
 
     REGION.set(cache_key, rses_to_process)
-    logging.log(logging.INFO, 'Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses_to_process]))
+
     return rses_to_process
 
 
