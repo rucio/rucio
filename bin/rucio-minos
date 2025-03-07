@@ -13,14 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''
+"""
 Minos Daemon :
 Minos is the name of one of the judge on the underworld in the greek mythology.
 The role of the daemon is get as input the list of PFNs declared bad
 and to class them into 2 categories :
 - The ones temporary available
 - The ones that have a real problem and that will need to be recovered by the necromancer
-'''
+"""
 
 import argparse
 import signal
