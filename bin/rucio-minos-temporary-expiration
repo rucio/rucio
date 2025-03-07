@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''
+"""
 Minos Daemon Temporary Unavailable:
 This special type of minos daemon lists the expired TEMPORARY_UNAVAILABLE replicas and
 puts them back into AVAILABLE state.
-'''
+"""
 
 import argparse
 import signal
