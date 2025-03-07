@@ -629,6 +629,20 @@ def test_rule(rucio_client, mock_scope):
     assert exitcode == 0
     assert "ERROR" not in err
 
+    # Testing the two different lifetime type options
+    cmd = f"rucio rule update --rule-id {rule_id} --lifetime 10"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    rule_info = rucio_client.get_replication_rule(rule_id)
+    assert abs(rule_info["updated_at"] - rule_info["expires_at"]).seconds == 10
+
+    cmd = f"rucio rule update --rule-id {rule_id} --lifetime None"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert rucio_client.get_replication_rule(rule_id)["expires_at"] is None
+
     # Do one without a child rule so i can delete it
     new_name = generate_uuid()
     rucio_client.add_replica(mock_rse, scope, new_name, 4, "deadbeef")
