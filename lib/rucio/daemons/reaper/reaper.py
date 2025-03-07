@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''
+"""
 Reaper is a daemon to manage file deletion.
-'''
+"""
 
 import concurrent.futures.thread  # noqa (https://github.com/rucio/rucio/issues/6548)
 
