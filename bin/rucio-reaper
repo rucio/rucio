@@ -19,7 +19,6 @@
 import argparse
 import signal
 
-from rucio.common.utils import StoreAndDeprecateWarningAction
 from rucio.daemons.reaper.reaper import run, stop
 
 
@@ -32,7 +31,7 @@ def get_parser():
                         help='Runs one loop iteration')
     parser.add_argument("--threads", action="store", default=1, type=int,
                         help='Concurrency control: number of threads')
-    parser.add_argument("--chunk_size", "--chunk-size", new_option_string="--chunk-size", action=StoreAndDeprecateWarningAction, default=100, type=int,
+    parser.add_argument("--chunk-size", action="store", default=100, type=int,
                         help='The size used for a bulk deletion on on RSE')
     parser.add_argument('--sleep-time', action="store", default=60, type=int,
                         help='Minimum time between 2 consecutive cycles')
@@ -50,9 +49,9 @@ def get_parser():
                         help='The delay (seconds) to query replicas in BEING_DELETED state.')
     parser.add_argument('--scheme', action="store", default=None, type=str,
                         help='Force the reaper to use a particular protocol/scheme, e.g., mock')
-    parser.add_argument("--auto_exclude_threshold", "--auto-exclude-threshold", new_option_string="--auto-exclude-threshold", action=StoreAndDeprecateWarningAction, default=100, type=int,
+    parser.add_argument("--auto-exclude-threshold", action="store", default=100, type=int,
                         help='Number of service unavailable exceptions after which the RSE gets temporarily excluded.')
-    parser.add_argument("--auto_exclude_timeout", "--auto-exclude-timeout", new_option_string="--auto-exclude-timeout", action=StoreAndDeprecateWarningAction, default=600, type=int,
+    parser.add_argument("--auto-exclude-timeout", action="store", default=600, type=int,
                         help='Timeout for temporarily excluded RSEs.')
 
     return parser
