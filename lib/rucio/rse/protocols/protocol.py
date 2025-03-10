@@ -36,6 +36,8 @@ if getattr(rsemanager, 'SERVER_MODE', None) or TYPE_CHECKING:
     from rucio.common.types import InternalScope, LFNDict, LoggerFunction, RSESettingsDict
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from rucio.common.types import DIDDict
 
 
@@ -177,7 +179,7 @@ class RSEProtocol(ABC):
 
     def parse_pfns(
             self,
-            pfns: Union[list[str], str]
+            pfns: Union['Iterable[str]', str]
     ) -> dict[str, dict[str, str]]:
         """
             Splits the given PFN into the parts known by the protocol. It is also checked if the provided protocol supports the given PFNs.
