@@ -21,7 +21,7 @@ import os.path
 import random
 import socket
 import time
-from typing import TYPE_CHECKING, Any, Final, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Final, Optional, cast
 
 from rucio import version
 from rucio.client.client import Client
@@ -51,7 +51,7 @@ from rucio.rse import rsemanager as rsemgr
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from rucio.common.types import AttachDict, DatasetDict, DIDStringDict, FileToUploadDict, FileToUploadWithCollectedAndDatasetInfoDict, FileToUploadWithCollectedInfoDict, LoggerFunction, PathTypeAlias, RSESettingsDict, TraceBaseDict, TraceDict
+    from rucio.common.types import AttachDict, DatasetDict, DIDStringDict, FileToUploadDict, FileToUploadWithCollectedAndDatasetInfoDict, FileToUploadWithCollectedInfoDict, LFNDict, LoggerFunction, PathTypeAlias, RSESettingsDict, TraceBaseDict, TraceDict
     from rucio.rse.protocols.protocol import RSEProtocol
 
 
@@ -245,7 +245,7 @@ class UploadClient:
             # if register_after_upload, file should be overwritten if it is not registered
             # otherwise if file already exists on RSE we're done
             if register_after_upload:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, scheme=force_scheme, impl=impl, auth_token=self.auth_token, vo=self.client.vo, logger=logger):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, scheme=force_scheme, impl=impl, auth_token=self.auth_token, vo=self.client.vo, logger=logger):  # type: ignore (pfn is str)
                     try:
                         self.client.get_did(file['did_scope'], file['did_name'])
                         logger(logging.INFO, 'File already registered. Skipping upload.')
@@ -255,7 +255,7 @@ class UploadClient:
                         logger(logging.INFO, 'File already exists on RSE. Previous left overs will be overwritten.')
                         delete_existing = True
             elif not is_deterministic and not no_register:
-                if rsemgr.exists(rse_settings, pfn, domain=domain, scheme=force_scheme, impl=impl, auth_token=self.auth_token, vo=self.client.vo, logger=logger):
+                if rsemgr.exists(rse_settings, pfn, domain=domain, scheme=force_scheme, impl=impl, auth_token=self.auth_token, vo=self.client.vo, logger=logger):  # type: ignore (pfn is str)
                     logger(logging.INFO, 'File already exists on RSE with given pfn. Skipping upload. Existing replica has to be removed first.')
                     trace['stateReason'] = 'File already exists'
                     continue
@@ -264,7 +264,7 @@ class UploadClient:
                     trace['stateReason'] = 'File already exists'
                     continue
             else:
-                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, scheme=force_scheme, impl=impl, auth_token=self.auth_token, vo=self.client.vo, logger=logger):
+                if rsemgr.exists(rse_settings, pfn if pfn else file_did, domain=domain, scheme=force_scheme, impl=impl, auth_token=self.auth_token, vo=self.client.vo, logger=logger):  # type: ignore (pfn is str)
                     logger(logging.INFO, 'File already exists on RSE. Skipping upload')
                     trace['stateReason'] = 'File already exists'
                     continue
@@ -279,10 +279,11 @@ class UploadClient:
                 protocol = protocols.pop()
                 cur_scheme = protocol['scheme']
                 logger(logging.INFO, 'Trying upload with %s to %s' % (cur_scheme, rse))
-                lfn = {}
+                lfn: "LFNDict" = {
+                    'name': file['did_name'],
+                    'scope': file['did_scope']
+                }
                 lfn['filename'] = basename
-                lfn['scope'] = file['did_scope']
-                lfn['name'] = file['did_name']
 
                 for checksum_name in GLOBALLY_SUPPORTED_CHECKSUMS:
                     if checksum_name in file:
@@ -625,7 +626,7 @@ class UploadClient:
             self,
             rse_settings: "RSESettingsDict",
             rse_attributes: dict[str, Any],
-            lfn: dict[str, Union[str, int]],
+            lfn: "LFNDict",
             source_dir: Optional[str] = None,
             domain: str = 'wan',
             impl: Optional[str] = None,
@@ -763,7 +764,7 @@ class UploadClient:
         try:
             if protocol_write.renaming:
                 logger(logging.DEBUG, 'Renaming file %s to %s' % (pfn_tmp, pfn))
-                protocol_write.rename(pfn_tmp, pfn)
+                protocol_write.rename(pfn_tmp, pfn)  # type: ignore (pfn might be None)
         except Exception:
             raise RucioException('Unable to rename the tmp file %s.' % pfn_tmp)
 
