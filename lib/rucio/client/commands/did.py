@@ -31,6 +31,7 @@ class DID(CommandBase):
         parser.add_argument("--recursive", dest="recursive", action="store_true", help="List data identifiers recursively")
         parser.add_argument("--filter", help="Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type")
         parser.add_argument("--short", action="store_true", help="Just dump the list of DIDs")
+        parser.add_argument("--csv", action="store_true", help="Output as CSV, headers of DID name, Type (except when --short)")
         parser.add_argument("-d", "--did", nargs=1, help="Data IDentifier pattern")
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
@@ -50,6 +51,7 @@ class DID(CommandBase):
     def show_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
         parser.add_argument("--parent", action="store_true", help="List the parents of the DID")
+        parser.add_argument("--csv", action="store_true", help="[Only used for --parent] Output as a csv, headers are either the pfn or guid, and the parent did'")
 
         # Both non-functional, but list_parents complains if not present
         # Planned to re-implement in a future release
@@ -124,7 +126,7 @@ class Content(DID):
 
     def _operations(self) -> dict[str, "OperationDict"]:
         return {
-            "list": {"call": self.list_, "docs": "Show the contents of a collection-type DI.", "namespace": self.namespace},
+            "list": {"call": self.list_, "docs": "Show the contents of a collection-type DID.", "namespace": self.namespace},
             "history": {"call": self.history, "docs": "Show the content history of a collection-type DID, when DIDs were created, modified, or deleted", "namespace": self.namespace},
             "add": {"call": self.add, "docs": "Attach a list of Data IDentifiers (file, dataset or container) to an other Data IDentifier (dataset or container)", "namespace": self.add_namespace},
             "remove": {"call": self.remove, "docs": "Detach a list of Data Identifiers (file, dataset or container) from an other Data Identifier (dataset or container)", "namespace": self.remove_namespace},
@@ -141,6 +143,7 @@ class Content(DID):
     def namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--did", dest="dids", nargs="+", action="store", help="DIDs to manage the contents of, space separated list")
         parser.add_argument("--short", dest="short", action="store_true", help="Only show the list of DIDs")
+        parser.add_argument("--csv", action="store_true", help="Output result as CSV.")
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--to", dest="todid", help="Destination Data IDentifier (either dataset or container)")
