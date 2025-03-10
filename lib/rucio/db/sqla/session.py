@@ -221,9 +221,7 @@ def get_engine() -> 'Engine':
                 params[param] = param_type(config_get(DATABASE_SECTION, param, check_config_table=False))
             except:
                 pass
-        # Using sqlAlchemy 2.0 with future=True.
-        # if backing up from 2.0, need to remove future=True .
-        _ENGINE = create_engine(sql_connection, future=True, **params)
+        _ENGINE = create_engine(sql_connection, **params)
         if 'mysql' in sql_connection:
             event.listen(_ENGINE, 'checkout', mysql_ping_listener)
         elif 'postgresql' in sql_connection:
@@ -275,8 +273,7 @@ def get_maker() -> sessionmaker:
     if not _ENGINE:
         raise RuntimeError("Could not form database engine.")
     if not _MAKER:
-        # turn on sqlAlchemy 2.0 with future=True.
-        _MAKER = sessionmaker(bind=_ENGINE, autocommit=False, autoflush=True, expire_on_commit=True, future=True)
+        _MAKER = sessionmaker(bind=_ENGINE, autocommit=False, autoflush=True, expire_on_commit=True)
     return _MAKER
 
 
