@@ -19,6 +19,7 @@ from urllib.parse import quote_plus
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.exception import AccountNotFound
 from rucio.common.utils import build_url
 
 if TYPE_CHECKING:
@@ -256,6 +257,9 @@ class AccountClient(BaseClient):
         :param locality:       The scope of the account limit. 'local' or 'global'.
         """
 
+        existing_accounts = [account_data['account'] for account_data in self.list_accounts()]
+        if account not in existing_accounts:
+            raise AccountNotFound(f"Account '{account}' does not exist.")
         if locality == 'local':
             return self.get_local_account_limit(account, rse_expression)
         elif locality == 'global':
