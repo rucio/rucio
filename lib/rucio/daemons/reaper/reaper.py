@@ -474,7 +474,7 @@ def run_once(
 
     rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
     if not rses_to_process:
-        logger(logging.ERROR, 'Reaper: No RSEs found. Will sleep for 30 seconds')
+        logger(logging.ERROR, 'Reaper: No RSEs found, sleeping')
         return must_sleep
     else:
         rses_to_process = [RseData(id_=rse['id'], name=rse['rse'], columns=rse) for rse in rses_to_process]
@@ -711,12 +711,6 @@ def run(
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
     logging.log(logging.INFO, 'main: starting processes')
-    rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
-    if not rses_to_process:
-        logging.log(logging.ERROR, 'Reaper: No RSEs found. Exiting.')
-        return
-
-    logging.log(logging.INFO, 'Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses_to_process]))
 
     logging.log(logging.INFO, 'starting reaper threads')
     threads_list = [threading.Thread(target=reaper, kwargs={'once': once,
