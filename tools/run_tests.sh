@@ -100,18 +100,11 @@ else
 fi
 
 if test ${lint}; then
-    echo 'Running flake8 code style checker'
-    flake8 --exclude=*.cfg bin/* lib/ tools/*.py
+    echo 'Running ruff code style checker'
+    ruff check bin/* lib/ tools/*.py
     if [ $? != 0 ]; then
         echo 'Checker failed, aborting.'
         exit 1
-    fi
-
-    echo 'Running pylint code style checker'
-    pylint bin/* lib/ tools/*.py
-    if [ $? != 0 ]; then
-	      echo 'Checker failed, aborting.'
-	      exit 1
     fi
 fi
 

@@ -61,10 +61,13 @@ select = [
     "TCH", # flake8-type-checking
     "UP", # pyupgrade
     "TID", # flake8-tidy-imports
+    "PLE", #pylint
 ]
 
 ignore = [
     "ALL",
+    "E731", # Do not assign a lambda expression, use a def
+    "E722", # Do not use bare except, specify exception
     "N818",  # Unnecessary - we have valid suffixes like 'NotFound', 'Denied', 'Mismatch', etc.
     "UP008", # Use `super()` instead of `super(__class__, self)`
     "UP015", # Unnecessary open mode parameters
