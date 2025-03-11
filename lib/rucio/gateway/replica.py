@@ -272,6 +272,11 @@ def add_replicas(rse, files, issuer, ignore_availability=False, vo='def', *, ses
 
     :returns: True is successful, False otherwise
     """
+    for file in files:
+        if "bytes" not in file:
+            raise exception.InvalidObject(
+                f"Missing required field: 'bytes'. The file '{file.get('name', 'unknown')}' must have a 'bytes' field specifying its size."
+            )
     for v_file in files:
         v_file.update({"type": "FILE"})  # Make sure DIDs are identified as files for checking
     validate_schema(name='dids', obj=files, vo=vo)
