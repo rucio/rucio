@@ -710,14 +710,6 @@ def run(
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException('Database was not updated, daemon won\'t start')
 
-    logging.log(logging.INFO, 'main: starting processes')
-    rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
-    if not rses_to_process:
-        logging.log(logging.ERROR, 'Reaper: No RSEs found. Exiting.')
-        return
-
-    logging.log(logging.INFO, 'Reaper: This instance will work on RSEs: %s', ', '.join([rse['rse'] for rse in rses_to_process]))
-
     logging.log(logging.INFO, 'starting reaper threads')
     threads_list = [threading.Thread(target=reaper, kwargs={'once': once,
                                                             'rses': rses,
