@@ -87,7 +87,7 @@ def test_account(rucio_client):
 
 def test_account_attribute(jdoe_account):
     fake_key = generate_uuid()[:15]
-    cmd = f"rucio -v account attribute add {jdoe_account} -o test_{fake_key}_key True"
+    cmd = f"rucio account attribute add {jdoe_account} --key test_{fake_key}_key --value True"
     exitcode, _, log = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in log
@@ -181,7 +181,7 @@ def test_config():
     option = "new_option"
     value = "new_value"
 
-    cmd = f"rucio config add --section {section} -o {option} {value}"
+    cmd = f"rucio config add --section {section} --key {option} --value {value}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -191,7 +191,7 @@ def test_config():
     assert "ERROR" not in err
     assert value in out
 
-    cmd = f"rucio config remove --section {section} --key {option} --yes"
+    cmd = f"rucio config remove --section {section} --key {option}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -325,7 +325,7 @@ def test_did_metadata(rucio_client, root_account):
     rucio_client.add_did(scope=scope, name=dataset, did_type="dataset")
 
     metadata_value = f"mock_{generate_uuid()[:15]}"
-    cmd = f"rucio did metadata add {scope}:{dataset} --option project {metadata_value}"
+    cmd = f"rucio did metadata add {scope}:{dataset} --key project --value {metadata_value}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -465,13 +465,13 @@ def test_rse(rucio_client):
     assert rse_name in out
 
     value = rse_name_generator()
-    cmd = f"rucio rse update {rse_name} --option city {value}"
+    cmd = f"rucio rse update {rse_name} --key city --value {value}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert value == rucio_client.list_rse_attributes(rse_name)['city']
 
-    cmd = f"rucio rse remove {rse_name} --yes"
+    cmd = f"rucio rse remove {rse_name}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -487,7 +487,7 @@ def test_rse_attribute():
     _, _, err = execute(cmd)
     assert "ERROR" not in err
 
-    cmd = f"rucio rse attribute add {rse_name} --option name {rse_name}"
+    cmd = f"rucio rse attribute add {rse_name} --key name --value {rse_name}"
     _, _, err = execute(cmd)
     assert "ERROR" not in err
 

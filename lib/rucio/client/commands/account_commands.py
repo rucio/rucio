@@ -21,7 +21,6 @@ from rucio.client.commands.bin_legacy.rucio_admin import (
     delete_account,
     delete_account_attribute,
     delete_limits,
-    identity_add,
     identity_delete,
     info_account,
     list_account_attributes,
@@ -31,11 +30,11 @@ from rucio.client.commands.bin_legacy.rucio_admin import (
     unban_account,
     update_account,
 )
-from rucio.client.commands.utils import Arguments, click_decorator
+from rucio.client.commands.bin_legacy.rucio_admin import identity_add as legacy_identity_add
+from rucio.client.commands.utils import Arguments
 
 
 @click.group()
-@click.help_option("-h", "--help")
 def account():
     """Methods to add or change accounts for users, groups, and services. Used to assign privileges"""
 
@@ -44,7 +43,7 @@ def account():
 @click.argument("account-name")
 @click.argument("account-type", type=click.Choice(["USER", "GROUP", "SERVICE"]))
 @click.option("--email", type=str, help="Email address associated with the account")
-@click_decorator
+@click.pass_context
 def add_(ctx, account_type, account_name, email):
     """Add an account of type [ACCOUNT-TYPE] with the name [ACCOUNT-NAME]
 
@@ -60,7 +59,7 @@ def add_(ctx, account_type, account_name, email):
 @click.option("--type", "type_", type=click.Choice(["USER", "GROUP", "SERVICE"]))
 @click.option("--id", help="Filter by identity (e.g. DN)")
 @click.option("--filter", help="Filter arguments in form `key=value,another_key=next_value`")  # TODO Explicit numeration of these possible keys
-@click_decorator
+@click.pass_context
 def list_(ctx, type_, id, filter):
     """List all accounts that match given filters"""
     args = Arguments({"account_type": type_, "identity": id, "filters": filter})
@@ -69,7 +68,7 @@ def list_(ctx, type_, id, filter):
 
 @account.command("show")
 @click.argument("account-name")
-@click_decorator
+@click.pass_context
 def show(ctx, account_name):
     """
     Show info about a single account
@@ -79,11 +78,11 @@ def show(ctx, account_name):
 
 @account.command("remove")
 @click.argument("account-name")
-@click_decorator
+@click.pass_context
 def remove(ctx, account_name):
     """
     Remove an account
-    (WARNING: Permanently disables the account. If you want to temporary disable, use `account update [account-name] --ban`)
+    (WARNING: Permanently disables the account. If you want to temporarily disable, use `account update [account-name] --ban`)
     """
     delete_account(Arguments({"acnt": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
@@ -91,8 +90,8 @@ def remove(ctx, account_name):
 @account.command("update")
 @click.argument("account-name")
 @click.option("--email", help="Email address associated with the account")
-@click.option("--ban/--unban", default=None, help="Temperately disable/enable an account")
-@click_decorator
+@click.option("--ban/--unban", default=None, help="Temporarily disable/enable an account")
+@click.pass_context
 def update(ctx, ban, account_name, email):
     """Update account settings"""
     args = Arguments({"account": account_name, "key": "email", "value": email})
@@ -106,39 +105,38 @@ def update(ctx, ban, account_name, email):
 
 
 @account.group()
-@click.help_option("-h", "--help")
 def attribute():
     """View or modify account attributes"""
 
 
 @attribute.command("list")
 @click.argument("account-name")
-@click_decorator
-def attr_list(ctx, account_name):
-    "List the attributes for a given account. Note: This table is generally empty."
+@click.pass_context
+def attribute_list(ctx, account_name):
+    "List the attributes for a given account"
     list_account_attributes(Arguments({"account": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @attribute.command("add")
 @click.argument("account-name")
-@click.option("-o", "--option", type=(str, str), help="Key and value of the attribute", required=True)
-@click_decorator
-def attr_add(ctx, account_name, option):
+@click.option('--key', help='Attribute key', required=True)
+@click.option('--value', help='Attribute value', required=True)
+@click.pass_context
+def attribute_add(ctx, account_name, key, value):
     """Add a new attribute [key] to an account"""
-    add_account_attribute(Arguments({"account": account_name, "key": option[0], "value": option[1]}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    add_account_attribute(Arguments({"account": account_name, "key": key, "value": value}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @attribute.command("remove")
 @click.argument("account-name")
 @click.option("--key", help="Attribute key", required=True)
-@click_decorator
-def attr_remove(ctx, account_name, key):
+@click.pass_context
+def attribute_remove(ctx, account_name, key):
     """Remove an attribute from an account without reassigning it"""
     delete_account_attribute(Arguments({"account": account_name, "key": key}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @account.group("limit")
-@click.help_option("-h", "--help")
 def limit():
     """View or modify account limits - limit how much data an account can store on an RSE"""
 
@@ -146,7 +144,7 @@ def limit():
 @limit.command("list", help="Shows the space used, the quota limit and the quota left for an account for every RSE where the user have quota.")
 @click.argument("account-name")
 @click.option("--rse", "--rse-name", help="Show usage for only for this RSE.")
-@click_decorator
+@click.pass_context
 def limit_list(ctx, account_name, rse):
     """List the limits and current usage for an account"""
     args = Arguments({"usage_account": account_name, "rse": rse})
@@ -157,12 +155,12 @@ def limit_list(ctx, account_name, rse):
 @click.argument(
     "account-name",
 )
-@click.option("--rse", "--rse-name", help="Full RSE name", required=True)
+@click.option("--rse", "--rse-name", help="Full RSE name", required=True)  # TODO Separate RSE (local) and RSE Expression (global)
 @click.option("--bytes", "bytes_", help='Value of the limit; can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"', required=True)
 @click.option("--locality", type=click.Choice(["local", "global"]), help="Global or local limit scope", default="local")
-@click_decorator
+@click.pass_context
 def limit_add(ctx, account_name, rse, bytes_, locality):
-    """Add a new limit for an account on an RSE. An account can have both local and global limits on the same RSE."""  # TODO Veracity of this statement
+    """Add a new limit for an account on an RSE. An account can have both local and global limits on the same RSE."""
     args = Arguments({"account": account_name, "rse": rse, "bytes": bytes_, "locality": locality})
     set_limits(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
@@ -173,7 +171,7 @@ def limit_add(ctx, account_name, rse, bytes_, locality):
 )
 @click.option("--rse", "--rse-name", help="Full RSE name", required=True)
 @click.option("--locality", type=click.Choice(["local", "global"]), help="Global or local limit scope", default="local")
-@click_decorator
+@click.pass_context
 def limit_remove(ctx, account_name, rse, locality):
     """Remove existing limits for an account on an RSE"""
     args = Arguments({"account": account_name, "rse": rse, "locality": locality})
@@ -181,15 +179,14 @@ def limit_remove(ctx, account_name, rse, locality):
 
 
 @account.group("identity")
-@click.help_option("-h", "--help")
 def identity():
     """Manage identities for an account - used to login"""
 
 
 @identity.command("list")
 @click.argument("account-name", required=True)
-@click_decorator
-def id_list(ctx, account_name):
+@click.pass_context
+def identity_list(ctx, account_name):
     """See all the IDs for [account-name]"""
     args = Arguments({"account": account_name})
     list_identities(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
@@ -200,20 +197,20 @@ def id_list(ctx, account_name):
 @click.option("--type", "type_", type=click.Choice(["X509", "GSS", "USERPASS", "SSH", "SAML", "OIDC"]), help="Authentication type", required=True)
 @click.option("--id", help="Identity", required=True)
 @click.option("--email", help="Email address associated with the identity", required=True)
-@click.option("-pwd", "--password", help="Password if authtype is USERPASS")
-@click_decorator
-def id_add(ctx, account_name, type_, id, email, password):
+@click.option("--password", help="Password if authtype is USERPASS")
+@click.pass_context
+def identity_add(ctx, account_name, type_, id, email, password):
     """Add a new identity for [account-name]"""
     args = Arguments({"account": account_name, "authtype": type_, "identity": id, "email": email, "password": password})
-    identity_add(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    legacy_identity_add(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @identity.command("remove")
 @click.argument("account-name", required=True)
 @click.option("--type", "type_", type=click.Choice(["X509", "GSS", "USERPASS", "SSH", "SAML", "OIDC"]), help="Authentication type", required=True)
 @click.option("--id", help="Identity", required=True)
-@click_decorator
-def id_remove(ctx, account_name, type_, id):
+@click.pass_context
+def identity_remove(ctx, account_name, type_, id):
     """Revoke a given ID's access from an account"""
     args = Arguments({"account": account_name, "authtype": type_, "id": id})
     identity_delete(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

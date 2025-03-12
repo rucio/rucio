@@ -14,11 +14,10 @@
 import click
 
 from rucio.client.commands.bin_legacy.rucio import add_container, add_dataset, attach, close, delete_metadata, detach, erase, get_metadata, list_content, list_content_history, list_dids, list_parent_dids, reopen, set_metadata, stat, touch
-from rucio.client.commands.utils import Arguments, click_decorator
+from rucio.client.commands.utils import Arguments
 
 
 @click.group()
-@click.help_option("-h", "--help")
 def did():
     """Manage Data Identifiers - the source data objects"""
 
@@ -37,7 +36,7 @@ def did():
 )  # TODO Shorten this help and make supplying this easier
 @click.option("--short/--no-short", default=False, help="Dump the list of DIDs")
 @click.argument("did-pattern", nargs=-1)
-@click_decorator
+@click.pass_context
 def list_(ctx, did_pattern, recursive, filter_, short):
     """
     List the Data IDentifiers matching certain pattern.
@@ -53,7 +52,7 @@ def list_(ctx, did_pattern, recursive, filter_, short):
 @click.option("--parent/--no-parent", help="List the parents of the DID")
 @click.option("--pfn", hidden=True)
 @click.option("--guid", hidden=True)
-@click_decorator
+@click.pass_context
 def show(ctx, dids, parent, pfn, guid):
     """List attributes, statuses, or parents for data identifiers"""
     if parent:
@@ -68,7 +67,7 @@ def show(ctx, dids, parent, pfn, guid):
 @click.option("--type", "dtype", type=click.Choice(["container", "dataset"]))
 @click.option("--monotonic/--no-monotonic", default=False, help="Monotonic status to True.")
 @click.option("--lifetime", type=int, help="Lifetime in seconds.")
-@click_decorator
+@click.pass_context
 def add_(ctx, did_name, dtype, monotonic, lifetime):
     """Create a new collection-type DID"""
     args = Arguments({"did": did_name, "monotonic": monotonic, "lifetime": lifetime})
@@ -84,7 +83,7 @@ def add_(ctx, did_name, dtype, monotonic, lifetime):
 @click.option("--touch", "operation", flag_value="touch", default=True, help="Touch one or more DIDs and set the last accessed date to the current date")
 @click.option("--open", "operation", flag_value="open", help="Reopen a dataset or container (only for privileged users)")
 @click.option("--close", "operation", flag_value="close", help="Close a dataset or container.")
-@click_decorator
+@click.pass_context
 def update(ctx, dids, rse, operation):
     """Touch one or more DIDs and set the last accessed date to the current date, or mark them as open or closed."""
     args = Arguments({"dids": dids, "rse": rse})
@@ -101,25 +100,24 @@ def update(ctx, dids, rse, operation):
 @did.command("remove")
 @click.option("--undo", is_flag=True, default=False, help="Undo erase DIDs. Only works if has been less than 24 hours since erase operation.")
 @click.argument("dids", nargs=-1)
-@click_decorator
+@click.pass_context
 def remove(ctx, dids, undo):
     """
     This command sets the lifetime of the DID in order to expire in the next 24 hours.
-    After this time, the dataset is eligible for deletion.
+    Expired DIDs are force-deleted (and their replicas purged).
     The deletion is not reversible after 24 hours grace time period expired
     """
     erase(Arguments({"dids": dids, "undo": undo}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @did.group()
-@click.help_option("-h", "--help")
 def content():
     """Manage contents of collection type DIDs"""
 
 
 @content.command("history")
 @click.argument("dids", nargs=-1)
-@click_decorator
+@click.pass_context
 def content_history(ctx, dids):
     """List the content history of a collection-type DID"""
     list_content_history(Arguments({"dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
@@ -129,7 +127,7 @@ def content_history(ctx, dids):
 @click.option("-to", "--to-did", required=True, help="Collection-type DID to which attach [DIDs]")
 @click.option("-f", "--from-file", is_flag=True, default=False, help="[DIDs] is a file instead of a list of did names. The file should contain one did per line.")
 @click.argument("dids", nargs=-1)
-@click_decorator
+@click.pass_context
 def content_add_(ctx, to_did, from_file, dids):
     """Attach a list [dids] of Data IDentifiers (file or collection-type) to an other Data IDentifier (collection-type)"""
     args = Arguments({"dids": dids, "todid": to_did, "fromfile": from_file})
@@ -139,7 +137,7 @@ def content_add_(ctx, to_did, from_file, dids):
 @content.command("remove")
 @click.option("-f", "--from-did", help="Collection-type DID to remove DIDs from")
 @click.argument("dids", nargs=-1)
-@click_decorator
+@click.pass_context
 def content_remove(ctx, dids, from_did):
     """Detach [dids], a list of DIDs (file or collection-type) from an other Data Identifier (collection type)"""
     args = Arguments({"dids": dids, "fromdid": from_did})
@@ -149,7 +147,7 @@ def content_remove(ctx, dids, from_did):
 @content.command("list")
 @click.argument("dids", nargs=-1)
 @click.option("--short", is_flag=True, default=False, help="Just dump the list of DIDs.")
-@click_decorator
+@click.pass_context
 def content_list_(ctx, dids, short):
     """List the content of a collection-type DID"""
     args = Arguments({"dids": dids, "short": short})
@@ -157,26 +155,26 @@ def content_list_(ctx, dids, short):
 
 
 @did.group()
-@click.help_option("-h", "--help")
 def metadata():
     """Manage metadata for DIDs"""
 
 
 @metadata.command("add")
 @click.argument("did")
-@click.option("-o", "--option", type=(str, str), help="Key/Value pair to add to the DID.")
-@click_decorator
-def meta_add_(ctx, did, option):
+@click.option('--key', help='Attribute key', required=True)
+@click.option('--value', help='Attribute value', required=True)
+@click.pass_context
+def metadata_add_(ctx, did, key, value):
     """Add metadata to a DID"""
-    args = Arguments({"did": did, "key": option[0], "value": option[1]})
+    args = Arguments({"did": did, "key": key, "value": value})
     set_metadata(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @metadata.command("remove")
 @click.argument("did")
 @click.option("--key", help="Key to remove from a DID's metadata.")
-@click_decorator
-def meta_remove(ctx, did, key):
+@click.pass_context
+def metadata_remove(ctx, did, key):
     """Remove metadata from a DID"""
     args = Arguments({"did": did, "key": key})
     delete_metadata(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
@@ -185,8 +183,8 @@ def meta_remove(ctx, did, key):
 @metadata.command("list")
 @click.argument("dids", nargs=-1)
 @click.option("--plugin", help="Filter down to metadata from specific metadata plugin")
-@click_decorator
-def meta_list_(ctx, dids, plugin):
+@click.pass_context
+def metadata_list_(ctx, dids, plugin):
     """List metadata for a list of DIDs"""
     args = Arguments({"dids": dids, "plugin": plugin})
     get_metadata(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
