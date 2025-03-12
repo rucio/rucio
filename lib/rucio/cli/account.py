@@ -13,8 +13,8 @@
 # limitations under the License.
 import click
 
-from rucio.client.commands.bin_legacy.rucio import list_account_usage
-from rucio.client.commands.bin_legacy.rucio_admin import (
+from rucio.cli.bin_legacy.rucio import list_account_usage
+from rucio.cli.bin_legacy.rucio_admin import (
     add_account,
     add_account_attribute,
     ban_account,
@@ -30,8 +30,8 @@ from rucio.client.commands.bin_legacy.rucio_admin import (
     unban_account,
     update_account,
 )
-from rucio.client.commands.bin_legacy.rucio_admin import identity_add as legacy_identity_add
-from rucio.client.commands.utils import Arguments
+from rucio.cli.bin_legacy.rucio_admin import identity_add as legacy_identity_add
+from rucio.cli.utils import Arguments
 
 
 @click.group()

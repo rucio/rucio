@@ -13,8 +13,8 @@
 # limitations under the License.
 import click
 
-from rucio.client.commands.bin_legacy.rucio import add_rule, delete_rule, info_rule, list_rules, list_rules_history, move_rule, update_rule
-from rucio.client.commands.utils import Arguments
+from rucio.cli.bin_legacy.rucio import add_rule, delete_rule, info_rule, list_rules, list_rules_history, move_rule, update_rule
+from rucio.cli.utils import Arguments
 
 
 @click.group()

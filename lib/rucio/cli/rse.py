@@ -15,8 +15,8 @@ import json
 
 import click
 
-from rucio.client.commands.bin_legacy.rucio import list_rses
-from rucio.client.commands.bin_legacy.rucio_admin import (
+from rucio.cli.bin_legacy.rucio import list_rses
+from rucio.cli.bin_legacy.rucio_admin import (
     add_distance_rses,
     add_protocol_rse,
     add_qos_policy,
@@ -36,7 +36,7 @@ from rucio.client.commands.bin_legacy.rucio_admin import (
     update_distance_rses,
     update_rse,
 )
-from rucio.client.commands.utils import Arguments
+from rucio.cli.utils import Arguments
 
 
 @click.group()

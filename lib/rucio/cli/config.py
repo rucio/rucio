@@ -13,8 +13,8 @@
 # limitations under the License.
 import click
 
-from rucio.client.commands.bin_legacy.rucio_admin import delete_config_option, get_config, set_config_option
-from rucio.client.commands.utils import Arguments
+from rucio.cli.bin_legacy.rucio_admin import delete_config_option, get_config, set_config_option
+from rucio.cli.utils import Arguments
 
 
 @click.group()

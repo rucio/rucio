@@ -13,8 +13,8 @@
 # limitations under the License.
 import click
 
-from rucio.client.commands.bin_legacy.rucio_admin import add_scope, list_scopes
-from rucio.client.commands.utils import Arguments
+from rucio.cli.bin_legacy.rucio_admin import add_scope, list_scopes
+from rucio.cli.utils import Arguments
 
 
 @click.group()

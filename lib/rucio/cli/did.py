@@ -13,8 +13,8 @@
 # limitations under the License.
 import click
 
-from rucio.client.commands.bin_legacy.rucio import add_container, add_dataset, attach, close, delete_metadata, detach, erase, get_metadata, list_content, list_content_history, list_dids, list_parent_dids, reopen, set_metadata, stat, touch
-from rucio.client.commands.utils import Arguments
+from rucio.cli.bin_legacy.rucio import add_container, add_dataset, attach, close, delete_metadata, detach, erase, get_metadata, list_content, list_content_history, list_dids, list_parent_dids, reopen, set_metadata, stat, touch
+from rucio.cli.utils import Arguments
 
 
 @click.group()

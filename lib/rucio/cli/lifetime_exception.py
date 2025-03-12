@@ -13,8 +13,8 @@
 # limitations under the License.
 import click
 
-from rucio.client.commands.bin_legacy.rucio import add_lifetime_exception
-from rucio.client.commands.utils import Arguments
+from rucio.cli.bin_legacy.rucio import add_lifetime_exception
+from rucio.cli.utils import Arguments
 
 
 @click.group()

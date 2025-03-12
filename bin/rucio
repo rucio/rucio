@@ -17,12 +17,13 @@ import argparse
 import sys
 from typing import TYPE_CHECKING, Optional
 
-from rucio.client.commands.bin_legacy.rucio import main as main_legacy
-from rucio.client.commands.command import main
+from rucio.cli.bin_legacy.rucio import main as main_legacy
+from rucio.cli.command import main
 from rucio.common.utils import setup_logger
 
 if TYPE_CHECKING:
     from logging import Logger
+
 
 
 def _get_first_command(args: list[str]) -> Optional[str]:
@@ -105,7 +106,7 @@ if __name__ == "__main__":
     parser.add_argument("-h", "--help", action="store_true")
     parser.add_argument("--version", action="store_true")
 
-    args, _ = parser.parse_known_args()  # NOQA: E1120
+    args, _ = parser.parse_known_args()
 
     logger = setup_logger(module_name=__name__)
 
@@ -115,7 +116,7 @@ if __name__ == "__main__":
         main_legacy()
 
     elif (any(arg in commands for arg in sys.argv)) or args.help or args.version:
-        main()
+        main() # NOQA: E1120
 
     else:
         make_warning(logger)
