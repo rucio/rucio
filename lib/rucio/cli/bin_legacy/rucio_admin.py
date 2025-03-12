@@ -33,7 +33,7 @@ from rich.tree import Tree
 from tabulate import tabulate
 
 from rucio import version
-from rucio.client.commands.utils import exception_handler, get_client, setup_gfal2_logger, signal_handler
+from rucio.cli.utils import exception_handler, get_client, setup_gfal2_logger, signal_handler
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, generate_table, get_cli_config, get_pager, print_output, setup_rich_logger
 from rucio.common.constants import RseAttr
 from rucio.common.exception import (

@@ -13,8 +13,8 @@
 # limitations under the License.
 import click
 
-from rucio.client.commands.bin_legacy.rucio_admin import add_subscription, list_subscriptions, reevaluate_did_for_subscription, update_subscription
-from rucio.client.commands.utils import Arguments
+from rucio.cli.bin_legacy.rucio_admin import add_subscription, list_subscriptions, reevaluate_did_for_subscription, update_subscription
+from rucio.cli.utils import Arguments
 
 
 @click.group()

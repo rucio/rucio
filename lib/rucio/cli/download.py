@@ -15,8 +15,8 @@ import os
 
 import click
 
-from rucio.client.commands.bin_legacy.rucio import download as download_exe
-from rucio.client.commands.utils import Arguments
+from rucio.cli.bin_legacy.rucio import download as download_exe
+from rucio.cli.utils import Arguments
 from rucio.common.config import config_get_float
 
 
