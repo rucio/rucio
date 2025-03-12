@@ -14,7 +14,7 @@
 import click
 
 from rucio.client.commands.bin_legacy.rucio import upload
-from rucio.client.commands.utils import Arguments, click_decorator
+from rucio.client.commands.utils import Arguments
 from rucio.common.config import config_get_float
 
 
@@ -35,7 +35,7 @@ from rucio.common.config import config_get_float
 @click.option("--lfn", help="Specify the exact LFN for the upload")
 @click.option("--transfer-timeout", type=float, default=config_get_float("upload", "transfer_timeout", False, 360), help="Transfer timeout (in seconds)")
 @click.option("-r", "--recursive/--no-recursive", default=False, help="Convert recursively the folder structure into collections")
-@click_decorator
+@click.pass_context
 def upload_command(ctx, file_paths, rse, lifetime, expiration_date, scope, impl, register, register_after_upload, summary, guid, protocol, pfn, lfn, transfer_timeout, recursive):
     """Upload file(s) to a Rucio RSE"""
     args = Arguments(

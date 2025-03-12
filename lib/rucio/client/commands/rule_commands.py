@@ -14,11 +14,10 @@
 import click
 
 from rucio.client.commands.bin_legacy.rucio import add_rule, delete_rule, info_rule, list_rules, list_rules_history, move_rule, update_rule
-from rucio.client.commands.utils import Arguments, click_decorator
+from rucio.client.commands.utils import Arguments
 
 
 @click.group()
-@click.help_option("-h", "--help")
 def rule():
     """View and define rules for creating replicas of DIDs"""
 
@@ -40,7 +39,7 @@ def rule():
 @click.option("--delay-injection", type=int, help="Delay (in seconds) to wait before starting applying the rule. This option implies --asynchronous.")
 @click.option("--account", help="The account owning the rule")
 @click.option("--skip-duplicates/--no-skip-duplicates", default=False, help="Skip duplicate rules")
-@click_decorator
+@click.pass_context
 def add_(ctx, dids, copies, rses, weight, asynchronous, lifetime, grouping, locked, source_rses, notify, activity, comment, ask_approval, delay_injection, account, skip_duplicates):
     """Add replication rule to define how replicas of a list of DIDs are created on RSEs."""
     args = Arguments(
@@ -72,7 +71,7 @@ def add_(ctx, dids, copies, rses, weight, asynchronous, lifetime, grouping, lock
 @click.option("--all/--not-all", "_all", default=False, help="Delete all the rules, even the ones that are not owned by the account")
 @click.option("--rses", "--rse-exp", help="The RSE expression. Must be specified if a DID is provided.")  # TODO mutual inclusive group
 @click.option("--account", help="The account of the rule that must be deleted")
-@click_decorator
+@click.pass_context
 def remove(ctx, rule_id_dids, _all, rses, account, purge_replicas):
     """Remove an existing rule. Supply [rule-id] if know, or use [DID] and --rses to remove all rules for DIDs on RSEs matching the expression"""
     args = Arguments({"purge_replicas": purge_replicas, "delete_all": _all, "rule_account": account, "rule_id": rule_id_dids, "rses": rses})
@@ -82,7 +81,7 @@ def remove(ctx, rule_id_dids, _all, rses, account, purge_replicas):
 @rule.command("show")
 @click.argument("rule-id")
 @click.option("--examine/--no-examine", default=False, help="Detailed analysis of transfer errors")
-@click_decorator
+@click.pass_context
 def show(ctx, rule_id, examine):
     """Retrieve information about a rule"""
     info_rule(Arguments({"rule_id": rule_id, "examine": examine}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
@@ -90,7 +89,7 @@ def show(ctx, rule_id, examine):
 
 @rule.command("history")
 @click.argument("did", nargs=1)
-@click_decorator
+@click.pass_context
 def history(ctx, did):
     """Display the history of rules acting on a DID"""
     list_rules_history(Arguments({"did": did}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
@@ -101,9 +100,9 @@ def history(ctx, did):
 @click.option("--rses", "--rse-exp", help="RSE expression of new rule", required=True)
 @click.option("--activity", help="Update activity for moved rule", hidden=True)  # Should only do this using `update`
 @click.option("--source-rses", help="Update how replicas are sourced for the rule")
-@click_decorator
+@click.pass_context
 def move(ctx, rule_id, rses, activity, source_rses):
-    """Duplicate a rule onto another RSE"""  # TODO: verify - does it delete the old one?
+    """Create a child rule on a different RSE. The parent rule is deleted once the new rule reaches `OK` status"""
     args = Arguments({"rule_id": rule_id, "rse_expression": rses, "source_replica_expression": source_rses, "activity": activity})
     move_rule(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
@@ -122,7 +121,7 @@ def move(ctx, rule_id, rses, activity, source_rses):
 @click.option("--priority", help="Priority of the requests of the rule.")
 @click.option("--child-rule-id", help='Child rule id of the rule. Use "None" to remove an existing parent/child relationship.')
 @click.option("--boost-rule/--no-boost-rule", default=False, help="Quickens the transition of a rule from STUCK to REPLICATING.")
-@click_decorator
+@click.pass_context
 def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, account, stuck, cancel_requests, priority, child_rule_id, boost_rule):
     """Update an existing rule"""
     args = Arguments(
@@ -152,7 +151,7 @@ def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, accou
 @click.option("--file", help="Filter by file")
 @click.option("--account", help="Filter by account")
 @click.option("--subscription", help="Filter by subscription name")
-@click_decorator
+@click.pass_context
 def list_(ctx, did, rule_id, traverse, csv, file, account, subscription):
     """List all rules impacting a given DID"""
     args = Arguments({"did": did, "rule_id": rule_id, "traverse": traverse, "csv": csv, "file": file, "subscription": (account if account is not None else ctx.obj.client.account, subscription)})

@@ -16,7 +16,7 @@ import os
 import click
 
 from rucio.client.commands.bin_legacy.rucio import download as download_exe
-from rucio.client.commands.utils import Arguments, click_decorator
+from rucio.client.commands.utils import Arguments
 from rucio.common.config import config_get_float
 
 
@@ -55,7 +55,7 @@ from rucio.common.config import config_get_float
 @click.option("--metalink", help="Path to a metalink file.")
 @click.option("--no-show-download-exceptions/--show-download-exceptions", default=False, help="Does not raise NoFilesDownloaded, NotAllFilesDownloaded or incorrect number of output queue files Exception.")  # NOQA: E501
 @click.option("--replica-selection", help="Select the best replica using a replica sorting algorithm provided by replica sorter (e.g., random, geoip).")
-@click_decorator
+@click.pass_context
 def download(
     ctx,
     dids,

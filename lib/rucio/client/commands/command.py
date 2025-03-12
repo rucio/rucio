@@ -23,7 +23,7 @@ from rich.traceback import install
 
 from rucio import version
 from rucio.client.commands.bin_legacy.rucio import ping, test_server, whoami_account
-from rucio.client.commands.utils import Arguments, click_decorator, get_client, setup_gfal2_logger, signal_handler
+from rucio.client.commands.utils import Arguments, exception_handler, get_client, setup_gfal2_logger, signal_handler
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, get_cli_config, get_pager, setup_rich_logger
 from rucio.common.utils import setup_logger
 
@@ -77,10 +77,11 @@ class LazyGroup(click.Group):
         "subscription": "rucio.client.commands.subscription_commands.subscription",
         "upload": "rucio.client.commands.upload_commands.upload_command",
     },
+    context_settings={"help_option_names": ["-h", "--help"]}
 )  # TODO: Implement https://click.palletsprojects.com/en/stable/options/#dynamic-defaults-for-prompts for args from config or os
 @click.version_option(version.version_string(), message="%(prog)s %(version)s")
 @click.option("--config", help="The Rucio configuration file to use")
-@click.option("-v", "--verbose/--no-verbose", default=False, help="Print more verbose output")
+@click.option("-v", "--verbose", default=False, is_flag=True, help="Print more verbose output")
 @click.option("-H", "--host", help="The Rucio API host")
 @click.option("--auth-host", help="The Rucio Authentication host")
 @click.option("-S", "--auth-strategy", help="Authentication strategy (userpass, x509...)")
@@ -138,7 +139,8 @@ class LazyGroup(click.Group):
 @click.option("--certificate", help="Client certificate file")
 @click.option("--client-key", help="Client key for x509 Authentication")
 @click.option("--ca-certificate", help="CA certificate to verify peer against (SSL)")
-@click_decorator
+@exception_handler
+@click.pass_context
 def main(
     ctx,
     config,
@@ -242,21 +244,21 @@ def _teardown(ctx):
 
 
 @main.command(name="whoami", help="Get information about account whose token is used")
-@click_decorator
+@click.pass_context
 def exe_whoami(ctx):
     args = Arguments()
     whoami_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @main.command(name="ping", help="Ping Rucio server")
-@click_decorator
+@click.pass_context
 def exe_ping(ctx):
     args = Arguments()
     ping(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @main.command(name="test-server", help="Test client against the server")
-@click_decorator
+@click.pass_context
 def exe_test_server(ctx):
     args = Arguments()
     test_server(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

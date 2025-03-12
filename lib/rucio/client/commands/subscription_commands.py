@@ -14,11 +14,10 @@
 import click
 
 from rucio.client.commands.bin_legacy.rucio_admin import add_subscription, list_subscriptions, reevaluate_did_for_subscription, update_subscription
-from rucio.client.commands.utils import Arguments, click_decorator
+from rucio.client.commands.utils import Arguments
 
 
 @click.group()
-@click.help_option("-h", "--help")
 def subscription():
     "The methods for automated and regular processing of some specific rules"
 
@@ -27,7 +26,7 @@ def subscription():
 @click.option("-a", "--account", help="Account associated with the subscription")
 @click.option("--long/--no-long", help="Show extended information about the subscription")
 @click.argument("subscription-name")
-@click_decorator
+@click.pass_context
 def list_(ctx, subscription_name, account, long):
     """Show the attributes of a subscription [SUBSCRIPTION-NAME]"""
     args = Arguments({"subs_account": account, "name": subscription_name, "long": long})
@@ -42,7 +41,7 @@ def list_(ctx, subscription_name, account, long):
 @click.option("--lifetime", type=int, help="Subscription lifetime (in days)")
 @click.option("--account", help="Account name")
 @click.option("--priority", help="The priority of the subscription")
-@click_decorator
+@click.pass_context
 def update(ctx, subscription_name, did_filter, rule, comment, lifetime, account, priority):
     """Update a subscription [SUBSCRIPTION-NAME] to have new properties"""
     args = Arguments({"name": subscription_name, "filter": did_filter, "replication_rules": rule, "comments": comment, "lifetime": lifetime, "subs_account": account, "priority": priority})
@@ -57,7 +56,7 @@ def update(ctx, subscription_name, did_filter, rule, comment, lifetime, account,
 @click.option("--lifetime", type=int, help="Subscription lifetime (in days)")
 @click.option("--account", help="Account name")
 @click.option("--priority", help="The priority of the subscription")
-@click_decorator
+@click.pass_context
 def add_(ctx, subscription_name, did_filter, rule, comment, lifetime, account, priority):
     """Create a new subscription with the name [SUBSCRIPTION-NAME]"""
     args = Arguments({"name": subscription_name, "filter": did_filter, "replication_rules": rule, "comments": comment, "lifetime": lifetime, "subs_account": account, "priority": priority})
@@ -66,7 +65,7 @@ def add_(ctx, subscription_name, did_filter, rule, comment, lifetime, account, p
 
 @subscription.command("touch")
 @click.argument("dids", nargs=-1)
-@click_decorator
+@click.pass_context
 def touch(ctx, dids):
     """Reevaluate list of DIDs against all active subscriptions"""
     # TODO make reeval accept dids as a list
