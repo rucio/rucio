@@ -474,7 +474,7 @@ def run_once(
 
     rses_to_process = get_rses_to_process(rses, include_rses, exclude_rses, vos)
     if not rses_to_process:
-        logger(logging.ERROR, 'Reaper: No RSEs found. Will sleep for 30 seconds')
+        logger(logging.WARNING, 'Reaper: No RSEs found, sleeping')
         return must_sleep
     else:
         rses_to_process = [RseData(id_=rse['id'], name=rse['rse'], columns=rse) for rse in rses_to_process]
