@@ -14,11 +14,10 @@
 import click
 
 from rucio.client.commands.bin_legacy.rucio_admin import add_scope, list_scopes
-from rucio.client.commands.utils import Arguments, click_decorator
+from rucio.client.commands.utils import Arguments
 
 
 @click.group()
-@click.help_option("-h", "--help")
 def scope():
     """Interact with scopes - a logical grouping of DIDs"""
 
@@ -26,7 +25,7 @@ def scope():
 @scope.command("add")
 @click.argument("scope-name")
 @click.option("-a", "--account", help="Associated account", required=True)
-@click_decorator
+@click.pass_context
 def add_(ctx, account, scope_name):
     """Add a new scope with name [SCOPE-NAME]"""
     args = Arguments({"scope": scope_name, "account": account})
@@ -35,7 +34,7 @@ def add_(ctx, account, scope_name):
 
 @scope.command("list")
 @click.option("-a", "--account", help="Filter by associated account", required=False)
-@click_decorator
+@click.pass_context
 def list_(ctx, account):
     """List existing scopes"""
     list_scopes(Arguments({"account": account}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

@@ -15,17 +15,15 @@ import click
 
 from rucio.client.commands.bin_legacy.rucio import list_dataset_replicas, list_file_replicas, list_suspicious_replicas
 from rucio.client.commands.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas, quarantine_replicas, set_tombstone
-from rucio.client.commands.utils import Arguments, click_decorator
+from rucio.client.commands.utils import Arguments
 
 
 @click.group()
-@click.help_option("-h", "--help")
 def replica():
     """Manage replicas - DIDs with locations on RSEs"""
 
 
 @replica.group("list")
-@click.help_option("-h", "--help")
 def replica_list():
     """List replicas (file or collection-types)"""
 
@@ -52,7 +50,7 @@ def replica_list():
 @click.option("--sort", help="Replica sort algorithm. Available options: geoip (default), random")
 @click.option("--rses", "--rse-exp", "rses", help="The RSE filter expression")
 @click.option("--human", default=True, hidden=True)
-@click_decorator
+@click.pass_context
 def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalink, no_resolve_archives, sort, rses, human):
     """List the replicas of a DID and its PFNs. By default all states, even unavailable, are shown"""
     args = {"dids": dids, "protocols": protocols, "all_states": all_states, "pfns": pfns, "domain": domain, "link": link, "missing": missing, "metalink": metalink, "no_resolve_archives": no_resolve_archives, "sort": sort, "rses": rses, "human": human}
@@ -63,7 +61,7 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
 @click.argument("dids", nargs=-1)
 @click.option("--deep/--no-deep", default=False, help="Make a deep check, checking the contents of datasets in datasets")
 @click.option("--csv/--no-csv", help="Write output to comma separated values", default=False)
-@click_decorator
+@click.pass_context
 def list_dataset(ctx, dids, deep, csv):
     """List dataset replicas"""
     args = Arguments({"dids": dids, "deep": deep, "csv": csv})
@@ -73,7 +71,7 @@ def list_dataset(ctx, dids, deep, csv):
 @replica.command("remove")
 @click.argument("dids", nargs=-1)
 @click.option("--rse", "--rse-name", "rse", required=True)
-@click_decorator
+@click.pass_context
 def remove(ctx, dids, rse):
     "Set a replica for removal by adding a tombstone which will mark the replica as ready for deletion by a reaper daemon"
     # TODO: Fix set_tombstone to not expect a comma separated DID str
@@ -92,7 +90,7 @@ def state():
 @click.option("--rses", "--rse-exp", help="RSE name or expression")  # TODO remap rse_expression to rses (for consistency)
 @click.option("--younger-than", help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00')  # NOQA: E501
 @click.option("--n-attempts", help="Minimum number of failed attempts to access a suspicious file")
-@click_decorator
+@click.pass_context
 def state_list(ctx, state_type, rses, younger_than, n_attempts):
     """List replicas by state. WARNING: Only implemented for 'suspicious'"""
 
@@ -115,7 +113,7 @@ def state_update():
 @click.option("--lfn/--no-lfn", default=False, help="[REPLICAS] arg is a path to a file of LFNs. Requires --rse and --scope")
 @click.option("--scope", help="Common scope for bad replicas specified with LFN list, ignored without --lfn")
 @click.option("--rse", "--rse-name", help="Common RSE for bad replicas specified with LFN list, ignored without --lfn")
-@click_decorator
+@click.pass_context
 def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
     """Mark a replica bad"""
     args = {"reason": reason, "allow_collection": collection, "scope": scope, "rse": rse}
@@ -135,7 +133,7 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
 @click.option("--reason", required=True, help="Reason")
 @click.option("--as-file/--not-as-file", default=False, help="[REPLICAS] arg is a path to a file of names to update")
 @click.option("--duration", required=True, type=int, help="Timeout (in seconds) after which the replicas will become available again")
-@click_decorator
+@click.pass_context
 def update_unavailable(ctx, replicas, reason, as_file, duration):
     """Declare a replica unavailable"""
     args = {"reason": reason, "duration": duration}
@@ -150,7 +148,7 @@ def update_unavailable(ctx, replicas, reason, as_file, duration):
 @click.argument("replicas", nargs=-1)
 @click.option("--as-file/--not-as-file", default=False, help="[REPLICAS] arg is a path to a file of names to update")
 @click.option("--rse", "--rse-name")  # TODO What does this do?
-@click_decorator
+@click.pass_context
 def update_quarantine(ctx, replicas, as_file, rse):
     """Quarantine a replica"""
     args = {"rse": rse}

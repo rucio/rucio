@@ -21,8 +21,6 @@ import traceback
 from configparser import NoOptionError, NoSectionError
 from functools import wraps
 
-import click
-
 from rucio.client.client import Client
 from rucio.common.config import config_get
 from rucio.common.exception import (
@@ -212,16 +210,6 @@ def setup_gfal2_logger():
     gfal2_logger = logging.getLogger("gfal2")
     gfal2_logger.setLevel(logging.CRITICAL)
     gfal2_logger.addHandler(logging.StreamHandler())
-
-
-def click_decorator(func):
-    """Util to combine decorators always used together in CLI. Equivalent to:
-    @click.help_option("-h", "--help")
-    @click.pass_context
-    @exception_handler
-    def func....
-    """
-    return exception_handler(click.pass_context(click.help_option("-h", "--help")(func)))
 
 
 class Arguments(dict):
