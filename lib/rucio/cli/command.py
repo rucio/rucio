@@ -22,8 +22,8 @@ from rich.theme import Theme
 from rich.traceback import install
 
 from rucio import version
-from rucio.client.commands.bin_legacy.rucio import ping, test_server, whoami_account
-from rucio.client.commands.utils import Arguments, exception_handler, get_client, setup_gfal2_logger, signal_handler
+from rucio.cli.bin_legacy.rucio import ping, test_server, whoami_account
+from rucio.cli.utils import Arguments, exception_handler, get_client, setup_gfal2_logger, signal_handler
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, get_cli_config, get_pager, setup_rich_logger
 from rucio.common.utils import setup_logger
 
@@ -65,17 +65,17 @@ class LazyGroup(click.Group):
 @click.group(
     cls=LazyGroup,
     lazy_subcommands={
-        "account": "rucio.client.commands.account_commands.account",
-        "config": "rucio.client.commands.config_commands.config",
-        "did": "rucio.client.commands.did_commands.did",
-        "download": "rucio.client.commands.download_commands.download",
-        "lifetime-exception": "rucio.client.commands.lifetime_exception_commands.lifetime_exception",
-        "replica": "rucio.client.commands.replica_commands.replica",
-        "rse": "rucio.client.commands.rse_commands.rse",
-        "rule": "rucio.client.commands.rule_commands.rule",
-        "scope": "rucio.client.commands.scope_commands.scope",
-        "subscription": "rucio.client.commands.subscription_commands.subscription",
-        "upload": "rucio.client.commands.upload_commands.upload_command",
+        "account": "rucio.cli.account.account",
+        "config": "rucio.cli.config.config",
+        "did": "rucio.cli.did.did",
+        "download": "rucio.cli.download.download",
+        "lifetime-exception": "rucio.cli.lifetime_exception.lifetime_exception",
+        "replica": "rucio.cli.replica.replica",
+        "rse": "rucio.cli.rse.rse",
+        "rule": "rucio.cli.rule.rule",
+        "scope": "rucio.cli.scope.scope",
+        "subscription": "rucio.cli.subscription.subscription",
+        "upload": "rucio.cli.upload.upload_command",
     },
     context_settings={"help_option_names": ["-h", "--help"]}
 )  # TODO: Implement https://click.palletsprojects.com/en/stable/options/#dynamic-defaults-for-prompts for args from config or os

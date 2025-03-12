@@ -13,9 +13,9 @@
 # limitations under the License.
 import click
 
-from rucio.client.commands.bin_legacy.rucio import list_dataset_replicas, list_file_replicas, list_suspicious_replicas
-from rucio.client.commands.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas, quarantine_replicas, set_tombstone
-from rucio.client.commands.utils import Arguments
+from rucio.cli.bin_legacy.rucio import list_dataset_replicas, list_file_replicas, list_suspicious_replicas
+from rucio.cli.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas, quarantine_replicas, set_tombstone
+from rucio.cli.utils import Arguments
 
 
 @click.group()

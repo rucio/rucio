@@ -15,7 +15,7 @@
 
 import sys
 
-from rucio.client.commands.bin_legacy.rucio_admin import main as main_legacy
+from rucio.cli.bin_legacy.rucio_admin import main as main_legacy
 from rucio.common.utils import setup_logger
 
 
@@ -33,7 +33,7 @@ def make_warning():
     except IndexError:
         second_command = "-h"
 
-    if first_command not in ("-h", "--version", "--help"):
+    if (first_command not in ("-h", "--version", "--help")) and (first_command is not None):
         command_map = {
             "data": {"import": "upload", "export": "download"},
             "account": {
