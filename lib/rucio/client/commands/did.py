@@ -32,6 +32,12 @@ class DID(CommandBase):
         parser.add_argument("--filter", help="Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type")
         parser.add_argument("--short", action="store_true", help="Just dump the list of DIDs")
         parser.add_argument("-d", "--did", nargs=1, help="Data IDentifier pattern")
+        parser.add_argument("--parent", action="store_true", help="List the parents of the DID")
+        # Both non-functional, but list_parents complains if not present
+        # TODO: Correct these options in rucio::list-parent-dids
+        # Issue 7230 https://github.com/rucio/rucio/issues/7230
+        parser.add_argument("--pfn", dest="pfns", nargs="+", help=argparse.SUPPRESS)
+        parser.add_argument("--guid", dest="guids", nargs="+", help=argparse.SUPPRESS)
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--type", dest='dtype', choices=("container", "dataset"), help="Add collection type DID")
@@ -49,12 +55,6 @@ class DID(CommandBase):
 
     def show_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-d", "--did", dest="dids", nargs="+", help="List of space separated data identifiers")
-        parser.add_argument("--parent", action="store_true", help="List the parents of the DID")
-
-        # Both non-functional, but list_parents complains if not present
-        # Planned to re-implement in a future release
-        parser.add_argument("--pfn", dest="pfns", nargs="+", help=argparse.SUPPRESS)
-        parser.add_argument("--guid", dest="guids", nargs="+", help=argparse.SUPPRESS)
 
     def remove_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("--undo", action="store_true", help="Undo erase DIDs. Only works if has been less than 24 hours since erase operation")
@@ -81,18 +81,17 @@ class DID(CommandBase):
             "$ rucio did remove --did user.jdoe:file_12345  # Disable file_12345. Will be deleted 24 after deletions.",
             "$ rucio did update --touch --did user.jdoe:file_12345  # Update the time the DID has been modified",
             "$ rucio did show --did user.jdoe:file_12345  # Get the stats for file_12345 - account holder, size, expiration, open status, type, etc",
-            "$ rucio did show --parent --did user.jdoe:file_12345 # Show all the parent DIDs for file_12345",
+            "$ rucio did list --parent --did user.jdoe:file_12345 # Show all the parent DIDs for file_12345",
         ]
 
     def list_(self):
+        if self.args.parent:
+            self.args.did = self.args.did[0]
+            list_parent_dids(self.args, self.client, self.logger, self.console, self.spinner)
         list_dids(self.args, self.client, self.logger, self.console, self.spinner)
 
     def show(self):
-        if self.args.parent:
-            self.args.did = self.args.dids[0]
-            list_parent_dids(self.args, self.client, self.logger, self.console, self.spinner)
-        else:
-            stat(self.args, self.client, self.logger, self.console, self.spinner)
+        stat(self.args, self.client, self.logger, self.console, self.spinner)
 
     def remove(self):
         erase(self.args, self.client, self.logger, self.console, self.spinner)
