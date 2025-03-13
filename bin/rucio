@@ -60,7 +60,7 @@ def map_legacy_command() -> Optional[list[str]]:
             "detach": ["did", "content", "remove"],
             "ls": ["did", "list"],
             "list-dids": ["did", "list"],
-            "list-parent-dids": ["did", "show", "--parent"],
+            "list-parent-dids": ["did", "list", "--parent"],
             "list-scopes": ["scope", "list"],
             "close": ["did", "update", "--close"],
             "reopen": ["did", "update", "--open"],
