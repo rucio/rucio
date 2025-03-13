@@ -57,11 +57,8 @@ if [ "$SUITE" == "client" ]; then
 elif [ "$SUITE" == "client_syntax" ]; then
     srchome
     CLIENT_BIN_FILES="bin/rucio bin/rucio-admin"
-    SYNTAX_PYLINT_ARGS="$(tools/test/ignoretool.py --pylint)"
-    SYNTAX_FLAKE_ARGS="$(tools/test/ignoretool.py --flake8) $CLIENT_BIN_FILES tests/test_clients.py tests/test_bin_rucio.py tests/test_module_import.py"
-    export SYNTAX_PYLINT_ARGS
-    export SYNTAX_PYLINT_BIN_ARGS="$CLIENT_BIN_FILES"
-    export SYNTAX_FLAKE_ARGS
+    SYNTAX_RUFF_ARGS="$(tools/test/ignoretool.py --ruff) $CLIENT_BIN_FILES tests/test_clients.py tests/test_bin_rucio.py tests/test_module_import.py"
+    export SYNTAX_RUFF_ARGS
     tools/test/check_syntax.sh
 
 elif [ "$SUITE" == "syntax" ]; then

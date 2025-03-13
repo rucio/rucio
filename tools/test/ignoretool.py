@@ -29,33 +29,37 @@ PACKAGES = [
 
 
 def package_directories(packages):
-    for directory in map(lambda p: 'lib/' + p.replace('.', '/'), packages):
-        yield directory
+    """Convert package names into directory paths under 'lib/'."""
+    return ['lib/' + p.replace('.', '/') for p in packages]
+
+
+def get_excluded_dirs():
+    """Find directories to exclude for Ruff, excluding __pycache__ and test files."""
+    include_dirs = set(package_directories(PACKAGES))
+    exclude_dirs = []
+
+    for root, dirs, files in os.walk('lib/'):
+        if '__pycache__' in root or root == 'lib/' or root in include_dirs:
+            continue
+        exclude_dirs.append(root)
+
+    return exclude_dirs
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Returns ignore-strings for client files')
-    parser.add_argument('-l', '--pylint', dest='pylint', action='store_true',
-                        help='build a list for pylint with the --ignore flag')
-    parser.add_argument('-f', '--flake8', dest='flake8', action='store_true',
-                        help='build a list for flake8 tool')
+    parser = argparse.ArgumentParser(description='Returns ignore-strings for Ruff')
+    parser.add_argument('-r', '--ruff', dest='ruff', action='store_true',
+                        help='Build a list for Ruff with the --extend-exclude flag')
     script_args = parser.parse_args()
 
-    if script_args.flake8:
-        print(' '.join(map(lambda d: d + '/*.py', package_directories(PACKAGES))))
-    elif script_args.pylint:
-        ignore_dirs = []
-        include_dirs = set(package_directories(PACKAGES))
-
-        for root, dirs, files in os.walk('lib/'):
-            if '__pycache__' not in root and root != 'lib/' and root not in include_dirs:
-                ignore_dirs.append(root)
-
-        if ignore_dirs:
-            print('--ignore=' + ','.join(ignore_dirs), 'lib/rucio/')
+    if script_args.ruff:
+        exclude_dirs = get_excluded_dirs()
+        if exclude_dirs:
+            print(f'--extend-exclude="{",".join(exclude_dirs)}" lib/')
         else:
-            print('lib/rucio/')
+            print('lib/')
 
 
 if __name__ == '__main__':
     main()
+
