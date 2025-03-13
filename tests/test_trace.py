@@ -21,7 +21,7 @@ import uuid
 import pytest
 
 from rucio.common.exception import InvalidObject, TraceValidationSchemaNotFound
-from rucio.common.schema.generic import IPv4orIPv6
+from rucio.common.schema import get_schema_value
 from rucio.core.trace import SCHEMAS, validate_schema
 
 LOGGER = logging.getLogger(__name__)
@@ -98,7 +98,7 @@ def test_trace_ip():
         "type": "object",
         "properties": {
             "eventType": {"enum": ["test"]},
-            "traceIp": IPv4orIPv6
+            "traceIp": get_schema_value("IPv4orIPv6")
         }
     }
 

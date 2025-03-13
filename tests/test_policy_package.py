@@ -13,9 +13,11 @@
 # limitations under the License.
 
 import importlib
+from configparser import NoOptionError, NoSectionError
 
 import pytest
 
+import rucio.common.config
 import rucio.common.schema
 import rucio.core.permission
 from rucio.common.types import InternalAccount
@@ -46,6 +48,13 @@ class TestPolicyPackage:
     # test that schema modules can define a subset of values and fall back
     # to generic for others
     def test_diff_based_schema(self):
+        # determine whether multi VO enabled, schema contents are different if so
+        multivo = False
+        try:
+            multivo = rucio.common.config.config_get_bool('common', 'multi_vo', check_config_table=False)
+        except (NoOptionError, NoSectionError):
+            pass
+
         # replace schema module with our mock one
         old_module = rucio.common.schema.schema_modules['def']
         rucio.common.schema.schema_modules['def'] = importlib.import_module('tests.mocks.schema_diff')
@@ -55,6 +64,16 @@ class TestPolicyPackage:
 
         # check that omitted value falls back to generic module
         assert rucio.common.schema.get_schema_value('NAME_LENGTH') == 250
+
+        # check that we can include a value from the fallback schema in our schema
+        assert rucio.common.schema.get_schema_value('NAME')['maxLength'] == 250
+
+        # check simple arithmetic on substitutions
+        assert rucio.common.schema.get_schema_value('ARITHMETIC_TEST') == 54
+
+        # check that the fallback schema can include a value from our schema
+        expected_account_length = 26 if multivo else 30
+        assert rucio.common.schema.get_schema_value('ACCOUNT')['maxLength'] == expected_account_length
 
         # restore original schema module
         rucio.common.schema.schema_modules['def'] = old_module

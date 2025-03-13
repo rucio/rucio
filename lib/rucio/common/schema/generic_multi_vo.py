@@ -12,21 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from jsonschema import ValidationError, validate
-
-from rucio.common.exception import InvalidObject
-
 ACCOUNT_LENGTH = 29
 
 ACCOUNT = {"description": "Account name",
            "type": "string",
-           "maxLength": ACCOUNT_LENGTH - 4,
+           "maxLength": "%%ACCOUNT_LENGTH - 4",
            "pattern": "^[a-z0-9-_]+$"}
 
 
 ACCOUNTS = {"description": "Array of accounts",
             "type": "array",
-            "items": ACCOUNT,
+            "items": "%%ACCOUNT",
             "minItems": 0,
             "maxItems": 1000}
 
@@ -48,7 +44,7 @@ SCOPE_LENGTH = 29
 
 SCOPE = {"description": "Scope name",
          "type": "string",
-         "maxLength": SCOPE_LENGTH - 4,
+         "maxLength": "%%SCOPE_LENGTH - 4",
          "pattern": "^[a-zA-Z_\\-.0-9]+$"}
 
 R_SCOPE = {"description": "Scope name",
@@ -59,7 +55,7 @@ NAME_LENGTH = 250
 
 NAME = {"description": "Data Identifier name",
         "type": "string",
-        "maxLength": NAME_LENGTH,
+        "maxLength": "%%NAME_LENGTH",
         "pattern": "^[A-Za-z0-9][A-Za-z0-9\\.\\-\\_]*$"}
 
 R_NAME = {"description": "Data Identifier name",
@@ -144,7 +140,7 @@ UUID = {"description": "Universally Unique Identifier (UUID)",
 
 META = {"description": "Data Identifier(DID) metadata",
         "type": "object",
-        "properties": {"guid": UUID},
+        "properties": {"guid": "%%UUID"},
         "additionalProperties": True}
 
 PFN = {"description": "Physical File Name", "type": "string"}
@@ -167,35 +163,41 @@ PRIORITY = {"description": "Priority of the transfers",
 SPLIT_CONTAINER = {"description": "Rule split container mode",
                    "type": ["boolean", "null"]}
 
+IPv4orIPv6 = {
+    "description": "IPv4 or IPv6 address",
+    "type": "string",
+    "format": "ipv4_or_ipv6"
+}
+
 RULE = {"description": "Replication rule",
         "type": "object",
         "properties": {"dids": {"type": "array"},
-                       "account": ACCOUNT,
-                       "copies": COPIES,
-                       "rse_expression": RSE_EXPRESSION,
-                       "grouping": GROUPING,
-                       "weight": WEIGHT,
-                       "lifetime": RULE_LIFETIME,
-                       "locked": LOCKED,
-                       "subscription_id": SUBSCRIPTION_ID,
-                       "source_replica_expression": SOURCE_REPLICA_EXPRESSION,
-                       "activity": ACTIVITY,
-                       "notify": NOTIFY,
-                       "purge_replicas": PURGE_REPLICAS,
-                       "ignore_availability": IGNORE_AVAILABILITY,
-                       "comment": COMMENT,
-                       "ask_approval": ASK_APPROVAL,
-                       "asynchronous": ASYNCHRONOUS,
-                       "delay_injection": DELAY_INJECTION,
-                       "priority": PRIORITY,
-                       'split_container': SPLIT_CONTAINER,
-                       'meta': METADATA},
+                       "account": "%%ACCOUNT",
+                       "copies": "%%COPIES",
+                       "rse_expression": "%%RSE_EXPRESSION",
+                       "grouping": "%%GROUPING",
+                       "weight": "%%WEIGHT",
+                       "lifetime": "%%RULE_LIFETIME",
+                       "locked": "%%LOCKED",
+                       "subscription_id": "%%SUBSCRIPTION_ID",
+                       "source_replica_expression": "%%SOURCE_REPLICA_EXPRESSION",
+                       "activity": "%%ACTIVITY",
+                       "notify": "%%NOTIFY",
+                       "purge_replicas": "%%PURGE_REPLICAS",
+                       "ignore_availability": "%%IGNORE_AVAILABILITY",
+                       "comment": "%%COMMENT",
+                       "ask_approval": "%%ASK_APPROVAL",
+                       "asynchronous": "%%ASYNCHRONOUS",
+                       "delay_injection": "%%DELAY_INJECTION",
+                       "priority": "%%PRIORITY",
+                       'split_container': "%%SPLIT_CONTAINER",
+                       'meta': "%%METADATA"},
         "required": ["dids", "copies", "rse_expression"],
         "additionalProperties": False}
 
 RULES = {"description": "Array of replication rules",
          "type": "array",
-         "items": RULE,
+         "items": "%%RULE",
          "minItems": 1,
          "maxItems": 1000}
 
@@ -205,32 +207,32 @@ COLLECTION_TYPE = {"description": "Dataset or container type",
 
 COLLECTION = {"description": "Dataset or container",
               "type": "object",
-              "properties": {"scope": SCOPE,
-                             "name": NAME,
-                             "type": COLLECTION_TYPE,
-                             "meta": META,
-                             "rules": RULES},
+              "properties": {"scope": "%%SCOPE",
+                             "name": "%%NAME",
+                             "type": "%%COLLECTION_TYPE",
+                             "meta": "%%META",
+                             "rules": "%%RULES"},
               "required": ["scope", "name", "type"],
               "additionalProperties": False}
 
 COLLECTIONS = {"description": "Array of datasets or containers",
                "type": "array",
-               "items": COLLECTION,
+               "items": "%%COLLECTION",
                "minItems": 1,
                "maxItems": 1000}
 
 DID = {"description": "Data Identifier(DID)",
        "type": "object",
-       "properties": {"scope": SCOPE,
-                      "name": NAME,
-                      "type": DID_TYPE,
-                      "meta": META,
-                      "rules": RULES,
-                      "bytes": BYTES,
-                      "adler32": ADLER32,
-                      "md5": MD5,
-                      "state": REPLICA_STATE,
-                      "pfn": PFN},
+       "properties": {"scope": "%%SCOPE",
+                      "name": "%%NAME",
+                      "type": "%%DID_TYPE",
+                      "meta": "%%META",
+                      "rules": "%%RULES",
+                      "bytes": "%%BYTES",
+                      "adler32": "%%ADLER32",
+                      "md5": "%%MD5",
+                      "state": "%%REPLICA_STATE",
+                      "pfn": "%%PFN"},
        "required": ["scope", "name"],
        "additionalProperties": False}
 
@@ -240,45 +242,45 @@ DID_FILTERS = {"description": "Array to filter DIDs by metadata",
 
 R_DID = {"description": "Data Identifier(DID)",
          "type": "object",
-         "properties": {"scope": R_SCOPE,
-                        "name": R_NAME,
-                        "type": DID_TYPE,
-                        "meta": META,
-                        "rules": RULES,
-                        "bytes": BYTES,
-                        "adler32": ADLER32,
-                        "md5": MD5,
-                        "state": REPLICA_STATE,
-                        "pfn": PFN},
+         "properties": {"scope": "%%R_SCOPE",
+                        "name": "%%R_NAME",
+                        "type": "%%DID_TYPE",
+                        "meta": "%%META",
+                        "rules": "%%RULES",
+                        "bytes": "%%BYTES",
+                        "adler32": "%%ADLER32",
+                        "md5": "%%MD5",
+                        "state": "%%REPLICA_STATE",
+                        "pfn": "%%PFN"},
          "required": ["scope", "name"],
          "additionalProperties": False}
 
 DIDS = {"description": "Array of Data Identifiers(DIDs)",
         "type": "array",
-        "items": DID,
+        "items": "%%DID",
         "minItems": 1,
         "maxItems": 1000}
 
 R_DIDS = {"description": "Array of Data Identifiers(DIDs)",
           "type": "array",
-          "items": R_DID,
+          "items": "%%R_DID",
           "minItems": 1,
           "maxItems": 1000}
 
 ATTACHMENT = {"description": "Attachement",
               "type": "object",
-              "properties": {"scope": SCOPE,
-                             "name": NAME,
+              "properties": {"scope": "%%SCOPE",
+                             "name": "%%NAME",
                              "rse": {"description": "RSE name",
                                      "type": ["string", "null"],
                                      "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"},
-                             "dids": DIDS},
+                             "dids": "%%DIDS"},
               "required": ["dids"],
               "additionalProperties": False}
 
 ATTACHMENTS = {"description": "Array of attachments",
                "type": "array",
-               "items": ATTACHMENT,
+               "items": "%%ATTACHMENT",
                "minItems": 1,
                "maxItems": 1000}
 
@@ -292,48 +294,48 @@ SUBSCRIPTION_FILTER = {"type": "object",
                                       "excluded_pattern": {"type": "string"},
                                       "group": {"type": "string"},
                                       "provenance": {"type": "string"},
-                                      "account": ACCOUNTS,
+                                      "account": "%%ACCOUNTS",
                                       "grouping": {"type": "string"},
                                       "split_rule": {"type": "boolean"}}}
 
 ADD_REPLICA_FILE = {"description": "add replica file",
                     "type": "object",
-                    "properties": {"scope": SCOPE,
-                                   "name": NAME,
-                                   "bytes": BYTES,
-                                   "adler32": ADLER32},
+                    "properties": {"scope": "%%SCOPE",
+                                   "name": "%%NAME",
+                                   "bytes": "%%BYTES",
+                                   "adler32": "%%ADLER32"},
                     "required": ["scope", "name", "bytes", "adler32"]}
 
 ADD_REPLICA_FILES = {"description": "add replica files",
                      "type": "array",
-                     "items": ADD_REPLICA_FILE,
+                     "items": "%%ADD_REPLICA_FILE",
                      "minItems": 1,
                      "maxItems": 1000}
 
 CACHE_ADD_REPLICAS = {"description": "rucio cache add replicas",
                       "type": "object",
-                      "properties": {"files": ADD_REPLICA_FILES,
-                                     "rse": RSE,
-                                     "lifetime": LIFETIME,
+                      "properties": {"files": "%%ADD_REPLICA_FILES",
+                                     "rse": "%%RSE",
+                                     "lifetime": "%%LIFETIME",
                                      "operation": {"enum": ["add_replicas"]}},
                       "required": ['files', 'rse', 'lifetime', 'operation']}
 
 DELETE_REPLICA_FILE = {"description": "delete replica file",
                        "type": "object",
-                       "properties": {"scope": SCOPE,
-                                      "name": NAME},
+                       "properties": {"scope": "%%SCOPE",
+                                      "name": "%%NAME"},
                        "required": ["scope", "name"]}
 
 DELETE_REPLICA_FILES = {"description": "delete replica files",
                         "type": "array",
-                        "items": DELETE_REPLICA_FILE,
+                        "items": "%%DELETE_REPLICA_FILE",
                         "minItems": 1,
                         "maxItems": 1000}
 
 CACHE_DELETE_REPLICAS = {"description": "rucio cache delete replicas",
                          "type": "object",
-                         "properties": {"files": DELETE_REPLICA_FILES,
-                                        "rse": RSE,
+                         "properties": {"files": "%%DELETE_REPLICA_FILES",
+                                        "rse": "%%RSE",
                                         "operation": {"enum": ["delete_replicas"]}},
                          "required": ['files', 'rse', 'operation']}
 
@@ -371,42 +373,28 @@ VO = {"description": "VO tag",
       "type": "string",
       "pattern": "^([a-zA-Z_\\-.0-9]{3})?$"}
 
-SCHEMAS = {'account': ACCOUNT,
-           'account_type': ACCOUNT_TYPE,
-           'activity': ACTIVITY,
-           'name': NAME,
-           'r_name': R_NAME,
-           'rse': RSE,
-           'rse_attribute': RSE_ATTRIBUTE,
-           'scope': SCOPE,
-           'r_scope': R_SCOPE,
-           'did': DID,
-           'did_filters': DID_FILTERS,
-           'r_did': R_DID,
-           'dids': DIDS,
-           'rule': RULE,
-           'r_dids': R_DIDS,
-           'collection': COLLECTION,
-           'collections': COLLECTIONS,
-           'attachment': ATTACHMENT,
-           'attachments': ATTACHMENTS,
-           'subscription_filter': SUBSCRIPTION_FILTER,
-           'cache_add_replicas': CACHE_ADD_REPLICAS,
-           'cache_delete_replicas': CACHE_DELETE_REPLICAS,
-           'account_attribute': ACCOUNT_ATTRIBUTE,
-           'import': IMPORT,
-           'vo': VO}
-
-
-def validate_schema(name, obj):
-    """
-    Validate object against json schema
-
-    :param name: The json schema name.
-    :param obj: The object to validate.
-    """
-    try:
-        if obj:
-            validate(obj, SCHEMAS.get(name, {}))
-    except ValidationError as error:  # NOQA, pylint: disable=W0612
-        raise InvalidObject(f'Problem validating {name}: {error}')
+SCHEMAS = {'account': "%%ACCOUNT",
+           'account_type': "%%ACCOUNT_TYPE",
+           'activity': "%%ACTIVITY",
+           'name': "%%NAME",
+           'r_name': "%%R_NAME",
+           'rse': "%%RSE",
+           'rse_attribute': "%%RSE_ATTRIBUTE",
+           'scope': "%%SCOPE",
+           'r_scope': "%%R_SCOPE",
+           'did': "%%DID",
+           'did_filters': "%%DID_FILTERS",
+           'r_did': "%%R_DID",
+           'dids': "%%DIDS",
+           'rule': "%%RULE",
+           'r_dids': "%%R_DIDS",
+           'collection': "%%COLLECTION",
+           'collections': "%%COLLECTIONS",
+           'attachment': "%%ATTACHMENT",
+           'attachments': "%%ATTACHMENTS",
+           'subscription_filter': "%%SUBSCRIPTION_FILTER",
+           'cache_add_replicas': "%%CACHE_ADD_REPLICAS",
+           'cache_delete_replicas': "%%CACHE_DELETE_REPLICAS",
+           'account_attribute': "%%ACCOUNT_ATTRIBUTE",
+           'import': "%%IMPORT",
+           'vo': "%%VO"}
