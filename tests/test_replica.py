@@ -27,7 +27,7 @@ from werkzeug.datastructures import Headers, MultiDict
 
 from rucio.client.ruleclient import RuleClient
 from rucio.common.constants import RseAttr
-from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierNotFound, InputValidationError, ReplicaIsLocked, ReplicaNotFound, RucioException, ScopeNotFound
+from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierNotFound, InputValidationError, InvalidObject, ReplicaIsLocked, ReplicaNotFound, RucioException, ScopeNotFound
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import clean_pfns, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
@@ -802,6 +802,14 @@ def test_client_add_replica_scope_not_found(rse_factory, replica_client):
     rse, _ = rse_factory.make_mock_rse()
     files = [{'scope': 'nonexistingscope', 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb'}]
     with pytest.raises(ScopeNotFound):
+        replica_client.add_replicas(rse=rse, files=files)
+
+
+def test_client_add_replica_missing_bytes_field(rse_factory, replica_client):
+    """ REPLICA (CLIENT): Add replica with missing 'bytes' field """
+    rse, _ = rse_factory.make_mock_rse()
+    files = [{'scope': 'testscope', 'name': did_name_generator('file'), 'adler32': '0cc737ed'}]
+    with pytest.raises(InvalidObject, match="Missing required field: 'bytes'"):
         replica_client.add_replicas(rse=rse, files=files)
 
 
