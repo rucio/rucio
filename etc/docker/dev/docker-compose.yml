@@ -1,8 +1,11 @@
 name: rucio
 
 services:
+  # ------------------------------------------------------------------
+  # Main Rucio dev containers
+  # ------------------------------------------------------------------
   rucioclient:
-    image: docker.io/rucio/rucio-dev:latest-alma9
+    image: "docker.io/${DOCKER_REPO:-rucio}/rucio-dev${RUCIO_TAG:+:release-${RUCIO_TAG}}"
     platform: linux/amd64
     entrypoint: ["/rucio_source/etc/docker/dev/rucio/entrypoint.sh"]
     command: ["sleep", "infinity"]
@@ -29,9 +32,10 @@ services:
       - REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
       - RUCIO_SOURCE_DIR=/rucio_source
       - RDBMS
+
   rucio:
-    container_name: dev_rucio_1
-    image: docker.io/rucio/rucio-dev:latest-alma9
+    container_name: dev-rucio-1
+    image: "docker.io/${DOCKER_REPO:-rucio}/rucio-dev${RUCIO_TAG:+:release-${RUCIO_TAG}}"
     platform: linux/amd64
     entrypoint: ["/rucio_source/etc/docker/dev/rucio/entrypoint.sh"]
     command: ["httpd","-D","FOREGROUND"]
@@ -56,6 +60,10 @@ services:
       - REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
       - RUCIO_SOURCE_DIR=/rucio_source
       - RDBMS
+
+  # ------------------------------------------------------------------
+  # Database, MQ, metrics, and other external services
+  # ------------------------------------------------------------------
   ruciodb:
     image: docker.io/postgres:14
     environment:
@@ -63,8 +71,10 @@ services:
       - POSTGRES_DB=rucio
       - POSTGRES_PASSWORD=secret
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
+
   graphite:
     image: docker.io/graphiteapp/graphite-statsd
+
   influxdb:
     image: docker.io/influxdb:latest
     environment:
@@ -74,10 +84,12 @@ services:
       - DOCKER_INFLUXDB_INIT_ORG=rucio
       - DOCKER_INFLUXDB_INIT_BUCKET=rucio
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
+
   elasticsearch:
     image: docker.io/elasticsearch:7.8.0
     environment:
       - discovery.type=single-node
+
   activemq:
     image: docker.io/webcenter/activemq:latest
     platform: linux/amd64
@@ -91,6 +103,7 @@ services:
       - ACTIVEMQ_CONFIG_SCHEDULERENABLED=true
       - ACTIVEMQ_USERS_hermes=supersecret
       - ACTIVEMQ_CONFIG_QUEUES_events=/queue/events'
+
   postgres14:
     image: docker.io/postgres:14
     profiles:
@@ -100,6 +113,7 @@ services:
       - POSTGRES_DB=rucio
       - POSTGRES_PASSWORD=rucio
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
+
   mysql8:
     image: docker.io/mysql:8.3
     profiles:
@@ -113,6 +127,7 @@ services:
     command:
       - "--default-authentication-plugin=mysql_native_password"
       - "--character-set-server=latin1"
+
   oracle:
     image: docker.io/gvenzl/oracle-xe:18.4.0
     platform: linux/amd64
@@ -127,9 +142,13 @@ services:
       - transactions=1215
     volumes:
       - ./oracle_setup.sh:/container-entrypoint-initdb.d/oracle_setup.sh:Z
+
+  # ------------------------------------------------------------------
+  # FTS and XRootD containers (test RSEs)
+  # ------------------------------------------------------------------
   fts:
-    container_name: dev_fts_1
-    image: docker.io/rucio/test-fts
+    container_name: dev-fts-1
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-fts:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
       - storage
@@ -146,6 +165,7 @@ services:
       nofile:
         soft: 10240
         hard: 10240
+
   ftsdb:
     image: docker.io/mysql:8.3
     profiles:
@@ -156,8 +176,9 @@ services:
       - MYSQL_PASSWORD=fts
       - MYSQL_ROOT_PASSWORD=fts
       - MYSQL_DATABASE=fts
+
   xrd1:
-    image: docker.io/rucio/test-xrootd
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
       - storage
@@ -172,8 +193,9 @@ services:
       nofile:
         soft: 10240
         hard: 10240
+
   xrd2:
-    image: docker.io/rucio/test-xrootd
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
       - storage
@@ -188,8 +210,9 @@ services:
       nofile:
         soft: 10240
         hard: 10240
+
   xrd3:
-    image: docker.io/rucio/test-xrootd
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
       - storage
@@ -204,8 +227,9 @@ services:
       nofile:
         soft: 10240
         hard: 10240
+
   xrd4:
-    image: docker.io/rucio/test-xrootd
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
       - storage
@@ -220,8 +244,9 @@ services:
       nofile:
         soft: 10240
         hard: 10240
+
   xrd5:
-    image: docker.io/rucio/test-xrootd
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
       - storage
@@ -243,8 +268,9 @@ services:
       nofile:
         soft: 10240
         hard: 10240
+
   web1:
-    image: rucio/test-webdav
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-webdav:latest"
     platform: linux/amd64
     environment:
       - QBITTORRENT_UI_USERNAME=rucio
@@ -258,6 +284,10 @@ services:
       - ../../certs/hostcert_web1.key.pem:/etc/grid-security/hostkey.pem:ro
       - ../../certs/hostcert_web1.pem:/etc/grid-security/hostcert.pem:Z
       - ./web1/default-ssl.conf:/etc/apache2/sites-available/default-ssl.conf
+
+  # ------------------------------------------------------------------
+  # Other services
+  # ------------------------------------------------------------------
   minio:
     image: docker.io/minio/minio
     profiles:
@@ -269,13 +299,18 @@ services:
       - ../../certs/hostcert_minio.pem:/root/.minio/certs/public.crt:Z
       - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key:Z
     command: ["server", "/data"]
+
   ssh1:
-    image: docker.io/rucio/test-ssh
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-ssh:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
       - storage
     volumes:
       - ../../certs/ssh/ruciouser_sshkey.pub:/tmp/sshkey.pub:Z
+
+  # ------------------------------------------------------------------
+  # External metadata services
+  # ------------------------------------------------------------------
   mongo:
     image: docker.io/mongo:5.0
     profiles:
@@ -283,10 +318,12 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: rucio
       MONGO_INITDB_ROOT_PASSWORD: mongo-meta
+
   mongo-noauth:
     image: docker.io/mongo:5.0
     profiles:
       - externalmetadata
+
   postgres:
     image: docker.io/postgres:14
     profiles:
@@ -296,6 +333,7 @@ services:
       - POSTGRES_DB=metadata
       - POSTGRES_PASSWORD=secret
     command: ["-p", "5433"]
+
   elasticsearch_meta:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
     platform: linux/amd64
@@ -309,6 +347,10 @@ services:
       - xpack.security.audit.enabled=false
       - xpack.monitoring.collection.enabled=false
       - cluster.routing.allocation.disk.threshold_enabled=false
+
+  # ------------------------------------------------------------------
+  # Monitoring stack
+  # ------------------------------------------------------------------
   logstash:
     image: docker.elastic.co/logstash/logstash-oss:7.3.2
     platform: linux/amd64
@@ -317,14 +359,20 @@ services:
     command: bash -c "logstash-plugin install logstash-input-stomp ; /usr/local/bin/docker-entrypoint"
     volumes:
       - ./pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf:Z
+
   kibana:
     image: docker.io/kibana:7.4.0
     profiles:
       - monitoring
+
   grafana:
     image: docker.io/grafana/grafana:latest
     profiles:
       - monitoring
+
+  # ------------------------------------------------------------------
+  # IAM / Keycloak for auth
+  # ------------------------------------------------------------------
   iam-db:
     image: mariadb:10.11
     profiles:
@@ -340,6 +388,7 @@ services:
       - ./iam/dbs_and_users.sql:/docker-entrypoint-initdb.d/01_dbs_and_users.sql:ro
       - ./iam/keycloak_db.sql:/docker-entrypoint-initdb.d/02_keycloak.sql:ro
       - ./iam/indigoiam_db.sql:/docker-entrypoint-initdb.d/03_indigoiam.sql:ro
+
   indigoiam:
     image: nginx
     profiles:
@@ -357,6 +406,7 @@ services:
       - ./iam/indigoiam_nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - indigoiam-login-service
+
   indigoiam-login-service:
     image: indigoiam/iam-login-service:v1.8.2p2
     platform: linux/amd64
@@ -392,6 +442,7 @@ services:
     depends_on:
       iam-db:
         condition: service_healthy
+
   keycloak:
     image: quay.io/keycloak/keycloak:23.0.1
     command: start-dev --features=token-exchange,admin-fine-grained-authz,dynamic-scopes --db mariadb --db-url-host iam-db --db-username keycloak --db-password secret --https-certificate-file=/cert.pem --https-certificate-key-file=/key.pem
