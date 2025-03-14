@@ -162,7 +162,7 @@ def get_scope_name_regexps() -> list[str]:
         from rucio.core.vo import list_vos
         vos = list_vos()
         for vo in vos:
-            if not vo['vo'] in schema_modules:
+            if vo['vo'] not in schema_modules:
                 load_schema_for_vo(vo['vo'])
             scope_name_regexp = schema_modules[vo['vo']].SCOPE_NAME_REGEXP
             if scope_name_regexp not in scope_name_regexps:
