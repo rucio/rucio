@@ -17,7 +17,9 @@ import importlib
 import logging
 from configparser import NoOptionError, NoSectionError
 from os import environ
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
+
+from jsonschema import ValidationError, validate
 
 from rucio.common import config, exception
 from rucio.common.plugins import check_policy_package_version
@@ -50,61 +52,53 @@ def _get_generic_schema_module():
     return importlib.import_module('rucio.common.schema.' + generic_fallback)
 
 
-# multi-VO version loads schema per-VO on demand
-# we can't get a list of VOs here because the database might not
-# be available as this is imported during the bootstrapping process
-if not _is_multivo():
-    GENERIC_FALLBACK = 'generic'
-
-    if config.config_has_section('policy'):
-        try:
-            if 'RUCIO_POLICY_PACKAGE' in environ:
-                policy = environ['RUCIO_POLICY_PACKAGE']
+def resolve_placeholders(schema: Any, fallback_module: "ModuleType", module: Optional["ModuleType"] = None) -> Any:
+    if isinstance(schema, dict):
+        result = {}
+        for k, v in schema.items():
+            result[k] = resolve_placeholders(v, fallback_module, module)
+    elif isinstance(schema, list):
+        result = []
+        for v in schema:
+            result.append(resolve_placeholders(v, fallback_module, module))
+    elif isinstance(schema, str):
+        result = schema
+        if schema.startswith("%%"):
+            name = schema[2:]
+            # allow adding or subtracting a constant
+            constant = 0
+            if "-" in name:
+                pos = name.find("-")
+                constant = -int(name[pos + 1:].strip())
+                name = name[:pos].strip()
+            if "+" in name:
+                pos = name.find("+")
+                constant = int(name[pos + 1:].strip())
+                name = name[:pos].strip()
+            if module is not None and hasattr(module, name):
+                result = getattr(module, name)
             else:
-                policy = config.config_get('policy', 'package', check_config_table=False)
-            check_policy_package_version(policy)
-            policy = policy + ".schema"
-        except (NoOptionError, NoSectionError):
-            # fall back to old system for now
-            try:
-                policy = config.config_get('policy', 'schema', check_config_table=False)
-            except (NoOptionError, NoSectionError):
-                policy = GENERIC_FALLBACK
-            policy = 'rucio.common.schema.' + policy.lower()
+                result = getattr(fallback_module, name)
+            result = resolve_placeholders(result, fallback_module, module)
+            if constant != 0:
+                if not isinstance(result, int):
+                    raise exception.InvalidType("Cannot perform arithmetic on non-integer schema value")
+                result += constant
     else:
-        policy = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
-
-    try:
-        module = importlib.import_module(policy)
-    except ModuleNotFoundError:
-        # if policy package does not contain schema module, load fallback module instead
-        # this allows a policy package to omit modules that do not need customisation
-        try:
-            LOGGER.warning('Unable to load schema module %s from policy package, falling back to %s'
-                           % (policy, GENERIC_FALLBACK))
-            policy = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
-            module = importlib.import_module(policy)
-        except ModuleNotFoundError:
-            raise exception.PolicyPackageNotFound(policy)
-        except ImportError:
-            raise exception.ErrorLoadingPolicyPackage(policy)
-    except ImportError:
-        raise exception.ErrorLoadingPolicyPackage(policy)
-
-    schema_modules["def"] = module
-    if hasattr(module, 'SCOPE_NAME_REGEXP'):
-        scope_name_regexps.append(module.SCOPE_NAME_REGEXP)
+        result = schema
+    return result
 
 
 def load_schema_for_vo(vo: str) -> None:
-    generic_fallback = 'generic_multi_vo'
+    generic_fallback = 'generic_multi_vo' if _is_multivo() else 'generic'
     if config.config_has_section('policy'):
         try:
-            env_name = 'RUCIO_POLICY_PACKAGE_' + vo.upper()
+            env_name = 'RUCIO_POLICY_PACKAGE_' + vo.upper() if _is_multivo() else 'RUCIO_POLICY_PACKAGE'
             if env_name in environ:
                 policy = environ[env_name]
             else:
-                policy = config.config_get('policy', 'package-' + vo, check_config_table=False)
+                cfg_key = 'package-' + vo if _is_multivo() else 'package'
+                policy = config.config_get('policy', cfg_key, check_config_table=False)
             check_policy_package_version(policy)
             policy = policy + ".schema"
         except (NoOptionError, NoSectionError):
@@ -135,23 +129,28 @@ def load_schema_for_vo(vo: str) -> None:
         raise exception.ErrorLoadingPolicyPackage(policy)
 
     schema_modules[vo] = module
+    if not _is_multivo():
+        if hasattr(module, 'SCOPE_NAME_REGEXP'):
+            scope_name_regexps.append(module.SCOPE_NAME_REGEXP)
 
 
 def validate_schema(name: str, obj: Any, vo: str = 'def') -> None:
     if vo not in schema_modules:
         load_schema_for_vo(vo)
-    if not hasattr(schema_modules[vo], 'validate_schema'):
-        _get_generic_schema_module().validate_schema(name, obj)
-        return
-    schema_modules[vo].validate_schema(name, obj)
+    schemas = getattr(schema_modules[vo], "SCHEMAS") if hasattr(schema_modules[vo], "SCHEMAS") else getattr(_get_generic_schema_module(), "SCHEMAS")
+    schema = schemas.get(name, {})
+    schema = resolve_placeholders(schema, _get_generic_schema_module(), schema_modules[vo])
+    try:
+        if obj:
+            validate(obj, schema)
+    except ValidationError as error:  # NOQA, pylint: disable=W0612
+        raise exception.InvalidObject(f'Problem validating {name}: {error}')
 
 
 def get_schema_value(key: str, vo: str = 'def') -> Any:
     if vo not in schema_modules:
         load_schema_for_vo(vo)
-    if not hasattr(schema_modules[vo], key):
-        return getattr(_get_generic_schema_module(), key)
-    return getattr(schema_modules[vo], key)
+    return resolve_placeholders("%%" + key, _get_generic_schema_module(), schema_modules[vo])
 
 
 def get_scope_name_regexps() -> list[str]:
