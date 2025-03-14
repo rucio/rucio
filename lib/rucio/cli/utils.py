@@ -20,7 +20,6 @@ import sys
 import traceback
 from configparser import NoOptionError, NoSectionError
 from functools import wraps
-from typing import TYPE_CHECKING
 
 from rucio.client.client import Client
 from rucio.common.config import config_get
@@ -40,16 +39,6 @@ from rucio.common.exception import (
     UnsupportedOperation,
 )
 from rucio.common.utils import setup_logger
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from typing_extensions import NotRequired, TypedDict
-
-    class OperationDict(TypedDict):
-        call: Callable
-        docs: NotRequired[str]
-        namespace: NotRequired[Callable]
 
 SUCCESS = 0
 FAILURE = 1
@@ -161,6 +150,9 @@ def get_client(args, logger):
     """
     Returns a new client object.
     """
+    if hasattr(args, "config") and (args.config is not None):
+        os.environ["RUCIO_CONFIG"] = args.config
+
     if logger is None:
         logger = setup_logger(module_name=__name__, logger_name="user", verbose=args.verbose)
 
@@ -224,3 +216,11 @@ def setup_gfal2_logger():
     gfal2_logger = logging.getLogger("gfal2")
     gfal2_logger.setLevel(logging.CRITICAL)
     gfal2_logger.addHandler(logging.StreamHandler())
+
+
+class Arguments(dict):
+    """dot.notation access to dictionary attributes"""
+
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__

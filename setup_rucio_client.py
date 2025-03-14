@@ -33,7 +33,7 @@ install_requires, extras_require = match_define_requirements('client', clients_r
 # Arguments to the setup script to build Basic/Lite distributions
 name = 'rucio-clients'
 packages = ['rucio', 'rucio.client',
-            'rucio.client.commands', 'rucio.client.commands.bin_legacy',
+            'rucio.cli', 'rucio.cli.bin_legacy',
             'rucio.common', 'rucio.common.schema',
             'rucio.rse.protocols', 'rucio.rse']
 description = "Rucio Client Lite Package"
