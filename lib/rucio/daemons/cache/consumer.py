@@ -25,8 +25,8 @@ from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.logging import setup_logging, formatted_logger
-from rucio.common.stomp_utils import StompConnectionManager, ListenerBase
+from rucio.common.logging import formatted_logger, setup_logging
+from rucio.common.stomp_utils import ListenerBase, StompConnectionManager
 from rucio.common.types import InternalScope, LoggerFunction
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_id
