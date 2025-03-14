@@ -40,6 +40,9 @@ from rucio.common.exception import (
 )
 from rucio.common.utils import setup_logger
 
+SUCCESS = 0
+FAILURE = 1
+
 
 def exception_handler(function):
     verbosity = ("-v" in sys.argv) or ("--verbose" in sys.argv)
@@ -147,6 +150,9 @@ def get_client(args, logger):
     """
     Returns a new client object.
     """
+    if hasattr(args, "config") and (args.config is not None):
+        os.environ["RUCIO_CONFIG"] = args.config
+
     if logger is None:
         logger = setup_logger(module_name=__name__, logger_name="user", verbose=args.verbose)
 
