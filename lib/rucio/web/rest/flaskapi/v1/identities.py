@@ -74,8 +74,14 @@ class UserPass(ErrorHandlingMethodView):
         password = request.headers.get('X-Rucio-Password', default=None)
         email = request.headers.get('X-Rucio-Email', default=None)
 
-        if not username or not password:
-            return 'Username and Password must be set.', 400
+        if not username or not password or not email:
+            return 'Username, Email and Password must be set.', 400
+
+        issuer = request.environ.get('issuer')
+        vo = request.environ.get('vo')
+
+        if not issuer or not vo:
+            return 'Issuer and VO must be set.', 400
 
         add_identity(username, 'userpass', email, password)
 
@@ -85,8 +91,8 @@ class UserPass(ErrorHandlingMethodView):
             account=account,
             email=email,
             password=password,
-            issuer=request.environ.get('issuer'),
-            vo=request.environ.get('vo'),
+            issuer=issuer,
+            vo=vo,
         )
 
         return 'Created', 201
@@ -130,14 +136,23 @@ class X509(ErrorHandlingMethodView):
         dn = request.environ.get('SSL_CLIENT_S_DN')
         email = request.headers.get('X-Rucio-Email', default=None)
 
+        if not dn or not email:
+            return 'SSL_CLIENT_S_DN and email must be set.', 400
+
+        issuer = request.environ.get('issuer')
+        vo = request.environ.get('vo')
+
+        if not issuer or not vo:
+            return 'Issuer and VO must be set.', 400
+
         add_identity(dn, 'x509', email=email)
         add_account_identity(
             identity_key=dn,
             id_type='x509',
             account=account,
             email=email,
-            issuer=request.environ.get('issuer'),
-            vo=request.environ.get('vo'),
+            issuer=issuer,
+            vo=vo,
         )
 
         return 'Created', 201
@@ -181,14 +196,23 @@ class GSS(ErrorHandlingMethodView):
         gsscred = request.environ.get('REMOTE_USER')
         email = request.headers.get('X-Rucio-Email', default=None)
 
+        if not gsscred or not email:
+            return 'REMOTE_USER and email must be set.', 400
+
+        issuer = request.environ.get('issuer')
+        vo = request.environ.get('vo')
+
+        if not issuer or not vo:
+            return 'Issuer and VO must be set.', 400
+
         add_identity(gsscred, 'gss', email=email)
         add_account_identity(
             identity_key=gsscred,
             id_type='gss',
             account=account,
             email=email,
-            issuer=request.environ.get('issuer'),
-            vo=request.environ.get('vo'),
+            issuer=issuer,
+            vo=vo,
         )
 
         return 'Created', 201
