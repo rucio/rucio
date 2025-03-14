@@ -25,7 +25,6 @@ if TYPE_CHECKING:
     from logging import Logger
 
 
-
 def _get_first_command(args: list[str]) -> Optional[str]:
     return next(
         (
@@ -116,7 +115,7 @@ if __name__ == "__main__":
         main_legacy()
 
     elif (any(arg in commands for arg in sys.argv)) or args.help or args.version:
-        main() # pylint: disable=E1120
+        main()  # pylint: disable=E1120
 
     else:
         make_warning(logger)

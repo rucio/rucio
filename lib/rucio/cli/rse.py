@@ -116,7 +116,7 @@ def distance_show(ctx, source_rse, destination_rse):
 @click.argument("source-rse")
 @click.argument("destination-rse")
 @click.option("--distance", default=1, type=int, help="Relative distance between RSEs")
-@click.option("--ranking",  hidden=True)  # Ranking is removed from the DB
+@click.option("--ranking", hidden=True)  # Ranking is removed from the DB
 @click.pass_context
 def distance_add(ctx, source_rse, destination_rse, distance, ranking):
     """Create a new link from SOURCE-RSE to DESTINATION-RSE with a distance"""
@@ -176,14 +176,6 @@ def attribute_add_(ctx, rse_name, key, value):
 
 
 # TODO Update attribute - only overwrites existing attributes
-# @attribute.command("update")
-# @click.argument("rse-name")
-# @click.option("-o", "--option", type=(str, str))
-# @click.pass_context
-# @click.confirmation_option(prompt="Are you sure you want to delete this value?")
-# def attr_update(ctx):
-# Only update existing attributes
-
 
 @attribute.command("remove")
 @click.argument("rse-name")
