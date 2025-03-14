@@ -24,7 +24,6 @@ from rucio.tests.common import account_name_generator, execute, file_generator, 
 def test_main_args():
     specify_account = "rucio --account root --auth-strategy userpass whoami"
     exitcode, out, err = execute(specify_account)
-
     assert exitcode == 0
     assert "This method is being deprecated" not in err
     assert "root" in out
@@ -668,14 +667,15 @@ def test_rule(rucio_client, mock_scope):
     assert "ERROR" not in err
 
     # Testing the two different lifetime type options
-    cmd = f"rucio rule update --rule-id {rule_id} --lifetime 10"
+    cmd = f"rucio rule update {rule_id} --lifetime 10"
     exitcode, out, err = execute(cmd)
+    print(out, err)
     assert exitcode == 0
     assert "ERROR" not in err
     rule_info = rucio_client.get_replication_rule(rule_id)
     assert abs(rule_info["updated_at"] - rule_info["expires_at"]).seconds == 10
 
-    cmd = f"rucio rule update --rule-id {rule_id} --lifetime None"
+    cmd = f"rucio rule update {rule_id} --lifetime None"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err

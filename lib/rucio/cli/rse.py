@@ -46,7 +46,7 @@ def rse():
 
 @rse.command("list")
 @click.option("--rses", "--rse-exp", help="RSE Expression to use as a filter", required=False)
-@click.add_option("--csv", is_flag=True, default=False, help="Output list of RSEs as a csv")
+@click.option("--csv", is_flag=True, default=False, help="Output list of RSEs as a csv")
 @click.pass_context
 def list_(ctx, rses, csv):
     """List all registered Rucio Storage Elements (RSEs)"""
@@ -55,7 +55,7 @@ def list_(ctx, rses, csv):
 
 @rse.command("show")
 @click.argument("rse-name")
-@click.add_option("--csv", is_flag=True, default=False, help="Output list of RSE property key and values as a csv")
+@click.option("--csv", is_flag=True, default=False, help="Output list of RSE property key and values as a csv")
 @click.pass_context
 def show(ctx, rse_name, csv):
     """Usage, protocols, settings, and attributes for a given RSE"""
