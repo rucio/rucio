@@ -113,7 +113,7 @@ class QBittorrentDriver(BittorrentDriver):
 
     def listen_addr(self) -> tuple[str, int]:
         preferences = self.client.app_preferences()
-        port = cast(int, preferences['listen_port'])
+        port = cast('int', preferences['listen_port'])
         ip = resolve_ip(urlparse(self.client.host).hostname or self.client.host)
         return ip, port
 

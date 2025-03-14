@@ -687,7 +687,7 @@ class UploadClient:
                 pfn = self.client.get_signed_url(rse_settings['rse'], sign_service, 'write', pfn)
 
         # Create a name of tmp file if renaming operation is supported
-        pfn_tmp = cast(str, '%s.rucio.upload' % pfn if protocol_write.renaming else pfn)
+        pfn_tmp = cast("str", '%s.rucio.upload' % pfn if protocol_write.renaming else pfn)
         signed_read_pfn_tmp = '%s.rucio.upload' % signed_read_pfn if protocol_write.renaming else signed_read_pfn
 
         # Either DID exists or not register_after_upload
