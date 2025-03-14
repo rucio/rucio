@@ -37,7 +37,7 @@ which creates a rule for such bad replicas.''', epilog='''
 Preparing RSEs and DIDs for testing this daemon from rucio docker:
 -------------------------------------------------------------------
 
-$ sudo docker exec -it dev_rucio_1 /bin/bash
+$ sudo docker exec -it dev-rucio-1 /bin/bash
 
 Adding the RSEs to rucio DB:
 

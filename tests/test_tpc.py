@@ -57,7 +57,7 @@ def poll_fts_transfer_status(request_id, timeout=30):
 
 
 @pytest.mark.noparallel(reason="multiple submitters cannot be run in parallel due to partial job assignment by hash")
-@pytest.mark.dirty(reason="Creates artifact /tmp/test_tpc.artifact in dev_rucio_1 container")
+@pytest.mark.dirty(reason="Creates artifact /tmp/test_tpc.artifact in dev-rucio-1 container")
 def test_tpc(containerized_rses, root_account, test_scope, did_factory, rse_client, rule_client, artifact):
     if len(containerized_rses) < 2:
         pytest.skip("TPC tests need at least 2 containerized rse's for execution}")
