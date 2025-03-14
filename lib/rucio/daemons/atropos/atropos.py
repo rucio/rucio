@@ -81,7 +81,7 @@ def atropos(
 
 def run_once(
         heartbeat_handler: 'HeartbeatHandler',
-        activity: None,    # NOQA, pylint: disable=W0613
+        activity: None,    # NOQA: ARG001
         date_check: datetime.datetime,
         dry_run: bool,
         grace_period: int,

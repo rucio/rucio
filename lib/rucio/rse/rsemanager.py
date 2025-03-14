@@ -279,7 +279,7 @@ def exists(rse_settings: types.RSESettingsDict, files, domain='wan', scheme=None
     ret = {}
     gs = True  # gs represents the global status which indicates if every operation worked in bulk mode
 
-    files = [files] if not type(files) is list else files
+    files = [files] if type(files) is not list else files
     for f in files:
         exists = None
         if isinstance(f, STRING_TYPES):
@@ -346,7 +346,7 @@ def upload(rse_settings: types.RSESettingsDict, lfns, domain='wan', source_dir=N
     protocol.connect()
     protocol_delete = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol_delete.connect()
-    lfns = [lfns] if not type(lfns) is list else lfns
+    lfns = [lfns] if type(lfns) is not list else lfns
     for lfn in lfns:
         base_name = lfn.get('filename', lfn['name'])
         name = lfn.get('name', base_name)
@@ -530,7 +530,7 @@ def delete(rse_settings: types.RSESettingsDict, lfns, domain='wan', auth_token=N
     protocol = create_protocol(rse_settings, 'delete', domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol.connect()
 
-    lfns = [lfns] if not type(lfns) is list else lfns
+    lfns = [lfns] if type(lfns) is not list else lfns
     for lfn in lfns:
         pfn = list(protocol.lfns2pfns(lfn).values())[0]
         try:
@@ -581,7 +581,7 @@ def rename(rse_settings: types.RSESettingsDict, files, domain='wan', auth_token=
     protocol = create_protocol(rse_settings, 'write', domain=domain, auth_token=auth_token, logger=logger, impl=impl)
     protocol.connect()
 
-    files = [files] if not type(files) is list else files
+    files = [files] if type(files) is not list else files
     for f in files:
         pfn = None
         new_pfn = None
