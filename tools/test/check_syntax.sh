@@ -22,7 +22,7 @@ echo '==============================='
 echo 'Running Ruff                   '
 echo '==============================='
 
-ruff check --extend-ignore=E501,E722 $SYNTAX_RUFF_ARGS
+ruff check $SYNTAX_RUFF_ARGS
 
 if [ $? -ne 0 ]; then
     echo "Ruff checks failed"

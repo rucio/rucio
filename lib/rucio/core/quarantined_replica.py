@@ -159,7 +159,7 @@ def list_quarantined_replicas(rse_id: str, limit: int, worker_number: Optional[i
         limit
     )
     for path, bytes_, scope, name, created_at in session.execute(stmt).all():
-        if not (scope, name) in quarantined_replicas:
+        if (scope, name) not in quarantined_replicas:
             quarantined_replicas[(scope, name)] = []
             replicas_clause.append(and_(models.RSEFileAssociation.scope == scope,
                                         models.RSEFileAssociation.name == name))

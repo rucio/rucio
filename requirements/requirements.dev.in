@@ -15,4 +15,4 @@ apispec-webframeworks                                       # Integration of api
 pip-tools==7.4.1                                            # Generate requirements files with pinned dependencies
 atlas-rucio-policy-package==0.4.0
 belleii-rucio-policy-package @ git+https://github.com/rucio/temporary-belle2-policy-package@v0.1.0
-ruff==0.9.10 # linter
+ruff==0.9.10                                                # Linter

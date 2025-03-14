@@ -1533,7 +1533,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
                         # prnt(rse_tuples)
                         # keep track of used RSEs
                         for rt in rse_tuples:
-                            if not rt[0] in used_rse_ids:
+                            if rt[0] not in used_rse_ids:
                                 used_rse_ids.append(rt[0])
 
                     for rse_id, staging_area, availability_write in rse_tuples:

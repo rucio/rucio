@@ -518,7 +518,7 @@ def declare_bad_file_replicas(
         for replica in replicas:
             if not isinstance(replica, type_):
                 raise exception.InvalidType('Replicas must be specified either as a list of string or a list of dicts')
-        if type_ == str:
+        if type_ is str:
             scheme, files_to_declare, unknown_replicas = get_pfn_to_rse(replicas, vo=issuer.vo, session=session)
         else:
             for replica in replicas:
