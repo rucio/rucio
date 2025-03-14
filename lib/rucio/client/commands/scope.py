@@ -39,6 +39,7 @@ class Scope(CommandBase):
 
     def list_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-a", "--account", help="Account name for filtering, attribution")
+        parser.add_argument("--csv", action="store_true", help="Output the list of scopes as a csv, header is scope")
 
     def add_namespace(self, parser: "ArgumentParser") -> None:
         parser.add_argument("-a", "--account", help="Account name for filtering, attribution", required=True)
