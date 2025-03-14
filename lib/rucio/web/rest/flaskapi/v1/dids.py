@@ -14,6 +14,7 @@
 
 import ast
 from json import dumps
+from typing import Any, Optional
 
 from flask import Flask, Response, request
 
@@ -157,6 +158,35 @@ class Scope(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
 
+def _get_filters(args: dict[str, Any]) -> list[dict[str, Any]]:
+    filters = args.get('filters', default=None)
+    if filters is not None:
+        filters = ast.literal_eval(filters)
+    else:
+        # backwards compatibility for created*, length* and name filters passed through as request args
+        filters = {}
+        for arg, value in args.copy().items():
+            if arg not in ['type', 'limit', 'long', 'recursive', 'dynamic_depth', 'extended']:
+                filters[arg] = value
+        filters = [filters]
+    return filters
+
+
+def _get_dynamic_depth(args: dict[str, Any]) -> Optional[DIDType]:
+    dynamic_depth = None
+    if 'dynamic_depth' in args:
+        orig = request.args['dynamic_depth'].upper()
+        if orig == 'DATASET':
+            dynamic_depth = DIDType.DATASET
+        elif orig == 'FILE':
+            dynamic_depth = DIDType.FILE
+        else:
+            dynamic_depth = None
+    elif 'dynamic' in args:
+        dynamic_depth = DIDType.FILE
+    return dynamic_depth
+
+
 class Search(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/x-json-stream'])
@@ -192,6 +222,24 @@ class Search(ErrorHandlingMethodView):
           schema:
             type: boolean
             default: false
+        - name: extended
+          in: query
+          description: Fetches extended details for each did. Overrides long.
+          schema:
+            type: boolean
+            default: false
+        - name: dynamic_depth
+          in: query
+          description: The DID type at which to stop the dynamic length/size estimation on extended fetching.
+          schema:
+            type: string
+            enum: ["FILE", "DATASET"]
+        - name: dynamic
+          in: query
+          description: Same as dynamic_depth = "FILE"
+          deprecated: true
+          schema:
+            type: string
         - name: recursive
           in: query
           description: Recursively list chilred.
@@ -243,11 +291,11 @@ class Search(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: Line separated name of DIDs or dictionaries of DIDs for long option.
+                  description: Line separated name of DIDs or dictionaries of DIDs for long/extended option.
                   type: array
                   items:
                     type: object
-                    description: the name of a DID or a dictionarie of a DID for long option.
+                    description: the name of a DID or a dictionarie of a DID for long/extended option.
           401:
             description: Invalid Auth Token
           404:
@@ -257,25 +305,26 @@ class Search(ErrorHandlingMethodView):
           409:
             description: Wrong did type
         """
-        filters = request.args.get('filters', default=None)
-        if filters is not None:
-            filters = ast.literal_eval(filters)
-        else:
-            # backwards compatibility for created*, length* and name filters passed through as request args
-            filters = {}
-            for arg, value in request.args.copy().items():
-                if arg not in ['type', 'limit', 'long', 'recursive']:
-                    filters[arg] = value
-            filters = [filters]
+        filters = _get_filters(request.args)
+        dynamic_depth = _get_dynamic_depth(request.args)
 
         did_type = request.args.get('type', default=None)
         limit = request.args.get('limit', default=None)
-        long = request.args.get('long', type=['True', '1'].__contains__, default=False)
-        recursive = request.args.get('recursive', type='True'.__eq__, default=False)
+        long = request.args.get('long', default=False, type=lambda v: v in ['True', 'true', '1'])
+        recursive = request.args.get('recursive', default=False, type=lambda v: v.lower() == 'true')
+        extended = request.args.get('extended', default=False, type=lambda v: v.lower() == 'true')
+
+        def process_did(did: dict, vo: str):
+            if not extended:
+                return dumps(did) + '\n'
+            did_name = did['name'] if long else did
+            extended_did = get_did(scope=scope, name=did_name, dynamic_depth=dynamic_depth, vo=vo)
+            return render_json(**extended_did) + '\n'
+
         try:
-            def generate(vo):
+            def generate(vo: str):
                 for did in list_dids(scope=scope, filters=filters, did_type=did_type, limit=limit, long=long, recursive=recursive, vo=vo):
-                    yield dumps(did) + '\n'
+                    yield process_did(did, vo)
             return try_stream(generate(vo=request.environ.get('vo')))
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, error)
@@ -578,17 +627,7 @@ class DIDs(ErrorHandlingMethodView):
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
-            dynamic_depth = None
-            if 'dynamic_depth' in request.args:
-                orig = request.args['dynamic_depth'].upper()
-                if orig == 'DATASET':
-                    dynamic_depth = DIDType.DATASET
-                elif orig == 'FILE':
-                    dynamic_depth = DIDType.FILE
-                else:
-                    dynamic_depth = None
-            elif 'dynamic' in request.args:
-                dynamic_depth = DIDType.FILE
+            dynamic_depth = _get_dynamic_depth(request.args)
             did = get_did(scope=scope, name=name, dynamic_depth=dynamic_depth, vo=request.environ.get('vo'))
             return Response(render_json(**did), content_type='application/json')
         except ValueError as error:
