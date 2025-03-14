@@ -100,9 +100,9 @@ class JSONDidMeta(DidMetaPlugin):
             if row_did_meta.meta:
                 if session.bind.dialect.name in ['oracle', 'sqlite']:
                     # Oracle and sqlite returns a string instead of a dict
-                    existing_meta = json_lib.loads(cast(str, row_did_meta.meta))
+                    existing_meta = json_lib.loads(cast("str", row_did_meta.meta))
                 else:
-                    existing_meta = cast(dict[str, Any], row_did_meta.meta)
+                    existing_meta = cast("dict[str, Any]", row_did_meta.meta)
 
         for key, value in metadata.items():
             existing_meta[key] = value

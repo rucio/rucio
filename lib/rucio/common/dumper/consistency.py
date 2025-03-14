@@ -191,7 +191,7 @@ def min_value(*values: Optional[str]) -> str:
     '''
     Minimum between the input values, ignoring None
     '''
-    values_without_none = cast(list[str], [value for value in values if value is not None])
+    values_without_none = cast('list[str]', [value for value in values if value is not None])
     if len(values_without_none) == 0:
         raise ValueError("Input contains 0 non-null values.")
     return min(values_without_none)
