@@ -84,6 +84,7 @@ class LazyGroup(click.Group):
 @click.option("-v", "--verbose", default=False, is_flag=True, help="Print more verbose output")
 @click.option("-H", "--host", help="The Rucio API host")
 @click.option("--auth-host", help="The Rucio Authentication host")
+@click.option("--account", "--issuer", "issuer", help="Rucio account to use.")
 @click.option("-S", "--auth-strategy", help="Authentication strategy (userpass, x509...)")
 @click.option("-T", "--timeout", type=float, help="Set all timeout values to seconds")
 @click.option("-U", "--user-agent", default="rucio-clients", help="Rucio User Agent")
@@ -147,6 +148,7 @@ def main(
     verbose,
     host,
     auth_host,
+    issuer,
     auth_strategy,
     timeout,
     user_agent,
@@ -191,6 +193,7 @@ def main(
         {
             "config": config,
             "host": host,
+            "isser": issuer,
             "auth_host": auth_host,
             "auth_strategy": auth_strategy,
             "timeout": timeout,

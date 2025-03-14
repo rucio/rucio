@@ -51,7 +51,7 @@ def add_(ctx, account_type, account_name, email):
     Example:
         $ rucio account add
     """
-    args = Arguments({"accounttype": account_type, "account": account_name, "accountemail": email})
+    args = Arguments({"account_type": account_type, "account": account_name, "email": email})
     add_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -84,7 +84,7 @@ def remove(ctx, account_name):
     Remove an account
     (WARNING: Permanently disables the account. If you want to temporarily disable, use `account update [account-name] --ban`)
     """
-    delete_account(Arguments({"acnt": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    delete_account(Arguments({"account": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @account.command("update")
