@@ -358,7 +358,7 @@ class Topology(RseCollection, Generic[TN, TE]):
                                                                                  node_state_provider=_NodeStateProvider,
                                                                                  edge_state_provider=_EdgeStateProvider):
             nh_node = edge_to_next_hop.dst_node
-            edge_state = cast(_EdgeStateProvider, edge_state)
+            edge_state = cast("_EdgeStateProvider", edge_state)
             hop = {
                 'source_rse': node,
                 'dest_rse': nh_node,

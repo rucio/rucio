@@ -744,7 +744,7 @@ def _create_stagein_definitions(
     """
     transfers_by_source = {
         source.rse: [
-            cast(DirectTransfer, StageinTransferImplementation(
+            cast('DirectTransfer', StageinTransferImplementation(
                 source=RequestSource(
                     rse=source.rse,
                     file_path=source.file_path,
@@ -973,7 +973,7 @@ class EnforceSourceRSEExpression(SourceFilterStrategy):
         return self._RankingContext(self, rws, allowed_source_rses)
 
     def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
-        ctx = cast(EnforceSourceRSEExpression._RankingContext, ctx)
+        ctx = cast('EnforceSourceRSEExpression._RankingContext', ctx)
         if ctx.allowed_source_rses is not None and source.rse.id not in ctx.allowed_source_rses:
             return SKIP_SOURCE
 
@@ -1049,7 +1049,7 @@ class PathDistance(SourceRankingStrategy):
         return PathDistance._RankingContext(self, rws, paths_for_rws)
 
     def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
-        path = cast(PathDistance._RankingContext, ctx).paths_for_rws.get(source.rse)
+        path = cast('PathDistance._RankingContext', ctx).paths_for_rws.get(source.rse)
         if not path:
             return SKIP_SOURCE
         return path[0].src.distance
@@ -1057,7 +1057,7 @@ class PathDistance(SourceRankingStrategy):
 
 class PreferSingleHop(PathDistance):
     def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
-        path = cast(PathDistance._RankingContext, ctx).paths_for_rws.get(source.rse)
+        path = cast('PathDistance._RankingContext', ctx).paths_for_rws.get(source.rse)
         if not path:
             return SKIP_SOURCE
         return int(len(path) > 1)
@@ -1097,7 +1097,7 @@ class FailureRate(SourceRankingStrategy):
             self.source_stats.setdefault(stat['src_rse_id'], self._FailureRateStat()).incorporate_stat(stat)
 
     def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
-        failure_rate = cast(FailureRate, ctx.strategy).source_stats.get(source.rse.id, self._FailureRateStat()).get_failure_rate()
+        failure_rate = cast('FailureRate', ctx.strategy).source_stats.get(source.rse.id, self._FailureRateStat()).get_failure_rate()
         return failure_rate
 
 
@@ -1105,7 +1105,7 @@ class SkipSchemeMissmatch(PathDistance):
     filter_only = True
 
     def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
-        path = cast(PathDistance._RankingContext, ctx).paths_for_rws.get(source.rse)
+        path = cast('PathDistance._RankingContext', ctx).paths_for_rws.get(source.rse)
         # path == None means that there is no path;
         # path == [] means that a path exists (according to distances) but cannot be used (scheme mismatch)
         if path is not None and not path:
@@ -1117,7 +1117,7 @@ class SkipIntermediateTape(PathDistance):
 
     def apply(self, ctx: RequestRankingContext, source: RequestSource) -> "Optional[int | _SkipSource]":
         # Discard multihop transfers which contain a tape source as an intermediate hop
-        path = cast(PathDistance._RankingContext, ctx).paths_for_rws.get(source.rse)
+        path = cast('PathDistance._RankingContext', ctx).paths_for_rws.get(source.rse)
         if path and any(transfer.src.rse.is_tape_or_staging_required() for transfer in path[1:]):
             return SKIP_SOURCE
 
