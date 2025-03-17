@@ -334,3 +334,62 @@ def test_no_metadata_if_dest_is_not_tape(did_factory, rse_factory, root_account)
 
     assert not mock_metadata_plugin.called
     assert "archive_metadata" not in job_params
+
+
+def test_staging_metadata_if_src_is_tape(did_factory, rse_factory, root_account):
+    """
+    If the source RSE is tape,
+    staging metadata should be included.
+    """
+
+    mock_did = did_factory.random_file_did()
+    transfer_path = _make_transfer_path(mock_did, rse_factory, root_account, src_rse_is_tape=True)
+
+    fts3_tool = FTS3Transfertool(TEST_FTS_HOST)
+
+    job_params = build_job_params(
+        transfer_path=transfer_path,
+        bring_online=None,
+        default_lifetime=None,
+        archive_timeout_override=None,
+        max_time_in_queue=None,
+        logger=logging.log,
+    )
+
+    # Get the job params used for each transfer
+    transfer_params = transfer_path[0]
+    transfer_params.rws.activity = "Not A Real Activity"
+
+    job_params = fts3_tool._file_from_transfer(transfer_params, job_params)
+
+    actual_staging_metadata = job_params.get("staging_metadata", None)
+    assert actual_staging_metadata == {"default": {"activity": "Not A Real Activity"}}
+
+
+def test_no_staging_metadata_if_src_is_not_tape(did_factory, rse_factory, root_account):
+    """
+    If the source RSE is not tape,
+    staging metadata should not be included.
+    """
+
+    mock_did = did_factory.random_file_did()
+    transfer_path = _make_transfer_path(mock_did, rse_factory, root_account, src_rse_is_tape=False)
+
+    fts3_tool = FTS3Transfertool(TEST_FTS_HOST)
+
+    job_params = build_job_params(
+        transfer_path=transfer_path,
+        bring_online=None,
+        default_lifetime=None,
+        archive_timeout_override=None,
+        max_time_in_queue=None,
+        logger=logging.log,
+    )
+
+    # Get the job params used for each transfer
+    transfer_params = transfer_path[0]
+    transfer_params.rws.activity = "Not A Real Activity"
+
+    job_params = fts3_tool._file_from_transfer(transfer_params, job_params)
+
+    assert "staging_metadata" not in job_params
