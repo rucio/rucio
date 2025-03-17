@@ -125,7 +125,6 @@ def sha256(file: "FileDescriptorOrPath") -> str:
     with open(file, "rb") as f:
         bytes_ = f.read()  # read entire file as bytes
         readable_hash = hashlib.sha256(bytes_).hexdigest()
-        print(readable_hash)
         return readable_hash
 
 
