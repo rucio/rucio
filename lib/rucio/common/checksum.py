@@ -54,6 +54,15 @@ def set_preferred_checksum(checksum_name: str) -> None:
         PREFERRED_CHECKSUM = checksum_name
 
 
+def _iter_blocks(fobj):
+    """Iterate over blocks in a binary file-like object.
+
+    Uses blocks of size ``io.DEFAULT_BUFFER_SIZE * 8``.
+    """
+    block_size = io.DEFAULT_BUFFER_SIZE * 8
+    return iter(partial(fobj.read, block_size), b'')
+
+
 def adler32(file: "FileDescriptorOrPath") -> str:
     """
     An Adler-32 checksum is obtained by calculating two 16-bit checksums A and B
@@ -80,12 +89,12 @@ def adler32(file: "FileDescriptorOrPath") -> str:
             with open(file, 'r+b') as f:
                 m = mmap.mmap(f.fileno(), 0)
                 # partial block reads at slightly increased buffer sizes
-                for block in iter(partial(m.read, io.DEFAULT_BUFFER_SIZE * 8), b''):
+                for block in _iter_blocks(m):
                     adler = zlib.adler32(block, adler)
         else:
             with open(file, 'rb') as f:
                 # partial block reads at slightly increased buffer sizes
-                for block in iter(partial(f.read, io.DEFAULT_BUFFER_SIZE * 8), b''):
+                for block in _iter_blocks(f):
                     adler = zlib.adler32(block, adler)
 
     except Exception as e:
@@ -108,7 +117,8 @@ def md5(file: "FileDescriptorOrPath") -> str:
     hash_md5 = hashlib.md5()
     try:
         with open(file, "rb") as f:
-            list(map(hash_md5.update, iter(lambda: f.read(4096), b"")))
+            for block in _iter_blocks(f):
+                hash_md5.update(block)
     except Exception as e:
         raise ChecksumCalculationError('md5', str(file), e)
 
@@ -122,10 +132,14 @@ def sha256(file: "FileDescriptorOrPath") -> str:
     :param file: file name
     :returns: string of 32 hexadecimal digits
     """
-    with open(file, "rb") as f:
-        bytes_ = f.read()  # read entire file as bytes
-        readable_hash = hashlib.sha256(bytes_).hexdigest()
-        return readable_hash
+    checksum = hashlib.sha256()
+    try:
+        with open(file, "rb") as f:
+            for block in _iter_blocks(f):
+                checksum.update(block)
+    except Exception as e:
+        raise ChecksumCalculationError('sha256', str(file), e)
+    return checksum.hexdigest()
 
 
 def crc32(file: "FileDescriptorOrPath") -> str:
@@ -136,8 +150,12 @@ def crc32(file: "FileDescriptorOrPath") -> str:
     :returns: string of 32 hexadecimal digits
     """
     prev = 0
-    for each_line in open(file, "rb"):
-        prev = zlib.crc32(each_line, prev)
+    try:
+        with open(file, "rb") as f:
+            for block in _iter_blocks(f):
+                prev = zlib.crc32(block, prev)
+    except Exception as e:
+        raise ChecksumCalculationError('crc32', str(file), e)
     return "%X" % (prev & 0xFFFFFFFF)
 
 
