@@ -37,9 +37,10 @@ def _make_transfer_path(
         did,
         rse_factory,
         root_account,
+        src_rse_is_tape: bool = False,
         dst_rse_is_tape: bool = True
 ):
-    _, src_rse_id = rse_factory.make_mock_rse()
+    _, src_rse_id = rse_factory.make_mock_rse(rse_type="TAPE" if src_rse_is_tape else "DISK")
     dst_rse, dst_rse_id = rse_factory.make_mock_rse(rse_type="TAPE" if dst_rse_is_tape else "DISK")
     all_rses = [src_rse_id, dst_rse_id]
     distance_core.add_distance(src_rse_id, dst_rse_id, distance=1)
