@@ -2278,6 +2278,125 @@ class Follow(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
         return '', 200
+    
+
+class DIDsList(ErrorHandlingMethodView):
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def get(self, scope):
+        """
+        ---
+        summary: List DIDs with details
+        description: Retrieve a list of Data Identifiers (DIDs) along with their details in a streaming response.
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope
+          in: path
+          description: The scope of the DIDs.
+          schema:
+            type: string
+          required: true
+        - name: type
+          in: query
+          description: The DID type to search for.
+          schema:
+            type: string
+            enum: ['all', 'collection', 'container', 'dataset', 'file']
+            default: 'collection'
+        - name: limit
+          in: query
+          description: The maximum number of DIDs returned.
+          schema:
+            type: integer
+        - name: recursive
+          in: query
+          description: Recursively list children.
+          schema:
+            type: boolean
+            default: false
+        - name: dynamic_depth
+          in: query
+          description: The DID type at which to stop the dynamic length/size estimation.
+          schema:
+            type: string
+            enum: ["FILE", "DATASET"]
+        - name: dynamic
+          in: query
+          description: Equivalent to `dynamic_depth = "FILE"`.
+          deprecated: true
+          schema:
+            type: string
+        - name: name
+          in: query
+          description: Name or pattern of a DID.
+          schema:
+            type: string
+        responses:
+          200:
+            description: Successfully retrieved a list of DIDs with details.
+            content:
+              application/x-json-stream:
+                schema:
+                  type: array
+                  items:
+                    type: object
+          400:
+            description: Bad request due to invalid parameters.
+          404:
+            description: Scope not found or invalid key in filter.
+          409:
+            description: Conflict due to incorrect DID type.
+        """
+        try:
+            special_params = ['type', 'limit', 'recursive', 'dynamic', 'dynamic_depth']
+            filters = {param: value for param, value in request.args.items() if param not in special_params}
+
+            did_type = request.args.get('type', default='collection')
+            limit = request.args.get('limit', default=None, type=int)
+            recursive = request.args.get('recursive', default='false').lower() in ['true', '1']
+
+            dynamic_depth = None
+            if 'dynamic_depth' in request.args:
+                depth_value = request.args['dynamic_depth'].upper()
+                if depth_value == 'DATASET':
+                    dynamic_depth = DIDType.DATASET
+                elif depth_value == 'FILE':
+                    dynamic_depth = DIDType.FILE
+            elif 'dynamic' in request.args:
+                dynamic_depth = DIDType.FILE
+
+            def generate_results(vo):
+                matching_dids = list_dids(
+                    scope=scope, 
+                    filters=filters, 
+                    did_type=did_type,
+                    limit=limit, 
+                    recursive=recursive, 
+                    vo=vo
+                )
+                
+                for did_name in matching_dids:
+                    try:
+                        did_info = get_did(
+                            scope=scope, 
+                            name=did_name, 
+                            dynamic_depth=dynamic_depth, 
+                            vo=vo
+                        )
+                        yield render_json(**did_info) + '\n'
+                    except (ScopeNotFound, DataIdentifierNotFound):
+                        continue
+
+            organization = request.environ.get('vo', 'def')
+            return try_stream(generate_results(organization))
+
+        except ValueError as error:
+            return generate_http_error_flask(400, error)
+        except UnsupportedOperation as error:
+            return generate_http_error_flask(409, error)
+        except KeyNotFound as error:
+            return generate_http_error_flask(404, error)
 
 
 def blueprint():
@@ -2289,6 +2408,8 @@ def blueprint():
     bp.add_url_rule('/<guid>/guid', view_func=guid_lookup_view, methods=['get', ])
     search_view = Search.as_view('search')
     bp.add_url_rule('/<scope>/dids/search', view_func=search_view, methods=['get', ])
+    dids_list_view = DIDsList.as_view('list')
+    bp.add_url_rule('/<scope>/dids/list', view_func=dids_list_view, methods=['get', ])
     dids_view = DIDs.as_view('dids')
     bp.add_url_rule('/<path:scope_name>/status', view_func=dids_view, methods=['put', 'get'])
     files_view = Files.as_view('files')
