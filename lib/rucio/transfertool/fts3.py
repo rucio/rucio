@@ -1049,6 +1049,9 @@ class FTS3Transfertool(Transfertool):
             for plugin in self.tape_metadata_plugins:
                 t_file = deep_merge_dict(source=plugin.hints(t_file['metadata']), destination=t_file)
 
+        if t_file['metadata']['src_type'] == 'TAPE':
+            t_file['staging_metadata'] = {"default": {"activity": rws.activity}}
+
         return t_file
 
     def submit(self, transfers: "Sequence[DirectTransfer]", job_params: dict[str, str], timeout: Optional[int] = None) -> str:
