@@ -1829,18 +1829,24 @@ def add_replicas(
             else:
                 # Check that the pfns match to the expected pfns
                 lfns = [{'scope': i['scope'].external, 'name': i['name']} for i in files if i['pfn'].startswith(scheme)]
-                pfns[scheme] = clean_pfns(pfns[scheme])
+                pfns[scheme] = set(clean_pfns(pfns[scheme]))
+                expected_pfns = set()
 
                 for protocol_attr in rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=scheme, domain='wan'):
-                    pfns[scheme] = list(set(pfns[scheme]) - set(_expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan', protocol_attr=protocol_attr)))
+                    expected_pfns.update(_expected_pfns(lfns, rse_settings, scheme, operation='write', domain='wan',
+                                                        protocol_attr=protocol_attr))
+                pfns[scheme] -= expected_pfns
 
                 if len(pfns[scheme]) > 0:
                     for protocol_attr in rsemgr.get_protocols_ordered(rse_settings=rse_settings, operation='write', scheme=scheme, domain='lan'):
-                        pfns[scheme] = list(set(pfns[scheme]) - set(_expected_pfns(lfns, rse_settings, scheme, operation='write', domain='lan', protocol_attr=protocol_attr)))
+                        expected_pfns.update(_expected_pfns(lfns, rse_settings, scheme, operation='write', domain='lan',
+                                                            protocol_attr=protocol_attr))
+                    pfns[scheme] -= expected_pfns
 
                 if len(pfns[scheme]) > 0:
                     # pfns not found in wan or lan
-                    raise exception.InvalidPath('One of the PFNs provided does not match the Rucio expected PFN : %s (%s)' % (str(pfns[scheme]), str(lfns)))
+                    pfns_scheme = pfns[scheme]
+                    raise exception.InvalidPath(f"One of the PFNs provided {pfns_scheme!r} for {lfns!r} does not match the Rucio expected PFNs: {expected_pfns!r}")
 
     nbfiles, bytes_ = __bulk_add_replicas(rse_id=rse_id, files=files, account=account, session=session)
     increase(rse_id=rse_id, files=nbfiles, bytes_=bytes_, session=session)
