@@ -16,7 +16,7 @@ from flask import Flask, jsonify, request
 
 from rucio.gateway.identity import add_account_identity, add_identity, list_accounts_for_identity
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, response_headers
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, response_headers
 
 
 class UserPass(ErrorHandlingMethodView):
@@ -75,13 +75,13 @@ class UserPass(ErrorHandlingMethodView):
         email = request.headers.get('X-Rucio-Email', default=None)
 
         if not username or not password or not email:
-            return 'Username, Email and Password must be set.', 400
+            return generate_http_error_flask(400, ValueError.__name__, 'Username, Email and Password must be set.')
 
         issuer = request.environ.get('issuer')
         vo = request.environ.get('vo')
 
         if not issuer or not vo:
-            return 'Issuer and VO must be set.', 400
+            return generate_http_error_flask(400, ValueError.__name__, 'Issuer and VO must be set.')
 
         add_identity(username, 'userpass', email, password)
 
@@ -137,13 +137,13 @@ class X509(ErrorHandlingMethodView):
         email = request.headers.get('X-Rucio-Email', default=None)
 
         if not dn or not email:
-            return 'SSL_CLIENT_S_DN and email must be set.', 400
+            return generate_http_error_flask(400, ValueError.__name__, 'SSL_CLIENT_S_DN and email must be set.')
 
         issuer = request.environ.get('issuer')
         vo = request.environ.get('vo')
 
         if not issuer or not vo:
-            return 'Issuer and VO must be set.', 400
+            return generate_http_error_flask(400, ValueError.__name__, 'Issuer and VO must be set.')
 
         add_identity(dn, 'x509', email=email)
         add_account_identity(
@@ -197,13 +197,13 @@ class GSS(ErrorHandlingMethodView):
         email = request.headers.get('X-Rucio-Email', default=None)
 
         if not gsscred or not email:
-            return 'REMOTE_USER and email must be set.', 400
+            return generate_http_error_flask(400, ValueError.__name__, 'REMOTE_USER and email must be set.')
 
         issuer = request.environ.get('issuer')
         vo = request.environ.get('vo')
 
         if not issuer or not vo:
-            return 'Issuer and VO must be set.', 400
+            return generate_http_error_flask(400, ValueError.__name__, 'Issuer and VO must be set.')
 
         add_identity(gsscred, 'gss', email=email)
         add_account_identity(

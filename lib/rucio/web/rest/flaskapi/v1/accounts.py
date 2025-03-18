@@ -687,7 +687,7 @@ class Identities(ErrorHandlingMethodView):
         vo = request.environ.get('vo')
 
         if not issuer or not vo:
-            return 'Issuer and VO must be set.', 400
+            return generate_http_error_flask(400, ValueError.__name__, 'Issuer and VO must be set.')
 
         try:
             add_account_identity(
@@ -800,7 +800,7 @@ class Identities(ErrorHandlingMethodView):
         vo = request.environ.get('vo')
 
         if not issuer or not vo:
-            return 'Issuer and VO must be set.', 400
+            return generate_http_error_flask(400, ValueError.__name__, 'Issuer and VO must be set.')
 
         try:
             del_account_identity(identity, authtype, account, issuer, vo=vo)
