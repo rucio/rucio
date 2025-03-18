@@ -21,7 +21,7 @@ from flask import Flask, Response, jsonify, redirect, request
 from rucio.common.exception import AccessDenied, AccountNotFound, CounterNotFound, Duplicate, IdentityError, InvalidObject, RSENotFound, RuleNotFound, ScopeNotFound
 from rucio.common.utils import APIEncoder, render_json
 from rucio.gateway.account import add_account, add_account_attribute, del_account, del_account_attribute, get_account_info, get_usage_history, list_account_attributes, list_accounts, list_identities, update_account
-from rucio.gateway.account_limit import get_global_account_limit, get_global_account_limits, get_global_account_usage, get_local_account_limit, get_local_account_limits, get_local_account_usage
+from rucio.gateway.account_limit import get_global_account_limit, get_global_account_limits, get_global_account_usage, get_local_account_limit, get_local_account_usage
 from rucio.gateway.identity import add_account_identity, del_account_identity
 from rucio.gateway.rule import list_replication_rules
 from rucio.gateway.scope import add_scope, get_scopes
@@ -561,10 +561,7 @@ class LocalAccountLimits(ErrorHandlingMethodView):
             description: Not Acceptable
         """
         try:
-            if rse:
-                limits = get_local_account_limit(account=account, rse=rse, vo=request.environ.get('vo'))
-            else:
-                limits = get_local_account_limits(account=account, vo=request.environ.get('vo'))
+            limits = get_local_account_limit(account=account, rse=rse, vo=request.environ.get('vo'))
         except RSENotFound as error:
             return generate_http_error_flask(404, error)
 
