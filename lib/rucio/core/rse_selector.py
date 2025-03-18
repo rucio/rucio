@@ -96,7 +96,7 @@ class RSESelector:
                 else:
                     # check local quota
                     local_quota_left = None
-                    quota_limit = get_local_account_limit(account=account, rse_id=rse['rse_id'], session=session)
+                    quota_limit = get_local_account_limit(account=account, rse_ids=rse['rse_id'], session=session)
                     if quota_limit is None:
                         local_quota_left = 0
                     else:
