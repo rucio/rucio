@@ -463,8 +463,10 @@ def list_dids(args, client, logger, console, spinner):
         scope = args.did[0]
         name = '*'
 
-    if scope not in client.list_scopes():
-        logger.error('Scope not found.')
+    scopes = set(client.list_scopes())
+    if scope not in scopes:
+        msg = f"Scope '{scope}' not found when listing dids. Available scopes: {scopes}"
+        logger.error(msg)
         return FAILURE
 
     if args.recursive and '*' in name:
