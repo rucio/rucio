@@ -64,7 +64,7 @@ def show(ctx, rse_name, csv):
 
 @rse.command("add")
 @click.argument("rse-name")
-@click.option("--non-deterministic/--deterministic", default=False, help="Create RSE in non-deterministic mode")
+@click.option("--non-deterministic", is_flag=True, default=False, help="Create RSE in non-deterministic mode")
 @click.pass_context
 def add_(ctx, rse_name, non_deterministic):
     """Add a new RSE"""

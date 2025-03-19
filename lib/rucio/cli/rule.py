@@ -29,16 +29,16 @@ def rule():
 @click.option("--weight", help="RSE Weight")
 @click.option("--lifetime", type=str, help="Rule lifetime (in seconds). Use 'None' for no set lifetime")
 @click.option("--grouping", type=click.Choice(["DATASET", "ALL", "NONE"]), help="Rule grouping")
-@click.option("--locked/--unlocked", default=False, help="Rule locking")
+@click.option("--locked", default=False, type=bool, is_flag=False, help="Rule locking")
 @click.option("--source-rses", help="RSE Expression for RSEs to be considered for source replicas")
 @click.option("--notify", type=click.Choice(["Y", "N", "C"]), help="Notification strategy : Y (Yes), N (No), C (Close)")
 @click.option("--activity", help="Activity to be used (e.g. User, Data Consolidation)")
 @click.option("--comment", help="Comment about the replication rule")
-@click.option("--ask-approval/--no-ask-approval", default=False, help="Ask for rule approval")
-@click.option("--asynchronous/--no-async", default=False, help="Create rule asynchronously")
+@click.option("--ask-approval", is_flag=True, default=False, help="Ask for rule approval")
+@click.option("--asynchronous", is_flag=True, default=False, help="Create rule asynchronously")
 @click.option("--delay-injection", type=int, help="Delay (in seconds) to wait before starting applying the rule. This option implies --asynchronous.")
 @click.option("--account", help="The account owning the rule")
-@click.option("--skip-duplicates/--no-skip-duplicates", default=False, help="Skip duplicate rules")
+@click.option("--skip-duplicates", is_flag=True, default=False, help="Skip duplicate rules")
 @click.pass_context
 def add_(ctx, dids, copies, rses, weight, asynchronous, lifetime, grouping, locked, source_rses, notify, activity, comment, ask_approval, delay_injection, account, skip_duplicates):
     """Add replication rule to define how replicas of a list of DIDs are created on RSEs."""
@@ -67,8 +67,8 @@ def add_(ctx, dids, copies, rses, weight, asynchronous, lifetime, grouping, lock
 
 @rule.command("remove")
 @click.argument("rule-id-dids")
-@click.option("--purge-replicas/--no-purge-replicas", default=False, help="Purge rule replicas")
-@click.option("--all/--not-all", "_all", default=False, help="Delete all the rules, even the ones that are not owned by the account")
+@click.option("--purge-replicas", is_flag=True, default=False, help="Purge rule replicas")
+@click.option("--all", "_all", is_flag=True, default=False, help="Delete all the rules, even the ones that are not owned by the account")
 @click.option("--rses", "--rse-exp", help="The RSE expression. Must be specified if a DID is provided.")  # TODO mutual inclusive group
 @click.option("--account", help="The account of the rule that must be deleted")
 @click.pass_context
@@ -80,7 +80,7 @@ def remove(ctx, rule_id_dids, _all, rses, account, purge_replicas):
 
 @rule.command("show")
 @click.argument("rule-id")
-@click.option("--examine/--no-examine", default=False, help="Detailed analysis of transfer errors")
+@click.option("--examine", is_flag=True, default=False, help="Detailed analysis of transfer errors")
 @click.pass_context
 def show(ctx, rule_id, examine):
     """Retrieve information about a rule"""
@@ -110,17 +110,17 @@ def move(ctx, rule_id, rses, activity, source_rses):
 @rule.command("update")
 @click.argument("rule-id", nargs=1)
 @click.option("--lifetime", type=str, help="Rule lifetime (in seconds). Use 'None' for no set lifetime")
-@click.option("--locked/--unlocked", default=False, help="Rule locking")
+@click.option("--locked", default=False, type=bool, is_flag=False, help="Rule locking")
 @click.option("--source-rses", help="RSE Expression for RSEs to be considered for source replicas")
 @click.option("--activity", help="Activity to be used (e.g. User, Data Consolidation)")
 @click.option("--comment", help="Comment about the replication rule")
 @click.option("--account", help="The account owning the rule")
-@click.option("--stuck/--no-stuck", default=False, help="Set state to STUCK.")
+@click.option("--stuck", is_flag=True, default=False, help="Set state to STUCK.")
 @click.option("--activity", help="Activity of the rule.")
-@click.option("--cancel-requests/--no-cancel-requests", default=False, help="Cancel requests when setting rules to stuck.")
+@click.option("--cancel-requests", is_flag=True, default=False, help="Cancel requests when setting rules to stuck.")
 @click.option("--priority", help="Priority of the requests of the rule.")
 @click.option("--child-rule-id", help='Child rule id of the rule. Use "None" to remove an existing parent/child relationship.')
-@click.option("--boost-rule/--no-boost-rule", default=False, help="Quickens the transition of a rule from STUCK to REPLICATING.")
+@click.option("--boost-rule", is_flag=True, default=False, help="Quickens the transition of a rule from STUCK to REPLICATING.")
 @click.pass_context
 def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, account, stuck, cancel_requests, priority, child_rule_id, boost_rule):
     """Update an existing rule"""
@@ -128,7 +128,7 @@ def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, accou
         {
             "rule_id": rule_id,
             "lifetime": lifetime,
-            "locked": locked,
+            "locked": str(locked),  # update-rule wants to be able to uppercase arg
             "rule_activity": activity,
             "comment": comment,
             "rule_account": account,
@@ -146,8 +146,8 @@ def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, accou
 @rule.command("list")
 @click.option("--did")
 @click.option("--id", "rule_id", help="List by rule id", hidden=True)  # TODO: Remove. This doesn't work and does the same thing as show
-@click.option("--traverse/--no-traverse", default=False, help="Traverse the did tree and search for rules affecting this did")
-@click.option("--csv/--no-csv", default=False, help="Comma Separated Value output")
+@click.option("--traverse", is_flag=True, default=False, help="Traverse the did tree and search for rules affecting this did")
+@click.option("--csv", is_flag=True, default=False, help="Comma Separated Value output")
 @click.option("--file", help="Filter by file")
 @click.option("--account", help="Filter by account")
 @click.option("--subscription", help="Filter by subscription name")

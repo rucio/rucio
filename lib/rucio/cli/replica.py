@@ -32,21 +32,22 @@ def replica_list():
 @click.argument("dids", nargs=-1)
 @click.option("--protocols", help="Protocol used to access a replicas (i.e. https, root, srm)")
 @click.option(
-    "--all-states/--not-all-states",
+    "--all-states",
     help="To select all replicas (including unavailable ones).\
                 Also gets information about the current state of a DID in each RSE",
+    is_flag=True,
     default=False,
 )
-@click.option("--pfns/--no-pfns", help="Show only the PFNs", default=False)
+@click.option("--pfns", is_flag=True, help="Show only the PFNs", default=False)
 @click.option("--domain", default="all", type=click.Choice(["wan", "lan", "all"]), help="Force the networking domain")
 @click.option(
     "--link",
     help="Symlink PFNs with directory substitution.\
                 For example: rucio list-file-replicas --rse RSE_TEST --link /eos/:/eos/ scope:datasetname",
 )
-@click.option("--missing/--no-missing", default=False, help="To list missing replicas at a RSE-Expression. Must be used with --rses option")
-@click.option("--metalink/--no-metalink", default=False, help="Output available replicas as metalink")
-@click.option("--no-resolve-archives/--resolve-archives", default=False, help="Do not resolve archives which may contain the files", required=False)
+@click.option("--missing", is_flag=True, default=False, help="To list missing replicas at a RSE-Expression. Must be used with --rses option")
+@click.option("--metalink", is_flag=True, default=False, help="Output available replicas as metalink")
+@click.option("--no-resolve-archives", is_flag=True, default=False, help="Do not resolve archives which may contain the files", required=False)
 @click.option("--sort", help="Replica sort algorithm. Available options: geoip (default), random")
 @click.option("--rses", "--rse-exp", "rses", help="The RSE filter expression")
 @click.option("--human", default=True, hidden=True)
@@ -59,8 +60,8 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
 
 @replica_list.command("dataset")
 @click.argument("dids", nargs=-1)
-@click.option("--deep/--no-deep", default=False, help="Make a deep check, checking the contents of datasets in datasets")
-@click.option("--csv/--no-csv", help="Write output to comma separated values", default=False)
+@click.option("--deep", default=False, is_flag=True, help="Make a deep check, checking the contents of datasets in datasets")
+@click.option("--csv", help="Write output to comma separated values", is_flag=True, default=False)
 @click.pass_context
 def list_dataset(ctx, dids, deep, csv):
     """List dataset replicas"""
@@ -108,9 +109,9 @@ def state_update():
 @state_update.command("bad")
 @click.argument("replicas", nargs=-1)
 @click.option("--reason", required=True, help="Reason")
-@click.option("--as-file/--not-as-file", default=False, help="[REPLICAS] arg is a path to a file of replicas to update")
-@click.option("--collection/--no-collection", default=False, help="Items in the collection DID are also marked as bad")
-@click.option("--lfn/--no-lfn", default=False, help="[REPLICAS] arg is a path to a file of LFNs. Requires --rse and --scope")
+@click.option("--as-file", is_flag=True, default=False, help="[REPLICAS] arg is a path to a file of replicas to update")
+@click.option("--collection", is_flag=True, default=False, help="Items in the collection DID are also marked as bad")
+@click.option("--lfn", is_flag=True, default=False, help="[REPLICAS] arg is a path to a file of LFNs. Requires --rse and --scope")
 @click.option("--scope", help="Common scope for bad replicas specified with LFN list, ignored without --lfn")
 @click.option("--rse", "--rse-name", help="Common RSE for bad replicas specified with LFN list, ignored without --lfn")
 @click.pass_context
@@ -131,7 +132,7 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
 @state_update.command("unavailable")
 @click.argument("replicas", nargs=-1)
 @click.option("--reason", required=True, help="Reason")
-@click.option("--as-file/--not-as-file", default=False, help="[REPLICAS] arg is a path to a file of names to update")
+@click.option("--as-file", is_flag=True, default=False, help="[REPLICAS] arg is a path to a file of names to update")
 @click.option("--duration", required=True, type=int, help="Timeout (in seconds) after which the replicas will become available again")
 @click.pass_context
 def update_unavailable(ctx, replicas, reason, as_file, duration):
@@ -146,7 +147,7 @@ def update_unavailable(ctx, replicas, reason, as_file, duration):
 
 @state_update.command("quarantine")
 @click.argument("replicas", nargs=-1)
-@click.option("--as-file/--not-as-file", default=False, help="[REPLICAS] arg is a path to a file of names to update")
+@click.option("--as-file", is_flag=True, default=False, help="[REPLICAS] arg is a path to a file of names to update")
 @click.option("--rse", "--rse-name")  # TODO What does this do?
 @click.pass_context
 def update_quarantine(ctx, replicas, as_file, rse):

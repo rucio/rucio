@@ -24,7 +24,7 @@ def subscription():
 
 @subscription.command("show")
 @click.option("-a", "--account", help="Account associated with the subscription")
-@click.option("--long/--no-long", help="Show extended information about the subscription")
+@click.option("--long", default=False, is_flag=True, help="Show extended information about the subscription")
 @click.argument("subscription-name")
 @click.pass_context
 def list_(ctx, subscription_name, account, long):

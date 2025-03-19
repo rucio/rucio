@@ -23,17 +23,17 @@ from rucio.common.config import config_get_float
 @click.command()
 @click.argument("dids", nargs=-1)
 @click.option("--dir", default=".", help="The directory to store the downloaded file.")
-@click.option("--allow-tape/--no-allow-tape", default=False, help="Also consider tape endpoints as source of the download.")
+@click.option("--allow-tape", is_flag=True, default=False, help="Also consider tape endpoints as source of the download.")
 @click.option("--rses", "--rse-exp", help="RSE Expression to specify allowed sources")
 @click.option("--impl", help="Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone).")
 @click.option("--protocol", help="Force the protocol to use.")
 @click.option("--nrandom", type=int, help="Download N random files from the DID.")
 @click.option("--ndownloader", type=int, default=3, help="Choose the number of parallel processes for download.")
-@click.option("--no-subdir/--subdir", default=False, help="Don't create a subdirectory for the scope of the files.")
+@click.option("--no-subdir", is_flag=True, default=False, help="Don't create a subdirectory for the scope of the files.")
 @click.option("--pfn", help="Specify the exact PFN for the download.")
-@click.option("--no-resolve-archives/--resolve-archives", default=False, help="If set archives will not be considered for download.")
-@click.option("--ignore-checksum/--no-ignore-checksum", default=False, help="Don't validate checksum for downloaded files.")
-@click.option("--check-local-with-filesize-only/--no-check-local-with-filesize-only", default=False, help="Don't use checksum verification for already downloaded files, use filesize instead.")
+@click.option("--no-resolve-archives", is_flag=True, default=False, help="If set archives will not be considered for download.")
+@click.option("--ignore-checksum", is_flag=True, default=False, help="Don't validate checksum for downloaded files.")
+@click.option("--check-local-with-filesize-only", is_flag=True, default=False, help="Don't use checksum verification for already downloaded files, use filesize instead.")
 @click.option(
     "--transfer-timeout",
     type=float,
@@ -41,8 +41,9 @@ from rucio.common.config import config_get_float
     help="Transfer timeout (in seconds). Default: computed dynamically from --transfer-speed-timeout. If set to any value >= 0, --transfer-speed-timeout is ignored.",
 )  # NOQA: E501
 @click.option("--transfer-speed-timeout", type=float, default=None, help="Minimum allowed average transfer speed (in KBps). Default: 500. Used to dynamically compute the timeout if --transfer-timeout not set. Is not supported for --pfn.")  # NOQA: E501
-@click.option("--aria/--no-aria", default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
+@click.option("--aria", default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
 @click.option("--archive-did", hidden=True)  # Download from archive is transparent. This option is obsolete.
+# TODO replace with click functionality to automatically pull env vars
 @click.option("--trace-appid", default=os.environ.get("RUCIO_TRACE_APPID", None), hidden=True)
 @click.option("--trace-dataset", default=os.environ.get("RUCIO_TRACE_DATASET", None), hidden=True)
 @click.option("--trace-datasetscope", default=os.environ.get("RUCIO_TRACE_DATASETSCOPE", None), hidden=True)
@@ -53,7 +54,7 @@ from rucio.common.config import config_get_float
 @click.option("--filter", help="Filter files by key-value pairs like guid=2e2232aafac8324db452070304f8d745.")
 @click.option("--scope", help="Scope if you are using the filter option and no full DID.")
 @click.option("--metalink", help="Path to a metalink file.")
-@click.option("--no-show-download-exceptions/--show-download-exceptions", default=False, help="Does not raise NoFilesDownloaded, NotAllFilesDownloaded or incorrect number of output queue files Exception.")  # NOQA: E501
+@click.option("--no-show-download-exceptions", default=False, is_flag=True, help="Does not raise NoFilesDownloaded, NotAllFilesDownloaded or incorrect number of output queue files Exception.")  # NOQA: E501
 @click.option("--replica-selection", help="Select the best replica using a replica sorting algorithm provided by replica sorter (e.g., random, geoip).")
 @click.pass_context
 def download(

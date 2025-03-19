@@ -144,7 +144,7 @@ class LazyGroup(click.Group):
 @click.option("-v", "--verbose", default=False, is_flag=True, help="Print more verbose output")
 @click.version_option(version.version_string(), message="%(prog)s %(version)s")
 # Hidden options at the end
-@click.option("--pager/--no-pager", default=False, hidden=True)
+@click.option("--pager", is_flag=True, default=False, hidden=True)
 @exception_handler
 @click.pass_context
 def main(
