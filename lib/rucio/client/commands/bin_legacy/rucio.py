@@ -73,7 +73,7 @@ tablefmt = 'psql'
 cli_config = get_cli_config()
 
 
-def get_scope(did, client):
+def get_scope(did: str, client) -> tuple[str, str]:
     try:
         scope, name = extract_scope(did)
         return scope, name
@@ -81,7 +81,6 @@ def get_scope(did, client):
         scopes = client.list_scopes()
         scope, name = extract_scope(did, scopes)
         return scope, name
-    return None, did
 
 
 def __resolve_containers_to_datasets(scope, name, client):
