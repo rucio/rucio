@@ -31,9 +31,7 @@ apispec-webframeworks==1.2.0
 argcomplete==3.5.3
     # via -r requirements.server.txt
 astroid==3.0.1
-    # via
-    #   -r requirements.dev.in
-    #   pylint
+    # via -r requirements.dev.in
 async-timeout==5.0.1
     # via
     #   -r requirements.server.txt
@@ -132,8 +130,6 @@ deprecated==1.2.18
     #   databind
     #   docspec
     #   nr-util
-dill==0.3.9
-    # via pylint
 dnspython==2.7.0
     # via
     #   -r requirements.server.txt
@@ -162,8 +158,6 @@ exceptiongroup==1.2.2
     # via pytest
 execnet==2.1.1
     # via pytest-xdist
-flake8==6.1.0
-    # via -r requirements.dev.in
 flask==3.1.0
     # via -r requirements.server.txt
 frozenlist==1.5.0
@@ -181,6 +175,8 @@ globus-sdk==3.41.0
     # via -r requirements.server.txt
 google-auth==2.38.0
     # via -r requirements.server.txt
+greenlet==3.1.1
+    # via sqlalchemy
 gssapi==1.9.0
     # via
     #   -r requirements.server.txt
@@ -201,8 +197,6 @@ isodate==0.7.2
     # via
     #   -r requirements.server.txt
     #   python3-saml
-isort==5.13.2
-    # via pylint
 itsdangerous==2.2.0
     # via
     #   -r requirements.server.txt
@@ -255,10 +249,6 @@ maxminddb==2.6.3
     # via
     #   -r requirements.server.txt
     #   geoip2
-mccabe==0.7.0
-    # via
-    #   flake8
-    #   pylint
 mdurl==0.1.2
     # via
     #   -r requirements.server.txt
@@ -301,7 +291,6 @@ pip-tools==7.4.1
 platformdirs==4.3.6
     # via
     #   black
-    #   pylint
     #   yapf
 pluggy==1.5.0
     # via pytest
@@ -328,9 +317,7 @@ pyasn1-modules==0.4.1
     #   -r requirements.server.txt
     #   google-auth
 pycodestyle==2.11.0
-    # via
-    #   -r requirements.dev.in
-    #   flake8
+    # via -r requirements.dev.in
 pycparser==2.22
     # via
     #   -r requirements.server.txt
@@ -355,9 +342,7 @@ pydantic-settings==2.8.1
 pydoc-markdown==4.8.2
     # via -r requirements.dev.in
 pyflakes==3.1.0
-    # via
-    #   -r requirements.dev.in
-    #   flake8
+    # via -r requirements.dev.in
 pygments==2.19.1
     # via
     #   -r requirements.server.txt
@@ -372,8 +357,6 @@ pyjwt==2.10.1
     #   globus-sdk
 pykerberos==1.2.4
     # via -r requirements.server.txt
-pylint==3.0.2
-    # via -r requirements.dev.in
 pymemcache==4.0.0
     # via -r requirements.server.txt
 pymongo==4.11.2
@@ -455,6 +438,8 @@ rsa==4.9
     # via
     #   -r requirements.server.txt
     #   google-auth
+ruff==0.9.10
+    # via -r requirements.dev.in
 s3transfer==0.11.4
     # via
     #   -r requirements.server.txt
@@ -487,13 +472,10 @@ tomli==2.2.1
     #   coverage
     #   pip-tools
     #   pydoc-markdown
-    #   pylint
     #   pytest
     #   yapf
 tomli-w==1.2.0
     # via pydoc-markdown
-tomlkit==0.13.2
-    # via pylint
 typeapi==2.2.4
     # via databind
 typing-extensions==4.12.2
@@ -511,7 +493,6 @@ typing-extensions==4.12.2
     #   psycopg-pool
     #   pydantic
     #   pydantic-core
-    #   pylint
     #   referencing
     #   rich
     #   sqlalchemy
