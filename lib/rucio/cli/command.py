@@ -79,33 +79,22 @@ class LazyGroup(click.Group):
     },
     context_settings={"help_option_names": ["-h", "--help"]}
 )  # TODO: Implement https://click.palletsprojects.com/en/stable/options/#dynamic-defaults-for-prompts for args from config or os
-@click.version_option(version.version_string(), message="%(prog)s %(version)s")
-@click.option("--config", help="The Rucio configuration file to use")
-@click.option("-v", "--verbose", default=False, is_flag=True, help="Print more verbose output")
-@click.option("-H", "--host", help="The Rucio API host")
-@click.option("--auth-host", help="The Rucio Authentication host")
 @click.option("--account", "--issuer", "issuer", help="Rucio account to use.")
-@click.option("-S", "--auth-strategy", help="Authentication strategy (userpass, x509...)")
-@click.option("-T", "--timeout", type=float, help="Set all timeout values to seconds")
-@click.option("-U", "--user-agent", default="rucio-clients", help="Rucio User Agent")
-@click.option("--vo", help="VO to authenticate at. Only used in multi-VO mode")
-@click.option("--pager/--no-pager", default=False, hidden=True)
-@click.option("-u", "--user", help="Username for userpass")
-@click.option("-pwd", "--password", help="Password for userpass")
+@click.option("--auth-host", help="The Rucio Authentication host")
+@click.option("-S", "--auth-strategy", help="Authentication strategy", type=click.Choice(['userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'saml', 'oidc']))
+# x509 and x509 proxy auth
+@click.option("--ca-certificate", help="CA certificate to verify peer against (SSL)")
+@click.option("--certificate", help="Client certificate file")
+@click.option("--client-key", help="Client key for x509 Authentication")
+@click.option("--config", help="The Rucio configuration file to use")
+@click.option("-H", "--host", help="The Rucio API host")
+# oidc auth
 @click.option("--oidc-user", help="OIDC username")
 @click.option("--oidc-password", help="OIDC password")
-@click.option(
-    "--oidc-scope",
-    default="openid profile",
-    help="""
-        Defines which (OIDC) information user will share with Rucio. Rucio requires at least -sc='openid profile'.
-        To request refresh token for Rucio, scope must include 'openid offline_access'
-        and there must be no active access token saved on the side of the currently used Rucio Client,
-    """,
-)
 @click.option("--oidc-audience", help="Defines which audience are tokens requested for.")
 @click.option(
-    "--oidc-auto/--no-oidc-auto",
+    "--oidc-auto",
+    is_flag=True,
     default=False,
     help="""
         If not specified, username and password credentials are not required and users will be given a URL to use in their browser.
@@ -113,7 +102,15 @@ class LazyGroup(click.Group):
     """,
 )
 @click.option(
-    "--oidc-polling/--no-oidc-polling",
+    "--oidc-issuer",
+    help="""
+        Defines which Identity Provider is going to be used.
+        The issuer string must correspond to the keys configured in the /etc/idpsecrets.json auth server configuration file")
+    """,
+)
+@click.option(
+    "--oidc-polling",
+    is_flag=True,
     default=False,
     help="""
         If not specified, user will be asked to enter a code returned by the browser to the command line.
@@ -130,16 +127,24 @@ class LazyGroup(click.Group):
     """,
 )
 @click.option(
-    "--oidc-issuer",
+    "--oidc-scope",
+    default="openid profile",
     help="""
-        Defines which Identity Provider is going to be used.
-        The issuer string must correspond to the keys configured in the /etc/idpsecrets.json auth server configuration file")
+        Defines which (OIDC) information user will share with Rucio. Rucio requires at least -sc='openid profile'.
+        To request refresh token for Rucio, scope must include 'openid offline_access'
+        and there must be no active access token saved on the side of the currently used Rucio Client,
     """,
 )
-# Options for the x509  auth_strategy
-@click.option("--certificate", help="Client certificate file")
-@click.option("--client-key", help="Client key for x509 Authentication")
-@click.option("--ca-certificate", help="CA certificate to verify peer against (SSL)")
+@click.option("-T", "--timeout", type=float, help="Set all timeout values to seconds")
+@click.option("-U", "--user-agent", default="rucio-clients", help="Rucio User Agent")
+# userpass/gss/saml auth
+@click.option("-u", "--user", help="Username for userpass")
+@click.option("--password", help="Password for userpass")
+@click.option("--vo", help="VO to authenticate at. Only used in multi-VO mode")
+@click.option("-v", "--verbose", default=False, is_flag=True, help="Print more verbose output")
+@click.version_option(version.version_string(), message="%(prog)s %(version)s")
+# Hidden options at the end
+@click.option("--pager/--no-pager", default=False, hidden=True)
 @exception_handler
 @click.pass_context
 def main(
