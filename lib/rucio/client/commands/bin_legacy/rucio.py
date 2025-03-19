@@ -453,7 +453,6 @@ def list_dids(args, client, logger, console, spinner):
     """
 
     filters = {}
-    type_ = 'collection'
     table_data = []
 
     try:
