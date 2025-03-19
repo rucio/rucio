@@ -463,9 +463,8 @@ def list_dids(args, client: "Client", logger, console, spinner):
         scope = args.did[0]
         name = '*'
 
-    scopes = set(client.list_scopes())
-    if scope not in scopes:
-        msg = f"Scope '{scope}' not found when listing dids. Available scopes: {scopes}"
+    if scope not in client.list_scopes():
+        msg = f"Scope '{scope}' not found when listing dids. Available scopes can be listed with 'rucio scope list'."
         logger.error(msg)
         return FAILURE
 
