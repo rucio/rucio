@@ -22,6 +22,7 @@ import signal
 import sys
 import time
 from textwrap import dedent
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.padding import Padding
@@ -33,7 +34,6 @@ from rich.tree import Tree
 from tabulate import tabulate
 
 from rucio import version
-from rucio.client import Client
 from rucio.client.commands.utils import exception_handler, get_client, setup_gfal2_logger, signal_handler
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, generate_table, get_cli_config, get_pager, print_output, setup_rich_logger
 from rucio.common.constants import RseAttr
@@ -44,6 +44,9 @@ from rucio.common.exception import (
 from rucio.common.extra import import_extras
 from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_pfns, construct_non_deterministic_pfn, extract_scope, get_bytes_value_from_string, parse_response, render_json, setup_logger, sizefmt
 from rucio.rse import rsemanager as rsemgr
+
+if TYPE_CHECKING:
+    from rucio.client.client import Client
 
 EXTRA_MODULES = import_extras(['argcomplete'])
 

@@ -26,7 +26,7 @@ import uuid
 from copy import deepcopy
 from datetime import datetime
 from logging import DEBUG
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from rich.console import Console
 from rich.padding import Padding
@@ -39,7 +39,6 @@ from tabulate import tabulate
 
 # rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
 from rucio import version
-from rucio.client import Client
 from rucio.client.commands.utils import exception_handler, get_client, setup_gfal2_logger, signal_handler
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, generate_table, get_cli_config, get_pager, print_output, setup_rich_logger
 from rucio.common.client import detect_client_location
@@ -58,6 +57,9 @@ from rucio.common.exception import (
 from rucio.common.extra import import_extras
 from rucio.common.test_rucio_server import TestRucioServer
 from rucio.common.utils import Color, StoreAndDeprecateWarningAction, chunks, extract_scope, parse_did_filter_from_string, parse_did_filter_from_string_fe, setup_logger, sizefmt
+
+if TYPE_CHECKING:
+    from rucio.client.client import Client
 
 EXTRA_MODULES = import_extras(['argcomplete'])
 
