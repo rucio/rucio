@@ -116,9 +116,8 @@ def distance_show(ctx, source_rse, destination_rse):
 @click.argument("source-rse")
 @click.argument("destination-rse")
 @click.option("--distance", default=1, type=int, help="Relative distance between RSEs")
-@click.option("--ranking", hidden=True)  # Ranking is removed from the DB
 @click.pass_context
-def distance_add(ctx, source_rse, destination_rse, distance, ranking):
+def distance_add(ctx, source_rse, destination_rse, distance):
     """Create a new link from SOURCE-RSE to DESTINATION-RSE with a distance"""
     args = Arguments({"source": source_rse, "destination": destination_rse, "distance": distance})
     add_distance_rses(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
@@ -138,9 +137,8 @@ def distance_remove(ctx, source_rse, destination_rse):
 @click.argument("source-rse")
 @click.argument("destination-rse")
 @click.option("--distance", type=int, help="Relative distance between RSEs", required=True)
-@click.option("--ranking", hidden=True)  # Ranking is removed from the DB
 @click.pass_context
-def distance_update(ctx, source_rse, destination_rse, distance, ranking):
+def distance_update(ctx, source_rse, destination_rse, distance):
     """Update the existing distance or ranking from SOURCE-RSE to DESTINATION-RSE"""
     args = Arguments({"source": source_rse, "destination": destination_rse, "distance": distance})
     update_distance_rses(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
