@@ -23,7 +23,7 @@ def did():
 
 
 @did.command("list")
-@click.option("-r", "--recursive/--no-recursive", default=False, help="List data identifiers recursively.")
+@click.option("-r", "--recursive", default=False, is_flag=True, help="List data identifiers recursively.")
 @click.option(
     "--filter", "filter_",
     help="""
@@ -34,38 +34,39 @@ def did():
     are used: ";" represents the logical OR operator; "," represents the logical AND operator',
     """,
 )  # TODO Shorten this help and make supplying this easier
-@click.option("--short/--no-short", default=False, help="Dump the list of DIDs")
+@click.option("--short", is_flag=True, default=False, help="Dump the list of DIDs")
 @click.argument("did-pattern", nargs=-1)
+@click.option("--parent", default=False, is_flag=True, help="List the parents of the DID - must use a full DID scope and name")
+# TODO Implement or remove option - view https://github.com/rucio/rucio/issues/7230
+@click.option("--pfn", hidden=True)
+@click.option("--guid", hidden=True)
 @click.pass_context
-def list_(ctx, did_pattern, recursive, filter_, short):
+def list_(ctx, did_pattern, recursive, filter_, short, parent, pfn, guid):
     """
     List the Data IDentifiers matching certain pattern.
     Only the collections (i.e. dataset or container) are returned by default.
     With the filter option, you can specify a list of metadata that the Data IDentifier should match
     """
-    args = Arguments({"did": did_pattern, "recursive": recursive, "filter": filter_, "short": short})
-    list_dids(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    if parent:
+        for did in did_pattern:
+            list_parent_dids(Arguments({"did": did}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    else:
+        args = Arguments({"did": did_pattern, "recursive": recursive, "filter": filter_, "short": short})
+        list_dids(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @did.command("show")
 @click.argument("dids", nargs=-1)
-@click.option("--parent/--no-parent", help="List the parents of the DID")
-@click.option("--pfn", hidden=True)
-@click.option("--guid", hidden=True)
 @click.pass_context
-def show(ctx, dids, parent, pfn, guid):
+def show(ctx, dids):
     """List attributes, statuses, or parents for data identifiers"""
-    if parent:
-        for did in dids:
-            list_parent_dids(Arguments({"did": did}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
-    else:
-        stat(Arguments({"dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    stat(Arguments({"dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @did.command("add")
 @click.argument("did-name")
 @click.option("--type", "dtype", type=click.Choice(["container", "dataset"]))
-@click.option("--monotonic/--no-monotonic", default=False, help="Monotonic status to True.")
+@click.option("--monotonic", is_flag=True, default=False, help="Monotonic status to True.")
 @click.option("--lifetime", type=int, help="Lifetime in seconds.")
 @click.pass_context
 def add_(ctx, did_name, dtype, monotonic, lifetime):

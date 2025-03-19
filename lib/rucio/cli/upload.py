@@ -26,17 +26,17 @@ from rucio.common.config import config_get_float
 @click.option("--scope", help="Scope name.")
 @click.option("--impl", type=click.Choice([]), help="Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone)")
 # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
-@click.option("--register/--no-register", default=False, hidden=True)
-@click.option("--register-after-upload/--no-register-after-upload", default=False, help="Register the file only after successful upload")
-@click.option("--summary/--no-summary", default=False, help="Create rucio_upload.json summary file")
+@click.option("--no-register", is_flag=True, default=False, hidden=True)
+@click.option("--register-after-upload", is_flag=True, default=False, help="Register the file _only_ after successful upload")
+@click.option("--summary", is_flag=True, default=False, help="Create rucio_upload.json summary file")
 @click.option("--guid", help="Manually specify the GUID for the file.")
 @click.option("--protocol", help="Force the protocol to use")
 @click.option("--pfn", help="Specify the exact PFN for the upload")
 @click.option("--lfn", help="Specify the exact LFN for the upload")
 @click.option("--transfer-timeout", type=float, default=config_get_float("upload", "transfer_timeout", False, 360), help="Transfer timeout (in seconds)")
-@click.option("-r", "--recursive/--no-recursive", default=False, help="Convert recursively the folder structure into collections")
+@click.option("-r", "--recursive", is_flag=True, default=False, help="Convert recursively the folder structure into collections")
 @click.pass_context
-def upload_command(ctx, file_paths, rse, lifetime, expiration_date, scope, impl, register, register_after_upload, summary, guid, protocol, pfn, lfn, transfer_timeout, recursive):
+def upload_command(ctx, file_paths, rse, lifetime, expiration_date, scope, impl, no_register, register_after_upload, summary, guid, protocol, pfn, lfn, transfer_timeout, recursive):
     """Upload file(s) to a Rucio RSE"""
     args = Arguments(
         {
@@ -46,7 +46,7 @@ def upload_command(ctx, file_paths, rse, lifetime, expiration_date, scope, impl,
             "expiration_date": expiration_date,
             "scope": scope,
             "impl": impl,
-            "register": register,
+            "no_register": no_register,
             "register_after_upload": register_after_upload,
             "protocol": protocol,
             "summary": summary,
