@@ -84,7 +84,7 @@ click==8.1.7
     #   flask
     #   pip-tools
     #   pydoc-markdown
-cryptography==42.0.8
+cryptography==43.0.1
     # via
     #   -r requirements.server.txt
     #   globus-sdk
