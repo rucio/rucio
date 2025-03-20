@@ -27,7 +27,7 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core import subscription as subscription_core
 from rucio.core.account import add_account
-from rucio.core.did import add_did, set_new_dids, list_new_dids, attach_dids, set_status
+from rucio.core.did import add_did, attach_dids, list_new_dids, set_new_dids, set_status
 from rucio.core.rse import add_rse_attribute, update_rse
 from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
