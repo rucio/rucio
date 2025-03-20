@@ -26,7 +26,7 @@ import uuid
 from copy import deepcopy
 from datetime import datetime
 from logging import DEBUG
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from rich.console import Console
 from rich.padding import Padding
@@ -58,6 +58,9 @@ from rucio.common.extra import import_extras
 from rucio.common.test_rucio_server import TestRucioServer
 from rucio.common.utils import Color, StoreAndDeprecateWarningAction, chunks, extract_scope, parse_did_filter_from_string, parse_did_filter_from_string_fe, setup_logger, sizefmt
 
+if TYPE_CHECKING:
+    from rucio.client.client import Client
+
 EXTRA_MODULES = import_extras(['argcomplete'])
 
 if EXTRA_MODULES['argcomplete']:
@@ -73,7 +76,7 @@ tablefmt = 'psql'
 cli_config = get_cli_config()
 
 
-def get_scope(did, client):
+def get_scope(did: str, client: "Client") -> tuple[str, str]:
     try:
         scope, name = extract_scope(did)
         return scope, name
@@ -81,10 +84,9 @@ def get_scope(did, client):
         scopes = client.list_scopes()
         scope, name = extract_scope(did, scopes)
         return scope, name
-    return None, did
 
 
-def __resolve_containers_to_datasets(scope, name, client):
+def __resolve_containers_to_datasets(scope, name, client: "Client"):
     """
     Helper function to resolve a container into its dataset content.
     """
@@ -98,7 +100,7 @@ def __resolve_containers_to_datasets(scope, name, client):
 
 
 @exception_handler
-def ping(args, client, logger, console, spinner):
+def ping(args, client: "Client", logger, console, spinner):
     """
     Pings a Rucio server.
     """
@@ -111,7 +113,7 @@ def ping(args, client, logger, console, spinner):
 
 
 @exception_handler
-def whoami_account(args, client, logger, console, spinner):
+def whoami_account(args, client: "Client", logger, console, spinner):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
@@ -130,7 +132,7 @@ def whoami_account(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_dataset_replicas(args, client, logger, console, spinner):
+def list_dataset_replicas(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
@@ -213,7 +215,7 @@ def list_dataset_replicas(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_file_replicas(args, client, logger, console, spinner):
+def list_file_replicas(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
@@ -354,7 +356,7 @@ def list_file_replicas(args, client, logger, console, spinner):
 
 
 @exception_handler
-def add_dataset(args, client, logger, console, spinner):
+def add_dataset(args, client: "Client", logger, console, spinner):
     """
     %(prog)s add-dataset [options] <dsn>
 
@@ -382,7 +384,7 @@ def add_container(args, client, logger, console, spinner):
 
 
 @exception_handler
-def attach(args, client, logger, console, spinner):
+def attach(args, client: "Client", logger, console, spinner):
     """
     %(prog)s attach [options] <field1=value1 field2=value2 ...>
 
@@ -427,7 +429,7 @@ def attach(args, client, logger, console, spinner):
 
 
 @exception_handler
-def detach(args, client, logger, console, spinner):
+def detach(args, client: "Client", logger, console, spinner):
     """
     %(prog)s detach [options] <field1=value1 field2=value2 ...>
 
@@ -445,7 +447,7 @@ def detach(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_dids(args, client, logger, console, spinner):
+def list_dids(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-dids scope[:*|:name] [--filter 'value' | --recursive]
 
@@ -453,7 +455,6 @@ def list_dids(args, client, logger, console, spinner):
     """
 
     filters = {}
-    type_ = 'collection'
     table_data = []
 
     try:
@@ -465,7 +466,8 @@ def list_dids(args, client, logger, console, spinner):
         name = '*'
 
     if scope not in client.list_scopes():
-        logger.error('Scope not found.')
+        msg = f"Scope '{scope}' not found when listing dids. Available scopes can be listed with 'rucio scope list'."
+        logger.error(msg)
         return FAILURE
 
     if args.recursive and '*' in name:
@@ -522,7 +524,7 @@ def list_dids(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_dids_extended(args, client, logger, console, spinner):
+def list_dids_extended(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-dids-extended scope[:*|:name] [--filter 'key=value' | --recursive]
 
@@ -533,7 +535,7 @@ def list_dids_extended(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_scopes(args, client, logger, console, spinner):
+def list_scopes(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-scopes <scope>
 
@@ -557,7 +559,7 @@ def list_scopes(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_files(args, client, logger, console, spinner):
+def list_files(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-files [options] <field1=value1 field2=value2 ...>
 
@@ -659,7 +661,7 @@ def list_files(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_content(args, client, logger, console, spinner):
+def list_content(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-content [options] <field1=value1 field2=value2 ...>
 
@@ -696,7 +698,7 @@ def list_content(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_content_history(args, client, logger, console, spinner):
+def list_content_history(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-content-history [options] <field1=value1 field2=value2 ...>
 
@@ -726,7 +728,7 @@ def list_content_history(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_parent_dids(args, client, logger, console, spinner):
+def list_parent_dids(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-parent-dids
 
@@ -816,7 +818,7 @@ def list_parent_dids(args, client, logger, console, spinner):
 
 
 @exception_handler
-def close(args, client, logger, console, spinner):
+def close(args, client: "Client", logger, console, spinner):
     """
     %(prog)s close [options] <field1=value1 field2=value2 ...>
 
@@ -831,7 +833,7 @@ def close(args, client, logger, console, spinner):
 
 
 @exception_handler
-def reopen(args, client, logger, console, spinner):
+def reopen(args, client: "Client", logger, console, spinner):
     """
     %(prog)s reopen [options] <field1=value1 field2=value2 ...>
 
@@ -846,7 +848,7 @@ def reopen(args, client, logger, console, spinner):
 
 
 @exception_handler
-def stat(args, client, logger, console, spinner):
+def stat(args, client: "Client", logger, console, spinner):
     """
     %(prog)s stat [options] <field1=value1 field2=value2 ...>
 
@@ -882,7 +884,7 @@ def stat(args, client, logger, console, spinner):
     return SUCCESS
 
 
-def erase(args, client, logger, console, spinner):
+def erase(args, client: "Client", logger, console, spinner):
     """
     %(prog)s erase [options] <field1=value1 field2=value2 ...>
 
@@ -920,7 +922,7 @@ def erase(args, client, logger, console, spinner):
 
 
 @exception_handler
-def upload(args, client, logger, console, spinner):
+def upload(args, client: "Client", logger, console, spinner):
     """
     rucio upload [scope:datasetname] [folder/] [files1 file2 file3]
     %(prog)s upload [options] <field1=value1 field2=value2 ...>
@@ -996,7 +998,7 @@ def upload(args, client, logger, console, spinner):
 
 
 @exception_handler
-def download(args, client, logger, console, spinner):
+def download(args, client: "Client", logger, console, spinner):
     """
     %(prog)s download [options] <field1=value1 field2=value2 ...>
 
@@ -1191,7 +1193,7 @@ def _get_rse_for_pfn(replicas, pfn) -> Optional[str]:
 
 
 @exception_handler
-def get_metadata(args, client, logger, console, spinner):
+def get_metadata(args, client: "Client", logger, console, spinner):
     """
     %(prog)s get_metadata [options] <field1=value1 field2=value2 ...>
 
@@ -1233,7 +1235,7 @@ def get_metadata(args, client, logger, console, spinner):
 
 
 @exception_handler
-def set_metadata(args, client, logger, console, spinner):
+def set_metadata(args, client: "Client", logger, console, spinner):
     """
     %(prog)s set_metadata [options] <field1=value1 field2=value2 ...>
 
@@ -1249,7 +1251,7 @@ def set_metadata(args, client, logger, console, spinner):
 
 
 @exception_handler
-def delete_metadata(args, client, logger, console, spinner):
+def delete_metadata(args, client: "Client", logger, console, spinner):
     """
     %(prog)s set_metadata [options] <field1=value1 field2=value2 ...>
 
@@ -1262,7 +1264,7 @@ def delete_metadata(args, client, logger, console, spinner):
 
 
 @exception_handler
-def add_rule(args, client, logger, console, spinner):
+def add_rule(args, client: "Client", logger, console, spinner):
     """
     %(prog)s add-rule <did> <copies> <rse-expression> [options]
 
@@ -1321,7 +1323,7 @@ def add_rule(args, client, logger, console, spinner):
 
 
 @exception_handler
-def delete_rule(args, client, logger, console, spinner):
+def delete_rule(args, client: "Client", logger, console, spinner):
     """
     %(prog)s delete-rule [options] <ruleid>
 
@@ -1359,7 +1361,7 @@ def delete_rule(args, client, logger, console, spinner):
 
 
 @exception_handler
-def update_rule(args, client, logger, console, spinner):
+def update_rule(args, client: "Client", logger, console, spinner):
     """
     %(prog)s update-rule [options] <ruleid>
 
@@ -1409,7 +1411,7 @@ def update_rule(args, client, logger, console, spinner):
 
 
 @exception_handler
-def move_rule(args, client, logger, console, spinner):
+def move_rule(args, client: "Client", logger, console, spinner):
     """
     %(prog)s move-rule [options] <ruleid> <rse_expression>
 
@@ -1429,7 +1431,7 @@ def move_rule(args, client, logger, console, spinner):
 
 
 @exception_handler
-def info_rule(args, client, logger, console, spinner):
+def info_rule(args, client: "Client", logger, console, spinner):
     """
     %(prog)s rule-info [options] <ruleid>
 
@@ -1514,7 +1516,7 @@ def info_rule(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_rules(args, client, logger, console, spinner):
+def list_rules(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-rules ...
 
@@ -1615,7 +1617,7 @@ def list_rules(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_rules_history(args, client, logger, console, spinner):
+def list_rules_history(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-rules_history ...
 
@@ -1659,7 +1661,7 @@ def list_rules_history(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_rses(args, client, logger, console, spinner):
+def list_rses(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-rses [options] <field1=value1 field2=value2 ...>
 
@@ -1684,7 +1686,7 @@ def list_rses(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_suspicious_replicas(args, client, logger, console, spinner):
+def list_suspicious_replicas(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-suspicious-replicas [options] <field1=value1 field2=value2 ...>
 
@@ -1725,7 +1727,7 @@ def list_suspicious_replicas(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_rse_attributes(args, client, logger, console, spinner):
+def list_rse_attributes(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-rse-attributes [options] <field1=value1 field2=value2 ...>
 
@@ -1746,7 +1748,7 @@ def list_rse_attributes(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_rse_usage(args, client, logger, console, spinner):
+def list_rse_usage(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-rse-usage [options] <rse>
 
@@ -1832,7 +1834,7 @@ def list_rse_usage(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_account_limits(args, client, logger, console, spinner):
+def list_account_limits(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
@@ -1877,7 +1879,7 @@ def list_account_limits(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_account_usage(args, client, logger, console, spinner):
+def list_account_usage(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
@@ -1920,7 +1922,7 @@ def list_account_usage(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_datasets_rse(args, client, logger, console, spinner):
+def list_datasets_rse(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
@@ -1962,7 +1964,7 @@ def list_datasets_rse(args, client, logger, console, spinner):
 
 
 @exception_handler
-def add_lifetime_exception(args, client, logger, console, spinner):
+def add_lifetime_exception(args, client: "Client", logger, console, spinner):
     """
     %(prog)s add_lifetime_exception [options] <field1=value1 field2=value2 ...>
 
@@ -2071,7 +2073,7 @@ def add_lifetime_exception(args, client, logger, console, spinner):
     return SUCCESS
 
 
-def test_server(args, client, logger, console, spinner):
+def test_server(args, client: "Client", logger, console, spinner):
     """"
     %(prog)s test-rucio-server [options] <field1=value1 field2=value2 ...>
     Test the client against a server.
@@ -2081,7 +2083,7 @@ def test_server(args, client, logger, console, spinner):
     return SUCCESS
 
 
-def touch(args, client, logger, console, spinner):
+def touch(args, client: "Client", logger, console, spinner):
     """
     %(prog)s touch [options] <did1 did2 ...>
     """

@@ -22,6 +22,7 @@ import signal
 import sys
 import time
 from textwrap import dedent
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.padding import Padding
@@ -44,6 +45,9 @@ from rucio.common.extra import import_extras
 from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_pfns, construct_non_deterministic_pfn, extract_scope, get_bytes_value_from_string, parse_response, render_json, setup_logger, sizefmt
 from rucio.rse import rsemanager as rsemgr
 
+if TYPE_CHECKING:
+    from rucio.client.client import Client
+
 EXTRA_MODULES = import_extras(['argcomplete'])
 
 if EXTRA_MODULES['argcomplete']:
@@ -63,7 +67,7 @@ tablefmt = 'psql'
 cli_config = get_cli_config()
 
 
-def get_scope(did, client):
+def get_scope(did, client: "Client"):
     try:
         scope, name = extract_scope(did)
         return scope, name
@@ -74,7 +78,7 @@ def get_scope(did, client):
 
 
 @exception_handler
-def add_account(args, client, logger, console, spinner):
+def add_account(args, client: "Client", logger, console, spinner):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
 
@@ -87,7 +91,7 @@ def add_account(args, client, logger, console, spinner):
 
 
 @exception_handler
-def delete_account(args, client, logger, console, spinner):
+def delete_account(args, client: "Client", logger, console, spinner):
     """
     %(prog)s disable [options] <field1=value1 field2=value2 ...>
 
@@ -100,7 +104,7 @@ def delete_account(args, client, logger, console, spinner):
 
 
 @exception_handler
-def update_account(args, client, logger, console, spinner):
+def update_account(args, client: "Client", logger, console, spinner):
     """
     %(prog)s update [options] <field1=value1 field2=value2 ...>
 
@@ -113,7 +117,7 @@ def update_account(args, client, logger, console, spinner):
 
 
 @exception_handler
-def ban_account(args, client, logger, console, spinner):
+def ban_account(args, client: "Client", logger, console, spinner):
     """
     %(prog)s ban [options] <field1=value1 field2=value2 ...>
 
@@ -126,7 +130,7 @@ def ban_account(args, client, logger, console, spinner):
 
 
 @exception_handler
-def unban_account(args, client, logger, console, spinner):
+def unban_account(args, client: "Client", logger, console, spinner):
     """
     %(prog)s unban [options] <field1=value1 field2=value2 ...>
 
@@ -139,7 +143,7 @@ def unban_account(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_accounts(args, client, logger, console, spinner):
+def list_accounts(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
@@ -164,7 +168,7 @@ def list_accounts(args, client, logger, console, spinner):
 
 
 @exception_handler
-def info_account(args, client, logger, console, spinner):
+def info_account(args, client: "Client", logger, console, spinner):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
@@ -184,7 +188,7 @@ def info_account(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_identities(args, client, logger, console, spinner):
+def list_identities(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-identities [options] <field1=value1 field2=value2 ...>
 
@@ -204,7 +208,7 @@ def list_identities(args, client, logger, console, spinner):
 
 
 @exception_handler
-def set_limits(args, client, logger, console, spinner):
+def set_limits(args, client: "Client", logger, console, spinner):
     """
     %(prog)s set [options] <field1=value1 field2=value2 ...>
 
@@ -231,7 +235,7 @@ def set_limits(args, client, logger, console, spinner):
 
 
 @exception_handler
-def get_limits(args, client, logger, console, spinner):
+def get_limits(args, client: "Client", logger, console, spinner):
     """
     %(prog)s get-limits [options] <field1=value1 field2=value2 ...>
 
@@ -246,7 +250,7 @@ def get_limits(args, client, logger, console, spinner):
 
 
 @exception_handler
-def delete_limits(args, client, logger, console, spinner):
+def delete_limits(args, client: "Client", logger, console, spinner):
     """
     %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
@@ -258,7 +262,7 @@ def delete_limits(args, client, logger, console, spinner):
 
 
 @exception_handler
-def identity_add(args, client, logger, console, spinner):
+def identity_add(args, client: "Client", logger, console, spinner):
     """
     %(prog)s del [options] <field1=value1 field2=value2 ...>
 
@@ -279,7 +283,7 @@ def identity_add(args, client, logger, console, spinner):
 
 
 @exception_handler
-def identity_delete(args, client, logger, console, spinner):
+def identity_delete(args, client: "Client", logger, console, spinner):
     """
     %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
@@ -292,7 +296,7 @@ def identity_delete(args, client, logger, console, spinner):
 
 
 @exception_handler
-def add_rse(args, client, logger, console, spinner):
+def add_rse(args, client: "Client", logger, console, spinner):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
 
@@ -305,7 +309,7 @@ def add_rse(args, client, logger, console, spinner):
 
 
 @exception_handler
-def disable_rse(args, client, logger, console, spinner):
+def disable_rse(args, client: "Client", logger, console, spinner):
     """
     %(prog)s del [options] <field1=value1 field2=value2 ...>
 
@@ -317,7 +321,7 @@ def disable_rse(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_rses(args, client, logger, console, spinner):
+def list_rses(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
@@ -343,7 +347,7 @@ def list_rses(args, client, logger, console, spinner):
 
 
 @exception_handler
-def update_rse(args, client, logger, console, spinner):
+def update_rse(args, client: "Client", logger, console, spinner):
     """
     %(prog)s update [options] <field1=value1 field2=value2 ...>
 
@@ -370,7 +374,7 @@ def update_rse(args, client, logger, console, spinner):
 
 
 @exception_handler
-def info_rse(args, client, logger, console, spinner):
+def info_rse(args, client: "Client", logger, console, spinner):
     """
     %(prog)s info [options] <field1=value1 field2=value2 ...>
 
@@ -505,7 +509,7 @@ def info_rse(args, client, logger, console, spinner):
 
 
 @exception_handler
-def set_attribute_rse(args, client, logger, console, spinner):
+def set_attribute_rse(args, client: "Client", logger, console, spinner):
     """
     %(prog)s set-attribute [options] <field1=value1 field2=value2 ...>
 
@@ -518,7 +522,7 @@ def set_attribute_rse(args, client, logger, console, spinner):
 
 
 @exception_handler
-def get_attribute_rse(args, client, logger, console, spinner):
+def get_attribute_rse(args, client: "Client", logger, console, spinner):
     """
     %(prog)s get-attribute [options] <field1=value1 field2=value2 ...>
 
@@ -537,7 +541,7 @@ def get_attribute_rse(args, client, logger, console, spinner):
 
 
 @exception_handler
-def delete_attribute_rse(args, client, logger, console, spinner):
+def delete_attribute_rse(args, client: "Client", logger, console, spinner):
     """
     %(prog)s delete-attribute [options] <field1=value1 field2=value2 ...>
 
@@ -550,7 +554,7 @@ def delete_attribute_rse(args, client, logger, console, spinner):
 
 
 @exception_handler
-def add_distance_rses(args, client, logger, console, spinner):
+def add_distance_rses(args, client: "Client", logger, console, spinner):
     """
     %(prog)s add-distance [options] SOURCE_RSE DEST_RSE
 
@@ -563,7 +567,7 @@ def add_distance_rses(args, client, logger, console, spinner):
 
 
 @exception_handler
-def get_distance_rses(args, client, logger, console, spinner):
+def get_distance_rses(args, client: "Client", logger, console, spinner):
     """
     %(prog)s get-distance SOURCE_RSE DEST_RSE
 
@@ -586,7 +590,7 @@ def get_distance_rses(args, client, logger, console, spinner):
 
 
 @exception_handler
-def update_distance_rses(args, client, logger, console, spinner):
+def update_distance_rses(args, client: "Client", logger, console, spinner):
     """
     %(prog)s update-distance [options] SOURCE_RSE DEST_RSE
 
@@ -605,7 +609,7 @@ def update_distance_rses(args, client, logger, console, spinner):
 
 
 @exception_handler
-def delete_distance_rses(args, client, logger, console, spinner):
+def delete_distance_rses(args, client: "Client", logger, console, spinner):
     """
     %(prog)s delete-distance [options] SOURCE_RSE DEST_RSE
 
@@ -617,7 +621,7 @@ def delete_distance_rses(args, client, logger, console, spinner):
 
 
 @exception_handler
-def add_protocol_rse(args, client, logger, console, spinner):
+def add_protocol_rse(args, client: "Client", logger, console, spinner):
     """
     %(prog)s add-protocol-rse [options] <rse>
 
@@ -648,7 +652,7 @@ def add_protocol_rse(args, client, logger, console, spinner):
 
 
 @exception_handler
-def del_protocol_rse(args, client, logger, console, spinner):
+def del_protocol_rse(args, client: "Client", logger, console, spinner):
     """
     %(prog)s delete-protocol-rse [options] <rse>
 
@@ -663,7 +667,7 @@ def del_protocol_rse(args, client, logger, console, spinner):
 
 
 @exception_handler
-def add_qos_policy(args, client, logger, console, spinner):
+def add_qos_policy(args, client: "Client", logger, console, spinner):
     """
     %(prog)s add-qos-policy <rse> <qos_policy>
 
@@ -675,7 +679,7 @@ def add_qos_policy(args, client, logger, console, spinner):
 
 
 @exception_handler
-def delete_qos_policy(args, client, logger, console, spinner):
+def delete_qos_policy(args, client: "Client", logger, console, spinner):
     """
     %(prog)s delete-qos-policy <rse> <qos_policy>
 
@@ -687,7 +691,7 @@ def delete_qos_policy(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_qos_policies(args, client, logger, console, spinner):
+def list_qos_policies(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list-qos-policies <rse>
 
@@ -710,7 +714,7 @@ def list_qos_policies(args, client, logger, console, spinner):
 
 
 @exception_handler
-def set_limit_rse(args, client, logger, console, spinner):
+def set_limit_rse(args, client: "Client", logger, console, spinner):
     """
     %(prog)s set-limit <rse> <name> <value>
 
@@ -727,7 +731,7 @@ def set_limit_rse(args, client, logger, console, spinner):
 
 
 @exception_handler
-def delete_limit_rse(args, client, logger, console, spinner):
+def delete_limit_rse(args, client: "Client", logger, console, spinner):
     """
     %(prog)s delete-limit <rse> <name>
 
@@ -744,7 +748,7 @@ def delete_limit_rse(args, client, logger, console, spinner):
 
 
 @exception_handler
-def add_scope(args, client, logger, console, spinner):
+def add_scope(args, client: "Client", logger, console, spinner):
     """
     %(prog)s add [options] <field1=value1 field2=value2 ...>
 
@@ -757,7 +761,7 @@ def add_scope(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_scopes(args, client, logger, console, spinner):
+def list_scopes(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
@@ -785,7 +789,7 @@ def list_scopes(args, client, logger, console, spinner):
 
 
 @exception_handler
-def get_config(args, client, logger, console, spinner):
+def get_config(args, client: "Client", logger, console, spinner):
     """
     %(prog)s get [options] <field1=value1 field2=value2 ...>
 
@@ -812,7 +816,7 @@ def get_config(args, client, logger, console, spinner):
 
 
 @exception_handler
-def set_config_option(args, client, logger, console, spinner):
+def set_config_option(args, client: "Client", logger, console, spinner):
     """
     %(prog)s set [options] <field1=value1 field2=value2 ...>
 
@@ -824,7 +828,7 @@ def set_config_option(args, client, logger, console, spinner):
 
 
 @exception_handler
-def delete_config_option(args, client, logger, console, spinner):
+def delete_config_option(args, client: "Client", logger, console, spinner):
     """
     %(prog)s delete [options] <field1=value1 field2=value2 ...>
 
@@ -838,7 +842,7 @@ def delete_config_option(args, client, logger, console, spinner):
 
 
 @exception_handler
-def add_subscription(args, client, logger, console, spinner):
+def add_subscription(args, client: "Client", logger, console, spinner):
     """
     %(prog)s add [options] name Filter replication_rules
 
@@ -858,7 +862,7 @@ def add_subscription(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_subscriptions(args, client, logger, console, spinner):
+def list_subscriptions(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] [name]
 
@@ -930,7 +934,7 @@ def list_subscriptions(args, client, logger, console, spinner):
 
 
 @exception_handler
-def update_subscription(args, client, logger, console, spinner):
+def update_subscription(args, client: "Client", logger, console, spinner):
     """
     %(prog)s update [options] name filter replication_rules
 
@@ -949,7 +953,7 @@ def update_subscription(args, client, logger, console, spinner):
 
 
 @exception_handler
-def reevaluate_did_for_subscription(args, client, logger, console, spinner):
+def reevaluate_did_for_subscription(args, client: "Client", logger, console, spinner):
     """
     %(prog)s reevaulate [options] dids
 
@@ -963,7 +967,7 @@ def reevaluate_did_for_subscription(args, client, logger, console, spinner):
 
 
 @exception_handler
-def list_account_attributes(args, client, logger, console, spinner):
+def list_account_attributes(args, client: "Client", logger, console, spinner):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
@@ -985,7 +989,7 @@ def list_account_attributes(args, client, logger, console, spinner):
 
 
 @exception_handler
-def add_account_attribute(args, client, logger, console, spinner):
+def add_account_attribute(args, client: "Client", logger, console, spinner):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
@@ -997,7 +1001,7 @@ def add_account_attribute(args, client, logger, console, spinner):
 
 
 @exception_handler
-def delete_account_attribute(args, client, logger, console, spinner):
+def delete_account_attribute(args, client: "Client", logger, console, spinner):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
@@ -1009,7 +1013,7 @@ def delete_account_attribute(args, client, logger, console, spinner):
 
 
 @exception_handler
-def quarantine_replicas(args, client, logger, console, spinner):
+def quarantine_replicas(args, client: "Client", logger, console, spinner):
     """
     %(prog)s quarantine --rse <rse> (--paths <file with replica paths>|<path> ...)
     Quarantine replicas
@@ -1037,7 +1041,7 @@ def quarantine_replicas(args, client, logger, console, spinner):
     return SUCCESS
 
 
-def __declare_bad_file_replicas_by_lfns(args: object, client) -> object:
+def __declare_bad_file_replicas_by_lfns(args: object, client: "Client") -> object:
     """
     Declare a list of bad replicas using RSE name, scope and list of LFNs.
     """
@@ -1052,7 +1056,7 @@ def __declare_bad_file_replicas_by_lfns(args: object, client) -> object:
     # send requests in chunks
     chunk_size = 10000
 
-    def do_declare(client, lst, reason):
+    def do_declare(client: "Client", lst, reason):
         non_declared = client.declare_bad_file_replicas(lst, reason)
         for rse, undeclared in non_declared.items():
             for r in undeclared:
@@ -1071,7 +1075,7 @@ def __declare_bad_file_replicas_by_lfns(args: object, client) -> object:
 
 
 @exception_handler
-def declare_bad_file_replicas(args, client, logger, console, spinner):
+def declare_bad_file_replicas(args, client: "Client", logger, console, spinner):
     """
 
     Declare replicas as bad.
@@ -1160,7 +1164,7 @@ def declare_bad_file_replicas(args, client, logger, console, spinner):
 
 
 @exception_handler
-def declare_temporary_unavailable_replicas(args, client, logger, console, spinner):
+def declare_temporary_unavailable_replicas(args, client: "Client", logger, console, spinner):
     """
     %(prog)s show [options] <field1=value1 field2=value2 ...>
 
@@ -1202,7 +1206,7 @@ def declare_temporary_unavailable_replicas(args, client, logger, console, spinne
 
 
 @exception_handler
-def list_pfns(args, client, logger, console, spinner):
+def list_pfns(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
@@ -1254,7 +1258,7 @@ def list_pfns(args, client, logger, console, spinner):
 
 
 @exception_handler
-def import_data(args, client, logger, console, spinner):
+def import_data(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
@@ -1308,7 +1312,7 @@ def import_data(args, client, logger, console, spinner):
 
 
 @exception_handler
-def export_data(args, client, logger, console, spinner):
+def export_data(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
@@ -1346,7 +1350,7 @@ def export_data(args, client, logger, console, spinner):
 
 
 @exception_handler
-def set_tombstone(args, client, logger, console, spinner):
+def set_tombstone(args, client: "Client", logger, console, spinner):
     """
     %(prog)s list [options] <field1=value1 field2=value2 ...>
 
