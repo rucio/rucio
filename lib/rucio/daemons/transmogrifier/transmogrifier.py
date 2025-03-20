@@ -124,7 +124,7 @@ def __split_rule_select_rses(
     weight: int,
     rse_expression: str,
     copies: int,
-    blocklisted_rse_id: list,
+    blocklisted_rse_ids: list,
     logger: LoggerFunction,
 ) -> tuple[list, bool, bool]:
     """
@@ -138,7 +138,7 @@ def __split_rule_select_rses(
     :param weight: The weight of the rule.
     :param rse_expression: The RSE expression of the rule.
     :param copies: The number of copies.
-    :param blocklisted_rse_id: The list of blocklisted_rse_id.
+    :param blocklisted_rse_ids: The list of blocklisted rse_ids.
     :param logger: The logger.
     :return: A tuple with list selected_rses, and 2 booleans create_rule, wont_reevaluate.
     """
@@ -172,7 +172,7 @@ def __split_rule_select_rses(
                 copies=copies,
                 size=0,
                 preferred_rses=preferred_rses,
-                blocklist=blocklisted_rse_id,
+                blocklist=blocklisted_rse_ids,
             )
             wont_reevaluate = True
             break
@@ -184,26 +184,22 @@ def __split_rule_select_rses(
         ) as error:
             logger(
                 logging.WARNING,
-                'Problem getting RSEs for subscription "%s" for account %s : %s. %s'
-                % (
-                    subscription_name,
-                    account,
-                    str(error),
-                    'Try including blocklisted sites' if attempt == 0 else 'Skipping rule creation.'
-                ),
+                'Problem getting RSEs for subscription "%s" for account %s : %s. %s',
+                subscription_name,
+                account,
+                str(error),
+                'Try including blocklisted sites' if attempt == 0 else 'Skipping rule creation.'
             )
             # Now including the blocklisted sites
-            blocklisted_rse_id = []
+            blocklisted_rse_ids = []
             METRICS.counter(name="addnewrule.errortype.{exception}").labels(exception=str(error.__class__.__name__)).inc()
             wont_reevaluate = True
         except Exception as error:
             logger(
                 logging.ERROR,
-                "Problem resolving RSE expression %s : %s"
-                % (
-                    rse_expression,
-                    str(error),
-                )
+                "Problem resolving RSE expression %s : %s",
+                rse_expression,
+                str(error),
             )
     if len(preferred_rses) - len(preferred_unmatched) >= copies:
         create_rule = False
@@ -242,7 +238,7 @@ def get_subscriptions(logger: LoggerFunction = logging.log) -> list[dict]:
                     break
                 if rule.get("copies") == "*":
                     rule["copies"] = len(list_rses_from_expression)
-                    rule["wild_card"] = True
+                    rule["wildcard"] = True
                     overwrite_rules = True
             if skip_sub:
                 continue
@@ -273,7 +269,7 @@ def get_subscriptions(logger: LoggerFunction = logging.log) -> list[dict]:
             subscriptions.extend(sub_dict[priority])
         logger(logging.INFO, "%i active subscriptions", len(subscriptions))
     except SubscriptionNotFound as error:
-        logger(logging.WARNING, "No subscriptions defined: %s" % (str(error)))
+        logger(logging.WARNING, "No subscriptions defined: %s", (str(error)))
         return []
     except TypeError as error:
         logger(
@@ -308,7 +304,7 @@ def __is_matching_subscription(
     try:
         filter_string = loads(subscription["filter"])
     except ValueError as error:
-        logging.error("%s : Subscription will be skipped" % error)
+        logging.error("%s : Subscription will be skipped", error)
         return False
     # Loop over the keys of filter_string for subscription
     for key in filter_string:
@@ -400,7 +396,7 @@ def select_algorithm(
     selected_rses = {}
     for rule_id in rule_ids:
         rule = get_rule(rule_id)
-        logging.debug("In select_algorithm, %s", str(rule))
+        logger(logging.DEBUG, "In select_algorithm, %s", str(rule))
         rse = rule["rse_expression"]
         vo = rule["account"].vo
         if rse_exists(rse, vo=vo):
@@ -440,7 +436,7 @@ def select_algorithm(
                     weight=rule.get("weight"),
                     rse_expression=rse_expression,
                     copies=rule.get('copies'),
-                    blocklisted_rse_id=params['blocklisted_rse_id'],
+                    blocklisted_rse_ids=params['blocklisted_rse_ids'],
                     logger=logger,
                 )
                 dict_selected_rses = {}
@@ -489,7 +485,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     worker_number, total_workers, logger = heartbeat_handler.live()
     stopwatch = Stopwatch()
     block_listed = {rse['rse']: rse["id"] for rse in list_rses({"availability_write": False})}
-    blocklisted_rse_id = list(block_listed.values())
+    blocklisted_rse_ids = list(block_listed.values())
     identifiers = []
     #  List all the active subscriptions
     subscriptions = get_subscriptions(logger=logger)
@@ -537,7 +533,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     #  Get all the rule and subscription parameters
                     rule_dict = __get_rule_dict(rule_dict, subscription)
                     weight = rule_dict.get("weight", None)
-                    ignore_availability = rule_dict.get("ignore_availability", None)
+                    ignore_availability = rule_dict.get("ignore_availability", False)
                     source_replica_expression = rule_dict.get(
                         "source_replica_expression", None
                     )
@@ -554,7 +550,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                         params['rse_expression'] = rule_dict.get("rse_expression")
                         params['subscription_id'] = subscription["id"]
                         params['subscription_name'] = subscription["name"]
-                        params['blocklisted_rse_id'] = blocklisted_rse_id
+                        params['blocklisted_rse_ids'] = blocklisted_rse_ids
                         if rule_dict.get("associated_site_idx", None):
                             params["associated_site_idx"] = rule_dict.get(
                                 "associated_site_idx", None
@@ -586,7 +582,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                             weight=weight,
                             rse_expression=rule_dict.get("rse_expression"),
                             copies=copies,
-                            blocklisted_rse_id=blocklisted_rse_id,
+                            blocklisted_rse_ids=blocklisted_rse_ids,
                             logger=logger,
                         )
                         copies = 1
@@ -608,14 +604,14 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                             weight = selected_rses[rse].get("weight", None)
                         logger(
                             logging.INFO,
-                            "Will insert one rule for %s:%s on %s"
-                            % (did["scope"], did["name"], rse),
+                            "Will insert one rule for %s:%s on %s",
+                            did["scope"], did["name"], rse,
                         )
-                        if rse in block_listed and rule_dict.get("wild_card"):
+                        if rse in block_listed and rule_dict.get("wildcard"):
                             if ignore_availability:
-                                logger(logging.WARNING, "RSE %s is unavailable, but wild_card number of copies is used with ignore_availability option. Creating a rule" % rse)
+                                logger(logging.WARNING, "RSE %s is unavailable, but wildcard number of copies is used with ignore_availability option. Creating a rule", rse)
                             else:
-                                logger(logging.INFO, "RSE %s is unavailable and wild_card number of copies is used. Skipping rule creation" % rse)
+                                logger(logging.INFO, "RSE %s is unavailable and wildcard number of copies is used. Skipping rule creation", rse)
                                 continue
                         try:
                             rule_ids = add_rule(
@@ -671,18 +667,16 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     if not success:
                         logger(
                             logging.ERROR,
-                            "Rule for %s:%s on %s cannot be inserted"
-                            % (
-                                did["scope"],
-                                did["name"],
-                                rule_dict.get("rse_expression"),
-                            ),
+                            "Rule for %s:%s on %s cannot be inserted",
+                            did["scope"],
+                            did["name"],
+                            rule_dict.get("rse_expression"),
                         )
                     else:
                         logger(
                             logging.INFO,
-                            "%s rule(s) inserted in %f seconds"
-                            % (str(nb_rule), time.time() - stime),
+                            "%s rule(s) inserted in %f seconds",
+                            str(nb_rule), time.time() - stime,
                         )
 
         if did_success:
@@ -705,7 +699,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     flag_stopwatch = Stopwatch()
     for identifier in chunks(identifiers, 100):
         set_new_dids(identifier, None)
-    logger(logging.DEBUG, "Time to set the new flag : %f" % flag_stopwatch.elapsed)
+    logger(logging.DEBUG, "Time to set the new flag : %f", flag_stopwatch.elapsed)
 
     stopwatch.stop()
 
@@ -717,9 +711,9 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
         )
     logger(
         logging.INFO,
-        "It took %f seconds to process %i DIDs" % (stopwatch.elapsed, len(identifiers)),
+        "It took %f seconds to process %i DIDs", stopwatch.elapsed, len(identifiers),
     )
-    logger(logging.DEBUG, "DIDs processed : %s" % (str(identifiers)))
+    logger(logging.DEBUG, "DIDs processed : %s", str(identifiers))
     METRICS.counter(name="transmogrifier.job.done").inc(1)
     METRICS.timer("job.duration").observe(stopwatch.elapsed)
     must_sleep = True
