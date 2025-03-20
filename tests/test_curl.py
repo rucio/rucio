@@ -18,7 +18,7 @@ import os
 import pytest
 
 from rucio.common.config import config_get, config_get_bool
-from rucio.tests.common import account_name_generator, execute, get_long_vo, rse_name_generator
+from rucio.tests.common import account_name_generator, execute, get_long_vo, rse_name_generator, skip_outside_gh_actions
 
 
 class TestCurlRucio:
@@ -54,6 +54,7 @@ class TestCurlRucio:
         print(out, )
         assert 'X-Rucio-Auth-Token' in out
 
+    @skip_outside_gh_actions
     def test_get_auth_x509(self):
         """AUTH (CURL): Test auth token retrieval with via x509"""
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" %s -cert %s --key %s -X GET %s/auth/x509' % (self.cacert, self.vo_header, self.usercert, self.userkey, self.auth_host)
@@ -86,6 +87,7 @@ class TestCurlRucio:
         print(out, )
         # assert 'X-Rucio-Auth-Token' in out
 
+    @skip_outside_gh_actions
     def test_get_auth_validate(self):
         """AUTH (CURL): Test if token is valid"""
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" %s --cert %s --key %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.vo_header, self.usercert, self.userkey, self.auth_host)
@@ -98,6 +100,7 @@ class TestCurlRucio:
         print(out)
         assert 'datetime.datetime' in out
 
+    @skip_outside_gh_actions
     @pytest.mark.dirty
     def test_post_account(self):
         """ACCOUNT (CURL): add account"""
@@ -111,6 +114,7 @@ class TestCurlRucio:
         print(out)
         assert '201 Created'.lower() in out.lower()
 
+    @skip_outside_gh_actions
     def test_get_accounts_whoami(self):
         """ACCOUNT (CURL): Test whoami method"""
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" %s --cert %s --key %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.vo_header, self.usercert, self.userkey, self.auth_host)
@@ -124,6 +128,7 @@ class TestCurlRucio:
         print(out)
         assert '303 See Other'.lower() in out.lower()
 
+    @skip_outside_gh_actions
     @pytest.mark.dirty
     def test_post_rse(self):
         """RSE (CURL): add RSE"""

@@ -45,6 +45,8 @@ skip_multivo = pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] 
                                   reason="does not work for multiVO")
 skip_non_belleii = pytest.mark.skipif(not ('POLICY' in os.environ and os.environ['POLICY'] == 'belleii'),
                                       reason="specific belleii tests")
+skip_outside_gh_actions = pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") != "true",
+                                             reason="Skipping tests outside GitHub Actions")
 
 
 def is_influxdb_available() -> bool:
