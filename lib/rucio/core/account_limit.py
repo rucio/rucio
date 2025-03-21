@@ -18,7 +18,8 @@ from sqlalchemy.exc import NoResultFound
 from sqlalchemy.sql import func, literal, select
 from sqlalchemy.sql.expression import and_, or_
 
-from rucio.core.account import get_all_rse_usages_per_account
+from rucio.common.exception import AccountNotFound
+from rucio.core.account import account_exists, get_all_rse_usages_per_account
 from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -91,26 +92,35 @@ def get_rse_account_usage(rse_id: str, *, session: "Session") -> list["RSEAccoun
 
 
 @read_session
-def get_global_account_limits(account: Optional["InternalAccount"] = None, *, session: "Session") -> dict[str, "RSEResolvedGlobalAccountLimitDict"]:
+def get_global_account_limit(account: Optional["InternalAccount"] = None, rse_expression: Optional[str] = None, *,
+                             session: "Session") -> Union[int, float, dict[str, "RSEResolvedGlobalAccountLimitDict"], None]:
     """
-    Returns the global account limits for the account.
+    Returns the global account limit for the given account and RSE expression, or all limits if no specific expression is provided.
 
-    :param account:  Account to check the limit for.
-    :param session:  Database session in use.
-    :return:         Dict {'MOCK': {'resolved_rses': ['MOCK'], 'limit': 10, 'resolved_rse_ids': [123]}}.
+    :param account:         Account to check the limit for (optional for fetching all accounts).
+    :param rse_expression:  Specific RSE expression to check the limit for (optional for fetching all limits).
+    :param session:         Database session in use.
+    :return:                Limit in Bytes for a single RSE expression, or a dictionary of all limits {'MOCK': {'resolved_rses': ['MOCK'], 'limit': 10, 'resolved_rse_ids': [123]}}.
     """
+    if account and not account_exists(account, session=session):
+        raise AccountNotFound(f"Account {account} does not exist")
+    if rse_expression:
+        # Fetch limit for a single RSE expression
+        try:
+            stmt = select(models.AccountGlobalLimit).where(
+                and_(models.AccountGlobalLimit.account == account,
+                     models.AccountGlobalLimit.rse_expression == rse_expression)
+            )
+            global_account_limit = session.execute(stmt).scalar_one()
+            return float("inf") if global_account_limit.bytes == -1 else global_account_limit.bytes
+        except NoResultFound:
+            return None
+
+    # Fetch all global limits for the account (or all accounts if no account specified)
+    stmt = select(models.AccountGlobalLimit)
     if account:
-        stmt = select(
-            models.AccountGlobalLimit
-        ).where(
-            models.AccountGlobalLimit.account == account
-        )
-        global_account_limits = session.execute(stmt).scalars().all()
-    else:
-        stmt = select(
-            models.AccountGlobalLimit
-        )
-        global_account_limits = session.execute(stmt).scalars().all()
+        stmt = stmt.where(models.AccountGlobalLimit.account == account)
+    global_account_limits = session.execute(stmt).scalars().all()
 
     resolved_global_account_limits = {}
     for limit in global_account_limits:
@@ -118,9 +128,7 @@ def get_global_account_limits(account: Optional["InternalAccount"] = None, *, se
             resolved_rses = parse_expression(limit['rse_expression'], filter_={'vo': account.vo}, session=session)
         else:
             resolved_rses = parse_expression(limit['rse_expression'], session=session)
-        limit_in_bytes = limit['bytes']
-        if limit_in_bytes == -1:
-            limit_in_bytes = float('inf')
+        limit_in_bytes = float('inf') if limit['bytes'] == -1 else limit['bytes']
         resolved_global_account_limits[limit['rse_expression']] = {
             'resolved_rses': [resolved_rse['rse'] for resolved_rse in resolved_rses],
             'resolved_rse_ids': [resolved_rse['id'] for resolved_rse in resolved_rses],
@@ -130,70 +138,33 @@ def get_global_account_limits(account: Optional["InternalAccount"] = None, *, se
 
 
 @read_session
-def get_global_account_limit(account: "InternalAccount", rse_expression: str, *, session: "Session") -> Union[int, float, None]:
+def get_local_account_limit(account: "InternalAccount", rse_ids: Union[str, list[str], None] = None, *, session: "Session") -> Union[int, float, dict[str, int], None]:
     """
-    Returns the global account limit for the account on the rse expression.
-
-    :param account:         Account to check the limit for.
-    :param rse_expression:  RSE expression to check the limit for.
-    :param session:         Database session in use.
-    :return:                Limit in Bytes.
-    """
-    try:
-        stmt = select(
-            models.AccountGlobalLimit
-        ).where(
-            and_(models.AccountGlobalLimit.account == account,
-                 models.AccountGlobalLimit.rse_expression == rse_expression)
-        )
-        global_account_limit = session.execute(stmt).scalar_one()
-        if global_account_limit.bytes == -1:
-            return float("inf")
-        else:
-            return global_account_limit.bytes
-    except NoResultFound:
-        return None
-
-
-@read_session
-def get_local_account_limit(account: "InternalAccount", rse_id: str, *, session: "Session") -> Union[int, float, None]:
-    """
-    Returns the account limit for the account on the rse.
+    Returns the local account limit for a given RSE or list of RSEs.
 
     :param account:  Account to check the limit for.
-    :param rse_id:   RSE id to check the limit for.
+    :param rse_ids:  Single RSE id or a list of RSE ids to check the limit for.
     :param session:  Database session in use.
-    :return:         Limit in Bytes.
+    :return:         Limit in Bytes (int/float) for a single RSE or
+                     Dictionary {'rse_id': bytes, ...} for multiple RSEs.
     """
-    try:
-        stmt = select(
-            models.AccountLimit
-        ).where(
-            and_(models.AccountLimit.account == account,
-                 models.AccountLimit.rse_id == rse_id)
-        )
-        account_limit = session.execute(stmt).scalar_one()
-        if account_limit.bytes == -1:
-            return float("inf")
-        else:
-            return account_limit.bytes
-    except NoResultFound:
-        return None
+    if not account_exists(account, session=session):
+        raise AccountNotFound(f"Account {account} does not exist")
+    if isinstance(rse_ids, str):  # Single RSE case
+        try:
+            stmt = select(models.AccountLimit).where(
+                and_(models.AccountLimit.account == account, models.AccountLimit.rse_id == rse_ids)
+            )
+            account_limit = session.execute(stmt).scalar_one()
+            return float("inf") if account_limit.bytes == -1 else account_limit.bytes
+        except NoResultFound:
+            return None
 
-
-@read_session
-def get_local_account_limits(account: "InternalAccount", rse_ids: Optional[list[str]] = None, *, session: "Session") -> dict[str, int]:
-    """
-    Returns the account limits for the account on the list of rses.
-
-    :param account:  Account to check the limit for.
-    :param rse_ids:  List of RSE ids to check the limit for.
-    :param session:  Database session in use.
-    :return:         Dictionary {'rse_id': bytes, ...}.
-    """
-
+    # Multiple RSE case or no RSE specified
     account_limits = {}
-    if rse_ids:
+
+    # If rse_ids is a list of RSEs
+    if isinstance(rse_ids, list) and rse_ids:
         rse_id_clauses = []
         for rse_id in rse_ids:
             rse_id_clauses.append(and_(models.AccountLimit.rse_id == rse_id,
@@ -339,14 +310,14 @@ def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = 
     )
     if not rse_id:
         # All RSESs
-        limits = get_local_account_limits(account=account, session=session)
+        limits = get_local_account_limit(account=account, rse_ids=None, session=session)
         counters = {c.rse_id: c for c in session.execute(stmt).scalars().all()}
     else:
         # One RSE
         stmt.where(
             models.AccountUsage.rse_id == rse_id
         )
-        limits = get_local_account_limits(account=account, rse_ids=[rse_id], session=session)
+        limits = get_local_account_limit(account=account, rse_ids=[rse_id], session=session)
         counters = {c.rse_id: c for c in session.execute(stmt).scalars().all()}
     result_list = []
 
@@ -385,7 +356,7 @@ def get_global_account_usage(account: "InternalAccount", rse_expression: Optiona
     result_list = []
     if not rse_expression:
         # All RSE Expressions
-        limits = get_global_account_limits(account=account, session=session)
+        limits = get_global_account_limit(account=account, session=session)
         all_rse_usages = {usage['rse_id']: (usage['bytes'], usage['files']) for usage in get_all_rse_usages_per_account(account=account, session=session)}
         for rse_expression, limit in limits.items():
             usage = 0
