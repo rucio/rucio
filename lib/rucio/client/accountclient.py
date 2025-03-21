@@ -256,6 +256,7 @@ class AccountClient(BaseClient):
         :param locality:       The scope of the account limit. 'local' or 'global'.
         """
 
+        self.get_account(account)
         if locality == 'local':
             return self.get_local_account_limit(account, rse_expression)
         elif locality == 'global':
