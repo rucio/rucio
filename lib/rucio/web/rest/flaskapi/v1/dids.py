@@ -475,6 +475,102 @@ class Attachments(ErrorHandlingMethodView):
         return 'Created', 201
 
 
+class List(ErrorHandlingMethodView):
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def get(self, scope):
+        """
+        ---
+        summary: List dids with details
+        description: Get a list of data identifiers with their details in a single request.
+        tags:
+          - Data identifiers
+        parameters:
+        - name: scope
+          in: path
+          description: The scope of the dids.
+          schema:
+            type: string
+          style: simple
+        - name: dynamic_depth
+          in: query
+          description: The DID type at which to stop the dynamic length/size estimation
+          schema:
+            type: string
+            enum: ["FILE", "DATASET"]
+        - name: dynamic
+          in: query
+          description: Same as dynamic_depth = "FILE"
+          deprecated: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: The did type to search for.
+          schema:
+            type: string
+            enum: ['all', 'collection', 'container', 'dataset', 'file']
+            default: 'collection'
+        - name: limit
+          in: query
+          description: The maximum number of dids returned.
+          schema:
+            type: integer
+        - name: name
+          in: query
+          description: Name or pattern of a did.
+          schema:
+            type: string
+        - name: recursive
+          in: query
+          description: Recursively list children.
+          schema:
+            type: boolean
+            default: false
+        responses:
+          200:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  description: A list of DIDs with details.
+                  type: array
+                  items:
+                    type: object
+          401:
+            description: Invalid Auth Token
+          404:
+            description: Scope not found or Invalid key in filter
+          409:
+            description: Wrong did type
+        """
+        try:
+            filters = {arg: value for arg, value in request.args.items() if arg not in ['type', 'limit', 'recursive']}
+            did_type = request.args.get('type', default='collection')
+            limit = request.args.get('limit', default=None, type=int)
+            recursive = request.args.get('recursive', type='True'.__eq__, default=False)
+
+            def generate(vo):
+                dids_list = list_dids(scope=scope, filters=filters, did_type=did_type,
+                                      limit=limit, recursive=recursive, vo=vo)
+
+                for did_name in dids_list:
+                    try:
+                        did_details = get_did(scope=scope, name=did_name, vo=vo)
+                        yield render_json(**did_details) + '\n'
+                    except (ScopeNotFound, DataIdentifierNotFound):
+                        continue
+
+            return try_stream(generate(vo=request.environ.get('vo', 'def')))
+
+        except ValueError as error:
+            return generate_http_error_flask(400, error)
+        except UnsupportedOperation as error:
+            return generate_http_error_flask(409, error)
+        except KeyNotFound as error:
+            return generate_http_error_flask(404, error)
+
+
 class DIDs(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -2289,6 +2385,8 @@ def blueprint():
     bp.add_url_rule('/<guid>/guid', view_func=guid_lookup_view, methods=['get', ])
     search_view = Search.as_view('search')
     bp.add_url_rule('/<scope>/dids/search', view_func=search_view, methods=['get', ])
+    dids_list_view = List.as_view('list')
+    bp.add_url_rule('/<scope>/dids/list', view_func=dids_list_view, methods=['get', ])
     dids_view = DIDs.as_view('dids')
     bp.add_url_rule('/<path:scope_name>/status', view_func=dids_view, methods=['put', 'get'])
     files_view = Files.as_view('files')
