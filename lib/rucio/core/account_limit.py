@@ -18,7 +18,8 @@ from sqlalchemy.exc import NoResultFound
 from sqlalchemy.sql import func, literal, select
 from sqlalchemy.sql.expression import and_, or_
 
-from rucio.core.account import get_all_rse_usages_per_account
+from rucio.common.exception import AccountNotFound
+from rucio.core.account import account_exists, get_all_rse_usages_per_account
 from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
@@ -101,6 +102,8 @@ def get_global_account_limit(account: Optional["InternalAccount"] = None, rse_ex
     :param session:         Database session in use.
     :return:                Limit in Bytes for a single RSE expression, or a dictionary of all limits {'MOCK': {'resolved_rses': ['MOCK'], 'limit': 10, 'resolved_rse_ids': [123]}}.
     """
+    if account and not account_exists(account, session=session):
+        raise AccountNotFound(f"Account {account} does not exist")
     if rse_expression:
         # Fetch limit for a single RSE expression
         try:
@@ -145,6 +148,8 @@ def get_local_account_limit(account: "InternalAccount", rse_ids: Union[str, list
     :return:         Limit in Bytes (int/float) for a single RSE or
                      Dictionary {'rse_id': bytes, ...} for multiple RSEs.
     """
+    if not account_exists(account, session=session):
+        raise AccountNotFound(f"Account {account} does not exist")
     if isinstance(rse_ids, str):  # Single RSE case
         try:
             stmt = select(models.AccountLimit).where(
