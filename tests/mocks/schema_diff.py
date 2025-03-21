@@ -20,3 +20,10 @@ SCOPE = {"description": "Scope name",
          "type": "string",
          "maxLength": SCOPE_LENGTH,
          "pattern": "^[a-zA-Z_\\-.0-9]+$"}
+
+ACCOUNT = {"description": "Account name",
+           "type": "string",
+           "maxLength": 1000,
+           "pattern": "^[a-z0-9-_]+$"}
+
+SCHEMAS = {'account': ACCOUNT}

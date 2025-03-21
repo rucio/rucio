@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from jsonschema import ValidationError, validate
-
-from rucio.common.exception import InvalidObject
 
 ACCOUNT_LENGTH = 29
 
@@ -396,17 +393,3 @@ SCHEMAS = {'account': ACCOUNT,
            'account_attribute': ACCOUNT_ATTRIBUTE,
            'import': IMPORT,
            'vo': VO}
-
-
-def validate_schema(name, obj):
-    """
-    Validate object against json schema
-
-    :param name: The json schema name.
-    :param obj: The object to validate.
-    """
-    try:
-        if obj:
-            validate(obj, SCHEMAS.get(name, {}))
-    except ValidationError as error:  # NOQA: F841
-        raise InvalidObject(f'Problem validating {name}: {error}')
