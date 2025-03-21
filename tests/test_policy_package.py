@@ -56,5 +56,11 @@ class TestPolicyPackage:
         # check that omitted value falls back to generic module
         assert rucio.common.schema.get_schema_value('NAME_LENGTH') == 250
 
+        # check that schemas defined in our module override generic
+        rucio.common.schema.validate_schema('account', 'this-account-name-is-too-long-for-the-generic-schema-but-should-validate-against-the-mock-one')
+
+        # check that schemas not defined in our module fall back to generic
+        rucio.common.schema.validate_schema('r_name', 'name_to_validate')
+
         # restore original schema module
         rucio.common.schema.schema_modules['def'] = old_module
