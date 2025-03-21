@@ -17,8 +17,8 @@ import argparse
 import sys
 from typing import TYPE_CHECKING, Optional
 
-from rucio.client.commands.bin_legacy.rucio import main as main_legacy
-from rucio.client.commands.command import main
+from rucio.cli.bin_legacy.rucio import main as main_legacy
+from rucio.cli.command import main
 from rucio.common.utils import setup_logger
 
 if TYPE_CHECKING:
@@ -83,7 +83,7 @@ def map_legacy_command() -> Optional[list[str]]:
             "list-rules": ["rule", "list"],
             "list-rules-history": ["rule", "history"],
             "update-rule": ["rule", "update"],
-            "move-rule": ["rule", "update", "--move"],
+            "move-rule": ["rule", "move"],
             "list-rses": ["rse", "list"],
             "list-suspicious-replicas": ["replica", "state", "suspicious"],
             "list-rse-attributes": ["rse", "attribute", "list"],
@@ -115,7 +115,7 @@ if __name__ == "__main__":
         main_legacy()
 
     elif (any(arg in commands for arg in sys.argv)) or args.help or args.version:
-        main()
+        main()  # pylint: disable=E1120
 
     else:
         make_warning(logger)
@@ -130,4 +130,4 @@ if __name__ == "__main__":
             else:
                 sys.argv = ["rucio", "-h"]
 
-            main()
+            main()  # pylint: disable=E1120
