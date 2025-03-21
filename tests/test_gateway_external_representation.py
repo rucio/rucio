@@ -145,7 +145,7 @@ class TestGatewayExternalRepresentation:
         assert rse1 in out
         assert rse1_id not in out
 
-        out = gateway_acc_lim.get_global_account_limits(account_name, vo=vo)
+        out = gateway_acc_lim.get_global_account_limit(account_name, vo=vo)
         assert rse_expr in out
         if vo2:
             assert 'vo={}&({})'.format(vo, rse_expr) not in out
