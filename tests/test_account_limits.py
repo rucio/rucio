@@ -49,14 +49,14 @@ class TestCoreAccountLimits:
         rse1, rse1_id = rse_factory.make_mock_rse()
         limit = 10
         account_limit.set_global_account_limit(account, rse1, limit, session=db_session)
-        results = account_limit.get_global_account_limits(account=account, session=db_session)
+        results = account_limit.get_global_account_limit(account=account, session=db_session)
         assert len(results) == 1
         assert rse1 in results
         assert results[rse1]['resolved_rses'] == [rse1]
         assert results[rse1]['resolved_rse_ids'] == [rse1_id]
         assert results[rse1]['limit'] == limit
         account_limit.delete_global_account_limit(account, rse1, session=db_session)
-        results = account_limit.get_global_account_limits(account=account, session=db_session)
+        results = account_limit.get_global_account_limit(account=account, session=db_session)
         assert len(results) == 0
 
     def test_get_global_account_usage(self, account, rse_factory, db_session):

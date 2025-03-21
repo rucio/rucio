@@ -83,55 +83,38 @@ def get_local_account_limit(
 
 
 @read_session
-def get_global_account_limits(
-    account: str,
-    vo: str = 'def',
-    *,
-    session: "Session"
-) -> dict[str, RSEResolvedGlobalAccountLimitDict]:
-    """
-    Lists the limitation names/values for the specified account name.
-
-    REST API: http://<host>:<port>/rucio/account/<account>/limits
-
-    :param account:     The account name.
-    :param vo:          The VO to act on.
-    :param session:     The database session in use.
-
-    :returns: The account limits.
-    """
-    if account:
-        internal_account = InternalAccount(account, vo=vo)
-    else:
-        internal_account = InternalAccount('*', vo=vo)
-
-    return account_limit_core.get_global_account_limits(account=internal_account, session=session)
-
-
-@read_session
 def get_global_account_limit(
-    account: str,
-    rse_expression: str,
-    vo: str = 'def',
-    *,
-    session: "Session"
-) -> dict[str, dict[str, RSEResolvedGlobalAccountLimitDict]]:
+        account: str,
+        rse_expression: Optional[str] = None,
+        vo: str = 'def',
+        *,
+        session: "Session"
+) -> Union[dict[str, RSEResolvedGlobalAccountLimitDict], dict[str, dict[str, RSEResolvedGlobalAccountLimitDict]]]:
     """
-    Lists the limitation names/values for the specified account name and rse expression.
+    Lists the global account limitation names/values for the specified account.
+    If an RSE expression is provided, fetches the limit for that expression.
+    Otherwise, fetches all global limits for the account.
 
     REST API: http://<host>:<port>/rucio/account/<account>/limits
 
     :param account:         The account name.
-    :param rse_expression:  The rse expression.
+    :param rse_expression:  The RSE expression (optional for fetching all limits).
     :param vo:              The VO to act on.
     :param session:         The database session in use.
 
-    :returns: The account limit.
+    :returns:
+        - If `rse_expression` is provided: `{rse_expression: {...}}`
+        - If `rse_expression` is not provided: `{...}` (dictionary of all limits).
     """
 
     internal_account = InternalAccount(account, vo=vo)
 
-    return {rse_expression: account_limit_core.get_global_account_limit(account=internal_account, rse_expression=rse_expression, session=session)}
+    if rse_expression:
+        return {rse_expression: account_limit_core.get_global_account_limit(
+            account=internal_account, rse_expression=rse_expression, session=session
+        )}
+
+    return account_limit_core.get_global_account_limit(account=internal_account, session=session)
 
 
 @transactional_session

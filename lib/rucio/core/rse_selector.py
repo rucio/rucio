@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Optional
 
 from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, InvalidRuleWeight, RSEOverQuota
 from rucio.core.account import get_all_rse_usages_per_account, get_usage, has_account_attribute
-from rucio.core.account_limit import get_global_account_limits, get_local_account_limit
+from rucio.core.account_limit import get_global_account_limit, get_local_account_limit
 from rucio.core.rse import get_rse_limits, has_rse_attribute, list_rse_attributes
 from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rse_expression_parser import parse_expression
@@ -86,7 +86,7 @@ class RSESelector:
                 rse['space_left'] = float('inf')
                 rses_with_enough_quota.append(rse)
         else:
-            global_quota_limit = get_global_account_limits(account=account, session=session)
+            global_quota_limit = get_global_account_limit(account=account, session=session)
             all_rse_usages = {usage['rse_id']: usage['bytes'] for usage in get_all_rse_usages_per_account(account=account, session=session)}
             for rse in self.rses:
                 if rse['mock_rse']:
