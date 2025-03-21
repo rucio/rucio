@@ -697,7 +697,7 @@ class TokenOIDC(ErrorHandlingMethodView):
             # response.set_cookie('rucio-auth-token-created-at', value=str(time.time()))
             return response
         else:
-            return '', 400, headers
+            return generate_http_error_flask(status_code=400, exc="BadRequest", exc_msg="", headers=headers)
 
 
 class RefreshOIDC(ErrorHandlingMethodView):
@@ -1444,7 +1444,7 @@ class SAML(ErrorHandlingMethodView):
         headers.set('Pragma', 'no-cache')
 
         if not EXTRA_MODULES['onelogin']:
-            return "SAML not configured on the server side.", 400, headers
+            return generate_http_error_flask(status_code=400, exc="ConfigurationError", exc_msg="SAML not configured on the server side.", headers=headers)
 
         saml_nameid = request.cookies.get('saml-nameid', default=None)
         vo = extract_vo(request.headers)
