@@ -367,7 +367,7 @@ ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
                      "type": "string",
                      "pattern": r'^[a-zA-Z0-9-_\\/\\.]{1,30}$'}
 
-SCOPE_NAME_REGEXP = '/(.*)/(.*)'
+SCOPE_NAME_REGEXP = r"/([^/]+)/(.*)"
 
 DISTANCE = {"description": "RSE distance",
             "type": "object",
