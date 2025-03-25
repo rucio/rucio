@@ -121,7 +121,7 @@ services:
     volumes:
       - ./oracle_setup.sh:/container-entrypoint-initdb.d/oracle_setup.sh:Z
   fts:
-    image: docker.io/rucio/fts
+    image: docker.io/rucio/test-fts
     profiles:
       - storage
     volumes:
@@ -143,7 +143,7 @@ services:
       - MYSQL_ROOT_PASSWORD=fts
       - MYSQL_DATABASE=fts
   xrd1:
-    image: docker.io/rucio/xrootd
+    image: docker.io/rucio/test-xrootd
     profiles:
       - storage
     environment:
@@ -157,7 +157,7 @@ services:
         soft: 10240
         hard: 10240
   xrd2:
-    image: docker.io/rucio/xrootd
+    image: docker.io/rucio/test-xrootd
     profiles:
       - storage
     environment:
@@ -171,7 +171,7 @@ services:
         soft: 10240
         hard: 10240
   xrd3:
-    image: docker.io/rucio/xrootd
+    image: docker.io/rucio/test-xrootd
     profiles:
       - storage
     environment:
@@ -185,7 +185,7 @@ services:
         soft: 10240
         hard: 10240
   xrd4:
-    image: docker.io/rucio/xrootd
+    image: docker.io/rucio/test-xrootd
     profiles:
       - storage
     environment:
@@ -210,7 +210,7 @@ services:
       - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key:Z
     command: ["server", "/data"]
   ssh1:
-    image: docker.io/rucio/ssh
+    image: docker.io/rucio/test-ssh
     profiles:
       - storage
     volumes:
