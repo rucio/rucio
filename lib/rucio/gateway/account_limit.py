@@ -98,7 +98,7 @@ def get_global_account_limit(
     REST API: http://<host>:<port>/rucio/account/<account>/limits
 
     :param account:         The account name.
-    :param rse_expression:  The RSE expression (optional for fetching all limits).
+    :param rse_expression:  The RSE expression (optional; if not provided, all limits will be fetched).
     :param vo:              The VO to act on.
     :param session:         The database session in use.
 
