@@ -79,19 +79,19 @@ class TestCoreAccountLimits:
         """ ACCOUNT_LIMIT (CORE): Set, get and delete local account limits """
         _, rse1_id = rse_factory.make_mock_rse()
         _, rse2_id = rse_factory.make_mock_rse()
-        _, rse3_id = rse_factory.make_mock_rse()
         limit1 = 100
         limit2 = 200
         account_limit.set_local_account_limit(account=account, rse_id=rse1_id, bytes_=limit1, session=db_session)
+        results = account_limit.get_local_account_limit(account=account, rse_ids=[rse1_id], session=db_session)
+        assert len(results) == 1
+        assert results[rse1_id] == limit1
         account_limit.set_local_account_limit(account=account, rse_id=rse2_id, bytes_=limit2, session=db_session)
-        account_limit.set_local_account_limit(account=account, rse_id=rse3_id, bytes_=limit2, session=db_session)
         results = account_limit.get_local_account_limit(account=account, rse_ids=[rse1_id, rse2_id],session=db_session)
         assert len(results) == 2
         assert results[rse1_id] == limit1
         assert results[rse2_id] == limit2
         account_limit.delete_local_account_limit(account=account, rse_id=rse1_id, session=db_session)
         account_limit.delete_local_account_limit(account=account, rse_id=rse2_id, session=db_session)
-        account_limit.delete_local_account_limit(account=account, rse_id=rse3_id, session=db_session)
         results = account_limit.get_local_account_limit(account=account,rse_ids=[rse1_id, rse2_id], session=db_session)
         assert len(results) == 0
 
