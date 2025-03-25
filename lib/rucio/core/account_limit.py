@@ -26,6 +26,8 @@ from rucio.db.sqla import models
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from sqlalchemy.orm import Session
 
     from rucio.common.types import InternalAccount, RSEAccountUsageDict, RSEGlobalAccountUsageDict, RSELocalAccountUsageDict, RSEResolvedGlobalAccountLimitDict
@@ -93,28 +95,32 @@ def get_rse_account_usage(rse_id: str, *, session: "Session") -> list["RSEAccoun
 
 @read_session
 def get_global_account_limit(account: Optional["InternalAccount"] = None, rse_expression: Optional[str] = None, *,
-                             session: "Session") -> Union[int, float, dict[str, "RSEResolvedGlobalAccountLimitDict"], None]:
+                             session: "Session") -> Optional[Union[int, float, dict[str, "RSEResolvedGlobalAccountLimitDict"]]]:
     """
-    Returns the global account limit for the given account and RSE expression, or all limits if no specific expression is provided.
+    Returns the global account limit for the given account and RSE expression.
+    If no RSE expression is provided, returns all limits for the given account.
 
-    :param account:         Account to check the limit for (optional for fetching all accounts).
-    :param rse_expression:  Specific RSE expression to check the limit for (optional for fetching all limits).
+    Note: The account parameter must always be specified when fetching global account limit for an account.
+
+    :param account:         Account to check the limit for (required unless fetching all limits for all accounts is supported).
+    :param rse_expression:  Specific RSE expression to check the limit for (optional).
     :param session:         Database session in use.
     :return:                Limit in Bytes for a single RSE expression, or a dictionary of all limits {'MOCK': {'resolved_rses': ['MOCK'], 'limit': 10, 'resolved_rse_ids': [123]}}.
     """
-    if account and not account_exists(account, session=session):
-        raise AccountNotFound(f"Account {account} does not exist")
-    if rse_expression:
-        # Fetch limit for a single RSE expression
-        try:
-            stmt = select(models.AccountGlobalLimit).where(
-                and_(models.AccountGlobalLimit.account == account,
-                     models.AccountGlobalLimit.rse_expression == rse_expression)
-            )
-            global_account_limit = session.execute(stmt).scalar_one()
-            return float("inf") if global_account_limit.bytes == -1 else global_account_limit.bytes
-        except NoResultFound:
-            return None
+    if account:
+        if not account_exists(account, session=session):
+            raise AccountNotFound(f"Account {account} does not exist")
+        if rse_expression:
+            # Fetch limit for a single RSE expression
+            try:
+                stmt = select(models.AccountGlobalLimit).where(
+                    and_(models.AccountGlobalLimit.account == account,
+                         models.AccountGlobalLimit.rse_expression == rse_expression)
+                )
+                global_account_limit = session.execute(stmt).scalar_one()
+                return float("inf") if global_account_limit.bytes == -1 else global_account_limit.bytes
+            except NoResultFound:
+                return None
 
     # Fetch all global limits for the account (or all accounts if no account specified)
     stmt = select(models.AccountGlobalLimit)
@@ -138,12 +144,12 @@ def get_global_account_limit(account: Optional["InternalAccount"] = None, rse_ex
 
 
 @read_session
-def get_local_account_limit(account: "InternalAccount", rse_ids: Union[str, list[str], None] = None, *, session: "Session") -> Union[int, float, dict[str, int], None]:
+def get_local_account_limit(account: "InternalAccount", rse_ids: Optional[Union[str, "Iterable[str]"]] = None, *, session: "Session") -> Optional[Union[int, float, dict[str, int]]]:
     """
     Returns the local account limit for a given RSE or list of RSEs.
 
     :param account:  Account to check the limit for.
-    :param rse_ids:  Single RSE id or a list of RSE ids to check the limit for.
+    :param rse_ids:  Single RSE id or an iterable of RSE ids to check the limit for.
     :param session:  Database session in use.
     :return:         Limit in Bytes (int/float) for a single RSE or
                      Dictionary {'rse_id': bytes, ...} for multiple RSEs.
@@ -164,7 +170,7 @@ def get_local_account_limit(account: "InternalAccount", rse_ids: Union[str, list
     account_limits = {}
 
     # If rse_ids is a list of RSEs
-    if isinstance(rse_ids, list) and rse_ids:
+    if rse_ids:
         rse_id_clauses = []
         for rse_id in rse_ids:
             rse_id_clauses.append(and_(models.AccountLimit.rse_id == rse_id,
@@ -310,7 +316,7 @@ def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = 
     )
     if not rse_id:
         # All RSESs
-        limits = get_local_account_limit(account=account, rse_ids=None, session=session)
+        limits = get_local_account_limit(account=account, session=session)
         counters = {c.rse_id: c for c in session.execute(stmt).scalars().all()}
     else:
         # One RSE
