@@ -657,11 +657,16 @@ def test_rule(rucio_client, mock_scope):
     assert "ERROR" not in err
     rule_id = out.strip("\n")
 
-    cmd = f"rucio rule list --did {scope}:{name}"
+    cmd = f"rucio rule list {scope}:{name}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert rule_id in out
+
+    cmd = f"rucio rule show {rule_id}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
 
     move_rse = "MOCK2"
     cmd = f"rucio rule move {rule_id} --rses {move_rse}"
