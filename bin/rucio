@@ -17,8 +17,9 @@ import argparse
 import sys
 from typing import TYPE_CHECKING, Optional
 
+from rucio.cli.bin_legacy.rucio import get_parser
 from rucio.cli.bin_legacy.rucio import main as main_legacy
-from rucio.cli.command import main
+from rucio.cli.command import get_help_menu, main
 from rucio.common.utils import setup_logger
 
 if TYPE_CHECKING:
@@ -118,16 +119,15 @@ if __name__ == "__main__":
         main()  # pylint: disable=E1120
 
     else:
-        make_warning(logger)
         try:
-            main_legacy()
+            get_parser().parse_args()
         # Make a custom warning - show the new help menu when invalid commands are called.
         except argparse.ArgumentError:
-            logger.error("Invalid argument(s) - %s " % sys.argv[1:])
-            command = map_legacy_command()
-            if command is not None:
-                sys.argv = ["rucio"] + command + ["-h"]
-            else:
-                sys.argv = ["rucio", "-h"]
+            org_arguments = sys.argv[1:]
+            logger.error("Invalid argument(s) - %s " % org_arguments)
 
-            main()  # pylint: disable=E1120
+            get_help_menu()
+            sys.exit(2)
+
+        make_warning(logger)
+        main_legacy()
