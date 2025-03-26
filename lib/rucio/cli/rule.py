@@ -144,15 +144,14 @@ def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, accou
 
 
 @rule.command("list")
-@click.option("--did")
-@click.option("--id", "rule_id", help="List by rule id", hidden=True)  # TODO: Remove. This doesn't work and does the same thing as show
+@click.argument("did")
 @click.option("--traverse", is_flag=True, default=False, help="Traverse the did tree and search for rules affecting this did")
 @click.option("--csv", is_flag=True, default=False, help="Comma Separated Value output")
 @click.option("--file", help="Filter by file")
 @click.option("--account", help="Filter by account")
 @click.option("--subscription", help="Filter by subscription name")
 @click.pass_context
-def list_(ctx, did, rule_id, traverse, csv, file, account, subscription):
+def list_(ctx, did, traverse, csv, file, account, subscription):
     """List all rules impacting a given DID"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did, "rule_id": rule_id, "traverse": traverse, "csv": csv, "file": file, "subscription": (account if account is not None else ctx.obj.client.account, subscription)})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did, "rule_id": None, "traverse": traverse, "csv": csv, "file": file, "subscription": (account if account is not None else ctx.obj.client.account, subscription)})
     list_rules(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
