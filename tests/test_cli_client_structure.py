@@ -706,6 +706,12 @@ def test_rule(rucio_client, mock_scope):
     assert "ERROR" not in err
     assert rucio_client.get_replication_rule(rule_id)["expires_at"] is None
 
+    cmd = f"rucio rule update {rule_id} --suspend"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert rucio_client.get_replication_rule(rule_id)["state"] == "SUSPENDED"
+
     # Do one without a child rule so i can delete it
     new_name = generate_uuid()
     rucio_client.add_replica(mock_rse, scope, new_name, 4, "deadbeef")
