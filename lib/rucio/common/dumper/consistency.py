@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 import tempfile
+from typing import cast
 
 from rucio.common import dumper
 from rucio.common.dumper import DUMPS_CACHE_DIR, data_models, error, path_parsing
@@ -170,7 +171,7 @@ def min_value(*values):
     values_without_none = cast('list[str]', [value for value in values if value is not None])
     if len(values_without_none) == 0:
         raise ValueError("Input contains 0 non-null values.")
-    return min(values)
+    return min(values_without_none)
 
 
 def split_if_not_none(value, sep=',', fields=2):
