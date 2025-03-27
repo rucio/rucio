@@ -28,9 +28,13 @@ def test_main_args():
     assert "This method is being deprecated" not in err
     assert "root" in out
 
+    specify_not_real_account = "rucio --account foo --auth-strategy userpass whoami"
+    exitcode, out, err = execute(specify_not_real_account)
+    assert exitcode == 1
+    assert "CannotAuthenticate" in err
+
     legacy_arg = "rucio --legacy --account root --auth-strategy userpass whoami"
     exitcode, out, err = execute(legacy_arg)
-
     assert exitcode == 0
     assert "This method is being deprecated" in err
     assert "root" in out
