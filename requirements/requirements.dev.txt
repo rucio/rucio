@@ -272,7 +272,7 @@ packaging==24.1
     #   build
     #   pytest
     #   qbittorrent-api
-paramiko==3.4.0
+paramiko==3.4.1
     # via -r requirements.server.txt
 pathspec==0.12.1
     # via black

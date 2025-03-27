@@ -134,7 +134,7 @@ oic==1.7.0
     # via -r requirements.server.in
 packaging==24.1
     # via qbittorrent-api
-paramiko==3.4.0
+paramiko==3.4.1
     # via -r requirements.server.in
 pbr==6.0.0
     # via stevedore
