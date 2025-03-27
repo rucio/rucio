@@ -230,6 +230,11 @@ def main(
     ctx.call_on_close(_teardown)
 
 
+def get_help_menu() -> None:
+    with click.Context(main) as ctx:
+        click.echo(main.get_help(ctx))
+
+
 @click.pass_context
 def _teardown(ctx):
     time_elapsed = time.time() - ctx.obj.start_time
