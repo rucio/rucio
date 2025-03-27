@@ -198,7 +198,7 @@ def main(
         {
             "config": config,
             "host": host,
-            "isser": issuer,
+            "issuer": issuer,
             "auth_host": auth_host,
             "auth_strategy": auth_strategy,
             "timeout": timeout,
