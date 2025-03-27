@@ -2116,7 +2116,7 @@ def check_policy_package_version(package: str) -> None:
     components = 2 if version_string().startswith("1.") else 1
     current_version = ".".join(version_string().split(".")[:components])
     if current_version not in supported_version:
-        raise PolicyPackageVersionError(package)
+        raise PolicyPackageVersionError(package, current_version, supported_version)
 
 
 class Availability:

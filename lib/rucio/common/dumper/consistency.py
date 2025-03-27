@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 import tempfile
+from typing import cast
 
 from rucio.common import dumper
 from rucio.common.dumper import DUMPS_CACHE_DIR, data_models, error, path_parsing
