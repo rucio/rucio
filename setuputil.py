@@ -19,7 +19,7 @@ clients_requirements_table = {
     'install_requires': [
         'requests',
         'urllib3',
-        'dogpile-cache',
+        'dogpile-cache<=1.2.2',
         'packaging',
         'tabulate',
         'jsonschema',
