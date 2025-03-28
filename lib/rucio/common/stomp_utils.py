@@ -287,7 +287,7 @@ class StompConnectionManager:
         config = self._config
         params = {'wait': True, "heartbeats": self._config.heartbeats}
         self._logger(logging.WARNING, 'heartbeats: %s', self._config.heartbeats)
-        if config.use_ssl:
+        if not config.use_ssl:
             params.update(username=config.username, password=config.password)
 
         for conn in self._conns:
