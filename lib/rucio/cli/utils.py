@@ -174,14 +174,11 @@ def get_client(args, logger):
         if args.oidc_issuer:
             args.oidc_issuer = args.oidc_issuer.lower()
         creds = {
-            "oidc_auto": args.oidc_auto,
             "oidc_scope": args.oidc_scope,
             "oidc_audience": args.oidc_audience,
             "oidc_polling": args.oidc_polling,
             "oidc_refresh_lifetime": args.oidc_refresh_lifetime,
             "oidc_issuer": args.oidc_issuer,
-            "oidc_username": args.oidc_username,
-            "oidc_password": args.oidc_password,
         }
     elif auth_type == "x509":
         creds = {"client_cert": args.certificate, "client_key": args.client_key}

@@ -2124,16 +2124,12 @@ def get_parser():
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
     # Options for defining remaining OIDC parameters
-    oparser.add_argument('--oidc-user', dest='oidc_username', default=None, help='OIDC username')
-    oparser.add_argument('--oidc-password', dest='oidc_password', default=None, help='OIDC password')
     oparser.add_argument('--oidc-scope', dest='oidc_scope', default='openid profile', help='Defines which (OIDC) information user will share with Rucio. '
                          + 'Rucio requires at least -sc="openid profile". To request refresh token for Rucio, scope must include "openid offline_access" and '  # NOQA: W503
                          + 'there must be no active access token saved on the side of the currently used Rucio Client.')  # NOQA: W503
     oparser.add_argument('--oidc-audience', dest='oidc_audience', default=None, help='Defines which audience are tokens requested for.')
-    oparser.add_argument('--oidc-auto', dest='oidc_auto', default=False, action='store_true', help='If not specified, username and password credentials are not required and users will be given a URL '
-                         + 'to use in their browser. If specified, the users explicitly trust Rucio with their IdP credentials.')  # NOQA: W503
     oparser.add_argument('--oidc-polling', dest='oidc_polling', default=False, action='store_true', help='If not specified, user will be asked to enter a code returned by the browser to the command line. '
-                         + 'If --polling is set, Rucio Client should get the token without any further interaction of the user. This option is active only if --auto is *not* specified.')  # NOQA: W503
+                         + 'If --polling is set, Rucio Client should get the token without any further interaction of the user.')  # NOQA: W503
     oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed by asynchronous Rucio daemon. '
                          + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')  # NOQA: W503
     oparser.add_argument('--oidc-issuer', dest='oidc_issuer', default=None,
