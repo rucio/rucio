@@ -340,6 +340,7 @@ def attach_dids_to_dids(
                                                collections_temp_table=children_temp_table,
                                                collections=children,
                                                account=account,
+                                               ignore_duplicate=ignore_duplicate,
                                                session=session)
                 update_parent = True
 
