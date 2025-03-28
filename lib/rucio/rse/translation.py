@@ -217,9 +217,13 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         del rse
         del rse_attrs
         del protocol_attrs
+
         if scope.startswith('user') or scope.startswith('group'):
             scope = scope.replace('.', '/')
-        return '%s/%s' % (scope, name)
+        path = f'{scope}/{name}'
+        while '//' in path:
+            path = path.replace('//', '/')
+        return path
 
     @classmethod
     def _module_init_(cls) -> None:
