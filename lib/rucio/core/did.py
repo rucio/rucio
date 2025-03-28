@@ -669,6 +669,7 @@ def __add_collections_to_container(
     collections_temp_table: Any,
     collections: "Mapping[tuple[InternalScope, str], Mapping[str, Any]]",
     account: "InternalAccount",
+    ignore_duplicate: bool = False,
     *,
     session: "Session"
 ) -> None:
@@ -695,9 +696,27 @@ def __add_collections_to_container(
         and_(models.DataIdentifier.scope == collections_temp_table.scope,
              models.DataIdentifier.name == collections_temp_table.name),
     )
+    if ignore_duplicate:
+        stmt = stmt.add_columns(
+            models.DataIdentifierAssociation.scope.label("ignore_duplicate_parent_scope"),
+            models.DataIdentifierAssociation.name.label("ignore_duplicate_parent_name"),
+            collections_temp_table.scope.label("ignore_duplicate_child_scope"),
+            collections_temp_table.name.label("ignore_duplicate_child_name"),
+        ).outerjoin_from(
+            collections_temp_table,
+            models.DataIdentifierAssociation,
+            and_(
+                models.DataIdentifierAssociation.scope == parent_did.scope,
+                models.DataIdentifierAssociation.name == parent_did.name,
+                models.DataIdentifierAssociation.child_scope == collections_temp_table.scope,
+                models.DataIdentifierAssociation.child_name == collections_temp_table.name,
+            ),
+        )
 
     container_parents = None
     child_type = None
+    ignore_duplicate_existing_attachments = set()
+
     for row in session.execute(stmt):
 
         if row.did_scope is None:
@@ -719,8 +738,14 @@ def __add_collections_to_container(
             if (row.scope, row.name) in container_parents:
                 raise exception.UnsupportedOperation('Circular attachment detected. %s:%s is already a parent of %s:%s' % (row.scope, row.name, parent_did.scope, parent_did.name))
 
+        if ignore_duplicate and row.ignore_duplicate_parent_scope is not None:
+            ignore_duplicate_existing_attachments.add((row.ignore_duplicate_parent_scope, row.ignore_duplicate_parent_name, row.ignore_duplicate_child_scope, row.ignore_duplicate_child_name))
+
     messages = []
     for c in collections.values():
+        if ignore_duplicate and (parent_did.scope, parent_did.name, c['scope'], c['name']) in ignore_duplicate_existing_attachments:
+            continue
+
         did_asso = models.DataIdentifierAssociation(
             scope=parent_did.scope,
             name=parent_did.name,
