@@ -357,7 +357,6 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                 )
         except Exception as err:
             logger(logging.ERROR, str(err))
-    conns = None
     if "activemq" in services_list:
         conn_mgr = StompConnectionManager(config_section='messaging-hermes', logger=logger)
         conn_mgr.set_listener_factory("rucio-hermes", HermesListener, heartbeats=conn_mgr.config.heartbeats)
@@ -465,7 +464,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             except Exception as error:
                 logger(logging.ERROR, "Error sending email : %s", str(error))
 
-        if "activemq" in message_dict and conns:
+        if "activemq" in message_dict:
             t_time = time.time()
             try:
                 messages_sent = conn_mgr.deliver_messages(messages=message_dict["activemq"])
