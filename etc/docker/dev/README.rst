@@ -45,7 +45,7 @@ This should show you a few running containers: the Rucio server, the PostgreSQL 
 
 Finally, you can jump into the container with::
 
-    docker exec -it dev_rucio_1 /bin/bash
+    docker exec -it dev-rucio-1 /bin/bash
 
 To verify that everything is in order, you can now either run the full unit tests or only set up the database. Running the full testing suite takes ~10 minutes::
 
@@ -130,13 +130,13 @@ To see your changes in action the recommended way is to jump twice into the cont
 
 From your host, get a separate Terminal 1 (the Rucio "server log show")::
 
-    docker exec -it dev_rucio_1 /bin/bash
+    docker exec -it dev-rucio-1 /bin/bash
     logshow
 
 
 Terminal 1 can now be left open, and then from your host go into a new Terminal 2 (the "interactive" terminal)::
 
-    docker exec -it dev_rucio_1 /bin/bash
+    docker exec -it dev-rucio-1 /bin/bash
     rucio whoami
 
 
@@ -144,7 +144,7 @@ The command will output in Terminal 2, and at the same time the server debug out
 
 The same `logshow` is also available in the FTS container::
 
-    docker exec -it dev_fts_1 /bin/bash
+    docker exec -it dev-fts-1 /bin/bash
     logshow
 
 
