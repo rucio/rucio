@@ -31,8 +31,6 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
-LEGACY_SECTION_NAME = {}
-LEGACY_OPTION_NAME = {}
 
 
 def convert_to_any_type(value: str) -> Union[bool, int, float, str]:
@@ -194,12 +192,6 @@ def config_get(
     try:
         return convert_type_fnc(get_config().get(section, option))
     except (configparser.NoOptionError, configparser.NoSectionError, ConfigNotFound) as err:
-        try:
-            legacy_config = get_legacy_config(section, option)
-            if legacy_config is not None:
-                return convert_type_fnc(legacy_config)
-        except ConfigNotFound:
-            pass
 
         from rucio.common.client import is_client
         client_mode = is_client()
@@ -218,24 +210,6 @@ def config_get(
             if clean_cached:
                 clean_cached_config()
             return default
-
-
-def get_legacy_config(section: str, option: str):
-    """
-    Returns a legacy config value, if it is present.
-
-    :param section: The section of the new config.
-    :param option: The option of the new config.
-    :returns: The string value of the legacy option if one is found, None otherwise.
-    """
-
-    section = LEGACY_SECTION_NAME.get(section, section)
-    option = LEGACY_OPTION_NAME.get(option, option)
-
-    if config_has_option(section, option):
-        return get_config().get(section, option)
-
-    return None
 
 
 def config_has_section(section: str) -> bool:
