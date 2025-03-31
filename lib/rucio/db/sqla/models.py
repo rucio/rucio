@@ -471,13 +471,13 @@ class DataIdentifier(BASE, ModelBase):
 
 class OpenDataDid(BASE, ModelBase):
     """DIDs which are part of OpenData"""
-    __tablename__ = 'did_opendata'
+    __tablename__ = 'dids_opendata'
 
     scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
     name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
 
-    _table_args = (PrimaryKeyConstraint('scope', 'name', name='VP_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='VP_FK')
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='OPENDATA_DID_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='OPENDATA_DID_FK')
                    )
 
     metadata_json = mapped_column(JSON())
