@@ -254,6 +254,7 @@ def attach_dids(
         name: str,
         dids: "Sequence[Mapping[str, Any]]",
         account: "InternalAccount",
+        ignore_duplicate: bool = False,
         rse_id: Optional[str] = None,
         *,
         session: "Session",
@@ -265,10 +266,11 @@ def attach_dids(
     :param name: The data identifier name.
     :param dids: The content.
     :param account: The account owner.
+    :param ignore_duplicate: If True, ignore duplicate entries.
     :param rse_id: The RSE id for the replicas.
     :param session: The database session in use.
     """
-    return attach_dids_to_dids(attachments=[{'scope': scope, 'name': name, 'dids': dids, 'rse_id': rse_id}], account=account, session=session)
+    return attach_dids_to_dids(attachments=[{'scope': scope, 'name': name, 'dids': dids, 'rse_id': rse_id}], account=account, ignore_duplicate=ignore_duplicate, session=session)
 
 
 @transactional_session
@@ -340,6 +342,7 @@ def attach_dids_to_dids(
                                                collections_temp_table=children_temp_table,
                                                collections=children,
                                                account=account,
+                                               ignore_duplicate=ignore_duplicate,
                                                session=session)
                 update_parent = True
 
@@ -679,6 +682,7 @@ def __add_collections_to_container(
     :param parent_did: the DataIdentifier object of the parent did
     :param collections: .
     :param account: The account owner.
+    :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
 
