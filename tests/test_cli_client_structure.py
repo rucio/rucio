@@ -35,6 +35,12 @@ def test_main_args():
     assert "This method is being deprecated" in err
     assert "root" in out
 
+    non_existent_cmd = "rucio lfkdl --slkfdj 1"
+    exitcode, out, err = execute(non_existent_cmd)
+
+    assert exitcode == 2
+    assert "This method is being deprecated" not in err
+
 
 def test_help_menus():
     """Verify help menus"""
