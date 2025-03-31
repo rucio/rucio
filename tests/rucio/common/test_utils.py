@@ -11,9 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import pytest
 
-from rucio.common.utils import _encode_params_as_url_query_string, build_url, invert_dict
+from rucio.common.utils import ScopeExtractionAlgorithms, _encode_params_as_url_query_string, build_url, invert_dict
 
 
 class TestUtils:
@@ -49,3 +50,19 @@ class TestUtils:
     )
     def test_encode_params_as_url_query_string(self, params, doseq, expected_query_string):
         assert _encode_params_as_url_query_string(params, doseq) == expected_query_string
+
+    @pytest.mark.parametrize(
+        'did, scope, name',
+        [
+            ("scope:name", "scope", "name"),
+            ("scope:/this/is/a/path", "scope", "/this/is/a/path"),
+            ("scope:/this/is/a/path/", "scope", "/this/is/a/path/"),
+            ("scope:no/slash/at/start", "scope", "no/slash/at/start"),
+            ("scope:no/slash/at/start/", "scope", "no/slash/at/start/"),
+            ("scope:/", "scope", "/"),
+            ("scope://", "scope", "//"),
+            ("scope:/path/with//duplicated///slash", "scope", "/path/with//duplicated///slash"),
+        ]
+    )
+    def test_default_scope_extraction_algorithm(self, did, scope, name):
+        assert ScopeExtractionAlgorithms.extract_scope_default(did=did, scopes=None) == (scope, name)
