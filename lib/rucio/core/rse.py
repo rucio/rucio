@@ -28,7 +28,7 @@ from sqlalchemy.sql.expression import Executable, and_, delete, desc, false, fun
 from rucio.common import exception, types, utils
 from rucio.common.cache import MemcacheRegion
 from rucio.common.checksum import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
-from rucio.common.config import get_lfn2pfn_algorithm_default
+from rucio.common.config import get_lfn2pfn_algorithm
 from rucio.common.constants import RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS, RSE_ATTRS_BOOL, RSE_ATTRS_STR, SUPPORTED_SIGN_URL_SERVICES_LITERAL, RseAttr
 from rucio.common.utils import Availability
 from rucio.core.rse_counter import add_counter, get_counter
@@ -1566,7 +1566,7 @@ def _format_get_rse_protocols(
     # Resolve LFN2PFN default algorithm as soon as possible.  This way, we can send back the actual
     # algorithm name in response to REST queries.
     if not lfn2pfn_algorithm:
-        lfn2pfn_algorithm = get_lfn2pfn_algorithm_default()
+        lfn2pfn_algorithm = get_lfn2pfn_algorithm()
 
     # Copy verify_checksum from the attributes, later: assume True if not specified
     if rse_attributes:

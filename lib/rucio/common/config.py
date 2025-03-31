@@ -724,7 +724,7 @@ def get_config_dirs() -> list[str]:
     return configdirs
 
 
-def get_lfn2pfn_algorithm_default() -> str:
+def get_lfn2pfn_algorithm() -> str:
     """Returns the default algorithm name for LFN2PFN translation for this server."""
     default_lfn2pfn = "hash"
     try:
