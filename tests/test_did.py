@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from rucio.common import exception
-from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
+from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, DuplicateContent, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import (
@@ -179,6 +179,31 @@ class TestDIDCore:
         attach_dids(scope=mock_scope, name=parent_name, rse_id=rse_id, dids=files, account=root_account)
 
         detach_dids(scope=mock_scope, name=parent_name, dids=files)
+
+    def test_attach_dids_ignore_duplicates(self, vo, mock_scope, root_account, rse_factory):
+        """ DATA IDENTIFIERS (CORE): Attach DIDs with the ignore duplicates flag """
+        rse, rse_id = rse_factory.make_mock_rse()
+
+        parent_name = did_name_generator('container')
+        child_name = did_name_generator('dataset')
+
+        dids_attachment = [{'scope': mock_scope, 'name': child_name}]
+
+        add_did(scope=mock_scope, name=parent_name, did_type=DIDType.CONTAINER, account=root_account)
+        add_did(scope=mock_scope, name=child_name, did_type=DIDType.DATASET, account=root_account)
+
+        # Attach once
+        attach_dids(scope=mock_scope, name=parent_name, rse_id=rse_id, dids=dids_attachment, account=root_account,
+                    ignore_duplicate=True)
+
+        # Attach again with ignore_duplicate flag, should work
+        attach_dids(scope=mock_scope, name=parent_name, rse_id=rse_id, dids=dids_attachment, account=root_account,
+                    ignore_duplicate=True)
+
+        # Attach again without the flag, should produce error
+        with pytest.raises(DuplicateContent):
+            attach_dids(scope=mock_scope, name=parent_name, rse_id=rse_id, dids=dids_attachment, account=root_account,
+                        ignore_duplicate=False)
 
     @pytest.mark.dirty
     def test_add_did_to_followed(self, mock_scope, root_account):
