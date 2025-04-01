@@ -14,6 +14,7 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import AccessDenied
 from rucio.common.types import InternalScope
 from rucio.common.utils import extract_scope
@@ -33,7 +34,7 @@ def add_files(
     issuer: str,
     ignore_availability: bool,
     parents_metadata: Optional[dict[str, Any]] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Bulk add files :

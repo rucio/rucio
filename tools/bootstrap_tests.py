@@ -28,6 +28,7 @@ os.chdir(base_path)
 
 from rucio.client import Client  # noqa: E402
 from rucio.common.config import config_get, config_get_bool  # noqa: E402
+from rucio.common.constants import DEFAULT_VO  # noqa: E402
 from rucio.common.exception import Duplicate, DuplicateContent, RucioException  # noqa: E402
 from rucio.common.types import InternalAccount  # noqa: E402
 from rucio.common.utils import extract_scope  # noqa: E402
@@ -95,7 +96,7 @@ if __name__ == '__main__':
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
         vo = {'vo': map_vo(config_get('client', 'vo', raise_exception=False, default='tst'))}
         try:
-            add_vo(new_vo=vo['vo'], issuer='super_root', description='A VO to test multi-vo features', email='N/A', vo='def')
+            add_vo(new_vo=vo['vo'], issuer='super_root', description='A VO to test multi-vo features', email='N/A', vo=DEFAULT_VO)
         except Duplicate:
             print(f'VO {vo["vo"]} already added')
     else:

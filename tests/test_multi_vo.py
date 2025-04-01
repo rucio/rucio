@@ -31,7 +31,7 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_add_section, config_has_section, config_remove_option, config_set
-from rucio.common.constants import RseAttr
+from rucio.common.constants import DEFAULT_VO, RseAttr
 from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, RucioException, UnsupportedAccountName, UnsupportedOperation
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid, get_tmp_dir, parse_response, ssh_sign
@@ -77,10 +77,10 @@ class TestVOCoreGateway:
         try:
             config_set('common', 'multi_vo', 'False')
             with pytest.raises(UnsupportedOperation):
-                vo_gateway.list_vos(issuer='super_root', vo='def')
+                vo_gateway.list_vos(issuer='super_root', vo=DEFAULT_VO)
             config_remove_option('common', 'multi_vo')
             with pytest.raises(UnsupportedOperation):
-                vo_gateway.list_vos(issuer='super_root', vo='def')
+                vo_gateway.list_vos(issuer='super_root', vo=DEFAULT_VO)
         finally:
             config_set('common', 'multi_vo', 'True')
 
@@ -114,14 +114,14 @@ class TestVOCoreGateway:
         with pytest.raises(AccessDenied):
             vo_gateway.add_vo(second_vo, 'root', 'Add new VO with root', 'rucio@email.com', vo=vo)
         with pytest.raises(Duplicate):
-            vo_gateway.add_vo(second_vo, 'super_root', 'Add existing VO', 'rucio@email.com', 'def')
+            vo_gateway.add_vo(second_vo, 'super_root', 'Add existing VO', 'rucio@email.com', DEFAULT_VO)
 
     def test_recover_root_identity(self, vo, second_vo):
         """ MULTI VO (CORE): Test adding a new identity for root using super_root """
         identity_key = ''.join(choice(ascii_lowercase) for x in range(10))
         with pytest.raises(AccessDenied):
             vo_gateway.recover_vo_root_identity(root_vo=second_vo, identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='root', password='password', vo=vo)
-        vo_gateway.recover_vo_root_identity(root_vo=second_vo, identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='super_root', password='password', vo='def')
+        vo_gateway.recover_vo_root_identity(root_vo=second_vo, identity_key=identity_key, id_type='userpass', email='rucio@email.com', issuer='super_root', password='password', vo=DEFAULT_VO)
         assert 'root' in list_accounts_for_identity(identity_key=identity_key, id_type='userpass')
 
     def test_update_vo(self, vo, second_vo):
@@ -131,9 +131,9 @@ class TestVOCoreGateway:
         parameters = {'vo': second_vo, 'description': description, 'email': email}
         with pytest.raises(AccessDenied):
             vo_gateway.update_vo(second_vo, parameters, 'root', vo=vo)
-        vo_gateway.update_vo(second_vo, parameters, 'super_root', 'def')
+        vo_gateway.update_vo(second_vo, parameters, 'super_root', DEFAULT_VO)
         vo_update_success = False
-        for v in vo_gateway.list_vos('super_root', 'def'):
+        for v in vo_gateway.list_vos('super_root', DEFAULT_VO):
             if v['vo'] == parameters['vo']:
                 assert email == v['email']
                 assert description == v['description']
@@ -147,17 +147,17 @@ class TestVOCoreGateway:
         scope_uuid = str(generate_uuid()).lower()[:16]
         scope = 'mock_%s' % scope_uuid
 
-        # Test super_root@def with functions at vo='def'
+        # Test super_root@def with functions at vo=DEFAULT_VO
         with pytest.raises(AccessDenied):
-            add_rse(rse_name, 'super_root', vo='def')
+            add_rse(rse_name, 'super_root', vo=DEFAULT_VO)
         with pytest.raises(AccessDenied):
-            add_scope(scope, 'super_root', 'super_root', vo='def')
+            add_scope(scope, 'super_root', 'super_root', vo=DEFAULT_VO)
 
     @pytest.mark.noparallel(reason='changes global configuration value')
     def test_super_root_naming(self, vo, second_vo):
         """ MULTI VO (CORE): Test we can only name accounts super_root when appropriate """
         with pytest.raises(Duplicate):  # Ensure we fail from duplication rather than the choice of name
-            add_account('super_root', 'USER', 'rucio@email.com', 'root', vo='def')
+            add_account('super_root', 'USER', 'rucio@email.com', 'root', vo=DEFAULT_VO)
         with pytest.raises(UnsupportedAccountName):
             add_account('super_root', 'USER', 'rucio@email.com', 'root', vo=vo)
         try:
@@ -165,7 +165,7 @@ class TestVOCoreGateway:
             with pytest.raises(UnsupportedAccountName):
                 add_account('super_root', 'USER', 'rucio@email.com', 'root', vo=vo)
             with pytest.raises(UnsupportedAccountName):
-                add_account('super_root', 'USER', 'rucio@email.com', 'root', vo='def')
+                add_account('super_root', 'USER', 'rucio@email.com', 'root', vo=DEFAULT_VO)
         finally:
             # Make sure we don't leave the config changed due to a test failure
             config_set('common', 'multi_vo', 'True')
@@ -438,7 +438,7 @@ class TestVORestAPI:
 
     def test_list_vos_success(self, vo, second_vo, rest_client):
         """ MULTI VO (REST): Test list VOs through REST layer succeeds """
-        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr('def')))
+        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr(DEFAULT_VO)))
 
         assert response.status_code == 200
         token = str(response.headers.get('X-Rucio-Auth-Token'))
@@ -467,7 +467,7 @@ class TestVORestAPI:
     @pytest.mark.noparallel(reason='changes global configuration value')
     def test_list_vos_unsupported(self, vo, second_vo, rest_client):
         """ MULTI VO (REST): Test list VOs through REST layer raises UnsupportedOperation """
-        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr('def')))
+        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr(DEFAULT_VO)))
 
         assert response.status_code == 200
         token = str(response.headers.get('X-Rucio-Auth-Token'))
@@ -499,7 +499,7 @@ class TestVORestAPI:
     @pytest.mark.noparallel(reason='changes global configuration value')
     def test_add_vo_unsupported(self, vo, second_vo, rest_client):
         """ MULTI VO (REST): Test adding VO through REST layer raises UnsupportedOperation """
-        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr('def')))
+        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr(DEFAULT_VO)))
 
         assert response.status_code == 200
         token = str(response.headers.get('X-Rucio-Auth-Token'))
@@ -520,7 +520,7 @@ class TestVORestAPI:
 
     def test_add_vo_duplicate(self, vo, second_vo, rest_client):
         """ MULTI VO (REST): Test adding VO through REST layer raises Duplicate """
-        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr('def')))
+        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr(DEFAULT_VO)))
 
         assert response.status_code == 200
         token = str(response.headers.get('X-Rucio-Auth-Token'))
@@ -531,7 +531,7 @@ class TestVORestAPI:
 
     def test_update_vo_success(self, vo, second_vo, rest_client):
         """ MULTI VO (REST): Test updating VO through REST layer succeeds """
-        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr('def')))
+        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr(DEFAULT_VO)))
 
         assert response.status_code == 200
         token = str(response.headers.get('X-Rucio-Auth-Token'))
@@ -541,7 +541,7 @@ class TestVORestAPI:
         assert response.status_code == 200
 
         vo_update_success = False
-        for v in vo_gateway.list_vos('super_root', 'def'):
+        for v in vo_gateway.list_vos('super_root', DEFAULT_VO):
             if v['vo'] == vo:
                 assert params['email'] == v['email']
                 assert params['description'] == v['description']
@@ -561,7 +561,7 @@ class TestVORestAPI:
     @pytest.mark.noparallel(reason='changes global configuration value')
     def test_update_vo_unsupported(self, vo, second_vo, rest_client):
         """ MULTI VO (REST): Test updating VO through REST layer raises UnsupportedOperation """
-        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr('def')))
+        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr(DEFAULT_VO)))
         assert response.status_code == 200
         token = str(response.headers.get('X-Rucio-Auth-Token'))
 
@@ -581,7 +581,7 @@ class TestVORestAPI:
 
     def test_update_vo_not_found(self, vo, second_vo, rest_client):
         """ MULTI VO (REST): Test updating VO through REST layer raises VONotFound """
-        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr('def')))
+        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr(DEFAULT_VO)))
 
         assert response.status_code == 200
         token = str(response.headers.get('X-Rucio-Auth-Token'))
@@ -592,7 +592,7 @@ class TestVORestAPI:
 
     def test_recover_vo_success(self, vo, second_vo, rest_client):
         """ MULTI VO (REST): Test recovering VO through REST layer succeeds """
-        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr('def')))
+        response = rest_client.get('/auth/userpass', headers=headers(loginhdr('super_root', 'ddmlab', 'secret'), vohdr(DEFAULT_VO)))
 
         assert response.status_code == 200
         token = str(response.headers.get('X-Rucio-Auth-Token'))
@@ -1078,7 +1078,7 @@ class TestVOMap:
     def test_map_vo(self, core_config_mock):
         """ Test a few typical map_vo use cases """
         # Check things still work if section is missing
-        assert map_vo("def") == "def"
+        assert map_vo(DEFAULT_VO) == DEFAULT_VO
         assert map_vo("tst") == "tst"
         assert map_vo("test.vo1-one") == "test.vo1-one"
 

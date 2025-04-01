@@ -32,6 +32,7 @@ from rucio.client.client import Client
 from rucio.common.checksum import CHECKSUM_ALGO_DICT, GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM, adler32
 from rucio.common.client import detect_client_location
 from rucio.common.config import config_get
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.didtype import DID
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException
 from rucio.common.pcache import Pcache
@@ -213,7 +214,7 @@ class DownloadClient:
         self.trace_tpl['hostname'] = self.client_location['fqdn']
         self.trace_tpl['localSite'] = self.client_location['site']
         self.trace_tpl['account'] = self.client.account
-        if self.client.vo != 'def':
+        if self.client.vo != DEFAULT_VO:
             self.trace_tpl['vo'] = self.client.vo
         self.trace_tpl['eventType'] = 'download'
         self.trace_tpl['eventVersion'] = 'api_%s' % version.RUCIO_VERSION[0]

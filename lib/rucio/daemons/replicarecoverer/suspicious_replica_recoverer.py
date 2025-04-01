@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.constants import SuspiciousAvailability
+from rucio.common.constants import DEFAULT_VO, SuspiciousAvailability
 from rucio.common.exception import DatabaseException, DuplicateRule, VONotFound
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount, LoggerFunction
@@ -145,7 +145,7 @@ def declare_suspicious_replicas_bad(
     :param nattempts: The minimum number of appearances in the bad_replica DB table
                       in order to appear in the resulting list of replicas for recovery.
     :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
-                If empty, we either use all VOs if run from "def",
+                If empty, we either use all VOs if run from DEFAULT_VO,
     :param limit_suspicious_files_on_rse: Maximum number of suspicious replicas on an RSE before that RSE
                                           is considered problematic and the suspicious replicas on that RSE
                                           are labeled as 'TEMPORARY_UNAVAILABLE'.
@@ -182,7 +182,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
     if not multi_vo:
         if vos:
             logger(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')
-        vos = ['def']
+        vos = [DEFAULT_VO]
     else:
         if vos:
             invalid = set(vos) - set([v['vo'] for v in list_vos()])

@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from rucio.common.config import config_get_bool
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
@@ -61,7 +62,7 @@ def add_replication_rule(
     split_container: bool,
     meta: Optional[dict[str, Any]],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> list[str]:
     """
     Adds a replication rule.
@@ -139,7 +140,7 @@ def add_replication_rule(
                              session=session)
 
 
-def get_replication_rule(rule_id: str, issuer: str, vo: str = 'def') -> dict[str, Any]:
+def get_replication_rule(rule_id: str, issuer: str, vo: str = DEFAULT_VO) -> dict[str, Any]:
     """
     Get replication rule by it's id.
 
@@ -159,7 +160,7 @@ def get_replication_rule(rule_id: str, issuer: str, vo: str = 'def') -> dict[str
 
 def list_replication_rules(
     filters: Optional[dict[str, Any]] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> "Iterator[dict[str, Any]]":
     """
     Lists replication rules based on a filter.
@@ -191,7 +192,7 @@ def list_replication_rules(
 def list_replication_rule_history(
     rule_id: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> "Iterator[dict[str, Any]]":
     """
     Lists replication rule history..
@@ -212,7 +213,7 @@ def list_replication_rule_history(
 def list_replication_rule_full_history(
     scope: str,
     name: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> "Iterator[dict[str, Any]]":
     """
     List the rule history of a DID.
@@ -231,7 +232,7 @@ def list_replication_rule_full_history(
 def list_associated_replication_rules_for_file(
     scope: str,
     name: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> "Iterator[dict[str, Any]]":
     """
     Lists associated replication rules by file.
@@ -251,7 +252,7 @@ def delete_replication_rule(
     rule_id: str,
     purge_replicas: Optional[bool],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Deletes a replication rule and all associated locks.
@@ -278,7 +279,7 @@ def update_replication_rule(
     rule_id: str,
     options: dict[str, Any],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Update lock state of a replication rule.
@@ -319,7 +320,7 @@ def reduce_replication_rule(
     copies: int,
     exclude_expression: Optional[str],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> str:
     """
     Reduce the number of copies for a rule by atomically replacing the rule.
@@ -347,7 +348,7 @@ def reduce_replication_rule(
 def examine_replication_rule(
     rule_id: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
     Examine a replication rule.
@@ -374,7 +375,7 @@ def move_replication_rule(
     rse_expression: str,
     override: dict[str, Any],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> str:
     """
     Move a replication rule to another RSE and, once done, delete the original one.

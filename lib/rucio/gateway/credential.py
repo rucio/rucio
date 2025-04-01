@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.core import credential
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DatabaseOperationType
@@ -32,7 +33,7 @@ def get_signed_url(
     operation: 'RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL',
     url: str,
     lifetime: int,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> str:
     """
     Get a signed URL for a particular service and operation.

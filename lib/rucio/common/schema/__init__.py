@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 from jsonschema import ValidationError, validate
 
 from rucio.common import config, exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.plugins import check_policy_module_version
 
 if TYPE_CHECKING:
@@ -94,7 +95,7 @@ if not _is_multivo():
     except ImportError:
         raise exception.ErrorLoadingPolicyPackage(policy)
 
-    schema_modules["def"] = module
+    schema_modules[DEFAULT_VO] = module
     if hasattr(module, 'SCOPE_NAME_REGEXP'):
         scope_name_regexps.append(module.SCOPE_NAME_REGEXP)
 
@@ -141,7 +142,7 @@ def load_schema_for_vo(vo: str) -> None:
     schema_modules[vo] = module
 
 
-def validate_schema(name: str, obj: Any, vo: str = 'def') -> None:
+def validate_schema(name: str, obj: Any, vo: str = DEFAULT_VO) -> None:
     if obj:
         if vo not in schema_modules:
             load_schema_for_vo(vo)
@@ -156,7 +157,7 @@ def validate_schema(name: str, obj: Any, vo: str = 'def') -> None:
             raise exception.InvalidObject(f'Problem validating {name}: {error}')
 
 
-def get_schema_value(key: str, vo: str = 'def') -> Any:
+def get_schema_value(key: str, vo: str = DEFAULT_VO) -> Any:
     if vo not in schema_modules:
         load_schema_for_vo(vo)
     if not hasattr(schema_modules[vo], key):

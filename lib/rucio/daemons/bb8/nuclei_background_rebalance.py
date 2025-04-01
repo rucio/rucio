@@ -18,7 +18,7 @@ This script is to be used to background rebalance ATLAS t2 datadisks
 
 from sqlalchemy import and_, or_, select
 
-from rucio.common.constants import RseAttr
+from rucio.common.constants import DEFAULT_VO, RseAttr
 from rucio.core.rse import get_rse_attribute, get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.bb8.common import rebalance_rse
@@ -143,7 +143,7 @@ for source_rse in rses_over_ratio:
             if available_target_rebalance_volume >= available_source_rebalance_volume:
                 available_target_rebalance_volume = available_source_rebalance_volume
 
-            vo_str = 'on VO {}'.format(destination_rse['vo']) if destination_rse['vo'] != 'def' else 'def'
+            vo_str = 'on VO {}'.format(destination_rse['vo']) if destination_rse['vo'] != DEFAULT_VO else DEFAULT_VO
             print('Rebalance %dTB from %s(%f) to %s(%f)%s' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio'], vo_str))
             expr = destination_rse['rse']
             rebalance_rse(rse_id=source_rse['id'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='Nuclei Background rebalancing', force_expression=expr)

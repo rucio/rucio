@@ -29,6 +29,7 @@ import rucio.core.rse as rse_core
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get_bool
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import ResourceTemporaryUnavailable, RSEAccessDenied, RSENotFound, ServiceUnavailable, SourceNotFound, VONotFound
 from rucio.common.logging import setup_logging
 from rucio.core.message import add_message
@@ -145,7 +146,7 @@ def run_once(
                                'url': pfn,
                                'duration': duration,
                                'protocol': prot.attributes['scheme']}
-                    if replica['scope'].vo != 'def':
+                    if replica['scope'].vo != DEFAULT_VO:
                         payload['vo'] = replica['scope'].vo
                     add_message('deletion-done', payload)
                     deleted_replicas.append(replica)
@@ -167,7 +168,7 @@ def run_once(
                                'url': pfn,
                                'reason': str(error),
                                'protocol': prot.attributes['scheme']}
-                    if replica['scope'].vo != 'def':
+                    if replica['scope'].vo != DEFAULT_VO:
                         payload['vo'] = replica['scope'].vo
                     add_message('deletion-failed', payload)
 
@@ -215,7 +216,7 @@ def run(
     :param exclude_rses: RSE expression to exclude RSEs from the Reaper.
     :param include_rses: RSE expression to include RSEs.
     :param vos: VOs on which to look for RSEs. Only used in multi-VO mode.
-                If None, we either use all VOs if run from "def", or the current VO otherwise.
+                If None, we either use all VOs if run from DEFAULT_VO, or the current VO otherwise.
     """
     rses = rses or []
     setup_logging(process_name=DAEMON_NAME)
@@ -229,7 +230,7 @@ def run(
     if not multi_vo:
         if vos:
             logging.warning('Ignoring argument vos, this is only applicable in a multi-VO setup.')
-        vos = ['def']
+        vos = [DEFAULT_VO]
     else:
         if vos:
             invalid = set(vos) - set([v['vo'] for v in list_vos()])

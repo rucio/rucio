@@ -16,6 +16,7 @@ from typing import Any, Optional, Union
 
 import rucio.common.exception
 import rucio.gateway.permission
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalAccount, RSEResolvedGlobalAccountLimitDict
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import account_limit as account_limit_core
@@ -27,7 +28,7 @@ from rucio.db.sqla.session import db_session
 
 def get_rse_account_usage(
     rse: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> list[dict[str, Any]]:
     """
     Returns the account limit and usage for all for all accounts on a RSE.
@@ -45,7 +46,7 @@ def get_rse_account_usage(
 def get_local_account_limit(
         account: str,
         rse: Optional[str] = None,
-        vo: str = 'def',
+        vo: str = DEFAULT_VO,
 ) -> dict[str, Union[int, float, None]]:
     """
     Lists the limitation names/values for the specified account name.
@@ -77,7 +78,7 @@ def get_local_account_limit(
 def get_global_account_limit(
         account: str,
         rse_expression: Optional[str] = None,
-        vo: str = 'def',
+        vo: str = DEFAULT_VO,
 ) -> Union[dict[str, RSEResolvedGlobalAccountLimitDict], dict[str, dict[str, RSEResolvedGlobalAccountLimitDict]]]:
     """
     Lists the global account limitation names/values for the specified account.
@@ -111,7 +112,7 @@ def set_local_account_limit(
     rse: str,
     bytes_: int,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Set an account limit.
@@ -143,7 +144,7 @@ def set_global_account_limit(
     rse_expression: str,
     bytes_: int,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Set a global account limit.
@@ -173,7 +174,7 @@ def delete_local_account_limit(
     account: str,
     rse: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> bool:
     """
     Delete an account limit.
@@ -205,7 +206,7 @@ def delete_global_account_limit(
     account: str,
     rse_expression: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> bool:
     """
     Delete a global account limit..
@@ -237,7 +238,7 @@ def get_local_account_usage(
     account: str,
     rse: Optional[str],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> list[dict[str, Any]]:
     """
     Get the account usage and connect it with (if available) the account limits of the account.
@@ -272,7 +273,7 @@ def get_global_account_usage(
     account: str,
     rse_expression: Optional[str],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> list[dict[str, Any]]:
     """
     Get the account usage and connect it with (if available) the account limits of the account.

@@ -19,7 +19,7 @@ Interface for the requests abstraction layer
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
-from rucio.common.constants import TransferLimitDirection
+from rucio.common.constants import DEFAULT_VO, TransferLimitDirection
 from rucio.common.types import InternalAccount, InternalScope, RequestGatewayDict
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import request
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 def queue_requests(
     requests: "Iterable[RequestGatewayDict]",
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> list[dict[str, Any]]:
     """
     Submit transfer or deletion requests on destination RSEs for data identifiers.
@@ -67,7 +67,7 @@ def cancel_request(
     request_id: str,
     issuer: str,
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Cancel a request.
@@ -94,7 +94,7 @@ def cancel_request_did(
     request_type: str,
     issuer: str,
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
     Cancel a request based on a DID and request type.
@@ -125,7 +125,7 @@ def get_next(
     state: "RequestState",
     issuer: str,
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> list[dict[str, Any]]:
     """
     Retrieve the next request matching the request type and state.
@@ -154,7 +154,7 @@ def get_request_by_did(
     name: str,
     rse: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
     Retrieve a request by its DID for a destination RSE.
@@ -185,7 +185,7 @@ def get_request_history_by_did(
     name: str,
     rse: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
     Retrieve a historical request by its DID for a destination RSE.
@@ -216,7 +216,7 @@ def list_requests(
     dst_rses: "Iterable[str]",
     states: "Sequence[RequestState]",
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> "Iterator[dict[str, Any]]":
     """
     List all requests in a specific state from a source RSE to a destination RSE.
@@ -245,7 +245,7 @@ def list_requests_history(
     dst_rses: "Iterable[str]",
     states: "Sequence[RequestState]",
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     offset: Optional[int] = None,
     limit: Optional[int] = None,
 ) -> "Iterator[dict[str, Any]]":
@@ -278,7 +278,7 @@ def get_request_metrics(
     activity: Optional[str],
     group_by_rse_attribute: Optional[str],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
     Get statistics of requests in a specific state grouped by source RSE, destination RSE, and activity.

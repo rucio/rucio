@@ -28,6 +28,7 @@ import rucio.core.replica  # import add_replicas
 import rucio.core.rule
 from rucio.common import exception
 from rucio.common.config import config_get_bool, config_get_int
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.utils import chunks, is_archive
 from rucio.core import did_meta_plugins
 from rucio.core.message import add_message
@@ -211,7 +212,7 @@ def add_dids(
                                'scope': did['scope'].external,
                                'name': did['name'],
                                'expired_at': str(expired_at) if expired_at is not None else None}
-                    if account.vo != 'def':
+                    if account.vo != DEFAULT_VO:
                         message['vo'] = account.vo
 
                     add_message(event_type, message, session=session)
@@ -773,7 +774,7 @@ def __add_collections_to_container(
                    'childscope': c['scope'].external,
                    'childname': c['name'],
                    'childtype': chld_type}
-        if account.vo != 'def':
+        if account.vo != DEFAULT_VO:
             message['vo'] = account.vo
         messages.append(message)
 
@@ -857,7 +858,7 @@ def delete_dids(
         message = {'account': account.external,
                    'scope': did['scope'].external,
                    'name': did['name']}
-        if did['scope'].vo != 'def':
+        if did['scope'].vo != DEFAULT_VO:
             message['vo'] = did['scope'].vo
 
         add_message('ERASE', message, session=session)
@@ -1286,7 +1287,7 @@ def detach_dids(
                        'childscope': source['scope'].external,
                        'childname': source['name'],
                        'childtype': chld_type}
-            if scope.vo != 'def':
+            if scope.vo != DEFAULT_VO:
                 message['vo'] = scope.vo
 
             add_message('ERASE_CNT', message, session=session)
@@ -1297,7 +1298,7 @@ def detach_dids(
                    'child_scope': source['scope'].external,
                    'child_name': str(source['name']),
                    'child_type': str(child_type)}
-        if scope.vo != 'def':
+        if scope.vo != DEFAULT_VO:
             message['vo'] = scope.vo
 
         add_message('DETACH', message, session=session)
@@ -2241,7 +2242,7 @@ def set_status(
                            'bytes': values['bytes'],
                            'length': values['length'],
                            'events': values['events']}
-                if scope.vo != 'def':
+                if scope.vo != DEFAULT_VO:
                     message['vo'] = scope.vo
 
                 add_message('CLOSE', message, session=session)
@@ -2259,7 +2260,7 @@ def set_status(
                 values['is_open'] = True
 
                 message = {'scope': scope.external, 'name': name}
-                if scope.vo != 'def':
+                if scope.vo != DEFAULT_VO:
                     message['vo'] = scope.vo
                 add_message('OPEN', message, session=session)
 

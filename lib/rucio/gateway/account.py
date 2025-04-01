@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Optional
 import rucio.common.exception
 import rucio.core.identity
 import rucio.gateway.permission
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount
 from rucio.common.utils import gateway_update_return_dict
@@ -37,7 +38,7 @@ def add_account(
     type_: str,
     email: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Creates an account with the provided account name, contact information, etc.
@@ -68,7 +69,7 @@ def add_account(
 def del_account(
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Disables an account with the provided account name.
@@ -91,7 +92,7 @@ def del_account(
 
 def get_account_info(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> "Account":
     """
     Returns the info like the statistics information associated to an account_core.
@@ -115,7 +116,7 @@ def update_account(
     key: str,
     value: Any,
     issuer: str = 'root',
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """ Update a property of an account_core.
 
@@ -138,7 +139,7 @@ def update_account(
         return account_core.update_account(internal_account, key, value, session=session)
 
 
-def list_accounts(filter_: Optional[dict[str, Any]] = None, vo: str = 'def') -> 'Iterator[dict[str, Any]]':
+def list_accounts(filter_: Optional[dict[str, Any]] = None, vo: str = DEFAULT_VO) -> 'Iterator[dict[str, Any]]':
     """
     Lists all the Rucio account names.
 
@@ -164,7 +165,7 @@ def list_accounts(filter_: Optional[dict[str, Any]] = None, vo: str = 'def') -> 
 
 def account_exists(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> bool:
     """
     Checks to see if account exists. This procedure does not check it's status.
@@ -183,7 +184,7 @@ def account_exists(
 
 def list_identities(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> list["IdentityDict"]:
     """
     List all identities on an account_core.
@@ -201,7 +202,7 @@ def list_identities(
 
 def list_account_attributes(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> list["AccountAttributesDict"]:
     """
     Returns all the attributes for the given account.
@@ -222,7 +223,7 @@ def add_account_attribute(
     value: Any,
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Add an attribute to an account.
@@ -252,7 +253,7 @@ def del_account_attribute(
     key: str,
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Delete an attribute to an account.
@@ -278,7 +279,7 @@ def get_usage(
     rse: str,
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> "UsageDict":
     """
     Returns current values of the specified counter, or raises CounterNotFound if the counter does not exist.
@@ -301,7 +302,7 @@ def get_usage_history(
     rse: str,
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> list["UsageDict"]:
     """
     Returns historical values of the specified counter, or raises CounterNotFound if the counter does not exist.

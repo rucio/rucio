@@ -24,6 +24,7 @@ from urllib.parse import quote, unquote
 from flask import Response, make_response, redirect, render_template, request
 
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import CannotAuthenticate
 from rucio.common.extra import import_extras
 from rucio.common.policy import get_policy
@@ -144,7 +145,7 @@ def select_account_name(identitystr, identity_type, vo=None):
     """
     ui_account = None
     if not MULTI_VO:
-        vo = 'def'
+        vo = DEFAULT_VO
     if vo is not None:
         accounts = identity.list_accounts_for_identity(identitystr, identity_type)
     else:
@@ -309,7 +310,7 @@ def x509token_auth(data=None):
         return render_template("problem.html", msg="No certificate provided. Please authenticate with a certificate registered in Rucio.")
     dn = request.environ.get('SSL_CLIENT_S_DN')
     if not MULTI_VO:
-        ui_vo = 'def'
+        ui_vo = DEFAULT_VO
     elif hasattr(data, 'vo') and data.vo:
         ui_vo = data.vo
     else:
@@ -380,7 +381,7 @@ def userpass_auth():
         return render_template('problem.html', msg="No input credentials were provided.")
 
     if not MULTI_VO:
-        ui_vo = 'def'
+        ui_vo = DEFAULT_VO
     if ui_account is None and ui_vo is None:
         ui_account, ui_vo = select_account_name(username, 'userpass', ui_vo)
     elif ui_account is None:
@@ -435,7 +436,7 @@ def saml_auth(method, data=None):
     samlauth = OneLogin_Saml2_Auth(req, custom_base_path=saml_path)
     saml_user_data = request.cookies.get('saml-user-data')
     if not MULTI_VO:
-        ui_vo = 'def'
+        ui_vo = DEFAULT_VO
     elif hasattr(data, 'vo') and data.vo:
         ui_vo = data.vo
     else:

@@ -29,7 +29,7 @@ from rucio.common.bittorrent import bittorrent_v2_merkle_sha256
 from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS, adler32, md5
 from rucio.common.client import detect_client_location
 from rucio.common.config import config_get, config_get_bool, config_get_int
-from rucio.common.constants import RseAttr
+from rucio.common.constants import DEFAULT_VO, RseAttr
 from rucio.common.exception import (
     DataIdentifierAlreadyExists,
     DataIdentifierNotFound,
@@ -120,7 +120,7 @@ class UploadClient:
             'account': self.client.account,
             'eventType': 'upload',
             'eventVersion': version.RUCIO_VERSION[0],
-            'vo': self.client.vo if self.client.vo != 'def' else None
+            'vo': self.client.vo if self.client.vo != DEFAULT_VO else None
         }
 
     def upload(

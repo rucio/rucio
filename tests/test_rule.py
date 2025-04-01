@@ -26,7 +26,7 @@ from sqlalchemy import func, select
 import rucio.gateway.rule
 from rucio.client.ruleclient import RuleClient
 from rucio.common.config import config_get_bool
-from rucio.common.constants import RseAttr
+from rucio.common.constants import DEFAULT_VO, RseAttr
 from rucio.common.exception import (
     AccessDenied,
     DuplicateRule,
@@ -110,7 +110,7 @@ def check_dataset_ok_callback(scope, name, rse, rse_id, rule_id):
                'rse': rse,
                'rse_id': rse_id,
                'rule_id': rule_id}
-    if scope.vo != 'def':
+    if scope.vo != DEFAULT_VO:
         message['vo'] = scope.vo
 
     stmt = select(
@@ -130,7 +130,7 @@ def check_rule_progress_callback(scope, name, progress, rule_id):
                'name': name,
                'rule_id': rule_id,
                'progress': progress}
-    if scope.vo != 'def':
+    if scope.vo != DEFAULT_VO:
         message['vo'] = scope.vo
 
     stmt = select(
