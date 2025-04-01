@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import click
+import json
 
 from rucio.common.exception import RucioException
 
@@ -29,6 +30,18 @@ def extract_scope_name(did: str):
         msg = f"Cannot extract scope and name from DID {did}. Found empty scope or name."
         raise RucioException(msg)
     return scope, name
+
+
+def is_valid_json(s: str) -> bool:
+    try:
+        json.loads(s)
+        return True
+    except json.JSONDecodeError:
+        return False
+
+
+def minify_json(data):
+    return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
 
 
 @click.group()
@@ -51,7 +64,7 @@ def add_opendata_did(ctx, did_name):
     client = ctx.obj.client
     print(f"DEBUG: Adding Open Data DID with '{did_name}'")
     scope, name = extract_scope_name(did_name)
-    client.add_opendata_did(did_name, scope=scope, name=name)
+    client.add_opendata_did(scope=scope, name=name)
 
 
 @opendata.command("remove")
@@ -61,25 +74,48 @@ def remove_opendata_did(ctx, did_name):
     client = ctx.obj.client
     print(f"DEBUG: Removing Open Data DID with '{did_name}'")
     scope, name = extract_scope_name(did_name)
-    client.remove_opendata_did(did_name, scope=scope, name=name)
+    client.remove_opendata_did(scope=scope, name=name)
 
 
+# Add --json option to get only the metadata
 @opendata.command("show")
 @click.argument("did-name")
+@click.option("--json", required=False, is_flag=True, default=False, help="Print only the metadata JSON")
 @click.pass_context
-def get_opendata_did(ctx, did_name):
+def get_opendata_did(ctx, did_name: str, json: bool):
     client = ctx.obj.client
     print(f"DEBUG: Getting Open Data DID with '{did_name}'")
     scope, name = extract_scope_name(did_name)
-    client.get_opendata_did(did_name, scope=scope, name=name)
+    result = client.get_opendata_did(scope=scope, name=name)
+    # TODO: switch on json flag
+    if json:
+        ...  # print only the metadata JSON
+    print(result)
 
 
 @opendata.command("update")
 @click.argument("did-name")
-@click.argument("metadata-json")
+# How to change the name of this `--json` to (metadata_json) while keeping the flag as `--json`?
+# TODO: change name to avoid shadowing the json module
+@click.option("--json", required=False, help="Metadata JSON")
+# TODO: once the list of states is defined, restrict choices to those states
+@click.option("--state", required=False, help="State")
 @click.pass_context
-def update_opendata_did(ctx, did_name, metadata_json):
+def update_opendata_did(ctx, did_name: str, json: str, state: str):
     client = ctx.obj.client
-    print(f"DEBUG: Updating Open Data DID with '{did_name}'")
+    print(f"DEBUG: Updating Open Data DID with '{did_name}', metadata: {json}, state: {state}")
+    if not json and not state:
+        raise ValueError("At least one of --json or --state must be provided.")
+
     scope, name = extract_scope_name(did_name)
-    client.update_opendata_did(did_name, scope=scope, name=name, metadata_json=metadata_json)
+
+    if state:
+        raise NotImplementedError("State update is not implemented yet.")
+
+    if json:
+        if not is_valid_json(json):
+            raise ValueError("Invalid JSON provided.")
+
+        json = minify_json(json)
+
+        client.update_opendata_did(scope=scope, name=name, metadata_json=json)
