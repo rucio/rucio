@@ -552,6 +552,7 @@ class TestOverlappingLimits:
 
     def test_source_dest_mixed_act(self, rse_factory, mock_scope, vo, root_account, transfer_limit_factory):
         """
+        Test mixed source-destination activities under throttling.
         """
 
         if get_session().bind.dialect.name == 'mysql':
