@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from packaging.specifiers import SpecifierSet
 
 from rucio.common import config
-from rucio.common.client import get_client_vo, is_client
+from rucio.common.client import get_client_vo
 from rucio.common.exception import InvalidAlgorithmName, PolicyPackageIsNotVersioned, PolicyPackageVersionError
 from rucio.version import current_version
 
@@ -132,7 +132,7 @@ class PolicyPackageAlgorithms:
             cls._try_importing_policy()
         else:
             # on client, only register algorithms for selected VO
-            if is_client():
+            if config.is_client():
                 vo = get_client_vo()
                 cls._try_importing_policy(vo)
             # on server, list all VOs and register their algorithms
