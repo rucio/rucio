@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING, Any
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.schema import validate_schema
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import distance as distance_module
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
 def add_rse(
     rse,
     issuer,
-    vo='def',
+    vo=DEFAULT_VO,
     deterministic=True,
     volatile=False,
     city=None,
@@ -86,7 +87,7 @@ def add_rse(
                                   availability_write=availability_write, availability_delete=availability_delete, session=session)
 
 
-def get_rse(rse, vo='def'):
+def get_rse(rse, vo=DEFAULT_VO):
     """
     Provides details about the specified RSE.
 
@@ -103,7 +104,7 @@ def get_rse(rse, vo='def'):
         return rse_module.get_rse_protocols(rse_id=rse_id, session=session)
 
 
-def del_rse(rse, issuer, vo='def'):
+def del_rse(rse, issuer, vo=DEFAULT_VO):
     """
     Disables an RSE with the provided RSE name.
 
@@ -123,7 +124,7 @@ def del_rse(rse, issuer, vo='def'):
         return rse_module.del_rse(rse_id, session=session)
 
 
-def list_rses(filters: "Optional[dict[str, Any]]" = None, vo: str = 'def') -> list[dict[str, Any]]:
+def list_rses(filters: "Optional[dict[str, Any]]" = None, vo: str = DEFAULT_VO) -> list[dict[str, Any]]:
     """
     Lists all RSEs.
 
@@ -140,7 +141,7 @@ def list_rses(filters: "Optional[dict[str, Any]]" = None, vo: str = 'def') -> li
         return rse_module.list_rses(filters=filters, session=session)
 
 
-def del_rse_attribute(rse, key, issuer, vo='def'):
+def del_rse_attribute(rse, key, issuer, vo=DEFAULT_VO):
     """
     Delete a RSE attribute.
 
@@ -162,7 +163,7 @@ def del_rse_attribute(rse, key, issuer, vo='def'):
         return rse_module.del_rse_attribute(rse_id=rse_id, key=key, session=session)
 
 
-def add_rse_attribute(rse, key, value, issuer, vo='def'):
+def add_rse_attribute(rse, key, value, issuer, vo=DEFAULT_VO):
     """ Adds a RSE attribute.
 
     :param rse: the rse name.
@@ -184,7 +185,7 @@ def add_rse_attribute(rse, key, value, issuer, vo='def'):
         return rse_module.add_rse_attribute(rse_id=rse_id, key=key, value=value, session=session)
 
 
-def list_rse_attributes(rse, vo='def'):
+def list_rse_attributes(rse, vo=DEFAULT_VO):
     """
     List RSE attributes for a RSE_MODULE.
 
@@ -224,7 +225,7 @@ def get_rses_with_attribute(key):
         return rse_module.get_rses_with_attribute(key=key, session=session)
 
 
-def add_protocol(rse, issuer, vo='def', **data):
+def add_protocol(rse, issuer, vo=DEFAULT_VO, **data):
     """
     Creates a new protocol entry for an existing RSE.
 
@@ -243,7 +244,7 @@ def add_protocol(rse, issuer, vo='def', **data):
         rse_module.add_protocol(rse_id, data['data'], session=session)
 
 
-def get_rse_protocols(rse, issuer, vo='def'):
+def get_rse_protocols(rse, issuer, vo=DEFAULT_VO):
     """
     Returns all matching protocols (including detailed information) for the given RSE.
 
@@ -258,7 +259,7 @@ def get_rse_protocols(rse, issuer, vo='def'):
         return rse_module.get_rse_protocols(rse_id, session=session)
 
 
-def del_protocols(rse, scheme, issuer, vo='def', hostname=None, port=None):
+def del_protocols(rse, scheme, issuer, vo=DEFAULT_VO, hostname=None, port=None):
     """
     Deletes all matching protocol entries for the given RSE..
 
@@ -280,7 +281,7 @@ def del_protocols(rse, scheme, issuer, vo='def', hostname=None, port=None):
         rse_module.del_protocols(rse_id=rse_id, scheme=scheme, hostname=hostname, port=port, session=session)
 
 
-def update_protocols(rse, scheme, data, issuer, vo='def', hostname=None, port=None):
+def update_protocols(rse, scheme, data, issuer, vo=DEFAULT_VO, hostname=None, port=None):
     """
     Updates all provided attributes for all matching protocol entries of the given RSE..
 
@@ -301,7 +302,7 @@ def update_protocols(rse, scheme, data, issuer, vo='def', hostname=None, port=No
         rse_module.update_protocols(rse_id=rse_id, scheme=scheme, hostname=hostname, port=port, data=data, session=session)
 
 
-def set_rse_usage(rse, source, used, free, issuer, files=None, vo='def'):
+def set_rse_usage(rse, source, used, free, issuer, files=None, vo=DEFAULT_VO):
     """
     Set RSE usage information.
 
@@ -326,7 +327,7 @@ def set_rse_usage(rse, source, used, free, issuer, files=None, vo='def'):
         return rse_module.set_rse_usage(rse_id=rse_id, source=source, used=used, free=free, files=files, session=session)
 
 
-def get_rse_usage(rse, issuer, source=None, per_account=False, vo='def'):
+def get_rse_usage(rse, issuer, source=None, per_account=False, vo=DEFAULT_VO):
     """
     get RSE usage information.
 
@@ -349,7 +350,7 @@ def get_rse_usage(rse, issuer, source=None, per_account=False, vo='def'):
         return [gateway_update_return_dict(u, session=session) for u in usages]
 
 
-def list_rse_usage_history(rse, issuer, source=None, vo='def'):
+def list_rse_usage_history(rse, issuer, source=None, vo=DEFAULT_VO):
     """
     List RSE usage history information.
 
@@ -366,7 +367,7 @@ def list_rse_usage_history(rse, issuer, source=None, vo='def'):
             yield gateway_update_return_dict(u, session=session)
 
 
-def set_rse_limits(rse, name, value, issuer, vo='def'):
+def set_rse_limits(rse, name, value, issuer, vo=DEFAULT_VO):
     """
     Set RSE limits.
 
@@ -388,7 +389,7 @@ def set_rse_limits(rse, name, value, issuer, vo='def'):
         return rse_module.set_rse_limits(rse_id=rse_id, name=name, value=value, session=session)
 
 
-def delete_rse_limits(rse, name, issuer, vo='def'):
+def delete_rse_limits(rse, name, issuer, vo=DEFAULT_VO):
     """
     Set RSE limits.
 
@@ -409,7 +410,7 @@ def delete_rse_limits(rse, name, issuer, vo='def'):
         return rse_module.delete_rse_limits(rse_id=rse_id, name=name, session=session)
 
 
-def get_rse_limits(rse, issuer, vo='def'):
+def get_rse_limits(rse, issuer, vo=DEFAULT_VO):
     """
     Get RSE limits.
 
@@ -424,7 +425,7 @@ def get_rse_limits(rse, issuer, vo='def'):
         return rse_module.get_rse_limits(rse_id=rse_id, session=session)
 
 
-def parse_rse_expression(rse_expression, vo='def'):
+def parse_rse_expression(rse_expression, vo=DEFAULT_VO):
     """
     Parse an RSE expression and return the list of RSEs.
 
@@ -439,7 +440,7 @@ def parse_rse_expression(rse_expression, vo='def'):
     return [rse['rse'] for rse in rses]
 
 
-def update_rse(rse, parameters, issuer, vo='def'):
+def update_rse(rse, parameters, issuer, vo=DEFAULT_VO):
     """
     Update RSE properties like availability or name.
 
@@ -459,7 +460,7 @@ def update_rse(rse, parameters, issuer, vo='def'):
         return rse_module.update_rse(rse_id=rse_id, parameters=parameters, session=session)
 
 
-def add_distance(source, destination, issuer, vo='def', distance=None):
+def add_distance(source, destination, issuer, vo=DEFAULT_VO, distance=None):
     """
     Add a src-dest distance.
 
@@ -483,7 +484,7 @@ def add_distance(source, destination, issuer, vo='def', distance=None):
             raise exception.Duplicate('Distance from %s to %s already exists!' % (source, destination))
 
 
-def update_distance(source, destination, distance, issuer, vo='def'):
+def update_distance(source, destination, distance, issuer, vo=DEFAULT_VO):
     """
     Update distances with the given RSE ids.
 
@@ -504,7 +505,7 @@ def update_distance(source, destination, distance, issuer, vo='def'):
                                                 distance=distance, session=session)
 
 
-def get_distance(source, destination, issuer, vo='def'):
+def get_distance(source, destination, issuer, vo=DEFAULT_VO):
     """
     Get distances between rses.
 
@@ -523,7 +524,7 @@ def get_distance(source, destination, issuer, vo='def'):
         return [gateway_update_return_dict(d, session=session) for d in distances]
 
 
-def delete_distance(source, destination, issuer, vo='def'):
+def delete_distance(source, destination, issuer, vo=DEFAULT_VO):
     """
     Delete distances with the given RSE ids.
 
@@ -544,7 +545,7 @@ def delete_distance(source, destination, issuer, vo='def'):
                                                 session=session)
 
 
-def add_qos_policy(rse, qos_policy, issuer, vo='def'):
+def add_qos_policy(rse, qos_policy, issuer, vo=DEFAULT_VO):
     """
     Add a QoS policy from an RSE.
 
@@ -567,7 +568,7 @@ def add_qos_policy(rse, qos_policy, issuer, vo='def'):
         return rse_module.add_qos_policy(rse_id, qos_policy, session=session)
 
 
-def delete_qos_policy(rse, qos_policy, issuer, vo='def'):
+def delete_qos_policy(rse, qos_policy, issuer, vo=DEFAULT_VO):
     """
     Delete a QoS policy from an RSE.
 
@@ -589,7 +590,7 @@ def delete_qos_policy(rse, qos_policy, issuer, vo='def'):
         return rse_module.delete_qos_policy(rse_id, qos_policy, session=session)
 
 
-def list_qos_policies(rse, issuer, vo='def'):
+def list_qos_policies(rse, issuer, vo=DEFAULT_VO):
     """
     List all QoS policies of an RSE.
 

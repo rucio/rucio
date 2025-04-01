@@ -23,6 +23,7 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
 from rucio.common.config import config_get
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import UndefinedPolicy
 
 if TYPE_CHECKING:
@@ -41,8 +42,8 @@ def get_policy(logger: 'LoggerFunction' = logging.log) -> str:
             try:
                 policy = config_get('permission', 'policy')
             except (NoOptionError, NoSectionError):
-                policy = 'def'
-                logger(logging.WARNING, "Policy not specified, falling back to 'def'")
+                policy = DEFAULT_VO
+                logger(logging.WARNING, "Policy not specified, falling back to DEFAULT_VO")
         policy = os.environ.get('POLICY', policy)
         REGION.set('policy', policy)
     return policy

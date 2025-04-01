@@ -27,6 +27,8 @@ RESERVED_KEYS = ['scope', 'name', 'account', 'did_type', 'is_open', 'monotonic',
 # collection_keys =
 # file_keys =
 
+DEFAULT_VO = 'def'
+
 KEY_TYPES = ['ALL', 'COLLECTION', 'FILE', 'DERIVED']
 # all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection)
 

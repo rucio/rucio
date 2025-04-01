@@ -29,7 +29,7 @@ from sqlalchemy.types import LargeBinary
 # and it must be renamed to avoid conflicts with the policy package schema modules
 from rucio.common import schema as common_schema
 from rucio.common import utils
-from rucio.common.constants import TransferLimitDirection
+from rucio.common.constants import DEFAULT_VO, TransferLimitDirection
 from rucio.common.types import InternalAccount, InternalScope  # noqa: TCH001 (types are needed by SQLAlchemy)
 from rucio.db.sqla.constants import (
     AccountStatus,
@@ -776,7 +776,7 @@ class RSE(BASE, SoftModelBase):
     __tablename__ = 'rses'
     id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
     rse: Mapped[str] = mapped_column(String(255))
-    vo: Mapped[str] = mapped_column(String(3), nullable=False, server_default='def')
+    vo: Mapped[str] = mapped_column(String(3), nullable=False, server_default=DEFAULT_VO)
     rse_type: Mapped[RSEType] = mapped_column(Enum(RSEType, name='RSES_TYPE_CHK',
                                                    create_constraint=True,
                                                    values_callable=lambda obj: [e.value for e in obj]),

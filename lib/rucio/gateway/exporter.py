@@ -15,6 +15,7 @@
 from typing import Any
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.core import exporter
 from rucio.core.rse import get_rse_name
 from rucio.db.sqla.constants import DatabaseOperationType
@@ -22,7 +23,7 @@ from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
 
 
-def export_data(issuer: str, distance: bool = True, vo: str = 'def') -> dict[str, Any]:
+def export_data(issuer: str, distance: bool = True, vo: str = DEFAULT_VO) -> dict[str, Any]:
     """
     Export data from Rucio.
 

@@ -15,6 +15,7 @@
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import RSENotFound
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import permission
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
 
 
 @read_session
-def has_permission(issuer: str, action: str, kwargs: dict[str, Any], vo: str = 'def', *, session: "Session") -> 'PermissionResult':
+def has_permission(issuer: str, action: str, kwargs: dict[str, Any], vo: str = DEFAULT_VO, *, session: "Session") -> 'PermissionResult':
     """
     Checks if an account has the specified permission to
     execute an action with parameters.

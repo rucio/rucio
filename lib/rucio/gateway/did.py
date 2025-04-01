@@ -16,7 +16,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.gateway.permission
-from rucio.common.constants import RESERVED_KEYS
+from rucio.common.constants import DEFAULT_VO, RESERVED_KEYS
 from rucio.common.exception import AccessDenied, InvalidObject, RucioException
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
@@ -40,7 +40,7 @@ def list_dids(
     offset: Optional[int] = None,
     long: bool = False,
     recursive: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[dict[str, Any]]':
     """
     List DIDs in a scope.
@@ -84,7 +84,7 @@ def add_did(
     lifetime: Optional[str] = None,
     dids: Optional['Sequence[dict[str, Any]]'] = None,
     rse: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Add data DID.
@@ -152,7 +152,7 @@ def add_did(
 def add_dids(
     dids: 'Sequence[dict[str, Any]]',
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Bulk Add DID.
@@ -190,7 +190,7 @@ def attach_dids(
     name: str,
     attachment: dict[str, Any],
     issuer: str,
-    vo='def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Append content to data DID.
@@ -237,7 +237,7 @@ def attach_dids_to_dids(
     attachments: 'Sequence[dict[str, Any]]',
     issuer: str,
     ignore_duplicate: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Append content to DIDs.
@@ -279,7 +279,7 @@ def detach_dids(
     name: str,
     dids: 'Sequence[dict[str, Any]]',
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Detach data identifier
@@ -309,7 +309,7 @@ def list_new_dids(
     thread: Optional[int] = None,
     total_threads: Optional[int] = None,
     chunk_size: int = 1000,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[dict[str, Any]]':
     """
     List recent identifiers.
@@ -333,7 +333,7 @@ def list_new_dids(
 def set_new_dids(
     dids: 'Sequence[dict[str, Any]]',
     new_flag: bool = True,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> bool:
     """
     Set/reset the flag new
@@ -353,7 +353,7 @@ def set_new_dids(
 def list_content(
     scope: str,
     name: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[dict[str, Any]]':
     """
     List data identifier contents.
@@ -374,7 +374,7 @@ def list_content(
 def list_content_history(
     scope: str,
     name: str,
-    vo='def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[dict[str, Any]]':
     """
     List data identifier contents history.
@@ -396,7 +396,7 @@ def list_content_history(
 def bulk_list_files(
     dids: 'Iterable[dict[str, Any]]',
     long: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[dict[str, Any]]':
     """
     List file contents of a list of data identifiers.
@@ -418,7 +418,7 @@ def list_files(
     scope: str,
     name: str,
     long: bool,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[dict[str, Any]]':
     """
     List data identifier file contents.
@@ -442,7 +442,7 @@ def scope_list(
     scope: str,
     name: Optional[str] = None,
     recursive: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[dict[str, Any]]':
     """
     List data identifiers in a scope.
@@ -466,7 +466,7 @@ def scope_list(
             yield ret_did
 
 
-def get_did(scope: str, name: str, dynamic_depth: Optional[DIDType] = None, vo: str = 'def') -> "dict[str, Any]":
+def get_did(scope: str, name: str, dynamic_depth: Optional[DIDType] = None, vo: str = DEFAULT_VO) -> "dict[str, Any]":
     """
     Retrieve a single data DID.
 
@@ -493,7 +493,7 @@ def set_metadata(
     value: Any,
     issuer: str,
     recursive: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Add metadata to data DID.
@@ -526,7 +526,7 @@ def set_metadata_bulk(
     meta: dict[str, Any],
     issuer: str,
     recursive: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Add metadata to data DID.
@@ -557,7 +557,7 @@ def set_dids_metadata_bulk(
     dids: 'Iterable[dict[str, Any]]',
     issuer: str,
     recursive: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Add metadata to a list of data identifiers.
@@ -587,7 +587,7 @@ def get_metadata(
     scope: str,
     name: str,
     plugin: str = 'DID_COLUMN',
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
     Get data identifier metadata
@@ -609,7 +609,7 @@ def get_metadata_bulk(
     dids: 'Iterable[dict[str, Any]]',
     inherit: bool = False,
     plugin: str = 'DID_COLUMN',
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[dict[str, Any]]':
     """
     Get metadata for a list of DIDs
@@ -633,7 +633,7 @@ def delete_metadata(
     scope: str,
     name: str,
     key: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Delete a key from the metadata column
@@ -653,7 +653,7 @@ def set_status(
     scope: str,
     name: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     **kwargs
 ) -> None:
     """
@@ -678,7 +678,7 @@ def set_status(
 
 def get_dataset_by_guid(
     guid: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[dict[str, Any]]':
     """
     Get the parent datasets for a given GUID.
@@ -699,7 +699,7 @@ def get_dataset_by_guid(
 def list_parent_dids(
     scope: str,
     name: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[dict[str, Any]]':
     """
     List parent datasets and containers of a DID.
@@ -725,7 +725,7 @@ def create_did_sample(
     output_name: str,
     issuer: str,
     nbfiles: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ):
     """
     Create a sample from an input collection.
@@ -758,7 +758,7 @@ def create_did_sample(
 def resurrect(
     dids: 'Iterable[dict[str, Any]]',
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Resurrect DIDs.
@@ -783,7 +783,7 @@ def resurrect(
 def list_archive_content(
     scope: str,
     name: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[dict[str, Any]]':
     """
     List archive contents.
@@ -805,7 +805,7 @@ def add_did_to_followed(
     scope: str,
     name: str,
     account: str,
-    vo: str = 'def'
+    vo: str = DEFAULT_VO
 ) -> None:
     """
     Mark a DID as followed by the given account
@@ -823,7 +823,7 @@ def add_did_to_followed(
 def add_dids_to_followed(
     dids: 'Iterable[Mapping[str, Any]]',
     account: str,
-    vo: str = 'def'
+    vo: str = DEFAULT_VO
 ) -> None:
     """
     Bulk mark datasets as followed
@@ -839,7 +839,7 @@ def add_dids_to_followed(
 def get_users_following_did(
     name: str,
     scope: str,
-    vo: str = 'def'
+    vo: str = DEFAULT_VO
 ) -> 'Iterator[dict[str, str]]':
     """
     Return list of users following a DID
@@ -860,7 +860,7 @@ def remove_did_from_followed(
     name: str,
     account: str,
     issuer: str,
-    vo: str = 'def'
+    vo: str = DEFAULT_VO
 ) -> None:
     """
     Mark a DID as not followed
@@ -885,7 +885,7 @@ def remove_dids_from_followed(
     dids: 'Iterable[Mapping[str, Any]]',
     account: str,
     issuer: str,
-    vo: str = 'def'
+    vo: str = DEFAULT_VO
 ) -> None:
     """
     Bulk mark datasets as not followed

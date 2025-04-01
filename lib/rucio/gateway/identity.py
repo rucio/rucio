@@ -19,6 +19,7 @@ Interface for identity abstraction layer
 from typing import TYPE_CHECKING, Optional
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalAccount
 from rucio.core import identity
 from rucio.db.sqla.constants import DatabaseOperationType, IdentityType
@@ -53,7 +54,7 @@ def del_identity(
     identity_key: str,
     id_type: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Deletes a user identity.
@@ -81,7 +82,7 @@ def add_account_identity(
     issuer: str,
     default: bool = False,
     password: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Adds a membership association between identity and account.
@@ -124,7 +125,7 @@ def del_account_identity(
     id_type: str,
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Removes a membership association between identity and account.

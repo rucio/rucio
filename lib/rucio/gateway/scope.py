@@ -15,6 +15,7 @@
 from typing import Any, Optional
 
 import rucio.gateway.permission
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
@@ -23,7 +24,7 @@ from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.session import db_session
 
 
-def list_scopes(filter_: Optional[dict[str, Any]] = None, vo: str = 'def') -> list[str]:
+def list_scopes(filter_: Optional[dict[str, Any]] = None, vo: str = DEFAULT_VO) -> list[str]:
     """
     Lists all scopes.
 
@@ -48,7 +49,7 @@ def add_scope(
     scope: str,
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Creates a scope for an account.
@@ -76,7 +77,7 @@ def add_scope(
 
 def get_scopes(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> list[str]:
     """
     Gets a list of all scopes for an account.

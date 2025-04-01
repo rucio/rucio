@@ -28,7 +28,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.config import config_get, config_get_list
-from rucio.common.constants import SUPPORTED_PROTOCOLS, RseAttr, TransferLimitDirection
+from rucio.common.constants import DEFAULT_VO, SUPPORTED_PROTOCOLS, RseAttr, TransferLimitDirection
 from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RSEProtocolNotSupported, RucioException, UnsupportedOperation
 from rucio.common.utils import construct_non_deterministic_pfn, get_transfer_schemas
 from rucio.core import did
@@ -485,7 +485,7 @@ def set_transfers_state(
                    'external-host': external_host,
                    'queued_at': str(submitted_at),
                    'datatype': datatype}
-            if rws.scope.vo != 'def':
+            if rws.scope.vo != DEFAULT_VO:
                 msg['vo'] = rws.scope.vo
 
             ds_scope = transfer.rws.attributes.get('ds_scope')

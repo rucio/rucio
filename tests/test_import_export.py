@@ -20,7 +20,7 @@ from sqlalchemy import delete, select
 from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
 from rucio.common.config import config_add_section, config_has_section, config_set
-from rucio.common.constants import RseAttr
+from rucio.common.constants import DEFAULT_VO, RseAttr
 from rucio.common.exception import RSENotFound
 from rucio.common.types import InternalAccount
 from rucio.common.utils import parse_response, render_json
@@ -35,7 +35,7 @@ from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType, RS
 from rucio.tests.common import auth, hdrdict, headers, rse_name_generator
 
 
-def check_rse(rse_name, test_data, vo='def'):
+def check_rse(rse_name, test_data, vo=DEFAULT_VO):
     rse_id = get_rse_id(rse=rse_name, vo=vo)
     rse = get_rse(rse_id=rse_id)
     assert rse['rse'] == rse_name
@@ -55,7 +55,7 @@ def check_rse(rse_name, test_data, vo='def'):
     assert rse['availability_delete'] == test_data[rse_name]['availability_delete']
 
 
-def check_protocols(rse, test_data, vo='def'):
+def check_protocols(rse, test_data, vo=DEFAULT_VO):
     rse_id = get_rse_id(rse=rse, vo=vo)
     protocols = get_rse_protocols(rse_id)
     assert test_data[rse]['lfn2pfn_algorithm'] == get_rse_attribute(rse_id, RseAttr.LFN2PFN_ALGORITHM, use_cache=False)

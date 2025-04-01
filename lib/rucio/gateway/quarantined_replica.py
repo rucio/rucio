@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalScope
 from rucio.core.quarantined_replica import add_quarantined_replicas
 from rucio.core.rse import get_rse_id
@@ -31,7 +32,7 @@ def quarantine_file_replicas(
     issuer: str,
     rse: Optional[str] = None,
     rse_id: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Quarantine replicas.

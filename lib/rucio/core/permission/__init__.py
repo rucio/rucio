@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 import rucio.core.permission.generic
 from rucio.common import config, exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.plugins import check_policy_module_version
 from rucio.common.policy import get_policy
 
@@ -80,7 +81,7 @@ if not multivo:
     except ImportError:
         raise exception.ErrorLoadingPolicyPackage(policy)
 
-    permission_modules["def"] = module
+    permission_modules[DEFAULT_VO] = module
 
 
 def load_permission_for_vo(vo: str) -> None:

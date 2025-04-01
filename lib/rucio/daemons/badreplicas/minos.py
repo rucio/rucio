@@ -24,6 +24,7 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get_int
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import DatabaseException, DataIdentifierNotFound, ReplicaNotFound, UnsupportedOperation
 from rucio.common.logging import setup_logging
 from rucio.common.utils import chunks
@@ -208,7 +209,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             dict_rse = __clean_unknown_replicas(pfns, vo, logger)
             for rse_id, pfns_by_scheme in dict_rse.items():
                 rse = get_rse_name(rse_id=rse_id, session=None)
-                rse_vo_str = rse if vo == 'def' else '{} on VO {}'.format(rse, vo)
+                rse_vo_str = rse if vo == DEFAULT_VO else '{} on VO {}'.format(rse, vo)
                 for scheme, pfns in pfns_by_scheme.items():
                     logger(logging.DEBUG, 'Running on RSE %s with %s replicas', rse_vo_str, len(pfns))
                     tot_chunk = int(math.ceil(len(pfns) / chunk_size))
@@ -245,7 +246,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
         for rse_id in dict_rse:
             replicas = []
             rse = get_rse_name(rse_id=rse_id, session=None)
-            rse_vo_str = rse if vo == 'def' else '{} on VO {}'.format(rse, vo)
+            rse_vo_str = rse if vo == DEFAULT_VO else '{} on VO {}'.format(rse, vo)
             logger(logging.DEBUG, 'Running on RSE %s', rse_vo_str)
             for rse_id, pfns_by_scheme in dict_rse.items():
                 for scheme, pfns in pfns_by_scheme.items():

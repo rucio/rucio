@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import DatabaseException, RuleNotFound, UnsupportedOperation
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount
@@ -90,7 +91,7 @@ def run_once(paused_dids: dict[tuple, datetime], chunk_size: int, heartbeat_hand
             _, _, logger = heartbeat_handler.live()
             try:
                 logger(logging.INFO, 'Receive %s dids to delete', len(chunk))
-                delete_dids(dids=chunk, account=InternalAccount('root', vo='def'), expire_rules=True)
+                delete_dids(dids=chunk, account=InternalAccount('root', vo=DEFAULT_VO), expire_rules=True)
                 logger(logging.INFO, 'Delete %s dids', len(chunk))
                 METRICS.counter(name='undertaker.delete_dids').inc(len(chunk))
             except RuleNotFound as error:

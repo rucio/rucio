@@ -31,7 +31,7 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import asc, false, func, null, true
 
 from rucio.common.config import config_get_bool, config_get_int
-from rucio.common.constants import RseAttr, TransferLimitDirection
+from rucio.common.constants import DEFAULT_VO, RseAttr, TransferLimitDirection
 from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import FilterDict, InternalAccount, InternalScope, LoggerFunction, RequestDict
 from rucio.common.utils import chunks, generate_uuid
@@ -2918,7 +2918,7 @@ def add_monitor_message(
     if not message.get('vo') and request.get('source_rse_id'):
         src_id = request['source_rse_id']
         vo = get_rse_vo(rse_id=src_id, session=session)
-        if vo != 'def':
+        if vo != DEFAULT_VO:
             message['vo'] = vo
     for time_field in ('created_at', 'submitted_at', 'started_at', 'transferred_at'):
         field_value = message[time_field]

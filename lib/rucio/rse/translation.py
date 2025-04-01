@@ -18,7 +18,7 @@ from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import config
-from rucio.common.constants import RseAttr
+from rucio.common.constants import DEFAULT_VO, RseAttr
 from rucio.common.exception import ConfigNotFound
 from rucio.common.plugins import PolicyPackageAlgorithms
 
@@ -35,7 +35,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
 
     _algorithm_type = "pfn2lfn"
 
-    def __init__(self, vo: str = 'def'):
+    def __init__(self, vo: str = DEFAULT_VO):
         super().__init__()
 
         logger = logging.getLogger(__name__)

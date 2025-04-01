@@ -16,6 +16,7 @@ from collections import namedtuple
 from json import dumps, loads
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import AccessDenied, InvalidObject
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
@@ -42,7 +43,7 @@ def add_subscription(
     dry_run: bool,
     issuer: str,
     priority: Optional[int] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> str:
     """
     Adds a new subscription which will be verified against every new added file and dataset
@@ -102,7 +103,7 @@ def update_subscription(
     account: str,
     issuer: str,
     metadata: Optional[dict[str, Any]] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Updates a subscription
@@ -155,7 +156,7 @@ def list_subscriptions(
     name: Optional[str] = None,
     account: Optional[str] = None,
     state: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[dict[str, Any]]':
     """
     Returns a dictionary with the subscription information :
@@ -194,7 +195,7 @@ def list_subscriptions(
 def list_subscription_rule_states(
     name: Optional[str] = None,
     account: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> 'Iterator[SubscriptionRuleState]':
     """Returns a list of with the number of rules per state for a subscription.
 
@@ -220,7 +221,7 @@ def list_subscription_rule_states(
 
 def delete_subscription(
     subscription_id: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Deletes a subscription
@@ -234,7 +235,7 @@ def delete_subscription(
 
 def get_subscription_by_id(
     subscription_id: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
     Get a specific subscription by id.

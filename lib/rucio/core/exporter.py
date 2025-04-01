@@ -14,6 +14,7 @@
 
 from typing import TYPE_CHECKING, Any
 
+from rucio.common.constants import DEFAULT_VO
 from rucio.core import distance as distance_module
 from rucio.core import rse as rse_module
 from rucio.db.sqla.session import transactional_session
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def export_rses(vo: str = 'def', *, session: "Session") -> dict[str, dict[str, Any]]:
+def export_rses(vo: str = DEFAULT_VO, *, session: "Session") -> dict[str, dict[str, Any]]:
     """
     Export RSE data.
 
@@ -39,7 +40,7 @@ def export_rses(vo: str = 'def', *, session: "Session") -> dict[str, dict[str, A
 
 
 @transactional_session
-def export_data(vo: str = 'def', distance: bool = True, *, session: "Session") -> dict[str, Any]:
+def export_data(vo: str = DEFAULT_VO, distance: bool = True, *, session: "Session") -> dict[str, Any]:
     """
     Export data.
 

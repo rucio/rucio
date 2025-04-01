@@ -24,7 +24,7 @@ import re
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common.config import config_get_bool
-from rucio.common.constants import RseAttr
+from rucio.common.constants import DEFAULT_VO, RseAttr
 from rucio.common.exception import DatabaseException, DuplicateFileTransferSubmission, InvalidRSEExpression, RequestNotFound, TransferToolTimeout, TransferToolWrongAnswer, VONotFound
 from rucio.common.stopwatch import Stopwatch
 from rucio.core import request as request_core
@@ -510,7 +510,7 @@ def get_conveyor_rses(
     :param include_rses:  RSEs to include
     :param exclude_rses:  RSEs to exclude
     :param vos:           VOs on which to look for RSEs. Only used in multi-VO mode.
-                          If None, we either use all VOs if run from "def", or the current VO otherwise.
+                          If None, we either use all VOs if run from DEFAULT_VO, or the current VO otherwise.
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     :return:              List of working rses
     """
@@ -518,7 +518,7 @@ def get_conveyor_rses(
     if not multi_vo:
         if vos:
             logger(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')
-        vos = ['def']
+        vos = [DEFAULT_VO]
     else:
         if vos:
             invalid = set(vos) - set([v['vo'] for v in list_vos()])

@@ -19,6 +19,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.db.sqla.models import RSE, Distance
 from rucio.db.sqla.session import read_session, transactional_session
 
@@ -147,7 +148,7 @@ def list_distances(filter_: Optional[dict[str, Any]] = None, *, session: "Sessio
 
 
 @read_session
-def export_distances(vo: str = 'def', *, session: "Session") -> dict[str, Any]:
+def export_distances(vo: str = DEFAULT_VO, *, session: "Session") -> dict[str, Any]:
     """
     Export distances between all the RSEs using RSE ids.
     :param vo: The VO to export.

@@ -41,7 +41,7 @@ import rucio.core.lock
 from rucio.common import exception
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.constants import RseAttr, SuspiciousAvailability
+from rucio.common.constants import DEFAULT_VO, RseAttr, SuspiciousAvailability
 from rucio.common.types import InternalAccount, InternalScope, IPDict, LFNDict, is_str_list
 from rucio.common.utils import add_url_query, chunks, clean_pfns, str_to_date
 from rucio.core.credential import get_signed_url
@@ -249,7 +249,7 @@ def list_bad_replicas_status(
     older_than: Optional[datetime] = None,
     limit: Optional[int] = None,
     list_pfns: Optional[bool] = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> list[dict[str, Any]]:
@@ -536,7 +536,7 @@ def declare_bad_file_replicas(
 @read_session
 def get_pfn_to_rse(
     pfns: "Iterable[str]",
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> tuple[Optional[str], dict[str, Any], dict[str, list[str]]]:
@@ -711,7 +711,7 @@ def list_bad_replicas(
 def get_did_from_pfns(
     pfns: "Iterable[str]",
     rse_id: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, dict[str, Any]]]':
@@ -1450,7 +1450,7 @@ def list_replicas(
     if dids:
         filter_ = {'vo': dids[0]['scope'].vo}
     else:
-        filter_ = {'vo': 'def'}
+        filter_ = {'vo': DEFAULT_VO}
 
     dids = {(did['scope'], did['name']): did for did in dids}  # type: ignore (Deduplicate input)
     if not dids:
