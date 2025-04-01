@@ -481,7 +481,7 @@ class OpenDataDid(BASE, ModelBase):
                    )
 
     metadata_json = mapped_column(JSON())
-    state: Mapped[Optional[OpenDataDIDState]] = mapped_column(Enum(DIDType, name='DID_OPENDATA_STATE_CHK',
+    state: Mapped[Optional[OpenDataDIDState]] = mapped_column(Enum(OpenDataDIDState, name='DID_OPENDATA_STATE_CHK',
                                                                    create_constraint=True,
                                                                    values_callable=lambda obj: [e.value for e in obj]),
                                                               default=OpenDataDIDState.DRAFT)
