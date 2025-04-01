@@ -121,6 +121,9 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict[str, Any
             'del_identity': perm_del_identity,
             'remove_did_from_followed': perm_remove_did_from_followed,
             'remove_dids_from_followed': perm_remove_dids_from_followed,
+            'add_load_injection_plans': perm_add_load_injection_plans,
+            'get_load_injection_plans': perm_get_load_injection_plans,
+            'delete_load_injection_plans': perm_delete_load_injection_plans,
             'export': perm_export}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs, session=session)
@@ -1110,6 +1113,51 @@ def perm_remove_dids_from_followed(issuer: "InternalAccount", kwargs: dict[str, 
     if not kwargs['account'] == issuer:
         return False
     return True
+
+
+def perm_add_load_injection_plans(issuer: "InternalAccount", kwargs: dict[str, Any], *, session: "Optional[Session]" = None) -> bool:
+    """
+    Checks if an account can bulk add load injection plans.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='loadinjection', session=session):
+        return True
+    else:
+        return False
+
+
+def perm_get_load_injection_plans(issuer: "InternalAccount", kwargs: dict[str, Any], *, session: "Optional[Session]" = None) -> bool:
+    """
+    Checks if an account can bulk get load injection plans.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='loadinjection', session=session):
+        return True
+    else:
+        return False
+
+
+def perm_delete_load_injection_plans(issuer: "InternalAccount", kwargs: dict[str, Any], *, session: "Optional[Session]" = None) -> bool:
+    """
+    Checks if an account can bulk get load injection plans.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='loadinjection', session=session):
+        return True
+    else:
+        return False
 
 
 def perm_export(issuer: "InternalAccount", kwargs: dict[str, Any], *, session: "Optional[Session]" = None) -> bool:

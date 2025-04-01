@@ -1206,3 +1206,55 @@ class ConnectionParameterNotFound(RucioException):
         super(ConnectionParameterNotFound, self).__init__(*args)
         self._message = f"Required connection parameter '{param}' is not provided."
         self.error_code = 114
+
+
+class DuplicateLoadInjectionPlan(RucioException):
+    """
+    Duplicate load injection plan.
+    """
+
+    def __init__(self, *args):
+        super(DuplicateLoadInjectionPlan, self).__init__(*args)
+        self._message = 'A duplicate load injection plan, this src_rse, dest_rse pair already exists.'
+        self.error_code = 115
+
+
+class NoLoadInjectionPlanFound(RucioException):
+    """
+    No unique datasets found.
+    """
+    def __init__(self, *args):
+        super(NoLoadInjectionPlanFound, self).__init__(*args)
+        self._message = 'No unique load injection plan found.'
+        self.error_code = 116
+
+
+class DuplicateUniqueDatasetFound(RucioException):
+    """
+    Duplicate unique dataset.
+    """
+    def __init__(self, *args):
+        super(DuplicateUniqueDatasetFound, self).__init__(*args)
+        self._message = 'A duplicate unique dataset already exists.'
+        self.error_code = 117
+
+
+class DuplicateUniqueDatasetFound(RucioException):
+    """
+    Duplicate unique dataset.
+    """
+    def __init__(self, *args):
+        super(DuplicateUniqueDatasetFound, self).__init__(*args)
+        self._message = 'A duplicate unique dataset already exists.'
+        self.error_code = 118
+
+
+class NoUniqueDatasetFound(RucioException):
+    """
+    No unique datasets found.
+    """
+    def __init__(self, *args):
+        super(NoUniqueDatasetFound, self).__init__(*args)
+        self._message = 'No unique datasets found.'
+        self.error_code = 119
+
