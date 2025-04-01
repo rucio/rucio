@@ -71,7 +71,7 @@ class VOs(ErrorHandlingMethodView):
                 for vo in list_vos(issuer=issuer, vo=vo):
                     yield render_json(**vo) + '\n'
 
-            return try_stream(generate(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')))
+            return try_stream(generate(issuer=request.environ['issuer'], vo=request.environ['vo']))
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except UnsupportedOperation as error:
@@ -118,11 +118,9 @@ class VO(ErrorHandlingMethodView):
         kwargs = {'description': None, 'email': None}
         for keyword in kwargs.keys():
             kwargs[keyword] = param_get(parameters, keyword, default=kwargs[keyword])
-        kwargs['issuer'] = request.environ.get('issuer')
-        kwargs['vo'] = request.environ.get('vo')
 
         try:
-            add_vo(new_vo=vo, **kwargs)
+            add_vo(new_vo=vo, issuer=request.environ['issuer'], vo=request.environ['vo'], **kwargs)
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except (UnsupportedOperation, Duplicate) as error:
@@ -167,7 +165,7 @@ class VO(ErrorHandlingMethodView):
         """
         parameters = json_parameters()
         try:
-            update_vo(updated_vo=vo, parameters=parameters, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            update_vo(updated_vo=vo, parameters=parameters, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except VONotFound as error:
@@ -244,8 +242,8 @@ class RecoverVO(ErrorHandlingMethodView):
                 email=email,
                 password=password,
                 default=default,
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
             )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
