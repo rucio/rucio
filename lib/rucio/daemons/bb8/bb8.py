@@ -23,6 +23,7 @@ import threading
 from typing import TYPE_CHECKING, Optional
 
 from rucio.common.config import config_get_float
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import InvalidRSEExpression
 from rucio.common.logging import setup_logging
 from rucio.core.heartbeat import list_payload_counts, sanity_check
@@ -252,7 +253,7 @@ def run_once(
                 if available_source_rebalance_volume > 0:
                     vo_str = (
                         " on VO {}".format(destination_rse["vo"])
-                        if destination_rse["vo"] != "def"
+                        if destination_rse["vo"] != DEFAULT_VO
                         else ""
                     )
                     if index == 0 and destination_rse["id"] in dict_locks:

@@ -21,6 +21,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.exc import NoResultFound
 
 from rucio.common.config import config_get
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import ConfigNotFound, InvalidType, RucioException, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import extract_scope
@@ -74,7 +75,7 @@ def add_files(
     account: str,
     ignore_availability: bool,
     parents_metadata: Optional[dict[str, Any]] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:

@@ -37,7 +37,7 @@ import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get
-from rucio.common.constants import RseAttr
+from rucio.common.constants import DEFAULT_VO, RseAttr
 from rucio.common.exception import (
     DataIdentifierNotFound,
     DuplicateRule,
@@ -2510,7 +2510,7 @@ def update_rules_for_lost_replica(
                    'name': name,
                    'dataset_name': dts['name'],
                    'dataset_scope': dts['scope'].external}
-        if scope.vo != 'def':
+        if scope.vo != DEFAULT_VO:
             message['vo'] = scope.vo
 
         add_message('LOST', message, session=session)
@@ -2675,7 +2675,7 @@ def generate_rule_notifications(
             payload = {'scope': rule.scope.external,
                        'name': rule.name,
                        'rule_id': rule.id}
-            if rule.scope.vo != 'def':
+            if rule.scope.vo != DEFAULT_VO:
                 payload['vo'] = rule.scope.vo
 
             add_message(event_type='RULE_OK', payload=payload, session=session)
@@ -2687,7 +2687,7 @@ def generate_rule_notifications(
                     payload = {'scope': rule.scope.external,
                                'name': rule.name,
                                'rule_id': rule.id}
-                    if rule.scope.vo != 'def':
+                    if rule.scope.vo != DEFAULT_VO:
                         payload['vo'] = rule.scope.vo
 
                     add_message(event_type='RULE_OK', payload=payload, session=session)
@@ -2697,7 +2697,7 @@ def generate_rule_notifications(
                                    'name': rule.name,
                                    'rule_id': rule.id,
                                    'progress': __progress_class(rule.locks_replicating_cnt, total_locks)}
-                        if rule.scope.vo != 'def':
+                        if rule.scope.vo != DEFAULT_VO:
                             payload['vo'] = rule.scope.vo
 
                         add_message(event_type='RULE_PROGRESS', payload=payload, session=session)
@@ -2721,7 +2721,7 @@ def generate_rule_notifications(
                                'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
                                'rse_id': dataset_lock.rse_id,
                                'rule_id': rule.id}
-                    if dataset_lock.scope.vo != 'def':
+                    if dataset_lock.scope.vo != DEFAULT_VO:
                         payload['vo'] = dataset_lock.scope.vo
 
                     add_message(event_type='DATASETLOCK_OK', payload=payload, session=session)
@@ -2745,7 +2745,7 @@ def generate_rule_notifications(
                                            'rse': get_rse_name(rse_id=dataset_lock.rse_id, session=session),
                                            'rse_id': dataset_lock.rse_id,
                                            'rule_id': rule.id}
-                                if dataset_lock.scope.vo != 'def':
+                                if dataset_lock.scope.vo != DEFAULT_VO:
                                     payload['vo'] = dataset_lock.scope.vo
 
                                 add_message(event_type='DATASETLOCK_OK', payload=payload, session=session)
@@ -2763,7 +2763,7 @@ def generate_rule_notifications(
                                'name': rule.name,
                                'rule_id': rule.id,
                                'progress': __progress_class(rule.locks_replicating_cnt, total_locks)}
-                    if rule.scope.vo != 'def':
+                    if rule.scope.vo != DEFAULT_VO:
                         payload['vo'] = rule.scope.vo
 
                     add_message(event_type='RULE_PROGRESS', payload=payload, session=session)

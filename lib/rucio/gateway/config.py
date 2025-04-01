@@ -16,6 +16,7 @@ from typing import Any
 
 from rucio.common import exception
 from rucio.common.config import convert_to_any_type
+from rucio.common.constants import DEFAULT_VO
 from rucio.core import config
 from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.session import db_session
@@ -29,7 +30,7 @@ ConfigParser compatible interface.
 """
 
 
-def sections(issuer: str, vo: str = 'def') -> list[str]:
+def sections(issuer: str, vo: str = DEFAULT_VO) -> list[str]:
     """
     Return a list of the sections available.
 
@@ -46,7 +47,7 @@ def sections(issuer: str, vo: str = 'def') -> list[str]:
         return config.sections(session=session)
 
 
-def add_section(section: str, issuer: str, vo: str = 'def') -> None:
+def add_section(section: str, issuer: str, vo: str = DEFAULT_VO) -> None:
     """
     Add a section to the configuration.
 
@@ -63,7 +64,7 @@ def add_section(section: str, issuer: str, vo: str = 'def') -> None:
         return config.add_section(section, session=session)
 
 
-def has_section(section: str, issuer: str, vo: str = 'def') -> bool:
+def has_section(section: str, issuer: str, vo: str = DEFAULT_VO) -> bool:
     """
     Indicates whether the named section is present in the configuration.
 
@@ -81,7 +82,7 @@ def has_section(section: str, issuer: str, vo: str = 'def') -> bool:
         return config.has_section(section, session=session)
 
 
-def options(section: str, issuer: str, vo: str = 'def') -> list[str]:
+def options(section: str, issuer: str, vo: str = DEFAULT_VO) -> list[str]:
     """
     Returns a list of options available in the specified section.
 
@@ -99,7 +100,7 @@ def options(section: str, issuer: str, vo: str = 'def') -> list[str]:
         return config.options(section, session=session)
 
 
-def has_option(section: str, option: str, issuer: str, vo: str = 'def') -> bool:
+def has_option(section: str, option: str, issuer: str, vo: str = DEFAULT_VO) -> bool:
     """
     Check if the given section exists and contains the given option.
 
@@ -118,7 +119,7 @@ def has_option(section: str, option: str, issuer: str, vo: str = 'def') -> bool:
         return config.has_option(section, option, session=session)
 
 
-def get(section: str, option: str, issuer: str, vo: str = 'def') -> Any:
+def get(section: str, option: str, issuer: str, vo: str = DEFAULT_VO) -> Any:
     """
     Get an option value for the named section. Value can be auto-coerced to int, float, and bool; string otherwise.
 
@@ -140,7 +141,7 @@ def get(section: str, option: str, issuer: str, vo: str = 'def') -> Any:
         return config.get(section, option, session=session, convert_type_fnc=convert_to_any_type)
 
 
-def items(section: str, issuer: str, vo: str = 'def') -> list[tuple[str, Any]]:
+def items(section: str, issuer: str, vo: str = DEFAULT_VO) -> list[tuple[str, Any]]:
     """
     Return a list of (option, value) pairs for each option in the given section. Values are auto-coerced as in get().
 
@@ -159,7 +160,7 @@ def items(section: str, issuer: str, vo: str = 'def') -> list[tuple[str, Any]]:
         return config.items(section, session=session, convert_type_fnc=convert_to_any_type)
 
 
-def set(section: str, option: str, value: Any, issuer: str, vo: str = 'def') -> None:
+def set(section: str, option: str, value: Any, issuer: str, vo: str = DEFAULT_VO) -> None:
     """
     Set the given option to the specified value.
 
@@ -178,7 +179,7 @@ def set(section: str, option: str, value: Any, issuer: str, vo: str = 'def') -> 
         return config.set(section, option, value, session=session)
 
 
-def remove_section(section: str, issuer: str, vo: str = 'def') -> bool:
+def remove_section(section: str, issuer: str, vo: str = DEFAULT_VO) -> bool:
     """
     Remove the specified option from the specified section.
 
@@ -196,7 +197,7 @@ def remove_section(section: str, issuer: str, vo: str = 'def') -> bool:
         return config.remove_section(section, session=session)
 
 
-def remove_option(section: str, option: str, issuer: str, vo: str = 'def') -> bool:
+def remove_option(section: str, option: str, issuer: str, vo: str = DEFAULT_VO) -> bool:
     """
     Remove the specified section from the configuration.
 

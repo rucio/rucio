@@ -22,6 +22,7 @@ from urllib.parse import urlparse
 from rucio.common import constants, exception, types, utils
 from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.common.config import config_get_int
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.constraints import STRING_TYPES
 from rucio.common.logging import formatted_logger
 from rucio.common.utils import get_transfer_schemas, make_valid_did
@@ -34,7 +35,7 @@ if TYPE_CHECKING:
     from rucio.rse.protocols.protocol import RSEProtocol
 
 
-def get_scope_protocol(vo: str = 'def') -> 'Callable':
+def get_scope_protocol(vo: str = DEFAULT_VO) -> 'Callable':
     """
         Returns the callable protocol to translate the pfn to a name/scope pair
 
@@ -48,7 +49,7 @@ def get_scope_protocol(vo: str = 'def') -> 'Callable':
 
 def get_rse_info(
         rse: Optional[str] = None,
-        vo: str = 'def',
+        vo: str = DEFAULT_VO,
         rse_id: Optional[str] = None,
         session: Optional["Session"] = None
 ) -> types.RSESettingsDict:
@@ -306,7 +307,7 @@ def exists(
         scheme: Optional[str] = None,
         impl: Optional[str] = None,
         auth_token: Optional[str] = None,
-        vo: str = 'def',
+        vo: str = DEFAULT_VO,
         logger: types.LoggerFunction = logging.log
 ) -> Union[bool, list[Union[bool, dict[dict[str, str], bool]]]]:
     """
@@ -381,7 +382,7 @@ def upload(
         delete_existing: bool = False,
         sign_service: Optional[str] = None,
         auth_token: Optional[str] = None,
-        vo: str = 'def',
+        vo: str = DEFAULT_VO,
         logger: types.LoggerFunction = logging.log,
         impl: Optional[str] = None
 ) -> dict[Union[int, str], Union[bool, str, dict[str, Union[Literal[True], Exception]]]]:

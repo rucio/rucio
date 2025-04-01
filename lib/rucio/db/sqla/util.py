@@ -33,6 +33,7 @@ from sqlalchemy.sql.expression import select, text
 from rucio import alembicrevision
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_list
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, LoggerFunction
 from rucio.common.utils import generate_uuid
@@ -136,7 +137,7 @@ def create_base_vo() -> None:
 
     session_scoped = get_session()
 
-    vo = models.VO(vo='def', description='Default base VO', email='N/A')
+    vo = models.VO(vo=DEFAULT_VO, description='Default base VO', email='N/A')
     with session_scoped() as s:
         with s.begin():
             s.add_all([vo])
@@ -172,7 +173,7 @@ def create_root_account() -> None:
     else:
         access = 'root'
 
-    account = models.Account(account=InternalAccount(access, 'def'), account_type=AccountType.SERVICE, status=AccountStatus.ACTIVE)
+    account = models.Account(account=InternalAccount(access, DEFAULT_VO), account_type=AccountType.SERVICE, status=AccountStatus.ACTIVE)
 
     salt = urandom(255)
     salted_password = salt + up_pwd.encode()

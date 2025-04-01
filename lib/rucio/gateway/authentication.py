@@ -15,6 +15,7 @@
 from typing import Any, Optional
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalAccount, TokenDict
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import authentication, identity, oidc
@@ -26,7 +27,7 @@ from rucio.gateway import permission
 def refresh_cli_auth_token(
     token_string: str,
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> Optional[tuple[str, int]]:
     """
     Checks if there is active refresh token and if so returns
@@ -66,7 +67,7 @@ def redirect_auth_oidc(
 
 def get_auth_oidc(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     **kwargs
 ) -> str:
     """
@@ -134,7 +135,7 @@ def get_auth_token_user_pass(
     password: str,
     appid: str,
     ip: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via username and password.
@@ -167,7 +168,7 @@ def get_auth_token_gss(
     gsscred: str,
     appid: str,
     ip: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via a GSS token.
@@ -199,7 +200,7 @@ def get_auth_token_x509(
     dn: str,
     appid: str,
     ip: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via an x509 certificate.
@@ -235,7 +236,7 @@ def get_auth_token_ssh(
     signature: str,
     appid: str,
     ip: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via SSH key exchange.
@@ -267,7 +268,7 @@ def get_ssh_challenge_token(
     account: str,
     appid: str,
     ip: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> Optional[TokenDict]:
     """
     Get a challenge token for subsequent SSH public key authentication.
@@ -299,7 +300,7 @@ def get_auth_token_saml(
     saml_nameid: str,
     appid: str,
     ip: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via SSO.

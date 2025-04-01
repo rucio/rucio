@@ -15,6 +15,7 @@
 from typing import Any
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount
 from rucio.core import importer
@@ -23,7 +24,7 @@ from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
 
 
-def import_data(data: dict[str, Any], issuer: str, vo: str = 'def') -> None:
+def import_data(data: dict[str, Any], issuer: str, vo: str = DEFAULT_VO) -> None:
     """
     Import data to add/update/delete records in Rucio.
 

@@ -16,7 +16,7 @@ import datetime
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
 
 from rucio.common import exception
-from rucio.common.constants import SuspiciousAvailability
+from rucio.common.constants import DEFAULT_VO, SuspiciousAvailability
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope, IPDict
 from rucio.common.utils import gateway_update_return_dict, invert_dict
@@ -34,7 +34,7 @@ def get_bad_replicas_summary(
         rse_expression: Optional[str] = None,
         from_date: Optional[datetime.datetime] = None,
         to_date: Optional[datetime.date] = None,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> list[dict[str, Any]]:
     """
     List the bad file replicas summary. Method used by the rucio-ui.
@@ -55,7 +55,7 @@ def list_bad_replicas_status(
         older_than: Optional[datetime.datetime] = None,
         limit: Optional[int] = None,
         list_pfns: bool = False,
-        vo: str = 'def'):
+        vo: str = DEFAULT_VO):
     """
     List the bad file replicas history states. Method used by the rucio-ui.
     :param state: The state of the file (SUSPICIOUS or BAD).
@@ -80,7 +80,7 @@ def declare_bad_file_replicas(
         replicas: Union[list[str], list[dict[str, Any]]],
         reason: str,
         issuer: str,
-        vo: str = 'def',
+        vo: str = DEFAULT_VO,
         force: bool = False
 ) -> dict[str, Any]:
     """
@@ -172,7 +172,7 @@ def declare_suspicious_file_replicas(
         pfns: list[Union[str, dict[str, Any]]],
         reason: str,
         issuer: str,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> dict[str, list[str]]:
     """
     Declare a list of bad replicas.
@@ -206,7 +206,7 @@ def declare_suspicious_file_replicas(
 def get_did_from_pfns(
         pfns: "Iterable[str]",
         rse: str,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> 'Iterator[dict[str, dict[str, Any]]]':
     """
     Get the DIDs associated to a PFN on one given RSE
@@ -242,7 +242,7 @@ def list_replicas(
         nrandom: Optional[int] = None,
         updated_after: Optional[datetime.datetime] = None,
         issuer: Optional[str] = None,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> 'Iterator[dict[str, Any]]':
     """
     List file replicas for a list of data identifiers.
@@ -302,7 +302,7 @@ def add_replicas(
         files: "Iterable[dict[str, Any]]",
         issuer: str,
         ignore_availability: bool = False,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> None:
     """
     Bulk add file replicas.
@@ -341,7 +341,7 @@ def delete_replicas(
         files: "Iterable[dict[str, Any]]",
         issuer: str,
         ignore_availability: bool = False,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> None:
     """
     Bulk delete file replicas.
@@ -374,7 +374,7 @@ def update_replicas_states(
         rse: str,
         files: "Iterable[dict[str, Any]]",
         issuer: str,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> None:
     """
     Update File replica information and state.
@@ -408,7 +408,7 @@ def list_dataset_replicas(
         scope: str,
         name: str,
         deep: bool = False,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> "Iterator[dict[str, Any]]":
     """
     :param scope: The scope of the dataset.
@@ -431,7 +431,7 @@ def list_dataset_replicas(
 
 def list_dataset_replicas_bulk(
         dids: 'Iterable[dict[str, Any]]',
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> 'Iterator[dict[str, Any]]':
     """
     :param dids: The list of DID dictionaries with scope and name.
@@ -464,7 +464,7 @@ def list_dataset_replicas_vp(
         scope: str,
         name: str,
         deep: bool = False,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> 'Iterator[dict[str, Any]]':
     """
     :param scope: The scope of the dataset.
@@ -484,7 +484,7 @@ def list_dataset_replicas_vp(
             yield gateway_update_return_dict(r, session=session)
 
 
-def list_datasets_per_rse(rse: str, filters: Optional[dict[str, Any]] = None, limit: Optional[int] = None, vo: str = 'def') -> 'Iterator[dict[str, Any]]':
+def list_datasets_per_rse(rse: str, filters: Optional[dict[str, Any]] = None, limit: Optional[int] = None, vo: str = DEFAULT_VO) -> 'Iterator[dict[str, Any]]':
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.
@@ -511,7 +511,7 @@ def add_bad_pfns(
         state: BadFilesStatus,
         reason: Optional[str] = None,
         expires_at: Optional[datetime.datetime] = None,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> Literal[True]:
     """
     Add bad PFNs.
@@ -547,7 +547,7 @@ def add_bad_dids(
         state: BadFilesStatus,
         reason: Optional[str] = None,
         expires_at: Optional[datetime.datetime] = None,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> list[str]:
     """
     Add bad replica entries for DIDs.
@@ -579,7 +579,7 @@ def get_suspicious_files(
         rse_expression: Optional[str],
         younger_than: Optional[datetime.datetime] = None,
         nattempts: Optional[int] = None,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> list[dict[str, Any]]:
     """
     List the list of suspicious files on a list of RSEs
@@ -600,7 +600,7 @@ def set_tombstone(
         scope: str,
         name: str,
         issuer: str,
-        vo: str = 'def'
+        vo: str = DEFAULT_VO
 ) -> None:
     """
     Sets a tombstone on one replica.

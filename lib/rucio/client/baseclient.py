@@ -38,6 +38,7 @@ from requests.status_codes import codes
 from rucio import version
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_has_section
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotFound, ClientProtocolNotSupported, ConfigNotFound, MissingClientParameter, MissingModuleException, NoAuthInformation, ServerConnectionException
 from rucio.common.extra import import_extras
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, setup_logger, ssh_sign, wlcg_token_discovery
@@ -225,10 +226,10 @@ class BaseClient:
                     self.vo = config_get('client', 'vo')
                 except (NoOptionError, NoSectionError):
                     self.logger.debug('No VO found. Using default VO.')
-                    self.vo = 'def'
+                    self.vo = DEFAULT_VO
                 except ConfigNotFound:
                     self.logger.debug('No configuration found. Using default VO.')
-                    self.vo = 'def'
+                    self.vo = DEFAULT_VO
 
         self.auth_token_file_path, self.token_exp_epoch_file, self.token_file, self.token_path = self._get_auth_tokens()
         self.__authenticate()
@@ -251,7 +252,7 @@ class BaseClient:
 
         else:
             token_path = self.TOKEN_PATH_PREFIX + getpass.getuser()
-            if self.vo != 'def':
+            if self.vo != DEFAULT_VO:
                 token_path += '@%s' % self.vo
 
             token_file = token_path + '/' + self.TOKEN_PREFIX + token_filename_suffix

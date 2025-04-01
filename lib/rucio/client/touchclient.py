@@ -18,6 +18,7 @@ from typing import Optional
 from requests import post
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import RucioException, UnsupportedDIDType
 
 
@@ -63,7 +64,7 @@ class TouchClient(BaseClient):
         trace['eventType'] = 'touch'
         trace['clientState'] = 'DONE'
         trace['account'] = self.account
-        if self.vo != 'def':
+        if self.vo != DEFAULT_VO:
             trace['vo'] = self.vo
 
         if rse:
