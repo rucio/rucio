@@ -16,8 +16,7 @@ from typing import TYPE_CHECKING, Optional
 
 from dogpile.cache.region import CacheRegion
 
-from rucio.common.client import is_client
-from rucio.common.config import config_get
+from rucio.common.config import config_get, is_client
 
 if TYPE_CHECKING:
     from collections.abc import Callable
