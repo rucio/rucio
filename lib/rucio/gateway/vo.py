@@ -12,23 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from rucio.common import exception
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount
 from rucio.core import identity
 from rucio.core import vo as vo_core
-from rucio.db.sqla.constants import IdentityType
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType, IdentityType
+from rucio.db.sqla.session import db_session
 from rucio.gateway.permission import has_permission
 
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
-
-@transactional_session
-def add_vo(new_vo: str, issuer: str, description: Optional[str] = None, email: Optional[str] = None, vo: str = 'def', *, session: "Session") -> None:
+def add_vo(new_vo: str, issuer: str, description: Optional[str] = None, email: Optional[str] = None, vo: str = 'def') -> None:
     '''
     Add a new VO.
 
@@ -37,38 +33,38 @@ def add_vo(new_vo: str, issuer: str, description: Optional[str] = None, email: O
     :param email: A contact for the VO.
     :param issuer: The user issuing the command.
     :param vo: The vo of the user issuing the command.
-    :param session: The database session in use.
     '''
 
     new_vo = vo_core.map_vo(new_vo)
     validate_schema('vo', new_vo, vo=vo)
 
     kwargs = {}
-    auth_result = has_permission(issuer=issuer, action='add_vo', kwargs=kwargs, vo=vo, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('Account {} cannot add a VO. {}'.format(issuer, auth_result.message))
 
-    vo_core.add_vo(vo=new_vo, description=description, email=email, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = has_permission(issuer=issuer, action='add_vo', kwargs=kwargs, vo=vo, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('Account {} cannot add a VO. {}'.format(issuer, auth_result.message))
+
+        vo_core.add_vo(vo=new_vo, description=description, email=email, session=session)
 
 
-@read_session
-def list_vos(issuer: str, vo: str = 'def', *, session: "Session") -> list[dict[str, Any]]:
+def list_vos(issuer: str, vo: str = 'def') -> list[dict[str, Any]]:
     '''
     List the VOs.
 
     :param issuer: The user issuing the command.
     :param vo: The vo of the user issuing the command.
-    :param session: The database session in use.
     '''
     kwargs = {}
-    auth_result = has_permission(issuer=issuer, action='list_vos', kwargs=kwargs, vo=vo, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('Account {} cannot list VOs. {}'.format(issuer, auth_result.message))
 
-    return vo_core.list_vos(session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        auth_result = has_permission(issuer=issuer, action='list_vos', kwargs=kwargs, vo=vo, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('Account {} cannot list VOs. {}'.format(issuer, auth_result.message))
+
+        return vo_core.list_vos(session=session)
 
 
-@transactional_session
 def recover_vo_root_identity(
     root_vo: str,
     identity_key: str,
@@ -78,8 +74,6 @@ def recover_vo_root_identity(
     default: bool = False,
     password: Optional[str] = None,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> None:
     """
     Adds a membership association between identity and the root account for given VO.
@@ -92,22 +86,22 @@ def recover_vo_root_identity(
     :param default: If True, the account should be used by default with the provided identity.
     :param password: Password if id_type is userpass.
     :param vo: the VO to act on.
-    :param session: The database session in use.
     """
     kwargs = {}
     root_vo = vo_core.map_vo(root_vo)
-    auth_result = has_permission(issuer=issuer, vo=vo, action='recover_vo_root_identity', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('Account %s can not recover root identity. %s' % (issuer, auth_result.message))
 
-    account = InternalAccount('root', vo=root_vo)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = has_permission(issuer=issuer, vo=vo, action='recover_vo_root_identity', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('Account %s can not recover root identity. %s' % (issuer, auth_result.message))
 
-    return identity.add_account_identity(identity=identity_key, type_=IdentityType[id_type.upper()], default=default,
-                                         email=email, account=account, password=password, session=session)
+        account = InternalAccount('root', vo=root_vo)
+
+        return identity.add_account_identity(identity=identity_key, type_=IdentityType[id_type.upper()], default=default,
+                                             email=email, account=account, password=password, session=session)
 
 
-@transactional_session
-def update_vo(updated_vo: str, parameters: dict[str, Any], issuer: str, vo: str = 'def', *, session: "Session") -> None:
+def update_vo(updated_vo: str, parameters: dict[str, Any], issuer: str, vo: str = 'def') -> None:
     """
     Update VO properties (email, description).
 
@@ -115,12 +109,13 @@ def update_vo(updated_vo: str, parameters: dict[str, Any], issuer: str, vo: str 
     :param parameters: A dictionary with the new properties.
     :param issuer: The user issuing the command.
     :param vo: The VO of the user issusing the command.
-    :param session: The database session in use.
     """
     kwargs = {}
     updated_vo = vo_core.map_vo(updated_vo)
-    auth_result = has_permission(issuer=issuer, action='update_vo', kwargs=kwargs, vo=vo, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('Account {} cannot update VO. {}'.format(issuer, auth_result.message))
 
-    return vo_core.update_vo(vo=updated_vo, parameters=parameters, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = has_permission(issuer=issuer, action='update_vo', kwargs=kwargs, vo=vo, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('Account {} cannot update VO. {}'.format(issuer, auth_result.message))
+
+        return vo_core.update_vo(vo=updated_vo, parameters=parameters, session=session)
