@@ -50,11 +50,14 @@ def opendata():
 
 
 @opendata.command("list")
+# TODO instead of state, maybe use a flag for each valid state?
+@click.option("--state", required=False, help="State")
 @click.pass_context
-def list_opendata_dids(ctx):
+def list_opendata_dids(ctx, state: str):
+    # TODO: check state is valid
     client = ctx.obj.client
-    print("DEBUG: Listing Open Data DIDs")
-    client.list_opendata_dids()
+    print(f"DEBUG: Listing Open Data DIDs with state '{state}'")
+    client.list_opendata_dids(state=state)
 
 
 @opendata.command("add")
