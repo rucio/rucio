@@ -65,7 +65,11 @@ select = [
 ]
 
 extend-select = [
-    "F401" # unused-import
+    "F401", # unused-import
+    "F841", # Unused variable
+    "W291", # Trailing whitespace (low-hanging fruit that improves cleanliness)
+    "E722", # Do not use bare except, specify exception
+    "D419", # Empty docstring (suggests bad documentation hygiene.)
 ]
 
 ignore = [
