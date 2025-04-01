@@ -28,6 +28,7 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers import Request, Response
 
 from rucio.common import config
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import CannotAuthenticate, DatabaseException, IdentityError, RucioException, UnsupportedRequestedContentType
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
@@ -153,7 +154,7 @@ def request_auth_env() -> Optional['ResponseReturnValue']:
         logging.exception('Internal error in validate_auth_token')
         return 'Internal Error', 500
 
-    flask.request.environ['vo'] = auth.get('vo', 'def')
+    flask.request.environ['vo'] = auth.get('vo', DEFAULT_VO)
     flask.request.environ['issuer'] = auth.get('account')
     flask.request.environ['identity'] = auth.get('identity')
     flask.request.environ['request_id'] = generate_uuid()
@@ -211,7 +212,7 @@ def parse_scope_name(scope_name: str, vo: Optional[str]) -> tuple[str, ...]:
     :returns: a (scope, name) tuple.
     """
     if not vo:
-        vo = 'def'
+        vo = DEFAULT_VO
 
     # why again does that regex start with a slash?
     scope_regex = re.match(get_schema_value('SCOPE_NAME_REGEXP', vo), '/' + scope_name)
@@ -387,7 +388,7 @@ def extract_vo(headers: Headers) -> str:
     :returns: a string containing the short VO name.
     """
     try:
-        return map_vo(headers.get('X-Rucio-VO', default='def'))
+        return map_vo(headers.get('X-Rucio-VO', default=DEFAULT_VO))
     except RucioException as err:
         # VO Name doesn't match allowed spec
         flask.abort(generate_http_error_flask(status_code=400, exc=err))

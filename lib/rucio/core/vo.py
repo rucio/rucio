@@ -20,6 +20,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError, NoResultFound
 
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalAccount
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, IdentityType
@@ -88,7 +89,7 @@ def add_vo(vo: str, description: str, email: str, *, session: "Session") -> None
                          password='password',  # noqa: S106
                          session=session)
 
-    for ident in list_identities(account=InternalAccount('super_root', vo='def'), session=session):
+    for ident in list_identities(account=InternalAccount('super_root', vo=DEFAULT_VO), session=session):
         add_account_identity(identity=ident['identity'], type_=ident['type'], account=new_root, email='', session=session)
 
 

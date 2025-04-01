@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount
 from rucio.core import identity
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def add_vo(new_vo: str, issuer: str, description: Optional[str] = None, email: Optional[str] = None, vo: str = 'def', *, session: "Session") -> None:
+def add_vo(new_vo: str, issuer: str, description: Optional[str] = None, email: Optional[str] = None, vo: str = DEFAULT_VO, *, session: "Session") -> None:
     '''
     Add a new VO.
 
@@ -52,7 +53,7 @@ def add_vo(new_vo: str, issuer: str, description: Optional[str] = None, email: O
 
 
 @read_session
-def list_vos(issuer: str, vo: str = 'def', *, session: "Session") -> list[dict[str, Any]]:
+def list_vos(issuer: str, vo: str = DEFAULT_VO, *, session: "Session") -> list[dict[str, Any]]:
     '''
     List the VOs.
 
@@ -77,7 +78,7 @@ def recover_vo_root_identity(
     issuer: str,
     default: bool = False,
     password: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -107,7 +108,7 @@ def recover_vo_root_identity(
 
 
 @transactional_session
-def update_vo(updated_vo: str, parameters: dict[str, Any], issuer: str, vo: str = 'def', *, session: "Session") -> None:
+def update_vo(updated_vo: str, parameters: dict[str, Any], issuer: str, vo: str = DEFAULT_VO, *, session: "Session") -> None:
     """
     Update VO properties (email, description).
 

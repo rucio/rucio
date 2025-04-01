@@ -29,7 +29,7 @@ from rucio.common import exception, types, utils
 from rucio.common.cache import MemcacheRegion
 from rucio.common.checksum import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.common.config import get_lfn2pfn_algorithm_default
-from rucio.common.constants import RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS, RSE_ATTRS_BOOL, RSE_ATTRS_STR, SUPPORTED_SIGN_URL_SERVICES_LITERAL, RseAttr
+from rucio.common.constants import DEFAULT_VO, RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS, RSE_ATTRS_BOOL, RSE_ATTRS_STR, SUPPORTED_SIGN_URL_SERVICES_LITERAL, RseAttr
 from rucio.common.utils import Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
@@ -415,7 +415,7 @@ def _group_query_result_by_rse_id(
 @transactional_session
 def add_rse(
     rse: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     deterministic: bool = True,
     volatile: bool = False,
     city: Optional[str] = None,
@@ -497,7 +497,7 @@ def add_rse(
 @read_session
 def rse_exists(
     rse: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     include_deleted: bool = False,
     *,
     session: "Session"
@@ -662,7 +662,7 @@ def get_rse(
 @read_session
 def get_rse_id(
     rse: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     include_deleted: bool = True,
     *,
     session: "Session"
@@ -680,7 +680,7 @@ def get_rse_id(
     """
 
     if include_deleted:
-        if vo != 'def':
+        if vo != DEFAULT_VO:
             cache_key = 'rse-id_{}@{}'.format(rse, vo).replace(' ', '.')
         else:
             cache_key = 'rse-id_{}'.format(rse).replace(' ', '.')
@@ -1035,7 +1035,7 @@ def get_rses_with_attribute(
 def get_rses_with_attribute_value(
     key: str,
     value: Union[bool, str],
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> list[dict[str, str]]:
@@ -1048,7 +1048,7 @@ def get_rses_with_attribute_value(
 
     :returns: List of rse dictionaries with the rse_id and rse_name
     """
-    if vo != 'def':
+    if vo != DEFAULT_VO:
         cache_key = 'av-%s-%s@%s' % (key, value, vo)
     else:
         cache_key = 'av-%s-%s' % (key, value)

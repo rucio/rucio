@@ -28,6 +28,7 @@ import pytest
 import requests
 
 from rucio.common.config import config_get, config_get_bool, get_config_dirs
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.utils import execute
 from rucio.common.utils import generate_uuid as uuid
 
@@ -77,7 +78,7 @@ def get_long_vo() -> str:
     Don't map the name to a short version.
     :returns: VO name string.
     """
-    vo_name = 'def'
+    vo_name = DEFAULT_VO
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
         vo = config_get('client', 'vo', raise_exception=False, default=None)
         if vo is not None:
