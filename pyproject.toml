@@ -64,6 +64,10 @@ select = [
     "PLE", #pylint
 ]
 
+extend-select = [
+    "F401" # unused-import
+]
+
 ignore = [
     "ALL",
     "E731", # Do not assign a lambda expression, use a def
