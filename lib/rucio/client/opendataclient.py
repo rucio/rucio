@@ -30,9 +30,12 @@ class OpenDataClient(BaseClient):
 
     def list_opendata_dids(
             self,
+            *,
+            state: str = None,
     ) -> "Iterator[dict[str, Any]]":
         path = '/'.join([self.opendata_base_url])
 
+        # TODO: filter on state
         url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type_='GET')
