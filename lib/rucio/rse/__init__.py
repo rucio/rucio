@@ -14,7 +14,7 @@
 
 from dogpile.cache import make_region
 
-from rucio.common.client import is_client
+from rucio.common.config import is_client
 from rucio.common.constants import DEFAULT_VO
 from rucio.rse import rsemanager
 

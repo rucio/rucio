@@ -57,6 +57,32 @@ def _convert_to_boolean(value: Union[str, bool]) -> bool:
     raise ValueError('Not a boolean: %s' % value)
 
 
+def is_client() -> bool:
+    """"
+    Checks if the function is called from a client or from a server/daemon
+
+    :returns client_mode: True if is called from a client, False if it is called from a server/daemon
+    """
+    if 'RUCIO_CLIENT_MODE' not in os.environ:
+        try:
+            if config_has_section('database'):
+                client_mode = False
+            elif config_has_section('client'):
+                client_mode = True
+            else:
+                client_mode = False
+        except (RuntimeError, ConfigNotFound):
+            # If no configuration file is found the default value should be True
+            client_mode = True
+    else:
+        if os.environ['RUCIO_CLIENT_MODE']:
+            client_mode = True
+        else:
+            client_mode = False
+
+    return client_mode
+
+
 @overload
 def config_get(
         section: str,
@@ -192,7 +218,6 @@ def config_get(
         return convert_type_fnc(get_config().get(section, option))
     except (configparser.NoOptionError, configparser.NoSectionError, ConfigNotFound) as err:
 
-        from rucio.common.client import is_client
         client_mode = is_client()
 
         if not client_mode and check_config_table:
