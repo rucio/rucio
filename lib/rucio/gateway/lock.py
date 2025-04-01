@@ -15,6 +15,7 @@
 import logging
 from typing import TYPE_CHECKING, Any
 
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import lock
@@ -36,7 +37,7 @@ LOGGER.setLevel(logging.DEBUG)
 def get_dataset_locks(
     scope: str,
     name: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -61,7 +62,7 @@ def get_dataset_locks(
 @stream_session
 def get_dataset_locks_bulk(
     dids: 'Iterable[dict[str, Any]]',
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -77,7 +78,7 @@ def get_dataset_locks_bulk(
     """
 
     if vo is None:
-        vo = "def"
+        vo = DEFAULT_VO
 
     dids_converted = []
     for did_in in dids:
@@ -108,7 +109,7 @@ def get_dataset_locks_bulk(
 @stream_session
 def get_dataset_locks_by_rse(
     rse: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -131,7 +132,7 @@ def get_dataset_locks_by_rse(
 @stream_session
 def get_replica_locks_for_rule_id(
     rule_id: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':

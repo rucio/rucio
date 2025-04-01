@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import lifetime_exception
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 def list_exceptions(
     exception_id: Optional[str] = None,
     states: Optional["Iterable[LifetimeExceptionsState]"] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -59,7 +60,7 @@ def add_exception(
     pattern: str,
     comments: str,
     expires_at: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> dict[str, Any]:
@@ -101,7 +102,7 @@ def update_exception(
     exception_id: str,
     state: 'LifetimeExceptionsState',
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:

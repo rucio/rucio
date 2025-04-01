@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.common.exception
 import rucio.gateway.permission
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import scope as core_scope
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 
 
 @read_session
-def list_scopes(filter_: Optional[dict[str, Any]] = None, vo: str = 'def', *, session: "Session") -> list[str]:
+def list_scopes(filter_: Optional[dict[str, Any]] = None, vo: str = DEFAULT_VO, *, session: "Session") -> list[str]:
     """
     Lists all scopes.
 
@@ -51,7 +52,7 @@ def add_scope(
     scope: str,
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -81,7 +82,7 @@ def add_scope(
 @read_session
 def get_scopes(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> list[str]:

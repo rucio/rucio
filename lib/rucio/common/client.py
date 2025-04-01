@@ -18,6 +18,7 @@ from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING
 
 from rucio.common.config import config_get, config_has_section
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import ConfigNotFound
 
 if TYPE_CHECKING:
@@ -54,7 +55,7 @@ def get_client_vo() -> str:
     """
     Get the client VO from the environment or the configuration file.
 
-    :returns vo: The client VO as a string; default = 'def'.
+    :returns vo: The client VO as a string; default = DEFAULT_VO.
     """
     if 'RUCIO_VO' in os.environ:
         vo = os.environ['RUCIO_VO']
@@ -62,7 +63,7 @@ def get_client_vo() -> str:
         try:
             vo = str(config_get('client', 'vo'))
         except (NoOptionError, NoSectionError):
-            vo = 'def'
+            vo = DEFAULT_VO
     return vo
 
 

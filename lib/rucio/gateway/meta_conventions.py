@@ -14,6 +14,7 @@
 
 from typing import TYPE_CHECKING, Optional, Union
 
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import AccessDenied
 from rucio.core import meta_conventions
 from rucio.db.sqla.session import read_session, transactional_session
@@ -59,7 +60,7 @@ def add_key(
     issuer: "InternalAccount",
     value_type: Optional[str] = None,
     value_regexp: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -82,7 +83,7 @@ def add_key(
 
 
 @transactional_session
-def add_value(key: str, value: str, issuer: "InternalAccount", vo: str = 'def', *, session: "Session") -> None:
+def add_value(key: str, value: str, issuer: "InternalAccount", vo: str = DEFAULT_VO, *, session: "Session") -> None:
     """
     Add an allowed value for DID metadata (update a key in DID Metadata Conventions table).
 

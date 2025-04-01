@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING, Any
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount
 from rucio.core import importer
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def import_data(data: dict[str, Any], issuer: str, vo: str = 'def', *, session: "Session") -> None:
+def import_data(data: dict[str, Any], issuer: str, vo: str = DEFAULT_VO, *, session: "Session") -> None:
     """
     Import data to add/update/delete records in Rucio.
 

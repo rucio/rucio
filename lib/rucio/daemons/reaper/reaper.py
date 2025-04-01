@@ -35,7 +35,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 import rucio.db.sqla.util
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get_bool, config_get_int
-from rucio.common.constants import RseAttr
+from rucio.common.constants import RseAttr, DEFAULT_VO
 from rucio.common.exception import DatabaseException, ReplicaNotFound, ReplicaUnAvailable, ResourceTemporaryUnavailable, RSEAccessDenied, RSENotFound, RSEProtocolNotSupported, ServiceUnavailable, SourceNotFound, VONotFound
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
@@ -81,7 +81,7 @@ def get_rses_to_process(
     :param exclude_rses:       RSE expression to exclude RSEs from the Reaper.
     :param include_rses:       RSE expression to include RSEs.
     :param vos:                VOs on which to look for RSEs. Only used in multi-VO mode.
-                               If None, we either use all VOs if run from "def"
+                               If None, we either use all VOs if run from DEFAULT_VO
 
     :returns: A list of RSEs to process
     """
@@ -89,7 +89,7 @@ def get_rses_to_process(
     if not multi_vo:
         if vos:
             logging.log(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')
-        vos = ['def']
+        vos = [DEFAULT_VO]
     else:
         if vos:
             invalid = set(vos) - set([v['vo'] for v in list_vos()])
@@ -156,7 +156,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                              'protocol': prot.attributes['scheme'],
                              'datatype': replica['datatype']}
             try:
-                if replica['scope'].vo != 'def':
+                if replica['scope'].vo != DEFAULT_VO:
                     deletion_dict['vo'] = replica['scope'].vo
                 logger(logging.DEBUG, 'Deletion ATTEMPT of %s:%s as %s on %s', replica['scope'], replica['name'], replica['pfn'], rse_name)
                 # For STAGING RSEs, no physical deletion
@@ -232,7 +232,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                        'url': replica['pfn'],
                        'reason': str(error),
                        'protocol': prot.attributes['scheme']}
-            if replica['scope'].vo != 'def':
+            if replica['scope'].vo != DEFAULT_VO:
                 payload['vo'] = replica['scope'].vo
             add_message('deletion-failed', payload)
         logger(logging.INFO, 'Cannot connect to %s. RSE will be temporarily excluded.', rse_name)
@@ -400,7 +400,7 @@ def reaper(
     :param include_rses:           RSE expression to include RSEs.
     :param exclude_rses:           RSE expression to exclude RSEs from the Reaper.
     :param vos:                    VOs on which to look for RSEs. Only used in multi-VO mode.
-                                   If None, we either use all VOs if run from "def", or the current VO otherwise.
+                                   If None, we either use all VOs if run from DEFAULT_VO, or the current VO otherwise.
     :param chunk_size:             The size of chunk for deletion.
     :param once:                   If True, only runs one iteration of the main loop.
     :param greedy:                 If True, delete right away replicas with tombstone.
@@ -703,7 +703,7 @@ def run(
     :param exclude_rses:           RSE expression to exclude RSEs from the Reaper.
     :param include_rses:           RSE expression to include RSEs.
     :param vos:                    VOs on which to look for RSEs. Only used in multi-VO mode.
-                                   If None, we either use all VOs if run from "def",
+                                   If None, we either use all VOs if run from DEFAULT_VO,
                                    or the current VO otherwise.
     :param delay_seconds:          The delay to query replicas in BEING_DELETED state.
     :param sleep_time:             Time between two cycles.

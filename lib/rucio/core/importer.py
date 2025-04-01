@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import select
 
 from rucio.common.config import config_get
-from rucio.common.constants import RseAttr
+from rucio.common.constants import DEFAULT_VO, RseAttr
 from rucio.common.exception import RSEOperationNotSupported
 from rucio.common.types import InternalAccount
 from rucio.core import account as account_module
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def import_rses(rses: dict[str, dict[str, Any]], rse_sync_method: str = 'edit', attr_sync_method: str = 'edit', protocol_sync_method: str = 'edit', vo: str = 'def', *, session: "Session") -> None:
+def import_rses(rses: dict[str, dict[str, Any]], rse_sync_method: str = 'edit', attr_sync_method: str = 'edit', protocol_sync_method: str = 'edit', vo: str = DEFAULT_VO, *, session: "Session") -> None:
     new_rses = []
     for rse_name in rses:
         rse = rses[rse_name]
@@ -143,7 +143,7 @@ def import_rses(rses: dict[str, dict[str, Any]], rse_sync_method: str = 'edit', 
 
 
 @transactional_session
-def import_distances(distances, vo: str = 'def', *, session: "Session") -> None:
+def import_distances(distances, vo: str = DEFAULT_VO, *, session: "Session") -> None:
     for src_rse_name in distances:
         src = rse_module.get_rse_id(rse=src_rse_name, vo=vo, session=session)
         for dest_rse_name in distances[src_rse_name]:
@@ -192,7 +192,7 @@ def import_identities(identities: 'Iterable[dict[str, Any]]', account_name: str,
 
 
 @transactional_session
-def import_accounts(accounts: 'Iterable[dict[str, Any]]', vo: str = 'def', *, session: "Session") -> None:
+def import_accounts(accounts: 'Iterable[dict[str, Any]]', vo: str = DEFAULT_VO, *, session: "Session") -> None:
     vo_filter = {'account': InternalAccount(account='*', vo=vo)}
     old_accounts = {account['account']: account for account in account_module.list_accounts(filter_=vo_filter, session=session)}
     missing_accounts = [account for account in accounts if account['account'] not in old_accounts]
@@ -234,7 +234,7 @@ def import_accounts(accounts: 'Iterable[dict[str, Any]]', vo: str = 'def', *, se
 
 
 @transactional_session
-def import_data(data: dict[str, Any], vo: str = 'def', *, session: "Session") -> None:
+def import_data(data: dict[str, Any], vo: str = DEFAULT_VO, *, session: "Session") -> None:
     """
     Import data to add and update records in Rucio.
 

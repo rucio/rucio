@@ -15,6 +15,7 @@
 from dogpile.cache import make_region
 
 from rucio.common.client import is_client
+from rucio.common.constants import DEFAULT_VO
 from rucio.rse import rsemanager
 
 if is_client():
@@ -25,7 +26,7 @@ else:
     setattr(rsemanager, 'SERVER_MODE', True)
 
 
-def get_rse_client(rse, vo='def', **kwarg):
+def get_rse_client(rse, vo=DEFAULT_VO, **kwarg):
     '''
     get_rse_client
     '''
@@ -34,7 +35,7 @@ def get_rse_client(rse, vo='def', **kwarg):
     return client.get_rse(rse)
 
 
-def get_signed_url_client(rse, service, op, url, vo='def'):
+def get_signed_url_client(rse, service, op, url, vo=DEFAULT_VO):
     '''
     get_signed_url_client
     '''
@@ -42,7 +43,7 @@ def get_signed_url_client(rse, service, op, url, vo='def'):
     return CredentialClient(vo=vo).get_signed_url(rse, service, op, url)
 
 
-def get_signed_url_server(rse, service, op, url, vo='def'):
+def get_signed_url_server(rse, service, op, url, vo=DEFAULT_VO):
     '''
     get_signed_url_server
     '''
@@ -57,7 +58,7 @@ def rse_key_generator(namespace, fn, **kwargs):
     '''
     Key generator for RSE
     '''
-    def generate_key(rse, vo='def', session=None):
+    def generate_key(rse, vo=DEFAULT_VO, session=None):
         '''
         generate_key
         '''
@@ -81,7 +82,7 @@ if rsemanager.SERVER_MODE:   # pylint:disable=no-member
     from rucio.core.rse import get_rse_id, get_rse_protocols
     from rucio.core.vo import map_vo
 
-    def tmp_rse_info(rse=None, vo='def', rse_id=None, session=None):
+    def tmp_rse_info(rse=None, vo=DEFAULT_VO, rse_id=None, session=None):
         if rse_id is None:
             # This can be called directly by client tools if they're co-located on a server
             # i.e. running rucio cli on a server and during the test suite.
