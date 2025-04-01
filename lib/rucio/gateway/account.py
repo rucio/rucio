@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Optional
 import rucio.common.exception
 import rucio.core.identity
 import rucio.gateway.permission
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount
 from rucio.common.utils import gateway_update_return_dict
@@ -40,7 +41,7 @@ def add_account(
     type_: str,
     email: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -73,7 +74,7 @@ def add_account(
 def del_account(
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -99,7 +100,7 @@ def del_account(
 @read_session
 def get_account_info(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> "Account":
@@ -125,7 +126,7 @@ def update_account(
     key: str,
     value: Any,
     issuer: str = 'root',
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -150,7 +151,7 @@ def update_account(
 
 
 @stream_session
-def list_accounts(filter_: Optional[dict[str, Any]] = None, vo: str = 'def', *, session: "Session") -> 'Iterator[dict[str, Any]]':
+def list_accounts(filter_: Optional[dict[str, Any]] = None, vo: str = DEFAULT_VO, *, session: "Session") -> 'Iterator[dict[str, Any]]':
     """
     Lists all the Rucio account names.
 
@@ -176,7 +177,7 @@ def list_accounts(filter_: Optional[dict[str, Any]] = None, vo: str = 'def', *, 
 @read_session
 def account_exists(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> bool:
@@ -197,7 +198,7 @@ def account_exists(
 @read_session
 def list_identities(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> list["IdentityDict"]:
@@ -217,7 +218,7 @@ def list_identities(
 @read_session
 def list_account_attributes(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> list["AccountAttributesDict"]:
@@ -240,7 +241,7 @@ def add_account_attribute(
     value: Any,
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -272,7 +273,7 @@ def del_account_attribute(
     key: str,
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -300,7 +301,7 @@ def get_usage(
     rse: str,
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> "UsageDict":
@@ -325,7 +326,7 @@ def get_usage_history(
     rse: str,
     account: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> list["UsageDict"]:

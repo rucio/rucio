@@ -18,6 +18,7 @@ from sqlalchemy.exc import NoResultFound
 from sqlalchemy.sql import func, literal, select
 from sqlalchemy.sql.expression import and_, or_
 
+from rucio.common.constants import DEFAULT_VO
 from rucio.core.account import get_all_rse_usages_per_account
 from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
@@ -55,11 +56,11 @@ def get_rse_account_usage(rse_id: str, *, session: "Session") -> list["RSEAccoun
         models.Account,
         or_(
             and_(
-                models.RSE.vo == 'def',
+                models.RSE.vo == DEFAULT_VO,
                 models.Account.account.notlike('%@%')
             ),
             and_(
-                models.RSE.vo != 'def',
+                models.RSE.vo != DEFAULT_VO,
                 models.Account.account.like(literal('%@') + models.RSE.vo)
             )
         )

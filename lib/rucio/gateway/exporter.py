@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING, Any
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.core import exporter
 from rucio.core.rse import get_rse_name
 from rucio.db.sqla.session import read_session
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
 
 
 @read_session
-def export_data(issuer: str, distance: bool = True, vo: str = 'def', *, session: "Session") -> dict[str, Any]:
+def export_data(issuer: str, distance: bool = True, vo: str = DEFAULT_VO, *, session: "Session") -> dict[str, Any]:
     """
     Export data from Rucio.
 

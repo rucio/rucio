@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from rucio.common.config import config_get_bool
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
@@ -62,7 +63,7 @@ def add_replication_rule(
     split_container: bool,
     meta: Optional[dict[str, Any]],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> list[str]:
@@ -143,7 +144,7 @@ def add_replication_rule(
 
 
 @read_session
-def get_replication_rule(rule_id: str, issuer: str, vo: str = 'def', *, session: "Session") -> dict[str, Any]:
+def get_replication_rule(rule_id: str, issuer: str, vo: str = DEFAULT_VO, *, session: "Session") -> dict[str, Any]:
     """
     Get replication rule by it's id.
 
@@ -164,7 +165,7 @@ def get_replication_rule(rule_id: str, issuer: str, vo: str = 'def', *, session:
 @stream_session
 def list_replication_rules(
     filters: Optional[dict[str, Any]] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> "Iterator[dict[str, Any]]":
@@ -199,7 +200,7 @@ def list_replication_rules(
 def list_replication_rule_history(
     rule_id: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> "Iterator[dict[str, Any]]":
@@ -223,7 +224,7 @@ def list_replication_rule_history(
 def list_replication_rule_full_history(
     scope: str,
     name: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> "Iterator[dict[str, Any]]":
@@ -245,7 +246,7 @@ def list_replication_rule_full_history(
 def list_associated_replication_rules_for_file(
     scope: str,
     name: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> "Iterator[dict[str, Any]]":
@@ -268,7 +269,7 @@ def delete_replication_rule(
     rule_id: str,
     purge_replicas: Optional[bool],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -298,7 +299,7 @@ def update_replication_rule(
     rule_id: str,
     options: dict[str, Any],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -342,7 +343,7 @@ def reduce_replication_rule(
     copies: int,
     exclude_expression: Optional[str],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> str:
@@ -373,7 +374,7 @@ def reduce_replication_rule(
 def examine_replication_rule(
     rule_id: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> dict[str, Any]:
@@ -403,7 +404,7 @@ def move_replication_rule(
     rse_expression: str,
     override: dict[str, Any],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> str:

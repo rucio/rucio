@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING, Optional
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.core import heartbeat
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.gateway import permission
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 
 
 @read_session
-def list_heartbeats(issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> list["heartbeat.HeartbeatDict"]:
+def list_heartbeats(issuer: Optional[str] = None, vo: str = DEFAULT_VO, *, session: "Session") -> list["heartbeat.HeartbeatDict"]:
     """
     Return a list of tuples of all heartbeats.
 
@@ -52,7 +53,7 @@ def create_heartbeat(
     payload: Optional[str],
     thread: Optional["Thread"] = None,
     issuer: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:

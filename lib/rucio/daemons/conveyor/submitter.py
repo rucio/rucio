@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Optional
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_float, config_get_int, config_get_list
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
 from rucio.common.stopwatch import Stopwatch
@@ -370,7 +371,7 @@ def run(
     if exclude_activities:
         if not activities:
             if not multi_vo:
-                vos = ['def']
+                vos = [DEFAULT_VO]
             if vos and len(vos) == 1:
                 activities = get_schema_value('ACTIVITY', vos[0])
             elif vos and len(vos) > 1:

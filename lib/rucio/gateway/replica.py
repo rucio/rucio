@@ -16,7 +16,7 @@ import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
-from rucio.common.constants import SuspiciousAvailability
+from rucio.common.constants import DEFAULT_VO, SuspiciousAvailability
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import gateway_update_return_dict, invert_dict
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 
 @read_session
-def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, vo='def', *, session: "Session"):
+def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, vo=DEFAULT_VO, *, session: "Session"):
     """
     List the bad file replicas summary. Method used by the rucio-ui.
     :param rse_expression: The RSE expression.
@@ -47,7 +47,7 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
 
 
 @read_session
-def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=None, older_than=None, limit=None, list_pfns=False, vo='def', *, session: "Session"):
+def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=None, older_than=None, limit=None, list_pfns=False, vo=DEFAULT_VO, *, session: "Session"):
     """
     List the bad file replicas history states. Method used by the rucio-ui.
     :param state: The state of the file (SUSPICIOUS or BAD).
@@ -68,7 +68,7 @@ def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=No
 
 
 @transactional_session
-def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False, *, session: "Session"):
+def declare_bad_file_replicas(replicas, reason, issuer, vo=DEFAULT_VO, force=False, *, session: "Session"):
     """
     Declare a list of bad replicas.
 
@@ -150,7 +150,7 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False, *
 
 
 @transactional_session
-def declare_suspicious_file_replicas(pfns, reason, issuer, vo='def', *, session: "Session"):
+def declare_suspicious_file_replicas(pfns, reason, issuer, vo=DEFAULT_VO, *, session: "Session"):
     """
     Declare a list of bad replicas.
 
@@ -180,7 +180,7 @@ def declare_suspicious_file_replicas(pfns, reason, issuer, vo='def', *, session:
 
 
 @stream_session
-def get_did_from_pfns(pfns, rse, vo='def', *, session: "Session"):
+def get_did_from_pfns(pfns, rse, vo=DEFAULT_VO, *, session: "Session"):
     """
     Get the DIDs associated to a PFN on one given RSE
 
@@ -205,7 +205,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
                   client_location=None, domain=None, signature_lifetime=None,
                   resolve_archives=True, resolve_parents=False,
                   nrandom=None, updated_after=None,
-                  issuer=None, vo='def', *, session: "Session"):
+                  issuer=None, vo=DEFAULT_VO, *, session: "Session"):
     """
     List file replicas for a list of data identifiers.
 
@@ -259,7 +259,7 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
 
 
 @transactional_session
-def add_replicas(rse, files, issuer, ignore_availability=False, vo='def', *, session: "Session"):
+def add_replicas(rse, files, issuer, ignore_availability=False, vo=DEFAULT_VO, *, session: "Session"):
     """
     Bulk add file replicas.
 
@@ -295,7 +295,7 @@ def add_replicas(rse, files, issuer, ignore_availability=False, vo='def', *, ses
 
 
 @transactional_session
-def delete_replicas(rse, files, issuer, ignore_availability=False, vo='def', *, session: "Session"):
+def delete_replicas(rse, files, issuer, ignore_availability=False, vo=DEFAULT_VO, *, session: "Session"):
     """
     Bulk delete file replicas.
 
@@ -326,7 +326,7 @@ def delete_replicas(rse, files, issuer, ignore_availability=False, vo='def', *, 
 
 
 @transactional_session
-def update_replicas_states(rse, files, issuer, vo='def', *, session: "Session"):
+def update_replicas_states(rse, files, issuer, vo=DEFAULT_VO, *, session: "Session"):
     """
     Update File replica information and state.
 
@@ -356,7 +356,7 @@ def update_replicas_states(rse, files, issuer, vo='def', *, session: "Session"):
 
 
 @stream_session
-def list_dataset_replicas(scope, name, deep=False, vo='def', *, session: "Session"):
+def list_dataset_replicas(scope, name, deep=False, vo=DEFAULT_VO, *, session: "Session"):
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.
@@ -377,7 +377,7 @@ def list_dataset_replicas(scope, name, deep=False, vo='def', *, session: "Sessio
 
 
 @stream_session
-def list_dataset_replicas_bulk(dids, vo='def', *, session: "Session"):
+def list_dataset_replicas_bulk(dids, vo=DEFAULT_VO, *, session: "Session"):
     """
     :param dids: The list of did dictionaries with scope and name.
     :param vo: The VO to act on.
@@ -406,7 +406,7 @@ def list_dataset_replicas_bulk(dids, vo='def', *, session: "Session"):
 
 
 @stream_session
-def list_dataset_replicas_vp(scope, name, deep=False, vo='def', *, session: "Session"):
+def list_dataset_replicas_vp(scope, name, deep=False, vo=DEFAULT_VO, *, session: "Session"):
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.
@@ -425,7 +425,7 @@ def list_dataset_replicas_vp(scope, name, deep=False, vo='def', *, session: "Ses
 
 
 @stream_session
-def list_datasets_per_rse(rse: str, filters: Optional[dict[str, Any]] = None, limit: Optional[int] = None, vo: str = 'def', *, session: "Session") -> 'Iterator[dict[str, Any]]':
+def list_datasets_per_rse(rse: str, filters: Optional[dict[str, Any]] = None, limit: Optional[int] = None, vo: str = DEFAULT_VO, *, session: "Session") -> 'Iterator[dict[str, Any]]':
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.
@@ -446,7 +446,7 @@ def list_datasets_per_rse(rse: str, filters: Optional[dict[str, Any]] = None, li
 
 
 @transactional_session
-def add_bad_pfns(pfns, issuer, state, reason=None, expires_at=None, vo='def', *, session: "Session"):
+def add_bad_pfns(pfns, issuer, state, reason=None, expires_at=None, vo=DEFAULT_VO, *, session: "Session"):
     """
     Add bad PFNs.
 
@@ -474,7 +474,7 @@ def add_bad_pfns(pfns, issuer, state, reason=None, expires_at=None, vo='def', *,
 
 
 @transactional_session
-def add_bad_dids(dids, rse, issuer, state, reason=None, expires_at=None, vo='def', *, session: "Session"):
+def add_bad_dids(dids, rse, issuer, state, reason=None, expires_at=None, vo=DEFAULT_VO, *, session: "Session"):
     """
     Add bad replica entries for DIDs.
 
@@ -501,7 +501,7 @@ def add_bad_dids(dids, rse, issuer, state, reason=None, expires_at=None, vo='def
 
 
 @read_session
-def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, vo='def', *, session: "Session"):
+def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, vo=DEFAULT_VO, *, session: "Session"):
     """
     List the list of suspicious files on a list of RSEs
     :param rse_expression: The RSE expression where the suspicious files are located
@@ -516,7 +516,7 @@ def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, vo='
 
 
 @transactional_session
-def set_tombstone(rse, scope, name, issuer, vo='def', *, session: "Session"):
+def set_tombstone(rse, scope, name, issuer, vo=DEFAULT_VO, *, session: "Session"):
     """
     Sets a tombstone on one replica.
 

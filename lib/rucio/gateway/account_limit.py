@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Union
 
 import rucio.common.exception
 import rucio.gateway.permission
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalAccount, RSEResolvedGlobalAccountLimitDict
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import account_limit as account_limit_core
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
 @read_session
 def get_rse_account_usage(
     rse: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> list[dict[str, Any]]:
@@ -50,7 +51,7 @@ def get_rse_account_usage(
 @read_session
 def get_local_account_limits(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> dict[str, Any]:
@@ -78,7 +79,7 @@ def get_local_account_limits(
 def get_local_account_limit(
     account: str,
     rse: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> dict[str, Union[int, float, None]]:
@@ -104,7 +105,7 @@ def get_local_account_limit(
 @read_session
 def get_global_account_limits(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> dict[str, RSEResolvedGlobalAccountLimitDict]:
@@ -131,7 +132,7 @@ def get_global_account_limits(
 def get_global_account_limit(
     account: str,
     rse_expression: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> dict[str, dict[str, RSEResolvedGlobalAccountLimitDict]]:
@@ -159,7 +160,7 @@ def set_local_account_limit(
     rse: str,
     bytes_: int,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -194,7 +195,7 @@ def set_global_account_limit(
     rse_expression: str,
     bytes_: int,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -227,7 +228,7 @@ def delete_local_account_limit(
     account: str,
     rse: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> bool:
@@ -262,7 +263,7 @@ def delete_global_account_limit(
     account: str,
     rse_expression: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> bool:
@@ -296,7 +297,7 @@ def get_local_account_usage(
     account: str,
     rse: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> list[dict[str, Any]]:
@@ -334,7 +335,7 @@ def get_global_account_usage(
     account: str,
     rse_expression: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> list[dict[str, Any]]:

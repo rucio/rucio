@@ -32,6 +32,7 @@ from sqlalchemy.sql.expression import cast  # noqa: E402
 from sqlalchemy.types import CHAR  # noqa: E402
 
 from rucio.common.config import config_get_bool  # noqa: E402
+from rucio.common.constants import DEFAULT_VO  # noqa: E402
 from rucio.common.types import InternalAccount  # noqa: E402
 from rucio.common.utils import StoreTrueAndDeprecateWarningAction  # noqa: E402
 from rucio.core.account import del_account  # noqa: E402
@@ -66,7 +67,7 @@ def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None,
     """
     Updates rows so that entries associated with `old_vo` are now associated with `new_vo` as part of multi-VO migration.
 
-    :param old_vo:         The 3 character string for the current VO (for a single-VO instance this will be 'def').
+    :param old_vo:         The 3 character string for the current VO (for a single-VO instance this will be DEFAULT_VO).
     :param new_vo:         The 3 character string for the new VO.
     :param insert_new_vo:  If True then an entry for `new_vo` is created in the database.
     :param description:    Full description of the new VO, unused if `insert_new_vo` is False.
@@ -106,8 +107,8 @@ def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None,
     try:
         bound_params = {'old_vo': old_vo,
                         'new_vo': new_vo,
-                        'old_vo_suffix': '' if old_vo == 'def' else old_vo,
-                        'new_vo_suffix': '' if new_vo == 'def' else '@%s' % new_vo,
+                        'old_vo_suffix': '' if old_vo == DEFAULT_VO else old_vo,
+                        'new_vo_suffix': '' if new_vo == DEFAULT_VO else '@%s' % new_vo,
                         'split_character': '@',
                         'int_1': 1,
                         'int_2': 2,
@@ -143,7 +144,7 @@ def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None,
         for table, column in tables_and_columns:
             update_command = table.update().where(split_vo(dialect, column, return_vo=True) == bindparam('old_vo_suffix'))
 
-            if new_vo == 'def':
+            if new_vo == DEFAULT_VO:
                 update_command = update_command.values({column.name: split_vo(dialect, column)})
             else:
                 update_command = update_command.values({column.name: split_vo(dialect, column) + cast(bindparam('new_vo_suffix'), CHAR(4))})
@@ -216,7 +217,7 @@ def remove_vo(vo, commit_changes=False, skip_history=False):
 
     try:
         bound_params = {'vo': vo,
-                        'vo_suffix': '' if vo == 'def' else vo,
+                        'vo_suffix': '' if vo == DEFAULT_VO else vo,
                         'split_character': '@',
                         'int_1': 1,
                         'int_2': 2}
@@ -298,7 +299,7 @@ def convert_to_mvo(new_vo, description, email, create_super_root=False, commit_c
     else:
         insert_new_vo = False
 
-    success = rename_vo('def', new_vo, insert_new_vo=insert_new_vo, description=description, email=email,
+    success = rename_vo(DEFAULT_VO, new_vo, insert_new_vo=insert_new_vo, description=description, email=email,
                         commit_changes=commit_changes, skip_history=skip_history)
     if create_super_root and success:
         create_root_account()
@@ -320,16 +321,16 @@ def convert_to_svo(old_vo, delete_vos=False, commit_changes=False, skip_history=
         print('Multi-VO mode is not enabled in the config file, aborting conversion.')
         return
 
-    rename_vo(old_vo, 'def', commit_changes=commit_changes, skip_history=skip_history)
+    rename_vo(old_vo, DEFAULT_VO, commit_changes=commit_changes, skip_history=skip_history)
     s = session.get_session()
     if delete_vos:
         success_all = True
         for vo in list_vos(session=s):
-            if vo['vo'] != 'def':
+            if vo['vo'] != DEFAULT_VO:
                 success = remove_vo(vo['vo'], commit_changes=commit_changes, skip_history=skip_history)
                 success_all = success_all and success
         if commit_changes and success_all:
-            del_account(InternalAccount('super_root', vo='def'), session=s)
+            del_account(InternalAccount('super_root', vo=DEFAULT_VO), session=s)
     s.close()
 
 

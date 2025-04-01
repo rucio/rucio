@@ -16,6 +16,7 @@
 from flask import Blueprint, make_response, render_template, request
 
 from rucio.common.config import config_get_bool
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.policy import get_policy
 from rucio.gateway.authentication import get_auth_token_x509
 from rucio.web.rest.flaskapi.v1.common import generate_http_error_flask
@@ -57,7 +58,7 @@ def oidc():
     issuer = request.args.get('issuer')
     vo = request.args.get('vo')
     if not MULTI_VO:
-        vo = 'def'
+        vo = DEFAULT_VO
 
     if not issuer:
         return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get token OIDC auth url from the server.')

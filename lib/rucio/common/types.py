@@ -16,6 +16,8 @@ import sys
 from collections.abc import Callable
 from os import PathLike
 
+from rucio.common.constants import DEFAULT_VO
+
 if sys.version_info < (3, 11):  # pragma: no cover
     from typing_extensions import TYPE_CHECKING, Any, Literal, NotRequired, Optional, TypedDict, TypeGuard, Union  # noqa: UP035
     PathTypeAlias = Union[PathLike, str]
@@ -35,7 +37,7 @@ class InternalType:
     '''
     Base for Internal representations of string types
     '''
-    def __init__(self, value: Optional[str], vo: str = 'def', from_external: bool = True):
+    def __init__(self, value: Optional[str], vo: str = DEFAULT_VO, from_external: bool = True):
         if value is None:
             self.external = None
             self.internal = None
@@ -87,7 +89,7 @@ class _RepresentationCalculator:
         """
         split = internal.split('@', 1)
         if len(split) == 1:  # if cannot convert, vo is '' and this is single vo
-            vo = 'def'
+            vo = DEFAULT_VO
             external = split[0]
         else:
             vo = split[1]
@@ -104,7 +106,7 @@ class _RepresentationCalculator:
 
         :returns: internal representation
         """
-        if vo == 'def':
+        if vo == DEFAULT_VO:
             return external
         internal = '{}@{}'.format(external, vo)
         return internal
@@ -114,7 +116,7 @@ class InternalAccount(InternalType):
     '''
     Internal representation of an account
     '''
-    def __init__(self, account: Optional[str], vo: str = 'def', from_external: bool = True):
+    def __init__(self, account: Optional[str], vo: str = DEFAULT_VO, from_external: bool = True):
         super(InternalAccount, self).__init__(value=account, vo=vo, from_external=from_external)
 
 
@@ -122,7 +124,7 @@ class InternalScope(InternalType):
     '''
     Internal representation of a scope
     '''
-    def __init__(self, scope: Optional[str], vo: str = 'def', from_external: bool = True):
+    def __init__(self, scope: Optional[str], vo: str = DEFAULT_VO, from_external: bool = True):
         super(InternalScope, self).__init__(value=scope, vo=vo, from_external=from_external)
 
 
