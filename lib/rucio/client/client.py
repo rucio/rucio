@@ -21,6 +21,7 @@ from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.configclient import ConfigClient
 from rucio.client.credentialclient import CredentialClient
 from rucio.client.didclient import DIDClient
+from rucio.client.opendataclient import OpenDataClient
 from rucio.client.diracclient import DiracClient
 from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
@@ -46,6 +47,7 @@ class Client(AccountClient,
              RSEClient,
              ScopeClient,
              DIDClient,
+             OpenDataClient,
              RuleClient,
              SubscriptionClient,
              LockClient,
