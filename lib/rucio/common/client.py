@@ -17,38 +17,11 @@ import socket
 from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING
 
-from rucio.common.config import config_get, config_has_section
+from rucio.common.config import config_get
 from rucio.common.constants import DEFAULT_VO
-from rucio.common.exception import ConfigNotFound
 
 if TYPE_CHECKING:
     from rucio.common.types import IPWithLocationDict
-
-
-def is_client() -> bool:
-    """"
-    Checks if the function is called from a client or from a server/daemon
-
-    :returns client_mode: True if is called from a client, False if it is called from a server/daemon
-    """
-    if 'RUCIO_CLIENT_MODE' not in os.environ:
-        try:
-            if config_has_section('database'):
-                client_mode = False
-            elif config_has_section('client'):
-                client_mode = True
-            else:
-                client_mode = False
-        except (RuntimeError, ConfigNotFound):
-            # If no configuration file is found the default value should be True
-            client_mode = True
-    else:
-        if os.environ['RUCIO_CLIENT_MODE']:
-            client_mode = True
-        else:
-            client_mode = False
-
-    return client_mode
 
 
 def get_client_vo() -> str:
