@@ -52,7 +52,7 @@ class Export(ErrorHandlingMethodView):
             description: Not acceptable
         """
         distance = request.args.get('distance', default='True') == 'True'
-        return Response(render_json(**export_data(issuer=request.environ.get('issuer'), distance=distance, vo=request.environ.get('vo'))), content_type='application/json')
+        return Response(render_json(**export_data(issuer=request.environ['issuer'], distance=distance, vo=request.environ['vo'])), content_type='application/json')
 
 
 def blueprint(with_doc=False):
