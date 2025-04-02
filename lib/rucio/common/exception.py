@@ -1208,12 +1208,34 @@ class ConnectionParameterNotFound(RucioException):
         self.error_code = 114
 
 
-class OpenDataDataIdentifierNotFound(RucioException):
+class OpenDataError(RucioException):
+    """
+    Error related to open data.
+    """
+
+    def __init__(self, *args):
+        super(OpenDataError, self).__init__(*args)
+        self._message = f"Error related to open data."
+        self.error_code = 115
+
+
+class OpenDataDataIdentifierNotFound(OpenDataError):
     """
     Throws when the data identifier is not in the open data catalog.
     """
 
-    def __init__(self, *args, scope: str, name: str):
+    def __init__(self, *args):
         super(OpenDataDataIdentifierNotFound, self).__init__(*args)
-        self._message = f"Data identifier '{scope}:{name}' not found in the open data catalog."
-        self.error_code = 115
+        self._message = f"Data identifier not found in the open data catalog."
+        self.error_code = 116
+
+
+class OpenDataDataIdentifierAlreadyExists(OpenDataError):
+    """
+    Throws when the data identifier is not in the open data catalog.
+    """
+
+    def __init__(self, *args):
+        super(OpenDataDataIdentifierAlreadyExists, self).__init__(*args)
+        self._message = f"Data identifier already exists in the open data catalog."
+        self.error_code = 117

@@ -46,6 +46,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
             state = request.args.get("state", default=None)
             print(f"scope: {scope}, name: {name}, state: {state}")
             result = opendata.get_opendata_did(scope=scope, name=name, state=state, vo=request.environ.get("vo"))
+            print(f"FLASK result: {result}")
             return Response(render_json(**result), content_type="application/json")
         except ValueError as error:
             return generate_http_error_flask(400, error)
@@ -56,9 +57,11 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
         print(f"OpenDataPrivateDIDsView.post() called")
         try:
             scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
-            opendata.add_opendata_did(scope=scope, name=name)
+            opendata.add_opendata_did(scope=scope, name=name, vo=request.environ.get("vo"))
         except ValueError as error:
             return generate_http_error_flask(400, error)
+        except OpenDataDataIdentifierNotFound as error:
+            return generate_http_error_flask(404, error)
 
         return "Created", 201
 
