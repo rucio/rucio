@@ -69,7 +69,7 @@ class WorkerInteractor(OriginalWorkerInteractor):
 # TODO: remove this (if xdist ever learns to pass additional data on top of node IDs)
 
 if __name__ == "__channelexec__":
-    channel = channel  # type: ignore[name-defined] # noqa: F821
+    channel = channel  # type: ignore[name-defined] # noqa: PLW0127, F821
     workerinput, args, option_dict, change_sys_path = channel.receive()  # type: ignore[name-defined]
 
     if change_sys_path is None:

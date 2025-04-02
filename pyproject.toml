@@ -70,6 +70,7 @@ extend-select = [
     "W291", # Trailing whitespace (low-hanging fruit that improves cleanliness)
     "E722", # Do not use bare except, specify exception
     "D419", # Empty docstring (suggests bad documentation hygiene.)
+    "PLW0127", # Self-assigning variable
 ]
 
 ignore = [

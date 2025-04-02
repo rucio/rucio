@@ -103,7 +103,7 @@ class FilterEngine:
         elif isinstance(filters, dict):
             filters = [filters]
         elif isinstance(filters, list):
-            filters = filters
+            pass  # already a list of filters
         else:
             raise exception.DIDFilterSyntaxError("Input filters are of an unrecognised type.")
 
