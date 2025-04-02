@@ -61,34 +61,34 @@ def list_opendata_dids(ctx, state: str):
 
 
 @opendata.command("add")
-@click.argument("did-name")
+@click.argument("did")
 @click.pass_context
-def add_opendata_did(ctx, did_name):
+def add_opendata_did(ctx, did):
     client = ctx.obj.client
-    print(f"DEBUG: Adding Open Data DID with '{did_name}'")
-    scope, name = extract_scope_name(did_name)
+    print(f"DEBUG: Adding Open Data DID with '{did}'")
+    scope, name = extract_scope_name(did)
     client.add_opendata_did(scope=scope, name=name)
 
 
 @opendata.command("remove")
-@click.argument("did-name")
+@click.argument("did")
 @click.pass_context
-def remove_opendata_did(ctx, did_name):
+def remove_opendata_did(ctx, did):
     client = ctx.obj.client
-    print(f"DEBUG: Removing Open Data DID with '{did_name}'")
-    scope, name = extract_scope_name(did_name)
+    print(f"DEBUG: Removing Open Data DID with '{did}'")
+    scope, name = extract_scope_name(did)
     client.remove_opendata_did(scope=scope, name=name)
 
 
 # Add --json option to get only the metadata
 @opendata.command("show")
-@click.argument("did-name")
+@click.argument("did")
 @click.option("--json", required=False, is_flag=True, default=False, help="Print only the metadata JSON")
 @click.pass_context
-def get_opendata_did(ctx, did_name: str, json: bool):
+def get_opendata_did(ctx, did: str, json: bool):
     client = ctx.obj.client
-    print(f"DEBUG: Getting Open Data DID with '{did_name}'")
-    scope, name = extract_scope_name(did_name)
+    print(f"DEBUG: Getting Open Data DID with '{did}'")
+    scope, name = extract_scope_name(did)
     result = client.get_opendata_did(scope=scope, name=name)
     # TODO: switch on json flag
     if json:
@@ -97,20 +97,20 @@ def get_opendata_did(ctx, did_name: str, json: bool):
 
 
 @opendata.command("update")
-@click.argument("did-name")
+@click.argument("did")
 # How to change the name of this `--json` to (metadata_json) while keeping the flag as `--json`?
 # TODO: change name to avoid shadowing the json module
 @click.option("--json", required=False, help="Metadata JSON")
 # TODO: once the list of states is defined, restrict choices to those states
 @click.option("--state", required=False, help="State")
 @click.pass_context
-def update_opendata_did(ctx, did_name: str, json: str, state: str):
+def update_opendata_did(ctx, did: str, json: str, state: str):
     client = ctx.obj.client
-    print(f"DEBUG: Updating Open Data DID with '{did_name}', metadata: {json}, state: {state}")
+    print(f"DEBUG: Updating Open Data DID with '{did}', metadata: {json}, state: {state}")
     if not json and not state:
         raise ValueError("At least one of --json or --state must be provided.")
 
-    scope, name = extract_scope_name(did_name)
+    scope, name = extract_scope_name(did)
 
     if state:
         raise NotImplementedError("State update is not implemented yet.")
