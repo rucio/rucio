@@ -405,7 +405,7 @@ def submit_to_elastic(
 
 def aggregate_to_influx(
     messages: "Iterable[dict[str, Any]]",
-    bin_size: int,
+    bin_size: str,
     endpoint: str,
     logger: "LoggerFunction"
 ) -> int:
@@ -750,7 +750,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             try:
                 messages_sent = deliver_to_activemq(
                     messages=message_dict["activemq"],
-                    conns=conns,
+                    conns=conns,  # type: ignore (argument could be None)
                     destination=destination,  # type: ignore (argument could be None)
                     username=username,  # type: ignore (argument could be None)
                     password=password,  # type: ignore (argument could be None)
