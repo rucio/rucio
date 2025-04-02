@@ -15,10 +15,12 @@
 """Decommissioning profile definitions."""
 
 from .atlas import atlas_move
+from .cms import cms_decommissioner
 from .generic import generic_delete, generic_move
 
 PROFILE_MAP = {
     'generic_delete': generic_delete,
     'generic_move': generic_move,
-    'atlas_move': atlas_move
+    'atlas_move': atlas_move,
+    'cms_decommissioner': cms_decommissioner,
 }
