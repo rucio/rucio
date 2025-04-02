@@ -12,19 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from urllib.parse import unquote_plus
+from flask import Blueprint, Flask, Response, request
 
-from flask import Blueprint, Flask, request
-
-from rucio.common.exception import DataIdentifierNotFound, ScopeNotFound
+from rucio.common.exception import OpenDataDataIdentifierNotFound
+from rucio.common.utils import render_json
 from rucio.gateway import opendata
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_list, response_headers, try_stream
-
-
-def _parse_scope_name(scope: str, name: str) -> (str, str):
-    # At some point all methods will be updated to have the scope and name as separate parameters, for now just new files
-    name = unquote_plus(name)
-    return scope, name
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, parse_scope_name, response_headers, try_stream
 
 
 class OpenDataPublicView(ErrorHandlingMethodView):
@@ -40,22 +33,19 @@ class OpenDataPublicView(ErrorHandlingMethodView):
             return try_stream(result)
         except ValueError as error:
             return generate_http_error_flask(400, error)
-        except (ScopeNotFound, DataIdentifierNotFound) as error:
-            return generate_http_error_flask(404, error)
 
 
 class OpenDataPublicDIDsView(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(["application/json"])
     def get(self, scope: str, name: str):
-        print(f"OpenDataPublicDIDsView.get() called")
         try:
-            scope, name = _parse_scope_name(scope, name)
-            # public endpoints should only access public opendata dids
-            return opendata.get_opendata_did(scope=scope, name=name, state="P")
+            scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
+            result = opendata.get_opendata_did(scope=scope, name=name, state="P", vo=request.environ.get("vo"))
+            return Response(render_json(**result), content_type="application/json")
         except ValueError as error:
             return generate_http_error_flask(400, error)
-        except (ScopeNotFound, DataIdentifierNotFound) as error:
+        except OpenDataDataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
 
 
