@@ -118,13 +118,11 @@ def update_opendata_did(ctx, did: str, opendata_json: str, state: str):
 
     scope, name = extract_scope_name(did)
 
-    if state:
-        raise NotImplementedError("State update is not implemented yet.")
-
     if opendata_json:
         if not is_valid_json(opendata_json):
             raise ValueError("Invalid JSON provided.")
 
+        # Here JSON is a string (otherwise we cannot diff from null json)
         opendata_json = minify_json(opendata_json)
 
-        client.update_opendata_did(scope=scope, name=name, opendata_json=opendata_json)
+    client.update_opendata_did(scope=scope, name=name, opendata_json=opendata_json, state=state)
