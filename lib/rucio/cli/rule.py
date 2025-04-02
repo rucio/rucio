@@ -74,7 +74,7 @@ def add_(ctx, dids, copies, rses, weight, asynchronous, lifetime, grouping, lock
 @click.pass_context
 def remove(ctx, rule_id_dids, _all, rses, account, purge_replicas):
     """Remove an existing rule. Supply [rule-id] if know, or use [DID] and --rses to remove all rules for DIDs on RSEs matching the expression"""
-    args = Arguments({"purge_replicas": purge_replicas, "delete_all": _all, "rule_account": account, "rule_id": rule_id_dids, "rses": rses})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "purge_replicas": purge_replicas, "delete_all": _all, "rule_account": account, "rule_id": rule_id_dids, "rses": rses})
     delete_rule(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -84,7 +84,7 @@ def remove(ctx, rule_id_dids, _all, rses, account, purge_replicas):
 @click.pass_context
 def show(ctx, rule_id, examine):
     """Retrieve information about a rule"""
-    info_rule(Arguments({"rule_id": rule_id, "examine": examine}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    info_rule(Arguments({"no_pager": ctx.obj.no_pager, "rule_id": rule_id, "examine": examine}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @rule.command("history")
@@ -92,7 +92,7 @@ def show(ctx, rule_id, examine):
 @click.pass_context
 def history(ctx, did):
     """Display the history of rules acting on a DID"""
-    list_rules_history(Arguments({"did": did}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    list_rules_history(Arguments({"no_pager": ctx.obj.no_pager, "did": did}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @rule.command("move")
@@ -103,7 +103,7 @@ def history(ctx, did):
 @click.pass_context
 def move(ctx, rule_id, rses, activity, source_rses):
     """Create a child rule on a different RSE. The parent rule is deleted once the new rule reaches `OK` status"""
-    args = Arguments({"rule_id": rule_id, "rse_expression": rses, "source_replica_expression": source_rses, "activity": activity})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "rule_id": rule_id, "rse_expression": rses, "source_replica_expression": source_rses, "activity": activity})
     move_rule(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -154,5 +154,5 @@ def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, accou
 @click.pass_context
 def list_(ctx, did, rule_id, traverse, csv, file, account, subscription):
     """List all rules impacting a given DID"""
-    args = Arguments({"did": did, "rule_id": rule_id, "traverse": traverse, "csv": csv, "file": file, "subscription": (account if account is not None else ctx.obj.client.account, subscription)})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did, "rule_id": rule_id, "traverse": traverse, "csv": csv, "file": file, "subscription": (account if account is not None else ctx.obj.client.account, subscription)})
     list_rules(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

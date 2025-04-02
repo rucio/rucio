@@ -29,5 +29,5 @@ def lifetime_exception():
 @click.pass_context
 def add_(ctx, input_file, reason, expiration):
     """Add an exception to the lifetime model"""  # TODO description of what this does
-    args = Arguments({"inputfile": input_file, "reason": reason, "expiration": expiration})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "inputfile": input_file, "reason": reason, "expiration": expiration})
     add_lifetime_exception(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
