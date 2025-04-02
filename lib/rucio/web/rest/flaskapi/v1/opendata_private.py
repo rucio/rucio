@@ -14,7 +14,7 @@
 
 from flask import Flask, Response, request
 
-from rucio.common.exception import OpenDataDataIdentifierNotFound
+from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound
 from rucio.common.utils import render_json
 from rucio.gateway import opendata
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
@@ -44,10 +44,11 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
         try:
             scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
             state = request.args.get("state", default=None)
-            print(f"scope: {scope}, name: {name}, state: {state}")
             result = opendata.get_opendata_did(scope=scope, name=name, state=state, vo=request.environ.get("vo"))
-            print(f"FLASK result: {result}")
-            return Response(render_json(**result), content_type="application/json")
+            # return Response(render_json(**result), content_type="application/json")
+            result = render_json(**result)
+            print(f"result: {result}")
+            return result
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except OpenDataDataIdentifierNotFound as error:
@@ -60,7 +61,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
             opendata.add_opendata_did(scope=scope, name=name, vo=request.environ.get("vo"))
         except ValueError as error:
             return generate_http_error_flask(400, error)
-        except OpenDataDataIdentifierNotFound as error:
+        except (OpenDataDataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists) as error:
             return generate_http_error_flask(404, error)
 
         return "Created", 201

@@ -91,13 +91,17 @@ def remove_opendata_did(ctx, did):
 @click.pass_context
 def get_opendata_did(ctx, did: str, json_flag: bool, public: bool):
     client = ctx.obj.client
-    print(f"DEBUG: Getting Open Data DID with '{did}'")
     scope, name = extract_scope_name(did)
     result = client.get_opendata_did(scope=scope, name=name, public=public)
-    # TODO: switch on json flag
-    if json:
-        ...  # print only the metadata JSON
-    print(result)
+
+    # resolve generator
+    result = list(result)[0]
+    result = json.loads(result)
+
+    if json_flag:
+        result = result["opendata_json"]
+
+    print(json.dumps(result, indent=4, sort_keys=True, ensure_ascii=False))
 
 
 @opendata.command("update")
