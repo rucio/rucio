@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from flask import Flask, request
 from werkzeug.datastructures import Headers
 
-from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, SUPPORTED_SIGN_URL_SERVICES
+from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, SUPPORTED_SIGN_URL_SERVICES, SUPPORTED_SIGN_URL_SERVICES_LITERAL
 from rucio.common.exception import CannotAuthenticate
 from rucio.gateway.credential import get_signed_url
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
@@ -163,28 +163,35 @@ class SignURL(ErrorHandlingMethodView):
         headers = self.get_headers()
         vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
-        appid = request.headers.get('X-Rucio-AppID', default='unknown')
-        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
-        if 'rse' not in request.args:
-            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "rse" not found', headers=headers)
+        if account is None:
+            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "account" not found.', headers=headers)
+
         rse = request.args.get('rse')
+
+        if rse is None:
+            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "rse" not found', headers=headers)
+
+        url = request.args.get('url')
+
+        if url is None:
+            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "url" not found', headers=headers)
 
         lifetime = request.args.get('lifetime', type=int, default=600)
         service = request.args.get('svc', default='gcs')
         operation = request.args.get('op', default='read')
 
-        if 'url' not in request.args:
-            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "url" not found', headers=headers)
-        url = request.args.get('url')
-
         if service not in SUPPORTED_SIGN_URL_SERVICES:
-            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "svc" must be either empty(=gcs), gcs, s3 or swift', headers=headers)
+            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "svc" must be either empty (which defaults to "gcs"), "gcs", "s3" or "swift"', headers=headers)
+
+        service = cast("SUPPORTED_SIGN_URL_SERVICES_LITERAL", service)
 
         if operation not in RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS:
-            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "op" must be either empty(=read), read, write, or delete.', headers=headers)
+            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "op" must be either empty (which defaults to "read"), "read", "write", or "delete".', headers=headers)
 
-        result = get_signed_url(account, appid, ip, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
+        operation = cast("RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL", service)
+
+        result = get_signed_url(account, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
 
         if not result:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot generate signed URL for account {account}', headers=headers)
