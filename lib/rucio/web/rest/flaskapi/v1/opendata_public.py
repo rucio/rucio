@@ -28,16 +28,16 @@ def _parse_scope_name(scope: str, name: str) -> (str, str):
 
 
 class OpenDataPublicView(ErrorHandlingMethodView):
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(["application/json"])
     def get(self):
         print(f"OpenDataPublicView.get() called")
         try:
-            limit = request.args.get('limit', default=None)
-            offset = request.args.get('offset', default=None)
+            limit = request.args.get("limit", default=None)
+            offset = request.args.get("offset", default=None)
             print(f"limit: {limit}, offset: {offset}")
-            result = opendata.list_opendata_dids(limit=limit, offset=offset)
-            print(f"result: {result}")
-            return try_stream(json_list(result))
+            # public endpoints should only access public opendata dids
+            result = opendata.list_opendata_dids(limit=limit, offset=offset, state="P")
+            return try_stream(result)
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except (ScopeNotFound, DataIdentifierNotFound) as error:
@@ -46,12 +46,13 @@ class OpenDataPublicView(ErrorHandlingMethodView):
 
 class OpenDataPublicDIDsView(ErrorHandlingMethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(["application/json"])
     def get(self, scope: str, name: str):
         print(f"OpenDataPublicDIDsView.get() called")
         try:
             scope, name = _parse_scope_name(scope, name)
-            return opendata.get_opendata_did(scope=scope, name=name)
+            # public endpoints should only access public opendata dids
+            return opendata.get_opendata_did(scope=scope, name=name, state="P")
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except (ScopeNotFound, DataIdentifierNotFound) as error:
@@ -59,13 +60,13 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = Blueprint("opendata_public", __name__, url_prefix='/opendata')
+    bp = Blueprint("opendata_public", __name__, url_prefix="/opendata")
 
-    opendata_public_view = OpenDataPublicView.as_view('opendata')
-    bp.add_url_rule('', view_func=opendata_public_view, methods=['get'])
+    opendata_public_view = OpenDataPublicView.as_view("opendata")
+    bp.add_url_rule("", view_func=opendata_public_view, methods=["get"])
 
-    opendata_private_did_view = OpenDataPublicDIDsView.as_view('opendata_did')
-    bp.add_url_rule('/<scope>/<name>', view_func=opendata_private_did_view, methods=['get'])
+    opendata_private_did_view = OpenDataPublicDIDsView.as_view("opendata_did")
+    bp.add_url_rule("/<scope>/<name>", view_func=opendata_private_did_view, methods=["get"])
 
     bp.after_request(response_headers)
 
