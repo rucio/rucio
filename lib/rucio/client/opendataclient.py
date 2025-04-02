@@ -86,15 +86,15 @@ class OpenDataClient(BaseClient):
             *,
             scope: str,
             name: str,
-            metadata_json: dict,
+            opendata_json: dict,
     ) -> bool:
         path = '/'.join([self.opendata_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
 
         data: dict[str, Any] = {}
 
-        if metadata_json:
-            data['metadata'] = metadata_json
+        if opendata_json:
+            data['metadata'] = opendata_json
 
         r = self._send_request(url, type_='PUT', data=render_json(**data))
 
