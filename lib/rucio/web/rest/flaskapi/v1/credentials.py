@@ -163,8 +163,6 @@ class SignURL(ErrorHandlingMethodView):
         headers = self.get_headers()
         vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
-        appid = request.headers.get('X-Rucio-AppID', default='unknown')
-        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
         if account is None:
             return generate_http_error_flask(400, ValueError.__name__, 'Parameter "account" not found.', headers=headers)
@@ -189,7 +187,7 @@ class SignURL(ErrorHandlingMethodView):
         if operation not in RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS:
             return generate_http_error_flask(400, ValueError.__name__, 'Parameter "op" must be either empty(=read), read, write, or delete.', headers=headers)
 
-        result = get_signed_url(account, appid, ip, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
+        result = get_signed_url(account, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
 
         if not result:
             return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot generate signed URL for account {account}', headers=headers)
