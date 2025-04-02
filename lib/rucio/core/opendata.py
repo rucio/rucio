@@ -17,7 +17,7 @@ from re import match
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from sqlalchemy import and_, delete, exists, insert, or_, update
-from sqlalchemy.exc import DatabaseError, IntegrityError, NoResultFound, DataError
+from sqlalchemy.exc import DatabaseError, DataError, IntegrityError, NoResultFound
 from sqlalchemy.sql.expression import bindparam, case, false, null, select, true
 
 from rucio.common import exception
