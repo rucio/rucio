@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
@@ -88,15 +88,24 @@ class OpenDataClient(BaseClient):
             *,
             scope: str,
             name: str,
-            opendata_json: dict,
+            opendata_json: str = None,
+            state: Optional[str] = None,
     ) -> bool:
         path = '/'.join([self.opendata_private_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
 
+        if not opendata_json and not state:
+            raise ValueError('Either opendata_json or state must be provided to update the OpenData DID.')
+        if opendata_json and state:
+            raise ValueError('Both opendata_json and state cannot be provided at the same time.')
+
         data: dict[str, Any] = {}
 
         if opendata_json:
-            data['metadata'] = opendata_json
+            data['opendata_json'] = opendata_json
+
+        if state:
+            data['state'] = state
 
         r = self._send_request(url, type_='PUT', data=render_json(**data))
 

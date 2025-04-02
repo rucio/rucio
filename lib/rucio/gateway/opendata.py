@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common.types import InternalScope
@@ -77,3 +78,29 @@ def delete_opendata_did(
 ) -> None:
     internal_scope = InternalScope(scope, vo=vo)
     return opendata.delete_opendata_did(scope=internal_scope, name=name, session=session)
+
+
+@transactional_session
+def update_opendata_did(
+        *,
+        scope: str,
+        name: str,
+        state: Optional[str] = None,  # TODO: type only valid states
+        opendata_json: Optional[dict] = None,
+        vo: str = "def",
+        session: "Session"
+) -> None:
+    internal_scope = InternalScope(scope, vo=vo)
+    # print type of opendata_json
+    print("opendata_json type: ", type(opendata_json))
+    if isinstance(opendata_json, str):
+        try:
+            opendata_json = json.loads(opendata_json)
+        except ValueError as error:
+            raise ValueError(f"Invalid JSON: {error}")
+
+    if opendata_json:
+        print("GATEWAY update_opendata_did opendata_json type: ", type(opendata_json))
+
+    return opendata.update_opendata_did(scope=internal_scope, name=name, state=state, opendata_json=opendata_json,
+                                        session=session)

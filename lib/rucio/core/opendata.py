@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from re import match
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from sqlalchemy import and_, delete, exists, insert, or_, update
-from sqlalchemy.exc import DatabaseError, IntegrityError, NoResultFound
+from sqlalchemy.exc import DatabaseError, IntegrityError, NoResultFound, DataError
 from sqlalchemy.sql.expression import bindparam, case, false, null, select, true
 
 from rucio.common import exception
@@ -186,3 +187,63 @@ def delete_opendata_did(
 
     if result.rowcount == 0:
         raise ValueError(f"Error deleting OpenData entry '{scope}:{name}'.")
+
+
+@transactional_session
+def update_opendata_did(
+        *,
+        scope: "InternalScope",
+        name: str,
+        state: Optional[str] = None,  # TODO: typing only valid states
+        opendata_json: Optional[dict] = None,
+        session: "Session",
+) -> None:
+    print(
+        f"Called CORE update_opendata_did with scope={scope}, name={name}, state={state}, opendata_json={opendata_json}")
+    if not state and not opendata_json:
+        raise exception.InputValidationError("Either 'state' or 'opendata_json' must be provided.")
+
+    # print type of json
+    if opendata_json is not None and not isinstance(opendata_json, dict):
+        raise exception.InputValidationError("opendata_json must be a dictionary.")
+
+    exists_stmt = select(
+        exists().where(
+            and_(
+                models.OpenDataDid.scope == scope,
+                models.OpenDataDid.name == name
+            )
+        )
+    )
+
+    if not session.execute(exists_stmt).scalar():
+        raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
+
+    update_stmt = update(models.OpenDataDid).where(
+        and_(
+            models.OpenDataDid.scope == scope,
+            models.OpenDataDid.name == name
+        )
+    )
+    if state:
+        update_stmt = update_stmt.values(state=state)
+    if opendata_json:
+        try:
+            json.dumps(opendata_json)
+        except (TypeError, ValueError) as e:
+            raise exception.InputValidationError(f"Invalid JSON data: {e}")
+        update_stmt = update_stmt.values(opendata_json=opendata_json)
+
+    # TODO: Add some logic to handle how state is updated e.g. can go from DRAFT to PUBLIC but not the other way around
+
+    # print query
+    print(f"Update statement: {update_stmt}")
+
+    try:
+        result = session.execute(update_stmt)
+
+        if result.rowcount == 0:
+            raise ValueError(f"Error updating OpenData entry '{scope}:{name}'.")
+
+    except DataError as error:
+        raise exception.InputValidationError(f"Invalid data: {error}")
