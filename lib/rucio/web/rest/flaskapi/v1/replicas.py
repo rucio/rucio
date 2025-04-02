@@ -944,8 +944,8 @@ class QuarantineReplicas(ErrorHandlingMethodView):
         replicas = param_get(parameters, 'replicas', default=[])
         rse = param_get(parameters, 'rse', default=None)
         rse_id = param_get(parameters, 'rse_id', default=None)
-        vo = request.environ.get('vo')
-        issuer = request.environ.get('issuer')
+        vo = request.environ['vo']
+        issuer = request.environ['issuer']
 
         if replicas:
             try:
