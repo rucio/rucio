@@ -852,27 +852,24 @@ def get_bytes_value_from_string(input_string: str) -> Union[bool, int]:
     :param input_string: String containing a value and an unit
     :return: Integer value representing the value in bytes
     """
-    result = re.findall('^([0-9]+)([A-Za-z]+)$', input_string)
+    unit_multipliers = {
+        'b': 1,
+        'kb': 10**3,
+        'mb': 10**6,
+        'gb': 10**9,
+        'tb': 10**12,
+        'pb': 10**15,
+    }
+
+    result = re.findall(r'^([0-9]+)([A-Za-z]+)$', input_string)
     if result:
         value = int(result[0][0])
         unit = result[0][1].lower()
-        if unit == 'b':
-            value = value
-        elif unit == 'kb':
-            value = value * 1000
-        elif unit == 'mb':
-            value = value * 1000000
-        elif unit == 'gb':
-            value = value * 1000000000
-        elif unit == 'tb':
-            value = value * 1000000000000
-        elif unit == 'pb':
-            value = value * 1000000000000000
-        else:
+        multiplier = unit_multipliers.get(unit)
+        if multiplier is None:
             return False
-        return value
-    else:
-        return False
+        return value * multiplier
+    return False
 
 
 def parse_did_filter_from_string(input_string: str) -> tuple[dict[str, Any], str]:
