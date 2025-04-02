@@ -46,6 +46,8 @@ DEFAULT_ENDPOINTS = [
     'rules',
     'scopes',
     'subscriptions',
+    'opendata_private',
+    'opendata_public',
 ]
 
 

@@ -51,12 +51,14 @@ def opendata():
 
 @opendata.command("list")
 # TODO instead of state, maybe use a flag for each valid state?
-@click.option("--state", required=False, help="State")
+@click.option("--state", required=False, help="Filter on opendata state")
+@click.option("--public", required=False, is_flag=True, default=False,
+              help="Perform request against the public endpoint")
 @click.pass_context
-def list_opendata_dids(ctx, state: str):
+def list_opendata_dids(ctx, state: str, public: bool):
     # TODO: check state is valid
     client = ctx.obj.client
-    print(f"DEBUG: Listing Open Data DIDs with state '{state}'")
+    print(f"DEBUG: Listing Open Data DIDs with state '{state}' and public flag '{public}'")
     client.list_opendata_dids(state=state)
 
 
@@ -83,8 +85,10 @@ def remove_opendata_did(ctx, did):
 @opendata.command("show")
 @click.argument("did")
 @click.option("--json", "json_flag", required=False, is_flag=True, default=False, help="Print only the metadata JSON")
+@click.option("--public", required=False, is_flag=True, default=False,
+              help="Perform request against the public endpoint")
 @click.pass_context
-def get_opendata_did(ctx, did: str, json_flag: bool):
+def get_opendata_did(ctx, did: str, json_flag: bool, public: bool):
     client = ctx.obj.client
     print(f"DEBUG: Getting Open Data DID with '{did}'")
     scope, name = extract_scope_name(did)
