@@ -80,7 +80,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
         print(f"OpenDataPrivateDIDsView.delete() called")
         try:
             scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
-            opendata.delete_opendata_did(scope=scope, name=name)
+            opendata.delete_opendata_did(scope=scope, name=name, vo=request.environ.get("vo"))
         except ValueError as error:
             return generate_http_error_flask(400, error)
         # Handle open data exception
