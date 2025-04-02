@@ -31,7 +31,7 @@ class OpenDataClient(BaseClient):
     def list_opendata_dids(
             self,
             *,
-            state: str = None,
+            state: Optional[str] = None,
             public: bool = False,
     ) -> "Iterator[dict[str, Any]]":
         base_url = self.opendata_public_base_url if public else self.opendata_private_base_url
@@ -88,7 +88,7 @@ class OpenDataClient(BaseClient):
             *,
             scope: str,
             name: str,
-            opendata_json: str = None,
+            opendata_json: Optional[dict] = None,
             state: Optional[str] = None,
     ) -> bool:
         path = '/'.join([self.opendata_private_base_url, quote_plus(scope), quote_plus(name)])
