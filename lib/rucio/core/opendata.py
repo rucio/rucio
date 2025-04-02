@@ -97,10 +97,12 @@ def get_opendata_did(
         get_stmt = get_stmt.where(models.OpenDataDid.state == state)
 
     print(f"Query: {get_stmt}")
-    try:
-        return dict(session.execute(get_stmt).scalar_one())
-    except NoResultFound:
+
+    result = session.execute(get_stmt).mappings().fetchone()
+    if not result:
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
+
+    return dict(result)
 
 
 @transactional_session

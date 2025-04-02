@@ -282,7 +282,10 @@ def render_json(*args, **kwargs) -> str:
         data = kwargs
     else:
         raise ValueError("Error while serializing object to JSON-formatted string: supported input types are list or dict.")
-    return json.dumps(data, cls=APIEncoder)
+    print(f"Rendering JSON: {data}")
+    result = json.dumps(data, cls=APIEncoder)
+    print(f"Rendered JSON: {result}")
+    return result
 
 
 def datetime_parser(dct: dict[Any, Any]) -> dict[Any, Any]:
