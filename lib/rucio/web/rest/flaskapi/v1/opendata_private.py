@@ -19,7 +19,7 @@ from flask import Flask, request
 from rucio.common.exception import DataIdentifierNotFound, ScopeNotFound
 from rucio.gateway import opendata
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_list, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_list, parse_scope_name, response_headers, try_stream
 
 
 def _parse_scope_name(scope: str, name: str) -> (str, str):
@@ -29,14 +29,15 @@ def _parse_scope_name(scope: str, name: str) -> (str, str):
 
 
 class OpenDataPrivateView(ErrorHandlingMethodView):
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(["application/json"])
     def get(self):
         print(f"OpenDataPrivateView.get() called")
         try:
-            limit = request.args.get('limit', default=None)
-            offset = request.args.get('offset', default=None)
-            print(f"limit: {limit}, offset: {offset}")
-            result = opendata.list_opendata_dids(limit=limit, offset=offset)
+            limit = request.args.get("limit", default=None)
+            offset = request.args.get("offset", default=None)
+            state = request.args.get("state", default=None)
+            print(f"limit: {limit}, offset: {offset}, state: {state}")
+            result = opendata.list_opendata_dids(limit=limit, offset=offset, state=state)
             print(f"result: {result}")
             return try_stream(result)
         except ValueError as error:
@@ -47,12 +48,16 @@ class OpenDataPrivateView(ErrorHandlingMethodView):
 
 class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
 
-    @check_accept_header_wrapper_flask(['application/json'])
+    @check_accept_header_wrapper_flask(["application/json"])
     def get(self, scope: str, name: str):
         print(f"OpenDataPrivateDIDsView.get() called")
         try:
-            scope, name = _parse_scope_name(scope, name)
-            return opendata.get_opendata_did(scope=scope, name=name)
+            # scope, name = _parse_scope_name(scope, name)
+            scope_name = f"{scope}/{name}"
+            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            state = request.args.get("state", default=None)
+            print(f"scope: {scope}, name: {name}, state: {state}")
+            return opendata.get_opendata_did(scope=scope, name=name, state=state)
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except (ScopeNotFound, DataIdentifierNotFound) as error:
@@ -92,13 +97,13 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
 
 
 def blueprint():
-    bp = AuthenticatedBlueprint("opendata_private", __name__, url_prefix='/opendata-private')
+    bp = AuthenticatedBlueprint("opendata_private", __name__, url_prefix="/opendata-private")
 
-    opendata_private_view = OpenDataPrivateView.as_view('opendata')
-    bp.add_url_rule('', view_func=opendata_private_view, methods=['get'])
+    opendata_private_view = OpenDataPrivateView.as_view("opendata")
+    bp.add_url_rule("", view_func=opendata_private_view, methods=["get"])
 
-    opendata_private_did_view = OpenDataPrivateDIDsView.as_view('opendata_did')
-    bp.add_url_rule('/<scope>/<name>', view_func=opendata_private_did_view, methods=['get', 'post', 'put', 'delete'])
+    opendata_private_did_view = OpenDataPrivateDIDsView.as_view("opendata_did")
+    bp.add_url_rule("/<scope>/<name>", view_func=opendata_private_did_view, methods=["get", "post", "put", "delete"])
 
     bp.after_request(response_headers)
 

@@ -14,6 +14,7 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
+from rucio.common.types import InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import opendata
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
@@ -23,44 +24,54 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
-    from rucio.common.types import InternalScope
-
 
 @stream_session
 def list_opendata_dids(
-    limit: Optional[int] = None,
-    offset: Optional[int] = None,
-    *,
-    session: "Session"
-) -> 'Iterator[dict[str, Any]]':
-    result = opendata.list_opendata_dids(limit=limit, offset=offset, session=session)
+        *,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        state: Optional[str] = None,  # TODO: type only valid states
+        session: "Session"
+) -> "Iterator[dict[str, Any]]":
+    result = opendata.list_opendata_dids(limit=limit, offset=offset, state=state, session=session)
 
-    for d in result:
-        yield gateway_update_return_dict(d, session=session)
+    yield from (gateway_update_return_dict(d, session=session) for d in result)
+
 
 @read_session
 def get_opendata_did(
-    scope: "InternalScope",
-    name: str,
-    *,
-    session: "Session"
+        *,
+        scope: str,
+        name: str,
+        state: Optional[str] = None,  # TODO: type only valid states
+        vo: str = "def",
+        session: "Session"
 ) -> dict[str, Any]:
-    return gateway_update_return_dict(opendata.get_opendata_did(scope=scope, name=name, session=session), session=session)
+    internal_scope = InternalScope(scope, vo=vo)
+    return gateway_update_return_dict(
+        opendata.get_opendata_did(scope=internal_scope, name=name, state=state, session=session),
+        session=session)
+
 
 @transactional_session
 def add_opendata_did(
-    scope: "InternalScope",
-    name: str,
-    *,
-    session: "Session"
+        *,
+        scope: str,
+        name: str,
+        vo: str = "def",
+        session: "Session"
 ) -> None:
-    return opendata.add_opendata_did(scope=scope, name=name, session=session)
+    internal_scope = InternalScope(scope, vo=vo)
+    return opendata.add_opendata_did(scope=internal_scope, name=name, session=session)
+
 
 @transactional_session
 def delete_opendata_did(
-    scope: "InternalScope",
-    name: str,
-    *,
-    session: "Session"
+        *,
+        scope: str,
+        name: str,
+        vo: str = "def",
+        session: "Session"
 ) -> None:
-    return opendata.delete_opendata_did(scope=scope, name=name, session=session)
+    internal_scope = InternalScope(scope, vo=vo)
+    return opendata.delete_opendata_did(scope=internal_scope, name=name, session=session)
