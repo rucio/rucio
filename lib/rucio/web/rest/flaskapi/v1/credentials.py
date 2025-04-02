@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from flask import Flask, request
 from werkzeug.datastructures import Headers
 
-from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, SUPPORTED_SIGN_URL_SERVICES
+from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, SUPPORTED_SIGN_URL_SERVICES, SUPPORTED_SIGN_URL_SERVICES_LITERAL
 from rucio.common.exception import CannotAuthenticate
 from rucio.gateway.credential import get_signed_url
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
@@ -184,8 +184,12 @@ class SignURL(ErrorHandlingMethodView):
         if service not in SUPPORTED_SIGN_URL_SERVICES:
             return generate_http_error_flask(400, ValueError.__name__, 'Parameter "svc" must be either empty (which defaults to "gcs"), "gcs", "s3" or "swift"', headers=headers)
 
+        service = cast("SUPPORTED_SIGN_URL_SERVICES_LITERAL", service)
+
         if operation not in RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS:
             return generate_http_error_flask(400, ValueError.__name__, 'Parameter "op" must be either empty (which defaults to "read"), "read", "write", or "delete".', headers=headers)
+
+        operation = cast("RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL", service)
 
         result = get_signed_url(account, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
 
