@@ -1239,3 +1239,14 @@ class OpenDataDataIdentifierAlreadyExists(OpenDataError):
         super(OpenDataDataIdentifierAlreadyExists, self).__init__(*args)
         self._message = f"Data identifier already exists in the open data catalog."
         self.error_code = 117
+
+
+class OpenDataInvalidState(OpenDataError):
+    """
+    Throws when the open data entry is in an invalid state.
+    """
+
+    def __init__(self, *args):
+        super(OpenDataInvalidState, self).__init__(*args)
+        self._message = f"Open data entry is in an invalid state."
+        self.error_code = 118

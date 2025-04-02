@@ -22,6 +22,7 @@ from sqlalchemy.sql.expression import bindparam, case, false, null, select, true
 from rucio.common import exception
 from rucio.core.monitor import MetricManager
 from rucio.db.sqla import filter_thread_work, models
+from rucio.db.sqla.constants import OpenDataDIDState
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
@@ -154,6 +155,26 @@ def delete_opendata_did(
         name: str,
         session: "Session",
 ) -> None:
+    select_stmt = select(
+        models.OpenDataDid.scope,
+        models.OpenDataDid.name,
+        models.OpenDataDid.state,
+    ).where(
+        and_(
+            models.OpenDataDid.scope == scope,
+            models.OpenDataDid.name == name
+        )
+    )
+
+    result = session.execute(select_stmt).mappings().fetchone()
+    if not result:
+        raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
+
+    # state needs to be draft to be deleted
+    if result["state"] != OpenDataDIDState.DRAFT:
+        raise exception.OpenDataInvalidState(
+            f"OpenData entry '{scope}:{name}' not in a valid state for deletion. State: {result['state']}, expected: {OpenDataDIDState.DRAFT}")
+
     delete_stmt = delete(models.OpenDataDid).where(
         and_(
             models.OpenDataDid.scope == bindparam("scope"),
@@ -164,4 +185,4 @@ def delete_opendata_did(
     result = session.execute(delete_stmt, {"scope": scope, "name": name})
 
     if result.rowcount == 0:
-        raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
+        raise ValueError(f"Error deleting OpenData entry '{scope}:{name}'.")
