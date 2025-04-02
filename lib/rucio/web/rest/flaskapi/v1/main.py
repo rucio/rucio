@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from flask import Flask
 
-from rucio.common.config import config_get_list
+from rucio.common.config import config_get
 from rucio.common.exception import ConfigurationError
 from rucio.common.logging import setup_logging
 from rucio.web.rest.flaskapi.v1.common import CORSMiddleware
@@ -50,8 +50,9 @@ DEFAULT_ENDPOINTS = {
     'rules',
     'scopes',
     'subscriptions',
+    'opendata_private',
+    'opendata_public',  # TODO: Remove `opendata_public` from here but enable it somehow in the tests (this should not be enabled by default in production)
 }
-
 
 def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
     for blueprint_module in modules:
@@ -75,18 +76,14 @@ def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
         else:
             raise ConfigurationError(f'"{blueprint_module}" from the endpoints configuration value did not have a blueprint')
 
-endpoints = set(config_get_list('api', 'endpoints', raise_exception=False, default=[]))
-endpoints_add = set(config_get_list('api', 'endpoints_add', raise_exception=False, default=[]))
-endpoints_remove = set(config_get_list('api', 'endpoints_remove', raise_exception=False, default=[]))
-
-if endpoints and (endpoints_add or endpoints_remove):
-    raise ConfigurationError("Endpoints cannot be set in both 'endpoints' and 'endpoints_add'/'endpoints_remove'")
-
-if endpoints_add.intersection(endpoints_remove):
-    raise ConfigurationError("Endpoints cannot be in both 'endpoints_add' and 'endpoints_remove'")
+try:
+    endpoints = config_get('api', 'endpoints', raise_exception=False, default='')
+    endpoints = list(filter(bool, map(str.strip, endpoints.split(sep=','))))
+except RuntimeError:
+    endpoints = None
 
 if not endpoints:
-    endpoints = DEFAULT_ENDPOINTS - endpoints_remove | endpoints_add
+    endpoints = DEFAULT_ENDPOINTS
 
 application = Flask(__name__)
 application.wsgi_app = CORSMiddleware(application.wsgi_app)

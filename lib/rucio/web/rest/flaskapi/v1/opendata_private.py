@@ -15,37 +15,13 @@
 from json import dumps
 
 from urllib.parse import unquote_plus
-from flask import Blueprint, Flask, Response, request
+from flask import Flask, request
 
-from rucio.common.exception import (
-    AccessDenied,
-    DatabaseException,
-    DataIdentifierAlreadyExists,
-    DataIdentifierNotFound,
-    Duplicate,
-    DuplicateContent,
-    FileAlreadyExists,
-    FileConsistencyMismatch,
-    InvalidMetadata,
-    InvalidObject,
-    InvalidPath,
-    InvalidValueForKey,
-    KeyNotFound,
-    RSENotFound,
-    RuleNotFound,
-    ScopeNotFound,
-    UnsupportedMetadataPlugin,
-    UnsupportedOperation,
-    UnsupportedStatus,
-)
-from rucio.common.utils import APIEncoder, parse_response, render_json
-from rucio.db.sqla.constants import DIDType
+from rucio.common.exception import DataIdentifierNotFound, ScopeNotFound
 from rucio.gateway import opendata
-from rucio.gateway.rule import list_associated_replication_rules_for_file, list_replication_rules
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, \
-    generate_http_error_flask, json_list, json_parameters, json_parse, param_get, parse_scope_name, response_headers, \
-    try_stream
+    generate_http_error_flask, json_list, response_headers, try_stream
 
 
 def _parse_scope_name(scope: str, name: str) -> (str, str):
@@ -54,10 +30,10 @@ def _parse_scope_name(scope: str, name: str) -> (str, str):
     return scope, name
 
 
-class OpenDataList(ErrorHandlingMethodView):
+class OpenDataPrivateView(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
-        print(f"OpenDataList.get() called")
+        print(f"OpenDataView.get() called")
         try:
             limit = request.args.get('limit', default=None)
             offset = request.args.get('offset', default=None)
@@ -71,7 +47,7 @@ class OpenDataList(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
 
-class OpenDataDIDs(ErrorHandlingMethodView):
+class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, scope: str, name: str):
@@ -114,15 +90,13 @@ class OpenDataDIDs(ErrorHandlingMethodView):
 
 
 def blueprint():
-    # Some methods need to be behind auth, some need to be public
-    bp = Blueprint('opendata', __name__, url_prefix='/opendata')
-    # bp2 = AuthenticatedBlueprint('opendata', __name__, url_prefix='/opendata')
+    bp = AuthenticatedBlueprint("opendata_private", __name__, url_prefix='/opendata-private')
 
-    opendata_list_view = OpenDataList.as_view('opendata_list')
-    bp.add_url_rule('', view_func=opendata_list_view, methods=['get'])
+    opendata_private_view = OpenDataPrivateView.as_view('opendata')
+    bp.add_url_rule('', view_func=opendata_private_view, methods=['get'])
 
-    opendata_view = OpenDataDIDs.as_view('opendata')
-    bp.add_url_rule('/<scope>/<name>', view_func=opendata_view, methods=['get', 'post', 'put', 'delete'])
+    opendata_private_did_view = OpenDataPrivateDIDsView.as_view('opendata_did')
+    bp.add_url_rule('/<scope>/<name>', view_func=opendata_private_did_view, methods=['get', 'post', 'put', 'delete'])
 
     bp.after_request(response_headers)
 
