@@ -77,8 +77,6 @@ def get_opendata_did(
         session: "Session"
 ) -> Optional[dict[str, Any]]:
     print(f"Called GATEWAY get_opendata_did with scope={scope}, name={name}, state={state}")
-    # print type of scope
-    print(f"Type of scope: {type(scope)}")
 
     get_stmt = select(
         models.OpenDataDid.scope,
@@ -99,9 +97,9 @@ def get_opendata_did(
 
     print(f"Query: {get_stmt}")
     try:
-        return dict(session.execute(get_stmt).fetchone())
+        return dict(session.execute(get_stmt).scalar_one())
     except NoResultFound:
-        return None
+        raise exception.OpenDataDataIdentifierNotFound(scope=str(scope), name=name)
 
 
 @transactional_session

@@ -1206,3 +1206,14 @@ class ConnectionParameterNotFound(RucioException):
         super(ConnectionParameterNotFound, self).__init__(*args)
         self._message = f"Required connection parameter '{param}' is not provided."
         self.error_code = 114
+
+
+class OpenDataDataIdentifierNotFound(RucioException):
+    """
+    Throws when the data identifier is not in the open data catalog.
+    """
+
+    def __init__(self, *args, scope: str, name: str):
+        super(OpenDataDataIdentifierNotFound, self).__init__(*args)
+        self._message = f"Data identifier '{scope}:{name}' not found in the open data catalog."
+        self.error_code = 115
