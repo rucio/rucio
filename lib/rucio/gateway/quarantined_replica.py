@@ -18,24 +18,20 @@ from rucio.common import exception
 from rucio.common.types import InternalScope
 from rucio.core.quarantined_replica import add_quarantined_replicas
 from rucio.core.rse import get_rse_id
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from sqlalchemy.orm import Session
 
-
-@transactional_session
 def quarantine_file_replicas(
     replicas: "Iterable[dict[str, Any]]",
     issuer: str,
     rse: Optional[str] = None,
     rse_id: Optional[str] = None,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> None:
     """
     Quarantine replicas.
@@ -45,7 +41,6 @@ def quarantine_file_replicas(
     :param vo: The VO to act on.
     :param rse: RSE name
     :param rse_id: RSE id - either RSE name or RSE id must be specified
-    :param session: The database session in use.
     """
 
     if not replicas:
@@ -54,26 +49,28 @@ def quarantine_file_replicas(
     if (rse is None) == (rse_id is None):
         raise exception.InputValidationError("Either RSE name or RSE id must be specified, but not both")
 
-    if rse_id is None:
-        rse_id = get_rse_id(rse, vo=vo, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
 
-    auth_result = permission.has_permission(issuer, 'quarantine_file_replicas', {}, vo=vo, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('Account %s can not quarantine replicas. %s' % (issuer, auth_result.message))
+        if rse_id is None:
+            rse_id = get_rse_id(rse, vo=vo, session=session)
 
-    replica_infos = []
-    for r in replicas:
-        if "path" not in r:
-            raise exception.InputValidationError("Replica info must include path")
-        scope = r.get("scope")
-        if scope and isinstance(scope, str):
-            scope = InternalScope(scope, vo=vo)
-        replica_infos.append(
-            {
-                "scope": scope or None,
-                "name": r.get("name"),
-                "path": r["path"]
-            }
-        )
+        auth_result = permission.has_permission(issuer, 'quarantine_file_replicas', {}, vo=vo, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('Account %s can not quarantine replicas. %s' % (issuer, auth_result.message))
 
-    add_quarantined_replicas(rse_id, replica_infos, session=session)
+        replica_infos = []
+        for r in replicas:
+            if "path" not in r:
+                raise exception.InputValidationError("Replica info must include path")
+            scope = r.get("scope")
+            if scope and isinstance(scope, str):
+                scope = InternalScope(scope, vo=vo)
+            replica_infos.append(
+                {
+                    "scope": scope or None,
+                    "name": r.get("name"),
+                    "path": r["path"]
+                }
+            )
+
+        add_quarantined_replicas(rse_id, replica_infos, session=session)
