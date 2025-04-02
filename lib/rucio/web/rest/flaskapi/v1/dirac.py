@@ -80,8 +80,8 @@ class AddFiles(ErrorHandlingMethodView):
         ignore_availability = param_get(parameters, 'ignore_availability', default=False)
         parents_metadata = param_get(parameters, 'parents_metadata', default=None)
         try:
-            add_files(lfns=lfns, issuer=request.environ.get('issuer'), ignore_availability=ignore_availability,
-                      parents_metadata=parents_metadata, vo=request.environ.get('vo'))
+            add_files(lfns=lfns, issuer=request.environ['issuer'], ignore_availability=ignore_availability,
+                      parents_metadata=parents_metadata, vo=request.environ['vo'])
         except InvalidPath as error:
             return generate_http_error_flask(400, error)
         except AccessDenied as error:
