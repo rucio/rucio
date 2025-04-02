@@ -14,8 +14,8 @@
 
 from typing import Any, Optional
 
-import rucio.common.exception
 import rucio.gateway.permission
+from rucio.common.exception import AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import scope as core_scope
@@ -66,7 +66,7 @@ def add_scope(
     with db_session(DatabaseOperationType.WRITE) as session:
         auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_scope', kwargs=kwargs, session=session)
         if not auth_result.allowed:
-            raise rucio.common.exception.AccessDenied('Account %s can not add scope. %s' % (issuer, auth_result.message))
+            raise AccessDenied('Account %s can not add scope. %s' % (issuer, auth_result.message))
 
         internal_scope = InternalScope(scope, vo=vo)
         internal_account = InternalAccount(account, vo=vo)
