@@ -27,8 +27,6 @@ if TYPE_CHECKING:
 
 def get_signed_url(
     account: str,
-    appid: str,
-    ip: str,
     rse: str,
     service: 'SUPPORTED_SIGN_URL_SERVICES_LITERAL',
     operation: 'RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL',
@@ -42,8 +40,6 @@ def get_signed_url(
     The signed URL will be valid for 1 hour.
 
     :param account: Account identifier as a string.
-    :param appid: The application identifier as a string.
-    :param ip: IP address of the client as a string.
     :param rse: The name of the RSE to which the URL points.
     :param service: The service to authorise, currently only 'gsc'.
     :param operation: The operation to sign, either 'read', 'write', or 'delete'.
