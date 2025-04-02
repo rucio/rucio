@@ -75,7 +75,7 @@ class OpenDataClient(BaseClient):
         path = '/'.join([self.opendata_private_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='DELETE')
+        r = self._send_request(url, type_='DEL')
 
         if r.status_code == codes.ok:
             return True

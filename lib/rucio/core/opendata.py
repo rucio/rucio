@@ -154,19 +154,6 @@ def delete_opendata_did(
         name: str,
         session: "Session",
 ) -> None:
-    return delete_opendata_dids([{"scope": scope, "name": name}], session=session)
-
-
-@transactional_session
-def delete_opendata_dids(
-        *,
-        dids: "Sequence[dict[str, str]]",
-        session: "Session",
-) -> None:
-    for did in dids:
-        if "scope" not in did or "name" not in did:
-            raise exception.InputValidationError("DID must have 'scope' and 'name' keys.")
-
     delete_stmt = delete(models.OpenDataDid).where(
         and_(
             models.OpenDataDid.scope == bindparam("scope"),
@@ -174,4 +161,7 @@ def delete_opendata_dids(
         )
     )
 
-    session.execute(delete_stmt, dids)
+    result = session.execute(delete_stmt, {"scope": scope, "name": name})
+
+    if result.rowcount == 0:
+        raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
