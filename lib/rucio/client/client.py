@@ -21,13 +21,13 @@ from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.configclient import ConfigClient
 from rucio.client.credentialclient import CredentialClient
 from rucio.client.didclient import DIDClient
-from rucio.client.opendataclient import OpenDataClient
 from rucio.client.diracclient import DiracClient
 from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
 from rucio.client.lifetimeclient import LifetimeClient
 from rucio.client.lockclient import LockClient
 from rucio.client.metaconventionsclient import MetaConventionClient
+from rucio.client.opendataclient import OpenDataClient
 from rucio.client.pingclient import PingClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.requestclient import RequestClient

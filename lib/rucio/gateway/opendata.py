@@ -14,7 +14,6 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import opendata
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
@@ -23,6 +22,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from sqlalchemy.orm import Session
+
+    from rucio.common.types import InternalScope
 
 
 @stream_session
