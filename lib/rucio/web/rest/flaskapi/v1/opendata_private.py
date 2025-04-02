@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from json import dumps
-
 from urllib.parse import unquote_plus
+
 from flask import Flask, request
 
 from rucio.common.exception import DataIdentifierNotFound, ScopeNotFound
 from rucio.gateway import opendata
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, \
-    generate_http_error_flask, json_list, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_list, response_headers, try_stream
 
 
 def _parse_scope_name(scope: str, name: str) -> (str, str):
