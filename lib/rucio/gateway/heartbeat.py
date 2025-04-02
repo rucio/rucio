@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from threading import Thread
 
 
-def list_heartbeats(issuer: Optional[str] = None, vo: str = 'def') -> list["heartbeat.HeartbeatDict"]:
+def list_heartbeats(issuer: str, vo: str = 'def') -> list["heartbeat.HeartbeatDict"]:
     """
     Return a list of tuples of all heartbeats.
 
@@ -47,8 +47,8 @@ def create_heartbeat(
     pid: int,
     older_than: int,
     payload: Optional[str],
+    issuer: str,
     thread: Optional["Thread"] = None,
-    issuer: Optional[str] = None,
     vo: str = 'def',
 ) -> None:
     """
