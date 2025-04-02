@@ -182,10 +182,10 @@ class SignURL(ErrorHandlingMethodView):
         operation = request.args.get('op', default='read')
 
         if service not in SUPPORTED_SIGN_URL_SERVICES:
-            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "svc" must be either empty(=gcs), gcs, s3 or swift', headers=headers)
+            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "svc" must be either empty (which defaults to "gcs"), "gcs", "s3" or "swift"', headers=headers)
 
         if operation not in RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS:
-            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "op" must be either empty(=read), read, write, or delete.', headers=headers)
+            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "op" must be either empty (which defaults to "read"), "read", "write", or "delete".', headers=headers)
 
         result = get_signed_url(account, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
 
