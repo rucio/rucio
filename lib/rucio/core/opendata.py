@@ -71,7 +71,7 @@ def get_opendata_did(
         models.OpenDataDid.scope,
         models.OpenDataDid.name,
         models.OpenDataDid.state,
-        models.OpenDataDid.metadata_json,
+        models.OpenDataDid.opendata_json,
         models.OpenDataDid.created_at,
         models.OpenDataDid.updated_at,
     ).where(
