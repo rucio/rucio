@@ -48,8 +48,10 @@ def get_opendata_did(
         session: "Session"
 ) -> dict[str, Any]:
     internal_scope = InternalScope(scope, vo=vo)
+    result = opendata.get_opendata_did(scope=internal_scope, name=name, state=state, session=session)
+    print(f"get_opendata_did result: {result}")
     return gateway_update_return_dict(
-        opendata.get_opendata_did(scope=internal_scope, name=name, state=state, session=session),
+        result,
         session=session)
 
 
