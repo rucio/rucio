@@ -38,6 +38,7 @@ def list_opendata_dids(
         *,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        state: Optional[str] = None,  # TODO: typing only valid states
         session: "Session"
 ) -> list[dict[str, Any]]:
     list_stmt = select(
@@ -50,8 +51,7 @@ def list_opendata_dids(
         models.OpenDataDid.updated_at
     )
 
-    print(f"Called list_opendata_dids with limit={limit}, offset={offset}")
-    print(f"Query: {list_stmt}")
+    print(f"Called list_opendata_dids with limit={limit}, offset={offset}, state={state}")
 
     if limit:
         list_stmt = list_stmt.limit(limit)
@@ -59,7 +59,12 @@ def list_opendata_dids(
     if offset:
         list_stmt = list_stmt.offset(offset)
 
-    return [{'scope': scope, 'name': name, 'state': state, 'created_at': created_at, 'updated_at': updated_at} for
+    if state:
+        list_stmt = list_stmt.where(models.OpenDataDid.state == state)
+
+    print(f"Query: {list_stmt}")
+
+    return [{"scope": scope, "name": name, "state": state, "created_at": created_at, "updated_at": updated_at} for
             scope, name, state, created_at, updated_at in session.execute(list_stmt)]
 
 
@@ -68,8 +73,13 @@ def get_opendata_did(
         *,
         scope: "InternalScope",
         name: str,
+        state: Optional[str] = None,  # TODO: typing only valid states
         session: "Session"
 ) -> Optional[dict[str, Any]]:
+    print(f"Called GATEWAY get_opendata_did with scope={scope}, name={name}, state={state}")
+    # print type of scope
+    print(f"Type of scope: {type(scope)}")
+
     get_stmt = select(
         models.OpenDataDid.scope,
         models.OpenDataDid.name,
@@ -84,6 +94,10 @@ def get_opendata_did(
         )
     )
 
+    if state:
+        get_stmt = get_stmt.where(models.OpenDataDid.state == state)
+
+    print(f"Query: {get_stmt}")
     try:
         return dict(session.execute(get_stmt).fetchone())
     except NoResultFound:
@@ -97,7 +111,7 @@ def add_opendata_did(
         name: str,
         session: "Session",
 ) -> None:
-    return add_opendata_dids([{'scope': scope, 'name': name}], session=session)
+    return add_opendata_dids([{"scope": scope, "name": name}], session=session)
 
 
 @transactional_session
@@ -107,7 +121,7 @@ def add_opendata_dids(
         session: "Session",
 ) -> None:
     for did in dids:
-        if 'scope' not in did or 'name' not in did:
+        if "scope" not in did or "name" not in did:
             raise exception.InputValidationError("DID must have 'scope' and 'name' keys.")
 
     # Build query to insert into opendata table
@@ -124,7 +138,7 @@ def delete_opendata_did(
         name: str,
         session: "Session",
 ) -> None:
-    return delete_opendata_dids([{'scope': scope, 'name': name}], session=session)
+    return delete_opendata_dids([{"scope": scope, "name": name}], session=session)
 
 
 @transactional_session
@@ -134,13 +148,13 @@ def delete_opendata_dids(
         session: "Session",
 ) -> None:
     for did in dids:
-        if 'scope' not in did or 'name' not in did:
+        if "scope" not in did or "name" not in did:
             raise exception.InputValidationError("DID must have 'scope' and 'name' keys.")
 
     delete_stmt = delete(models.OpenDataDid).where(
         and_(
-            models.OpenDataDid.scope == bindparam('scope'),
-            models.OpenDataDid.name == bindparam('name')
+            models.OpenDataDid.scope == bindparam("scope"),
+            models.OpenDataDid.name == bindparam("name")
         )
     )
 
