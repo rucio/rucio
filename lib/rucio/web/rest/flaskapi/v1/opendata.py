@@ -54,6 +54,23 @@ def _parse_scope_name(scope: str, name: str) -> (str, str):
     return scope, name
 
 
+class OpenDataList(ErrorHandlingMethodView):
+    @check_accept_header_wrapper_flask(['application/json'])
+    def get(self):
+        print(f"OpenDataList.get() called")
+        try:
+            limit = request.args.get('limit', default=None)
+            offset = request.args.get('offset', default=None)
+            print(f"limit: {limit}, offset: {offset}")
+            result = opendata.list_opendata_dids(limit=limit, offset=offset)
+            print(f"result: {result}")
+            return try_stream(json_list(result))
+        except ValueError as error:
+            return generate_http_error_flask(400, error)
+        except (ScopeNotFound, DataIdentifierNotFound) as error:
+            return generate_http_error_flask(404, error)
+
+
 class OpenDataDIDs(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
@@ -100,6 +117,9 @@ def blueprint():
     # Some methods need to be behind auth, some need to be public
     bp = Blueprint('opendata', __name__, url_prefix='/opendata')
     # bp2 = AuthenticatedBlueprint('opendata', __name__, url_prefix='/opendata')
+
+    opendata_list_view = OpenDataList.as_view('opendata_list')
+    bp.add_url_rule('', view_func=opendata_list_view, methods=['get'])
 
     opendata_view = OpenDataDIDs.as_view('opendata')
     bp.add_url_rule('/<scope>/<name>', view_func=opendata_view, methods=['get', 'post', 'put', 'delete'])
