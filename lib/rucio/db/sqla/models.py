@@ -484,11 +484,11 @@ class OpenDataDid(BASE, ModelBase):
                    Index('OPENDATA_DID_STATE_UPDATED_AT_IDX', 'state', 'updated_at'),
                    )
 
-    metadata_json = mapped_column(JSON())
     state: Mapped[Optional[OpenDataDIDState]] = mapped_column(Enum(OpenDataDIDState, name='DID_OPENDATA_STATE_CHK',
                                                                    create_constraint=True,
                                                                    values_callable=lambda obj: [e.value for e in obj]),
                                                               default=OpenDataDIDState.DRAFT)
+    opendata_json = mapped_column(JSON())
 
 
 class VirtualPlacements(BASE, ModelBase):
