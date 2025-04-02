@@ -71,6 +71,12 @@ extend-select = [
     "E722", # Do not use bare except, specify exception
     "D419", # Empty docstring (suggests bad documentation hygiene.)
     "PLW0127", # Self-assigning variable
+    "PLW0128", # Redeclared assigned name
+    "UP004", # Useless object inheritance
+    "PLE0101", # return in __init__ – breaks instantiation logic.
+    "PLE0704", # Misplaced bare raise – makes debugging harder.
+    "PLE1142", # Await outside async function – common async error.
+    "PLR1711", # Useless return - stylistic but can be misleading.
 ]
 
 ignore = [
