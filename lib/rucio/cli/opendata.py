@@ -59,7 +59,7 @@ def list_opendata_dids(ctx, state: str, public: bool):
     # TODO: check state is valid
     client = ctx.obj.client
     print(f"DEBUG: Listing Open Data DIDs with state '{state}' and public flag '{public}'")
-    client.list_opendata_dids(state=state)
+    client.list_opendata_dids(state=state, public=public)
 
 
 @opendata.command("add")
@@ -92,7 +92,7 @@ def get_opendata_did(ctx, did: str, json_flag: bool, public: bool):
     client = ctx.obj.client
     print(f"DEBUG: Getting Open Data DID with '{did}'")
     scope, name = extract_scope_name(did)
-    result = client.get_opendata_did(scope=scope, name=name)
+    result = client.get_opendata_did(scope=scope, name=name, public=public)
     # TODO: switch on json flag
     if json:
         ...  # print only the metadata JSON

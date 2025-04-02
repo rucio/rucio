@@ -33,14 +33,14 @@ def _parse_scope_name(scope: str, name: str) -> (str, str):
 class OpenDataPrivateView(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
-        print(f"OpenDataView.get() called")
+        print(f"OpenDataPrivateView.get() called")
         try:
             limit = request.args.get('limit', default=None)
             offset = request.args.get('offset', default=None)
             print(f"limit: {limit}, offset: {offset}")
             result = opendata.list_opendata_dids(limit=limit, offset=offset)
             print(f"result: {result}")
-            return try_stream(json_list(result))
+            return try_stream(result)
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except (ScopeNotFound, DataIdentifierNotFound) as error:
@@ -51,6 +51,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, scope: str, name: str):
+        print(f"OpenDataPrivateDIDsView.get() called")
         try:
             scope, name = _parse_scope_name(scope, name)
             return opendata.get_opendata_did(scope=scope, name=name)
@@ -60,6 +61,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
     def post(self, scope: str, name: str):
+        print(f"OpenDataPrivateDIDsView.post() called")
         try:
             scope, name = _parse_scope_name(scope, name)
             opendata.add_opendata_did(scope=scope, name=name)
@@ -69,6 +71,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
         return "Created", 201
 
     def put(self, scope: str, name: str):
+        print(f"OpenDataPrivateDIDsView.put() called")
         try:
             scope, name = _parse_scope_name(scope, name)
             raise NotImplementedError("PUT is not implemented yet for OpenDataDIDs")
@@ -78,6 +81,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
         return "", 200
 
     def delete(self, scope: str, name: str):
+        print(f"OpenDataPrivateDIDsView.delete() called")
         try:
             scope, name = _parse_scope_name(scope, name)
             opendata.delete_opendata_did(scope=scope, name=name)

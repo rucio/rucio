@@ -32,7 +32,7 @@ def _parse_scope_name(scope: str, name: str) -> (str, str):
 class OpenDataPublicView(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self):
-        print(f"OpenDataView.get() called")
+        print(f"OpenDataPublicView.get() called")
         try:
             limit = request.args.get('limit', default=None)
             offset = request.args.get('offset', default=None)
@@ -50,7 +50,7 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
     def get(self, scope: str, name: str):
-        print(f"OpenDataDIDsView.get() called")
+        print(f"OpenDataPublicDIDsView.get() called")
         try:
             scope, name = _parse_scope_name(scope, name)
             return opendata.get_opendata_did(scope=scope, name=name)

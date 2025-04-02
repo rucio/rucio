@@ -35,9 +35,9 @@ METRICS = MetricManager(module=__name__)
 
 @read_session
 def list_opendata_dids(
+        *,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
-        *,
         session: "Session"
 ) -> list[dict[str, Any]]:
     list_stmt = select(
@@ -47,8 +47,11 @@ def list_opendata_dids(
         models.OpenDataDid.created_at,
         models.OpenDataDid.updated_at,
     ).order_by(
-        models.DataIdentifier.updated_at
+        models.OpenDataDid.updated_at
     )
+
+    print(f"Called list_opendata_dids with limit={limit}, offset={offset}")
+    print(f"Query: {list_stmt}")
 
     if limit:
         list_stmt = list_stmt.limit(limit)
@@ -62,9 +65,9 @@ def list_opendata_dids(
 
 @read_session
 def get_opendata_did(
+        *,
         scope: "InternalScope",
         name: str,
-        *,
         session: "Session"
 ) -> Optional[dict[str, Any]]:
     get_stmt = select(
@@ -86,11 +89,12 @@ def get_opendata_did(
     except NoResultFound:
         return None
 
+
 @transactional_session
 def add_opendata_did(
+        *,
         scope: "InternalScope",
         name: str,
-        *,
         session: "Session",
 ) -> None:
     return add_opendata_dids([{'scope': scope, 'name': name}], session=session)
@@ -112,11 +116,12 @@ def add_opendata_dids(
     # Execute query
     session.execute(insert_stmt)
 
+
 @transactional_session
 def delete_opendata_did(
+        *,
         scope: "InternalScope",
         name: str,
-        *,
         session: "Session",
 ) -> None:
     return delete_opendata_dids([{'scope': scope, 'name': name}], session=session)
@@ -124,8 +129,8 @@ def delete_opendata_did(
 
 @transactional_session
 def delete_opendata_dids(
-        dids: "Sequence[dict[str, str]]",
         *,
+        dids: "Sequence[dict[str, str]]",
         session: "Session",
 ) -> None:
     for did in dids:
