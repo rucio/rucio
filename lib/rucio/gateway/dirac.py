@@ -15,13 +15,14 @@
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common.exception import AccessDenied
+from rucio.common.types import InternalScope
 from rucio.common.utils import extract_scope
 from rucio.core import dirac
 from rucio.core.rse import get_rse_id
+from rucio.core.scope import list_scopes
 from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.session import db_session
 from rucio.gateway.permission import has_permission
-from rucio.gateway.scope import list_scopes
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -49,7 +50,8 @@ def add_files(
     """
 
     with db_session(DatabaseOperationType.WRITE) as session:
-        scopes = list_scopes(vo=vo, session=session)
+        filter_ = {'scope': InternalScope(scope='*', vo=vo)}
+        scopes = [scope.external for scope in list_scopes(filter_=filter_, session=session)]
         dids = []
         rses = {}
         for lfn in lfns:
