@@ -46,7 +46,7 @@ class Scope(ErrorHandlingMethodView):
           406:
             description: Not acceptable
         """
-        return jsonify(list_scopes(vo=request.environ.get('vo')))
+        return jsonify(list_scopes(vo=request.environ['vo']))
 
     def post(self, account, scope):
         """
@@ -84,7 +84,7 @@ class Scope(ErrorHandlingMethodView):
             description: Scope already exists
         """
         try:
-            add_scope(scope, account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            add_scope(scope, account, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except Duplicate as error:
             return generate_http_error_flask(409, error)
         except AccountNotFound as error:
@@ -129,7 +129,7 @@ class AccountScopeList(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scopes = get_scopes(account, vo=request.environ.get('vo'))
+            scopes = get_scopes(account, vo=request.environ['vo'])
         except AccountNotFound as error:
             return generate_http_error_flask(404, error)
 
