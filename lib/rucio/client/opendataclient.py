@@ -25,15 +25,17 @@ if TYPE_CHECKING:
 
 
 class OpenDataClient(BaseClient):
-    """DataIdentifier client class for working with data identifiers"""
-    opendata_base_url = "opendata"
+    opendata_public_base_url = "opendata"
+    opendata_private_base_url = "opendata-private"
 
     def list_opendata_dids(
             self,
             *,
             state: str = None,
+            public: bool = False,
     ) -> "Iterator[dict[str, Any]]":
-        path = '/'.join([self.opendata_base_url])
+        base_url = self.opendata_public_base_url if public else self.opendata_private_base_url
+        path = '/'.join([base_url])
 
         # TODO: filter on state
         url = build_url(choice(self.list_hosts), path=path)
@@ -53,7 +55,7 @@ class OpenDataClient(BaseClient):
             scope: str,
             name: str,
     ) -> bool:
-        path = '/'.join([self.opendata_base_url, quote_plus(scope), quote_plus(name)])
+        path = '/'.join([self.opendata_private_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type_='POST')
@@ -70,7 +72,7 @@ class OpenDataClient(BaseClient):
             scope: str,
             name: str,
     ) -> bool:
-        path = '/'.join([self.opendata_base_url, quote_plus(scope), quote_plus(name)])
+        path = '/'.join([self.opendata_private_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type_='DELETE')
@@ -88,7 +90,7 @@ class OpenDataClient(BaseClient):
             name: str,
             opendata_json: dict,
     ) -> bool:
-        path = '/'.join([self.opendata_base_url, quote_plus(scope), quote_plus(name)])
+        path = '/'.join([self.opendata_private_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
 
         data: dict[str, Any] = {}
@@ -109,8 +111,10 @@ class OpenDataClient(BaseClient):
             *,
             scope: str,
             name: str,
+            public: bool = False,
     ) -> dict[str, Any]:
-        path = '/'.join([self.opendata_base_url, quote_plus(scope), quote_plus(name)])
+        base_url = self.opendata_public_base_url if public else self.opendata_private_base_url
+        path = '/'.join([base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type_='GET')
