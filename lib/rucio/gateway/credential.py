@@ -17,16 +17,14 @@ from typing import TYPE_CHECKING
 from rucio.common import exception
 from rucio.core import credential
 from rucio.core.rse import get_rse_id
-from rucio.db.sqla.session import read_session
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
-
     from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, SUPPORTED_SIGN_URL_SERVICES_LITERAL
 
 
-@read_session
 def get_signed_url(
     account: str,
     appid: str,
@@ -37,8 +35,6 @@ def get_signed_url(
     url: str,
     lifetime: int,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> str:
     """
     Get a signed URL for a particular service and operation.
@@ -54,17 +50,19 @@ def get_signed_url(
     :param url: The URL to sign.
     :param lifetime: Lifetime in seconds.
     :param vo: The vo to act on.
-    :param session: The database session in use.
+
     :returns: Signed URL as a variable-length string.
     """
 
     kwargs = {'account': account}
-    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_signed_url', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('Account %s can not get signed URL for rse=%s, service=%s, operation=%s, url=%s, lifetime=%s. %s' %
-                                     (account, rse, service, operation, url, lifetime, auth_result.message))
 
-    # look up RSE ID for name
-    rse_id = get_rse_id(rse, vo=vo, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        auth_result = permission.has_permission(issuer=account, vo=vo, action='get_signed_url', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('Account %s can not get signed URL for rse=%s, service=%s, operation=%s, url=%s, lifetime=%s. %s' %
+                                         (account, rse, service, operation, url, lifetime, auth_result.message))
+
+        # look up RSE ID for name
+        rse_id = get_rse_id(rse, vo=vo, session=session)
 
     return credential.get_signed_url(rse_id, service, operation, url, lifetime)
