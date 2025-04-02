@@ -477,7 +477,11 @@ class OpenDataDid(BASE, ModelBase):
     name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
 
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='OPENDATA_DID_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='OPENDATA_DID_FK')
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='OPENDATA_DID_FK'),
+                   Index('OPENDATA_DID_UPDATED_AT_IDX', 'updated_at'),
+                   Index('OPENDATA_DID_CREATED_AT_IDX', 'created_at'),
+                   Index('OPENDATA_DID_STATE_IDX', 'state'),
+                   Index('OPENDATA_DID_STATE_UPDATED_AT_IDX', 'state', 'updated_at'),
                    )
 
     metadata_json = mapped_column(JSON())
