@@ -166,17 +166,22 @@ class SignURL(ErrorHandlingMethodView):
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
-        if 'rse' not in request.args:
-            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "rse" not found', headers=headers)
+        if account is None:
+            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "account" not found.', headers=headers)
+
         rse = request.args.get('rse')
+
+        if rse is None:
+            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "rse" not found', headers=headers)
+
+        url = request.args.get('url')
+
+        if url is None:
+            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "url" not found', headers=headers)
 
         lifetime = request.args.get('lifetime', type=int, default=600)
         service = request.args.get('svc', default='gcs')
         operation = request.args.get('op', default='read')
-
-        if 'url' not in request.args:
-            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "url" not found', headers=headers)
-        url = request.args.get('url')
 
         if service not in SUPPORTED_SIGN_URL_SERVICES:
             return generate_http_error_flask(400, ValueError.__name__, 'Parameter "svc" must be either empty(=gcs), gcs, s3 or swift', headers=headers)
