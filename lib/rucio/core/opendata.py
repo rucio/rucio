@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from re import match
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from sqlalchemy import and_, delete, exists, insert, or_, update
@@ -99,7 +100,7 @@ def get_opendata_did(
     try:
         return dict(session.execute(get_stmt).scalar_one())
     except NoResultFound:
-        raise exception.OpenDataDataIdentifierNotFound(scope=str(scope), name=name)
+        raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
 
 
 @transactional_session
@@ -109,7 +110,12 @@ def add_opendata_did(
         name: str,
         session: "Session",
 ) -> None:
-    return add_opendata_dids([{"scope": scope, "name": name}], session=session)
+    try:
+        return add_opendata_dids([{"scope": scope, "name": name}], session=session)
+    except exception.OpenDataDataIdentifierNotFound:
+        raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
+    except exception.OpenDataDataIdentifierAlreadyExists:
+        raise exception.OpenDataDataIdentifierAlreadyExists(f"OpenData DID {scope}:{name} already exists.")
 
 
 @transactional_session
@@ -122,11 +128,21 @@ def add_opendata_dids(
         if "scope" not in did or "name" not in did:
             raise exception.InputValidationError("DID must have 'scope' and 'name' keys.")
 
-    # Build query to insert into opendata table
     insert_stmt = insert(models.OpenDataDid).values(dids)
 
-    # Execute query
-    session.execute(insert_stmt)
+    try:
+        session.execute(insert_stmt)
+    except IntegrityError as error:
+        # Is there an easier way to switch on the specific IntegrityError?
+        if match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', error.args[0]) \
+                or match('.*IntegrityError.*UNIQUE constraint failed: dids.scope, dids.name.*', error.args[0]) \
+                or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
+                or match('.*IntegrityError.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0]) \
+                or match('.*IntegrityError.*columns? .*not unique.*', error.args[0]):
+            raise exception.OpenDataDataIdentifierAlreadyExists()
+
+        raise exception.OpenDataDataIdentifierNotFound()
 
 
 @transactional_session
@@ -156,5 +172,4 @@ def delete_opendata_dids(
         )
     )
 
-    # Execute query
     session.execute(delete_stmt, dids)
