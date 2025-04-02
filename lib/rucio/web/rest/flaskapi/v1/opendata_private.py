@@ -12,13 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 from flask import Flask, Response, request
 
 from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound
 from rucio.common.utils import render_json
 from rucio.gateway import opendata
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, parse_scope_name, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, \
+    generate_http_error_flask, parse_scope_name, response_headers, try_stream, json_parameters, param_get
 
 
 class OpenDataPrivateView(ErrorHandlingMethodView):
@@ -70,7 +73,17 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
         print(f"OpenDataPrivateDIDsView.put() called")
         try:
             scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
-            raise NotImplementedError("PUT is not implemented yet for OpenDataDIDs")
+            parameters = json_parameters()
+            state = param_get(parameters, 'state', default=None)
+            opendata_json = param_get(parameters, 'opendata_json', default=None)
+            if opendata_json:
+                try:
+                    opendata_json = json.loads(opendata_json)
+                except ValueError as error:
+                    raise ValueError(f"Invalid JSON: {error}")
+            print(f"opendata_json: {opendata_json}, state: {state}, type of json is {type(opendata_json)}")
+            opendata.update_opendata_did(scope=scope, name=name, state=state, opendata_json=opendata_json,
+                                         vo=request.environ.get("vo"))
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
