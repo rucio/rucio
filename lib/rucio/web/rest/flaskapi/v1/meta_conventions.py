@@ -100,8 +100,8 @@ class MetaConventions(ErrorHandlingMethodView):
                 key_type=param_get(parameters, 'key_type', default=None),
                 value_type=param_get(parameters, 'value_type', default=None),
                 value_regexp=param_get(parameters, 'value_regexp', default=None),
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
             )
         except Duplicate as error:
             return generate_http_error_flask(409, error)
@@ -193,7 +193,7 @@ class Values(ErrorHandlingMethodView):
         value = param_get(parameters, 'value')
 
         try:
-            add_value(key=key, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            add_value(key=key, value=value, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except Duplicate as error:
             return generate_http_error_flask(409, error)
         except InvalidValueForKey as error:
