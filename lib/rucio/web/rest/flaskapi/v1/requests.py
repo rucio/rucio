@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import json
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Union, cast
 
 import flask
 from flask import Flask, Response
@@ -576,6 +576,10 @@ class RequestList(ErrorHandlingMethodView):
             dst_rses = [dst_rse]
             src_rses = [src_rse]
 
+        # Manual cast to list[str] as static code analysis erroneously sees these as list[Optional[str]]
+        src_rses = cast("list[str]", src_rses)
+        dst_rses = cast("list[str]", dst_rses)
+
         def generate(issuer, vo):
             for result in request.list_requests(src_rses, dst_rses, states, issuer=issuer, vo=vo):
                 yield render_json(**result) + '\n'
@@ -812,6 +816,10 @@ class RequestHistoryList(ErrorHandlingMethodView):
         else:
             dst_rses = [dst_rse]
             src_rses = [src_rse]
+
+        # Manual cast to list[str] as static code analysis erroneously sees these as list[Optional[str]]
+        src_rses = cast("list[str]", src_rses)
+        dst_rses = cast("list[str]", dst_rses)
 
         def generate(issuer, vo):
             for result in request.list_requests_history(src_rses, dst_rses, states, issuer=issuer, vo=vo, offset=offset, limit=limit):
