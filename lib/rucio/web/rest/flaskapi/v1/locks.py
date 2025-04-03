@@ -113,7 +113,7 @@ class LockByRSE(ErrorHandlingMethodView):
                 for lock in get_dataset_locks_by_rse(rse, vo=vo):
                     yield render_json(**lock) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except RSENotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -206,13 +206,13 @@ class LocksByScopeName(ErrorHandlingMethodView):
             return 'Wrong did_type specified', 500
 
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
 
             def generate(vo):
                 for lock in get_dataset_locks(scope, name, vo=vo):
                     yield render_json(**lock) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -321,7 +321,7 @@ class DatasetLocksForDids(ErrorHandlingMethodView):
             dids = data["dids"]
         except KeyError:
             return 'Can not find the list of DIDs in the data. Use "dids" keyword.', 400
-        vo = request.environ.get('vo')
+        vo = request.environ['vo']
         try:
             locks = get_dataset_locks_bulk(dids, vo)        # removes duplicates
 
