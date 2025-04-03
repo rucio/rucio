@@ -1604,6 +1604,9 @@ class Validate(ErrorHandlingMethodView):
 
         token = request.headers.get('X-Rucio-Auth-Token', default=None)
 
+        if not token:
+            return generate_http_error_flask(400, ValueError.__name__, 'Token must be set.')
+
         result = validate_auth_token(token)
         if not result:
             return generate_http_error_flask(
