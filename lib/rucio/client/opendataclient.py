@@ -94,14 +94,14 @@ class OpenDataClient(BaseClient):
         path = '/'.join([self.opendata_private_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
 
-        if not opendata_json and not state:
+        if opendata_json is None and state is None:
             raise ValueError('Either opendata_json or state must be provided to update the OpenData DID.')
-        if opendata_json and state:
+        if opendata_json is not None and state is not None:
             raise ValueError('Both opendata_json and state cannot be provided at the same time.')
 
         data: dict[str, Any] = {}
 
-        if opendata_json:
+        if opendata_json is not None:
             data['opendata_json'] = opendata_json
 
         if state:
