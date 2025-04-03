@@ -195,17 +195,21 @@ def update_opendata_did(
         scope: "InternalScope",
         name: str,
         state: Optional[str] = None,  # TODO: typing only valid states
-        opendata_json: Optional[dict] = None,
+        opendata_json: Optional[Union[dict, str]] = None,
         session: "Session",
 ) -> None:
-    print(
-        f"Called CORE update_opendata_did with scope={scope}, name={name}, state={state}, opendata_json={opendata_json}")
-    if not state and not opendata_json:
+    if state is None and opendata_json is None:
         raise exception.InputValidationError("Either 'state' or 'opendata_json' must be provided.")
 
-    # print type of json
-    if opendata_json is not None and not isinstance(opendata_json, dict):
-        raise exception.InputValidationError("opendata_json must be a dictionary.")
+    if opendata_json is not None:
+        if isinstance(opendata_json, str):
+            try:
+                opendata_json = json.loads(opendata_json)
+            except ValueError as error:
+                raise exception.InputValidationError(f"Invalid JSON data: {error}")
+
+        if not isinstance(opendata_json, dict):
+            raise exception.InputValidationError("opendata_json must be a dictionary.")
 
     exists_stmt = select(
         exists().where(
@@ -225,19 +229,12 @@ def update_opendata_did(
             models.OpenDataDid.name == name
         )
     )
-    if state:
+    if state is not None:
         update_stmt = update_stmt.values(state=state)
-    if opendata_json:
-        try:
-            json.dumps(opendata_json)
-        except (TypeError, ValueError) as e:
-            raise exception.InputValidationError(f"Invalid JSON data: {e}")
+    if opendata_json is not None:
         update_stmt = update_stmt.values(opendata_json=opendata_json)
 
     # TODO: Add some logic to handle how state is updated e.g. can go from DRAFT to PUBLIC but not the other way around
-
-    # print query
-    print(f"Update statement: {update_stmt}")
 
     try:
         result = session.execute(update_stmt)
