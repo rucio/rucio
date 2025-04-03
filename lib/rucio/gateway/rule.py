@@ -20,7 +20,8 @@ from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import rule
-from rucio.db.sqla.session import read_session, stream_session, transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.gateway.permission import has_permission
 
 if TYPE_CHECKING:
@@ -29,8 +30,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-@read_session
-def is_multi_vo(*, session: "Session") -> bool:
+def is_multi_vo(session: "Session") -> bool:
     """
     Check whether this instance is configured for multi-VO
     returns: Boolean True if running in multi-VO
@@ -38,7 +38,6 @@ def is_multi_vo(*, session: "Session") -> bool:
     return config_get_bool('common', 'multi_vo', raise_exception=False, default=False, session=session)
 
 
-@transactional_session
 def add_replication_rule(
     dids: "Sequence[dict[str, str]]",
     copies: int,
@@ -63,8 +62,6 @@ def add_replication_rule(
     meta: Optional[dict[str, Any]],
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> list[str]:
     """
     Adds a replication rule.
@@ -93,7 +90,6 @@ def add_replication_rule(
     :param meta:                       WFMS metadata as a dictionary.
     :param issuer:                     The issuing account of this operation.
     :param vo:                         The VO to act on.
-    :param session:                    The database session in use.
     :returns:                          List of created replication rules.
     """
     if account is None:
@@ -111,69 +107,65 @@ def add_replication_rule(
 
     validate_schema(name='rule', obj=kwargs, vo=vo)
 
-    auth_result = has_permission(issuer=issuer, vo=vo, action='add_rule', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise AccessDenied('Account %s can not add replication rule. %s' % (issuer, auth_result.message))
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = has_permission(issuer=issuer, vo=vo, action='add_rule', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise AccessDenied('Account %s can not add replication rule. %s' % (issuer, auth_result.message))
 
-    account_internal = InternalAccount(account, vo=vo)
-    dids_with_internal_scope = [{'name': d['name'], 'scope': InternalScope(d['scope'], vo=vo)} for d in dids]
+        account_internal = InternalAccount(account, vo=vo)
+        dids_with_internal_scope = [{'name': d['name'], 'scope': InternalScope(d['scope'], vo=vo)} for d in dids]
 
-    return rule.add_rule(account=account_internal,
-                         dids=dids_with_internal_scope,
-                         copies=copies,
-                         rse_expression=rse_expression,
-                         grouping=grouping,
-                         weight=weight,
-                         lifetime=lifetime,
-                         locked=locked,
-                         subscription_id=subscription_id,
-                         source_replica_expression=source_replica_expression,
-                         activity=activity,
-                         notify=notify,
-                         purge_replicas=purge_replicas,
-                         ignore_availability=ignore_availability,
-                         comment=comment,
-                         ask_approval=ask_approval,
-                         asynchronous=asynchronous,
-                         delay_injection=delay_injection,
-                         priority=priority,
-                         split_container=split_container,
-                         meta=meta,
-                         session=session)
+        return rule.add_rule(account=account_internal,
+                             dids=dids_with_internal_scope,
+                             copies=copies,
+                             rse_expression=rse_expression,
+                             grouping=grouping,
+                             weight=weight,
+                             lifetime=lifetime,
+                             locked=locked,
+                             subscription_id=subscription_id,
+                             source_replica_expression=source_replica_expression,
+                             activity=activity,
+                             notify=notify,
+                             purge_replicas=purge_replicas,
+                             ignore_availability=ignore_availability,
+                             comment=comment,
+                             ask_approval=ask_approval,
+                             asynchronous=asynchronous,
+                             delay_injection=delay_injection,
+                             priority=priority,
+                             split_container=split_container,
+                             meta=meta,
+                             session=session)
 
 
-@read_session
-def get_replication_rule(rule_id: str, issuer: str, vo: str = 'def', *, session: "Session") -> dict[str, Any]:
+def get_replication_rule(rule_id: str, issuer: str, vo: str = 'def') -> dict[str, Any]:
     """
     Get replication rule by it's id.
 
     :param rule_id: The rule_id to get.
     :param issuer: The issuing account of this operation.
     :param vo: The VO of the issuer.
-    :param session: The database session in use.
     """
     kwargs = {'rule_id': rule_id}
-    if is_multi_vo(session=session):
-        auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
-    result = rule.get_rule(rule_id, session=session)
-    return gateway_update_return_dict(result, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        if is_multi_vo(session=session):
+            auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
+            if not auth_result.allowed:
+                raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
+        result = rule.get_rule(rule_id, session=session)
+        return gateway_update_return_dict(result, session=session)
 
 
-@stream_session
 def list_replication_rules(
     filters: Optional[dict[str, Any]] = None,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> "Iterator[dict[str, Any]]":
     """
     Lists replication rules based on a filter.
 
     :param filters: dictionary of attributes by which the results should be filtered.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     """
     # If filters is empty, create a new dict to avoid overwriting the function's default
     filters = filters or {}
@@ -190,18 +182,16 @@ def list_replication_rules(
         account = '*'
     filters['account'] = InternalAccount(account=account, vo=vo)
 
-    rules = rule.list_rules(filters, session=session)
-    for r in rules:
-        yield gateway_update_return_dict(r, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        rules = rule.list_rules(filters, session=session)
+        for r in rules:
+            yield gateway_update_return_dict(r, session=session)
 
 
-@read_session
 def list_replication_rule_history(
     rule_id: str,
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> "Iterator[dict[str, Any]]":
     """
     Lists replication rule history..
@@ -209,23 +199,20 @@ def list_replication_rule_history(
     :param rule_id: The rule_id to list.
     :param issuer: The issuing account of this operation.
     :param vo: The VO of the issuer.
-    :param session: The database session in use.
     """
     kwargs = {'rule_id': rule_id}
-    if is_multi_vo(session=session):
-        auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
-    return rule.list_rule_history(rule_id, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        if is_multi_vo(session=session):
+            auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
+            if not auth_result.allowed:
+                raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
+        return rule.list_rule_history(rule_id, session=session)
 
 
-@stream_session
 def list_replication_rule_full_history(
     scope: str,
     name: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> "Iterator[dict[str, Any]]":
     """
     List the rule history of a DID.
@@ -233,21 +220,18 @@ def list_replication_rule_full_history(
     :param scope: The scope of the DID.
     :param name: The name of the DID.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     """
     scope_internal = InternalScope(scope, vo=vo)
-    rules = rule.list_rule_full_history(scope_internal, name, session=session)
-    for r in rules:
-        yield gateway_update_return_dict(r, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        rules = rule.list_rule_full_history(scope_internal, name, session=session)
+        for r in rules:
+            yield gateway_update_return_dict(r, session=session)
 
 
-@stream_session
 def list_associated_replication_rules_for_file(
     scope: str,
     name: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> "Iterator[dict[str, Any]]":
     """
     Lists associated replication rules by file.
@@ -255,22 +239,19 @@ def list_associated_replication_rules_for_file(
     :param scope: Scope of the file..
     :param name:  Name of the file.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     """
     scope_internal = InternalScope(scope, vo=vo)
-    rules = rule.list_associated_rules_for_file(scope=scope_internal, name=name, session=session)
-    for r in rules:
-        yield gateway_update_return_dict(r, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        rules = rule.list_associated_rules_for_file(scope=scope_internal, name=name, session=session)
+        for r in rules:
+            yield gateway_update_return_dict(r, session=session)
 
 
-@transactional_session
 def delete_replication_rule(
     rule_id: str,
     purge_replicas: Optional[bool],
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> None:
     """
     Deletes a replication rule and all associated locks.
@@ -279,28 +260,25 @@ def delete_replication_rule(
     :param purge_replicas: Purge the replicas immediately
     :param issuer:         The issuing account of this operation
     :param vo:             The VO to act on.
-    :param session:        The database session in use.
     :raises:               RuleNotFound, AccessDenied
     """
     kwargs = {'rule_id': rule_id, 'purge_replicas': purge_replicas}
-    if is_multi_vo(session=session):
-        auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        if is_multi_vo(session=session):
+            auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
+            if not auth_result.allowed:
+                raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
+        auth_result = has_permission(issuer=issuer, vo=vo, action='del_rule', kwargs=kwargs)
         if not auth_result.allowed:
-            raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
-    auth_result = has_permission(issuer=issuer, vo=vo, action='del_rule', kwargs=kwargs)
-    if not auth_result.allowed:
-        raise AccessDenied('Account %s can not remove this replication rule. %s' % (issuer, auth_result.message))
-    rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True, session=session)
+            raise AccessDenied('Account %s can not remove this replication rule. %s' % (issuer, auth_result.message))
+        rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True, session=session)
 
 
-@transactional_session
 def update_replication_rule(
     rule_id: str,
     options: dict[str, Any],
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> None:
     """
     Update lock state of a replication rule.
@@ -309,42 +287,39 @@ def update_replication_rule(
     :param options:     Options dictionary.
     :param issuer:      The issuing account of this operation
     :param vo:          The VO to act on.
-    :param session:     The database session in use.
     :raises:            RuleNotFound if no Rule can be found.
     """
     kwargs = {'rule_id': rule_id, 'options': options}
-    if is_multi_vo(session=session):
-        auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
-    if 'approve' in options:
-        auth_result = has_permission(issuer=issuer, vo=vo, action='approve_rule', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise AccessDenied('Account %s can not approve/deny this replication rule. %s' % (issuer, auth_result.message))
+    with db_session(DatabaseOperationType.WRITE) as session:
+        if is_multi_vo(session=session):
+            auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
+            if not auth_result.allowed:
+                raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
+        if 'approve' in options:
+            auth_result = has_permission(issuer=issuer, vo=vo, action='approve_rule', kwargs=kwargs, session=session)
+            if not auth_result.allowed:
+                raise AccessDenied('Account %s can not approve/deny this replication rule. %s' % (issuer, auth_result.message))
 
-        issuer_ia = InternalAccount(issuer, vo=vo)
-        if options['approve']:
-            rule.approve_rule(rule_id=rule_id, approver=issuer_ia, session=session)
+            issuer_ia = InternalAccount(issuer, vo=vo)
+            if options['approve']:
+                rule.approve_rule(rule_id=rule_id, approver=issuer_ia, session=session)
+            else:
+                rule.deny_rule(rule_id=rule_id, approver=issuer_ia, reason=options.get('comment', None), session=session)
         else:
-            rule.deny_rule(rule_id=rule_id, approver=issuer_ia, reason=options.get('comment', None), session=session)
-    else:
-        auth_result = has_permission(issuer=issuer, vo=vo, action='update_rule', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise AccessDenied('Account %s can not update this replication rule. %s' % (issuer, auth_result.message))
-        if 'account' in options:
-            options['account'] = InternalAccount(options['account'], vo=vo)
-        rule.update_rule(rule_id=rule_id, options=options, session=session)
+            auth_result = has_permission(issuer=issuer, vo=vo, action='update_rule', kwargs=kwargs, session=session)
+            if not auth_result.allowed:
+                raise AccessDenied('Account %s can not update this replication rule. %s' % (issuer, auth_result.message))
+            if 'account' in options:
+                options['account'] = InternalAccount(options['account'], vo=vo)
+            rule.update_rule(rule_id=rule_id, options=options, session=session)
 
 
-@transactional_session
 def reduce_replication_rule(
     rule_id: str,
     copies: int,
     exclude_expression: Optional[str],
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> str:
     """
     Reduce the number of copies for a rule by atomically replacing the rule.
@@ -354,28 +329,25 @@ def reduce_replication_rule(
     :param exclude_expression:  RSE Expression of RSEs to exclude.
     :param issuer:              The issuing account of this operation
     :param vo:                  The VO to act on.
-    :param session:             The database session in use.
     :raises:                    RuleReplaceFailed, RuleNotFound
     """
     kwargs = {'rule_id': rule_id, 'copies': copies, 'exclude_expression': exclude_expression}
-    if is_multi_vo(session=session):
-        auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        if is_multi_vo(session=session):
+            auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
+            if not auth_result.allowed:
+                raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
+        auth_result = has_permission(issuer=issuer, vo=vo, action='reduce_rule', kwargs=kwargs, session=session)
         if not auth_result.allowed:
-            raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
-    auth_result = has_permission(issuer=issuer, vo=vo, action='reduce_rule', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise AccessDenied('Account %s can not reduce this replication rule. %s' % (issuer, auth_result.message))
+            raise AccessDenied('Account %s can not reduce this replication rule. %s' % (issuer, auth_result.message))
 
-    return rule.reduce_rule(rule_id=rule_id, copies=copies, exclude_expression=exclude_expression, session=session)
+        return rule.reduce_rule(rule_id=rule_id, copies=copies, exclude_expression=exclude_expression, session=session)
 
 
-@read_session
 def examine_replication_rule(
     rule_id: str,
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> dict[str, Any]:
     """
     Examine a replication rule.
@@ -383,29 +355,26 @@ def examine_replication_rule(
     :param rule_id: The rule_id to get.
     :param issuer: The issuing account of this operation.
     :param vo: The VO of the issuer.
-    :param session: The database session in use.
     """
     kwargs = {'rule_id': rule_id}
-    if is_multi_vo(session=session):
-        auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
-    result = rule.examine_rule(rule_id, session=session)
-    result = gateway_update_return_dict(result, session=session)
-    if 'transfers' in result:
-        result['transfers'] = [gateway_update_return_dict(t, session=session) for t in result['transfers']]
+    with db_session(DatabaseOperationType.READ) as session:
+        if is_multi_vo(session=session):
+            auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
+            if not auth_result.allowed:
+                raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
+        result = rule.examine_rule(rule_id, session=session)
+        result = gateway_update_return_dict(result, session=session)
+        if 'transfers' in result:
+            result['transfers'] = [gateway_update_return_dict(t, session=session) for t in result['transfers']]
     return result
 
 
-@transactional_session
 def move_replication_rule(
     rule_id: str,
     rse_expression: str,
     override: dict[str, Any],
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> str:
     """
     Move a replication rule to another RSE and, once done, delete the original one.
@@ -413,7 +382,6 @@ def move_replication_rule(
     :param rule_id:                    Rule to be moved.
     :param rse_expression:             RSE expression of the new rule.
     :param override:                   Configurations to update for the new rule.
-    :param session:                    The DB Session.
     :param vo:                         The VO to act on.
     :raises:                           RuleNotFound, RuleReplaceFailed, InvalidRSEExpression, AccessDenied
     """
@@ -426,12 +394,13 @@ def move_replication_rule(
         'override': override,
     }
 
-    if is_multi_vo(session=session):
-        auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        if is_multi_vo(session=session):
+            auth_result = has_permission(issuer=issuer, vo=vo, action='access_rule_vo', kwargs=kwargs, session=session)
+            if not auth_result.allowed:
+                raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
+        auth_result = has_permission(issuer=issuer, vo=vo, action='move_rule', kwargs=kwargs, session=session)
         if not auth_result.allowed:
-            raise AccessDenied('Account %s can not access rules at other VOs. %s' % (issuer, auth_result.message))
-    auth_result = has_permission(issuer=issuer, vo=vo, action='move_rule', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise AccessDenied('Account %s can not move this replication rule. %s' % (issuer, auth_result.message))
+            raise AccessDenied('Account %s can not move this replication rule. %s' % (issuer, auth_result.message))
 
-    return rule.move_rule(**kwargs, session=session)
+        return rule.move_rule(**kwargs, session=session)
