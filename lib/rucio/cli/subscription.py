@@ -29,7 +29,7 @@ def subscription():
 @click.pass_context
 def list_(ctx, subscription_name, account, long):
     """Show the attributes of a subscription [SUBSCRIPTION-NAME]"""
-    args = Arguments({"subs_account": account, "name": subscription_name, "long": long})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "subs_account": account, "name": subscription_name, "long": long})
     list_subscriptions(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -44,7 +44,7 @@ def list_(ctx, subscription_name, account, long):
 @click.pass_context
 def update(ctx, subscription_name, did_filter, rule, comment, lifetime, account, priority):
     """Update a subscription [SUBSCRIPTION-NAME] to have new properties"""
-    args = Arguments({"name": subscription_name, "filter": did_filter, "replication_rules": rule, "comments": comment, "lifetime": lifetime, "subs_account": account, "priority": priority})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "name": subscription_name, "filter": did_filter, "replication_rules": rule, "comments": comment, "lifetime": lifetime, "subs_account": account, "priority": priority})
     update_subscription(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -59,7 +59,7 @@ def update(ctx, subscription_name, did_filter, rule, comment, lifetime, account,
 @click.pass_context
 def add_(ctx, subscription_name, did_filter, rule, comment, lifetime, account, priority):
     """Create a new subscription with the name [SUBSCRIPTION-NAME]"""
-    args = Arguments({"name": subscription_name, "filter": did_filter, "replication_rules": rule, "comments": comment, "lifetime": lifetime, "subs_account": account, "priority": priority})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "name": subscription_name, "filter": did_filter, "replication_rules": rule, "comments": comment, "lifetime": lifetime, "subs_account": account, "priority": priority})
     add_subscription(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -70,4 +70,4 @@ def touch(ctx, dids):
     """Reevaluate list of DIDs against all active subscriptions"""
     # TODO make reeval accept dids as a list
     dids = ",".join(dids)
-    reevaluate_did_for_subscription(Arguments({"dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    reevaluate_did_for_subscription(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

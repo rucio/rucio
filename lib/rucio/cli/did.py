@@ -49,9 +49,9 @@ def list_(ctx, did_pattern, recursive, filter_, short, parent, pfn, guid):
     """
     if parent:
         for did in did_pattern:
-            list_parent_dids(Arguments({"did": did}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+            list_parent_dids(Arguments({"no_pager": ctx.obj.no_pager, "did": did}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
     else:
-        args = Arguments({"did": did_pattern, "recursive": recursive, "filter": filter_, "short": short})
+        args = Arguments({"no_pager": ctx.obj.no_pager, "did": did_pattern, "recursive": recursive, "filter": filter_, "short": short})
         list_dids(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -60,7 +60,7 @@ def list_(ctx, did_pattern, recursive, filter_, short, parent, pfn, guid):
 @click.pass_context
 def show(ctx, dids):
     """List attributes, statuses, or parents for data identifiers"""
-    stat(Arguments({"dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    stat(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @did.command("add")
@@ -71,7 +71,7 @@ def show(ctx, dids):
 @click.pass_context
 def add_(ctx, did_name, dtype, monotonic, lifetime):
     """Create a new collection-type DID"""
-    args = Arguments({"did": did_name, "monotonic": monotonic, "lifetime": lifetime})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did_name, "monotonic": monotonic, "lifetime": lifetime})
     if dtype == "container":
         add_container(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
     else:
@@ -87,7 +87,7 @@ def add_(ctx, did_name, dtype, monotonic, lifetime):
 @click.pass_context
 def update(ctx, dids, rse, operation):
     """Touch one or more DIDs and set the last accessed date to the current date, or mark them as open or closed."""
-    args = Arguments({"dids": dids, "rse": rse})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "rse": rse})
     if operation == "touch":
         touch(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
     elif operation == "open":
@@ -108,7 +108,7 @@ def remove(ctx, dids, undo):
     Expired DIDs are force-deleted (and their replicas purged).
     The deletion is not reversible after 24 hours grace time period expired
     """
-    erase(Arguments({"dids": dids, "undo": undo}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    erase(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "undo": undo}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @did.group()
@@ -121,7 +121,7 @@ def content():
 @click.pass_context
 def content_history(ctx, dids):
     """List the content history of a collection-type DID"""
-    list_content_history(Arguments({"dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    list_content_history(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @content.command("add")
@@ -131,7 +131,7 @@ def content_history(ctx, dids):
 @click.pass_context
 def content_add_(ctx, to_did, from_file, dids):
     """Attach a list [dids] of Data IDentifiers (file or collection-type) to an other Data IDentifier (collection-type)"""
-    args = Arguments({"dids": dids, "todid": to_did, "fromfile": from_file})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "todid": to_did, "fromfile": from_file})
     attach(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -141,7 +141,7 @@ def content_add_(ctx, to_did, from_file, dids):
 @click.pass_context
 def content_remove(ctx, dids, from_did):
     """Detach [dids], a list of DIDs (file or collection-type) from an other Data Identifier (collection type)"""
-    args = Arguments({"dids": dids, "fromdid": from_did})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "fromdid": from_did})
     detach(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -151,7 +151,7 @@ def content_remove(ctx, dids, from_did):
 @click.pass_context
 def content_list_(ctx, dids, short):
     """List the content of a collection-type DID"""
-    args = Arguments({"dids": dids, "short": short})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "short": short})
     list_content(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -167,7 +167,7 @@ def metadata():
 @click.pass_context
 def metadata_add_(ctx, did, key, value):
     """Add metadata to a DID"""
-    args = Arguments({"did": did, "key": key, "value": value})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did, "key": key, "value": value})
     set_metadata(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -177,7 +177,7 @@ def metadata_add_(ctx, did, key, value):
 @click.pass_context
 def metadata_remove(ctx, did, key):
     """Remove metadata from a DID"""
-    args = Arguments({"did": did, "key": key})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did, "key": key})
     delete_metadata(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -187,5 +187,5 @@ def metadata_remove(ctx, did, key):
 @click.pass_context
 def metadata_list_(ctx, dids, plugin):
     """List metadata for a list of DIDs"""
-    args = Arguments({"dids": dids, "plugin": plugin})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "plugin": plugin})
     get_metadata(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
