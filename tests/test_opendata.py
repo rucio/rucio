@@ -12,40 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime, timedelta
-
 import pytest
 
-from rucio.common import exception
-from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
-from rucio.common.types import InternalScope
-from rucio.common.utils import generate_uuid
+from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound
 from rucio.core import opendata
-from rucio.core.did import (
-    add_did,
-    add_did_to_followed,
-    attach_dids,
-    bulk_list_files,
-    delete_dids,
-    detach_dids,
-    get_did,
-    get_did_access_cnt,
-    get_did_atime,
-    get_metadata,
-    get_users_following_did,
-    list_dids,
-    list_new_dids,
-    remove_did_from_followed,
-    set_metadata,
-    set_new_dids,
-    set_status,
-    touch_dids,
-)
-from rucio.core.replica import add_replica, get_replica
-from rucio.db.sqla.constants import DIDType
+from rucio.core.did import add_did
 from rucio.db.sqla.util import json_implemented
-from rucio.gateway import did, scope
-from rucio.tests.common import did_name_generator, rse_name_generator, scope_name_generator
+from rucio.tests.common import did_name_generator
 
 
 def skip_without_json():
@@ -55,10 +28,126 @@ def skip_without_json():
 
 class TestOpenDataCore:
 
-    def test_list_opendata_dids(self):
-        for _ in opendata.list_opendata_dids():
-            ...
+    def test_opendata_dids_add(self, mock_scope, root_account):
+        dids = [
+            {"scope": mock_scope, "name": did_name_generator(did_type="file")} for _ in range(6)
+        ]
 
-        # public
-        for _ in opendata.list_opendata_dids(state="P"):
-            ...
+        for did in dids[0:5]:
+            add_did(scope=did["scope"], name=did["name"], account=root_account, did_type="file")
+
+        # Add to open data in bulk
+        opendata.add_opendata_dids(dids=dids[0:4])
+
+        # Add one by one
+        opendata.add_opendata_did(scope=dids[4]["scope"], name=dids[4]["name"])
+
+        # Add one not added yet as a did
+        with pytest.raises(OpenDataDataIdentifierNotFound):
+            opendata.add_opendata_did(scope=dids[5]["scope"], name=dids[5]["name"])
+
+        # Add one already added
+        with pytest.raises(OpenDataDataIdentifierAlreadyExists):
+            opendata.add_opendata_did(scope=dids[0]["scope"], name=dids[0]["name"])
+
+        # Test defaults
+        opendata_did = opendata.get_opendata_did(scope=dids[0]["scope"], name=dids[0]["name"])
+        assert opendata_did["scope"] == dids[0]["scope"], "Scope does not match"
+        assert opendata_did["name"] == dids[0]["name"], "Name does not match"
+        # Initial state should be DRAFT
+        state = opendata_did["state"]
+        assert state == "DRAFT"
+        # Initial opendata_json should be empty
+        opendata_json = opendata_did["opendata_json"]
+        assert opendata_json == {}, "opendata_json should be empty"
+
+    def test_opendata_dids_defaults(self, mock_scope, root_account):
+        name = did_name_generator(did_type="file")
+
+        # Add it as a DID
+        add_did(scope=mock_scope, name=name, account=root_account, did_type="file")
+
+        # Add it as open data
+        opendata.add_opendata_did(scope=mock_scope, name=name)
+
+        # Test defaults
+        opendata_did = opendata.get_opendata_did(scope=mock_scope, name=name)
+        default_keys = ["scope", "name", "state", "opendata_json", "created_at", "updated_at"]
+        for key in default_keys:
+            assert key in opendata_did, f"Key {key} not found in opendata_did"
+
+        assert opendata_did["scope"] == mock_scope, "Scope does not match"
+        assert opendata_did["name"] == name, "Name does not match"
+        assert opendata_did["state"] == "DRAFT", "State does not match"
+        assert opendata_did["opendata_json"] == {}, "opendata_json should be empty"
+
+    def test_opendata_dids_remove(self, mock_scope, root_account):
+        name = did_name_generator(did_type="file")
+
+        # Try to delete it first, should fail because it does not exist
+        with pytest.raises(OpenDataDataIdentifierNotFound):
+            opendata.delete_opendata_did(scope=mock_scope, name=name)
+
+        # Add it as a DID
+        add_did(scope=mock_scope, name=name, account=root_account, did_type="file")
+
+        # Should still fail because it's not added as open data
+        with pytest.raises(OpenDataDataIdentifierNotFound):
+            opendata.delete_opendata_did(scope=mock_scope, name=name)
+
+        # Test it a few times just in case
+        for _ in range(3):
+            # Add it as open data
+            opendata.add_opendata_did(scope=mock_scope, name=name)
+
+            opendata_did = opendata.get_opendata_did(scope=mock_scope, name=name)
+            assert opendata_did["scope"] == mock_scope, "Scope does not match"
+            assert opendata_did["name"] == name, "Name does not match"
+
+            opendata.delete_opendata_did(scope=mock_scope, name=name)
+
+            with pytest.raises(OpenDataDataIdentifierNotFound):
+                opendata.delete_opendata_did(scope=mock_scope, name=name)
+
+            with pytest.raises(OpenDataDataIdentifierNotFound):
+                opendata.get_opendata_did(scope=mock_scope, name=name)
+
+    def test_opendata_dids_update(self, mock_scope, root_account):
+        name = did_name_generator(did_type="file")
+
+        # Add it as a DID
+        add_did(scope=mock_scope, name=name, account=root_account, did_type="file")
+
+        # Add it as open data
+        opendata.add_opendata_did(scope=mock_scope, name=name)
+
+        state = opendata.get_opendata_did(scope=mock_scope, name=name)["state"]
+        assert state == "DRAFT"
+        # TODO: update state with human readable names
+        opendata.update_opendata_did(scope=mock_scope, name=name, state='P')
+        state = opendata.get_opendata_did(scope=mock_scope, name=name)["state"]
+        assert state == "PUBLIC"
+
+        opendata_json = opendata.get_opendata_did(scope=mock_scope, name=name)["opendata_json"]
+        assert opendata_json == {}, "opendata_json should be empty"
+        opendata_json_new = {"test": "test", "key": {"test": "test"}}
+        opendata.update_opendata_did(scope=mock_scope, name=name, opendata_json=opendata_json_new)
+        opendata_json = opendata.get_opendata_did(scope=mock_scope, name=name)["opendata_json"]
+        assert opendata_json == opendata_json_new, "opendata_json should be updated"
+
+    def test_opendata_dids_list(self, mock_scope, root_account):
+        dids = [
+            {"scope": mock_scope, "name": did_name_generator(did_type="file")} for _ in range(5)
+        ]
+
+        # Add to open data in bulk
+        opendata.add_opendata_dids(dids=dids)
+
+        # List open data DIDs
+        opendata_dids = opendata.list_opendata_dids()
+        assert len(opendata_dids) == 5, "Number of open data DIDs does not match"
+        for i, did in enumerate(opendata_dids):
+            assert did["scope"] == dids[i]["scope"], "Scope does not match"
+            assert did["name"] == dids[i]["name"], "Name does not match"
+            assert did["state"] == "DRAFT", "State does not match"
+            assert did["opendata_json"] == {}, "opendata_json should be empty"
