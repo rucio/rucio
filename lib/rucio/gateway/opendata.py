@@ -26,17 +26,20 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-@stream_session
+@read_session
 def list_opendata_dids(
         *,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         state: Optional[str] = None,  # TODO: type only valid states
         session: "Session"
-) -> "Iterator[dict[str, Any]]":
+        # ) -> "Iterator[dict[str, Any]]":
+) -> list[Any]:
+    print(f"GATEWAY list_opendata_dids called with limit={limit}, offset={offset}, state={state}")
     result = opendata.list_opendata_dids(limit=limit, offset=offset, state=state, session=session)
-
-    yield from (gateway_update_return_dict(d, session=session) for d in result)
+    print(f"GATEWAY list_opendata_dids result: {result}")
+    # yield from (gateway_update_return_dict(d, session=session) for d in result)
+    return result
 
 
 @read_session

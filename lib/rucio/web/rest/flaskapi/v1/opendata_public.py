@@ -21,16 +21,18 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_acc
 
 
 class OpenDataPublicView(ErrorHandlingMethodView):
+    # @check_accept_header_wrapper_flask(['application/x-json-stream'])
     @check_accept_header_wrapper_flask(["application/json"])
     def get(self):
-        print(f"OpenDataPublicView.get() called")
+        print(f"OpenDataPrivateView.get() called")
         try:
             limit = request.args.get("limit", default=None)
             offset = request.args.get("offset", default=None)
             print(f"limit: {limit}, offset: {offset}")
-            # public endpoints should only access public opendata dids
             result = opendata.list_opendata_dids(limit=limit, offset=offset, state="P")
-            return try_stream(result)
+            # return try_stream(render_json(result))
+            result = render_json(result)
+            return result
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
