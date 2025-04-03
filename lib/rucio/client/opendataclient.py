@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import json
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote_plus
 
@@ -129,8 +129,7 @@ class OpenDataClient(BaseClient):
         r = self._send_request(url, type_='GET')
 
         if r.status_code == codes.ok:
-            result = self._load_json_data(r)
-            return result
+            return json.loads(next(self._load_json_data(r)))
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
