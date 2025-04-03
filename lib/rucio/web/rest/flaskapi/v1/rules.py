@@ -92,7 +92,7 @@ class Rule(ErrorHandlingMethodView):
             return generate_http_error_flask(501, "NotImplemented", exc_msg="estimate_ttc is not implemented!")
 
         try:
-            rule = get_replication_rule(rule_id, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            rule = get_replication_rule(rule_id, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except RuleNotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -177,7 +177,7 @@ class Rule(ErrorHandlingMethodView):
         parameters = json_parameters()
         options: dict[str, Any] = param_get(parameters, 'options')
         try:
-            update_replication_rule(rule_id=rule_id, options=options, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            update_replication_rule(rule_id=rule_id, options=options, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except (RuleNotFound, AccountNotFound) as error:
@@ -212,7 +212,7 @@ class Rule(ErrorHandlingMethodView):
         parameters = json_parameters()
         purge_replicas = param_get(parameters, 'purge_replicas', default=None)
         try:
-            delete_replication_rule(rule_id=rule_id, purge_replicas=purge_replicas, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            delete_replication_rule(rule_id=rule_id, purge_replicas=purge_replicas, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except (AccessDenied, UnsupportedOperation) as error:
             return generate_http_error_flask(401, error)
         except RuleNotFound as error:
@@ -250,7 +250,7 @@ class AllRule(ErrorHandlingMethodView):
                 for rule in list_replication_rules(filters=filters, vo=vo):
                     yield dumps(rule, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(filters=dict(request.args.items(multi=False)), vo=request.environ.get('vo')))
+            return try_stream(generate(filters=dict(request.args.items(multi=False)), vo=request.environ['vo']))
         except RuleNotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -397,8 +397,8 @@ class AllRule(ErrorHandlingMethodView):
                 priority=param_get(parameters, 'priority', default=3),
                 split_container=param_get(parameters, 'split_container', default=False),
                 meta=param_get(parameters, 'meta', default=None),
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
             )
         except (
             InvalidReplicationRule,
@@ -477,7 +477,7 @@ class ReplicaLocks(ErrorHandlingMethodView):
             for lock in get_replica_locks_for_rule_id(rule_id, vo=vo):
                 yield render_json(**lock) + '\n'
 
-        return try_stream(generate(vo=request.environ.get('vo')))
+        return try_stream(generate(vo=request.environ['vo']))
 
 
 class ReduceRule(ErrorHandlingMethodView):
@@ -531,8 +531,8 @@ class ReduceRule(ErrorHandlingMethodView):
             rule_ids = reduce_replication_rule(rule_id=rule_id,
                                                copies=copies,
                                                exclude_expression=exclude_expression,
-                                               issuer=request.environ.get('issuer'),
-                                               vo=request.environ.get('vo'))
+                                               issuer=request.environ['issuer'],
+                                               vo=request.environ['vo'])
         # TODO: Add all other error cases here
         except RuleReplaceFailed as error:
             return generate_http_error_flask(409, error)
@@ -612,8 +612,8 @@ class MoveRule(ErrorHandlingMethodView):
             rule_ids = move_replication_rule(rule_id=rule_id,
                                              rse_expression=rse_expression,
                                              override=override,
-                                             issuer=request.environ.get('issuer'),
-                                             vo=request.environ.get('vo'))
+                                             issuer=request.environ['issuer'],
+                                             vo=request.environ['vo'])
         except RuleReplaceFailed as error:
             return generate_http_error_flask(409, error)
         except RuleNotFound as error:
@@ -676,7 +676,7 @@ class RuleHistory(ErrorHandlingMethodView):
             for history in list_replication_rule_history(rule_id, issuer=issuer, vo=vo):
                 yield render_json(**history) + '\n'
 
-        return try_stream(generate(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')))
+        return try_stream(generate(issuer=request.environ['issuer'], vo=request.environ['vo']))
 
 
 class RuleHistoryFull(ErrorHandlingMethodView):
@@ -740,13 +740,13 @@ class RuleHistoryFull(ErrorHandlingMethodView):
             description: Not acceptable.
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
 
             def generate(vo):
                 for history in list_replication_rule_full_history(scope, name, vo=vo):
                     yield render_json(**history) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -819,7 +819,7 @@ class RuleAnalysis(ErrorHandlingMethodView):
           406:
             description: Not acceptable.
         """
-        analysis = examine_replication_rule(rule_id, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+        analysis = examine_replication_rule(rule_id, issuer=request.environ['issuer'], vo=request.environ['vo'])
         return Response(render_json(**analysis), content_type='application/json')
 
 
