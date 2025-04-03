@@ -65,10 +65,8 @@ def list_opendata_dids(
     if state:
         list_stmt = list_stmt.where(models.OpenDataDid.state == state)
 
-    print(f"Query: {list_stmt}")
-
     return [{"scope": scope, "name": name, "state": state, "created_at": created_at, "updated_at": updated_at} for
-            scope, name, state, created_at, updated_at in session.execute(list_stmt)]
+              scope, name, state, created_at, updated_at in session.execute(list_stmt)]
 
 
 @read_session

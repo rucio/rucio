@@ -41,7 +41,6 @@ class OpenDataClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
 
         r = self._send_request(url, type_='GET')
-
         if r.status_code == codes.ok:
             result = self._load_json_data(r)
             return result
