@@ -150,7 +150,7 @@ class Scope(ErrorHandlingMethodView):
                 generate(
                     name=request.args.get('name', default=None),
                     recursive=recursive,
-                    vo=request.environ.get('vo')
+                    vo=request.environ['vo']
                 )
             )
         except DataIdentifierNotFound as error:
@@ -276,7 +276,7 @@ class Search(ErrorHandlingMethodView):
             def generate(vo):
                 for did in list_dids(scope=scope, filters=filters, did_type=did_type, limit=limit, long=long, recursive=recursive, vo=vo):
                     yield dumps(did) + '\n'
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, error)
         except KeyNotFound as error:
@@ -339,7 +339,7 @@ class BulkDIDS(ErrorHandlingMethodView):
         """
         dids = json_list()
         try:
-            add_dids(dids=dids, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            add_dids(dids=dids, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
         except (DuplicateContent, DataIdentifierAlreadyExists, UnsupportedOperation) as error:
@@ -462,7 +462,7 @@ class Attachments(ErrorHandlingMethodView):
             return generate_http_error_flask(406, exc="Invalid attachment format.")
 
         try:
-            attach_dids_to_dids(attachments=attachments, ignore_duplicate=ignore_duplicate, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            attach_dids_to_dids(attachments=attachments, ignore_duplicate=ignore_duplicate, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
         except (DuplicateContent, DataIdentifierAlreadyExists, UnsupportedOperation, FileAlreadyExists) as error:
@@ -577,7 +577,7 @@ class DIDs(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
             dynamic_depth = None
             if 'dynamic_depth' in request.args:
                 orig = request.args['dynamic_depth'].upper()
@@ -589,7 +589,7 @@ class DIDs(ErrorHandlingMethodView):
                     dynamic_depth = None
             elif 'dynamic' in request.args:
                 dynamic_depth = DIDType.FILE
-            did = get_did(scope=scope, name=name, dynamic_depth=dynamic_depth, vo=request.environ.get('vo'))
+            did = get_did(scope=scope, name=name, dynamic_depth=dynamic_depth, vo=request.environ['vo'])
             return Response(render_json(**did), content_type='application/json')
         except ValueError as error:
             return generate_http_error_flask(400, error)
@@ -668,7 +668,7 @@ class DIDs(ErrorHandlingMethodView):
             description: Did already exists
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -686,8 +686,8 @@ class DIDs(ErrorHandlingMethodView):
                 lifetime=param_get(parameters, 'lifetime', default=None),
                 dids=param_get(parameters, 'dids', default=[]),
                 rse=param_get(parameters, 'rse', default=None),
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
             )
         except (InvalidObject, InvalidPath) as error:
             return generate_http_error_flask(400, error)
@@ -743,14 +743,14 @@ class DIDs(ErrorHandlingMethodView):
             description: Wrong status
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
         parameters = json_parameters()
 
         try:
-            set_status(scope=scope, name=name, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), **parameters)
+            set_status(scope=scope, name=name, issuer=request.environ['issuer'], vo=request.environ['vo'], **parameters)
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
         except (UnsupportedStatus, UnsupportedOperation) as error:
@@ -822,13 +822,13 @@ class Attachment(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
 
             def generate(vo):
                 for did in list_content(scope=scope, name=name, vo=vo):
                     yield render_json(**did) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except DataIdentifierNotFound as error:
@@ -893,14 +893,14 @@ class Attachment(ErrorHandlingMethodView):
             description: Already attached
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
         attachments = json_parameters()
 
         try:
-            attach_dids(scope=scope, name=name, attachment=attachments, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            attach_dids(scope=scope, name=name, attachment=attachments, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except InvalidPath as error:
             return generate_http_error_flask(400, error)
         except (DataIdentifierNotFound, RSENotFound) as error:
@@ -955,7 +955,7 @@ class Attachment(ErrorHandlingMethodView):
             description: Did not found
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -963,7 +963,7 @@ class Attachment(ErrorHandlingMethodView):
         dids = param_get(parameters, 'dids')
 
         try:
-            detach_dids(scope=scope, name=name, dids=dids, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            detach_dids(scope=scope, name=name, dids=dids, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, error)
         except DataIdentifierNotFound as error:
@@ -1038,13 +1038,13 @@ class AttachmentHistory(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
 
             def generate(vo):
                 for did in list_content_history(scope=scope, name=name, vo=vo):
                     yield render_json(**did) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except DataIdentifierNotFound as error:
@@ -1140,13 +1140,13 @@ class Files(ErrorHandlingMethodView):
         long = 'long' in request.args
 
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
 
             def generate(vo):
                 for file in list_files(scope=scope, name=name, long=long, vo=vo):
                     yield dumps(file) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except DataIdentifierNotFound as error:
@@ -1227,7 +1227,7 @@ class BulkFiles(ErrorHandlingMethodView):
                 for did in bulk_list_files(dids=dids, vo=vo):
                     yield render_json(**did) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         return 'Created', 201
@@ -1279,13 +1279,13 @@ class Parents(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
 
             def generate(vo):
                 for dataset in list_parent_dids(scope=scope, name=name, vo=vo):
                     yield render_json(**dataset) + "\n"
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except DataIdentifierNotFound as error:
@@ -1333,13 +1333,13 @@ class Meta(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
         try:
             plugin = request.args.get('plugin', default='DID_COLUMN')
-            meta = get_metadata(scope=scope, name=name, plugin=plugin, vo=request.environ.get('vo'))
+            meta = get_metadata(scope=scope, name=name, plugin=plugin, vo=request.environ['vo'])
             return Response(render_json(**meta), content_type='application/json')
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
@@ -1391,7 +1391,7 @@ class Meta(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -1403,9 +1403,9 @@ class Meta(ErrorHandlingMethodView):
                 scope=scope,
                 name=name,
                 meta=meta,
-                issuer=request.environ.get('issuer'),
+                issuer=request.environ['issuer'],
                 recursive=param_get(parameters, 'recursive', default=False),
-                vo=request.environ.get('vo'),
+                vo=request.environ['vo'],
             )
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
@@ -1450,7 +1450,7 @@ class Meta(ErrorHandlingMethodView):
             description: Feature is not in current database.
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -1460,7 +1460,7 @@ class Meta(ErrorHandlingMethodView):
             return generate_http_error_flask(404, KeyNotFound.__name__, 'No key provided to remove')
 
         try:
-            delete_metadata(scope=scope, name=name, key=key, vo=request.environ.get('vo'))
+            delete_metadata(scope=scope, name=name, key=key, vo=request.environ['vo'])
         except (KeyNotFound, DataIdentifierNotFound) as error:
             return generate_http_error_flask(404, error)
         except NotImplementedError as error:
@@ -1521,7 +1521,7 @@ class SingleMeta(ErrorHandlingMethodView):
             description: Invalid key or value
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -1534,9 +1534,9 @@ class SingleMeta(ErrorHandlingMethodView):
                 name=name,
                 key=key,
                 value=value,
-                issuer=request.environ.get('issuer'),
+                issuer=request.environ['issuer'],
                 recursive=param_get(parameters, 'recursive', default=False),
-                vo=request.environ.get('vo'),
+                vo=request.environ['vo'],
             )
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
@@ -1602,7 +1602,7 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
         dids = param_get(parameters, 'dids')
 
         try:
-            set_dids_metadata_bulk(dids=dids, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            set_dids_metadata_bulk(dids=dids, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
         except UnsupportedOperation as error:
@@ -1649,14 +1649,14 @@ class Rules(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
 
             def generate(vo):
                 get_did(scope=scope, name=name, vo=vo)
                 for rule in list_replication_rules({'scope': scope, 'name': name}, vo=vo):
                     yield dumps(rule, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except RuleNotFound as error:
@@ -1734,7 +1734,7 @@ class BulkMeta(ErrorHandlingMethodView):
                 for meta in get_metadata_bulk(dids, inherit=inherit, plugin=plugin, vo=vo):
                     yield render_json(**meta) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except ValueError as error:
             return generate_http_error_flask(400, error, 'Cannot decode json parameter list')
         except DataIdentifierNotFound as error:
@@ -1799,13 +1799,13 @@ class AssociatedRules(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
 
             def generate(vo):
                 for rule in list_associated_replication_rules_for_file(scope=scope, name=name, vo=vo):
                     yield dumps(rule, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except DataIdentifierNotFound as error:
@@ -1859,7 +1859,7 @@ class GUIDLookup(ErrorHandlingMethodView):
                 for dataset in get_dataset_by_guid(guid, vo=vo):
                     yield dumps(dataset, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -1927,9 +1927,9 @@ class SampleLegacy(ErrorHandlingMethodView):
                 input_name=input_name,
                 output_scope=output_scope,
                 output_name=output_name,
-                issuer=request.environ.get('issuer'),
+                issuer=request.environ['issuer'],
                 nbfiles=nbfiles,
-                vo=request.environ.get('vo'),
+                vo=request.environ['vo'],
             )
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
@@ -2002,9 +2002,9 @@ class Sample(ErrorHandlingMethodView):
                 input_name=parameters['input_name'],
                 output_scope=parameters['output_scope'],
                 output_name=parameters['output_name'],
-                issuer=request.environ.get('issuer'),
+                issuer=request.environ['issuer'],
                 nbfiles=parameters['nbfiles'],
-                vo=request.environ.get('vo'),
+                vo=request.environ['vo'],
             )
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
@@ -2065,7 +2065,7 @@ class NewDIDs(ErrorHandlingMethodView):
 
         type_param = request.args.get('type', default=None)
 
-        return try_stream(generate(_type=type_param, vo=request.environ.get('vo')))
+        return try_stream(generate(_type=type_param, vo=request.environ['vo']))
 
 
 class Resurrect(ErrorHandlingMethodView):
@@ -2113,7 +2113,7 @@ class Resurrect(ErrorHandlingMethodView):
         dids = json_list()
 
         try:
-            resurrect(dids=dids, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            resurrect(dids=dids, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
         except (DuplicateContent, DataIdentifierAlreadyExists, UnsupportedOperation) as error:
@@ -2165,13 +2165,13 @@ class Follow(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
 
             def generate(vo):
                 for user in get_users_following_did(scope=scope, name=name, vo=vo):
                     yield render_json(**user) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')), content_type='application/json')
+            return try_stream(generate(vo=request.environ['vo']), content_type='application/json')
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except DataIdentifierNotFound as error:
@@ -2215,7 +2215,7 @@ class Follow(ErrorHandlingMethodView):
             description: Internal error
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -2223,7 +2223,7 @@ class Follow(ErrorHandlingMethodView):
         account = param_get(parameters, 'account')
 
         try:
-            add_did_to_followed(scope=scope, name=name, account=account, vo=request.environ.get('vo'))
+            add_did_to_followed(scope=scope, name=name, account=account, vo=request.environ['vo'])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
         except AccessDenied as error:
@@ -2265,7 +2265,7 @@ class Follow(ErrorHandlingMethodView):
             description: Internal error
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -2273,7 +2273,7 @@ class Follow(ErrorHandlingMethodView):
         account = param_get(parameters, 'account')
 
         try:
-            remove_did_from_followed(scope=scope, name=name, account=account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            remove_did_from_followed(scope=scope, name=name, account=account, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
 
