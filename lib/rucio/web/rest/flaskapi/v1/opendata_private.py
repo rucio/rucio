@@ -20,7 +20,8 @@ from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenData
 from rucio.common.utils import render_json
 from rucio.gateway import opendata
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, \
+    generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
 
 
 class OpenDataPrivateView(ErrorHandlingMethodView):
@@ -47,9 +48,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
             scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
             state = request.args.get("state", default=None)
             result = opendata.get_opendata_did(scope=scope, name=name, state=state, vo=request.environ.get("vo"))
-            # return Response(render_json(**result), content_type="application/json")
             result = render_json(**result)
-            print(f"result: {result}")
             return result
         except ValueError as error:
             return generate_http_error_flask(400, error)
@@ -75,12 +74,6 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
             parameters = json_parameters()
             state = param_get(parameters, 'state', default=None)
             opendata_json = param_get(parameters, 'opendata_json', default=None)
-            if opendata_json:
-                try:
-                    opendata_json = json.loads(opendata_json)
-                except ValueError as error:
-                    raise ValueError(f"Invalid JSON: {error}")
-            print(f"opendata_json: {opendata_json}, state: {state}, type of json is {type(opendata_json)}")
             opendata.update_opendata_did(scope=scope, name=name, state=state, opendata_json=opendata_json,
                                          vo=request.environ.get("vo"))
         except ValueError as error:

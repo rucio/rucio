@@ -109,17 +109,15 @@ def get_opendata_did(ctx, did: str, json_flag: bool, public: bool):
 @click.pass_context
 def update_opendata_did(ctx, did: str, opendata_json: str, state: str):
     client = ctx.obj.client
-    print(f"DEBUG: Updating Open Data DID with '{did}', opendata json: {opendata_json}, state: {state}")
     if not opendata_json and not state:
         raise ValueError("At least one of --json or --state must be provided.")
 
     scope, name = extract_scope_name(did)
 
-    if opendata_json:
+    if opendata_json is not None:
         if not is_valid_json(opendata_json):
             raise ValueError("Invalid JSON provided.")
 
-        # Here JSON is a string (otherwise we cannot diff from null json)
-        opendata_json = minify_json(opendata_json)
+        opendata_json = json.loads(opendata_json)
 
     client.update_opendata_did(scope=scope, name=name, opendata_json=opendata_json, state=state)
