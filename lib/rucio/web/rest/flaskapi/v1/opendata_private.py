@@ -12,19 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-
 from flask import Flask, request
 
 from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound
 from rucio.common.utils import render_json
 from rucio.gateway import opendata
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, \
-    generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
 
 
 class OpenDataPrivateView(ErrorHandlingMethodView):
+    # @check_accept_header_wrapper_flask(['application/x-json-stream'])
     @check_accept_header_wrapper_flask(["application/json"])
     def get(self):
         print(f"OpenDataPrivateView.get() called")
@@ -34,8 +32,9 @@ class OpenDataPrivateView(ErrorHandlingMethodView):
             state = request.args.get("state", default=None)
             print(f"limit: {limit}, offset: {offset}, state: {state}")
             result = opendata.list_opendata_dids(limit=limit, offset=offset, state=state)
-            print(f"result: {result}")
-            return try_stream(result)
+            # return try_stream(render_json(result))
+            result = render_json(result)
+            return result
         except ValueError as error:
             return generate_http_error_flask(400, error)
 

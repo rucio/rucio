@@ -60,7 +60,10 @@ def list_opendata_dids(ctx, state: str, public: bool):
     # TODO: check state is valid
     client = ctx.obj.client
     print(f"DEBUG: Listing Open Data DIDs with state '{state}' and public flag '{public}'")
-    client.list_opendata_dids(state=state, public=public)
+    result = client.list_opendata_dids(state=state, public=public)
+    for i, entry in enumerate(result):
+        print(f"OpenData entry {i}: {entry}")
+        print(entry)
 
 
 @opendata.command("add")
