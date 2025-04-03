@@ -46,9 +46,9 @@ class Config(ErrorHandlingMethodView):
             description: Not acceptable
         """
         res = {}
-        for section in config.sections(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
+        for section in config.sections(issuer=request.environ['issuer'], vo=request.environ['vo']):
             res[section] = {}
-            for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
+            for item in config.items(section, issuer=request.environ['issuer'], vo=request.environ['vo']):
                 res[section][item[0]] = item[1]
 
         return jsonify(res), 200
@@ -87,7 +87,7 @@ class Config(ErrorHandlingMethodView):
                 return generate_http_error_flask(400, ValueError.__name__, '')
             for option, value in section_config.items():
                 try:
-                    config.set(section=section, option=option, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+                    config.set(section=section, option=option, value=value, issuer=request.environ['issuer'], vo=request.environ['vo'])
                 except ConfigurationError:
                     return generate_http_error_flask(400, 'ConfigurationError', f"Could not set value '{value}' for section '{section}' option '{option}'")
         return 'Created', 201
@@ -137,7 +137,7 @@ class Section(ErrorHandlingMethodView):
             description: Not acceptable
         """
         res = {}
-        for item in config.items(section, issuer=request.environ.get('issuer'), vo=request.environ.get('vo')):
+        for item in config.items(section, issuer=request.environ['issuer'], vo=request.environ['vo']):
             res[item[0]] = item[1]
 
         if res == {}:
@@ -190,7 +190,7 @@ class OptionGetDel(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            result = config.get(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            result = config.get(section=section, option=option, issuer=request.environ['issuer'], vo=request.environ['vo'])
             return jsonify(result), 200
         except AccessDenied as error:
             return generate_http_error_flask(401, error, f"Access to '{section}' option '{option}' denied")
@@ -223,7 +223,7 @@ class OptionGetDel(ErrorHandlingMethodView):
           401:
             description: Invalid Auth Token
         """
-        config.remove_option(section=section, option=option, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+        config.remove_option(section=section, option=option, issuer=request.environ['issuer'], vo=request.environ['vo'])
         return '', 200
 
 
@@ -275,7 +275,7 @@ class OptionSet(ErrorHandlingMethodView):
                   enum: ['Could not set value {} for section {} option {}']
           """
         try:
-            config.set(section=section, option=option, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            config.set(section=section, option=option, value=value, issuer=request.environ['issuer'], vo=request.environ['vo'])
             return 'Created', 201
         except ConfigurationError as error:
             return generate_http_error_flask(500, error, f"Could not set value '{value}' for section '{section}' option '{option}'")
