@@ -17,6 +17,7 @@ import pytest
 from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound
 from rucio.core import opendata
 from rucio.core.did import add_did
+from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import did_name_generator
 
@@ -34,7 +35,7 @@ class TestOpenDataCore:
         ]
 
         for did in dids[0:5]:
-            add_did(scope=did["scope"], name=did["name"], account=root_account, did_type="file")
+            add_did(scope=did["scope"], name=did["name"], account=root_account, did_type=DIDType.FILE)
 
         # Add to open data in bulk
         opendata.add_opendata_dids(dids=dids[0:4])
@@ -65,7 +66,7 @@ class TestOpenDataCore:
         name = did_name_generator(did_type="file")
 
         # Add it as a DID
-        add_did(scope=mock_scope, name=name, account=root_account, did_type="file")
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.FILE)
 
         # Add it as open data
         opendata.add_opendata_did(scope=mock_scope, name=name)
@@ -89,7 +90,7 @@ class TestOpenDataCore:
             opendata.delete_opendata_did(scope=mock_scope, name=name)
 
         # Add it as a DID
-        add_did(scope=mock_scope, name=name, account=root_account, did_type="file")
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.FILE)
 
         # Should still fail because it's not added as open data
         with pytest.raises(OpenDataDataIdentifierNotFound):
@@ -116,7 +117,7 @@ class TestOpenDataCore:
         name = did_name_generator(did_type="file")
 
         # Add it as a DID
-        add_did(scope=mock_scope, name=name, account=root_account, did_type="file")
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.FILE)
 
         # Add it as open data
         opendata.add_opendata_did(scope=mock_scope, name=name)
