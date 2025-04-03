@@ -17,7 +17,7 @@ import pytest
 from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound
 from rucio.core import opendata
 from rucio.core.did import add_did
-from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import did_name_generator
 
@@ -57,7 +57,7 @@ class TestOpenDataCore:
         assert opendata_did["name"] == dids[0]["name"], "Name does not match"
         # Initial state should be DRAFT
         state = opendata_did["state"]
-        assert state == "DRAFT"
+        assert state == OpenDataDIDState.DRAFT
         # Initial opendata_json should be empty
         opendata_json = opendata_did["opendata_json"]
         assert opendata_json == {}, "opendata_json should be empty"
@@ -79,7 +79,7 @@ class TestOpenDataCore:
 
         assert opendata_did["scope"] == mock_scope, "Scope does not match"
         assert opendata_did["name"] == name, "Name does not match"
-        assert opendata_did["state"] == "DRAFT", "State does not match"
+        assert opendata_did["state"] == OpenDataDIDState.DRAFT, "State does not match"
         assert opendata_did["opendata_json"] == {}, "opendata_json should be empty"
 
     def test_opendata_dids_remove(self, mock_scope, root_account):
@@ -123,11 +123,11 @@ class TestOpenDataCore:
         opendata.add_opendata_did(scope=mock_scope, name=name)
 
         state = opendata.get_opendata_did(scope=mock_scope, name=name)["state"]
-        assert state == "DRAFT"
+        assert state == OpenDataDIDState.DRAFT
         # TODO: update state with human readable names
         opendata.update_opendata_did(scope=mock_scope, name=name, state='P')
         state = opendata.get_opendata_did(scope=mock_scope, name=name)["state"]
-        assert state == "PUBLIC"
+        assert state == OpenDataDIDState.PUBLIC
 
         opendata_json = opendata.get_opendata_did(scope=mock_scope, name=name)["opendata_json"]
         assert opendata_json == {}, "opendata_json should be empty"
@@ -150,5 +150,5 @@ class TestOpenDataCore:
         for i, did in enumerate(opendata_dids):
             assert did["scope"] == dids[i]["scope"], "Scope does not match"
             assert did["name"] == dids[i]["name"], "Name does not match"
-            assert did["state"] == "DRAFT", "State does not match"
+            assert did["state"] == OpenDataDIDState.DRAFT, "State does not match"
             assert did["opendata_json"] == {}, "opendata_json should be empty"
