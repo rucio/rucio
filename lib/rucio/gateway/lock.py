@@ -19,26 +19,21 @@ from rucio.common.types import InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import lock
 from rucio.core.rse import get_rse_id
-from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.session import stream_session
+from rucio.db.sqla.constants import DatabaseOperationType, DIDType
+from rucio.db.sqla.session import db_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
-
-    from sqlalchemy.orm import Session
 
 
 LOGGER = logging.getLogger('lock')
 LOGGER.setLevel(logging.DEBUG)
 
 
-@stream_session
 def get_dataset_locks(
     scope: str,
     name: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
     """
     Get the dataset locks of a dataset.
@@ -46,24 +41,21 @@ def get_dataset_locks(
     :param scope:          Scope of the dataset.
     :param name:           Name of the dataset.
     :param vo:             The VO to act on.
-    :param session:        The database session in use.
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
 
     internal_scope = InternalScope(scope, vo=vo)
 
-    locks = lock.get_dataset_locks(scope=internal_scope, name=name, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        locks = lock.get_dataset_locks(scope=internal_scope, name=name, session=session)
 
-    for lock_object in locks:
-        yield gateway_update_return_dict(lock_object, session=session)
+        for lock_object in locks:
+            yield gateway_update_return_dict(lock_object, session=session)
 
 
-@stream_session
 def get_dataset_locks_bulk(
     dids: 'Iterable[dict[str, Any]]',
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
     """
     Get the dataset locks for multiple datasets or containers.
@@ -72,7 +64,6 @@ def get_dataset_locks_bulk(
                             "type" is optional. If present, will be either DIDType.DATASET or DIDType.CONTAINER,
                             or string "dataset" or "container"
     :param vo:              The VO to act on.
-    :param session:         The database session in use.
     :return:                Generator of dicts describing found locks {'rse_id': ..., 'state': ...}. Duplicates are removed
     """
 
@@ -96,58 +87,54 @@ def get_dataset_locks_bulk(
         dids_converted.append(did)
 
     seen = set()
-    for lock_info in lock.get_dataset_locks_bulk(dids_converted, session=session):
-        # filter duplicates - same scope, name, rse_id, rule_id
-        scope_str = str(lock_info["scope"])
-        key = (scope_str, lock_info["name"], lock_info["rse_id"], lock_info["rule_id"])
-        if key not in seen:
-            seen.add(key)
-            yield lock_info
+
+    with db_session(DatabaseOperationType.READ) as session:
+        for lock_info in lock.get_dataset_locks_bulk(dids_converted, session=session):
+            # filter duplicates - same scope, name, rse_id, rule_id
+            scope_str = str(lock_info["scope"])
+            key = (scope_str, lock_info["name"], lock_info["rse_id"], lock_info["rule_id"])
+            if key not in seen:
+                seen.add(key)
+                yield lock_info
 
 
-@stream_session
 def get_dataset_locks_by_rse(
     rse: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
     """
     Get the dataset locks of an RSE.
 
     :param rse:            RSE name.
     :param vo:             The VO to act on.
-    :param session:        The database session in use.
     :return:               List of dicts {'rse_id': ..., 'state': ...}
     """
 
-    rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-    locks = lock.get_dataset_locks_by_rse_id(rse_id=rse_id, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+        locks = lock.get_dataset_locks_by_rse_id(rse_id=rse_id, session=session)
 
-    for lock_object in locks:
-        yield gateway_update_return_dict(lock_object, session=session)
+        for lock_object in locks:
+            yield gateway_update_return_dict(lock_object, session=session)
 
 
-@stream_session
 def get_replica_locks_for_rule_id(
     rule_id: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
     """
     Get the replica locks for a rule_id.
 
     :param rule_id:     Rule ID.
     :param vo:          The VO to act on.
-    :param session:     The database session in use.
     :return:            List of dicts.
     """
 
-    locks = lock.get_replica_locks_for_rule_id(rule_id=rule_id, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        locks = lock.get_replica_locks_for_rule_id(rule_id=rule_id, session=session)
 
-    for lock_object in locks:
-        if lock_object['scope'].vo != vo:  # rule is on a different VO, so don't return any locks
-            LOGGER.debug('rule id %s is not present on VO %s' % (rule_id, vo))
-            break
-        yield gateway_update_return_dict(lock_object, session=session)
+        for lock_object in locks:
+            if lock_object['scope'].vo != vo:  # rule is on a different VO, so don't return any locks
+                LOGGER.debug('rule id %s is not present on VO %s' % (rule_id, vo))
+                break
+            yield gateway_update_return_dict(lock_object, session=session)
