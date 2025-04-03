@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 def list_dids(
     scope: str,
-    filters: 'Mapping[Any, Any]',
+    filters: 'Iterable[dict[Any, Any]]',
     did_type: str = 'collection',
     ignore_case: bool = False,
     limit: Optional[int] = None,
