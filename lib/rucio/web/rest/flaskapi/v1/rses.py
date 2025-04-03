@@ -178,7 +178,7 @@ class RSEs(ErrorHandlingMethodView):
                     for rse in parse_rse_expression(expression, vo=vo):
                         yield render_json(rse=rse) + '\n'
 
-                return try_stream(generate(vo=request.environ.get('vo')))
+                return try_stream(generate(vo=request.environ['vo']))
             except (InvalidRSEExpression, InvalidObject) as error:
                 return generate_http_error_flask(400, error)
         else:
@@ -187,7 +187,7 @@ class RSEs(ErrorHandlingMethodView):
                     rse['availability'] = Availability(rse['availability_read'], rse['availability_write'], rse['availability_delete']).integer
                     yield render_json(**rse) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
 
 
 class RSE(ErrorHandlingMethodView):
@@ -316,8 +316,8 @@ class RSE(ErrorHandlingMethodView):
             for keyword in kwargs.keys():
                 kwargs[keyword] = param_get(parameters, keyword, default=kwargs[keyword])
 
-        kwargs['issuer'] = request.environ.get('issuer')
-        kwargs['vo'] = request.environ.get('vo')
+        kwargs['issuer'] = request.environ['issuer']
+        kwargs['vo'] = request.environ['vo']
         try:
             add_rse(rse, **kwargs)
         except InvalidObject as error:
@@ -408,8 +408,8 @@ class RSE(ErrorHandlingMethodView):
         """
         kwargs = {
             'parameters': json_parameters(optional=True),
-            'issuer': request.environ.get('issuer'),
-            'vo': request.environ.get('vo'),
+            'issuer': request.environ['issuer'],
+            'vo': request.environ['vo'],
         }
         try:
             update_rse(rse, **kwargs)
@@ -508,7 +508,7 @@ class RSE(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            rse = get_rse(rse=rse, vo=request.environ.get('vo'))
+            rse = get_rse(rse=rse, vo=request.environ['vo'])
             rse['availability'] = Availability(rse['availability_read'], rse['availability_write'], rse['availability_delete']).integer
             return Response(render_json(**rse), content_type="application/json")
         except RSENotFound as error:
@@ -537,7 +537,7 @@ class RSE(ErrorHandlingMethodView):
             description: RSE not found
         """
         try:
-            del_rse(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            del_rse(rse=rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except (RSENotFound, RSEOperationNotSupported, CounterNotFound) as error:
             return generate_http_error_flask(404, error)
         except AccessDenied as error:
@@ -600,7 +600,7 @@ class Attributes(ErrorHandlingMethodView):
         parameters = json_parameters()
         value = param_get(parameters, 'value')
         try:
-            add_rse_attribute(rse=rse, key=key, value=value, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            add_rse_attribute(rse=rse, key=key, value=value, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except Duplicate as error:
@@ -643,7 +643,7 @@ class Attributes(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            rse_attr = list_rse_attributes(rse, vo=request.environ.get('vo'))
+            rse_attr = list_rse_attributes(rse, vo=request.environ['vo'])
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except RSENotFound as error:
@@ -680,7 +680,7 @@ class Attributes(ErrorHandlingMethodView):
             description: RSE or RSE attribute not found
         """
         try:
-            del_rse_attribute(rse=rse, key=key, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            del_rse_attribute(rse=rse, key=key, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except (RSENotFound, RSEAttributeNotFound) as error:
@@ -831,7 +831,7 @@ class ProtocolList(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            p_list = get_rse_protocols(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            p_list = get_rse_protocols(rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except (RSEOperationNotSupported, RSENotFound, RSEProtocolNotSupported, RSEProtocolDomainNotSupported) as error:
             return generate_http_error_flask(404, error)
 
@@ -909,7 +909,7 @@ class LFNS2PFNS(ErrorHandlingMethodView):
         operation = request.args.get('operation', default='write')
 
         try:
-            rse_settings = get_rse_protocols(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            rse_settings = get_rse_protocols(rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except (RSENotFound, RSEProtocolNotSupported, RSEProtocolDomainNotSupported) as error:
             return generate_http_error_flask(404, error)
 
@@ -1009,7 +1009,7 @@ class Protocol(ErrorHandlingMethodView):
         parameters['scheme'] = scheme
 
         try:
-            add_protocol(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), data=parameters)
+            add_protocol(rse, issuer=request.environ['issuer'], vo=request.environ['vo'], data=parameters)
         except (RSENotFound, RSEProtocolDomainNotSupported) as error:
             return generate_http_error_flask(404, error)
         except AccessDenied as error:
@@ -1167,7 +1167,7 @@ class Protocol(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            p_list = get_rse_protocols(rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            p_list = get_rse_protocols(rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except (RSENotFound, RSEProtocolNotSupported, RSEProtocolDomainNotSupported) as error:
             return generate_http_error_flask(404, error)
 
@@ -1334,8 +1334,8 @@ class Protocol(ErrorHandlingMethodView):
         try:
             update_protocols(
                 rse,
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
                 scheme=scheme,
                 hostname=hostname,
                 port=int(port) if port else None,
@@ -1395,8 +1395,8 @@ class Protocol(ErrorHandlingMethodView):
         try:
             del_protocols(
                 rse,
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
                 scheme=scheme,
                 hostname=hostname,
                 port=int(port) if port else None
@@ -1485,10 +1485,10 @@ class Usage(ErrorHandlingMethodView):
 
             return try_stream(
                 generate(
-                    issuer=request.environ.get('issuer'),
+                    issuer=request.environ['issuer'],
                     source=request.args.get('source'),
                     per_account=per_account,
-                    vo=request.environ.get('vo'),
+                    vo=request.environ['vo'],
                 )
             )
         except RSENotFound as error:
@@ -1544,7 +1544,7 @@ class Usage(ErrorHandlingMethodView):
             kwargs[keyword] = param_get(parameters, keyword, default=kwargs[keyword])
 
         try:
-            set_rse_usage(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), **kwargs)
+            set_rse_usage(rse=rse, issuer=request.environ['issuer'], vo=request.environ['vo'], **kwargs)
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except RSENotFound as error:
@@ -1615,7 +1615,7 @@ class UsageHistory(ErrorHandlingMethodView):
                 for usage in list_rse_usage_history(rse=rse, issuer=issuer, source=source, vo=vo):
                     yield render_json(**usage) + '\n'
 
-            return try_stream(generate(issuer=request.environ.get('issuer'), source=request.args.get('source'), vo=request.environ.get('vo')))
+            return try_stream(generate(issuer=request.environ['issuer'], source=request.args.get('source'), vo=request.environ['vo']))
         except RSENotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -1658,7 +1658,7 @@ class Limits(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            limits = get_rse_limits(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            limits = get_rse_limits(rse=rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
             return Response(render_json(**limits), content_type="application/json")
         except RSENotFound as error:
             return generate_http_error_flask(404, error)
@@ -1705,7 +1705,7 @@ class Limits(ErrorHandlingMethodView):
             kwargs[keyword] = param_get(parameters, keyword, default=kwargs[keyword])
 
         try:
-            set_rse_limits(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'), **kwargs)
+            set_rse_limits(rse=rse, issuer=request.environ['issuer'], vo=request.environ['vo'], **kwargs)
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except RSENotFound as error:
@@ -1752,7 +1752,7 @@ class Limits(ErrorHandlingMethodView):
         name = param_get(parameters, 'name')
 
         try:
-            delete_rse_limits(rse=rse, name=name, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            delete_rse_limits(rse=rse, name=name, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except RSENotFound as error:
@@ -1820,7 +1820,7 @@ class RSEAccountUsageLimit(ErrorHandlingMethodView):
                 for usage in get_rse_account_usage(rse=rse, vo=vo):
                     yield render_json(**usage) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')), content_type='application/json')
+            return try_stream(generate(vo=request.environ['vo']), content_type='application/json')
         except RSENotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -1882,7 +1882,7 @@ class Distance(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            distance = get_distance(source=source, destination=destination, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            distance = get_distance(source=source, destination=destination, issuer=request.environ['issuer'], vo=request.environ['vo'])
             return Response(dumps(distance, cls=APIEncoder), content_type="application/json")
         except RSENotFound as error:
             return generate_http_error_flask(404, error)
@@ -1946,8 +1946,8 @@ class Distance(ErrorHandlingMethodView):
                 source=source,
                 destination=destination,
                 distance=distance,
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
             )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
@@ -2017,8 +2017,8 @@ class Distance(ErrorHandlingMethodView):
                 source=source,
                 destination=destination,
                 distance=distance,
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
             )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
@@ -2066,8 +2066,8 @@ class Distance(ErrorHandlingMethodView):
             delete_distance(
                 source=source,
                 destination=destination,
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo')
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo']
             )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
@@ -2117,7 +2117,7 @@ class QoSPolicy(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            add_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            add_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except RSENotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -2155,7 +2155,7 @@ class QoSPolicy(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            delete_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            delete_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except RSENotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -2201,7 +2201,7 @@ class QoSPolicy(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            qos_policies = list_qos_policies(rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            qos_policies = list_qos_policies(rse=rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
             return Response(dumps(qos_policies, cls=APIEncoder), content_type='application/json')
         except RSENotFound as error:
             return generate_http_error_flask(404, error)
