@@ -268,8 +268,8 @@ class Search(ErrorHandlingMethodView):
                     filters[arg] = value
             filters = [filters]
 
-        limit = request.args.get('limit', default=None)
         did_type = request.args.get('type', default='collection')
+        limit = request.args.get('limit', type=int, default=None)
         long = request.args.get('long', type=['True', '1'].__contains__, default=False)
         recursive = request.args.get('recursive', type='True'.__eq__, default=False)
         try:
