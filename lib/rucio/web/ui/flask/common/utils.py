@@ -225,9 +225,9 @@ def validate_webui_token(from_cookie=True, session_token=None):
         session_token = request.cookies.get('x-rucio-auth-token')
     if session_token:
         session_token = unquote(session_token)
-    valid_token_dict = auth.validate_auth_token(session_token)
-    valid_token_dict['token'] = session_token  # pylint: disable=E1137
-    return valid_token_dict
+        valid_token_dict = auth.validate_auth_token(session_token)
+        valid_token_dict['token'] = session_token  # pylint: disable=E1137
+        return valid_token_dict
 
 
 def access_granted(valid_token_dict, template, title):
