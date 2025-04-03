@@ -12,49 +12,46 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from rucio.common import exception
 from rucio.core import exporter
 from rucio.core.rse import get_rse_name
-from rucio.db.sqla.session import read_session
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
 
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
-
-@read_session
-def export_data(issuer: str, distance: bool = True, vo: str = 'def', *, session: "Session") -> dict[str, Any]:
+def export_data(issuer: str, distance: bool = True, vo: str = 'def') -> dict[str, Any]:
     """
     Export data from Rucio.
 
     :param issuer: the issuer.
     :param distance: To enable the reporting of distance.
     :param vo: the VO of the issuer.
-    :param session: The database session in use.
     """
     kwargs = {'issuer': issuer}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='export', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('Account %s can not export data. %s' % (issuer, auth_result.message))
+    with db_session(DatabaseOperationType.READ) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='export', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('Account %s can not export data. %s' % (issuer, auth_result.message))
 
-    data = exporter.export_data(distance=distance, vo=vo, session=session)
-    rses = {}
-    distances = {}
+        data = exporter.export_data(distance=distance, vo=vo, session=session)
+        rses = {}
+        distances = {}
 
-    for rse_id in data['rses']:
-        rse = data['rses'][rse_id]
-        rses[get_rse_name(rse_id=rse_id, session=session)] = rse
-    data['rses'] = rses
+        for rse_id in data['rses']:
+            rse = data['rses'][rse_id]
+            rses[get_rse_name(rse_id=rse_id, session=session)] = rse
+        data['rses'] = rses
 
-    if distance:
-        for src_id in data['distances']:
-            dests = data['distances'][src_id]
-            src = get_rse_name(rse_id=src_id, session=session)
-            distances[src] = {}
-            for dest_id in dests:
-                dest = get_rse_name(rse_id=dest_id, session=session)
-                distances[src][dest] = dests[dest_id]
-        data['distances'] = distances
+        if distance:
+            for src_id in data['distances']:
+                dests = data['distances'][src_id]
+                src = get_rse_name(rse_id=src_id, session=session)
+                distances[src] = {}
+                for dest_id in dests:
+                    dest = get_rse_name(rse_id=dest_id, session=session)
+                    distances[src][dest] = dests[dest_id]
+            data['distances'] = distances
     return data
