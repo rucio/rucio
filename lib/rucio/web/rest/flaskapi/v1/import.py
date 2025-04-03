@@ -108,7 +108,7 @@ class Import(ErrorHandlingMethodView):
             description: Invalid Auth Token
         """
         data = json_parameters(parse_response)
-        import_data(data=data, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+        import_data(data=data, issuer=request.environ['issuer'], vo=request.environ['vo'])
         return 'Created', 201
 
 
