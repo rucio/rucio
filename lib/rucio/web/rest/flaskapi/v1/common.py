@@ -143,6 +143,9 @@ def request_auth_env() -> Optional['ResponseReturnValue']:
 
     auth_token = flask.request.headers.get('X-Rucio-Auth-Token', default=None)
 
+    if not auth_token:
+        return generate_http_error_flask(400, ValueError.__name__, 'Token must be set.')
+
     try:
         auth = validate_auth_token(auth_token)
     except CannotAuthenticate:
