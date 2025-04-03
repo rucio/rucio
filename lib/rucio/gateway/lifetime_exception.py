@@ -18,24 +18,20 @@ from rucio.common import exception
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import lifetime_exception
-from rucio.db.sqla.session import stream_session, transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
-    from sqlalchemy.orm import Session
-
     from rucio.db.sqla.constants import LifetimeExceptionsState
 
 
-@stream_session
 def list_exceptions(
     exception_id: Optional[str] = None,
     states: Optional["Iterable[LifetimeExceptionsState]"] = None,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
     """
     List exceptions to Lifetime Model.
@@ -43,16 +39,15 @@ def list_exceptions(
     :param id:         The id of the exception
     :param states:     The states to filter
     :param vo:         The VO to act on
-    :param session:    The database session in use.
     """
 
-    exceptions = lifetime_exception.list_exceptions(exception_id=exception_id, states=states, session=session)
-    for e in exceptions:
-        if vo == e['scope'].vo:
-            yield gateway_update_return_dict(e, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        exceptions = lifetime_exception.list_exceptions(exception_id=exception_id, states=states, session=session)
+        for e in exceptions:
+            if vo == e['scope'].vo:
+                yield gateway_update_return_dict(e, session=session)
 
 
-@transactional_session
 def add_exception(
     dids: "Iterable[dict[str, Any]]",
     account: str,
@@ -60,8 +55,6 @@ def add_exception(
     comments: str,
     expires_at: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> dict[str, Any]:
     """
     Add exceptions to Lifetime Model.
@@ -72,7 +65,6 @@ def add_exception(
     :param comments:    The comments associated to the exception.
     :param expires_at:  The expiration date of the exception.
     :param vo:          The VO to act on.
-    :param session:     The database session in use.
 
     returns:            The id of the exception.
     """
@@ -80,7 +72,9 @@ def add_exception(
     internal_account = InternalAccount(account, vo=vo)
     for did in dids:
         did['scope'] = InternalScope(did['scope'], vo=vo)
-    exceptions = lifetime_exception.add_exception(dids=dids, account=internal_account, pattern=pattern, comments=comments, expires_at=expires_at, session=session)
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        exceptions = lifetime_exception.add_exception(dids=dids, account=internal_account, pattern=pattern, comments=comments, expires_at=expires_at, session=session)
 
     for key in exceptions:
         if key == 'exceptions':
@@ -96,14 +90,11 @@ def add_exception(
     return exceptions
 
 
-@transactional_session
 def update_exception(
     exception_id: str,
     state: 'LifetimeExceptionsState',
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> None:
     """
     Update exceptions state to Lifetime Model.
@@ -112,10 +103,11 @@ def update_exception(
     :param state:      The states to filter.
     :param issuer:     The issuer account.
     :param vo:         The VO to act on.
-    :param session:    The database session in use.
     """
     kwargs = {'exception_id': exception_id, 'vo': vo}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='update_lifetime_exceptions', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('Account %s can not update lifetime exceptions. %s' % (issuer, auth_result.message))
-    return lifetime_exception.update_exception(exception_id=exception_id, state=state, session=session)
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='update_lifetime_exceptions', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('Account %s can not update lifetime exceptions. %s' % (issuer, auth_result.message))
+        return lifetime_exception.update_exception(exception_id=exception_id, state=state, session=session)
