@@ -31,11 +31,11 @@ class TestOpenDataCore:
 
     def test_opendata_dids_add(self, mock_scope, root_account):
         dids = [
-            {"scope": mock_scope, "name": did_name_generator(did_type="file")} for _ in range(6)
+            {"scope": mock_scope, "name": did_name_generator(did_type="dataset")} for _ in range(6)
         ]
 
         for did in dids[0:5]:
-            add_did(scope=did["scope"], name=did["name"], account=root_account, did_type=DIDType.FILE)
+            add_did(scope=did["scope"], name=did["name"], account=root_account, did_type=DIDType.DATASET)
 
         # Add to open data in bulk
         opendata.add_opendata_dids(dids=dids[0:4])
@@ -63,10 +63,10 @@ class TestOpenDataCore:
         assert opendata_json == {}, "opendata_json should be empty"
 
     def test_opendata_dids_defaults(self, mock_scope, root_account):
-        name = did_name_generator(did_type="file")
+        name = did_name_generator(did_type="dataset")
 
         # Add it as a DID
-        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.FILE)
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET)
 
         # Add it as open data
         opendata.add_opendata_did(scope=mock_scope, name=name)
@@ -83,14 +83,14 @@ class TestOpenDataCore:
         assert opendata_did["opendata_json"] == {}, "opendata_json should be empty"
 
     def test_opendata_dids_remove(self, mock_scope, root_account):
-        name = did_name_generator(did_type="file")
+        name = did_name_generator(did_type="dataset")
 
         # Try to delete it first, should fail because it does not exist
         with pytest.raises(OpenDataDataIdentifierNotFound):
             opendata.delete_opendata_did(scope=mock_scope, name=name)
 
         # Add it as a DID
-        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.FILE)
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET)
 
         # Should still fail because it's not added as open data
         with pytest.raises(OpenDataDataIdentifierNotFound):
@@ -114,10 +114,10 @@ class TestOpenDataCore:
                 opendata.get_opendata_did(scope=mock_scope, name=name)
 
     def test_opendata_dids_update(self, mock_scope, root_account):
-        name = did_name_generator(did_type="file")
+        name = did_name_generator(did_type="dataset")
 
         # Add it as a DID
-        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.FILE)
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET)
 
         # Add it as open data
         opendata.add_opendata_did(scope=mock_scope, name=name)
@@ -138,7 +138,7 @@ class TestOpenDataCore:
 
     def test_opendata_dids_list(self, mock_scope, root_account):
         dids = [
-            {"scope": mock_scope, "name": did_name_generator(did_type="file")} for _ in range(5)
+            {"scope": mock_scope, "name": did_name_generator(did_type="dataset")} for _ in range(5)
         ]
 
         # Add to open data in bulk
