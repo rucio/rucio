@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from rucio.common import exception
 from rucio.common.config import convert_to_any_type
 from rucio.core import config
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 """
 ConfigParser compatible interface.
@@ -31,82 +29,77 @@ ConfigParser compatible interface.
 """
 
 
-@read_session
-def sections(issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> list[str]:
+def sections(issuer: Optional[str] = None, vo: str = 'def') -> list[str]:
     """
     Return a list of the sections available.
 
     :param issuer: The issuer account.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     :returns: ['section_name', ...]
     """
 
     kwargs = {'issuer': issuer}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_sections', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('%s cannot retrieve sections. %s' % (issuer, auth_result.message))
-    return config.sections(session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_sections', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('%s cannot retrieve sections. %s' % (issuer, auth_result.message))
+        return config.sections(session=session)
 
 
-@transactional_session
-def add_section(section: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> None:
+def add_section(section: str, issuer: Optional[str] = None, vo: str = 'def') -> None:
     """
     Add a section to the configuration.
 
     :param section: The name of the section.
     :param issuer: The issuer account.
-    :param session: The database session in use.
     :param vo: The VO to act on.
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_add_section', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('%s cannot add section %s. %s' % (issuer, section, auth_result.message))
-    return config.add_section(section, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_add_section', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('%s cannot add section %s. %s' % (issuer, section, auth_result.message))
+        return config.add_section(section, session=session)
 
 
-@read_session
-def has_section(section: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> bool:
+def has_section(section: str, issuer: Optional[str] = None, vo: str = 'def') -> bool:
     """
     Indicates whether the named section is present in the configuration.
 
     :param section: The name of the section.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     :returns: True/False
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_has_section', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('%s cannot check existence of section %s. %s' % (issuer, section, auth_result.message))
-    return config.has_section(section, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_has_section', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('%s cannot check existence of section %s. %s' % (issuer, section, auth_result.message))
+        return config.has_section(section, session=session)
 
 
-@read_session
-def options(section: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> list[str]:
+def options(section: str, issuer: Optional[str] = None, vo: str = 'def') -> list[str]:
     """
     Returns a list of options available in the specified section.
 
     :param section: The name of the section.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     :returns: ['option', ...]
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_options', kwargs=kwargs, session=session)
-    if auth_result.allowed:
-        raise exception.AccessDenied('%s cannot retrieve options from section %s. %s' % (issuer, section, auth_result.message))
-    return config.options(section, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_options', kwargs=kwargs, session=session)
+        if auth_result.allowed:
+            raise exception.AccessDenied('%s cannot retrieve options from section %s. %s' % (issuer, section, auth_result.message))
+        return config.options(section, session=session)
 
 
-@read_session
-def has_option(section: str, option: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> bool:
+def has_option(section: str, option: str, issuer: Optional[str] = None, vo: str = 'def') -> bool:
     """
     Check if the given section exists and contains the given option.
 
@@ -114,19 +107,18 @@ def has_option(section: str, option: str, issuer: Optional[str] = None, vo: str 
     :param option: The name of the option.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     :returns: True/False
     """
 
     kwargs = {'issuer': issuer, 'section': section, 'option': option}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_has_option', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('%s cannot check existence of option %s from section %s. %s' % (issuer, option, section, auth_result.message))
-    return config.has_option(section, option, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_has_option', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('%s cannot check existence of option %s from section %s. %s' % (issuer, option, section, auth_result.message))
+        return config.has_option(section, option, session=session)
 
 
-@read_session
-def get(section: str, option: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> Any:
+def get(section: str, option: str, issuer: Optional[str] = None, vo: str = 'def') -> Any:
     """
     Get an option value for the named section. Value can be auto-coerced to int, float, and bool; string otherwise.
 
@@ -137,19 +129,18 @@ def get(section: str, option: str, issuer: Optional[str] = None, vo: str = 'def'
     :param option: The name of the option.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     :returns: The auto-coerced value.
     """
 
     kwargs = {'issuer': issuer, 'section': section, 'option': option}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_get', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('%s cannot retrieve option %s from section %s. %s' % (issuer, option, section, auth_result.message))
-    return config.get(section, option, session=session, convert_type_fnc=convert_to_any_type)
+    with db_session(DatabaseOperationType.READ) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_get', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('%s cannot retrieve option %s from section %s. %s' % (issuer, option, section, auth_result.message))
+        return config.get(section, option, session=session, convert_type_fnc=convert_to_any_type)
 
 
-@read_session
-def items(section: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> list[tuple[str, Any]]:
+def items(section: str, issuer: Optional[str] = None, vo: str = 'def') -> list[tuple[str, Any]]:
     """
     Return a list of (option, value) pairs for each option in the given section. Values are auto-coerced as in get().
 
@@ -157,19 +148,18 @@ def items(section: str, issuer: Optional[str] = None, vo: str = 'def', *, sessio
     :param value: The content of the value.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     :returns: [('option', auto-coerced value), ...]
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_items', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('%s cannot retrieve options and values from section %s. %s' % (issuer, section, auth_result.message))
-    return config.items(section, session=session, convert_type_fnc=convert_to_any_type)
+    with db_session(DatabaseOperationType.READ) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_items', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('%s cannot retrieve options and values from section %s. %s' % (issuer, section, auth_result.message))
+        return config.items(section, session=session, convert_type_fnc=convert_to_any_type)
 
 
-@transactional_session
-def set(section: str, option: str, value: Any, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> None:
+def set(section: str, option: str, value: Any, issuer: Optional[str] = None, vo: str = 'def') -> None:
     """
     Set the given option to the specified value.
 
@@ -178,37 +168,35 @@ def set(section: str, option: str, value: Any, issuer: Optional[str] = None, vo:
     :param value: The content of the value.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     """
 
     kwargs = {'issuer': issuer, 'section': section, 'option': option, 'value': value}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_set', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('%s cannot set option %s to %s in section %s. %s' % (issuer, option, value, section, auth_result.message))
-    return config.set(section, option, value, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_set', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('%s cannot set option %s to %s in section %s. %s' % (issuer, option, value, section, auth_result.message))
+        return config.set(section, option, value, session=session)
 
 
-@transactional_session
-def remove_section(section: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> bool:
+def remove_section(section: str, issuer: Optional[str] = None, vo: str = 'def') -> bool:
     """
     Remove the specified option from the specified section.
 
     :param section: The name of the section.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     :returns: True/False.
     """
 
     kwargs = {'issuer': issuer, 'section': section}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_remove_section', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('%s cannot remove section %s. %s' % (issuer, section, auth_result.message))
-    return config.remove_section(section, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_remove_section', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('%s cannot remove section %s. %s' % (issuer, section, auth_result.message))
+        return config.remove_section(section, session=session)
 
 
-@transactional_session
-def remove_option(section: str, option: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> bool:
+def remove_option(section: str, option: str, issuer: Optional[str] = None, vo: str = 'def') -> bool:
     """
     Remove the specified section from the configuration.
 
@@ -216,12 +204,12 @@ def remove_option(section: str, option: str, issuer: Optional[str] = None, vo: s
     :param option: The name of the option.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     :returns: True/False
     """
 
     kwargs = {'issuer': issuer, 'section': section, 'option': option}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_remove_option', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('%s cannot remove option %s from section %s. %s' % (issuer, option, section, auth_result.message))
-    return config.remove_option(section, option, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_remove_option', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('%s cannot remove option %s from section %s. %s' % (issuer, option, section, auth_result.message))
+        return config.remove_option(section, option, session=session)
