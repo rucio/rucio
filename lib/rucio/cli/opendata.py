@@ -94,13 +94,10 @@ def get_opendata_did(ctx, did: str, json_flag: bool, public: bool):
     scope, name = extract_scope_name(did)
     result = client.get_opendata_did(scope=scope, name=name, public=public)
 
-    # resolve generator
-    result = list(result)[0]
-    result = json.loads(result)
-
     if json_flag:
         result = result["opendata_json"]
 
+    # TODO: pretty print using tables, etc
     print(json.dumps(result, indent=4, sort_keys=True, ensure_ascii=False))
 
 
