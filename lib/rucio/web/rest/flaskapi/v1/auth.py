@@ -1215,6 +1215,9 @@ class SSH(ErrorHandlingMethodView):
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
+        if not account or not signature:
+            return generate_http_error_flask(400, ValueError.__name__, 'Account and SSH signature must be set.')
+
         try:
             result = get_auth_token_ssh(account, signature, appid, ip, vo=vo)
         except AccessDenied:
