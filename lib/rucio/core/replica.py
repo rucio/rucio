@@ -243,7 +243,7 @@ def __exist_replicas(
 
 @read_session
 def list_bad_replicas_status(
-    state: BadFilesStatus = BadFilesStatus.BAD,
+    state: Optional[BadFilesStatus] = BadFilesStatus.BAD,
     rse_id: Optional[str] = None,
     younger_than: Optional[datetime] = None,
     older_than: Optional[datetime] = None,
