@@ -90,7 +90,7 @@ class LifetimeException(ErrorHandlingMethodView):
                 for exception in list_exceptions(vo=vo):
                     yield dumps(exception, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except LifetimeExceptionNotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -145,8 +145,8 @@ class LifetimeException(ErrorHandlingMethodView):
         try:
             exception_id = add_exception(
                 dids=param_get(parameters, 'dids', default=[]),
-                account=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                account=request.environ['issuer'],
+                vo=request.environ['vo'],
                 pattern=param_get(parameters, 'pattern', default=None),
                 comments=param_get(parameters, 'comments', default=None),
                 expires_at=param_get(parameters, 'expires_at', default=None),
@@ -235,7 +235,7 @@ class LifetimeExceptionId(ErrorHandlingMethodView):
                 for exception in list_exceptions(exception_id, vo=vo):
                     yield dumps(exception, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except LifetimeExceptionNotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -282,7 +282,7 @@ class LifetimeExceptionId(ErrorHandlingMethodView):
         state = param_get(parameters, 'state', default=None)
 
         try:
-            update_exception(exception_id=exception_id, state=state, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            update_exception(exception_id=exception_id, state=state, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except UnsupportedOperation as error:
             return generate_http_error_flask(400, error)
         except AccessDenied as error:
