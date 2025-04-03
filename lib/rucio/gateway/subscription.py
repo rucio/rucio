@@ -40,8 +40,8 @@ def add_subscription(
     lifetime: Union[int, Literal[False]],
     retroactive: bool,
     dry_run: bool,
+    issuer: str,
     priority: Optional[int] = None,
-    issuer: Optional[str] = None,
     vo: str = 'def',
 ) -> str:
     """
@@ -100,8 +100,8 @@ def add_subscription(
 def update_subscription(
     name: str,
     account: str,
+    issuer: str,
     metadata: Optional[dict[str, Any]] = None,
-    issuer: Optional[str] = None,
     vo: str = 'def',
 ) -> None:
     """
