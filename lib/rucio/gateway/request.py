@@ -24,24 +24,19 @@ from rucio.common.utils import gateway_update_return_dict
 from rucio.core import request
 from rucio.core.rse import get_rse_id
 from rucio.db.sqla.constants import DatabaseOperationType, TransferLimitDirection
-from rucio.db.sqla.session import db_session, read_session, stream_session, transactional_session
+from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
 
-    from sqlalchemy.orm import Session
-
     from rucio.db.sqla.constants import RequestState, RequestType
 
 
-@transactional_session
 def queue_requests(
     requests: "Iterable[RequestGatewayDict]",
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> list[dict[str, Any]]:
     """
     Submit transfer or deletion requests on destination RSEs for data identifiers.
@@ -49,32 +44,29 @@ def queue_requests(
     :param requests: List of dictionaries containing 'scope', 'name', 'dest_rse_id', 'request_type', 'attributes'
     :param issuer: Issuing account as a string.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     :returns: List of Request-IDs as 32 character hex strings
     """
 
     kwargs = {'requests': requests, 'issuer': issuer}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='queue_requests', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied(f'{issuer} can not queue request. {auth_result.message}')
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='queue_requests', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied(f'{issuer} can not queue request. {auth_result.message}')
 
-    for req in requests:
-        req['scope'] = InternalScope(req['scope'], vo=vo)  # type: ignore (type reassignment)
-        if 'account' in req:
-            req['account'] = InternalAccount(req['account'], vo=vo)  # type: ignore (type reassignment)
+        for req in requests:
+            req['scope'] = InternalScope(req['scope'], vo=vo)  # type: ignore (type reassignment)
+            if 'account' in req:
+                req['account'] = InternalAccount(req['account'], vo=vo)  # type: ignore (type reassignment)
 
-    new_requests = request.queue_requests(requests, session=session)
-    return [gateway_update_return_dict(r, session=session) for r in new_requests]
+        new_requests = request.queue_requests(requests, session=session)
+        return [gateway_update_return_dict(r, session=session) for r in new_requests]
 
 
-@transactional_session
 def cancel_request(
     request_id: str,
     issuer: str,
     account: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> None:
     """
     Cancel a request.
@@ -83,18 +75,17 @@ def cancel_request(
     :param issuer: Issuing account as a string.
     :param account: Account identifier as a string.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     """
 
     kwargs = {'account': account, 'issuer': issuer, 'request_id': request_id}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='cancel_request_', kwargs=kwargs, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='cancel_request_', kwargs=kwargs, session=session)
     if not auth_result.allowed:
         raise exception.AccessDenied('%s cannot cancel request %s. %s' % (account, request_id, auth_result.message))
 
     raise NotImplementedError
 
 
-@transactional_session
 def cancel_request_did(
     scope: str,
     name: str,
@@ -103,8 +94,6 @@ def cancel_request_did(
     issuer: str,
     account: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> dict[str, Any]:
     """
     Cancel a request based on a DID and request type.
@@ -116,29 +105,26 @@ def cancel_request_did(
     :param issuer: Issuing account as a string.
     :param account: Account identifier as a string.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     """
 
-    dest_rse_id = get_rse_id(rse=dest_rse, vo=vo, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        dest_rse_id = get_rse_id(rse=dest_rse, vo=vo, session=session)
 
-    kwargs = {'account': account, 'issuer': issuer}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='cancel_request_did', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied(f'{account} cannot cancel {request_type} request for {scope}:{name}. {auth_result.message}')
+        kwargs = {'account': account, 'issuer': issuer}
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='cancel_request_did', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied(f'{account} cannot cancel {request_type} request for {scope}:{name}. {auth_result.message}')
 
-    internal_scope = InternalScope(scope, vo=vo)
-    return request.cancel_request_did(internal_scope, name, dest_rse_id, request_type, session=session)
+        internal_scope = InternalScope(scope, vo=vo)
+        return request.cancel_request_did(internal_scope, name, dest_rse_id, request_type, session=session)
 
 
-@transactional_session
 def get_next(
     request_type: "RequestType",
     state: "RequestState",
     issuer: str,
     account: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> list[dict[str, Any]]:
     """
     Retrieve the next request matching the request type and state.
@@ -148,28 +134,26 @@ def get_next(
     :param issuer: Issuing account as a string.
     :param account: Account identifier as a string.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     :returns: Request as a dictionary.
     """
 
     kwargs = {'account': account, 'issuer': issuer, 'request_type': request_type, 'state': state}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_next', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied(f'{account} cannot get the next request of type {request_type} in state {state}. {auth_result.message}')
 
-    reqs = request.get_and_mark_next(request_type, state, session=session)
-    return [gateway_update_return_dict(r, session=session) for r in reqs]
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_next', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied(f'{account} cannot get the next request of type {request_type} in state {state}. {auth_result.message}')
+
+        reqs = request.get_and_mark_next(request_type, state, session=session)
+        return [gateway_update_return_dict(r, session=session) for r in reqs]
 
 
-@read_session
 def get_request_by_did(
     scope: str,
     name: str,
     rse: str,
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> dict[str, Any]:
     """
     Retrieve a request by its DID for a destination RSE.
@@ -179,31 +163,28 @@ def get_request_by_did(
     :param rse: The destination RSE of the request as a string.
     :param issuer: Issuing account as a string.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     :returns: Request as a dictionary.
     """
-    rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
 
-    kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_request_by_did', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}. {auth_result.message}')
+        kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_request_by_did', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}. {auth_result.message}')
 
-    internal_scope = InternalScope(scope, vo=vo)
-    req = request.get_request_by_did(internal_scope, name, rse_id, session=session)
+        internal_scope = InternalScope(scope, vo=vo)
+        req = request.get_request_by_did(internal_scope, name, rse_id, session=session)
 
-    return gateway_update_return_dict(req, session=session)
+        return gateway_update_return_dict(req, session=session)
 
 
-@read_session
 def get_request_history_by_did(
     scope: str,
     name: str,
     rse: str,
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> dict[str, Any]:
     """
     Retrieve a historical request by its DID for a destination RSE.
@@ -213,31 +194,28 @@ def get_request_history_by_did(
     :param rse: The destination RSE of the request as a string.
     :param issuer: Issuing account as a string.
     :param vo: The VO to act on.
-    :param session: The database session in use.
     :returns: Request as a dictionary.
     """
-    rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
 
-    kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_request_history_by_did', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}. {auth_result.message}')
+        kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_request_history_by_did', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}. {auth_result.message}')
 
-    internal_scope = InternalScope(scope, vo=vo)
-    req = request.get_request_history_by_did(internal_scope, name, rse_id, session=session)
+        internal_scope = InternalScope(scope, vo=vo)
+        req = request.get_request_history_by_did(internal_scope, name, rse_id, session=session)
 
-    return gateway_update_return_dict(req, session=session)
+        return gateway_update_return_dict(req, session=session)
 
 
-@stream_session
 def list_requests(
     src_rses: "Iterable[str]",
     dst_rses: "Iterable[str]",
     states: "Sequence[RequestState]",
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> "Iterator[dict[str, Any]]":
     """
     List all requests in a specific state from a source RSE to a destination RSE.
@@ -246,22 +224,21 @@ def list_requests(
     :param dst_rses: destination RSEs.
     :param states: list of request states.
     :param issuer: Issuing account as a string.
-    :param session: The database session in use.
     """
-    src_rse_ids = [get_rse_id(rse=rse, vo=vo, session=session) for rse in src_rses]
-    dst_rse_ids = [get_rse_id(rse=rse, vo=vo, session=session) for rse in dst_rses]
+    with db_session(DatabaseOperationType.READ) as session:
+        src_rse_ids = [get_rse_id(rse=rse, vo=vo, session=session) for rse in src_rses]
+        dst_rse_ids = [get_rse_id(rse=rse, vo=vo, session=session) for rse in dst_rses]
 
-    kwargs = {'src_rse_id': src_rse_ids, 'dst_rse_id': dst_rse_ids, 'issuer': issuer}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='list_requests', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied(f'{issuer} cannot list requests from RSEs {src_rses} to RSEs {dst_rses}. {auth_result.message}')
+        kwargs = {'src_rse_id': src_rse_ids, 'dst_rse_id': dst_rse_ids, 'issuer': issuer}
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='list_requests', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied(f'{issuer} cannot list requests from RSEs {src_rses} to RSEs {dst_rses}. {auth_result.message}')
 
-    for req in request.list_requests(src_rse_ids, dst_rse_ids, states, session=session):
-        req = req.to_dict()
-        yield gateway_update_return_dict(req, session=session)
+        for req in request.list_requests(src_rse_ids, dst_rse_ids, states, session=session):
+            req = req.to_dict()
+            yield gateway_update_return_dict(req, session=session)
 
 
-@stream_session
 def list_requests_history(
     src_rses: "Iterable[str]",
     dst_rses: "Iterable[str]",
@@ -270,8 +247,6 @@ def list_requests_history(
     vo: str = 'def',
     offset: Optional[int] = None,
     limit: Optional[int] = None,
-    *,
-    session: "Session"
 ) -> "Iterator[dict[str, Any]]":
     """
     List all historical requests in a specific state from a source RSE to a destination RSE.
@@ -281,22 +256,21 @@ def list_requests_history(
     :param issuer: Issuing account as a string.
     :param offset: offset (for paging).
     :param limit: limit number of results.
-    :param session: The database session in use.
     """
-    src_rse_ids = [get_rse_id(rse=rse, vo=vo, session=session) for rse in src_rses]
-    dst_rse_ids = [get_rse_id(rse=rse, vo=vo, session=session) for rse in dst_rses]
+    with db_session(DatabaseOperationType.READ) as session:
+        src_rse_ids = [get_rse_id(rse=rse, vo=vo, session=session) for rse in src_rses]
+        dst_rse_ids = [get_rse_id(rse=rse, vo=vo, session=session) for rse in dst_rses]
 
-    kwargs = {'src_rse_id': src_rse_ids, 'dst_rse_id': dst_rse_ids, 'issuer': issuer}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='list_requests_history', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied(f'{issuer} cannot list requests from RSEs {src_rses} to RSEs {dst_rses}. {auth_result.message}')
+        kwargs = {'src_rse_id': src_rse_ids, 'dst_rse_id': dst_rse_ids, 'issuer': issuer}
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='list_requests_history', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied(f'{issuer} cannot list requests from RSEs {src_rses} to RSEs {dst_rses}. {auth_result.message}')
 
-    for req in request.list_requests_history(src_rse_ids, dst_rse_ids, states, offset, limit, session=session):
-        req = req.to_dict()
-        yield gateway_update_return_dict(req, session=session)
+        for req in request.list_requests_history(src_rse_ids, dst_rse_ids, states, offset, limit, session=session):
+            req = req.to_dict()
+            yield gateway_update_return_dict(req, session=session)
 
 
-@read_session
 def get_request_metrics(
     src_rse: Optional[str],
     dst_rse: Optional[str],
@@ -304,8 +278,6 @@ def get_request_metrics(
     group_by_rse_attribute: Optional[str],
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> dict[str, Any]:
     """
     Get statistics of requests in a specific state grouped by source RSE, destination RSE, and activity.
@@ -315,20 +287,24 @@ def get_request_metrics(
     :param activity: activity
     :param group_by_rse_attribute: The parameter to group the RSEs by.
     :param issuer: Issuing account as a string.
-    :param session: The database session in use.
     """
     src_rse_id = None
-    if src_rse:
-        src_rse_id = get_rse_id(rse=src_rse, vo=vo, session=session)
     dst_rse_id = None
-    if dst_rse:
-        dst_rse_id = get_rse_id(rse=dst_rse, vo=vo, session=session)
     kwargs = {'issuer': issuer}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_request_metrics', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied(f'{issuer} cannot get request statistics. {auth_result.message}')
 
-    return request.get_request_metrics(dest_rse_id=dst_rse_id, src_rse_id=src_rse_id, activity=activity, group_by_rse_attribute=group_by_rse_attribute, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        if src_rse:
+            src_rse_id = get_rse_id(rse=src_rse, vo=vo, session=session)
+
+        if dst_rse:
+            dst_rse_id = get_rse_id(rse=dst_rse, vo=vo, session=session)
+
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_request_metrics', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied(f'{issuer} cannot get request statistics. {auth_result.message}')
+
+        return request.get_request_metrics(dest_rse_id=dst_rse_id, src_rse_id=src_rse_id, activity=activity, group_by_rse_attribute=group_by_rse_attribute, session=session)
+
 
 def list_transfer_limits(
     issuer: str,
@@ -348,6 +324,7 @@ def list_transfer_limits(
             raise exception.AccessDenied(f'{issuer} cannot list transfer limits. {auth_result.message}')
 
         return request.list_transfer_limits(session=session)
+
 
 def set_transfer_limit(
     issuer: str,
@@ -395,6 +372,7 @@ def set_transfer_limit(
                                 strategy=strategy,
                                 transfers=transfers,
                                 waitings=waitings)
+
 
 def delete_transfer_limit(
     issuer: str,
