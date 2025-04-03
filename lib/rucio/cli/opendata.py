@@ -41,10 +41,6 @@ def is_valid_json(s: str) -> bool:
         return False
 
 
-def minify_json(data):
-    return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
-
-
 @click.group()
 def opendata():
     """Manage Open Data DIDs"""
