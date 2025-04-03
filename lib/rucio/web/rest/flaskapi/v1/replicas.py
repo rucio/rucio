@@ -226,7 +226,7 @@ class Replicas(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -264,7 +264,7 @@ class Replicas(ErrorHandlingMethodView):
                     rfile['pfns'] = dict(_sorted_with_priorities(rfile['pfns'], replicas, limit=limit))
                     yield rfile
 
-            rfiles = _list_and_sort_replicas(vo=request.environ.get('vo'))
+            rfiles = _list_and_sort_replicas(vo=request.environ['vo'])
             if metalink:
                 response_generator = _generate_metalink_response(rfiles, 'atlas', detailed_url=False)
             else:
@@ -359,8 +359,8 @@ class Replicas(ErrorHandlingMethodView):
             add_replicas(
                 rse=rse,
                 files=files,
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
                 ignore_availability=param_get(parameters, 'ignore_availability', default=False),
             )
         except InvalidPath as error:
@@ -432,7 +432,7 @@ class Replicas(ErrorHandlingMethodView):
         files = param_get(parameters, 'files')
 
         try:
-            update_replicas_states(rse=rse, files=files, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            update_replicas_states(rse=rse, files=files, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
 
@@ -486,8 +486,8 @@ class Replicas(ErrorHandlingMethodView):
             delete_replicas(
                 rse=rse,
                 files=files,
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
                 ignore_availability=param_get(parameters, 'ignore_availability', default=False),
             )
         except AccessDenied as error:
@@ -746,8 +746,8 @@ class ListReplicas(ErrorHandlingMethodView):
                     yield rfile
 
             rfiles = _list_and_sort_replicas(request_id=request.environ.get('request_id'),
-                                             issuer=request.environ.get('issuer'),
-                                             vo=request.environ.get('vo'))
+                                             issuer=request.environ['issuer'],
+                                             vo=request.environ['vo'])
             if metalink:
                 policy_schema = config_get('policy', 'schema', raise_exception=False, default='generic')
                 response_generator = _generate_metalink_response(rfiles, policy_schema)
@@ -822,7 +822,7 @@ class ReplicasDIDs(ErrorHandlingMethodView):
                 for pfn in get_did_from_pfns(pfns, rse, vo=vo):
                     yield dumps(pfn) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
 
@@ -882,7 +882,7 @@ class BadReplicas(ErrorHandlingMethodView):
 
         try:
             not_declared_files = declare_bad_file_replicas(replicas, reason=reason,
-                                                           issuer=request.environ.get('issuer'), vo=request.environ.get('vo'),
+                                                           issuer=request.environ['issuer'], vo=request.environ['vo'],
                                                            force=force)
             return not_declared_files, 201
         except AccessDenied as error:
@@ -1002,7 +1002,7 @@ class SuspiciousReplicas(ErrorHandlingMethodView):
         reason = param_get(parameters, 'reason', default=None)
 
         try:
-            not_declared_files = declare_suspicious_file_replicas(pfns=pfns, reason=reason, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            not_declared_files = declare_suspicious_file_replicas(pfns=pfns, reason=reason, issuer=request.environ['issuer'], vo=request.environ['vo'])
             return not_declared_files, 201
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
@@ -1081,7 +1081,7 @@ class SuspiciousReplicas(ErrorHandlingMethodView):
             if 'nattempts' in params:
                 nattempts = int(params['nattempts'][0])
 
-        result = get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts, vo=request.environ.get('vo'))
+        result = get_suspicious_files(rse_expression=rse_expression, younger_than=younger_than, nattempts=nattempts, vo=request.environ['vo'])
         return Response(render_json(result), 200, content_type='application/json')
 
 
@@ -1208,7 +1208,7 @@ class BadReplicasStates(ErrorHandlingMethodView):
                                                 vo=vo):
                 yield dumps(row, cls=APIEncoder) + '\n'
 
-        return try_stream(generate(vo=request.environ.get('vo')))
+        return try_stream(generate(vo=request.environ['vo']))
 
 
 class BadReplicasSummary(ErrorHandlingMethodView):
@@ -1287,7 +1287,7 @@ class BadReplicasSummary(ErrorHandlingMethodView):
                                                 to_date=to_date, vo=vo):
                 yield dumps(row, cls=APIEncoder) + '\n'
 
-        return try_stream(generate(vo=request.environ.get('vo')))
+        return try_stream(generate(vo=request.environ['vo']))
 
 
 class DatasetReplicas(ErrorHandlingMethodView):
@@ -1370,7 +1370,7 @@ class DatasetReplicas(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
 
             def generate(_deep, vo):
                 for row in list_dataset_replicas(scope=scope, name=name, deep=_deep, vo=vo):
@@ -1378,7 +1378,7 @@ class DatasetReplicas(ErrorHandlingMethodView):
 
             deep = request.args.get('deep', default=False)
 
-            return try_stream(generate(_deep=deep, vo=request.environ.get('vo')))
+            return try_stream(generate(_deep=deep, vo=request.environ['vo']))
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -1483,7 +1483,7 @@ class DatasetReplicasBulk(ErrorHandlingMethodView):
                 for row in list_dataset_replicas_bulk(dids=dids, vo=vo):
                     yield dumps(row, cls=APIEncoder) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except InvalidObject as error:
             return generate_http_error_flask(400, error, f'Cannot validate DIDs: {error}')
 
@@ -1520,7 +1520,7 @@ class DatasetReplicasVP(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
 
             def generate(_deep, vo):
                 for row in list_dataset_replicas_vp(scope=scope, name=name, deep=_deep, vo=vo):
@@ -1528,7 +1528,7 @@ class DatasetReplicasVP(ErrorHandlingMethodView):
 
             deep = request.args.get('deep', default=False)
 
-            return try_stream(generate(_deep=deep, vo=request.environ.get('vo')))
+            return try_stream(generate(_deep=deep, vo=request.environ['vo']))
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -1610,7 +1610,7 @@ class ReplicasRSE(ErrorHandlingMethodView):
             for row in list_datasets_per_rse(rse=rse, vo=vo):
                 yield dumps(row, cls=APIEncoder) + '\n'
 
-        return try_stream(generate(vo=request.environ.get('vo')))
+        return try_stream(generate(vo=request.environ['vo']))
 
 
 class BadDIDs(ErrorHandlingMethodView):
@@ -1676,11 +1676,11 @@ class BadDIDs(ErrorHandlingMethodView):
             not_declared_files = add_bad_dids(
                 dids=param_get(parameters, 'dids', default=[]),
                 rse=param_get(parameters, 'rse', default=None),
-                issuer=request.environ.get('issuer'),
+                issuer=request.environ['issuer'],
                 state=BadFilesStatus.BAD,
                 reason=param_get(parameters, 'reason', default=None),
                 expires_at=expires_at,
-                vo=request.environ.get('vo'),
+                vo=request.environ['vo'],
             )
         except (ValueError, InvalidType) as error:
             return generate_http_error_flask(400, ValueError.__name__, error.args[0])
@@ -1745,11 +1745,11 @@ class BadPFNs(ErrorHandlingMethodView):
         try:
             add_bad_pfns(
                 pfns=param_get(parameters, 'pfns', default=[]),
-                issuer=request.environ.get('issuer'),
+                issuer=request.environ['issuer'],
                 state=param_get(parameters, 'state', default=None),
                 reason=param_get(parameters, 'reason', default=None),
                 expires_at=expires_at,
-                vo=request.environ.get('vo'),
+                vo=request.environ['vo'],
             )
         except (ValueError, InvalidType) as error:
             return generate_http_error_flask(400, ValueError.__name__, error.args[0])
@@ -1816,8 +1816,8 @@ class Tombstone(ErrorHandlingMethodView):
                     rse=replica['rse'],
                     scope=replica['scope'],
                     name=replica['name'],
-                    issuer=request.environ.get('issuer'),
-                    vo=request.environ.get('vo'),
+                    issuer=request.environ['issuer'],
+                    vo=request.environ['vo'],
                 )
         except ReplicaNotFound as error:
             return generate_http_error_flask(404, error)
