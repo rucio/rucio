@@ -1338,6 +1338,9 @@ class SSHChallengeToken(ErrorHandlingMethodView):
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
+        if not account:
+            return generate_http_error_flask(400, ValueError.__name__, 'Account must be set.')
+
         result = get_ssh_challenge_token(account, appid, ip, vo=vo)
 
         if not result:
