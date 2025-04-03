@@ -12,27 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
 from rucio.common import exception
 from rucio.common.types import InternalAccount, TokenDict
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import authentication, identity, oidc
-from rucio.db.sqla.constants import IdentityType
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType, IdentityType
+from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
 
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
-
-@transactional_session
 def refresh_cli_auth_token(
     token_string: str,
     account: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> Optional[tuple[str, int]]:
     """
     Checks if there is active refresh token and if so returns
@@ -40,20 +34,18 @@ def refresh_cli_auth_token(
     refresh and returns new access token.
     :param token_string: token string
     :param account: Rucio account for which token refresh should be considered
-    :param session: The database session in use.
 
     :return: tuple of (access token, expiration epoch), None otherswise
     """
     internal_account = InternalAccount(account, vo=vo)
-    return oidc.refresh_cli_auth_token(token_string, internal_account, session=session)
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        return oidc.refresh_cli_auth_token(token_string, internal_account, session=session)
 
 
-@transactional_session
 def redirect_auth_oidc(
     authn_code: str,
     fetchtoken: bool = False,
-    *,
-    session: "Session"
 ) -> Optional[str]:
     """
     Finds the Authentication URL in the Rucio DB oauth_requests table
@@ -63,21 +55,18 @@ def redirect_auth_oidc(
                       authorization securely to IdP via Rucio Auth server through a browser.
     :param fetchtoken: If True, valid token temporarily saved in the oauth_requests table
                        will be returned. If False, redirection URL is returned.
-    :param session: The database session in use.
 
     :returns: result of the query (authorization URL or a
               token if a user asks with the correct code) or None.
               Exception thrown in case of an unexpected crash.
     """
-    return authentication.redirect_auth_oidc(authn_code, fetchtoken, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        return authentication.redirect_auth_oidc(authn_code, fetchtoken, session=session)
 
 
-@transactional_session
 def get_auth_oidc(
     account: str,
     vo: str = 'def',
-    *,
-    session: "Session",
     **kwargs
 ) -> str:
     """
@@ -107,7 +96,6 @@ def get_auth_oidc(
     :param refresh_lifetime: specifies how long the OAuth daemon should
                              be refreshing this token. Default is 96 hours.
     :param ip: IP address of the client as a string.
-    :param session: The database session in use.
 
     :returns: User & Rucio OIDC Client specific Authorization or Redirection URL as a string
               OR a redirection url to be used in user's browser for authentication.
@@ -115,15 +103,13 @@ def get_auth_oidc(
     # no permission layer for the moment !
 
     internal_account = InternalAccount(account, vo=vo)
-    return oidc.get_auth_oidc(internal_account, session=session, **kwargs)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        return oidc.get_auth_oidc(internal_account, session=session, **kwargs)
 
 
-@transactional_session
 def get_token_oidc(
     auth_query_string: str,
     ip: Optional[str] = None,
-    *,
-    session: "Session"
 ) -> Optional[dict[str, Optional[Union[str, bool]]]]:
     """
     After Rucio User got redirected to Rucio /auth/oidc_token (or /auth/oidc_code)
@@ -132,17 +118,16 @@ def get_token_oidc(
 
     :param auth_query_string: IdP redirection URL query string (AuthZ code & user session state).
     :param ip: IP address of the client as a string.
-    :param session: The database session in use.
 
     :returns: One of the following tuples: ("fetchcode", <code>); ("token", <token>);
               ("polling", True); The result depends on the authentication strategy being used
               (no auto, auto, polling).
     """
     # no permission layer for the moment !
-    return oidc.get_token_oidc(auth_query_string, ip, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        return oidc.get_token_oidc(auth_query_string, ip, session=session)
 
 
-@transactional_session
 def get_auth_token_user_pass(
     account: str,
     username: str,
@@ -150,8 +135,6 @@ def get_auth_token_user_pass(
     appid: str,
     ip: Optional[str] = None,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via username and password.
@@ -164,30 +147,27 @@ def get_auth_token_user_pass(
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
     :param vo: The VO to act on.
-    :param session: The database session in use.
 
     :returns: A dict with token and expires_at entries.
     """
 
     kwargs = {'account': account, 'username': username, 'password': password}
-    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_user_pass', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (username, account, auth_result.message))
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_user_pass', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (username, account, auth_result.message))
 
-    internal_account = InternalAccount(account, vo=vo)
+        internal_account = InternalAccount(account, vo=vo)
 
-    return authentication.get_auth_token_user_pass(internal_account, username, password, appid, ip, session=session)
+        return authentication.get_auth_token_user_pass(internal_account, username, password, appid, ip, session=session)
 
 
-@transactional_session
 def get_auth_token_gss(
     account: str,
     gsscred: str,
     appid: str,
     ip: Optional[str] = None,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via a GSS token.
@@ -199,30 +179,27 @@ def get_auth_token_gss(
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
     :param vo: The VO to act on.
-    :param session: The database session in use.
 
     :returns: A dict with token and expires_at entries.
     """
 
     kwargs = {'account': account, 'gsscred': gsscred}
-    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_gss', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (gsscred, account, auth_result.message))
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_gss', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (gsscred, account, auth_result.message))
 
-    internal_account = InternalAccount(account, vo=vo)
+        internal_account = InternalAccount(account, vo=vo)
 
-    return authentication.get_auth_token_gss(internal_account, gsscred, appid, ip, session=session)
+        return authentication.get_auth_token_gss(internal_account, gsscred, appid, ip, session=session)
 
 
-@transactional_session
 def get_auth_token_x509(
     account: Optional[str],
     dn: str,
     appid: str,
     ip: Optional[str] = None,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via an x509 certificate.
@@ -234,7 +211,6 @@ def get_auth_token_x509(
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
     :param vo: The VO to act on.
-    :param session: The database session in use.
 
     :returns: A dict with token and expires_at entries.
     """
@@ -243,24 +219,23 @@ def get_auth_token_x509(
         account = identity.get_default_account(dn, IdentityType.X509).external
 
     kwargs = {'account': account, 'dn': dn}
-    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_x509', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (dn, account, auth_result.message))
 
-    internal_account = InternalAccount(account, vo=vo)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_x509', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (dn, account, auth_result.message))
 
-    return authentication.get_auth_token_x509(internal_account, dn, appid, ip, session=session)
+        internal_account = InternalAccount(account, vo=vo)
+
+        return authentication.get_auth_token_x509(internal_account, dn, appid, ip, session=session)
 
 
-@transactional_session
 def get_auth_token_ssh(
     account: str,
     signature: str,
     appid: str,
     ip: Optional[str] = None,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via SSH key exchange.
@@ -272,29 +247,27 @@ def get_auth_token_ssh(
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
     :param vo: The VO to act on.
-    :param session: The database session in use.
 
     :returns: A dict with token and expires_at entries.
     """
 
     kwargs = {'account': account, 'signature': signature}
-    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('User with provided signature can not log to account %s. %s' % (account, auth_result.message))
 
-    internal_account = InternalAccount(account, vo=vo)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('User with provided signature can not log to account %s. %s' % (account, auth_result.message))
 
-    return authentication.get_auth_token_ssh(internal_account, signature, appid, ip, session=session)
+        internal_account = InternalAccount(account, vo=vo)
+
+        return authentication.get_auth_token_ssh(internal_account, signature, appid, ip, session=session)
 
 
-@transactional_session
 def get_ssh_challenge_token(
     account: str,
     appid: str,
     ip: Optional[str] = None,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> Optional[TokenDict]:
     """
     Get a challenge token for subsequent SSH public key authentication.
@@ -305,30 +278,28 @@ def get_ssh_challenge_token(
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
     :param vo: The VO to act on.
-    :param session: The database session in use.
 
     :returns: A dict with token and expires_at entries.
     """
 
     kwargs = {'account': account}
-    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('User can not get challenge token for account %s. %s' % (account, auth_result.message))
 
-    internal_account = InternalAccount(account, vo=vo)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_ssh', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('User can not get challenge token for account %s. %s' % (account, auth_result.message))
 
-    return authentication.get_ssh_challenge_token(internal_account, appid, ip, session=session)
+        internal_account = InternalAccount(account, vo=vo)
+
+        return authentication.get_ssh_challenge_token(internal_account, appid, ip, session=session)
 
 
-@transactional_session
 def get_auth_token_saml(
     account: str,
     saml_nameid: str,
     appid: str,
     ip: Optional[str] = None,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> Optional[TokenDict]:
     """
     Authenticate a Rucio account temporarily via SSO.
@@ -339,26 +310,24 @@ def get_auth_token_saml(
     :param saml_nameid: NameId returned in SAML response as a string.
     :param appid: The application identifier as a string.
     :param ip: IP address of the client as a string.
-    :param session: The database session in use.
 
     :returns: A dict with token and expires_at entries.
     """
 
     kwargs = {'account': account, 'saml_nameid': saml_nameid}
-    auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_saml', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (saml_nameid, account, auth_result.message))
 
-    internal_account = InternalAccount(account, vo=vo)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_saml', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (saml_nameid, account, auth_result.message))
 
-    return authentication.get_auth_token_saml(internal_account, saml_nameid, appid, ip, session=session)
+        internal_account = InternalAccount(account, vo=vo)
+
+        return authentication.get_auth_token_saml(internal_account, saml_nameid, appid, ip, session=session)
 
 
-@transactional_session
 def validate_auth_token(
     token: str,
-    *,
-    session: "Session"
 ) -> dict[str, Any]:
     """
     Validate an authentication token.
@@ -374,8 +343,9 @@ def validate_auth_token(
                            vo: <vo> }
     """
 
-    auth = authentication.validate_auth_token(token, session=session)
-    vo = auth['account'].vo
-    auth = gateway_update_return_dict(auth, session=session)
-    auth['vo'] = vo
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth = authentication.validate_auth_token(token, session=session)
+        vo = auth['account'].vo
+        auth = gateway_update_return_dict(auth, session=session)
+        auth['vo'] = vo
     return auth
