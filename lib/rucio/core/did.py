@@ -2268,7 +2268,7 @@ def set_status(
 @read_session
 def list_dids(
     scope: "InternalScope",
-    filters: "Mapping[Any, Any]",
+    filters: "Iterable[dict[Any, Any]]",
     did_type: Literal['all', 'collection', 'dataset', 'container', 'file'] = 'collection',
     ignore_case: bool = False,
     limit: Optional[int] = None,
