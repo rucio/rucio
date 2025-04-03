@@ -1461,6 +1461,9 @@ class SAML(ErrorHandlingMethodView):
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
+        if not account:
+            return generate_http_error_flask(400, ValueError.__name__, 'Account must be set.')
+
         if saml_nameid:
             try:
                 result = get_auth_token_saml(account, saml_nameid, appid, ip, vo=vo)
