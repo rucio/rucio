@@ -916,6 +916,9 @@ class GSS(ErrorHandlingMethodView):
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
+        if not account or not gsscred:
+            return generate_http_error_flask(400, ValueError.__name__, 'Account and REMOTE_USER must be set.')
+
         try:
             result = get_auth_token_gss(account, gsscred, appid, ip, vo=vo)
         except AccessDenied:
