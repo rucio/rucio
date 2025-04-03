@@ -43,7 +43,14 @@ def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, 
         return [gateway_update_return_dict(r, session=session) for r in replicas]
 
 
-def list_bad_replicas_status(state=BadFilesStatus.BAD, rse=None, younger_than=None, older_than=None, limit=None, list_pfns=False, vo='def'):
+def list_bad_replicas_status(
+        state: Optional[BadFilesStatus] = BadFilesStatus.BAD,
+        rse: Optional[str] = None,
+        younger_than: Optional[datetime.datetime] = None,
+        older_than: Optional[datetime.datetime] = None,
+        limit: Optional[int] = None,
+        list_pfns: bool = False,
+        vo: str = 'def'):
     """
     List the bad file replicas history states. Method used by the rucio-ui.
     :param state: The state of the file (SUSPICIOUS or BAD).

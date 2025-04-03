@@ -1180,7 +1180,8 @@ class BadReplicasStates(ErrorHandlingMethodView):
           406:
             description: Not acceptable
         """
-        state, rse, younger_than, older_than, limit, list_pfns = None, None, None, None, None, None
+        list_pfns = False
+        state, rse, younger_than, older_than, limit = None, None, None, None, None
         if request.query_string:
             query_string = request.query_string.decode(encoding='utf-8')
             try:
