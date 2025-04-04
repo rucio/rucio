@@ -21,6 +21,7 @@ from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.sql.expression import bindparam, select
 
 from rucio.common import exception
+from rucio.common.exception import OpenDataError
 from rucio.core.monitor import MetricManager
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import OpenDataDIDState
@@ -34,6 +35,28 @@ if TYPE_CHECKING:
     from rucio.common.types import InternalScope
 
 METRICS = MetricManager(module=__name__)
+
+
+def is_valid_opendata_did_state(state: str) -> bool:
+    try:
+        _ = OpenDataDIDState[state]
+        return True
+    except KeyError:
+        return False
+
+
+def check_valid_opendata_did_state(state: str) -> None:
+    if not is_valid_opendata_did_state(state):
+        raise OpenDataError(
+            f"Invalid state '{state}'. Valid opendata states are: {', '.join([s.name for s in OpenDataDIDState])}")
+
+
+def opendata_state_str_to_enum(state: str) -> type[OpenDataDIDState[Any]]:
+    try:
+        return OpenDataDIDState[state]
+    except KeyError:
+        raise exception.InputValidationError(
+            f"Invalid state '{state}'. Valid opendata states are: {', '.join([s.name for s in OpenDataDIDState])}")
 
 
 @read_session
@@ -63,7 +86,7 @@ def list_opendata_dids(
         query = query.offset(offset)
 
     if state is not None:
-        query = query.where(models.OpenDataDid.state == state.value)
+        query = query.where(models.OpenDataDid.state == state)
 
     print(f"Query: {query}")
 

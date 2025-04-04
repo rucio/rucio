@@ -29,7 +29,7 @@ class OpenDataPublicView(ErrorHandlingMethodView):
             limit = request.args.get("limit", default=None)
             offset = request.args.get("offset", default=None)
             print(f"limit: {limit}, offset: {offset}")
-            result = opendata.list_opendata_dids(limit=limit, offset=offset, state="P")
+            result = opendata.list_opendata_dids(limit=limit, offset=offset, state="PUBLIC")
             # return try_stream(render_json(result))
             result = render_json(result)
             return Response(result, content_type="application/json")
@@ -43,7 +43,7 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
     def get(self, scope: str, name: str) -> "Response":
         try:
             scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
-            result = opendata.get_opendata_did(scope=scope, name=name, state="P", vo=request.environ.get("vo"))
+            result = opendata.get_opendata_did(scope=scope, name=name, state="PUBLIC", vo=request.environ.get("vo"))
             return Response(render_json(**result), content_type="application/json")
         except ValueError as error:
             return generate_http_error_flask(400, error)

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from rucio.common.types import InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import opendata
+from rucio.core.opendata import check_valid_opendata_did_state, opendata_state_str_to_enum
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
@@ -31,11 +32,14 @@ def list_opendata_dids(
         *,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
-        state: Optional[str] = None,  # TODO: type only valid states
+        state: Optional[str] = None,
         session: "Session"
         # ) -> "Iterator[dict[str, Any]]":
 ) -> list[Any]:
     print(f"GATEWAY list_opendata_dids called with limit={limit}, offset={offset}, state={state}")
+    if state:
+        check_valid_opendata_did_state(state)
+        state = opendata_state_str_to_enum(state)
     result = opendata.list_opendata_dids(limit=limit, offset=offset, state=state, session=session)
     print(f"GATEWAY list_opendata_dids result: {result}")
     # yield from (gateway_update_return_dict(d, session=session) for d in result)
@@ -47,11 +51,14 @@ def get_opendata_did(
         *,
         scope: str,
         name: str,
-        state: Optional[str] = None,  # TODO: type only valid states
+        state: Optional[str] = None,
         vo: str = "def",
         session: "Session"
 ) -> dict[str, Any]:
     internal_scope = InternalScope(scope, vo=vo)
+    if state:
+        check_valid_opendata_did_state(state)
+        state = opendata_state_str_to_enum(state)
     result = opendata.get_opendata_did(scope=internal_scope, name=name, state=state, session=session)
     print(f"get_opendata_did result: {result}")
     return gateway_update_return_dict(
@@ -94,8 +101,9 @@ def update_opendata_did(
         session: "Session"
 ) -> None:
     internal_scope = InternalScope(scope, vo=vo)
-    # print type of opendata_json
-    print("opendata_json type: ", type(opendata_json))
+    if state:
+        check_valid_opendata_did_state(state)
+        state = opendata_state_str_to_enum(state)
     if isinstance(opendata_json, str):
         try:
             opendata_json = json.loads(opendata_json)
