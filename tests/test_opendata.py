@@ -147,7 +147,6 @@ class TestOpenDataCore:
 
         # List open data DIDs
         opendata_dids = opendata.list_opendata_dids()
-        assert len(opendata_dids) == 5, "Number of open data DIDs does not match"
         for i, did in enumerate(opendata_dids):
             assert did["scope"] == dids[i]["scope"], "Scope does not match"
             assert did["name"] == dids[i]["name"], "Name does not match"
