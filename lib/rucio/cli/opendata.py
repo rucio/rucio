@@ -18,8 +18,13 @@ import click
 
 from rucio.common.exception import RucioException
 
+from typing import TYPE_CHECKING
 
-def extract_scope_name(did: str):
+if TYPE_CHECKING:
+    from click import Context
+
+
+def extract_scope_name(did: str) -> tuple[str, str]:
     # TODO: move this somewhere else
 
     parts = did.split(':')
@@ -42,7 +47,7 @@ def is_valid_json(s: str) -> bool:
 
 
 @click.group()
-def opendata():
+def opendata() -> None:
     """Manage Open Data DIDs"""
 
 
@@ -52,7 +57,7 @@ def opendata():
 @click.option("--public", required=False, is_flag=True, default=False,
               help="Perform request against the public endpoint")
 @click.pass_context
-def list_opendata_dids(ctx, state: str, public: bool):
+def list_opendata_dids(ctx: "Context", state: str, public: bool) -> None:
     # TODO: check state is valid
     client = ctx.obj.client
     print(f"DEBUG: Listing Open Data DIDs with state '{state}' and public flag '{public}'")
@@ -65,7 +70,7 @@ def list_opendata_dids(ctx, state: str, public: bool):
 @opendata.command("add")
 @click.argument("did")
 @click.pass_context
-def add_opendata_did(ctx, did):
+def add_opendata_did(ctx: "Context", did: str) -> None:
     client = ctx.obj.client
     print(f"DEBUG: Adding Open Data DID with '{did}'")
     scope, name = extract_scope_name(did)
@@ -75,7 +80,7 @@ def add_opendata_did(ctx, did):
 @opendata.command("remove")
 @click.argument("did")
 @click.pass_context
-def remove_opendata_did(ctx, did):
+def remove_opendata_did(ctx: "Context", did: str) -> None:
     client = ctx.obj.client
     print(f"DEBUG: Removing Open Data DID with '{did}'")
     scope, name = extract_scope_name(did)
@@ -88,7 +93,7 @@ def remove_opendata_did(ctx, did):
 @click.option("--public", required=False, is_flag=True, default=False,
               help="Perform request against the public endpoint")
 @click.pass_context
-def get_opendata_did(ctx, did: str, json_flag: bool, public: bool):
+def get_opendata_did(ctx: "Context", did: str, json_flag: bool, public: bool) -> None:
     client = ctx.obj.client
     scope, name = extract_scope_name(did)
     result = client.get_opendata_did(scope=scope, name=name, public=public)
@@ -106,7 +111,7 @@ def get_opendata_did(ctx, did: str, json_flag: bool, public: bool):
 # TODO: once the list of states is defined, restrict choices to those states
 @click.option("--state", required=False, help="State")
 @click.pass_context
-def update_opendata_did(ctx, did: str, opendata_json: str, state: str):
+def update_opendata_did(ctx: "Context", did: str, opendata_json: str, state: str) -> None:
     client = ctx.obj.client
     if not opendata_json and not state:
         raise ValueError("At least one of --json or --state must be provided.")

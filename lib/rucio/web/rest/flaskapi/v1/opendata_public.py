@@ -17,13 +17,14 @@ from flask import Blueprint, Flask, Response, request
 from rucio.common.exception import OpenDataDataIdentifierNotFound
 from rucio.common.utils import render_json
 from rucio.gateway import opendata
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, parse_scope_name, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, \
+    generate_http_error_flask, parse_scope_name, response_headers, try_stream
 
 
 class OpenDataPublicView(ErrorHandlingMethodView):
     # @check_accept_header_wrapper_flask(['application/x-json-stream'])
     @check_accept_header_wrapper_flask(["application/json"])
-    def get(self):
+    def get(self) -> "Response":
         print(f"OpenDataPrivateView.get() called")
         try:
             limit = request.args.get("limit", default=None)
@@ -40,7 +41,7 @@ class OpenDataPublicView(ErrorHandlingMethodView):
 class OpenDataPublicDIDsView(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(["application/json"])
-    def get(self, scope: str, name: str):
+    def get(self, scope: str, name: str) -> "Response":
         try:
             scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
             result = opendata.get_opendata_did(scope=scope, name=name, state="P", vo=request.environ.get("vo"))
@@ -51,7 +52,7 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
 
-def blueprint():
+def blueprint() -> "Blueprint":
     bp = Blueprint("opendata_public", __name__, url_prefix="/opendata")
 
     opendata_public_view = OpenDataPublicView.as_view("opendata")
@@ -65,7 +66,7 @@ def blueprint():
     return bp
 
 
-def make_doc():
+def make_doc() -> "Flask":
     """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
     doc_app.register_blueprint(blueprint())
