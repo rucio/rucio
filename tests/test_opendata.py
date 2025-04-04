@@ -141,8 +141,9 @@ class TestOpenDataCore:
             {"scope": mock_scope, "name": did_name_generator(did_type="dataset")} for _ in range(5)
         ]
 
-        # Add to open data in bulk
-        opendata.add_opendata_dids(dids=dids)
+        for did in dids:
+            add_did(scope=did["scope"], name=did["name"], account=root_account, did_type=DIDType.DATASET)
+            opendata.add_opendata_did(scope=did["scope"], name=did["name"])
 
         # List open data DIDs
         opendata_dids = opendata.list_opendata_dids()
