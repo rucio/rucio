@@ -57,10 +57,11 @@ def get_opendata_did(
         session: "Session"
 ) -> dict[str, Any]:
     internal_scope = InternalScope(scope, vo=vo)
+    state_enum = None
     if state:
         check_valid_opendata_did_state(state)
-        state = opendata_state_str_to_enum(state)
-    result = opendata.get_opendata_did(scope=internal_scope, name=name, state=state, session=session)
+        state_enum = opendata_state_str_to_enum(state)
+    result = opendata.get_opendata_did(scope=internal_scope, name=name, state=state_enum, session=session)
     print(f"get_opendata_did result: {result}")
     return gateway_update_return_dict(
         result,
