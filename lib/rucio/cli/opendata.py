@@ -13,11 +13,12 @@
 # limitations under the License.
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Type
 
 import click
 
-from rucio.common.exception import RucioException
+from rucio.common.exception import RucioException, OpenDataError
+from rucio.db.sqla.constants import OpenDataDIDState
 
 if TYPE_CHECKING:
     from click import Context

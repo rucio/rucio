@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import json
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote_plus
@@ -18,10 +19,26 @@ from urllib.parse import quote_plus
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.exception import OpenDataError
 from rucio.common.utils import build_url, render_json
+from rucio.db.sqla.constants import OpenDataDIDState
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+
+def is_valid_opendata_did_state(state: str) -> bool:
+    try:
+        _ = OpenDataDIDState[state]
+        return True
+    except KeyError:
+        return False
+
+
+def check_valid_opendata_did_state(state: str) -> None:
+    if not is_valid_opendata_did_state(state):
+        raise OpenDataError(
+            f"Invalid state '{state}'. Valid opendata states are: {', '.join([s.name for s in OpenDataDIDState])}")
 
 
 class OpenDataClient(BaseClient):
@@ -37,10 +54,19 @@ class OpenDataClient(BaseClient):
         base_url = self.opendata_public_base_url if public else self.opendata_private_base_url
         path = '/'.join([base_url])
 
-        # TODO: filter on state
+        params = {}
+
+        if state is not None:
+            state = state.upper().strip()
+            check_valid_opendata_did_state(state)
+            params['state'] = state
+
+        if state is not None and public:
+            raise ValueError('state and public cannot be provided at the same time.')
+
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, type_='GET', params=params)
         if r.status_code == codes.ok:
             result = self._load_json_data(r)
             return result
@@ -93,6 +119,9 @@ class OpenDataClient(BaseClient):
         path = '/'.join([self.opendata_private_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
 
+        if state is not None:
+            state = state.upper().strip()
+            check_valid_opendata_did_state(state)
         if opendata_json is None and state is None:
             raise ValueError('Either opendata_json or state must be provided to update the OpenData DID.')
         if opendata_json is not None and state is not None:

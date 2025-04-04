@@ -22,7 +22,7 @@ from sqlalchemy.sql.expression import bindparam, case, false, null, select, true
 
 from rucio.common import exception
 from rucio.core.monitor import MetricManager
-from rucio.db.sqla import filter_thread_work, models
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import OpenDataDIDState
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
-    from rucio.common.types import InternalAccount, InternalScope, LoggerFunction
+    from rucio.common.types import InternalScope
 
 METRICS = MetricManager(module=__name__)
 
@@ -41,10 +41,10 @@ def list_opendata_dids(
         *,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
-        state: Optional[str] = None,  # TODO: typing only valid states
+        state: Optional[OpenDataDIDState] = None,
         session: "Session"
 ) -> list[dict[str, Any]]:
-    list_stmt = select(
+    query = select(
         models.OpenDataDid.scope,
         models.OpenDataDid.name,
         models.OpenDataDid.state,
@@ -56,17 +56,19 @@ def list_opendata_dids(
 
     print(f"Called list_opendata_dids with limit={limit}, offset={offset}, state={state}")
 
-    if limit:
-        list_stmt = list_stmt.limit(limit)
+    if limit is not None:
+        query = query.limit(limit)
 
-    if offset:
-        list_stmt = list_stmt.offset(offset)
+    if offset is not None:
+        query = query.offset(offset)
 
-    if state:
-        list_stmt = list_stmt.where(models.OpenDataDid.state == state)
+    if state is not None:
+        query = query.where(models.OpenDataDid.state == state)
+
+    print(f"Query: {query}")
 
     return [{"scope": scope, "name": name, "state": state, "created_at": created_at, "updated_at": updated_at} for
-              scope, name, state, created_at, updated_at in session.execute(list_stmt)]
+            scope, name, state, created_at, updated_at in session.execute(query)]
 
 
 @read_session
@@ -74,12 +76,12 @@ def get_opendata_did(
         *,
         scope: "InternalScope",
         name: str,
-        state: Optional[str] = None,  # TODO: typing only valid states
+        state: Optional[OpenDataDIDState] = None,
         session: "Session"
 ) -> Optional[dict[str, Any]]:
     print(f"Called GATEWAY get_opendata_did with scope={scope}, name={name}, state={state}")
 
-    get_stmt = select(
+    query = select(
         models.OpenDataDid.scope,
         models.OpenDataDid.name,
         models.OpenDataDid.state,
@@ -94,11 +96,11 @@ def get_opendata_did(
     )
 
     if state:
-        get_stmt = get_stmt.where(models.OpenDataDid.state == state)
+        query = query.where(models.OpenDataDid.state == state)
 
-    print(f"Query: {get_stmt}")
+    print(f"Query: {query}")
 
-    result = session.execute(get_stmt).mappings().fetchone()
+    result = session.execute(query).mappings().fetchone()
     if not result:
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
 
@@ -130,12 +132,11 @@ def add_opendata_dids(
         if "scope" not in did or "name" not in did:
             raise exception.InputValidationError("DID must have 'scope' and 'name' keys.")
 
-    insert_stmt = insert(models.OpenDataDid).values(dids)
+    query = insert(models.OpenDataDid).values(dids)
 
     try:
-        session.execute(insert_stmt)
+        session.execute(query)
     except IntegrityError as error:
-        # Is there an easier way to switch on the specific IntegrityError?
         if match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', error.args[0]) \
                 or match('.*IntegrityError.*UNIQUE constraint failed: dids.scope, dids.name.*', error.args[0]) \
                 or match('.*IntegrityError.*1062.*Duplicate entry.*for key.*', error.args[0]) \
@@ -154,7 +155,7 @@ def delete_opendata_did(
         name: str,
         session: "Session",
 ) -> None:
-    select_stmt = select(
+    query = select(
         models.OpenDataDid.scope,
         models.OpenDataDid.name,
         models.OpenDataDid.state,
@@ -165,7 +166,7 @@ def delete_opendata_did(
         )
     )
 
-    result = session.execute(select_stmt).mappings().fetchone()
+    result = session.execute(query).mappings().fetchone()
     if not result:
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
 
@@ -192,7 +193,7 @@ def update_opendata_did(
         *,
         scope: "InternalScope",
         name: str,
-        state: Optional[str] = None,  # TODO: typing only valid states
+        state: Optional[OpenDataDIDState] = None,
         opendata_json: Optional[Union[dict, str]] = None,
         session: "Session",
 ) -> None:
@@ -209,7 +210,7 @@ def update_opendata_did(
         if not isinstance(opendata_json, dict):
             raise exception.InputValidationError("opendata_json must be a dictionary.")
 
-    exists_stmt = select(
+    exists_query = select(
         exists().where(
             and_(
                 models.OpenDataDid.scope == scope,
@@ -218,24 +219,24 @@ def update_opendata_did(
         )
     )
 
-    if not session.execute(exists_stmt).scalar():
+    if not session.execute(exists_query).scalar():
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
 
-    update_stmt = update(models.OpenDataDid).where(
+    update_query = update(models.OpenDataDid).where(
         and_(
             models.OpenDataDid.scope == scope,
             models.OpenDataDid.name == name
         )
     )
     if state is not None:
-        update_stmt = update_stmt.values(state=state)
+        update_query = update_query.values(state=state)
     if opendata_json is not None:
-        update_stmt = update_stmt.values(opendata_json=opendata_json)
+        update_query = update_query.values(opendata_json=opendata_json)
 
     # TODO: Add some logic to handle how state is updated e.g. can go from DRAFT to PUBLIC but not the other way around
 
     try:
-        result = session.execute(update_stmt)
+        result = session.execute(update_query)
 
         if result.rowcount == 0:
             raise ValueError(f"Error updating OpenData entry '{scope}:{name}'.")
