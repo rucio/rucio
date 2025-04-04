@@ -157,3 +157,25 @@ class TestOpenDataCore:
             assert did["name"] == dids[i]["name"], "Name does not match"
             assert did["state"] == OpenDataDIDState.DRAFT, "State does not match"
             assert did["opendata_json"] == {}, "opendata_json should be empty"
+
+    def test_opendata_dids_list_public(self, mock_scope, root_account):
+        did_private = did_name_generator(did_type="dataset")
+        did_public = did_name_generator(did_type="dataset")
+
+        # Add it as a DID
+        add_did(scope=mock_scope, name=did_private, account=root_account, did_type=DIDType.DATASET)
+        add_did(scope=mock_scope, name=did_public, account=root_account, did_type=DIDType.DATASET)
+
+        # Add it as open data
+        opendata.add_opendata_did(scope=mock_scope, name=did_private)
+        opendata.add_opendata_did(scope=mock_scope, name=did_public)
+
+        # Update state to public
+        opendata.update_opendata_did(scope=mock_scope, name=did_public, state='P')
+
+        # List open data DIDs
+        opendata_dids = opendata.list_opendata_dids(state='P')
+        assert len(opendata_dids) == 1, "Should only be one public open data DID"
+        assert opendata_dids[0]["scope"] == mock_scope, "Scope does not match"
+        assert opendata_dids[0]["name"] == did_public, "Name does not match"
+        assert opendata_dids[0]["state"] == OpenDataDIDState.PUBLIC, "State does not match"
