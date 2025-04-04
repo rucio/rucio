@@ -51,7 +51,8 @@ def check_valid_opendata_did_state(state: str) -> None:
             f"Invalid state '{state}'. Valid opendata states are: {', '.join([s.name for s in OpenDataDIDState])}")
 
 
-def opendata_state_str_to_enum(state: str):
+# Don't know how to annotate this :(
+def opendata_state_str_to_enum(state: str) -> Any:
     try:
         return OpenDataDIDState[state]
     except KeyError:
@@ -241,9 +242,6 @@ def update_opendata_did(
     )
 
     state_before = session.execute(exists_query).scalar()
-
-    print(f"State before update: {state_before}")
-
     if state_before is None:
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
 
@@ -255,10 +253,19 @@ def update_opendata_did(
     )
     if state is not None:
         update_query = update_query.values(state=state)
+
+        if state == OpenDataDIDState.DRAFT:
+            if state_before != OpenDataDIDState.DRAFT:
+                raise OpenDataError("Cannot set state to DRAFT. Once a DID is made public, it cannot be reverted to DRAFT.")
+        elif state == OpenDataDIDState.PUBLIC:
+            # All states can be set to PUBLIC
+            ...
+        elif state == OpenDataDIDState.SUSPENDED:
+            if state_before == OpenDataDIDState.DRAFT:
+                raise OpenDataError("Cannot set state to SUSPENDED from DRAFT. First set it to PUBLIC.")
+
     if opendata_json is not None:
         update_query = update_query.values(opendata_json=opendata_json)
-
-    # TODO: Add some logic to handle how state is updated e.g. can go from DRAFT to PUBLIC but not the other way around
 
     try:
         result = session.execute(update_query)

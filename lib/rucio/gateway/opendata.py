@@ -37,10 +37,11 @@ def list_opendata_dids(
         # ) -> "Iterator[dict[str, Any]]":
 ) -> list[Any]:
     print(f"GATEWAY list_opendata_dids called with limit={limit}, offset={offset}, state={state}")
+    state_enum = None
     if state:
         check_valid_opendata_did_state(state)
-        state = opendata_state_str_to_enum(state)
-    result = opendata.list_opendata_dids(limit=limit, offset=offset, state=state, session=session)
+        state_enum = opendata_state_str_to_enum(state)
+    result = opendata.list_opendata_dids(limit=limit, offset=offset, state=state_enum, session=session)
     print(f"GATEWAY list_opendata_dids result: {result}")
     # yield from (gateway_update_return_dict(d, session=session) for d in result)
     return result
@@ -101,9 +102,10 @@ def update_opendata_did(
         session: "Session"
 ) -> None:
     internal_scope = InternalScope(scope, vo=vo)
+    state_enum = None
     if state:
         check_valid_opendata_did_state(state)
-        state = opendata_state_str_to_enum(state)
+        state_enum = opendata_state_str_to_enum(state)
     if isinstance(opendata_json, str):
         try:
             opendata_json = json.loads(opendata_json)
@@ -113,5 +115,5 @@ def update_opendata_did(
     if opendata_json:
         print("GATEWAY update_opendata_did opendata_json type: ", type(opendata_json))
 
-    return opendata.update_opendata_did(scope=internal_scope, name=name, state=state, opendata_json=opendata_json,
+    return opendata.update_opendata_did(scope=internal_scope, name=name, state=state_enum, opendata_json=opendata_json,
                                         session=session)
