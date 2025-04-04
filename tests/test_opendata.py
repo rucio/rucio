@@ -125,7 +125,7 @@ class TestOpenDataCore:
         state = opendata.get_opendata_did(scope=mock_scope, name=name)["state"]
         assert state == OpenDataDIDState.DRAFT
         # TODO: update state with human readable names
-        opendata.update_opendata_did(scope=mock_scope, name=name, state='P')
+        opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC)
         state = opendata.get_opendata_did(scope=mock_scope, name=name)["state"]
         assert state == OpenDataDIDState.PUBLIC
 
@@ -171,10 +171,10 @@ class TestOpenDataCore:
         opendata.add_opendata_did(scope=mock_scope, name=did_public)
 
         # Update state to public
-        opendata.update_opendata_did(scope=mock_scope, name=did_public, state='P')
+        opendata.update_opendata_did(scope=mock_scope, name=did_public, state=OpenDataDIDState.PUBLIC)
 
         # List open data DIDs
-        opendata_dids = opendata.list_opendata_dids(state='P')
+        opendata_dids = opendata.list_opendata_dids(state=OpenDataDIDState.PUBLIC)
         assert len(opendata_dids) == 1, "Should only be one public open data DID"
         assert opendata_dids[0]["scope"] == mock_scope, "Scope does not match"
         assert opendata_dids[0]["name"] == did_public, "Name does not match"
