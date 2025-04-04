@@ -76,6 +76,7 @@ class LazyGroup(click.Group):
         "scope": "rucio.cli.scope.scope",
         "subscription": "rucio.cli.subscription.subscription",
         "upload": "rucio.cli.upload.upload_command",
+        "opendata": "rucio.cli.opendata.opendata",
     },
     context_settings={"help_option_names": ["-h", "--help"]}
 )  # TODO: Implement https://click.palletsprojects.com/en/stable/options/#dynamic-defaults-for-prompts for args from config or os

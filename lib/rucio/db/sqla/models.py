@@ -42,6 +42,7 @@ from rucio.db.sqla.constants import (
     KeyType,
     LifetimeExceptionsState,
     LockState,
+    OpenDataDIDState,
     ReplicaState,
     RequestState,
     RequestType,
@@ -466,6 +467,28 @@ class DataIdentifier(BASE, ModelBase):
                    CheckConstraint('PURGE_REPLICAS IS NOT NULL', name='DIDS_PURGE_REPLICAS_NN'),
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
+
+
+class OpenDataDid(BASE, ModelBase):
+    """DIDs which are part of OpenData"""
+    __tablename__ = 'dids_opendata'
+
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+
+    _table_args = (PrimaryKeyConstraint('scope', 'name', name='OPENDATA_DID_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='OPENDATA_DID_FK'),
+                   Index('OPENDATA_DID_UPDATED_AT_IDX', 'updated_at'),
+                   Index('OPENDATA_DID_CREATED_AT_IDX', 'created_at'),
+                   Index('OPENDATA_DID_STATE_IDX', 'state'),
+                   Index('OPENDATA_DID_STATE_UPDATED_AT_IDX', 'state', 'updated_at'),
+                   )
+
+    state: Mapped[Optional[OpenDataDIDState]] = mapped_column(Enum(OpenDataDIDState, name='DID_OPENDATA_STATE_CHK',
+                                                                   create_constraint=True,
+                                                                   values_callable=lambda obj: [e.value for e in obj]),
+                                                              default=OpenDataDIDState.DRAFT)
+    opendata_json = mapped_column(JSON(), default=dict)
 
 
 class VirtualPlacements(BASE, ModelBase):
