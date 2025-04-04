@@ -14,17 +14,17 @@
 
 import json
 from re import match
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
-from sqlalchemy import and_, delete, exists, insert, or_, update
-from sqlalchemy.exc import DatabaseError, DataError, IntegrityError, NoResultFound
-from sqlalchemy.sql.expression import bindparam, case, false, null, select, true
+from sqlalchemy import and_, delete, exists, insert, update
+from sqlalchemy.exc import DataError, IntegrityError
+from sqlalchemy.sql.expression import bindparam, select
 
 from rucio.common import exception
 from rucio.core.monitor import MetricManager
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import OpenDataDIDState
-from rucio.db.sqla.session import read_session, stream_session, transactional_session
+from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -63,7 +63,7 @@ def list_opendata_dids(
         query = query.offset(offset)
 
     if state is not None:
-        query = query.where(models.OpenDataDid.state == state)
+        query = query.where(models.OpenDataDid.state == state.value)
 
     print(f"Query: {query}")
 
