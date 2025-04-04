@@ -19,26 +19,11 @@ from urllib.parse import quote_plus
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
-from rucio.common.exception import OpenDataError
 from rucio.common.utils import build_url, render_json
-from rucio.db.sqla.constants import OpenDataDIDState
+from rucio.core.opendata import check_valid_opendata_did_state
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-
-
-def is_valid_opendata_did_state(state: str) -> bool:
-    try:
-        _ = OpenDataDIDState[state]
-        return True
-    except KeyError:
-        return False
-
-
-def check_valid_opendata_did_state(state: str) -> None:
-    if not is_valid_opendata_did_state(state):
-        raise OpenDataError(
-            f"Invalid state '{state}'. Valid opendata states are: {', '.join([s.name for s in OpenDataDIDState])}")
 
 
 class OpenDataClient(BaseClient):
