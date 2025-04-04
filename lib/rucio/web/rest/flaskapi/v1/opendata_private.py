@@ -12,19 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, request
+from flask import Flask, Response, Blueprint, request
 
 from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound
 from rucio.common.utils import render_json
 from rucio.gateway import opendata
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, \
+    generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
 
 
 class OpenDataPrivateView(ErrorHandlingMethodView):
     # @check_accept_header_wrapper_flask(['application/x-json-stream'])
     @check_accept_header_wrapper_flask(["application/json"])
-    def get(self):
+    def get(self) -> "Response":
         print(f"OpenDataPrivateView.get() called")
         try:
             limit = request.args.get("limit", default=None)
@@ -42,7 +43,7 @@ class OpenDataPrivateView(ErrorHandlingMethodView):
 class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(["application/json"])
-    def get(self, scope: str, name: str):
+    def get(self, scope: str, name: str) -> "Response":
         try:
             scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
             state = request.args.get("state", default=None)
@@ -54,7 +55,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
         except OpenDataDataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
 
-    def post(self, scope: str, name: str):
+    def post(self, scope: str, name: str) -> "Response":
         print(f"OpenDataPrivateDIDsView.post() called")
         try:
             scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
@@ -66,7 +67,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
 
         return "Created", 201
 
-    def put(self, scope: str, name: str):
+    def put(self, scope: str, name: str) -> "Response":
         print(f"OpenDataPrivateDIDsView.put() called")
         try:
             scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
@@ -80,7 +81,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
 
         return "", 200
 
-    def delete(self, scope: str, name: str):
+    def delete(self, scope: str, name: str) -> "Response":
         print(f"OpenDataPrivateDIDsView.delete() called")
         try:
             scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
@@ -92,7 +93,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
         return "", 200
 
 
-def blueprint():
+def blueprint() -> "Blueprint":
     bp = AuthenticatedBlueprint("opendata_private", __name__, url_prefix="/opendata-private")
 
     opendata_private_view = OpenDataPrivateView.as_view("opendata")
@@ -106,7 +107,7 @@ def blueprint():
     return bp
 
 
-def make_doc():
+def make_doc() -> "Flask":
     """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
     doc_app.register_blueprint(blueprint())
