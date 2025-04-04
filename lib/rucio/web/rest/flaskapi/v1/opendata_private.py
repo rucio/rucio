@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 from flask import Blueprint, Flask, Response, request
 
 from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound
@@ -34,7 +36,7 @@ class OpenDataPrivateView(ErrorHandlingMethodView):
             result = opendata.list_opendata_dids(limit=limit, offset=offset, state=state)
             # return try_stream(render_json(result))
             result = render_json(result)
-            return result
+            return Response(json.dumps(result), status=200, mimetype='application/json')
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -48,7 +50,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
             state = request.args.get("state", default=None)
             result = opendata.get_opendata_did(scope=scope, name=name, state=state, vo=request.environ.get("vo"))
             result = render_json(**result)
-            return result
+            return Response(json.dumps(result), status=200, mimetype='application/json')
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except OpenDataDataIdentifierNotFound as error:
@@ -64,7 +66,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
         except (OpenDataDataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists) as error:
             return generate_http_error_flask(404, error)
 
-        return "Created", 201
+        return Response(status=201, mimetype='application/json')
 
     def put(self, scope: str, name: str) -> "Response":
         print(f"OpenDataPrivateDIDsView.put() called")
@@ -78,7 +80,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
-        return "", 200
+        return Response(status=200, mimetype='application/json')
 
     def delete(self, scope: str, name: str) -> "Response":
         print(f"OpenDataPrivateDIDsView.delete() called")
@@ -88,8 +90,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
         except ValueError as error:
             return generate_http_error_flask(400, error)
         # Handle open data exception
-
-        return "", 200
+        return Response(status=204, mimetype='application/json')
 
 
 def blueprint() -> "Blueprint":
