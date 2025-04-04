@@ -32,7 +32,7 @@ class OpenDataPublicView(ErrorHandlingMethodView):
             result = opendata.list_opendata_dids(limit=limit, offset=offset, state="P")
             # return try_stream(render_json(result))
             result = render_json(result)
-            return result
+            return Response(result, content_type="application/json")
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
