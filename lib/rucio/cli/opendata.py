@@ -13,12 +13,11 @@
 # limitations under the License.
 
 import json
+from typing import TYPE_CHECKING
 
 import click
 
 from rucio.common.exception import RucioException
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from click import Context
