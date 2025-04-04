@@ -16,7 +16,7 @@ import json
 from re import match
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from sqlalchemy import and_, delete, exists, insert, update
+from sqlalchemy import and_, delete, insert, update
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.sql.expression import bindparam, select
 
@@ -52,7 +52,7 @@ def check_valid_opendata_did_state(state: str) -> None:
 
 
 # Don't know how to annotate this :(
-def opendata_state_str_to_enum(state: str) -> Any:
+def opendata_state_str_to_enum(state: str) -> OpenDataDIDState:
     try:
         return OpenDataDIDState[state]
     except KeyError:
