@@ -51,7 +51,7 @@ def check_valid_opendata_did_state(state: str) -> None:
             f"Invalid state '{state}'. Valid opendata states are: {', '.join([s.name for s in OpenDataDIDState])}")
 
 
-def opendata_state_str_to_enum(state: str) -> type[OpenDataDIDState[Any]]:
+def opendata_state_str_to_enum(state: str):
     try:
         return OpenDataDIDState[state]
     except KeyError:
@@ -233,16 +233,18 @@ def update_opendata_did(
         if not isinstance(opendata_json, dict):
             raise exception.InputValidationError("opendata_json must be a dictionary.")
 
-    exists_query = select(
-        exists().where(
-            and_(
-                models.OpenDataDid.scope == scope,
-                models.OpenDataDid.name == name
-            )
+    exists_query = select(models.OpenDataDid.state).where(
+        and_(
+            models.OpenDataDid.scope == scope,
+            models.OpenDataDid.name == name
         )
     )
 
-    if not session.execute(exists_query).scalar():
+    state_before = session.execute(exists_query).scalar()
+
+    print(f"State before update: {state_before}")
+
+    if state_before is None:
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
 
     update_query = update(models.OpenDataDid).where(
