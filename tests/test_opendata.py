@@ -150,7 +150,7 @@ class TestOpenDataCore:
 
         # sort both by name alphabetically
         opendata_dids.sort(key=lambda x: x["name"])
-        dids = opendata.list_opendata_dids()
+        dids.sort(key=lambda x: x["name"])
 
         for i, did in enumerate(opendata_dids):
             assert did["scope"] == dids[i]["scope"], "Scope does not match"
