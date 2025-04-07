@@ -142,26 +142,16 @@ class TestOpenDataCore:
         ]
 
         for did in dids:
-            print(f"Adding {did['name']}")
             add_did(scope=did["scope"], name=did["name"], account=root_account, did_type=DIDType.DATASET)
             opendata.add_opendata_did(scope=did["scope"], name=did["name"])
 
-        # List open data DIDs
         opendata_dids = opendata.list_opendata_dids()
 
-        for i, did in enumerate(dids):
-            print(f"initial: {i}: {did['name']}")
-
-        for i, did in enumerate(opendata_dids):
-            print(f"opendata: {i}: {did['name']}")
-
         for did in dids:
-            print(f"  looking for {did['name']}")
             index = next(i for i, d in enumerate(opendata_dids) if d["name"] == did["name"])
-            print(f"Index: {index}")
-            assert did["scope"] == opendata_dids[index]["scope"], "Scope does not match"
-            assert did["name"] == opendata_dids[index]["name"], "Name does not match"
-            assert did["state"] == OpenDataDIDState.DRAFT, "State does not match"
+            assert opendata_dids[index]["scope"] == did["scope"], "Scope does not match"
+            assert opendata_dids[index]["name"] == did["name"], "Name does not match"
+            assert opendata_dids[index]["state"] == OpenDataDIDState.DRAFT, "State does not match"
 
     def test_opendata_dids_list_public(self, mock_scope, root_account):
         did_private_name = did_name_generator(did_type="dataset")
