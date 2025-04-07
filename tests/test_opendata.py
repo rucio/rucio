@@ -147,9 +147,15 @@ class TestOpenDataCore:
 
         # List open data DIDs
         opendata_dids = opendata.list_opendata_dids()
+        print(f"opendata_dids: {opendata_dids}")
+        print(f"Names:")
+        for did in dids:
+            print(f"  {did['name']}")
 
         for did in opendata_dids:
+            print(f"  looking for {did['name']}")
             index = next(i for i, d in enumerate(dids) if d["name"] == did["name"])
+            print(f"Index: {index}")
             assert did["scope"] == dids[index]["scope"], "Scope does not match"
             assert did["name"] == dids[index]["name"], "Name does not match"
             assert did["state"] == OpenDataDIDState.DRAFT, "State does not match"
