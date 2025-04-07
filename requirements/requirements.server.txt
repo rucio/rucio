@@ -12,8 +12,6 @@ aiosignal==1.3.2
     # via aiohttp
 alembic==1.14.1
     # via -r requirements.server.in
-annotated-types==0.7.0
-    # via pydantic
 argcomplete==3.5.3
     # via -r requirements.server.in
 async-timeout==5.0.1
@@ -52,7 +50,6 @@ click==8.1.8
 cryptography==44.0.2
     # via
     #   globus-sdk
-    #   oic
     #   paramiko
     #   pyjwt
     #   pyspnego
@@ -63,8 +60,6 @@ decorator==5.2.1
     # via
     #   dogpile-cache
     #   gssapi
-defusedxml==0.7.1
-    # via oic
 dnspython==2.7.0
     # via pymongo
 docopt==0.6.2
@@ -81,14 +76,14 @@ frozenlist==1.5.0
     # via
     #   aiohttp
     #   aiosignal
-future==1.0.0
-    # via pyjwkest
 geoip2==5.0.1
     # via -r requirements.server.in
 globus-sdk==3.41.0
     # via -r requirements.server.in
 google-auth==2.38.0
     # via -r requirements.server.in
+greenlet==3.1.1
+    # via sqlalchemy
 gssapi==1.9.0
     # via pyspnego
 idna==3.10
@@ -122,9 +117,7 @@ lxml==5.3.1
     #   python3-saml
     #   xmlsec
 mako==1.3.9
-    # via
-    #   alembic
-    #   oic
+    # via alembic
 markdown-it-py==3.0.0
     # via rich
 markupsafe==3.0.2
@@ -140,8 +133,6 @@ multidict==6.1.0
     # via
     #   aiohttp
     #   yarl
-oic==1.7.0
-    # via -r requirements.server.in
 packaging==24.1
     # via
     #   -r requirements.server.in
@@ -156,7 +147,7 @@ propcache==0.3.0
     # via
     #   aiohttp
     #   yarl
-psycopg==3.2.3 ; implementation_name == "cpython"
+psycopg[binary,pool]==3.2.3 ; implementation_name == "cpython"
     # via -r requirements.server.in
 psycopg-binary==3.2.3
     # via psycopg
@@ -170,22 +161,12 @@ pyasn1-modules==0.4.1
     # via google-auth
 pycparser==2.22
     # via cffi
-pycryptodomex==3.21.0
-    # via
-    #   oic
-    #   pyjwkest
-pydantic==2.10.6
-    # via pydantic-settings
-pydantic-core==2.27.2
-    # via pydantic
-pydantic-settings==2.8.1
-    # via oic
 pygments==2.19.1
     # via rich
-pyjwkest==1.4.2
-    # via oic
-pyjwt==2.10.1
-    # via globus-sdk
+pyjwt[crypto]==2.10.1
+    # via
+    #   -r requirements.server.in
+    #   globus-sdk
 pykerberos==1.2.4
     # via -r requirements.server.in
 pymemcache==4.0.0
@@ -196,14 +177,12 @@ pymysql==1.1.1
     # via -r requirements.server.in
 pynacl==1.5.0
     # via paramiko
-pyspnego==0.11.2
+pyspnego[kerberos]==0.11.2
     # via requests-kerberos
 python-dateutil==2.9.0.post0
     # via
     #   -r requirements.server.in
     #   botocore
-python-dotenv==1.0.1
-    # via pydantic-settings
 python-magic==0.4.27
     # via -r requirements.server.in
 python-swiftclient==4.7.0
@@ -225,8 +204,6 @@ requests==2.32.3
     #   -r requirements.server.in
     #   geoip2
     #   globus-sdk
-    #   oic
-    #   pyjwkest
     #   python-swiftclient
     #   qbittorrent-api
     #   requests-kerberos
@@ -243,9 +220,7 @@ rsa==4.9
 s3transfer==0.11.4
     # via boto3
 six==1.17.0
-    # via
-    #   pyjwkest
-    #   python-dateutil
+    # via python-dateutil
 sqlalchemy==2.0.38
     # via
     #   -r requirements.server.in
@@ -266,8 +241,6 @@ typing-extensions==4.12.2
     #   multidict
     #   psycopg
     #   psycopg-pool
-    #   pydantic
-    #   pydantic-core
     #   referencing
     #   rich
     #   sqlalchemy

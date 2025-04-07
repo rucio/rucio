@@ -4,11 +4,11 @@
 #
 #    pip-compile --strip-extras requirements.dev.in
 #
-aiohappyeyeballs==2.5.0
+aiohappyeyeballs==2.6.1
     # via
     #   -r requirements.server.txt
     #   aiohttp
-aiohttp==3.11.13
+aiohttp==3.11.15
     # via
     #   -r requirements.server.txt
     #   geoip2
@@ -18,10 +18,6 @@ aiosignal==1.3.2
     #   aiohttp
 alembic==1.14.1
     # via -r requirements.server.txt
-annotated-types==0.7.0
-    # via
-    #   -r requirements.server.txt
-    #   pydantic
 apispec==6.6.1
     # via
     #   -r requirements.dev.in
@@ -39,7 +35,7 @@ async-timeout==5.0.1
     #   redis
 atlas-rucio-policy-package==0.4.0
     # via -r requirements.dev.in
-attrs==25.1.0
+attrs==25.3.0
     # via
     #   -r requirements.server.txt
     #   aiohttp
@@ -59,7 +55,7 @@ blinker==1.9.0
     #   flask
 boto3==1.37.5
     # via -r requirements.server.txt
-botocore==1.37.7
+botocore==1.37.25
     # via
     #   -r requirements.server.txt
     #   boto3
@@ -91,13 +87,12 @@ click==8.1.8
     #   flask
     #   pip-tools
     #   pydoc-markdown
-coverage==7.6.12
+coverage==7.8.0
     # via pytest-cov
 cryptography==44.0.2
     # via
     #   -r requirements.server.txt
     #   globus-sdk
-    #   oic
     #   paramiko
     #   pyjwt
     #   pyspnego
@@ -121,10 +116,6 @@ decorator==5.2.1
     #   -r requirements.server.txt
     #   dogpile-cache
     #   gssapi
-defusedxml==0.7.1
-    # via
-    #   -r requirements.server.txt
-    #   oic
 deprecated==1.2.18
     # via
     #   databind
@@ -148,7 +139,7 @@ docstring-parser==0.11
     # via pydoc-markdown
 dogpile-cache==1.2.2
     # via -r requirements.server.txt
-elastic-transport==8.17.0
+elastic-transport==8.17.1
     # via
     #   -r requirements.server.txt
     #   elasticsearch
@@ -165,10 +156,6 @@ frozenlist==1.5.0
     #   -r requirements.server.txt
     #   aiohttp
     #   aiosignal
-future==1.0.0
-    # via
-    #   -r requirements.server.txt
-    #   pyjwkest
 geoip2==5.0.1
     # via -r requirements.server.txt
 globus-sdk==3.41.0
@@ -176,7 +163,9 @@ globus-sdk==3.41.0
 google-auth==2.38.0
     # via -r requirements.server.txt
 greenlet==3.1.1
-    # via sqlalchemy
+    # via
+    #   -r requirements.server.txt
+    #   sqlalchemy
 gssapi==1.9.0
     # via
     #   -r requirements.server.txt
@@ -191,7 +180,7 @@ importlib-metadata==8.6.1
     #   -r requirements.server.txt
     #   build
     #   flask
-iniconfig==2.0.0
+iniconfig==2.1.0
     # via pytest
 isodate==0.7.2
     # via
@@ -234,7 +223,6 @@ mako==1.3.9
     # via
     #   -r requirements.server.txt
     #   alembic
-    #   oic
 markdown-it-py==3.0.0
     # via
     #   -r requirements.server.txt
@@ -253,7 +241,7 @@ mdurl==0.1.2
     # via
     #   -r requirements.server.txt
     #   markdown-it-py
-multidict==6.1.0
+multidict==6.3.0
     # via
     #   -r requirements.server.txt
     #   aiohttp
@@ -268,8 +256,6 @@ nr-util==0.8.12
     # via
     #   docspec-python
     #   pydoc-markdown
-oic==1.7.0
-    # via -r requirements.server.txt
 packaging==24.1
     # via
     #   -r requirements.server.txt
@@ -288,7 +274,7 @@ pbr==6.1.1
     #   stevedore
 pip-tools==7.4.1
     # via -r requirements.dev.in
-platformdirs==4.3.6
+platformdirs==4.3.7
     # via
     #   black
     #   yapf
@@ -296,7 +282,7 @@ pluggy==1.5.0
     # via pytest
 prometheus-client==0.21.1
     # via -r requirements.server.txt
-propcache==0.3.0
+propcache==0.3.1
     # via
     #   -r requirements.server.txt
     #   aiohttp
@@ -305,14 +291,14 @@ psycopg==3.2.3 ; implementation_name == "cpython"
     # via -r requirements.server.txt
 psycopg-binary==3.2.3
     # via -r requirements.server.txt
-psycopg-pool==3.2.4
+psycopg-pool==3.2.6
     # via -r requirements.server.txt
 pyasn1==0.6.1
     # via
     #   -r requirements.server.txt
     #   pyasn1-modules
     #   rsa
-pyasn1-modules==0.4.1
+pyasn1-modules==0.4.2
     # via
     #   -r requirements.server.txt
     #   google-auth
@@ -322,23 +308,6 @@ pycparser==2.22
     # via
     #   -r requirements.server.txt
     #   cffi
-pycryptodomex==3.21.0
-    # via
-    #   -r requirements.server.txt
-    #   oic
-    #   pyjwkest
-pydantic==2.10.6
-    # via
-    #   -r requirements.server.txt
-    #   pydantic-settings
-pydantic-core==2.27.2
-    # via
-    #   -r requirements.server.txt
-    #   pydantic
-pydantic-settings==2.8.1
-    # via
-    #   -r requirements.server.txt
-    #   oic
 pydoc-markdown==4.8.2
     # via -r requirements.dev.in
 pyflakes==3.1.0
@@ -347,10 +316,6 @@ pygments==2.19.1
     # via
     #   -r requirements.server.txt
     #   rich
-pyjwkest==1.4.2
-    # via
-    #   -r requirements.server.txt
-    #   oic
 pyjwt==2.10.1
     # via
     #   -r requirements.server.txt
@@ -388,10 +353,6 @@ python-dateutil==2.9.0.post0
     # via
     #   -r requirements.server.txt
     #   botocore
-python-dotenv==1.0.1
-    # via
-    #   -r requirements.server.txt
-    #   pydantic-settings
 python-magic==0.4.27
     # via -r requirements.server.txt
 python-swiftclient==4.7.0
@@ -419,9 +380,7 @@ requests==2.32.3
     #   -r requirements.server.txt
     #   geoip2
     #   globus-sdk
-    #   oic
     #   pydoc-markdown
-    #   pyjwkest
     #   python-swiftclient
     #   qbittorrent-api
     #   requests-kerberos
@@ -429,7 +388,7 @@ requests-kerberos==0.15.0
     # via -r requirements.server.txt
 rich==13.9.4
     # via -r requirements.server.txt
-rpds-py==0.23.1
+rpds-py==0.24.0
     # via
     #   -r requirements.server.txt
     #   jsonschema
@@ -449,7 +408,6 @@ sh==2.0.7
 six==1.17.0
     # via
     #   -r requirements.server.txt
-    #   pyjwkest
     #   python-dateutil
 sqlalchemy==2.0.38
     # via
@@ -478,7 +436,7 @@ tomli-w==1.2.0
     # via pydoc-markdown
 typeapi==2.2.4
     # via databind
-typing-extensions==4.12.2
+typing-extensions==4.13.0
     # via
     #   -r requirements.server.txt
     #   alembic
@@ -491,8 +449,6 @@ typing-extensions==4.12.2
     #   nr-util
     #   psycopg
     #   psycopg-pool
-    #   pydantic
-    #   pydantic-core
     #   referencing
     #   rich
     #   sqlalchemy

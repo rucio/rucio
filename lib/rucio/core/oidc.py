@@ -138,6 +138,9 @@ class IDPSecretLoad:
                         if "redirect_uris" not in entry or not isinstance(entry["redirect_uris"], list):
                             raise ValueError(f"VO '{vo}' user_auth_client must have 'redirect_uris' as a list.")
 
+                if client_type == "client_credential_client" and len(clients) > 1:
+                    raise ValueError(f"only one client is permitted for client_credential_client for now.")
+
                 if len(clients) > 1:
                     for entry in clients:
                         if "issuer_nickname" not in entry or not isinstance(entry["issuer_nickname"], str):
