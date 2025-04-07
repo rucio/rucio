@@ -20,7 +20,6 @@ from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.utils import build_url, render_json
-from rucio.core.opendata import check_valid_opendata_did_state
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -43,7 +42,6 @@ class OpenDataClient(BaseClient):
 
         if state is not None:
             state = state.upper().strip()
-            check_valid_opendata_did_state(state)
             params['state'] = state
 
         if state is not None and public:
