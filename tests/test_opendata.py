@@ -155,12 +155,12 @@ class TestOpenDataCore:
         for i, did in enumerate(opendata_dids):
             print(f"opendata: {i}: {did['name']}")
 
-        for did in opendata_dids:
+        for did in dids:
             print(f"  looking for {did['name']}")
-            index = next(i for i, d in enumerate(dids) if d["name"] == did["name"])
+            index = next(i for i, d in enumerate(opendata_dids) if d["name"] == did["name"])
             print(f"Index: {index}")
-            assert did["scope"] == dids[index]["scope"], "Scope does not match"
-            assert did["name"] == dids[index]["name"], "Name does not match"
+            assert did["scope"] == opendata_dids[index]["scope"], "Scope does not match"
+            assert did["name"] == opendata_dids[index]["name"], "Name does not match"
             assert did["state"] == OpenDataDIDState.DRAFT, "State does not match"
 
     def test_opendata_dids_list_public(self, mock_scope, root_account):
