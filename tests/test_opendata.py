@@ -148,13 +148,10 @@ class TestOpenDataCore:
         # List open data DIDs
         opendata_dids = opendata.list_opendata_dids()
 
-        # sort both by name alphabetically
-        opendata_dids.sort(key=lambda x: x["name"])
-        dids.sort(key=lambda x: x["name"])
-
-        for i, did in enumerate(opendata_dids):
-            assert did["scope"] == dids[i]["scope"], "Scope does not match"
-            assert did["name"] == dids[i]["name"], "Name does not match"
+        for did in opendata_dids:
+            index = next(i for i, d in enumerate(dids) if d["name"] == did["name"])
+            assert did["scope"] == dids[index]["scope"], "Scope does not match"
+            assert did["name"] == dids[index]["name"], "Name does not match"
             assert did["state"] == OpenDataDIDState.DRAFT, "State does not match"
 
     def test_opendata_dids_list_public(self, mock_scope, root_account):
