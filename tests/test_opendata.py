@@ -142,15 +142,18 @@ class TestOpenDataCore:
         ]
 
         for did in dids:
+            print(f"Adding {did['name']}")
             add_did(scope=did["scope"], name=did["name"], account=root_account, did_type=DIDType.DATASET)
             opendata.add_opendata_did(scope=did["scope"], name=did["name"])
 
         # List open data DIDs
         opendata_dids = opendata.list_opendata_dids()
-        print(f"opendata_dids: {opendata_dids}")
-        print(f"Names:")
-        for did in dids:
-            print(f"  {did['name']}")
+
+        for i, did in enumerate(dids):
+            print(f"initial: {i}: {did['name']}")
+
+        for i, did in enumerate(opendata_dids):
+            print(f"opendata: {i}: {did['name']}")
 
         for did in opendata_dids:
             print(f"  looking for {did['name']}")
