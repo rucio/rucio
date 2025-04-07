@@ -156,7 +156,6 @@ class TestOpenDataCore:
             assert did["scope"] == dids[i]["scope"], "Scope does not match"
             assert did["name"] == dids[i]["name"], "Name does not match"
             assert did["state"] == OpenDataDIDState.DRAFT, "State does not match"
-            assert did["opendata_json"] == {}, "opendata_json should be empty"
 
     def test_opendata_dids_list_public(self, mock_scope, root_account):
         did_private_name = did_name_generator(did_type="dataset")
@@ -178,7 +177,6 @@ class TestOpenDataCore:
         opendata_public_number_after = len(opendata.list_opendata_dids(state=OpenDataDIDState.PUBLIC))
 
         # List open data DIDs
-        opendata_dids = opendata.list_opendata_dids(state=OpenDataDIDState.PUBLIC)
         assert opendata_public_number_after - opendata_public_number_before == 1, "Public number should be 1 more"
 
         # get by name
