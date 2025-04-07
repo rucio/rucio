@@ -104,7 +104,6 @@ class OpenDataClient(BaseClient):
 
         if state is not None:
             state = state.upper().strip()
-            check_valid_opendata_did_state(state)
         if opendata_json is None and state is None:
             raise ValueError('Either opendata_json or state must be provided to update the OpenData DID.')
         if opendata_json is not None and state is not None:
