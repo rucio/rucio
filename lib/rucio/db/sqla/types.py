@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import uuid
 
 import sqlalchemy.types as types
@@ -139,20 +138,6 @@ class JSON(TypeDecorator):
             return dialect.type_descriptor(CLOB())
         else:
             return dialect.type_descriptor(String())
-
-    def process_bind_param(self, value, dialect):
-        if dialect.name in ('postgresql', 'mysql'):
-            return value  # handled natively
-        if value is not None:
-            return json.dumps(value)
-        return None
-
-    def process_result_value(self, value, dialect):
-        if dialect.name in ('postgresql', 'mysql'):
-            return value  # handled natively
-        if value is not None:
-            return json.loads(value)
-        return None
 
 
 class InternalAccountString(TypeDecorator):
