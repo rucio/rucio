@@ -155,13 +155,16 @@ def add_opendata_dids(
     for did in dids:
         if "scope" not in did or "name" not in did:
             raise exception.InputValidationError("DID must have 'scope' and 'name' keys.")
+        if not isinstance(did["scope"], str) or not isinstance(did["name"], str):
+            raise exception.InputValidationError("'scope' and 'name' must be strings.")
 
     # query = insert(models.OpenDataDid).values(dids)
 
     try:
+        # Default state is DRAFT, set in the model
         session.execute(
             insert(models.OpenDataDid),
-            [{"scope": did["scope"], "name": did["name"], "state": OpenDataDIDState.DRAFT} for did in dids]
+            [{"scope": did["scope"], "name": did["name"]} for did in dids]
         )
         # session.execute(query)
     except IntegrityError as error:
