@@ -148,15 +148,13 @@ def add_opendata_did(
 
 @transactional_session
 def add_opendata_dids(
-        dids: "Sequence[dict[str, str]]",
+        dids: "Sequence[dict[str, Any]]",
         *,
         session: "Session",
 ) -> None:
     for did in dids:
         if "scope" not in did or "name" not in did:
             raise exception.InputValidationError("DID must have 'scope' and 'name' keys.")
-        if not isinstance(did["scope"], str) or not isinstance(did["name"], str):
-            raise exception.InputValidationError("'scope' and 'name' must be strings.")
 
     # query = insert(models.OpenDataDid).values(dids)
 
