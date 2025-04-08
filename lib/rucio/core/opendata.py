@@ -156,10 +156,14 @@ def add_opendata_dids(
         if "scope" not in did or "name" not in did:
             raise exception.InputValidationError("DID must have 'scope' and 'name' keys.")
 
-    query = insert(models.OpenDataDid).values(dids)
+    # query = insert(models.OpenDataDid).values(dids)
 
     try:
-        session.execute(query)
+        session.execute(
+            insert(models.OpenDataDid),
+            [{"scope": did["scope"], "name": did["name"], "state": OpenDataDIDState.DRAFT} for did in dids]
+        )
+        # session.execute(query)
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-00001: unique constraint.*DIDS_PK.*violated.*', error.args[0]) \
                 or match('.*IntegrityError.*UNIQUE constraint failed: dids.scope, dids.name.*', error.args[0]) \
