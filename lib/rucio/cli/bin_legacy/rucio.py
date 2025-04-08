@@ -1601,7 +1601,7 @@ def list_rules(args, client, logger, console, spinner):
                   sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
                   rule['expires_at'],
                   rule['created_at'],
-                  sep=',')
+                  sep=CSV_SEPARATOR)
 
         if cli_config == 'rich':
             spinner.stop()
