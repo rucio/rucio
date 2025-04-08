@@ -809,21 +809,53 @@ class TestMultiVoClients:
         new_sub = 'newsub_' + sub_str
         shr_sub = 'shrsub_' + sub_str
 
-        tst_sub_id = sub_client.add_subscription(tst_sub, shr_acc, {'scope': [tst_scope]},
-                                                 [{'copies': 1, 'rse_expression': tst_rse2, 'weight': 0,
-                                                   'activity': 'User Subscriptions'}],
-                                                 '', None, 0, 0)
-        shr_tst_sub_id = sub_client.add_subscription(shr_sub, shr_acc, {'scope': [tst_scope]},
-                                                     [{'copies': 1, 'rse_expression': tst_rse2, 'weight': 0,
-                                                       'activity': 'User Subscriptions'}],
-                                                     '', None, 0, 0)
+        tst_sub_id = sub_client.add_subscription(
+            name=tst_sub,
+            account=shr_acc,
+            filter_={'scope': [tst_scope]},
+            replication_rules=[{'copies': 1, 'rse_expression': tst_rse2, 'weight': 0,
+                                'activity': 'User Subscriptions'}],
+            comments='',
+            lifetime=None,
+            retroactive=0,
+            dry_run=0)
 
-        new_sub_id = add_subscription(new_sub, shr_acc, {'scope': [new_scope]},
-                                      [{'copies': 1, 'rse_expression': new_rse2, 'weight': 0, 'activity': 'User Subscriptions'}],
-                                      '', False, 0, 0, 3, 'root', vo=second_vo)
-        shr_new_sub_id = add_subscription(shr_sub, shr_acc, {'scope': [new_scope]},
-                                          [{'copies': 1, 'rse_expression': new_rse2, 'weight': 0, 'activity': 'User Subscriptions'}],
-                                          '', False, 0, 0, 3, 'root', vo=second_vo)
+        shr_tst_sub_id = sub_client.add_subscription(
+            name=shr_sub,
+            account=shr_acc,
+            filter_={'scope': [tst_scope]},
+            replication_rules=[{'copies': 1, 'rse_expression': tst_rse2, 'weight': 0,
+                                'activity': 'User Subscriptions'}],
+            comments='',
+            lifetime=None,
+            retroactive=0,
+            dry_run=0)
+
+        new_sub_id = add_subscription(
+            name=new_sub,
+            account=shr_acc,
+            filter_={'scope': [new_scope]},
+            replication_rules=[{'copies': 1, 'rse_expression': new_rse2, 'weight': 0, 'activity': 'User Subscriptions'}],
+            comments='',
+            lifetime=False,
+            retroactive=0,
+            dry_run=0,
+            priority=3,
+            issuer='root',
+            vo=second_vo)
+
+        shr_new_sub_id = add_subscription(
+            name=shr_sub,
+            account=shr_acc,
+            filter_={'scope': [new_scope]},
+            replication_rules=[{'copies': 1, 'rse_expression': new_rse2, 'weight': 0, 'activity': 'User Subscriptions'}],
+            comments='',
+            lifetime=False,
+            retroactive=0,
+            dry_run=0,
+            priority=3,
+            issuer='root',
+            vo=second_vo)
 
         tst_subs = [s['id'] for s in sub_client.list_subscriptions()]
         assert tst_sub_id in tst_subs
