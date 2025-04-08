@@ -102,9 +102,7 @@ class FilterEngine:
             filters, _ = parse_did_filter_from_string_fe(filters, omit_name=True)
         elif isinstance(filters, dict):
             filters = [filters]
-        elif isinstance(filters, list):
-            pass  # already a list of filters
-        else:
+        elif not isinstance(filters, list):
             raise exception.DIDFilterSyntaxError("Input filters are of an unrecognised type.")
 
         filters = self._make_input_backwards_compatible(filters=filters)
