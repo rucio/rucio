@@ -273,7 +273,7 @@ class ReplicaClient(BaseClient):
         :param rse: the RSE name.
         :param files: The list of files. This is a list of DIDs like :
             [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
-        :param ignore_availability: Ignore the RSE blocklsit.
+        :param ignore_availability: Ignore the RSE blocklist.
 
         :return: True if files were created successfully.
 
