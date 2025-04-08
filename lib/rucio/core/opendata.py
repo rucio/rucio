@@ -259,11 +259,12 @@ def update_opendata_did(
         )
     )
     if state is not None:
-        update_query = update_query.values(state=state)
+        update_query = update_query.values({"state": state})
 
         if state == OpenDataDIDState.DRAFT:
             if state_before != OpenDataDIDState.DRAFT:
-                raise OpenDataError("Cannot set state to DRAFT. Once a DID is made public, it cannot be reverted to DRAFT.")
+                raise OpenDataError(
+                    "Cannot set state to DRAFT. Once a DID is made public, it cannot be reverted to DRAFT.")
         elif state == OpenDataDIDState.PUBLIC:
             # All states can be set to PUBLIC
             ...
@@ -272,7 +273,7 @@ def update_opendata_did(
                 raise OpenDataError("Cannot set state to SUSPENDED from DRAFT. First set it to PUBLIC.")
 
     if opendata_json is not None:
-        update_query = update_query.values(opendata_json=opendata_json)
+        update_query = update_query.values({"opendata_json": opendata_json})
 
     try:
         result = session.execute(update_query)
