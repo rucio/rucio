@@ -81,7 +81,7 @@ def remove(ctx, rule_id_dids, _all, rses, account, purge_replicas):
 @rule.command("show")
 @click.argument("rule-id")
 @click.option("--examine", is_flag=True, default=False, help="Detailed analysis of transfer errors")
-@click.option("--csv", is_flag=True, default=False, help="Detailed analysis of transfer errors")
+@click.option("--csv", is_flag=True, default=False, help="Comma Separated Value output")
 @click.pass_context
 def show(ctx, rule_id, examine, csv):
     """Retrieve information about a rule"""
@@ -90,10 +90,11 @@ def show(ctx, rule_id, examine, csv):
 
 @rule.command("history")
 @click.argument("did", nargs=1)
+@click.option("--csv", is_flag=True, default=False, help="Comma Separated Value output")
 @click.pass_context
-def history(ctx, did):
+def history(ctx, did, csv):
     """Display the history of rules acting on a DID"""
-    list_rules_history(Arguments({"no_pager": ctx.obj.no_pager, "did": did}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    list_rules_history(Arguments({"no_pager": ctx.obj.no_pager, "did": did, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @rule.command("move")
