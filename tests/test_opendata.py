@@ -14,7 +14,7 @@
 
 import pytest
 
-from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound
+from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataInvalidStateUpdate
 from rucio.core import opendata
 from rucio.core.did import add_did
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
@@ -124,7 +124,28 @@ class TestOpenDataCore:
 
         state = opendata.get_opendata_did(scope=mock_scope, name=name)["state"]
         assert state == OpenDataDIDState.DRAFT
-        # TODO: update state with human readable names
+
+        with pytest.raises(OpenDataInvalidStateUpdate):
+            # cannot go from draft to suspended
+            opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.SUSPENDED)
+
+        opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC)
+        state = opendata.get_opendata_did(scope=mock_scope, name=name)["state"]
+        assert state == OpenDataDIDState.PUBLIC
+
+        with pytest.raises(OpenDataInvalidStateUpdate):
+            # cannot go back to draft
+            opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.DRAFT)
+
+        opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.SUSPENDED)
+        state = opendata.get_opendata_did(scope=mock_scope, name=name)["state"]
+        assert state == OpenDataDIDState.SUSPENDED
+
+        with pytest.raises(OpenDataInvalidStateUpdate):
+            # cannot go back to draft
+            opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.DRAFT)
+
+        # back to public
         opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC)
         state = opendata.get_opendata_did(scope=mock_scope, name=name)["state"]
         assert state == OpenDataDIDState.PUBLIC

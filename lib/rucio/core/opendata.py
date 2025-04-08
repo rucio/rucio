@@ -21,7 +21,7 @@ from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.sql.expression import bindparam, select
 
 from rucio.common import exception
-from rucio.common.exception import OpenDataError
+from rucio.common.exception import OpenDataError, OpenDataInvalidStateUpdate
 from rucio.core.monitor import MetricManager
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import OpenDataDIDState
@@ -261,14 +261,14 @@ def update_opendata_did(
 
         if state == OpenDataDIDState.DRAFT:
             if state_before != OpenDataDIDState.DRAFT:
-                raise OpenDataError(
+                raise OpenDataInvalidStateUpdate(
                     "Cannot set state to DRAFT. Once a DID is made public, it cannot be reverted to DRAFT.")
         elif state == OpenDataDIDState.PUBLIC:
             # All states can be set to PUBLIC
             ...
         elif state == OpenDataDIDState.SUSPENDED:
             if state_before == OpenDataDIDState.DRAFT:
-                raise OpenDataError("Cannot set state to SUSPENDED from DRAFT. First set it to PUBLIC.")
+                raise OpenDataInvalidStateUpdate("Cannot set state to SUSPENDED from DRAFT. First set it to PUBLIC.")
 
     if opendata_json is not None:
         update_query = update_query.values({"opendata_json": opendata_json})
