@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from rucio.common import exception
 from rucio.common.types import InternalAccount, TokenDict
@@ -110,7 +110,7 @@ def get_auth_oidc(
 def get_token_oidc(
     auth_query_string: str,
     ip: Optional[str] = None,
-) -> Optional[dict[str, Optional[Union[str, bool]]]]:
+) -> Optional[dict[str, Any]]:
     """
     After Rucio User got redirected to Rucio /auth/oidc_token (or /auth/oidc_code)
     REST endpoints with authz code and session state encoded within the URL.
