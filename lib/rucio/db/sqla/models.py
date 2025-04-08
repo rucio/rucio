@@ -488,7 +488,7 @@ class OpenDataDid(BASE, ModelBase):
                                                                    create_constraint=True,
                                                                    values_callable=lambda obj: [e.value for e in obj]),
                                                               default=OpenDataDIDState.DRAFT)
-    opendata_json = mapped_column(JSON(), default="{}")
+    opendata_json = mapped_column(JSON(), default=lambda: {}, nullable=False)
 
 
 class VirtualPlacements(BASE, ModelBase):
