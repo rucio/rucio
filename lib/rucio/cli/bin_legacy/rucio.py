@@ -1647,7 +1647,7 @@ def list_rules_history(args, client, logger, console, spinner):
     List replication rules history for a DID.
     """
     rule_dict = []
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching rules history')
         spinner.start()
 
@@ -1656,7 +1656,7 @@ def list_rules_history(args, client, logger, console, spinner):
     for rule in client.list_replication_rule_full_history(scope, name):
         if rule['rule_id'] not in rule_dict:
             rule_dict.append(rule['rule_id'])
-            if cli_config == 'rich':
+            if (cli_config == 'rich') or args.csv:
                 table_data.append(['Insertion', rule['account'], rule['rse_expression'], rule['created_at']])
             else:
                 print('-' * 40)
@@ -1666,7 +1666,7 @@ def list_rules_history(args, client, logger, console, spinner):
                 print('Time : %s' % (rule['created_at']))
         else:
             rule_dict.remove(rule['rule_id'])
-            if cli_config == 'rich':
+            if (cli_config == 'rich') or args.csv:
                 table_data.append(['Deletion', rule['account'], rule['rse_expression'], rule['updated_at']])
             else:
                 print('-' * 40)
@@ -1675,7 +1675,13 @@ def list_rules_history(args, client, logger, console, spinner):
                 print('RSE expression : %s' % (rule['rse_expression']))
                 print('Time : %s' % (rule['updated_at']))
 
-    if cli_config == 'rich':
+    if args.csv:
+        # Have to make the string rep for the time values
+        for rule in table_data:
+            rule[3] = str(rule[3])
+        print(*[CSV_SEPARATOR.join(rule) for rule in table_data], sep='\n')
+
+    elif cli_config == 'rich':
         table_data = sorted(table_data, key=lambda entry: entry[-1], reverse=True)
         table = generate_table(table_data, headers=['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME'])
         spinner.stop()
@@ -2711,6 +2717,7 @@ You can filter by account::
     list_rules_history_parser = subparsers.add_parser('list-rules-history', help='List replication rules history for a DID.')
     list_rules_history_parser.set_defaults(function=list_rules_history)
     list_rules_history_parser.add_argument(dest='did', action='store', help='The Data IDentifier.')
+    list_rules_history_parser.add_argument("--csv", action='store_true', default=False, help='Comma Separated Value output')
 
     # The update_rule command
     update_rule_parser = subparsers.add_parser('update-rule', help='Update replication rule.')
