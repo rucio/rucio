@@ -1250,3 +1250,14 @@ class OpenDataInvalidState(OpenDataError):
         super(OpenDataInvalidState, self).__init__(*args)
         self._message = f"Open data entry is in an invalid state."
         self.error_code = 118
+
+
+class OpenDataInvalidStateUpdate(OpenDataError):
+    """
+    Throws when a forbidden state update is attempted (e.g. from public to draft).
+    """
+
+    def __init__(self, *args):
+        super(OpenDataInvalidStateUpdate, self).__init__(*args)
+        self._message = f"Invalid state update attempted on open data entry."
+        self.error_code = 119
