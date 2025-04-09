@@ -110,7 +110,7 @@ class LazyGroup(click.Group):
 @click.option(
     "--oidc-refresh-lifetime",
     help="""
-        Max lifetime in hours for this access token; the token will be refreshed by an asynchronous Rucio daemon.
+        Max lifetime in hours for this access token; the token will be refreshed.
         If not specified, refresh will be stopped after 4 days.
         This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio
     """,

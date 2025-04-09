@@ -135,8 +135,8 @@ class IDPSecretLoad:
                         raise ValueError(f"VO '{vo}' {client_type} must have 'issuer', 'client_id', and 'client_secret'.")
 
                     if client_type == "user_auth_client":
-                        if "redirect_uris" not in entry or not isinstance(entry["redirect_uris"], list):
-                            raise ValueError(f"VO '{vo}' user_auth_client must have 'redirect_uris' as a list.")
+                        if "redirect_uris" not in entry:
+                            raise ValueError(f"VO '{vo}' user_auth_client must have 'redirect_uris' ")
 
                 if client_type == "client_credential_client" and len(clients) > 1:
                     raise ValueError(f"only one client is permitted for client_credential_client for now.")
@@ -148,7 +148,7 @@ class IDPSecretLoad:
 
 
     def get_vo_clients_config(self,
-        client_type: Literal["user_auth_client", "client_credential_client"], 
+        client_type: Literal["user_auth_client", "client_credential_client"],
         vo: str = "def",
         issuer_nickname: Optional[str] = None
     ) -> dict[str, str]:

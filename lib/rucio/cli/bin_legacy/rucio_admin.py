@@ -1398,7 +1398,7 @@ def get_parser():
     oparser.add_argument('--oidc-audience', dest='oidc_audience', default=None, help='Defines which audience are tokens requested for.')
     oparser.add_argument('--oidc-polling', dest='oidc_polling', default=False, action='store_true', help='If not specified, user will be asked to enter a code returned by the browser to the command line. '
                          + 'If --polling is set, Rucio Client should get the token without any further interaction of the user.')  # NOQA: W503
-    oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed by asynchronous Rucio daemon. '
+    oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed. '
                          + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')  # NOQA: W503
     oparser.add_argument('--oidc-issuer', dest='oidc_issuer', default=None,
                          help='Defines which Identity Provider is going to be used. The issuer string must correspond '
