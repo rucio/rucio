@@ -1278,6 +1278,7 @@ def blueprint(with_doc: bool = False) -> AuthenticatedBlueprint:
 
 def blueprint_legacy(with_doc: bool = False) -> AuthenticatedBlueprint:
     # TODO Remove in 42.0
+    # View issue https://github.com/rucio/rucio/issues/7826
     # Old route for accountlimits (which is separated from account_limit)
     # should not in included in documentation
     account_limits_bp = AuthenticatedBlueprint('accountlimits', __name__, url_prefix='/accountlimits')
