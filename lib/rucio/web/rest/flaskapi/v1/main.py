@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import importlib
+import logging
 from typing import TYPE_CHECKING
 
 from flask import Flask
@@ -27,7 +28,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 DEFAULT_ENDPOINTS = {
-    'accountlimits',
     'accounts',
     'auth',
     'config',

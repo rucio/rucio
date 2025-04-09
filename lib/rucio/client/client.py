@@ -17,7 +17,6 @@ Client class for callers of the Rucio system
 """
 
 from rucio.client.accountclient import AccountClient
-from rucio.client.accountlimitclient import AccountLimitClient
 from rucio.client.configclient import ConfigClient
 from rucio.client.credentialclient import CredentialClient
 from rucio.client.didclient import DIDClient
@@ -39,7 +38,6 @@ from rucio.client.touchclient import TouchClient
 
 
 class Client(AccountClient,
-             AccountLimitClient,
              MetaConventionClient,
              PingClient,
              ReplicaClient,
