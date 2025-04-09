@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from json import dumps
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
@@ -348,7 +348,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def get_account_limits(self, account: str, rse_expression: str, locality: str) -> dict[str, Any]:
+    def get_account_limits(self, account: str, rse_expression: str, locality: Literal['local', 'global']) -> dict[str, Any]:
         """
         Return the correct account limits for the given locality.
 
@@ -376,16 +376,26 @@ class AccountClient(BaseClient):
             account: str,
             rse: str,
             bytes_: int,
-            locality: str
+            locality: Literal['local', 'global']
     ) -> bool:
         """
         Sets an account limit for a given limit scope.
 
-        :param account: The name of the account.
-        :param rse:     The rse name.
-        :param bytes_:   An integer with the limit in bytes.
-        :param locality: The scope of the account limit. 'local' or 'global'.
-        :return:        True if quota was created successfully else False.
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        rse :
+            The rse name.
+        bytes_ :
+            The limit in bytes.
+        locality :
+            The scope of the account limit.
+
+        Returns
+        -------
+
+            True if quota was created successfully, False otherwise.
         """
 
         if locality == 'local':
@@ -400,15 +410,24 @@ class AccountClient(BaseClient):
             self,
             account: str,
             rse: str,
-            locality: str
+            locality: Literal['local', 'global']
     ) -> bool:
         """
         Deletes an account limit for a given limit scope.
 
-        :param account: The name of the account.
-        :param rse:     The rse name.
-        :param locality: The scope of the account limit. 'local' or 'global'.
-        :return:        True if quota was created successfully else False.
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        rse :
+            The rse name.
+        locality :
+            The scope of the account limit.
+
+        Returns
+        -------
+
+            True if quota was deleted successfully, False otherwise.
         """
 
         if locality == 'local':
@@ -505,16 +524,25 @@ class AccountClient(BaseClient):
         """
         Sends the request to set an account limit for an account.
 
-        :param account: The name of the account.
-        :param rse:     The rse name.
-        :param bytes_:   An integer with the limit in bytes.
-        :return:        True if quota was created successfully else False.
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        rse :
+            The rse name.
+        bytes_ :
+            The limit in bytes.
+
+        Returns
+        -------
+
+            True if quota was created successfully, False otherwise.
         """
         data = dumps({'bytes': bytes_})
         path = '/'.join([self.ACCOUNTS_BASEURL, account, "limits", 'local', rse])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='POST', data=data)
+        r = self._send_request(url, method=HTTPMethod.POST, data=data)
 
         if r.status_code == codes.created:
             return True
@@ -530,17 +558,28 @@ class AccountClient(BaseClient):
         """
         Sends the request to remove an account limit.
 
-        :param account: The name of the account.
-        :param rse_expression: The rse expression.
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        rse :
+            The rse name.
 
-        :return: True if quota was removed successfully. False otherwise.
-        :raises AccountNotFound: if account doesn't exist.
+        Returns
+        -------
+
+            True if quota was removed successfully, False otherwise.
+
+        Raises
+        ------
+        AccountNotFound
+            If account doesn't exist.
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, "limits", "local", rse])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='DEL')
+        r = self._send_request(url, method=HTTPMethod.DELETE)
 
         if r.status_code == codes.ok:
             return True
@@ -557,17 +596,26 @@ class AccountClient(BaseClient):
         """
         Sends the request to set a global account limit for an account.
 
-        :param account:        The name of the account.
-        :param rse_expression: The rse expression.
-        :param bytes_:          An integer with the limit in bytes.
-        :return:               True if quota was created successfully else False.
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        rse_expression :
+            The rse expression.
+        bytes_ :
+            The limit in bytes.
+
+        Returns
+        -------
+
+            True if quota was created successfully, False otherwise.
         """
 
         data = dumps({'bytes': bytes_})
         path = '/'.join([self.ACCOUNTS_BASEURL, account, "limits", 'global', quote_plus(rse_expression)])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='POST', data=data)
+        r = self._send_request(url, method=HTTPMethod.POST, data=data)
 
         if r.status_code == codes.created:
             return True
@@ -583,17 +631,28 @@ class AccountClient(BaseClient):
         """
         Sends the request to remove a global account limit.
 
-        :param account:        The name of the account.
-        :param rse_expression: The rse expression.
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        rse_expression :
+            The rse expression.
 
-        :return: True if quota was removed successfully. False otherwise.
-        :raises AccountNotFound: if account doesn't exist.
+        Returns
+        -------
+
+            True if quota was removed successfully, False otherwise.
+
+        Raises
+        ------
+        AccountNotFound
+            If account doesn't exist.
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, "limits", 'global', quote_plus(rse_expression)])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='DEL')
+        r = self._send_request(url, method=HTTPMethod.DELETE)
 
         if r.status_code == codes.ok:
             return True
