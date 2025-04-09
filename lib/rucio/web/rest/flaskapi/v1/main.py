@@ -56,6 +56,15 @@ DEFAULT_ENDPOINTS = {
 
 def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
     for blueprint_module in modules:
+
+        # instead of using the 'accountlimits' endpoint, use the legacy_blueprint in 'accounts'
+        if blueprint_module == "accountlimits":
+            logging.log(logging.WARNING, "Endpoint `accountlimits` has been integrated into `accounts` and will be removed in future releases")
+            if "accounts" not in modules:
+                blueprint_module = 'accounts'
+            else:
+                continue
+
         try:
             # searches for module names locally
             blueprint_module = importlib.import_module('.' + blueprint_module, package='rucio.web.rest.flaskapi.v1')
