@@ -119,7 +119,7 @@ def get_opendata_did(
         )
     )
 
-    if state:
+    if state is not None:
         query = query.where(models.OpenDataDid.state == state)
 
     print(f"Query: {query}")

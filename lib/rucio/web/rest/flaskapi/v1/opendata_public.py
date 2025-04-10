@@ -12,16 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 from flask import Blueprint, Flask, Response, request
 
 from rucio.common.exception import OpenDataDataIdentifierNotFound
 from rucio.common.utils import render_json
 from rucio.gateway import opendata
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, parse_scope_name, response_headers
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, \
+    generate_http_error_flask, parse_scope_name, response_headers
 
 
 class OpenDataPublicView(ErrorHandlingMethodView):
     # @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    # Should this be a stream?
     @check_accept_header_wrapper_flask(["application/json"])
     def get(self) -> "Response":
         print(f"OpenDataPrivateView.get() called")
@@ -30,7 +34,6 @@ class OpenDataPublicView(ErrorHandlingMethodView):
             offset = request.args.get("offset", default=None)
             print(f"limit: {limit}, offset: {offset}")
             result = opendata.list_opendata_dids(limit=limit, offset=offset, state="PUBLIC")
-            # return try_stream(render_json(result))
             result = render_json(result)
             return Response(result, content_type="application/json")
         except ValueError as error:
@@ -42,9 +45,13 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(["application/json"])
     def get(self, scope: str, name: str) -> "Response":
         try:
-            scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
-            result = opendata.get_opendata_did(scope=scope, name=name, state="PUBLIC", vo=request.environ.get("vo"))
-            return Response(render_json(**result), content_type="application/json")
+            # In the unauthenticated blueprint we don't have the vo in the request
+            print(f"OpenDataPublicDIDsView.get() called with scope={scope}, name={name}")
+            scope, name = parse_scope_name(f"{scope}/{name}", vo=None)
+            print(f"Parsed scope: {scope}, name: {name}")
+            result = opendata.get_opendata_did(scope=scope, name=name, state="PUBLIC")
+            result = render_json(**result)
+            return Response(json.dumps(result), status=200, mimetype='application/json')
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except OpenDataDataIdentifierNotFound as error:
