@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from flask import Flask
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get_list
 from rucio.common.exception import ConfigurationError
 from rucio.common.logging import setup_logging
 from rucio.web.rest.flaskapi.v1.common import CORSMiddleware
@@ -27,7 +27,7 @@ from rucio.web.rest.flaskapi.v1.common import CORSMiddleware
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-DEFAULT_ENDPOINTS = [
+DEFAULT_ENDPOINTS = {
     'accountlimits',
     'accounts',
     'auth',
@@ -50,7 +50,7 @@ DEFAULT_ENDPOINTS = [
     'rules',
     'scopes',
     'subscriptions',
-]
+}
 
 
 def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
@@ -75,12 +75,7 @@ def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
         else:
             raise ConfigurationError(f'"{blueprint_module}" from the endpoints configuration value did not have a blueprint')
 
-
-try:
-    endpoints = config_get('api', 'endpoints', raise_exception=False, default='')
-    endpoints = list(filter(bool, map(str.strip, endpoints.split(sep=','))))
-except RuntimeError:
-    endpoints = None
+endpoints = set(config_get_list('api', 'endpoints', raise_exception=False, default=[]))
 
 if not endpoints:
     endpoints = DEFAULT_ENDPOINTS
