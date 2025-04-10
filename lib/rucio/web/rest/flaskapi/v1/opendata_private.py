@@ -46,9 +46,11 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(["application/json"])
     def get(self, scope: str, name: str) -> "Response":
         try:
-            scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
+            vo = request.environ.get("vo")
+            print(f"OpenDataPrivateDIDsView.get() called with scope={scope}, name={name}, vo={vo}")
+            scope, name = parse_scope_name(f"{scope}/{name}", vo=vo)
             state = request.args.get("state", default=None)
-            result = opendata.get_opendata_did(scope=scope, name=name, state=state, vo=request.environ.get("vo"))
+            result = opendata.get_opendata_did(scope=scope, name=name, state=state, vo=vo)
             result = render_json(**result)
             return Response(json.dumps(result), status=200, mimetype='application/json')
         except ValueError as error:
