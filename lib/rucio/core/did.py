@@ -15,7 +15,6 @@
 import logging
 import random
 from datetime import datetime, timedelta
-from enum import Enum
 from hashlib import md5
 from re import match
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
@@ -1320,7 +1319,7 @@ def list_new_dids(
             select_stmt = select_stmt.where(
                 models.DataIdentifier.did_type == DIDType[did_type]
             )
-        elif isinstance(did_type, Enum):
+        elif isinstance(did_type, DIDType):
             select_stmt = select_stmt.where(
                 models.DataIdentifier.did_type == did_type
             )
