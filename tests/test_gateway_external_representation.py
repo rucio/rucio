@@ -435,10 +435,19 @@ class TestGatewayExternalRepresentation:
         gateway_acc_lim.set_local_account_limit(new_acc_name, self.rse4_name, 10, 'root', vo=test_vo)
         add_did(new_scope_name, did, 'DATASET', 'root', account=new_acc_name, rse=self.rse3_name, vo=test_vo)
 
-        sub_id = add_subscription(sub, new_acc_name, {'account': [new_acc_name], 'scope': [new_scope_name]},
-                                  [{'copies': 1, 'rse_expression': self.rse3_name, 'weight': 0, 'activity': 'Functional Test',
-                                    'source_replica_expression': self.rse4_name}],
-                                  '', False, 0, 0, 3, 'root', vo=test_vo)
+        sub_id = add_subscription(
+            name=sub,
+            account=new_acc_name,
+            filter_={'account': [new_acc_name], 'scope': [new_scope_name]},
+            replication_rules=[{'copies': 1, 'rse_expression': self.rse3_name, 'weight': 0, 'activity': 'Functional Test',
+                                'source_replica_expression': self.rse4_name}],
+            comments='',
+            lifetime=False,
+            retroactive=False,
+            dry_run=True,
+            priority=3,
+            issuer='root',
+            vo=test_vo)
         add_replication_rule(dids=[{'scope': new_scope_name, 'name': did}], copies=1, rse_expression=self.rse3_name, weight=None,
                              lifetime=None, grouping='DATASET', account=new_acc_name, locked=False, subscription_id=sub_id,
                              source_replica_expression=self.rse4_name, activity='Functional Test', notify=None,
