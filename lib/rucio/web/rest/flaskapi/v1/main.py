@@ -15,6 +15,7 @@
 
 import importlib
 import logging
+from typing import TYPE_CHECKING
 
 from flask import Flask
 
@@ -22,6 +23,9 @@ from rucio.common.config import config_get
 from rucio.common.exception import ConfigurationError
 from rucio.common.logging import setup_logging
 from rucio.web.rest.flaskapi.v1.common import CORSMiddleware
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 DEFAULT_ENDPOINTS = [
     'accountlimits',
@@ -49,7 +53,7 @@ DEFAULT_ENDPOINTS = [
 ]
 
 
-def apply_endpoints(app, modules):
+def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
     for blueprint_module in modules:
         # Legacy patch - TODO Remove in 38.0.0
         if blueprint_module == "meta":
