@@ -16,43 +16,37 @@ from typing import TYPE_CHECKING, Optional, Union
 
 from rucio.common.exception import AccessDenied
 from rucio.core import meta_conventions
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.gateway.permission import has_permission
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
-
     from rucio.common.types import InternalAccount
     from rucio.db.sqla.constants import KeyType
 
 
-@read_session
-def list_keys(*, session: "Session") -> list[str]:
+def list_keys() -> list[str]:
     """
     Lists all keys for DID Metadata Conventions.
 
-    :param session: The database session in use.
-
     :returns: A list containing all keys.
     """
-    return meta_conventions.list_keys(session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        return meta_conventions.list_keys(session=session)
 
 
-@read_session
-def list_values(key: str, *, session: "Session") -> list[str]:
+def list_values(key: str) -> list[str]:
     """
     Lists all allowed values for a DID key (all values for a key in DID Metadata Conventions).
 
     :param key: the name for the key.
-    :param session: The database session in use.
-
 
     :returns: A list containing all values.
     """
-    return meta_conventions.list_values(key=key, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        return meta_conventions.list_values(key=key, session=session)
 
 
-@transactional_session
 def add_key(
     key: str,
     key_type: Union["KeyType", str],
@@ -60,8 +54,6 @@ def add_key(
     value_type: Optional[str] = None,
     value_regexp: Optional[str] = None,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> None:
     """
     Add an allowed key for DID metadata (update the DID Metadata Conventions table with a new key).
@@ -72,27 +64,26 @@ def add_key(
     :param value_type: the type of the value, if defined.
     :param value_regexp: the regular expression that values should match, if defined.
     :param vo: The vo to act on
-    :param session: The database session in use.
     """
     kwargs = {'key': key, 'key_type': key_type, 'value_type': value_type, 'value_regexp': value_regexp}
-    auth_result = has_permission(issuer=issuer, vo=vo, action='add_key', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise AccessDenied('Account %s can not add key. %s' % (issuer, auth_result.message))
-    return meta_conventions.add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = has_permission(issuer=issuer, vo=vo, action='add_key', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise AccessDenied('Account %s can not add key. %s' % (issuer, auth_result.message))
+        return meta_conventions.add_key(key=key, key_type=key_type, value_type=value_type, value_regexp=value_regexp, session=session)
 
 
-@transactional_session
-def add_value(key: str, value: str, issuer: "InternalAccount", vo: str = 'def', *, session: "Session") -> None:
+def add_value(key: str, value: str, issuer: "InternalAccount", vo: str = 'def') -> None:
     """
     Add an allowed value for DID metadata (update a key in DID Metadata Conventions table).
 
     :param key: the name for the key.
     :param value: the value.
     :param vo: the vo to act on.
-    :param session: The database session in use.
     """
     kwargs = {'key': key, 'value': value}
-    auth_result = has_permission(issuer=issuer, vo=vo, action='add_value', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise AccessDenied('Account %s can not add value %s to key %s. %s' % (issuer, value, key, auth_result.message))
-    return meta_conventions.add_value(key=key, value=value, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = has_permission(issuer=issuer, vo=vo, action='add_value', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise AccessDenied('Account %s can not add value %s to key %s. %s' % (issuer, value, key, auth_result.message))
+        return meta_conventions.add_value(key=key, value=value, session=session)
