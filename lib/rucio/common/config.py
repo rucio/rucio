@@ -708,16 +708,6 @@ def get_lfn2pfn_algorithm_default() -> str:
     return default_lfn2pfn
 
 
-def get_opendata_public_enabled() -> bool:
-    """Returns whether opendata is enabled or not (server side option)"""
-    opendata_public_enabled = False
-    try:
-        opendata_public_enabled = config_get_bool("opendata", "public")
-    except (configparser.NoOptionError, configparser.NoSectionError, ConfigNotFound, RuntimeError):
-        pass
-    return opendata_public_enabled
-
-
 def get_rse_credentials(path_to_credentials_file: Optional[Union[str, os.PathLike]] = None) -> dict[str, Any]:
     """ Returns credentials for RSEs. """
 
