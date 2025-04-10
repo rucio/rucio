@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from flask import Flask
 
-from rucio.common.config import config_get, get_opendata_public_enabled
+from rucio.common.config import config_get
 from rucio.common.exception import ConfigurationError
 from rucio.common.logging import setup_logging
 from rucio.web.rest.flaskapi.v1.common import CORSMiddleware
@@ -56,12 +56,6 @@ DEFAULT_ENDPOINTS = {
 
 def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
     for blueprint_module in modules:
-        if blueprint_module == "opendata_public":
-            opendata_public_enabled = get_opendata_public_enabled()
-            if not opendata_public_enabled:
-                logging.log(logging.INFO, "Endpoint `opendata_public` is disabled in the configuration")
-                continue
-
         # Legacy patch - TODO Remove in 38.0.0
         if blueprint_module == "meta":
             logging.log(logging.WARNING, "Endpoint `meta` is depreciated and will be removed in future releases")
