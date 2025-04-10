@@ -20,7 +20,7 @@ from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenData
 from rucio.common.utils import render_json
 from rucio.gateway import opendata
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers
 
 
 class OpenDataPrivateView(ErrorHandlingMethodView):
