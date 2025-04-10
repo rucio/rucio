@@ -76,9 +76,17 @@ def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
             raise ConfigurationError(f'"{blueprint_module}" from the endpoints configuration value did not have a blueprint')
 
 endpoints = set(config_get_list('api', 'endpoints', raise_exception=False, default=[]))
+endpoints_add = set(config_get_list('api', 'endpoints_add', raise_exception=False, default=[]))
+endpoints_remove = set(config_get_list('api', 'endpoints_remove', raise_exception=False, default=[]))
+
+if endpoints and (endpoints_add or endpoints_remove):
+    raise ConfigurationError("Endpoints cannot be set in both 'endpoints' and 'endpoints_add'/'endpoints_remove'")
+
+if endpoints_add.intersection(endpoints_remove):
+    raise ConfigurationError("Endpoints cannot be in both 'endpoints_add' and 'endpoints_remove'")
 
 if not endpoints:
-    endpoints = DEFAULT_ENDPOINTS
+    endpoints = DEFAULT_ENDPOINTS - endpoints_remove | endpoints_add
 
 application = Flask(__name__)
 application.wsgi_app = CORSMiddleware(application.wsgi_app)
