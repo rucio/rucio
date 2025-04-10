@@ -128,6 +128,8 @@ def get_opendata_did(
     if not result:
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
 
+    print(f"Query result: {result}")
+
     return dict(result)
 
 
