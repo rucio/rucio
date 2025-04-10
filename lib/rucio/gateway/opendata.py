@@ -55,6 +55,7 @@ def get_opendata_did(
         vo: str = "def",
         session: "Session"
 ) -> dict[str, Any]:
+    print(f"GATEWAY get_opendata_did called with scope={scope}, name={name}, state={state}, vo={vo}")
     internal_scope = InternalScope(scope, vo=vo)
     state_enum = None
     if state:
@@ -62,9 +63,7 @@ def get_opendata_did(
         state_enum = opendata_state_str_to_enum(state)
     result = opendata.get_opendata_did(scope=internal_scope, name=name, state=state_enum, session=session)
     print(f"get_opendata_did result: {result}")
-    return gateway_update_return_dict(
-        result,
-        session=session)
+    return gateway_update_return_dict(result, session=session)
 
 
 @transactional_session
