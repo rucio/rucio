@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import flask
 from flask import Flask, Response
@@ -178,7 +178,7 @@ class RequestGet(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, flask.request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, flask.request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -187,8 +187,8 @@ class RequestGet(ErrorHandlingMethodView):
                 scope=scope,
                 name=name,
                 rse=rse,
-                issuer=flask.request.environ.get('issuer'),
-                vo=flask.request.environ.get('vo'),
+                issuer=flask.request.environ['issuer'],
+                vo=flask.request.environ['vo'],
             )
             return Response(json.dumps(request_data, cls=APIEncoder), content_type='application/json')
         except RequestNotFound as error:
@@ -343,7 +343,7 @@ class RequestHistoryGet(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scope, name = parse_scope_name(scope_name, flask.request.environ.get('vo'))
+            scope, name = parse_scope_name(scope_name, flask.request.environ['vo'])
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -352,8 +352,8 @@ class RequestHistoryGet(ErrorHandlingMethodView):
                 scope=scope,
                 name=name,
                 rse=rse,
-                issuer=flask.request.environ.get('issuer'),
-                vo=flask.request.environ.get('vo'),
+                issuer=flask.request.environ['issuer'],
+                vo=flask.request.environ['vo'],
             )
             return Response(json.dumps(request_data, cls=APIEncoder), content_type='application/json')
         except RequestNotFound as error:
@@ -564,11 +564,11 @@ class RequestList(ErrorHandlingMethodView):
         src_rses = []
         dst_rses = []
         if src_site:
-            src_rses = get_rses_with_attribute_value(key='site', value=src_site, vo=flask.request.environ.get('vo'))
+            src_rses = get_rses_with_attribute_value(key='site', value=src_site, vo=flask.request.environ['vo'])
             if not src_rses:
                 return generate_http_error_flask(404, 'NotFound', f'Could not resolve site name {src_site} to RSE')
             src_rses = [rse['rse_name'] for rse in src_rses]
-            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, vo=flask.request.environ.get('vo'))
+            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, vo=flask.request.environ['vo'])
             if not dst_rses:
                 return generate_http_error_flask(404, 'NotFound', f'Could not resolve site name {dst_site} to RSE')
             dst_rses = [rse['rse_name'] for rse in dst_rses]
@@ -576,11 +576,15 @@ class RequestList(ErrorHandlingMethodView):
             dst_rses = [dst_rse]
             src_rses = [src_rse]
 
+        # Manual cast to list[str] as static code analysis erroneously sees these as list[Optional[str]]
+        src_rses = cast("list[str]", src_rses)
+        dst_rses = cast("list[str]", dst_rses)
+
         def generate(issuer, vo):
             for result in request.list_requests(src_rses, dst_rses, states, issuer=issuer, vo=vo):
                 yield render_json(**result) + '\n'
 
-        return try_stream(generate(issuer=flask.request.environ.get('issuer'), vo=flask.request.environ.get('vo')))
+        return try_stream(generate(issuer=flask.request.environ['issuer'], vo=flask.request.environ['vo']))
 
 
 class RequestHistoryList(ErrorHandlingMethodView):
@@ -779,8 +783,8 @@ class RequestHistoryList(ErrorHandlingMethodView):
         src_site = flask.request.args.get('src_site', default=None)
         dst_site = flask.request.args.get('dst_site', default=None)
         request_states = flask.request.args.get('request_states', default=None)
-        offset = flask.request.args.get('offset', default=0)
-        limit = flask.request.args.get('limit', default=100)
+        offset = flask.request.args.get('offset', type=int, default=0)
+        limit = flask.request.args.get('limit', type=int, default=100)
 
         if not request_states:
             return generate_http_error_flask(400, 'MissingParameter', 'Request state is missing')
@@ -801,11 +805,11 @@ class RequestHistoryList(ErrorHandlingMethodView):
         src_rses = []
         dst_rses = []
         if src_site:
-            src_rses = get_rses_with_attribute_value(key='site', value=src_site, vo=flask.request.environ.get('vo'))
+            src_rses = get_rses_with_attribute_value(key='site', value=src_site, vo=flask.request.environ['vo'])
             if not src_rses:
                 return generate_http_error_flask(404, 'NotFound', f'Could not resolve site name {src_site} to RSE')
             src_rses = [rse['rse_name'] for rse in src_rses]
-            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, vo=flask.request.environ.get('vo'))
+            dst_rses = get_rses_with_attribute_value(key='site', value=dst_site, vo=flask.request.environ['vo'])
             if not dst_rses:
                 return generate_http_error_flask(404, 'NotFound', f'Could not resolve site name {dst_site} to RSE')
             dst_rses = [rse['rse_name'] for rse in dst_rses]
@@ -813,11 +817,15 @@ class RequestHistoryList(ErrorHandlingMethodView):
             dst_rses = [dst_rse]
             src_rses = [src_rse]
 
+        # Manual cast to list[str] as static code analysis erroneously sees these as list[Optional[str]]
+        src_rses = cast("list[str]", src_rses)
+        dst_rses = cast("list[str]", dst_rses)
+
         def generate(issuer, vo):
             for result in request.list_requests_history(src_rses, dst_rses, states, issuer=issuer, vo=vo, offset=offset, limit=limit):
                 yield render_json(**result) + '\n'
 
-        return try_stream(generate(issuer=flask.request.environ.get('issuer'), vo=flask.request.environ.get('vo')))
+        return try_stream(generate(issuer=flask.request.environ['issuer'], vo=flask.request.environ['vo']))
 
 
 class RequestMetricsGet(ErrorHandlingMethodView):
@@ -960,8 +968,8 @@ class RequestMetricsGet(ErrorHandlingMethodView):
             src_rse=src_rse,
             activity=activity,
             group_by_rse_attribute=group_by_rse_attribute,
-            issuer=flask.request.environ.get('issuer'),
-            vo=flask.request.environ.get('vo')
+            issuer=flask.request.environ['issuer'],
+            vo=flask.request.environ['vo']
         )
 
         if format == 'panda':
