@@ -19,8 +19,8 @@ from urllib.parse import quote_plus
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
-from rucio.common.utils import build_url, render_json
 from rucio.common.config import config_get
+from rucio.common.utils import build_url, render_json
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
