@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 import click
 
-from rucio.common.exception import OpenDataError, RucioException
+from rucio.common.exception import RucioException
 
 if TYPE_CHECKING:
     from click import Context

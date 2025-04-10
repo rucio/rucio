@@ -20,6 +20,7 @@ from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.utils import build_url, render_json
+from rucio.common.config import config_get
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -29,6 +30,15 @@ class OpenDataClient(BaseClient):
     opendata_public_base_url = "opendata"
     opendata_private_base_url = "opendata-private"
 
+    opendata_host_from_config = config_get('client', 'opendata_host', raise_exception=False, default=None)
+
+    def get_opendata_host(self, *, public: bool) -> str:
+        if public and self.opendata_host_from_config is not None:
+            return self.opendata_host_from_config
+
+        return choice(self.list_hosts)
+
+    # self.auth_host
     def list_opendata_dids(
             self,
             *,
@@ -47,7 +57,7 @@ class OpenDataClient(BaseClient):
         if state is not None and public:
             raise ValueError('state and public cannot be provided at the same time.')
 
-        url = build_url(choice(self.list_hosts), path=path)
+        url = build_url(self.get_opendata_host(public=public), path=path)
 
         r = self._send_request(url, type_='GET', params=params)
         if r.status_code == codes.ok:
@@ -64,7 +74,7 @@ class OpenDataClient(BaseClient):
             name: str,
     ) -> bool:
         path = '/'.join([self.opendata_private_base_url, quote_plus(scope), quote_plus(name)])
-        url = build_url(choice(self.list_hosts), path=path)
+        url = build_url(self.get_opendata_host(public=False), path=path)
 
         r = self._send_request(url, type_='POST')
 
@@ -81,7 +91,7 @@ class OpenDataClient(BaseClient):
             name: str,
     ) -> bool:
         path = '/'.join([self.opendata_private_base_url, quote_plus(scope), quote_plus(name)])
-        url = build_url(choice(self.list_hosts), path=path)
+        url = build_url(self.get_opendata_host(public=False), path=path)
 
         r = self._send_request(url, type_='DEL')
 
@@ -100,7 +110,7 @@ class OpenDataClient(BaseClient):
             state: Optional[str] = None,
     ) -> bool:
         path = '/'.join([self.opendata_private_base_url, quote_plus(scope), quote_plus(name)])
-        url = build_url(choice(self.list_hosts), path=path)
+        url = build_url(self.get_opendata_host(public=False), path=path)
 
         if state is not None:
             state = state.upper().strip()
@@ -134,7 +144,7 @@ class OpenDataClient(BaseClient):
     ) -> dict[str, Any]:
         base_url = self.opendata_public_base_url if public else self.opendata_private_base_url
         path = '/'.join([base_url, quote_plus(scope), quote_plus(name)])
-        url = build_url(choice(self.list_hosts), path=path)
+        url = build_url(self.get_opendata_host(public=public), path=path)
 
         r = self._send_request(url, type_='GET')
 

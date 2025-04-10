@@ -17,7 +17,7 @@ from flask import Blueprint, Flask, Response, request
 from rucio.common.exception import OpenDataDataIdentifierNotFound
 from rucio.common.utils import render_json
 from rucio.gateway import opendata
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, parse_scope_name, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, parse_scope_name, response_headers
 
 
 class OpenDataPublicView(ErrorHandlingMethodView):
