@@ -154,5 +154,5 @@ def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, accou
 @click.pass_context
 def list_(ctx, did, rule_id, traverse, csv, file, account, subscription):
     """List all rules impacting a given DID"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did, "rule_id": rule_id, "traverse": traverse, "csv": csv, "file": file, "subscription": (account if account is not None else ctx.obj.client.account, subscription)})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did, "rule_id": rule_id, "traverse": traverse, "csv": csv, "file": file, "subscription": subscription})
     list_rules(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
