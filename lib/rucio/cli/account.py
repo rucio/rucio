@@ -51,7 +51,7 @@ def add_(ctx, account_type, account_name, email):
     Example:
         $ rucio account add
     """
-    args = Arguments({"account_type": account_type, "account": account_name, "email": email})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "account_type": account_type, "account": account_name, "email": email})
     add_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -62,7 +62,7 @@ def add_(ctx, account_type, account_name, email):
 @click.pass_context
 def list_(ctx, type_, id, filter):
     """List all accounts that match given filters"""
-    args = Arguments({"account_type": type_, "identity": id, "filters": filter})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "account_type": type_, "identity": id, "filters": filter})
     list_accounts(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -73,7 +73,7 @@ def show(ctx, account_name):
     """
     Show info about a single account
     """
-    info_account(Arguments({"account": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    info_account(Arguments({"no_pager": ctx.obj.no_pager, "account": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @account.command("remove")
@@ -84,7 +84,7 @@ def remove(ctx, account_name):
     Remove an account
     (WARNING: Permanently disables the account. If you want to temporarily disable, use `account update [account-name] --ban`)
     """
-    delete_account(Arguments({"account": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    delete_account(Arguments({"no_pager": ctx.obj.no_pager, "account": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @account.command("update")
@@ -94,7 +94,7 @@ def remove(ctx, account_name):
 @click.pass_context
 def update(ctx, ban, account_name, email):
     """Update account settings"""
-    args = Arguments({"account": account_name, "key": "email", "value": email})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "key": "email", "value": email})
     if ban is not None:
         if ban:
             ban_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
@@ -114,7 +114,7 @@ def attribute():
 @click.pass_context
 def attribute_list(ctx, account_name):
     "List the attributes for a given account"
-    list_account_attributes(Arguments({"account": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    list_account_attributes(Arguments({"no_pager": ctx.obj.no_pager, "account": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @attribute.command("add")
@@ -124,7 +124,7 @@ def attribute_list(ctx, account_name):
 @click.pass_context
 def attribute_add(ctx, account_name, key, value):
     """Add a new attribute [key] to an account"""
-    add_account_attribute(Arguments({"account": account_name, "key": key, "value": value}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    add_account_attribute(Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "key": key, "value": value}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @attribute.command("remove")
@@ -133,7 +133,7 @@ def attribute_add(ctx, account_name, key, value):
 @click.pass_context
 def attribute_remove(ctx, account_name, key):
     """Remove an attribute from an account without reassigning it"""
-    delete_account_attribute(Arguments({"account": account_name, "key": key}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    delete_account_attribute(Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "key": key}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @account.group("limit")
@@ -147,7 +147,7 @@ def limit():
 @click.pass_context
 def limit_list(ctx, account_name, rse):
     """List the limits and current usage for an account"""
-    args = Arguments({"usage_account": account_name, "rse": rse})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "usage_account": account_name, "rse": rse})
     list_account_usage(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -161,7 +161,7 @@ def limit_list(ctx, account_name, rse):
 @click.pass_context
 def limit_add(ctx, account_name, rse, bytes_, locality):
     """Add a new limit for an account on an RSE. An account can have both local and global limits on the same RSE."""
-    args = Arguments({"account": account_name, "rse": rse, "bytes": bytes_, "locality": locality})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "rse": rse, "bytes": bytes_, "locality": locality})
     set_limits(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -174,7 +174,7 @@ def limit_add(ctx, account_name, rse, bytes_, locality):
 @click.pass_context
 def limit_remove(ctx, account_name, rse, locality):
     """Remove existing limits for an account on an RSE"""
-    args = Arguments({"account": account_name, "rse": rse, "locality": locality})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "rse": rse, "locality": locality})
     delete_limits(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -188,7 +188,7 @@ def identity():
 @click.pass_context
 def identity_list(ctx, account_name):
     """See all the IDs for [account-name]"""
-    args = Arguments({"account": account_name})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name})
     list_identities(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -201,7 +201,7 @@ def identity_list(ctx, account_name):
 @click.pass_context
 def identity_add(ctx, account_name, type_, id, email, password):
     """Add a new identity for [account-name]"""
-    args = Arguments({"account": account_name, "authtype": type_, "identity": id, "email": email, "password": password})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "authtype": type_, "identity": id, "email": email, "password": password})
     legacy_identity_add(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -212,5 +212,5 @@ def identity_add(ctx, account_name, type_, id, email, password):
 @click.pass_context
 def identity_remove(ctx, account_name, type_, id):
     """Revoke a given ID's access from an account"""
-    args = Arguments({"account": account_name, "authtype": type_, "id": id})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "authtype": type_, "id": id})
     identity_delete(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

@@ -28,7 +28,7 @@ def scope():
 @click.pass_context
 def add_(ctx, account, scope_name):
     """Add a new scope with name [SCOPE-NAME]"""
-    args = Arguments({"scope": scope_name, "account": account})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "scope": scope_name, "account": account})
     add_scope(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -37,4 +37,4 @@ def add_(ctx, account, scope_name):
 @click.pass_context
 def list_(ctx, account):
     """List existing scopes"""
-    list_scopes(Arguments({"account": account}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    list_scopes(Arguments({"no_pager": ctx.obj.no_pager, "account": account}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
