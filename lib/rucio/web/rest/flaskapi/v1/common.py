@@ -210,14 +210,20 @@ def parse_scope_name(scope_name: str, vo: Optional[str]) -> tuple[str, ...]:
     :raises ValueError: when scope_name could not be parsed.
     :returns: a (scope, name) tuple.
     """
+
     if not vo:
         vo = 'def'
 
-    # why again does that regex start with a slash?
-    scope_regex = re.match(get_schema_value('SCOPE_NAME_REGEXP', vo), '/' + scope_name)
+    # The ':' in did is replaced by '/', also an '/' is added. Why?
+    pattern = get_schema_value('SCOPE_NAME_REGEXP', vo)
+    text = '/' + scope_name
+
+    scope_regex = re.match(pattern, text)
     if scope_regex is None:
-        raise ValueError('cannot parse scope and name')
-    return scope_regex.group(1, 2)
+        raise ValueError(f"Could not parse '{text}' ({scope_name=}) with pattern '{pattern}' into scope and name.")
+
+    scope, name = scope_regex.group(1, 2)
+    return scope, name
 
 
 def try_stream(

@@ -50,7 +50,7 @@ def rse():
 @click.pass_context
 def list_(ctx, rses, csv):
     """List all registered Rucio Storage Elements (RSEs)"""
-    list_rses(Arguments({"rses": rses, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    list_rses(Arguments({"no_pager": ctx.obj.no_pager, "rses": rses, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @rse.command("show")
@@ -59,7 +59,7 @@ def list_(ctx, rses, csv):
 @click.pass_context
 def show(ctx, rse_name, csv):
     """Usage, protocols, settings, and attributes for a given RSE"""
-    info_rse(Arguments({"rse": rse_name, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    info_rse(Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @rse.command("add")
@@ -68,7 +68,7 @@ def show(ctx, rse_name, csv):
 @click.pass_context
 def add_(ctx, rse_name, non_deterministic):
     """Add a new RSE"""
-    args = Arguments({"rse": rse_name, "non_deterministic": non_deterministic})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "non_deterministic": non_deterministic})
     add_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -77,7 +77,7 @@ def add_(ctx, rse_name, non_deterministic):
 @click.pass_context
 def remove(ctx, rse_name):
     """Permanently disable an RSE. CAUTION: all information about the RSE might be lost!"""
-    disable_rse(Arguments({"rse": rse_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    disable_rse(Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @rse.command("update")
@@ -93,7 +93,7 @@ def update(ctx, rse_name, key, value):
     Example:
         $ rucio rse update my-rse --option availability_write True
     """
-    args = Arguments({"rse": rse_name, "param": key, "value": value})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "param": key, "value": value})
     update_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -109,7 +109,7 @@ def distance():
 @click.pass_context
 def distance_show(ctx, source_rse, destination_rse):
     """Display distance information from SOURCE-RSE to DESTINATION-RSE"""
-    get_distance_rses(Arguments({"source": source_rse, "destination": destination_rse}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    get_distance_rses(Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @distance.command("add")
@@ -119,7 +119,7 @@ def distance_show(ctx, source_rse, destination_rse):
 @click.pass_context
 def distance_add(ctx, source_rse, destination_rse, distance):
     """Create a new link from SOURCE-RSE to DESTINATION-RSE with a distance"""
-    args = Arguments({"source": source_rse, "destination": destination_rse, "distance": distance})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse, "distance": distance})
     add_distance_rses(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -129,7 +129,7 @@ def distance_add(ctx, source_rse, destination_rse, distance):
 @click.pass_context
 def distance_remove(ctx, source_rse, destination_rse):
     """Un-link SOURCE-RSE from DESTINATION-RSE by removing the distance between them"""
-    args = Arguments({"source": source_rse, "destination": destination_rse})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse})
     delete_distance_rses(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -140,7 +140,7 @@ def distance_remove(ctx, source_rse, destination_rse):
 @click.pass_context
 def distance_update(ctx, source_rse, destination_rse, distance):
     """Update the existing distance or ranking from SOURCE-RSE to DESTINATION-RSE"""
-    args = Arguments({"source": source_rse, "destination": destination_rse, "distance": distance})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse, "distance": distance})
     update_distance_rses(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -154,7 +154,7 @@ def attribute():
 @click.pass_context
 def attr_list_(ctx, rse_name):
     """List all attributes of a given RSE"""
-    get_attribute_rse(Arguments({"rse": rse_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    get_attribute_rse(Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @attribute.command("add")
@@ -169,7 +169,7 @@ def attribute_add_(ctx, rse_name, key, value):
     Example:
         $ rucio rse attribute add my-rse --key My-Attribute  --value True
     """
-    args = Arguments({"rse": rse_name, "key": key, "value": value})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "key": key, "value": value})
     set_attribute_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -181,7 +181,7 @@ def attribute_add_(ctx, rse_name, key, value):
 @click.pass_context
 def attribute_remove(ctx, rse_name, attribute):
     """Remove an existing attribute from an RSE"""
-    args = Arguments({"rse": rse_name, "key": attribute, "value": None})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "key": attribute, "value": None})
     delete_attribute_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -201,7 +201,7 @@ def limit_add(ctx, rse_name, limit):
     Example, add a limit of 1KB to XRD1 named "MinFreeSpace":
         $ rucio rse limit add XRD1 --limit MinFreeSpace 10000
     """
-    args = Arguments({"rse": rse_name, "name": limit[0], "value": limit[1]})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "name": limit[0], "value": limit[1]})
     set_limit_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -211,7 +211,7 @@ def limit_add(ctx, rse_name, limit):
 @click.pass_context
 def limit_remove(ctx, rse_name, limit):
     """Remove an existing RSE limit"""
-    args = Arguments({"rse": rse_name, "name": limit})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "name": limit})
     delete_limit_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -257,7 +257,7 @@ def protocol_add(ctx, rse_name, host, scheme, prefix, space_token, web_service_p
 @click.pass_context
 def protocol_remove(ctx, rse_name, host_name, scheme, port):
     """Remove an existing protocol from an RSE"""
-    args = Arguments({"rse": rse_name, "scheme": scheme, "hostname": host_name, "port": port})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "scheme": scheme, "hostname": host_name, "port": port})
     del_protocol_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -273,7 +273,7 @@ def qos():
 @click.pass_context
 def qos_add(ctx, rse_name, policy):
     "Add a new QoS policy"
-    add_qos_policy(Arguments({"rse": rse_name, "qos_policy": policy}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    add_qos_policy(Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "qos_policy": policy}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @qos.command("remove")
@@ -282,7 +282,7 @@ def qos_add(ctx, rse_name, policy):
 @click.pass_context
 def qos_remove(ctx, rse_name, policy):
     "Remove an existing QoS policy"
-    delete_qos_policy(Arguments({"rse": rse_name, "qos_policy": policy}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    delete_qos_policy(Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "qos_policy": policy}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @qos.command("list")
@@ -290,4 +290,4 @@ def qos_remove(ctx, rse_name, policy):
 @click.pass_context
 def qos_list(ctx, rse_name):
     "List the RSE's QoS policies"
-    list_qos_policies(Arguments({"rse": rse_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    list_qos_policies(Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

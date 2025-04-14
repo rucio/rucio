@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import rucio.common.exception
 import rucio.gateway.permission
@@ -48,109 +48,73 @@ def get_rse_account_usage(
 
 
 @read_session
-def get_local_account_limits(
-    account: str,
-    vo: str = 'def',
-    *,
-    session: "Session"
-) -> dict[str, Any]:
-    """
-    Lists the limitation names/values for the specified account name.
-
-    REST API: http://<host>:<port>/rucio/account/<account>/limits
-
-    :param account:     The account name.
-    :param vo:          The VO to act on.
-    :param session:     The database session in use.
-
-    :returns: The account limits.
-    """
-
-    internal_account = InternalAccount(account, vo=vo)
-
-    rse_instead_id = {}
-    for elem in account_limit_core.get_local_account_limits(account=internal_account, session=session).items():
-        rse_instead_id[get_rse_name(rse_id=elem[0], session=session)] = elem[1]
-    return rse_instead_id
-
-
-@read_session
 def get_local_account_limit(
-    account: str,
-    rse: str,
-    vo: str = 'def',
-    *,
-    session: "Session"
+        account: str,
+        rse: Optional[str] = None,
+        vo: str = 'def',
+        *,
+        session: "Session"
 ) -> dict[str, Union[int, float, None]]:
     """
-    Lists the limitation names/values for the specified account name and rse name.
+    Lists the limitation names/values for the specified account name.
+    If an RSE is provided, it returns the limit for that specific RSE.
+    Otherwise, it returns all account limits.
 
     REST API: http://<host>:<port>/rucio/account/<account>/limits
 
-    :param account:     The account name.
-    :param rse:         The rse name.
-    :param vo:          The VO to act on.
-    :param session:     The database session in use.
+    :param account: The account name.
+    :param rse: The RSE name (optional).
+    :param vo: The VO to act on.
+    :param session: The database session in use.
 
-    :returns: The account limit.
+    :returns: A dictionary of account limits with RSE names as keys and limits as values.
     """
 
     internal_account = InternalAccount(account, vo=vo)
 
-    rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-    return {rse: account_limit_core.get_local_account_limit(account=internal_account, rse_id=rse_id, session=session)}
-
-
-@read_session
-def get_global_account_limits(
-    account: str,
-    vo: str = 'def',
-    *,
-    session: "Session"
-) -> dict[str, RSEResolvedGlobalAccountLimitDict]:
-    """
-    Lists the limitation names/values for the specified account name.
-
-    REST API: http://<host>:<port>/rucio/account/<account>/limits
-
-    :param account:     The account name.
-    :param vo:          The VO to act on.
-    :param session:     The database session in use.
-
-    :returns: The account limits.
-    """
-    if account:
-        internal_account = InternalAccount(account, vo=vo)
+    if rse:
+        # Single RSE lookup
+        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+        return {rse: account_limit_core.get_local_account_limit(account=internal_account, rse_ids=rse_id, session=session)}
     else:
-        internal_account = InternalAccount('*', vo=vo)
-
-    return account_limit_core.get_global_account_limits(account=internal_account, session=session)
+        # Fetch all RSE limits
+        limits = account_limit_core.get_local_account_limit(account=internal_account, rse_ids=None, session=session)
+        return {get_rse_name(rse_id=rse_id, session=session): limit for rse_id, limit in limits.items()}
 
 
 @read_session
 def get_global_account_limit(
-    account: str,
-    rse_expression: str,
-    vo: str = 'def',
-    *,
-    session: "Session"
-) -> dict[str, dict[str, RSEResolvedGlobalAccountLimitDict]]:
+        account: str,
+        rse_expression: Optional[str] = None,
+        vo: str = 'def',
+        *,
+        session: "Session"
+) -> Union[dict[str, RSEResolvedGlobalAccountLimitDict], dict[str, dict[str, RSEResolvedGlobalAccountLimitDict]]]:
     """
-    Lists the limitation names/values for the specified account name and rse expression.
+    Lists the global account limitation names/values for the specified account.
+    If an RSE expression is provided, fetches the limit for that expression.
+    Otherwise, fetches all global limits for the account.
 
     REST API: http://<host>:<port>/rucio/account/<account>/limits
 
     :param account:         The account name.
-    :param rse_expression:  The rse expression.
+    :param rse_expression:  The RSE expression (optional; if not provided, all limits will be fetched).
     :param vo:              The VO to act on.
     :param session:         The database session in use.
 
-    :returns: The account limit.
+    :returns:
+        - If `rse_expression` is provided: `{rse_expression: {...}}`
+        - If `rse_expression` is not provided: `{...}` (dictionary of all limits).
     """
 
     internal_account = InternalAccount(account, vo=vo)
 
-    return {rse_expression: account_limit_core.get_global_account_limit(account=internal_account, rse_expression=rse_expression, session=session)}
+    if rse_expression:
+        return {rse_expression: account_limit_core.get_global_account_limit(
+            account=internal_account, rse_expression=rse_expression, session=session
+        )}
+
+    return account_limit_core.get_global_account_limit(account=internal_account, session=session)
 
 
 @transactional_session

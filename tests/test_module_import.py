@@ -17,7 +17,9 @@ from rucio.common.utils import execute
 
 class TestModuleImport:
     def test_import(self):
-        """ """
+        """
+        RUCIO: Test if Rucio module can be imported without errors.
+        """
         cmd = 'rucio --version'
         exitcode, out, err = execute(cmd)
         assert 'ImportError' not in err
