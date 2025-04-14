@@ -50,11 +50,26 @@ def replica_list():
 @click.option("--no-resolve-archives", is_flag=True, default=False, help="Do not resolve archives which may contain the files", required=False)
 @click.option("--sort", help="Replica sort algorithm. Available options: geoip (default), random")
 @click.option("--rses", "--rse-exp", "rses", help="The RSE filter expression")
+@click.option("--csv", is_flag=True, default=False, help="Write output to comma separated values")
 @click.option("--human", default=True, hidden=True)
 @click.pass_context
-def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalink, no_resolve_archives, sort, rses, human):
+def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalink, no_resolve_archives, sort, rses, csv, human):
     """List the replicas of a DID and its PFNs. By default all states, even unavailable, are shown"""
-    args = {"dids": dids, "protocols": protocols, "all_states": all_states, "pfns": pfns, "domain": domain, "link": link, "missing": missing, "metalink": metalink, "no_resolve_archives": no_resolve_archives, "sort": sort, "rses": rses, "human": human}
+    args = {
+        "dids": dids,
+        "protocols": protocols,
+        "all_states": all_states,
+        "pfns": pfns,
+        "domain": domain,
+        "link": link,
+        "missing": missing,
+        "metalink": metalink,
+        "no_resolve_archives": no_resolve_archives,
+        "sort": sort,
+        "rses": rses,
+        "csv": csv,
+        "human": human
+    }
     list_file_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 

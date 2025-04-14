@@ -437,6 +437,13 @@ def test_replica(mock_scope, rucio_client):
     assert exitcode == 0
     assert name in out
 
+    # Try with the CSV option
+    cmd = f"rucio replica list file {scope}:{name} --csv"
+    exitcode, out, err = execute(cmd)
+    assert "ERROR" not in err
+    assert exitcode == 0
+    assert name in [item for row in out.split("\n") for item in row.split('\t')]
+
     cmd = f"rucio replica list file {scope}:{name} --pfns --rses {mock_rse}"
     exitcode, out, err = execute(cmd)
     assert "ERROR" not in err
@@ -445,19 +452,22 @@ def test_replica(mock_scope, rucio_client):
     pfn = list(pfn)[0]
     assert pfn in out
 
+    cmd = f"rucio replica list file {scope}:{name} --pfns --rses {mock_rse} --csv"
+    exitcode, out, err = execute(cmd)
+    assert pfn in out.split('\n')
+
     cmd = f"rucio replica remove {scope}:{name} --rse {mock_rse}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
 
 
-@pytest.mark.dirty
-def test_replica_state(mock_scope, rucio_client):
-    mock_rse = "MOCK3"
-    scope = mock_scope.external
+def test_replica_state(scope_factory, rse_factory, vo, rucio_client):
+    mock_rse, _ = rse_factory.make_posix_rse()
+    scope, _ = scope_factory(vos=[vo])
 
     name1 = generate_uuid()
-    rucio_client.add_replica(mock_rse, mock_scope.external, name1, 4, "deadbeef")
+    rucio_client.add_replica(mock_rse, scope, name1, 4, "deadbeef")
 
     cmd = f"rucio replica state update bad {scope}:{name1} --rse {mock_rse} --reason testing"
     exitcode, _, err = execute(cmd)
@@ -467,13 +477,13 @@ def test_replica_state(mock_scope, rucio_client):
         assert "Details: ERROR, multiple matches" in err  # The test rses are strange. I don't know why this happens.
 
     name2 = generate_uuid()
-    rucio_client.add_replica(mock_rse, mock_scope.external, name2, 4, "deadbeef")
-    cmd = f"rucio replica state update unavailable {mock_scope}:{name2} --rse {mock_rse}  --reason testing"
+    rucio_client.add_replica(mock_rse, scope, name2, 4, "deadbeef")
+    cmd = f"rucio replica state update unavailable {scope}:{name2} --rse {mock_rse}  --reason testing"
     exitcode, _, err = execute(cmd)
 
     name3 = generate_uuid()
-    rucio_client.add_replica(mock_rse, mock_scope.external, name3, 4, "deadbeef")
-    cmd = f"rucio replica state update quarantine {mock_scope}:{name3} --rse {mock_rse}"
+    rucio_client.add_replica(mock_rse, scope, name3, 4, "deadbeef")
+    cmd = f"rucio replica state update quarantine {scope}:{name3} --rse {mock_rse}"
     exitcode, _, err = execute(cmd)
 
     assert exitcode == 0
@@ -481,9 +491,9 @@ def test_replica_state(mock_scope, rucio_client):
 
     # use the py client to declare a new replica suspicious
     name2 = generate_uuid()
-    rucio_client.add_replica(mock_rse, mock_scope.external, name2, 4, "deadbeef")
+    rucio_client.add_replica(mock_rse, scope, name2, 4, "deadbeef")
     # get the PFN to declare suspicious
-    r = rucio_client.list_replicas([{"scope": mock_scope.external, "name": name2}], all_states=True)
+    r = rucio_client.list_replicas([{"scope": scope, "name": name2}], all_states=True)
     pfn = [key for key, _ in list(r)[0]['pfns'].items()][0]
     rucio_client.declare_suspicious_file_replicas(pfns=[pfn], reason="Testing")
 
