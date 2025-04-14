@@ -24,7 +24,6 @@ clients_requirements_table = {
         'packaging',
         'tabulate',
         'jsonschema',
-        'dataclasses',
         'rich',
         'typing_extensions'
     ],
