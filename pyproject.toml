@@ -55,13 +55,28 @@ exclude = [
 
 [tool.ruff.lint]
 select = [
-    "I", # isort
-    "N", # pep8-naming
-    "S", # bandit
-    "TCH", # flake8-type-checking
-    "UP", # pyupgrade
-    "TID", # flake8-tidy-imports
-    "PLE", #pylint
+    "I",    # isort
+    "N",    # pep8-naming
+    "S",    # bandit
+    "TCH",  # flake8-type-checking
+    "UP",   # pyupgrade
+    "TID",  # flake8-tidy-imports
+    "PLE",  # pylint
+]
+
+extend-select = [
+    "D419",    # Empty docstring (suggests bad documentation hygiene.)
+    "F401",    # Unused import
+    "F702",    # Not in loop
+    "F841",    # Unused variable
+    "PLR0124", # Comparison with itself – almost always a bug, but rare.
+    "PLR1702", # Too many nested blocks
+    "PLR1711", # Useless return - stylistic but can be misleading.
+    "PLW0127", # Self-assigning variable
+    "PLW0128", # Redeclared assigned name
+    "PLW0133", # Pointless exception statement
+    "PLW3301", # Nested min/max – niche readability case.
+    "W291",    # Trailing whitespace (low-hanging fruit that improves cleanliness)
 ]
 
 ignore = [
@@ -151,6 +166,7 @@ extend-ignore-names = [
     'S311', # Non-cryptographic random usage
     'S324', # Probable use of insecure hash function
     'S605', # Starting a process with a shell
+    'D419', # Docstring is empty
 ]
 
 'lib/rucio/web/rest/flaskapi/v1/import.py' = [

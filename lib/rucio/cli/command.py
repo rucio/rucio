@@ -14,6 +14,7 @@
 import importlib
 import signal
 import time
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -145,41 +146,42 @@ class LazyGroup(click.Group):
 @click.option("-v", "--verbose", default=False, is_flag=True, help="Print more verbose output")
 @click.version_option(version.version_string(), message="%(prog)s %(version)s")
 # Hidden options at the end
-@click.option("--pager", is_flag=True, default=False, hidden=True)
+@click.option("--no-pager", is_flag=True, default=False, hidden=True)
 @exception_handler
 @click.pass_context
 def main(
     ctx,
-    config,
-    verbose,
-    host,
-    auth_host,
-    issuer,
-    auth_strategy,
-    timeout,
-    user_agent,
-    robot,
-    vo,
-    pager,
-    user,
-    password,
-    oidc_user,
-    oidc_password,
-    oidc_scope,
-    oidc_audience,
-    oidc_auto,
-    oidc_polling,
-    oidc_refresh_lifetime,
-    oidc_issuer,
-    certificate,
-    client_key,
-    ca_certificate,
+    config: Optional[str],
+    verbose: bool,
+    host: Optional[str],
+    auth_host: Optional[str],
+    issuer: Optional[str],
+    auth_strategy: Optional[str],
+    timeout: Optional[str],
+    user_agent: Optional[str],
+    robot: bool,
+    vo: Optional[str],
+    no_pager: bool,
+    user: Optional[str],
+    password: Optional[str],
+    oidc_user: Optional[str],
+    oidc_password: Optional[str],
+    oidc_scope: Optional[str],
+    oidc_audience: Optional[str],
+    oidc_auto: bool,
+    oidc_polling: bool,
+    oidc_refresh_lifetime: Optional[str],
+    oidc_issuer: Optional[str],
+    certificate: Optional[str],
+    client_key: Optional[str],
+    ca_certificate: Optional[str],
 ):
+    # All optional args default to None via the passed arguments from click.
+    # They do not need to explicitly set as [option] = None
     ctx.ensure_object(Arguments)
     ctx.obj.start_time = time.time()
+    ctx.obj.verbose = verbose
 
-    ctx.obj.no_pager = not pager
-    pager = get_pager()
     use_rich = get_cli_config() == "rich"
 
     console = Console(theme=Theme(CLITheme.LOG_THEMES), soft_wrap=True)
@@ -189,7 +191,8 @@ def main(
     ctx.obj.use_rich = use_rich
     ctx.obj.spinner = spinner
     ctx.obj.console = console
-    ctx.obj.pager = pager
+    ctx.obj.no_pager = no_pager
+    ctx.obj.pager = get_pager()
     ctx.obj.human = robot
 
     if use_rich:
@@ -201,7 +204,7 @@ def main(
         {
             "config": config,
             "host": host,
-            "isser": issuer,
+            "issuer": issuer,
             "auth_host": auth_host,
             "auth_strategy": auth_strategy,
             "timeout": timeout,
@@ -257,19 +260,19 @@ def _teardown(ctx):
 @main.command(name="whoami", help="Get information about account whose token is used")
 @click.pass_context
 def exe_whoami(ctx):
-    args = Arguments()
+    args = Arguments({"no_pager": ctx.obj.no_pager})
     whoami_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @main.command(name="ping", help="Ping Rucio server")
 @click.pass_context
 def exe_ping(ctx):
-    args = Arguments()
+    args = Arguments({"no_pager": ctx.obj.no_pager})
     ping(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @main.command(name="test-server", help="Test client against the server")
 @click.pass_context
 def exe_test_server(ctx):
-    args = Arguments()
+    args = Arguments({"no_pager": ctx.obj.no_pager})
     test_server(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

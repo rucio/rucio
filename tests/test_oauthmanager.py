@@ -48,7 +48,6 @@ def save_oauth_session_params(account, lifetime=10, redirect_msg=None, created_a
     oauth_session_params.save(session=session)
     session.commit()  # pylint: disable=no-member
     session.expunge(oauth_session_params)  # pylint: disable=no-member
-    return None
 
 
 def save_oidc_token(account, lifetime_access=0, lifetime_refresh=0, refresh_token=None, refresh=False, final_state=None):
@@ -71,7 +70,6 @@ def save_oidc_token(account, lifetime_access=0, lifetime_refresh=0, refresh_toke
     new_token.save(session=session)
     session.commit()  # pylint: disable=no-member
     session.expunge(new_token)  # pylint: disable=no-member
-    return None
 
 
 def get_oauth_session_param_count(account):
