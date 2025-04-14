@@ -437,6 +437,13 @@ def test_replica(mock_scope, rucio_client):
     assert exitcode == 0
     assert name in out
 
+    # Try with the CSV option
+    cmd = f"rucio replica list file {scope}:{name} --csv"
+    exitcode, out, err = execute(cmd)
+    assert "ERROR" not in err
+    assert exitcode == 0
+    assert name in [item for row in out.split("\n") for item in row.split('\t')]
+
     cmd = f"rucio replica list file {scope}:{name} --pfns --rses {mock_rse}"
     exitcode, out, err = execute(cmd)
     assert "ERROR" not in err
@@ -444,6 +451,10 @@ def test_replica(mock_scope, rucio_client):
     pfn = [r for r in rucio_client.list_replicas([{"name": name, "scope": scope}])][0]["pfns"].keys()
     pfn = list(pfn)[0]
     assert pfn in out
+
+    cmd = f"rucio replica list file {scope}:{name} --pfns --rses {mock_rse} --csv"
+    exitcode, out, err = execute(cmd)
+    assert pfn in out.split('\n')
 
     cmd = f"rucio replica remove {scope}:{name} --rse {mock_rse}"
     exitcode, _, err = execute(cmd)
