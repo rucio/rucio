@@ -71,6 +71,7 @@ DEFAULT_PORT = 80
 
 tablefmt = 'psql'
 cli_config = get_cli_config()
+CSV_SEPARATOR = '\t'
 
 
 def get_scope(did, client):
@@ -1702,7 +1703,7 @@ def list_suspicious_replicas(args, client, logger, console, spinner):
     if args.nattempts:
         nattempts = args.nattempts
 
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching suspicious replicas')
         spinner.start()
 
@@ -1715,7 +1716,12 @@ def list_suspicious_replicas(args, client, logger, console, spinner):
     for rep in replicas:
         table_data.append([rep['rse'], rep['scope'], rep['created_at'], rep['cnt'], rep['name']])
 
-    if cli_config == 'rich':
+    if args.csv:
+        # Prints format of 1a\t 1b\n 2a\t 2b\n
+        # Converts to str to avoid error with .join using datetime
+        print(*[CSV_SEPARATOR.join(str(cell) for cell in row) for row in table_data], sep='\n')
+
+    elif cli_config == 'rich':
         table = generate_table(table_data, headers=['RSE EXPRESSION', 'SCOPE', 'CREATED AT', 'N-ATTEMPTS', 'FILE NAME'], col_alignments=['left', 'left', 'left', 'right', 'left'])
         spinner.stop()
         print_output(table, console=console, no_pager=args.no_pager)
@@ -2726,6 +2732,7 @@ can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/co
 can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/concepts/rse_expressions' + Color.END)
     list_suspicious_replicas_parser.add_argument('--younger_than', '--younger-than', new_option_string='--younger-than', dest='younger_than', action=StoreAndDeprecateWarningAction, help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00.')  # NOQA: E501
     list_suspicious_replicas_parser.add_argument('--nattempts', dest='nattempts', action='store', help='Minimum number of failed attempts to access a suspicious file.')
+    list_suspicious_replicas_parser.add_argument('--csv', action='store_true', default=False, help='Output a list of suspicious replicas as a csv')
 
     # The list-rses-attributes command
     list_rse_attributes_parser = subparsers.add_parser('list-rse-attributes', help='List the attributes of an RSE.', description='This command is useful to create RSE filter expressions.')

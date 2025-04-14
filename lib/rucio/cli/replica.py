@@ -91,13 +91,15 @@ def state():
 @click.option("--rses", "--rse-exp", help="RSE name or expression")  # TODO remap rse_expression to rses (for consistency)
 @click.option("--younger-than", help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00')  # NOQA: E501
 @click.option("--n-attempts", help="Minimum number of failed attempts to access a suspicious file")
+@click.option('--csv', is_flag=True, default=False, help='Output a list of suspicious replicas as a csv')
 @click.pass_context
-def state_list(ctx, state_type, rses, younger_than, n_attempts):
+def state_list(ctx, state_type, rses, younger_than, n_attempts, csv):
     """List replicas by state. WARNING: Only implemented for 'suspicious'"""
 
     if state_type != "suspicious":
         raise ValueError(f"Cannot list state by {state_type}, please choose from ('suspicious')")
-    list_suspicious_replicas(Arguments({"no_pager": ctx.obj.no_pager, "rse_expression": rses, "younger_than": younger_than, "nattempts": n_attempts}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    args = Arguments({"no_pager": ctx.obj.no_pager, "rse_expression": rses, "younger_than": younger_than, "nattempts": n_attempts, "csv": csv})
+    list_suspicious_replicas(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @state.group("update")
