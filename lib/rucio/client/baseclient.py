@@ -96,11 +96,8 @@ class BaseClient:
         """
         Constructor of the BaseClient.
         :param rucio_host: The address of the rucio server, if None it is read from the config file.
-        :param rucio_port: The port of the rucio server, if None it is read from the config file.
         :param auth_host: The address of the rucio authentication server, if None it is read from the config file.
-        :param auth_port: The port of the rucio authentication server, if None it is read from the config file.
         :param account: The account to authenticate to rucio.
-        :param use_ssl: Enable or disable ssl for commucation. Default is enabled.
         :param ca_cert: The path to the rucio server certificate.
         :param auth_type: The type of authentication (e.g.: 'userpass', 'kerberos' ...)
         :param creds: Dictionary with credentials needed for authentication.

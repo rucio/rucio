@@ -65,7 +65,7 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
 @click.pass_context
 def list_dataset(ctx, dids, deep, csv):
     """List dataset replicas"""
-    args = Arguments({"dids": dids, "deep": deep, "csv": csv})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "deep": deep, "csv": csv})
     list_dataset_replicas(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -77,7 +77,7 @@ def remove(ctx, dids, rse):
     "Set a replica for removal by adding a tombstone which will mark the replica as ready for deletion by a reaper daemon"
     # TODO: Fix set_tombstone to not expect a comma separated DID str
     dids = ",".join(dids)
-    set_tombstone(Arguments({"dids": dids, "rse": rse}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    set_tombstone(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "rse": rse}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @replica.group()
@@ -97,7 +97,7 @@ def state_list(ctx, state_type, rses, younger_than, n_attempts):
 
     if state_type != "suspicious":
         raise ValueError(f"Cannot list state by {state_type}, please choose from ('suspicious')")
-    list_suspicious_replicas(Arguments({"rse_expression": rses, "younger_than": younger_than, "nattempts": n_attempts}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    list_suspicious_replicas(Arguments({"no_pager": ctx.obj.no_pager, "rse_expression": rses, "younger_than": younger_than, "nattempts": n_attempts}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @state.group("update")

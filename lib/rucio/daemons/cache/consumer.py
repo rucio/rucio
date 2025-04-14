@@ -21,12 +21,13 @@ import logging
 import threading
 import time
 from traceback import format_exc
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import rucio.db.sqla.util
 from rucio.common import exception
+from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.logging import formatted_logger, setup_logging
-from rucio.common.stomp_utils import ListenerBase, StompConnectionManager
+from rucio.common.stomp_utils import StompConnectionManager
 from rucio.common.types import InternalScope, LoggerFunction
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_id
@@ -35,6 +36,7 @@ from rucio.core.volatile_replica import add_volatile_replicas, delete_volatile_r
 if TYPE_CHECKING:
     from types import FrameType
 
+    from stomp import Connection
     from stomp.utils import Frame
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)
@@ -44,10 +46,34 @@ GRACEFUL_STOP = threading.Event()
 DAEMON_NAME = 'cache-consumer'
 
 
-class AMQConsumer(ListenerBase):
+class AMQConsumer:
     """
     class Consumer
     """
+
+    def __init__(
+            self,
+            broker: str,
+            conn: "Connection",
+            logger: "LoggerFunction"
+    ):
+        """
+        __init__
+        """
+        self.__broker = broker
+        self.__conn = conn
+        self.__logger = logger
+
+    @METRICS.count_it
+    def on_heartbeat_timeout(self) -> None:
+        self.__conn.disconnect()
+
+    @METRICS.count_it
+    def on_error(self, frame: "Frame") -> None:
+        """
+        on_error
+        """
+        self.__logger(logging.ERROR, 'Message receive error: [%s] %s' % (self.__broker, frame.body))
 
     @METRICS.count_it
     def on_message(self, frame: "Frame") -> None:
@@ -56,7 +82,7 @@ class AMQConsumer(ListenerBase):
         """
         try:
             msg = json.loads(frame.body)  # type: ignore
-            self._logger(logging.DEBUG, 'Message received: %s', msg)
+            self.__logger(logging.DEBUG, 'Message received: %s ' % msg)
             if isinstance(msg, dict) and 'operation' in msg.keys():
                 for f in msg['files']:
                     f['scope'] = InternalScope(f['scope'])
@@ -67,42 +93,81 @@ class AMQConsumer(ListenerBase):
 
                 rse_vo_str = msg['rse']
                 if 'vo' in msg and msg['vo'] != 'def':
-                    rse_vo_str = f"{rse_vo_str} on {msg['vo']}"
+                    rse_vo_str = '{} on {}'.format(rse_vo_str, msg['vo'])
                 if msg['operation'] == 'add_replicas':
-                    self._logger(logging.INFO, "add_replicas to RSE %s: %s", rse_vo_str, str(msg['files']))
+                    self.__logger(logging.INFO, 'add_replicas to RSE %s: %s ' % (rse_vo_str, str(msg['files'])))
                     add_volatile_replicas(rse_id=rse_id, replicas=msg['files'])
                 elif msg['operation'] == 'delete_replicas':
-                    self._logger(logging.INFO, "delete_replicas to RSE %s: %s", rse_vo_str, str(msg['files']))
+                    self.__logger(logging.INFO, 'delete_replicas to RSE %s: %s ' % (rse_vo_str, str(msg['files'])))
                     delete_volatile_replicas(rse_id=rse_id, replicas=msg['files'])
             else:
-                self._logger(logging.DEBUG, 'Check failed: %s %s', isinstance(msg, dict), "operation" in msg.keys())
+                self.__logger(logging.DEBUG, 'Check failed: %s %s '
+                              % (isinstance(msg, dict), 'operation' in msg.keys()))
         except:
-            self._logger(logging.ERROR, str(format_exc()))
+            self.__logger(logging.ERROR, str(format_exc()))
 
 
-def consumer(id_: int, num_thread: int = 1, logger: LoggerFunction = logging.log) -> None:
+def consumer(id_: int, num_thread: int = 1) -> None:
     """
     Main loop to consume messages from the Rucio Cache producer.
     """
+
+    logger = formatted_logger(logging.log, DAEMON_NAME + ' %s')
+
     logger(logging.INFO, 'Rucio Cache consumer starting')
 
-    conn_mgr = StompConnectionManager(config_section='messaging-cache', logger=logger)
+    brokers = config_get_list('messaging-cache', 'brokers')
+
+    use_ssl = config_get_bool('messaging-cache', 'use_ssl', default=True, raise_exception=False)
+    if not use_ssl:
+        username = config_get('messaging-cache', 'username')
+        password = config_get('messaging-cache', 'password')
+    destination = config_get('messaging-cache', 'destination')
+    subscription_id = 'rucio-cache-messaging'
+
+    vhost = config_get('messaging-cache', 'broker_virtual_host', raise_exception=False)
+    port = config_get_int('messaging-cache', 'port')
+    reconnect_attempts = config_get_int('messaging-cache', 'reconnect_attempts', default=100)
+    ssl_key_file = config_get('messaging-cache', 'ssl_key_file', raise_exception=False)
+    ssl_cert_file = config_get('messaging-cache', 'ssl_cert_file', raise_exception=False)
+
+    stomp_conn_mngr = StompConnectionManager()
+    conns, _ = stomp_conn_mngr.re_configure(
+        brokers=brokers,
+        port=port,
+        use_ssl=use_ssl,
+        vhost=vhost,
+        reconnect_attempts=reconnect_attempts,
+        ssl_key_file=ssl_key_file,
+        ssl_cert_file=ssl_cert_file,
+        timeout=None,
+        logger=logger
+    )
 
     logger(logging.INFO, 'consumer started')
 
-    conn_mgr.set_listener_factory('rucio-cache-consumer', AMQConsumer, heartbeats=conn_mgr.config.heartbeats)
-
     while not GRACEFUL_STOP.is_set():
+        for conn in conns:
+            if not conn.is_connected():
+                host_port = conn.transport._Transport__host_and_ports[0]
 
-        conn_mgr.subscribe(id_='rucio-cache-messaging', ack='auto')
+                logger(logging.INFO, 'connecting to %s' % host_port[0])
+                METRICS.counter('reconnect.{host}').labels(host=host_port[0]).inc()
+                conn.set_listener('rucio-cache-consumer', AMQConsumer(broker=host_port, conn=conn, logger=logger))
+                if not use_ssl:
+                    conn.connect(username, password)
+                else:
+                    conn.connect()
+
+                conn.subscribe(destination=destination, ack='auto', id=subscription_id)
         time.sleep(1)
 
     logger(logging.INFO, 'graceful stop requested')
-    conn_mgr.disconnect()
+    stomp_conn_mngr.disconnect()
     logger(logging.INFO, 'graceful stop done')
 
 
-def stop(signum: "int | None" = None, frame: "FrameType | None" = None) -> None:
+def stop(signum: Optional[int] = None, frame: Optional["FrameType"] = None) -> None:
     """
     Graceful exit.
     """
@@ -115,19 +180,18 @@ def run(num_thread: int = 1) -> None:
     Starts up the rucio cache consumer thread
     """
     setup_logging(process_name=DAEMON_NAME)
-    logger = formatted_logger(logging.log, DAEMON_NAME + ' %s')
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
-    logger(logging.INFO, 'starting consumer thread')
-    threads = []
-    for i in range(num_thread):
-        con_thread = threading.Thread(target=consumer, kwargs={'id_': i, 'num_thread': num_thread, 'logger': logger})
-        con_thread.start()
-        threads.append(con_thread)
+    logging.info('starting consumer thread')
+    threads = [threading.Thread(target=consumer, kwargs={'id_': i, 'num_thread': num_thread})
+               for i in range(0, num_thread)]
 
-    logger(logging.INFO, 'waiting for interrupts')
+    [t.start() for t in threads]
 
-    while [thread.join(timeout=3.14) for thread in threads if thread.is_alive()]:
-        pass
+    logging.info('waiting for interrupts')
+
+    # Interruptible joins require a timeout.
+    while threads[0].is_alive():
+        [t.join(timeout=3.14) for t in threads]
