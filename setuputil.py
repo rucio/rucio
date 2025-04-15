@@ -20,7 +20,7 @@ clients_requirements_table = {
         'click',
         'requests',
         'urllib3',
-        'dogpile-cache<=1.2.2',
+        'dogpile-cache',
         'packaging',
         'tabulate',
         'jsonschema',
