@@ -17,6 +17,7 @@ from typing import Union
 
 clients_requirements_table = {
     'install_requires': [
+        'click',
         'requests',
         'urllib3',
         'dogpile-cache<=1.2.2',
