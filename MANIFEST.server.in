@@ -1,0 +1,30 @@
+include MANIFEST.in
+include AUTHORS.rst
+include LICENSE
+include ChangeLog
+include README.md
+include pyproject.toml
+include requirements/requirements.server.txt
+include tests/
+include bin/*
+include tools/bootstrap.py
+include tools/reset_database.py
+include tools/merge_rucio_configs.py
+include lib/rucio/db/migrate_repo/script.py.mako
+recursive-include lib/rucio/db/sqla/migrate_repo/versions *.py
+recursive-include bin *
+recursive-include etc/ *.template
+recursive-include etc/mail_templates *.tmpl
+recursive-include lib/rucio/web/rest/flaskapi/v1/templates *.html
+prune lib/rucio/web/ui
+prune dist
+prune examples
+prune .coverage
+prune build/
+prune covhtml
+prune doc/
+prune lib/rucio*egg-info/
+prune tools/patches
+prune .venv
+prune .DS_Store
+global-exclude *.pyc *.log *.db *.swp *.proxy *~ rse-accounts.cfg rucio*.cfg emulation.cfg
