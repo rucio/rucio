@@ -437,6 +437,13 @@ def test_replica(mock_scope, rucio_client):
     assert exitcode == 0
     assert name in out
 
+    # Try with the CSV option
+    cmd = f"rucio replica list file {scope}:{name} --csv"
+    exitcode, out, err = execute(cmd)
+    assert "ERROR" not in err
+    assert exitcode == 0
+    assert name in [item for row in out.split("\n") for item in row.split('\t')]
+
     cmd = f"rucio replica list file {scope}:{name} --pfns --rses {mock_rse}"
     exitcode, out, err = execute(cmd)
     assert "ERROR" not in err
@@ -444,6 +451,10 @@ def test_replica(mock_scope, rucio_client):
     pfn = [r for r in rucio_client.list_replicas([{"name": name, "scope": scope}])][0]["pfns"].keys()
     pfn = list(pfn)[0]
     assert pfn in out
+
+    cmd = f"rucio replica list file {scope}:{name} --pfns --rses {mock_rse} --csv"
+    exitcode, out, err = execute(cmd)
+    assert pfn in out.split('\n')
 
     cmd = f"rucio replica remove {scope}:{name} --rse {mock_rse}"
     exitcode, _, err = execute(cmd)
@@ -478,6 +489,26 @@ def test_replica_state(mock_scope, rucio_client):
 
     assert exitcode == 0
     assert "ERROR" not in err
+
+    # use the py client to declare a new replica suspicious
+    name2 = generate_uuid()
+    rucio_client.add_replica(mock_rse, mock_scope.external, name2, 4, "deadbeef")
+    # get the PFN to declare suspicious
+    r = rucio_client.list_replicas([{"scope": mock_scope.external, "name": name2}], all_states=True)
+    pfn = [key for key, _ in list(r)[0]['pfns'].items()][0]
+    rucio_client.declare_suspicious_file_replicas(pfns=[pfn], reason="Testing")
+
+    cmd = "rucio replica state list suspicious"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert name2 in out
+
+    cmd = "rucio replica state list suspicious --csv"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert name2 in [item for sublist in [o.split('\t') for o in out.split('\n')] for item in sublist]
 
 
 def test_rse(rucio_client):
