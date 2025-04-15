@@ -12,15 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.vcsversion import VERSION_INFO
+from rucio.vcsversion import BRANCH_NICK, REVISION_ID, VERSION
 
-RUCIO_VERSION = [VERSION_INFO['version'], ]
-FINAL = VERSION_INFO['final']   # This becomes true at Release Candidate time
-
+RUCIO_VERSION = VERSION
 
 def canonical_version_string() -> str:
     """ Get the canonical string """
-    return '.'.join(filter(None, RUCIO_VERSION))
+    return '.'.join(filter(None, VERSION))
 
 
 def version_string() -> str:
@@ -30,7 +28,7 @@ def version_string() -> str:
 
 def vcs_version_string() -> str:
     """ Get the VCS version string """
-    return "%s:%s" % (VERSION_INFO['branch_nick'], VERSION_INFO['revision_id'])
+    return "%s:%s" % (BRANCH_NICK, REVISION_ID)
 
 
 def version_string_with_vcs() -> str:
