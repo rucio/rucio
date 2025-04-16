@@ -46,29 +46,29 @@ if [ "$1" == "webui" ]; then
     echo "Building WEBUI package"
 fi
 
-/bin/rm setup.py
-/bin/cp MANIFEST.in.rucio MANIFEST.in
-/bin/cp setup_rucio.py setup.py
+/bin/rm pyproject.toml
+/bin/cp MANIFEST.server.in MANIFEST.in
+/bin/cp pyproject.server.toml pyproject.toml
 # Pre-build one time to ensure correct vcversion file
-python3 setup.py build sdist
+python3 -m build --sdist
 
 if $rucio; then
-   /bin/cp MANIFEST.in.rucio MANIFEST.in
-   /bin/cp setup_rucio.py setup.py
+   /bin/cp MANIFEST.server.in MANIFEST.in
+   /bin/cp pyproject.server.toml pyproject.toml
    # Push on pypi@org
    python3 -m build
 fi
 
 if $clients; then
-    /bin/cp MANIFEST.in.client MANIFEST.in
-    /bin/cp setup_rucio_client.py setup.py
+   /bin/cp MANIFEST.client.in MANIFEST.in
+   /bin/cp pyproject.client.toml pyproject.toml
     # Push on pypi@org
     python3 -m build
 fi
 
 if $webui; then
-    /bin/cp MANIFEST.in.webui MANIFEST.in
-    /bin/cp setup_webui.py setup.py
+   /bin/cp MANIFEST.webui.in MANIFEST.in
+   /bin/cp pyproject.webui.toml pyproject.toml
     # Push on pypi@org
     python3 -m build
 fi
