@@ -55,10 +55,19 @@ def apply_endpoints(app, modules):
         if blueprint_module == "meta":
             logging.log(logging.WARNING, "Endpoint `meta` is depreciated and will be removed in future releases")
             blueprint_module = "meta_conventions"
+
+        # instead of using the 'accountlimits' endpoint, use the legacy_blueprint in 'accounts'
+        if blueprint_module == "accountlimits":
+            logging.log(logging.WARNING, "Endpoint `accountlimits` has been integrated into `accounts` and will be removed in future releases")
+            if "accounts" not in modules:
+                blueprint_module = 'accounts'
+            else:
+                continue
+
         try:
             # searches for module names locally
-            blueprint_module = importlib.import_module('.' + blueprint_module,
-                                                       package='rucio.web.rest.flaskapi.v1')
+            blueprint_module = importlib.import_module(
+                '.' + blueprint_module, package='rucio.web.rest.flaskapi.v1')
         except ImportError:
             raise ConfigurationError(f'Could not load "{blueprint_module}" provided in the endpoints configuration value')
 

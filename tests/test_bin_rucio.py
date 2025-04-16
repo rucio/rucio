@@ -22,7 +22,7 @@ from os import environ, listdir, path, remove, rmdir, stat, unlink
 import pytest
 from sqlalchemy import and_, delete
 
-from rucio.client.accountlimitclient import AccountLimitClient
+from rucio.client.accountclient import AccountClient
 from rucio.client.configclient import ConfigClient
 from rucio.client.didclient import DIDClient
 from rucio.client.lifetimeclient import LifetimeClient
@@ -73,7 +73,7 @@ class TestBinRucio:
         self.rule_client = RuleClient()
         self.config_client = ConfigClient()
         self.lifetime_client = LifetimeClient()
-        self.account_client = AccountLimitClient()
+        self.account_client = AccountClient()
         rse_factory = None
         if environ.get('SUITE', 'remote_dbs') != 'client':
             from .temp_factories import TemporaryRSEFactory
