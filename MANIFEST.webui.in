@@ -1,0 +1,31 @@
+include MANIFEST.in
+include AUTHORS.rst
+include LICENSE
+include ChangeLog
+include README.md
+include pyproject.toml
+include requirements/requirements.server.txt
+recursive-include lib/rucio/web/ui *
+prune dist
+prune examples
+prune .coverage
+prune build/
+prune covhtml
+prune doc/
+prune lib/rucio/cli
+prune lib/rucio/client
+prune lib/rucio/common
+prune lib/rucio/core
+prune lib/rucio/daemons
+prune lib/rucio/db
+prune lib/rucio/gateway
+prune lib/rucio/rse
+prune lib/rucio/tests
+prune lib/rucio/transfertool
+prune lib/rucio/web/rest
+prune lib/rucio*egg-info/
+prune tools/patches
+prune tests/
+prune .venv
+prune .DS_Store
+global-exclude *.pyc *.log *.db *.swp *.proxy *~ rse-accounts.cfg rucio*.cfg emulation.cfg
