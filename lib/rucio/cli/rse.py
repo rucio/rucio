@@ -128,9 +128,9 @@ def distance_add(ctx, source_rse, destination_rse, distance):
 @click.argument("destination-rse")
 @click.option('-y', '--yes', is_flag=True, help='Automatically confirm deletion')
 @click.pass_context
-def distance_remove(ctx, source_rse, destination_rse, yes):
+def distance_remove(ctx: click.Context, source_rse: str, destination_rse: str, yes: bool) -> None:
     """Un-link SOURCE-RSE from DESTINATION-RSE by removing the distance between them"""
-    # Always set yes=True for non-interactive test environments, but keep bidirectional=False to match legacy behavior
+    # Setting yes=True for non-interactive test environments, but keeping bidirectional=False to match legacy behavior
     args = Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse, "yes": True, "bidirectional": False})
     delete_distance_rses(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
