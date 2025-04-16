@@ -15,11 +15,12 @@
 import datetime
 import json
 import uuid
+from typing import Optional
 
 from rucio.core.trace import trace as core_trace
 
 
-def trace(request: str, trace_ip: str) -> None:
+def trace(request: bytes, trace_ip: Optional[str]) -> None:
     """
     Sends the trace data to trace broker after adding additional fields
     Adds the following fields:
