@@ -50,14 +50,59 @@ class Trace(ErrorHandlingMethodView):
         in: header
         schema:
           type: string
-
+      requestBody:
+      content:
+      application/json:
+        schema:
+          oneOf:
+            - type: object
+              oneOf:
+                ObjectSchema:
+                  - requires: [eventType, clientState, account]
+                  - description: touch one or more DIDs
+                UploadSchema:
+                  - requires: [eventType, hostname, account, eventVersion, uuid, scope, dataset, remoteSite, filesize, protocol, transferStart]
+                  - description: upload method
+                DownloadSchema:
+                  - requires: [eventType, hostname, localSite, account, eventVersion, uuid, scope, filename, dataset, filesize, clientState, stateReason]
+                  - description: download method
+                GetSchema:
+                  - requires: [eventType, localSite, eventVersion, uuid, scope, filename, dataset]
+                  - description: get method, mainly sent by pilots
+                PutSchema:
+                  - requires: [eventType, localSite, eventVersion, uuid, scope, filename, dataset]
+                  - description: put method, mainly sent by pilots
+                SpecialSchema:
+                  - requires: [eventType, clientState, account]
+                  - description: A special schema to capture most unsupported eventTypes
+            - type: array
+              items:
+                type: object
+                oneOf:
+                  ObjectSchema:
+                    - requires: [eventType, clientState, account]
+                    - description: touch one or more DIDs
+                  UploadSchema:
+                    - requires: [eventType, hostname, account, eventVersion, uuid, scope, dataset, remoteSite, filesize, protocol, transferStart]
+                    - description: upload method
+                  DownloadSchema:
+                    - requires: [eventType, hostname, localSite, account, eventVersion, uuid, scope, filename, dataset, filesize, clientState, stateReason]
+                    - description: download method
+                  GetSchema:
+                    - requires: [eventType, localSite, eventVersion, uuid, scope, filename, dataset]
+                    - description: get method, mainly sent by pilots
+                  PutSchema:
+                    - requires: [eventType, localSite, eventVersion, uuid, scope, filename, dataset]
+                    - description: put method, mainly sent by pilots
+                  SpecialSchema:
+                    - requires: [eventType, clientState, account]
+                    - description: A special schema to capture most unsupported eventTypes
       responses:
         201:
           description: OK
         400:
           description: Cannot decode json data.
     """
-
         headers = self.get_headers()
         parameters = request.data
         if parameters is None:
@@ -68,7 +113,7 @@ class Trace(ErrorHandlingMethodView):
         trace_ip = request.headers.get("X-Forwarded-For", default=request.remote_addr)
         try:
           trace(request=parameters, trace_ip=trace_ip)
-          return "Created", 201, headers
+          return Response("Created", 201, headers)
         except JSONDecodeError as err:
           return generate_http_error_flask(400, err)
 
