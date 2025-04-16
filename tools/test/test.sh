@@ -54,17 +54,6 @@ if [ "$SUITE" == "client" ]; then
     srchome
     tools/pytest.sh -v --tb=short tests/test_clients.py tests/test_bin_rucio.py tests/test_module_import.py
 
-elif [ "$SUITE" == "client_syntax" ]; then
-    srchome
-    CLIENT_BIN_FILES="bin/rucio bin/rucio-admin"
-    SYNTAX_RUFF_ARGS="$(tools/test/ignoretool.py --ruff) $CLIENT_BIN_FILES tests/test_clients.py tests/test_bin_rucio.py tests/test_module_import.py"
-    export SYNTAX_RUFF_ARGS
-    tools/test/check_syntax.sh
-
-elif [ "$SUITE" == "syntax" ]; then
-    srchome
-    tools/test/check_syntax.sh
-
 elif [ "$SUITE" == "votest" ]; then
     wait_for_database
     VOTEST_HELPER=$RUCIO_HOME/tools/test/votest_helper.py
