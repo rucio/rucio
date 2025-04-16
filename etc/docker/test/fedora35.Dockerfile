@@ -56,7 +56,9 @@ RUN mkdir -p /var/log/rucio/trace && \
     cp etc/certs/ruciouser.key.pem etc/ruciouser.key.pem
 
 # copy everything else except the git-dir (anything above is cache-friendly)
-COPY .pep8 .pycodestyle pyproject.toml setuputil.py setup.py setup_rucio.py setup_rucio_client.py setup_webui.py ./
+COPY .pep8 .pycodestyle ./
+COPY pyproject.server.toml pyproject.toml
+COPY MANIFEST.server.in MANIFEST.in
 COPY tools tools
 COPY bin bin
 COPY lib lib

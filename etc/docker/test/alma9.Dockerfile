@@ -98,7 +98,9 @@ FROM python as rucio-runtime
     COPY etc etc
     COPY tests tests
     COPY requirements requirements
-    COPY .pep8 .pycodestyle pyproject.toml setup.py setup_rucio.py setup_rucio_client.py setup_webui.py setuputil.py ./
+    COPY pyproject.server.toml pyproject.toml
+    COPY MANIFEST.server.in MANIFEST.in
+    COPY .pep8 .pycodestyle ./
 
     RUN dnf install -y epel-release.noarch && \
         dnf install -y 'dnf-command(config-manager)' && \
@@ -136,7 +138,10 @@ FROM rucio-runtime as requirements
         python3 -m pip --no-cache-dir install --upgrade setuptools wheel && \
         python3 -m pip --no-cache-dir install --upgrade -r requirements/requirements.server.txt -r requirements/requirements.dev.txt
 
-    COPY .pep8 .pycodestyle pyproject.toml setup.py setup_rucio.py setup_rucio_client.py setup_webui.py ./
+    COPY pyproject.server.toml pyproject.toml
+    COPY MANIFEST.server.in MANIFEST.in
+
+    COPY .pep8 .pycodestyle ./
     RUN python3 -m pip --no-cache-dir install --upgrade .[oracle,postgresql,mysql,kerberos,saml,dev] && \
         python3 -m pip list
 
