@@ -59,10 +59,10 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
     def post(self, scope: str, name: str) -> "Response":
-        print(f"OpenDataPrivateDIDsView.post() called")
+        vo = request.environ.get("vo")
         try:
-            scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo"))
-            opendata.add_opendata_did(scope=scope, name=name, vo=request.environ.get("vo"))
+            scope, name = parse_scope_name(f"{scope}/{name}", vo=vo)
+            opendata.add_opendata_did(scope=scope, name=name, vo=vo)
         except ValueError as error:
             return generate_http_error_flask(400, error)
         except (OpenDataDataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists) as error:
