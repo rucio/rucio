@@ -595,26 +595,33 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
     @staticmethod
     def extract_scope_default(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
         """
-        Default fallback scope extraction algorithm, based on the ATLAS scope extraction algorithm.
+        Default scope extraction algorithm. Extracts the scope from the DID.
 
         :param did: The DID to extract the scope from.
+        :param scopes: Not used in the default algorithm.
 
-        :returns: A tuple containing the extracted scope and the DID.
+        :returns: A tuple containing the extracted scope and the name.
         """
-        if did.find(':') > -1:
-            if len(did.split(':')) > 2:
-                raise RucioException('Too many colons. Cannot extract scope and name')
-            scope, name = did.split(':')[0], did.split(':')[1]
-            if name.endswith('/'):
-                name = name[:-1]
-            return scope, name
-        else:
+
+        # This block is ATLAS specific, to be removed in the future.
+        # More info at https://github.com/rucio/rucio/pull/7521
+        if did.find(':') == -1:
             scope = did.split('.')[0]
             if did.startswith('user') or did.startswith('group'):
                 scope = ".".join(did.split('.')[0:2])
             if did.endswith('/'):
                 did = did[:-1]
             return scope, did
+
+        parts = did.split(':')
+        if len(parts) != 2:
+            msg = f"Cannot extract scope and name from DID {did}. The DID should have exactly one colon but found {len(parts)} colons."
+            raise RucioException(msg)
+        scope, name = parts
+        if not scope or not name:
+            msg = f"Cannot extract scope and name from DID {did}. Found empty scope or name."
+            raise RucioException(msg)
+        return scope, name
 
     @staticmethod
     def extract_scope_dirac(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
