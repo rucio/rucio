@@ -12,17 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from json.decoder import JSONDecodeError
+from typing import TYPE_CHECKING
 
-import datetime
-import json
-import uuid
-from typing import TYPE_CHECKING, Union
-
-from flask import Blueprint, Flask, request
+from flask import Blueprint, Flask, Response, request
 from werkzeug.datastructures import Headers
 
-from rucio.core.trace import trace
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, response_headers
+from rucio.gateway.trace import trace
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, generate_http_error_flask, response_headers
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -31,36 +28,6 @@ if TYPE_CHECKING:
 
 
 class Trace(ErrorHandlingMethodView):
-
-    def __handle_payload_item(self, payload: dict) -> None:
-        """
-        Handles and processes a single trace payload item by adding various trace information.
-
-        Args:
-          payload (dict): The payload dictionary to be processed.
-
-        Modifies:
-          payload (dict): Adds the following keys to the payload:
-            - 'traceTimeentry': The current UTC timestamp.
-            - 'traceTimeentryUnix': The Unix timestamp with microsecond precision.
-            - 'traceIp': The client's IP address, either from 'X-Forwarded-For' header or remote address.
-            - 'traceId': A unique identifier for the trace, generated as a UUID without hyphens.
-
-        Calls:
-          trace(payload): A function to handle the processed payload.
-        """
-        # generate entry timestamp
-        payload["traceTimeentry"] = datetime.datetime.now(datetime.timezone.utc)
-        payload["traceTimeentryUnix"] = payload["traceTimeentry"].timestamp()
-
-        # guess client IP
-        payload["traceIp"] = request.headers.get(
-            "X-Forwarded-For", default=request.remote_addr
-        )
-
-        # generate unique ID
-        payload["traceId"] = str(uuid.uuid4()).replace("-", "").lower()
-        trace(payload=payload)
 
     def get_headers(self) -> "Optional[HeadersType]":
         headers = Headers()
@@ -71,53 +38,39 @@ class Trace(ErrorHandlingMethodView):
         headers.set('Access-Control-Allow-Credentials', 'true')
         return headers
 
-    def post(self):
+    def post(self) -> Response:
         """
         ---
-        summary: Trace
-        description: Trace endpoint used by the pilot and CLI clients to post data access information.
-        tags:
-          - Trace
-        parameters:
-        - name: X-Forwarded-For
-          in: header
-          schema:
-            type: string
-        requestBody:
-          content:
-            application/json:
-              schema:
-          oneOf:
-            - type: object
-              description: A single trace object.
-            - type: array
-              items:
-                type: object
-              description: A list of trace objects.
-        responses:
-          201:
-            description: OK
-          400:
-            description: Cannot decode json data.
-        """
+      summary: Trace
+      description: Trace endpoint used by the pilot and CLI clients to post data access information.
+      tags:
+        - Trace
+      parameters:
+      - name: X-Forwarded-For
+        in: header
+        schema:
+          type: string
+
+      responses:
+        201:
+          description: OK
+        400:
+          description: Cannot decode json data.
+    """
+
         headers = self.get_headers()
-        req_body: str = request.get_data(as_text=True)
-        payload: Union[list, dict, None] = json.loads(req_body) if req_body else None
+        parameters = request.data
+        if parameters is None:
+            err = "Invalid JSON data. Please provide a single trace as a JSON object or a list of trace objects."
+            generate_http_error_flask(400, err)
 
-        if payload is None:
-            return (
-                "Invalid JSON data. Please provide a single trace as a JSON object or a list of trace objects.",
-                400,
-                headers,
-            )
-
-        if isinstance(payload, list):
-            for item in payload:
-                self.__handle_payload_item(item)
-        else:
-            self.__handle_payload_item(payload)
-
-        return "Created", 201, headers
+        # Trace gateway handles all errors and sends them to a log - no need for any error checking
+        trace_ip = request.headers.get("X-Forwarded-For", default=request.remote_addr)
+        try:
+          trace(request=parameters, trace_ip=trace_ip)
+          return "Created", 201, headers
+        except JSONDecodeError as err:
+          return generate_http_error_flask(400, err)
 
 
 def blueprint():
