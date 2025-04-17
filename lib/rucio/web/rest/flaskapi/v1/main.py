@@ -15,15 +15,19 @@
 
 import importlib
 import logging
+from typing import TYPE_CHECKING
 
 from flask import Flask
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get_list
 from rucio.common.exception import ConfigurationError
 from rucio.common.logging import setup_logging
 from rucio.web.rest.flaskapi.v1.common import CORSMiddleware
 
-DEFAULT_ENDPOINTS = [
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+DEFAULT_ENDPOINTS = {
     'accountlimits',
     'accounts',
     'auth',
@@ -46,10 +50,10 @@ DEFAULT_ENDPOINTS = [
     'rules',
     'scopes',
     'subscriptions',
-]
+}
 
 
-def apply_endpoints(app, modules):
+def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
     for blueprint_module in modules:
         # Legacy patch - TODO Remove in 38.0.0
         if blueprint_module == "meta":
@@ -71,15 +75,18 @@ def apply_endpoints(app, modules):
         else:
             raise ConfigurationError(f'"{blueprint_module}" from the endpoints configuration value did not have a blueprint')
 
+endpoints = set(config_get_list('api', 'endpoints', raise_exception=False, default=[]))
+endpoints_add = set(config_get_list('api', 'endpoints_add', raise_exception=False, default=[]))
+endpoints_remove = set(config_get_list('api', 'endpoints_remove', raise_exception=False, default=[]))
 
-try:
-    endpoints = config_get('api', 'endpoints', raise_exception=False, default='')
-    endpoints = list(filter(bool, map(str.strip, endpoints.split(sep=','))))
-except RuntimeError:
-    endpoints = None
+if endpoints and (endpoints_add or endpoints_remove):
+    raise ConfigurationError("Endpoints cannot be set in both 'endpoints' and 'endpoints_add'/'endpoints_remove'")
+
+if endpoints_add.intersection(endpoints_remove):
+    raise ConfigurationError("Endpoints cannot be in both 'endpoints_add' and 'endpoints_remove'")
 
 if not endpoints:
-    endpoints = DEFAULT_ENDPOINTS
+    endpoints = DEFAULT_ENDPOINTS - endpoints_remove | endpoints_add
 
 application = Flask(__name__)
 application.wsgi_app = CORSMiddleware(application.wsgi_app)
