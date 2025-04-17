@@ -24,7 +24,6 @@ clients_requirements_table = {
         'packaging',
         'tabulate',
         'jsonschema',
-        'dataclasses',
         'rich',
         'typing_extensions'
     ],
@@ -69,7 +68,6 @@ server_requirements_table = {
         'packaging<=24.1',
         'tabulate<=0.9.0',
         'jsonschema<=4.23.0',
-        'dataclasses',  # no upper limit is set in .in or .txt req files
         'rich<=13.9.4',
         'typing_extensions<=4.12.2',
         'argcomplete<=3.5.3',
