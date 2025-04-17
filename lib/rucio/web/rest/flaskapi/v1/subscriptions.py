@@ -112,7 +112,7 @@ class Subscription(ErrorHandlingMethodView):
                 for subscription in list_subscriptions(name=name, account=account, vo=vo):
                     yield render_json(**subscription) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except SubscriptionNotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -193,7 +193,7 @@ class Subscription(ErrorHandlingMethodView):
             metadata[keyword] = param_get(options, keyword, default=metadata[keyword])
 
         try:
-            update_subscription(name=name, account=account, metadata=metadata, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            update_subscription(name=name, account=account, metadata=metadata, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except (InvalidObject, TypeError) as error:
             return generate_http_error_flask(400, InvalidObject.__name__, error.args[0])
         except AccessDenied as error:
@@ -306,8 +306,8 @@ class Subscription(ErrorHandlingMethodView):
                 retroactive=retroactive,
                 dry_run=dry_run,
                 priority=priority,
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
             )
         except (InvalidObject, TypeError) as error:
             return generate_http_error_flask(400, InvalidObject.__name__, error.args[0])
@@ -400,7 +400,7 @@ class SubscriptionName(ErrorHandlingMethodView):
                 for subscription in list_subscriptions(name=name, vo=vo):
                     yield render_json(**subscription) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except SubscriptionNotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -454,7 +454,7 @@ class Rules(ErrorHandlingMethodView):
         """
         state = request.args.get('state', default=None)
         try:
-            subscriptions = [subscription['id'] for subscription in list_subscriptions(name=name, account=account, vo=request.environ.get('vo'))]
+            subscriptions = [subscription['id'] for subscription in list_subscriptions(name=name, account=account, vo=request.environ['vo'])]
 
             def generate(vo):
                 if len(subscriptions) > 0:
@@ -465,7 +465,7 @@ class Rules(ErrorHandlingMethodView):
                         for rule in list_replication_rules({'subscription_id': subscriptions[0]}, vo=vo):
                             yield render_json(**rule) + '\n'
 
-            return try_stream(generate(vo=request.environ.get('vo')))
+            return try_stream(generate(vo=request.environ['vo']))
         except (RuleNotFound, SubscriptionNotFound) as error:
             return generate_http_error_flask(404, error)
 
@@ -529,7 +529,7 @@ class States(ErrorHandlingMethodView):
             for row in list_subscription_rule_states(name=name, account=account, vo=vo):
                 yield dumps(row, cls=APIEncoder) + '\n'
 
-        return try_stream(generate(vo=request.environ.get('vo')))
+        return try_stream(generate(vo=request.environ['vo']))
 
 
 class SubscriptionId(ErrorHandlingMethodView):
@@ -607,7 +607,7 @@ class SubscriptionId(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            subscription = get_subscription_by_id(subscription_id, vo=request.environ.get('vo'))
+            subscription = get_subscription_by_id(subscription_id, vo=request.environ['vo'])
         except SubscriptionNotFound as error:
             return generate_http_error_flask(404, error)
 
