@@ -49,7 +49,7 @@ class Heartbeat(ErrorHandlingMethodView):
           406:
             description: Not acceptable
         """
-        return Response(json.dumps(list_heartbeats(issuer=request.environ.get('issuer'), vo=request.environ.get('vo')), cls=APIEncoder), content_type='application/json')
+        return Response(json.dumps(list_heartbeats(issuer=request.environ['issuer'], vo=request.environ['vo']), cls=APIEncoder), content_type='application/json')
 
     def post(self):
         """
@@ -98,8 +98,8 @@ class Heartbeat(ErrorHandlingMethodView):
                 pid=param_get(parameters, 'pid'),
                 older_than=param_get(parameters, 'older_than', default=None),
                 payload=param_get(parameters, 'payload', default=None),
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
             )
         except (UnsupportedValueType, UnsupportedKeyType) as error:
             return generate_http_error_flask(400, error)
