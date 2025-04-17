@@ -217,7 +217,7 @@ class Scopes(ErrorHandlingMethodView):
             description: Not acceptable
         """
         try:
-            scopes = get_scopes(account, vo=request.environ.get('vo'))
+            scopes = get_scopes(account, vo=request.environ['vo'])
         except AccountNotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -264,7 +264,7 @@ class Scopes(ErrorHandlingMethodView):
             description: Scope already exists.
         """
         try:
-            add_scope(scope, account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            add_scope(scope, account, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except InvalidObject as error:
             return generate_http_error_flask(400, error)
         except AccessDenied as error:
