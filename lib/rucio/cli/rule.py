@@ -116,13 +116,14 @@ def move(ctx, rule_id, rses, activity, source_rses):
 @click.option("--comment", help="Comment about the replication rule")
 @click.option("--account", help="The account owning the rule")
 @click.option("--stuck", is_flag=True, default=False, help="Set state to STUCK.")
+@click.option('--suspend', is_flag=True, default=None, help='Set state to SUSPENDED.')
 @click.option("--activity", help="Activity of the rule.")
 @click.option("--cancel-requests", is_flag=True, default=False, help="Cancel requests when setting rules to stuck.")
 @click.option("--priority", help="Priority of the requests of the rule.")
 @click.option("--child-rule-id", help='Child rule id of the rule. Use "None" to remove an existing parent/child relationship.')
 @click.option("--boost-rule", is_flag=True, default=False, help="Quickens the transition of a rule from STUCK to REPLICATING.")
 @click.pass_context
-def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, account, stuck, cancel_requests, priority, child_rule_id, boost_rule):
+def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, account, stuck, suspend, cancel_requests, priority, child_rule_id, boost_rule):
     """Update an existing rule"""
     args = Arguments(
         {
@@ -134,6 +135,7 @@ def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, accou
             "rule_account": account,
             "source_replica_expression": source_rses,
             "state_stuck": stuck,
+            "state_suspended": suspend,
             "cancel_requests": cancel_requests,
             "priority": priority,
             "child_rule_id": child_rule_id,
