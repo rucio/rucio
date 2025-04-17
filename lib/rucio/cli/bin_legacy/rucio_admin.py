@@ -628,7 +628,7 @@ def delete_distance_rses(args, client, logger, console, spinner):
     Arguments support both RSE names and site names. If a site name is provided,
     the command will operate on all RSEs belonging to that site.
     """
-    # First assign src_flag and dest_flag to source and destination (This is to avoid the issue with positional arguments)
+    # Process source/destination arguments and their flags (This is to avoid the issue with positional arguments)
     if hasattr(args, 'src_flag') and args.src_flag:
         args.source = args.src_flag
         
@@ -640,77 +640,88 @@ def delete_distance_rses(args, client, logger, console, spinner):
         return FAILURE
     
     try:
+        if cli_config == 'rich':
+            spinner.update(status='Identifying distances to delete')
+            spinner.start()
+        else:
+            print("Identifying distances to delete...")
+        
         # Get complete export of RSE data with distances
         export_data = client.export_data(distance=True)
-        
-        # Extract all RSEs and distances
         all_rses = export_data.get('rses', {})
         all_distances = export_data.get('distances', {})
         
         if not all_rses or not all_distances:
-            logger.error("Failed to retrieve RSE or distance data")
+            if cli_config == 'rich':
+                spinner.stop()
+                print_output(f"{CLITheme.FAILURE_ICON} Failed to retrieve RSE or distance data", console=console, no_pager=True)
+            else:
+                logger.error("Failed to retrieve RSE or distance data")
             return FAILURE
         
+        # Resolve source and destination RSEs
         src_rses = []
         dst_rses = []
         
         if args.source:
-            # Check if it's an RSE in the export data
+            # Check if source is an RSE
             if args.source in all_rses:
                 src_rses = [args.source]
             else:
-                # Try as a site - find RSEs with matching site attribute
-                site_matches = []
+                # Check if source is a site
                 for rse_name, rse_data in all_rses.items():
                     if rse_data.get('attributes', {}).get('site') == args.source:
-                        site_matches.append(rse_name)
+                        src_rses.append(rse_name)
                 
-                if site_matches:
-                    src_rses = site_matches
-                else:
-                    logger.error(f"Source '{args.source}' is neither a valid RSE nor a site with RSEs")
+                if not src_rses:
+                    if cli_config == 'rich':
+                        spinner.stop()
+                        print_output(f"{CLITheme.FAILURE_ICON} Source '{args.source}' is neither a valid RSE nor a site with RSEs", console=console, no_pager=True)
+                    else:
+                        logger.error(f"Source '{args.source}' is neither a valid RSE nor a site with RSEs")
                     return FAILURE
         
         if args.destination:
-            # Check if it's an RSE in the export data
+            # Check if destination is an RSE
             if args.destination in all_rses:
                 dst_rses = [args.destination]
             else:
-                # Try as a site - find RSEs with matching site attribute
-                site_matches = []
+                # Check if destination is a site
                 for rse_name, rse_data in all_rses.items():
                     if rse_data.get('attributes', {}).get('site') == args.destination:
-                        site_matches.append(rse_name)
+                        dst_rses.append(rse_name)
                 
-                if site_matches:
-                    dst_rses = site_matches
-                else:
-                    logger.error(f"Destination '{args.destination}' is neither a valid RSE nor a site with RSEs")
+                if not dst_rses:
+                    if cli_config == 'rich':
+                        spinner.stop()
+                        print_output(f"{CLITheme.FAILURE_ICON} Destination '{args.destination}' is neither a valid RSE nor a site with RSEs", console=console, no_pager=True)
+                    else:
+                        logger.error(f"Destination '{args.destination}' is neither a valid RSE nor a site with RSEs")
                     return FAILURE
         
         distances_to_delete = []
         
         if args.source and args.destination:
-            # Both source and destination provided, find specific distances
+            # Delete specific distances between source(s) and destination(s)
             for src in src_rses:
                 if src in all_distances:
                     for dst in dst_rses:
                         if dst in all_distances[src]:
                             distances_to_delete.append((src, dst))
                         
-                        # If bidirectional, also check and add the reverse direction
+                        # Handle bidirectional flag
                         if args.bidirectional and dst in all_distances and src in all_distances[dst]:
                             distances_to_delete.append((dst, src))
         
         elif args.source:
-            # Only source provided, delete all outgoing distances from source(s)
+            # Delete all outgoing distances from source(s)
             for src in src_rses:
                 if src in all_distances:
                     for dst in all_distances[src]:
                         distances_to_delete.append((src, dst))
         
         elif args.destination:
-            # Only destination provided, delete all incoming distances to destination(s)
+            # Delete all incoming distances to destination(s)
             for dst in dst_rses:
                 for src, dest_dict in all_distances.items():
                     if dst in dest_dict:
@@ -719,33 +730,50 @@ def delete_distance_rses(args, client, logger, console, spinner):
         # Remove duplicates
         distances_to_delete = list(set(distances_to_delete))
         
+        if cli_config == 'rich':
+            spinner.stop()
+        
+        # Handle case when no distances are found
         if not distances_to_delete:
+            error_msg = ""
             if args.source and args.destination:
                 if len(src_rses) == 1 and len(dst_rses) == 1:
-                    logger.error(f"Distance from {src_rses[0]} to {dst_rses[0]} not found")
+                    error_msg = f"Distance from {src_rses[0]} to {dst_rses[0]} not found"
                 else:
-                    logger.error(f"No distances found between specified sources and destinations")
+                    error_msg = f"No distances found between specified sources and destinations"
             elif args.source:
-                if len(src_rses) == 1:
-                    logger.error(f"No outgoing distances found from {src_rses[0]}")
-                else:
-                    logger.error(f"No outgoing distances found from specified sources")
+                error_msg = f"No outgoing distances found from {args.source}"
             elif args.destination:
-                if len(dst_rses) == 1:
-                    logger.error(f"No incoming distances found to {dst_rses[0]}")
-                else:
-                    logger.error(f"No incoming distances found to specified destinations")
+                error_msg = f"No incoming distances found to {args.destination}"
+                
+            if cli_config == 'rich':
+                print_output(f"{CLITheme.FAILURE_ICON} {error_msg}", console=console, no_pager=True)
+            else:
+                logger.error(error_msg)
             return FAILURE
         
-        print(f"The following {len(distances_to_delete)} distances will be deleted:")
-        for src, dst in sorted(distances_to_delete):
-            print(f"  {src} → {dst}")
+        if cli_config == 'rich':
+            distance_tree = Tree(f"The following {len(distances_to_delete)} distances will be deleted:")
+            for src, dst in sorted(distances_to_delete):
+                distance_tree.add(f"{src} → {dst}")
+            console.print(distance_tree)
+        else:
+            print(f"The following {len(distances_to_delete)} distances will be deleted:")
+            for src, dst in sorted(distances_to_delete):
+                print(f"  {src} → {dst}")
         
+        # Confirm deletion
         if not args.yes:
-            confirmation = input("\nDo you want to proceed? (y/n): ")
-            if confirmation.lower() not in ['y', 'yes']:
-                print("Operation cancelled")
-                return SUCCESS
+            if cli_config == 'rich':
+                confirm = console.input("\nDo you want to proceed? [y/n]: ")
+                if confirm.lower() not in ['y', 'yes']:
+                    print_output(f"Operation cancelled", console=console, no_pager=True)
+                    return SUCCESS
+            else:
+                confirmation = input("\nDo you want to proceed? (y/n): ")
+                if confirmation.lower() not in ['y', 'yes']:
+                    print("Operation cancelled")
+                    return SUCCESS
         
         success_count = 0
         error_count = 0
@@ -753,7 +781,10 @@ def delete_distance_rses(args, client, logger, console, spinner):
             try:
                 client.delete_distance(src, dst)
                 success_count += 1
-                print(f"Deleted distance from {src} to {dst}")
+                if cli_config == 'rich':
+                    logger.info(f"Deleted distance information from {src} to {dst}")
+                else:
+                    print(f"Deleted distance information from {src} to {dst}")
             except Exception as e:
                 error_str = str(e)
                 error_count += 1
@@ -762,12 +793,26 @@ def delete_distance_rses(args, client, logger, console, spinner):
                 else:
                     logger.error(f"Failed to delete distance from {src} to {dst}: {error_str}")
         
+        if cli_config == 'rich':
+            spinner.stop()
+        
         # Summary
-        print(f"\nSummary: {success_count} distances deleted, {error_count} errors")
+        if cli_config == 'rich':
+            if error_count == 0:
+                print_output(f"{CLITheme.SUCCESS_ICON} Successfully deleted {success_count} distances", console=console, no_pager=True)
+            else:
+                print_output(f"Deleted {success_count} distances with {error_count} errors", console=console, no_pager=True)
+        else:
+            print(f"\nSummary: {success_count} distances deleted, {error_count} errors")
+            
         return SUCCESS if error_count == 0 else FAILURE
         
     except Exception as e:
-        logger.error(f"Failed to export data: {str(e)}")
+        if cli_config == 'rich':
+            spinner.stop()
+            print_output(f"{CLITheme.FAILURE_ICON} Error processing distances: {str(e)}", console=console, no_pager=True)
+        else:
+            logger.error(f"Error processing distances: {str(e)}")
         return FAILURE
 
 
