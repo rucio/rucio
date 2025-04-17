@@ -254,6 +254,7 @@ def attach_dids(
         name: str,
         dids: "Sequence[Mapping[str, Any]]",
         account: "InternalAccount",
+        ignore_duplicate: bool = False,
         rse_id: Optional[str] = None,
         *,
         session: "Session",
@@ -265,10 +266,11 @@ def attach_dids(
     :param name: The data identifier name.
     :param dids: The content.
     :param account: The account owner.
+    :param ignore_duplicate: If True, ignore duplicate entries.
     :param rse_id: The RSE id for the replicas.
     :param session: The database session in use.
     """
-    return attach_dids_to_dids(attachments=[{'scope': scope, 'name': name, 'dids': dids, 'rse_id': rse_id}], account=account, session=session)
+    return attach_dids_to_dids(attachments=[{'scope': scope, 'name': name, 'dids': dids, 'rse_id': rse_id}], account=account, ignore_duplicate=ignore_duplicate, session=session)
 
 
 @transactional_session
@@ -340,6 +342,7 @@ def attach_dids_to_dids(
                                                collections_temp_table=children_temp_table,
                                                collections=children,
                                                account=account,
+                                               ignore_duplicate=ignore_duplicate,
                                                session=session)
                 update_parent = True
 
@@ -669,6 +672,7 @@ def __add_collections_to_container(
     collections_temp_table: Any,
     collections: "Mapping[tuple[InternalScope, str], Mapping[str, Any]]",
     account: "InternalAccount",
+    ignore_duplicate: bool = False,
     *,
     session: "Session"
 ) -> None:
@@ -678,6 +682,7 @@ def __add_collections_to_container(
     :param parent_did: the DataIdentifier object of the parent did
     :param collections: .
     :param account: The account owner.
+    :param ignore_duplicate: If True, ignore duplicate entries.
     :param session: The database session in use.
     """
 
@@ -695,9 +700,27 @@ def __add_collections_to_container(
         and_(models.DataIdentifier.scope == collections_temp_table.scope,
              models.DataIdentifier.name == collections_temp_table.name),
     )
+    if ignore_duplicate:
+        stmt = stmt.add_columns(
+            models.DataIdentifierAssociation.scope.label("ignore_duplicate_parent_scope"),
+            models.DataIdentifierAssociation.name.label("ignore_duplicate_parent_name"),
+            collections_temp_table.scope.label("ignore_duplicate_child_scope"),
+            collections_temp_table.name.label("ignore_duplicate_child_name"),
+        ).outerjoin_from(
+            collections_temp_table,
+            models.DataIdentifierAssociation,
+            and_(
+                models.DataIdentifierAssociation.scope == parent_did.scope,
+                models.DataIdentifierAssociation.name == parent_did.name,
+                models.DataIdentifierAssociation.child_scope == collections_temp_table.scope,
+                models.DataIdentifierAssociation.child_name == collections_temp_table.name,
+            ),
+        )
 
     container_parents = None
     child_type = None
+    ignore_duplicate_existing_attachments = set()
+
     for row in session.execute(stmt):
 
         if row.did_scope is None:
@@ -719,8 +742,14 @@ def __add_collections_to_container(
             if (row.scope, row.name) in container_parents:
                 raise exception.UnsupportedOperation('Circular attachment detected. %s:%s is already a parent of %s:%s' % (row.scope, row.name, parent_did.scope, parent_did.name))
 
+        if ignore_duplicate and row.ignore_duplicate_parent_scope is not None:
+            ignore_duplicate_existing_attachments.add((row.ignore_duplicate_parent_scope, row.ignore_duplicate_parent_name, row.ignore_duplicate_child_scope, row.ignore_duplicate_child_name))
+
     messages = []
     for c in collections.values():
+        if ignore_duplicate and (parent_did.scope, parent_did.name, c['scope'], c['name']) in ignore_duplicate_existing_attachments:
+            continue
+
         did_asso = models.DataIdentifierAssociation(
             scope=parent_did.scope,
             name=parent_did.name,
