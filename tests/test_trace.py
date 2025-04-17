@@ -129,3 +129,32 @@ def test_non_existant_event_type_validation_rejection():
     obj = json.dumps({"eventType": f"{event_type}"})
     with pytest.raises(TraceValidationSchemaNotFound):
         validate_schema(obj)
+
+
+def test_trace_no_data(rest_client):
+    """
+    TRACE (REST): submit a trace via POST with no data
+    """
+    response = rest_client.post('/traces/', data=None, content_type=[('Content-Type', 'application/octet-stream')])
+    assert response.status_code == 400
+
+
+def test_trace_sent_json_dump(rest_client):
+    """
+    TRACE (REST): submit a trace  identically to how it is sent in utils
+    """
+    trace_data = {
+        "uuid": str(uuid.uuid4()),
+        "string": "deadbeef",
+        "hex": 0xDEADBEEF,
+        "int": 3,
+        "float": 3.14,
+        "long": 314314314314314314,
+        "timestamp": time.time(),
+        "datetime_str": str(
+            datetime.datetime.now().astimezone(datetime.timezone.utc)
+        ),
+        "boolean": True
+    }
+    response = rest_client.post('/traces/', data=json.dumps(trace_data))
+    assert response.status_code == 201
