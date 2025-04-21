@@ -71,6 +71,7 @@ DEFAULT_PORT = 80
 
 tablefmt = 'psql'
 cli_config = get_cli_config()
+CSV_SEPARATOR = "\t"
 
 
 def get_scope(did, client):
@@ -1436,11 +1437,13 @@ def info_rule(args, client, logger, console, spinner):
     Retrieve information about a rule.
     """
 
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching rule info')
         spinner.start()
 
     if args.examine:
+        if args.csv:
+            raise ValueError("Cannot output rule examination with --csv option")
         output = []
         analysis = client.examine_replication_rule(rule_id=args.rule_id)
         if cli_config == 'rich':
@@ -1451,19 +1454,20 @@ def info_rule(args, client, logger, console, spinner):
                 output.append('[b]STUCK Requests:[/]')
                 for transfer in analysis['transfers']:
                     output.append(Padding.indent(Text(f"{transfer['scope']}:{transfer['name']}", style=CLITheme.SUBHEADER_HIGHLIGHT), 2))
-                    table_data = [['RSE:', str(transfer['rse'])],
-                                  ['Attempts:', str(transfer['attempts'])],
-                                  ['Last retry:', str(transfer['last_time'])],
-                                  ['Last error:', str(transfer['last_source'])],
-                                  ['Available sources:', ', '.join([source[0] for source in transfer['sources'] if source[1]])],
-                                  ['Blocklisted sources:', ', '.join([source[0] for source in transfer['sources'] if not source[1]])]]
+                    table_data = [
+                        ['RSE:', str(transfer['rse'])],
+                        ['Attempts:', str(transfer['attempts'])],
+                        ['Last retry:', str(transfer['last_time'])],
+                        ['Last error:', str(transfer['last_source'])],
+                        ['Available sources:', ', '.join([source[0] for source in transfer['sources'] if source[1]])],
+                        ['Blocklisted sources:', ', '.join([source[0] for source in transfer['sources'] if not source[1]])]
+                    ]
                     table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
                     output.append(Padding.indent(table, 2))
 
             spinner.stop()
             print_output(*output, console=console, no_pager=args.no_pager)
         else:
-            analysis = client.examine_replication_rule(rule_id=args.rule_id)
             print('Status of the replication rule: %s' % analysis['rule_error'])
             if analysis['transfers']:
                 print('STUCK Requests:')
@@ -1478,7 +1482,9 @@ def info_rule(args, client, logger, console, spinner):
                     print('    Blocklisted sources:  %s' % ', '.join([source[0] for source in transfer['sources'] if not source[1]]))
     else:
         rule = client.get_replication_rule(rule_id=args.rule_id)
-        if cli_config == 'rich':
+        if args.csv:
+            print(*[f"{key}{CSV_SEPARATOR}{value}" for key, value in rule.items()], sep='\n')
+        elif cli_config == 'rich':
             keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE, **CLITheme.RULE_STATE}
             table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for k, v in sorted(rule.items())]
             table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
@@ -1576,7 +1582,7 @@ def list_rules(args, client, logger, console, spinner):
                   sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
                   rule['expires_at'],
                   rule['created_at'],
-                  sep=',')
+                  sep=CSV_SEPARATOR)
 
         if cli_config == 'rich':
             spinner.stop()
@@ -1622,7 +1628,7 @@ def list_rules_history(args, client, logger, console, spinner):
     List replication rules history for a DID.
     """
     rule_dict = []
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching rules history')
         spinner.start()
 
@@ -1631,7 +1637,7 @@ def list_rules_history(args, client, logger, console, spinner):
     for rule in client.list_replication_rule_full_history(scope, name):
         if rule['rule_id'] not in rule_dict:
             rule_dict.append(rule['rule_id'])
-            if cli_config == 'rich':
+            if (cli_config == 'rich') or args.csv:
                 table_data.append(['Insertion', rule['account'], rule['rse_expression'], rule['created_at']])
             else:
                 print('-' * 40)
@@ -1641,7 +1647,7 @@ def list_rules_history(args, client, logger, console, spinner):
                 print('Time : %s' % (rule['created_at']))
         else:
             rule_dict.remove(rule['rule_id'])
-            if cli_config == 'rich':
+            if (cli_config == 'rich') or args.csv:
                 table_data.append(['Deletion', rule['account'], rule['rse_expression'], rule['updated_at']])
             else:
                 print('-' * 40)
@@ -1650,7 +1656,13 @@ def list_rules_history(args, client, logger, console, spinner):
                 print('RSE expression : %s' % (rule['rse_expression']))
                 print('Time : %s' % (rule['updated_at']))
 
-    if cli_config == 'rich':
+    if args.csv:
+        # Have to make the string rep for the time values
+        for rule in table_data:
+            rule[3] = str(rule[3])
+        print(*[CSV_SEPARATOR.join(rule) for rule in table_data], sep='\n')
+
+    elif cli_config == 'rich':
         table_data = sorted(table_data, key=lambda entry: entry[-1], reverse=True)
         table = generate_table(table_data, headers=['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME'])
         spinner.stop()
@@ -2649,7 +2661,7 @@ You can filter by key/value, e.g.::
     info_rule_parser.set_defaults(function=info_rule)
     info_rule_parser.add_argument(dest='rule_id', action='store', help='The rule ID')
     info_rule_parser.add_argument('--examine', dest='examine', action='store_true', help='Detailed analysis of transfer errors')
-
+    info_rule_parser.add_argument('--csv', action='store_true', default=False, help='Comma Separated Value output.')
     # The list_rules command
     list_rules_parser = subparsers.add_parser('list-rules', help='List replication rules.', formatter_class=argparse.RawDescriptionHelpFormatter, epilog='''Usage example
 """""""""""""
@@ -2686,6 +2698,7 @@ You can filter by account::
     list_rules_history_parser = subparsers.add_parser('list-rules-history', help='List replication rules history for a DID.')
     list_rules_history_parser.set_defaults(function=list_rules_history)
     list_rules_history_parser.add_argument(dest='did', action='store', help='The Data IDentifier.')
+    list_rules_history_parser.add_argument("--csv", action='store_true', default=False, help='Comma Separated Value output')
 
     # The update_rule command
     update_rule_parser = subparsers.add_parser('update-rule', help='Update replication rule.')
