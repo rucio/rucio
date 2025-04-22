@@ -31,7 +31,7 @@ def trace(request: bytes, trace_ip: Optional[str]) -> None:
 
     Args:
         request_data: Request json given by client
-        trace_ip: TraceIP, either the client's IP address, of IP from "X-Forwarded-For" header
+        trace_ip: TraceIP, either the client's IP address, or IP from "X-Forwarded-For" header
     """
     request_data = json.loads(request)
     if isinstance(request_data, dict):
