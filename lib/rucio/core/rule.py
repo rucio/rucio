@@ -2056,7 +2056,8 @@ def re_evaluate_did(
     name: str,
     rule_evaluation_action: DIDReEvaluation,
     *,
-    session: "Session"
+    session: "Session",
+    logger: LoggerFunction = logging.log
 ) -> None:
     """
     Re-Evaluates a did.
@@ -2065,6 +2066,7 @@ def re_evaluate_did(
     :param name:                    The name of the did to be re-evaluated.
     :param rule_evaluation_action:  The Rule evaluation action.
     :param session:                 The database session in use.
+    :param logger:                  Optional decorated logger that can be passed from the calling daemons or servers.
     :raises:                        DataIdentifierNotFound
     """
 
@@ -2080,9 +2082,9 @@ def re_evaluate_did(
         raise DataIdentifierNotFound() from exc
 
     if rule_evaluation_action == DIDReEvaluation.ATTACH:
-        __evaluate_did_attach(did, session=session)
+        __evaluate_did_attach(did, session=session, logger=logger)
     else:
-        __evaluate_did_detach(did, session=session)
+        __evaluate_did_detach(did, session=session, logger=logger)
 
     # Update size and length of did
     if session.bind.dialect.name == 'oracle':

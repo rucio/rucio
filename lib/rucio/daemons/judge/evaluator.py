@@ -122,7 +122,7 @@ def run_once(
 
         try:
             start_time = time.time()
-            re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action)
+            re_evaluate_did(scope=did.scope, name=did.name, rule_evaluation_action=did.rule_evaluation_action, logger=logger)
             logger(logging.DEBUG, 'evaluation of %s:%s took %f', did.scope, did.name, time.time() - start_time)
             delete_updated_did(id_=did.id)
             done_dids[did_tag].append(did.rule_evaluation_action)
