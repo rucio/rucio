@@ -141,7 +141,7 @@ def test_trace_no_data(rest_client):
 
 def test_trace_sent_json_dump(rest_client):
     """
-    TRACE (REST): submit a trace  identically to how it is sent in utils
+    TRACE (REST): submit a trace identically to how it is sent in utils
     """
     trace_data = {
         "uuid": str(uuid.uuid4()),
