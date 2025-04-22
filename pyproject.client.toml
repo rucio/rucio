@@ -1,0 +1,134 @@
+# Copyright European Organization for Nuclear Research (CERN) since 2012
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[build-system]
+requires = ["setuptools>=78.1.0", "wheel>=0.45.1", "packaging"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rucio-clients"
+dynamic = ["version"]
+
+# For using SSO login option, install these RPM packages: libxml2-devel xmlsec1-devel xmlsec1-openssl-devel libtool-ltdl-devel
+
+dependencies = [
+        'click',
+        'requests',
+        'urllib3',
+        'dogpile-cache',
+        'packaging',
+        'tabulate',
+        'jsonschema',
+        'rich',
+        'typing_extensions'
+]
+requires-python = ">=3.9"
+authors = [
+  {name = "Rucio", email = "rucio-dev@cern.ch"},
+]
+maintainers = [
+  {name = "Rucio", email = "rucio-dev@cern.ch"}
+]
+description = "Rucio client package"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+  'Development Status :: 5 - Production/Stable',
+  'Intended Audience :: Information Technology',
+  'Intended Audience :: System Administrators',
+  'Operating System :: POSIX :: Linux',
+  'Natural Language :: English',
+  'Programming Language :: Python',
+  'Programming Language :: Python :: 3',
+  'Programming Language :: Python :: 3.9',
+  'Programming Language :: Python :: 3.10',
+]
+
+[project.optional-dependencies]
+ssh = ['paramiko']
+kerberos = [
+            'kerberos',
+            'pykerberos',
+            'requests-kerberos',
+        ]
+swift = ['python-swiftclient']
+argcomplete = ['argcomplete']
+sftp = ['paramiko']
+dumper = ['python-magic']
+
+[project.urls]
+Homepage = "https://rucio.cern.ch/"
+Documentation = "https://rucio.cern.ch/documentation/"
+Repository = "https://github.com/rucio/rucio.git"
+"Bug Tracker" = "https://github.com/rucio/rucio/issues"
+Changelog = "https://rucio.cern.ch/documentation/release-notes/"
+
+[tool.setuptools]
+script-files = [
+  "bin/rucio",
+  "bin/rucio-abacus-account",
+  "bin/rucio-abacus-collection-replica",
+  "bin/rucio-abacus-rse",
+  "bin/rucio-admin",
+  "bin/rucio-atropos",
+  "bin/rucio-auditor",
+  "bin/rucio-automatix",
+  "bin/rucio-bb8",
+  "bin/rucio-cache-client",
+  "bin/rucio-cache-consumer",
+  "bin/rucio-conveyor-finisher",
+  "bin/rucio-conveyor-poller",
+  "bin/rucio-conveyor-preparer",
+  "bin/rucio-conveyor-receiver",
+  "bin/rucio-conveyor-stager",
+  "bin/rucio-conveyor-submitter",
+  "bin/rucio-conveyor-throttler",
+  "bin/rucio-dark-reaper",
+  "bin/rucio-dumper",
+  "bin/rucio-follower",
+  "bin/rucio-hermes",
+  "bin/rucio-judge-cleaner",
+  "bin/rucio-judge-evaluator",
+  "bin/rucio-judge-injector",
+  "bin/rucio-judge-repairer",
+  "bin/rucio-kronos",
+  "bin/rucio-minos",
+  "bin/rucio-minos-temporary-expiration",
+  "bin/rucio-necromancer",
+  "bin/rucio-oauth-manager",
+  "bin/rucio-reaper",
+  "bin/rucio-replica-recoverer",
+  "bin/rucio-rse-decommissioner",
+  "bin/rucio-storage-consistency-actions",
+  "bin/rucio-transmogrifier",
+  "bin/rucio-undertaker"
+]
+
+[tool.setuptools.package-dir]
+rucio = "lib/rucio"
+"rucio.client" = "lib/rucio/client"
+"rucio.cli" = "lib/rucio/cli"
+"rucio.cli.bin_legacy" = "lib/rucio/cli/bin_legacy"
+"rucio.common" = "lib/rucio/common"
+"rucio.common.schema" = "lib/rucio/common/schema"
+"rucio.rse.protocols" = "lib/rucio/rse/protocols"
+"rucio.rse" = "lib/rucio/rse"
+bin = "bin"
+etc = "etc"
+tools = "tools"
+requirements = "requirements"
+
+[tool.setuptools.dynamic]
+version = {attr = "rucio.vcsversion.VERSION"}  # any module attribute compatible with ast.literal_eval
