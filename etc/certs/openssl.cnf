@@ -6,4 +6,4 @@ dir = ./
 database = $dir/index.txt
 serial = $dir/serial.txt
 default_md        = sha256
-default_crl_days  = 30
+default_crl_days  = 36500
