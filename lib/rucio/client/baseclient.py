@@ -23,7 +23,7 @@ import secrets
 import sys
 import time
 from configparser import NoOptionError, NoSectionError
-from os import environ, fdopen, geteuid, makedirs, path
+from os import environ, fdopen, geteuid, makedirs
 from shutil import move
 from tempfile import mkstemp
 from typing import TYPE_CHECKING, Any, Optional
@@ -37,7 +37,7 @@ from requests.status_codes import codes
 
 from rucio import version
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config import config_get, config_get_bool, config_get_int, config_has_section
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotFound, ClientProtocolNotSupported, ConfigNotFound, MissingClientParameter, MissingModuleException, NoAuthInformation, ServerConnectionException
 from rucio.common.extra import import_extras
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, setup_logger, ssh_sign
@@ -71,6 +71,14 @@ def choice(hosts):
     :return: A randomly selected host.
     """
     return secrets.choice(hosts)
+
+
+def _expand_path(path: str) -> str:
+    """Fully expand path, including ~ and env variables"""
+    path = path.strip()
+    if path == '':
+        return ''
+    return os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
 
 
 class BaseClient:
@@ -187,7 +195,7 @@ class BaseClient:
             if self.ca_cert is None:
                 self.logger.debug('HTTPS is required, but no ca_cert was passed and X509_CERT_DIR is not defined. Trying to get it from the config file.')
                 try:
-                    self.ca_cert = path.expandvars(config_get('client', 'ca_cert'))
+                    self.ca_cert = _expand_path(config_get('client', 'ca_cert'))
                 except (NoOptionError, NoSectionError):
                     self.logger.debug('No ca_cert found in configuration. Falling back to Mozilla default CA bundle (certifi).')
                     self.ca_cert = True
@@ -303,46 +311,61 @@ class BaseClient:
                         creds['client_cert'] = environ["RUCIO_CLIENT_CERT"]
                     else:
                         creds['client_cert'] = config_get('client', 'client_cert')
-                creds['client_cert'] = path.abspath(path.expanduser(path.expandvars(creds['client_cert'])))
-                if not path.exists(creds['client_cert']):
-                    raise MissingClientParameter('X.509 client certificate not found: %s' % creds['client_cert'])
+
+                creds['client_cert'] = _expand_path(creds['client_cert'])
+
+                if not os.path.exists(creds['client_cert']):
+                    raise MissingClientParameter('X.509 client certificate not found: %r' % creds['client_cert'])
 
                 if 'client_key' not in creds or creds['client_key'] is None:
                     if "RUCIO_CLIENT_KEY" in environ:
                         creds['client_key'] = environ["RUCIO_CLIENT_KEY"]
                     else:
                         creds['client_key'] = config_get('client', 'client_key')
-                creds['client_key'] = path.abspath(path.expanduser(path.expandvars(creds['client_key'])))
-                if not path.exists(creds['client_key']):
-                    raise MissingClientParameter('X.509 client key not found: %s' % creds['client_key'])
-                else:
-                    perms = oct(os.stat(creds['client_key']).st_mode)[-3:]
-                    if perms not in ['400', '600']:
-                        raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (required: 400 or 600, found: %s)' % (creds['client_key'], perms))
+
+                creds['client_key'] = _expand_path(creds['client_key'])
+                if not os.path.exists(creds['client_key']):
+                    raise MissingClientParameter('X.509 client key not found: %r' % creds['client_key'])
+
+                perms = oct(os.stat(creds['client_key']).st_mode)[-3:]
+                if perms not in ['400', '600']:
+                    raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (required: 400 or 600, found: %s)' % (creds['client_key'], perms))
 
             elif self.auth_type == 'x509_proxy':
+                # rucio specific configuration takes precedence over GSI logic
+                # environment variables take precedence over config values
+                # So we check in order:
+                # RUCIO_CLIENT_PROXY env variable
+                # client.client_x509_proxy rucio cfg variable
+                # X509_USER_PROXY env variable
+                # /tmp/x509up_u`id -u` if exists
+
+                gsi_proxy_path = '/tmp/x509up_u%d' % geteuid()
                 if 'client_proxy' not in creds or creds['client_proxy'] is None:
-                    try:
-                        creds['client_proxy'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'client_x509_proxy'))))
-                    except NoOptionError:
-                        # Recreate the classic GSI logic for locating the proxy:
-                        # - $X509_USER_PROXY, if it is set.
-                        # - /tmp/x509up_u`id -u` otherwise.
-                        # If neither exists (at this point, we don't care if it exists but is invalid), then rethrow
-                        if 'X509_USER_PROXY' in environ:
-                            creds['client_proxy'] = environ['X509_USER_PROXY']
-                        else:
-                            fname = '/tmp/x509up_u%d' % geteuid()
-                            if path.exists(fname):
-                                creds['client_proxy'] = fname
-                            else:
-                                raise MissingClientParameter(
-                                    'Cannot find a valid X509 proxy; not in %s, $X509_USER_PROXY not set, and '
-                                    '\'x509_proxy\' not set in the configuration file.' % fname)
+                    if 'RUCIO_CLIENT_PROXY' in environ:
+                        creds['client_proxy'] = environ['RUCIO_CLIENT_PROXY']
+                    elif config_has_section('client') and config_get('client', 'client_x509_proxy', default='') != '':
+                        creds['client_proxy'] = config_get('client', 'client_x509_proxy')
+                    elif 'X509_USER_PROXY' in environ:
+                        creds['client_proxy'] = environ['X509_USER_PROXY']
+                    elif os.path.isfile(gsi_proxy_path):
+                        creds['client_proxy'] = gsi_proxy_path
+
+                creds['client_proxy'] = _expand_path(creds['client_proxy'])
+
+                if not os.path.isfile(creds['client_proxy']):
+                    raise MissingClientParameter(
+                        'Cannot find a valid X509 proxy; checked $RUCIO_CLIENT_PROXY, $X509_USER_PROXY'
+                        'client/client_x509_proxy config and default path: %r' % gsi_proxy_path
+                    )
 
             elif self.auth_type == 'ssh':
                 if 'ssh_private_key' not in creds or creds['ssh_private_key'] is None:
-                    creds['ssh_private_key'] = path.abspath(path.expanduser(path.expandvars(config_get('client', 'ssh_private_key'))))
+                    creds['ssh_private_key'] = config_get('client', 'ssh_private_key')
+
+                creds['ssh_private_key'] = _expand_path(creds['ssh_private_key'])
+                if not os.path.isfile(creds["ssh_private_key"]):
+                    raise CannotAuthenticate('Provided ssh private key %r does not exist' % creds['ssh_private_key'])
 
         except (NoOptionError, NoSectionError) as error:
             if error.args[0] != 'client_key':
@@ -549,11 +572,11 @@ class BaseClient:
 
         if not self.auth_oidc_refresh_active:
             return False
-        if path.exists(self.token_exp_epoch_file):
+        if os.path.exists(self.token_exp_epoch_file):
             with open(self.token_exp_epoch_file, 'r') as token_epoch_file:
                 try:
                     self.token_exp_epoch = int(token_epoch_file.readline())
-                except:
+                except Exception:
                     self.token_exp_epoch = None
 
         if self.token_exp_epoch is None:
@@ -732,10 +755,10 @@ class BaseClient:
             url = build_url(self.auth_host, path='auth/x509_proxy')
             client_cert = self.creds['client_proxy']
 
-        if (client_cert is not None) and not (path.exists(client_cert)):
+        if (client_cert is not None) and not (os.path.exists(client_cert)):
             self.logger.error('given client cert (%s) doesn\'t exist' % client_cert)
             return False
-        if client_key is not None and not path.exists(client_key):
+        if client_key is not None and not os.path.exists(client_key):
             self.logger.error('given client key (%s) doesn\'t exist' % client_key)
 
         if client_key is None:
@@ -769,10 +792,10 @@ class BaseClient:
         headers = {}
 
         private_key_path = self.creds['ssh_private_key']
-        if not path.exists(private_key_path):
+        if not os.path.exists(private_key_path):
             self.logger.error('given private key (%s) doesn\'t exist' % private_key_path)
             return False
-        if private_key_path is not None and not path.exists(private_key_path):
+        if private_key_path is not None and not os.path.exists(private_key_path):
             self.logger.error('given private key (%s) doesn\'t exist' % private_key_path)
             return False
 
@@ -920,7 +943,7 @@ class BaseClient:
 
         :return: True if a token could be read. False if no file exists.
         """
-        if not path.exists(self.token_file):
+        if not os.path.exists(self.token_file):
             return False
 
         try:
@@ -941,7 +964,7 @@ class BaseClient:
         Write the current auth_token to the local token file.
         """
         # check if rucio temp directory is there. If not create it with permissions only for the current user
-        if not path.isdir(self.token_path):
+        if not os.path.isdir(self.token_path):
             try:
                 self.logger.debug('rucio token folder \'%s\' not found. Create it.' % self.token_path)
                 makedirs(self.token_path, 0o700)
