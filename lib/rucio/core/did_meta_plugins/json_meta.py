@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json as json_lib
 import operator
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, select
 from sqlalchemy.exc import DataError, NoResultFound
@@ -54,15 +53,12 @@ class JSONDidMeta(DidMetaPlugin):
             raise NotImplementedError
 
         try:
-            stmt = select(
-                models.DidMeta
-            ).where(
-                and_(models.DidMeta.scope == scope,
-                     models.DidMeta.name == name)
-            )
-            row = session.execute(stmt).scalar_one()
-            meta = getattr(row, 'meta')
-            return json_lib.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
+            row = session.execute(
+                select(models.DidMeta).where(
+                    and_(models.DidMeta.scope == scope, models.DidMeta.name == name)
+                )
+            ).scalar_one()
+            return getattr(row, 'meta') or {}
         except NoResultFound:
             return {}
 
@@ -75,45 +71,30 @@ class JSONDidMeta(DidMetaPlugin):
         if not json_implemented(session=session):
             raise NotImplementedError
 
-        stmt = select(
-            models.DataIdentifier
-        ).where(
-            and_(models.DataIdentifier.scope == scope,
-                 models.DataIdentifier.name == name)
-        )
-        if session.execute(stmt).one_or_none() is None:
-            raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
+        did_row = session.execute(
+            select(models.DataIdentifier).where(
+                and_(models.DataIdentifier.scope == scope, models.DataIdentifier.name == name)
+            )
+        ).one_or_none()
+        if did_row is None:
+            raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
-        stmt = select(
-            models.DidMeta
-        ).where(
-            and_(models.DidMeta.scope == scope,
-                 models.DidMeta.name == name)
-        )
-        row_did_meta = session.execute(stmt).scalar_one_or_none()
+        row_did_meta = session.execute(
+            select(models.DidMeta).where(
+                and_(models.DidMeta.scope == scope, models.DidMeta.name == name)
+            )
+        ).scalar_one_or_none()
+
         if row_did_meta is None:
-            # Add metadata column to new table (if not already present)
             row_did_meta = models.DidMeta(scope=scope, name=name)
             row_did_meta.save(session=session, flush=False)
 
-        existing_meta = {}
-        if hasattr(row_did_meta, 'meta'):
-            if row_did_meta.meta:
-                if session.bind.dialect.name in ['oracle', 'sqlite']:
-                    # Oracle and sqlite returns a string instead of a dict
-                    existing_meta = json_lib.loads(cast("str", row_did_meta.meta))
-                else:
-                    existing_meta = cast("dict[str, Any]", row_did_meta.meta)
+        existing_meta = dict(getattr(row_did_meta, 'meta') or {})
+        existing_meta.update(metadata)
 
-        for key, value in metadata.items():
-            existing_meta[key] = value
-
+        # Ensure ORM sees a change even if dialect/driver caches identity
         row_did_meta.meta = None
         session.flush()
-
-        # Oracle insert takes a string as input
-        if session.bind.dialect.name in ['oracle', 'sqlite']:
-            existing_meta = json_lib.dumps(existing_meta)
 
         row_did_meta.meta = existing_meta
         row_did_meta.save(session=session, flush=True)
@@ -132,18 +113,13 @@ class JSONDidMeta(DidMetaPlugin):
             raise NotImplementedError
 
         try:
-            stmt = select(
-                models.DidMeta
-            ).where(
-                and_(models.DidMeta.scope == scope,
-                     models.DidMeta.name == name)
-            )
-            row = session.execute(stmt).scalar_one()
-            existing_meta = getattr(row, 'meta')
-            # Oracle returns a string instead of a dict
-            if session.bind.dialect.name in ['oracle', 'sqlite'] and existing_meta is not None:
-                existing_meta = json_lib.loads(existing_meta)
+            row = session.execute(
+                select(models.DidMeta).where(
+                    and_(models.DidMeta.scope == scope, models.DidMeta.name == name)
+                )
+            ).scalar_one()
 
+            existing_meta = dict(getattr(row, 'meta') or {})
             if key not in existing_meta:
                 raise exception.KeyNotFound(key)
 
@@ -151,11 +127,6 @@ class JSONDidMeta(DidMetaPlugin):
 
             row.meta = None
             session.flush()
-
-            # Oracle insert takes a string as input
-            if session.bind.dialect.name in ['oracle', 'sqlite']:
-                existing_meta = json_lib.dumps(existing_meta)
-
             row.meta = existing_meta
         except NoResultFound:
             raise exception.DataIdentifierNotFound(f"Key not found for data identifier '{scope}:{name}'")

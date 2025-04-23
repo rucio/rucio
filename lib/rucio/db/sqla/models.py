@@ -90,19 +90,25 @@ def _psql_rename_type(target: Table, connection: "Connection", **kw) -> None:
 
 
 @event.listens_for(Table, "before_create")
-def _oracle_json_constraint(target: Table, connection: "Connection", **kw) -> None:
-    if connection.dialect.name == 'oracle':
-        try:
-            oracle_version = int(connection.connection.version.split('.')[0])
-        except Exception:
-            return
-        if oracle_version >= 12:
-            if target.name == 'did_meta':
-                target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_META_JSON_CHK'))
-            if target.name == 'deleted_did_meta':
-                target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_DELETE_META_JSON_CHK'))
-            if target.name == 'virtual_placements':
-                target.append_constraint(CheckConstraint('PLACEMENTS IS JSON', 'ORACLE_PLACEMENTS_JSON_CHK'))
+def _oracle_json_constraint(target: Table, connection, **kw) -> None:
+    if connection.dialect.name != 'oracle':
+        return
+    # Obtain major version; tolerate odd drivers
+    try:
+        major = int(connection.connection.version.split('.')[0])
+    except Exception:
+        return
+
+    # Apply JSON validity constraints only for 12c–20c where we emulate JSON via CLOB.
+    if major < 12 or major >= 21:
+        return
+
+    if target.name == 'did_meta':
+        target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_META_JSON_CHK'))
+    if target.name == 'deleted_did_meta':
+        target.append_constraint(CheckConstraint('META IS JSON', 'ORACLE_DELETE_META_JSON_CHK'))
+    if target.name == 'virtual_placements':
+        target.append_constraint(CheckConstraint('PLACEMENTS IS JSON', 'ORACLE_PLACEMENTS_JSON_CHK'))
 
 
 @event.listens_for(Engine, "before_execute", retval=True)

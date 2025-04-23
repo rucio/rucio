@@ -305,25 +305,123 @@ def is_old_db() -> bool:
             return (len(query) != 0 and str(query[0].version_num) != alembicrevision.ALEMBIC_REVISION)
 
 
+def _oracle_server_major_version(session: "Session") -> Optional[int]:
+    """Return the Oracle server major version, if it can be determined."""
+
+    vi = getattr(session.bind.dialect, 'server_version_info', None)
+    major: Optional[int] = None
+    if vi and len(vi) > 0:
+        try:
+            major = int(vi[0])
+        except Exception:
+            major = None
+    if major is not None:
+        return major
+
+    conn = session.connection()  # ensure a real connection is established
+    try:
+        raw_ver = getattr(conn.connection, 'version', None)
+        if raw_ver:
+            try:
+                return int(str(raw_ver).split('.')[0])
+            except Exception:
+                return None
+    except Exception:
+        return None
+    return None
+
+
+def _oracle_current_schema(session: "Session") -> Optional[str]:
+    """Return the current Oracle schema/user name in upper case."""
+
+    try:
+        result = session.execute(text("SELECT sys_context('USERENV','CURRENT_SCHEMA') FROM dual"))
+        schema = result.scalar()
+        if schema:
+            return str(schema).upper()
+    except Exception:
+        pass
+
+    try:
+        user = getattr(session.bind.url, 'username', None)
+        return str(user).upper() if user else None
+    except Exception:
+        return None
+
+
+def oracle_legacy_json_columns(session: "Session") -> list[tuple[str, str]]:
+    """Return JSON columns that remain legacy CLOBs on Oracle 21c+."""
+
+    if session.bind.dialect.name != 'oracle':
+        return []
+
+    major = _oracle_server_major_version(session)
+    if major is None or major < 21:
+        return []
+
+    owner = models.BASE.metadata.schema or _oracle_current_schema(session)
+    if not owner:
+        return []
+
+    from rucio.db.sqla.types import JSON as JSON_TYPE
+
+    legacy: list[tuple[str, str]] = []
+    for table in models.BASE.metadata.tables.values():
+        for column in table.columns:
+            if not isinstance(column.type, JSON_TYPE):
+                continue
+            try:
+                result = session.execute(
+                    text(
+                        "SELECT DATA_TYPE FROM ALL_TAB_COLS "
+                        "WHERE OWNER = :owner AND TABLE_NAME = :table AND COLUMN_NAME = :column"
+                    ),
+                    {
+                        'owner': owner,
+                        'table': table.name.upper(),
+                        'column': column.name.upper(),
+                    },
+                )
+            except Exception:
+                continue
+
+            data_type = result.scalar()
+            if data_type is None:
+                continue
+            if str(data_type).upper() != 'JSON':
+                table_name = table.fullname if table.schema else table.name
+                legacy.append((table_name, column.name))
+
+    return legacy
+
+
 def json_implemented(*, session: Optional["Session"] = None) -> bool:
     """
-    Checks if the database on the current server installation can support json fields.
+    True if JSON fields are supported on this DB installation:
 
-    :param session: The active session of the database.
-    :type session: Optional[Session]
-    :returns: True, if json is supported, False otherwise.
+      - PostgreSQL: yes (JSONB)
+      - MySQL:      yes (JSON)
+      - Oracle:     yes (12c–20c via CLOB + IS JSON checks; 21c+ native JSON)
+      - Others:     no
     """
-    if session is None:
-        session = get_session()
-
-    if session.bind.dialect.name == 'oracle':
-        oracle_version = int(session.connection().connection.version.split('.')[0])
-        if oracle_version < 12:
-            return False
-    elif session.bind.dialect.name == 'sqlite':
+    def _check(s: "Session") -> bool:
+        name = s.bind.dialect.name
+        if name in ('postgresql', 'mysql'):
+            return True
+        if name == 'oracle':
+            major = _oracle_server_major_version(s)
+            return bool(major and major >= 12)
         return False
 
-    return True
+    if session is not None:
+        # Decorators already opened a transaction; the connection exists.
+        return _check(session)
+
+    session_scoped = get_session()
+    with session_scoped() as s:
+        # Establish connection in this code path too
+        s.connection()
+        return _check(s)
 
 
 def try_drop_constraint(constraint_name: str, table_name: str) -> None:
