@@ -234,7 +234,7 @@ class DidColumnMeta(DidMetaPlugin):
         )
         stmt = stmt.with_hint(
             models.DataIdentifier,
-            'NO_EXPAND',
+            'USE_CONCAT INDEX_RS_ASC(DIDS)',
             'oracle'
         )
 
