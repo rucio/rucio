@@ -81,12 +81,13 @@ class TestBaseClient:
                  'client_key': self.userkey}
         BaseClient(account='root', ca_cert=self.cacert, auth_type='x509', creds=creds, vo=vo)
 
-    def test_x509_non_existing_cert(self, vo):
+    @pytest.mark.parametrize("cert_path", ["", '/opt/rucio/etc/web/notthere.crt'])
+    def test_x509_non_existing_cert(self, vo, cert_path):
         """ CLIENTS (BASECLIENT): authenticate with x509 with missing certificate."""
-        creds = {'client_cert': '/opt/rucio/etc/web/notthere.crt'}
+        creds = {'client_cert': cert_path}
         from rucio.client.baseclient import BaseClient
 
-        with pytest.raises(MissingClientParameter):
+        with pytest.raises(MissingClientParameter, match=rf"X\.509 client certificate not found: '{cert_path}'"):
             BaseClient(account='root', ca_cert=self.cacert, auth_type='x509', creds=creds, vo=vo)
 
     def test_client_rucio_protocol_not_supported(self, vo):
