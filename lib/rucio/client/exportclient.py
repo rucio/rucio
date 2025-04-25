@@ -28,9 +28,15 @@ class ExportClient(BaseClient):
     def export_data(self, distance: bool = True) -> dict[str, Any]:
         """
         Export RSE data (RSE, settings, attributes and distance).
-        :param distance: To include the distance.
+        Parameters
+        ----------
+        distance : bool
+            To include the distance. Default is True.
 
-        :returns: A dict containing data
+        Returns
+        -------
+        dict
+            A dict containing data
         """
         payload = {'distance': distance}
         path = '/'.join([self.EXPORT_BASEURL])

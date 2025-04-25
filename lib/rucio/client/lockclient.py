@@ -38,8 +38,13 @@ class LockClient(BaseClient):
         """
         Get a dataset locks of the specified dataset.
 
-        :param scope: the scope of the did of the locks to list.
-        :param name: the name of the did of the locks to list.
+        Parameters
+        ----------
+        scope : str
+            The scope of the did of the locks to list.
+        name : str
+            The name of the did of the locks to list.
+
         """
 
         path = '/'.join([self.LOCKS_BASEURL, quote_plus(scope), quote_plus(name)])
@@ -62,10 +67,17 @@ class LockClient(BaseClient):
         """
         Get list of locks for for all the files found, recursively, in the listed datasets or containers.
 
-        :param dids: list of dictionaries {"scope":..., "name":..., "type":...}
-                     type can be either "dataset" or "container"
-                     type is optional, but if specified, improves the query performance
-        :returns:    list of dictionaries with lock info
+        Parameters
+        ----------
+        dids : list
+            list of dictionaries {"scope":..., "name":..., "type":...}
+            type can be either "dataset" or "container"
+            type is optional, but if specified, improves the query performance
+
+        Returns
+        -------
+        list
+            list of dictionaries with lock info
         """
 
         # convert did list to list of dictionaries
@@ -92,7 +104,10 @@ class LockClient(BaseClient):
         """
         Get all dataset locks of the specified rse.
 
-        :param rse: the rse of the locks to list.
+        Parameters
+        ----------
+        rse: str
+            The rse of the locks to list
         """
 
         path = '/'.join([self.LOCKS_BASEURL, rse])

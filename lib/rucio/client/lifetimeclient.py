@@ -45,26 +45,32 @@ class LifetimeClient(BaseClient):
         (files, datasets, containers, or archives) that need to be kept longer than usual. These exceptions
         can be filtered by their ID or approval state (this feature is not available yet).
 
-        :param exception_id: The unique identifier of a specific exception. If provided, returns only that exception.
-        :param states: Filter exceptions by their states. Possible values are:
-                      - `A` (APPROVED): Exception was approved
-                      - `R` (REJECTED): Exception was rejected
-                      - `W` (WAITING): Exception is waiting for approval by an admin (or other authorized account)
+        Parameters
+        ----------
+        exception_id : str, optional
+            The unique identifier of a specific exception. If provided, returns only that exception.
+        states : list[LifetimeExceptionsState], optional
+            Filter exceptions by their states. Possible values are:
+            * `A` (APPROVED): Exception was approved
+            * `R` (REJECTED): Exception was rejected
+            * `W` (WAITING): Exception is waiting for approval by an admin (or other authorized account)
 
-        :returns:
+        Returns
+        -------
+        Iterator[dict[str, Any]]
             An iterator of dictionaries containing the exception details:
-             - `id`: The unique identifier of the exception
-             - `scope`: The scope of the data identifier
-             - `name`: The name of the data identifier
-             - `did_type`: Type of the data identifier:
-                    `F` (file), `D` (dataset), `C` (container), `A` (archive),
-                    `X` (deleted file), `Y` (deleted dataset), `Z` (deleted container)
-             - `account`: The account that requested the exception
-             - `pattern`: Pattern used for matching data identifiers
-             - `comments`: User provided comments explaining the exception
-             - `state`: Current state of the exception
-             - `created_at`: When the exception was created (returned as timestamp string)
-             - `expires_at`: When the exception expires (returned as timestamp string)
+            * `id`: The unique identifier of the exception
+            * `scope`: The scope of the data identifier
+            * `name`: The name of the data identifier
+            * `did_type`: Type of the data identifier:
+                `F` (file), `D` (dataset), `C` (container), `A` (archive),
+                `X` (deleted file), `Y` (deleted dataset), `Z` (deleted container)
+            * `account`: The account that requested the exception
+            * `pattern`: Pattern used for matching data identifiers
+            * `comments`: User provided comments explaining the exception
+            * `state`: Current state of the exception
+            * `created_at`: When the exception was created (returned as timestamp string)
+            * `expires_at`: When the exception expires (returned as timestamp string)
         """
 
         path = self.LIFETIME_BASEURL + '/'
@@ -98,19 +104,30 @@ class LifetimeClient(BaseClient):
         maximum extension periods. The request includes details about which DIDs should have extended
         lifetimes, who is requesting it, and why it's needed.
 
-        :param dids: List of dictionaries containing the data identifiers to be excepted.
-                    Each dictionary must contain:
-                    - `scope`: The scope of the data identifier
-                    - `name`: The name of the data identifier
-        :param account: The account requesting the exception
-        :param pattern: Associated pattern for the exception request
-        :param comments: Justification for why the exception is needed (e.g. "Needed for my XYZ analysis..")
-        :param expires_at: When the exception should expire (datetime object)
+        Parameters
+        ----------
+        dids : list[dict[str, Any]]
+            List of dictionaries containing the data identifiers to be excepted.
+            Each dictionary must contain:
+            * **scope** : The scope of the data identifier
+            * **name** : The name of the data identifier
+        account : str
+            The account requesting the exception
+        pattern : str
+            Associated pattern for the exception request
+        comments : str
+            Justification for why the exception is needed (e.g. "Needed for my XYZ analysis..")
+        expires_at : datetime
+            When the exception should expire (datetime object)
 
-        :returns: A dictionary containing:
-                 - `exceptions`: Dictionary mapping exception IDs to lists of DIDs that were successfully added
-                 - `unknown`: List of DIDs that could not be found
-                 - `not_affected`: List of DIDs that did not qualify for an exception
+        Returns
+        -------
+        dict[str, Any]
+            A dictionary containing:
+            * **exceptions** : Dictionary mapping exception IDs to lists of DIDs that were successfully added
+            * **unknown** : List of DIDs that could not be found
+            * **not_affected** : List of DIDs that did not qualify for an exception
+
         """
 
         path = self.LIFETIME_BASEURL + '/'

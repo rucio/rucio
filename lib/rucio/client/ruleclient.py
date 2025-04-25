@@ -54,27 +54,52 @@ class RuleClient(BaseClient):
         weight: Optional[int] = None,
     ) -> Any:
         """
-        :param dids:                       The data identifier set.
-        :param copies:                     The number of replicas.
-        :param rse_expression:             Boolean string expression to give the list of RSEs.
-        :param priority:                   Priority of the transfers.
-        :param lifetime:                   The lifetime of the replication rules (in seconds).
-        :param grouping:                   ALL -  All files will be replicated to the same RSE.
-                                           DATASET - All files in the same dataset will be replicated to the same RSE.
-                                           NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
-        :param notify:                     Notification setting for the rule (Y, N, C).
-        :param source_replica_expression:  RSE Expression for RSEs to be considered for source replicas.
-        :param activity:                   Transfer Activity to be passed to FTS.
-        :param account:                    The account owning the rule.
-        :param meta:                       Metadata, as dictionary.
-        :param ignore_availability:        Option to ignore the availability of RSEs.
-        :param purge_replicas:             When the rule gets deleted purge the associated replicas immediately.
-        :param ask_approval:               Ask for approval of this replication rule.
-        :param asynchronous:               Create rule asynchronously by judge-injector.
-        :param locked:                     If the rule is locked, it cannot be deleted.
-        :param delay_injection:
-        :param comment:                    Comment about the rule.
-        :param weight:                     If the weighting option of the replication rule is used, the choice of RSEs takes their weight into account.
+        Add a replication rule.
+
+        Parameters
+        ----------
+        dids : sequence of dictionaries
+            The data identifier set.
+        copies : int
+            The number of replicas.
+        rse_expression : str
+            Boolean string expression to give the list of RSEs.
+        priority : optional
+            Priority of the transfers. Default is 3.
+        lifetime : optional
+            The lifetime of the replication rules (in seconds).
+        grouping : optional
+            ALL - All files will be replicated to the same RSE.
+            DATASET - All files in the same dataset will be replicated to the same RSE.
+            NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
+            Default is 'DATASET'.
+        notify : optional
+            Notification setting for the rule (Y, N, C). Default is 'N'.
+        source_replica_expression : optional
+            RSE Expression for RSEs to be considered for source replicas.
+        activity : optional
+            Transfer Activity to be passed to FTS.
+        account : optional
+            The account owning the rule.
+        meta : optional
+            Metadata, as dictionary.
+        ignore_availability : optional
+            Option to ignore the availability of RSEs. Default is False.
+        purge_replicas : optional
+            When the rule gets deleted purge the associated replicas immediately. Default is False.
+        ask_approval : optional
+            Ask for approval of this replication rule. Default is False.
+        asynchronous : optional
+            Create rule asynchronously by judge-injector. Default is False.
+        locked : optional
+            If the rule is locked, it cannot be deleted. Default is False.
+        delay_injection : optional
+            Delay the rule injection.
+        comment : optional
+            Comment about the rule.
+        weight : optional
+            If the weighting option of the replication rule is used, the choice of RSEs takes their weight into account.
+
         """
         path = self.RULE_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
@@ -97,9 +122,17 @@ class RuleClient(BaseClient):
         """
         Deletes a replication rule and all associated locks.
 
-        :param rule_id:         The id of the rule to be deleted
-        :param purge_replicas:  Immediately delete the replicas.
-        :raises:                RuleNotFound, AccessDenied
+        Parameters
+        ----------
+        rule_id : str
+            The id of the rule to be deleted.
+        purge_replicas : bool, optional
+            Immediate delete the replicas
+
+        Raises
+        -------
+        RuleNotFound
+        AccessDenied
         """
 
         path = self.RULE_BASEURL + '/' + rule_id
@@ -118,8 +151,14 @@ class RuleClient(BaseClient):
         """
         Get a replication rule.
 
-        :param rule_id:  The id of the rule to be retrieved.
-        :raises:         RuleNotFound
+        Parameters
+        ----------
+        rule_id : str
+            The id of the rule to be retrieved.
+
+        Raises
+        -------
+        RuleNotFound
         """
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
@@ -132,9 +171,16 @@ class RuleClient(BaseClient):
 
     def update_replication_rule(self, rule_id: str, options: dict[str, Any]) -> Literal[True]:
         """
-        :param rule_id:   The id of the rule to be retrieved.
-        :param options:   Options dictionary.
-        :raises:          RuleNotFound
+        Parameters
+        ----------
+        rule_id :
+            The id of the rule to be retrieved.
+        options :
+            Options dictionary.
+
+        Raises
+        -------
+        RuleNotFound
         """
         path = self.RULE_BASEURL + '/' + rule_id
         url = build_url(choice(self.list_hosts), path=path)
@@ -152,10 +198,19 @@ class RuleClient(BaseClient):
         exclude_expression: Optional[str] = None
     ) -> Any:
         """
-        :param rule_id:             Rule to be reduced.
-        :param copies:              Number of copies of the new rule.
-        :param exclude_expression:  RSE Expression of RSEs to exclude.
-        :raises:                    RuleReplaceFailed, RuleNotFound
+        Parameters
+        ----------
+        rule_id :
+            The id of the rule to be reduced.
+        copies :
+            Number of copies of the new rule.
+        exclude_expression :
+            RSE Expression of RSEs to exclude.
+
+        Raises
+        -------
+        RuleNotFound
+        RuleReplaceFailed
         """
 
         path = self.RULE_BASEURL + '/' + rule_id + '/reduce'
@@ -176,10 +231,18 @@ class RuleClient(BaseClient):
         """
         Move a replication rule to another RSE and, once done, delete the original one.
 
-        :param rule_id:                    Rule to be moved.
-        :param rse_expression:             RSE expression of the new rule.
-        :param override:                   Configurations to update for the new rule.
-        :raises:                           RuleNotFound, RuleReplaceFailed
+        Parameters
+        ----------
+        rule_id :
+            Rule to be moved.
+        rse_expression :
+            RSE expression of the new rule.
+        override :
+            Configurations to update for the new rule.
+        Raises
+        -------
+        RuleNotFound
+        RuleReplaceFailed
         """
 
         path = self.RULE_BASEURL + '/' + rule_id + '/move'
@@ -197,8 +260,14 @@ class RuleClient(BaseClient):
 
     def approve_replication_rule(self, rule_id: str) -> Literal[True]:
         """
-        :param rule_id:             Rule to be approved.
-        :raises:                    RuleNotFound
+        Parameters
+        ----------
+        rule_id :
+            Rule to be approved.
+
+        Raises
+        -------
+        RuleNotFound
         """
 
         path = self.RULE_BASEURL + '/' + rule_id
@@ -212,9 +281,17 @@ class RuleClient(BaseClient):
 
     def deny_replication_rule(self, rule_id: str, reason: Optional[str] = None) -> Literal[True]:
         """
-        :param rule_id:             Rule to be denied.
-        :param reason:              Reason for denying the rule.
-        :raises:                    RuleNotFound
+        Parameters
+        ----------
+        rule_id :
+            Rule to be denied.
+        reason :
+            Reason for denying the rule.
+
+        Raises
+        -------
+        RuleNotFound
+
         """
 
         path = self.RULE_BASEURL + '/' + rule_id
@@ -235,8 +312,12 @@ class RuleClient(BaseClient):
         """
         List the rule history of a DID.
 
-        :param scope: The scope of the DID.
-        :param name: The name of the DID.
+        Parameters
+        ----------
+        scope :
+            The scope of the DID.
+        name :
+            The name of the DID.
         """
         path = '/'.join([self.RULE_BASEURL, quote_plus(scope), quote_plus(name), 'history'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -250,8 +331,13 @@ class RuleClient(BaseClient):
         """
         Examine a replication rule for errors during transfer.
 
-        :param rule_id:             Rule to be denied.
-        :raises:                    RuleNotFound
+        Parameters
+        ----------
+        rule_id :
+            The rule to be denied
+        Raises
+        -------
+        RuleNotFound
         """
         path = self.RULE_BASEURL + '/' + rule_id + '/analysis'
         url = build_url(choice(self.list_hosts), path=path)
@@ -265,8 +351,13 @@ class RuleClient(BaseClient):
         """
         List details of all replica locks for a rule.
 
-        :param rule_id:             Rule to be denied.
-        :raises:                    RuleNotFound
+        Parameters
+        ----------
+        rule_id :
+            The rule to be denied
+        Raises
+        -------
+        RuleNotFound
         """
         path = self.RULE_BASEURL + '/' + rule_id + '/locks'
         url = build_url(choice(self.list_hosts), path=path)
@@ -279,9 +370,14 @@ class RuleClient(BaseClient):
     def list_replication_rules(self, filters: Optional[dict[str, Any]] = None) -> "Iterator[dict[str, Any]]":
         """
         List all replication rules which match a filter
-        :param filters: dictionary of attributes by which the rules should be filtered
+        Parameters
+        ----------
+        filers:
+            dictionary of attributes by which the rules should be filtered
 
-        :returns: True if successful, otherwise false.
+        Returns
+        -------
+        True if successful, otherwise false.
         """
         filters = filters or {}
         path = self.RULE_BASEURL + '/'

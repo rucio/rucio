@@ -35,9 +35,12 @@ class ConfigClient(BaseClient):
         """
         Sends the request to get the matching configuration.
 
-        :param section: the optional name of the section.
-        :param option: the optional option within the section.
-        :return: dictionary containing the configuration.
+        Parameters
+        ----------
+        section : str, optional
+            The name of the section.
+        option : str, optional
+            The option within the section.
         """
 
         if section is None and option is not None:
@@ -68,18 +71,30 @@ class ConfigClient(BaseClient):
         """
         Sends the request to create or set an option within a section. Missing sections will be created.
 
-        :param section: the name of the section.
-        :param option: the name of the option.
-        :param value: the value to set on the config option
-        :param use_body_for_params: send parameters in a json-encoded request body instead of url-encoded
-        TODO: remove this parameter
+        Parameters
+        ----------
+        section : str
+            The name of the section.
+        option : str
+            The name of the option.
+        value : Any
+            The value to set on the config option.
+        use_body_for_params : bool, default=True
+            Send parameters in a json-encoded request body instead of url-encoded.
+
+        Returns
+        -------
+        bool
+            True if option was set successfully.
+
+        Note:
+        ------
         The format of the /config endpoint was recently changed. We migrated from performing a PUT on
         "/config/<section>/<option>/<value>" to sending the parameters using a json-encoded body.
         This was done to fix multiple un-wanted side effects related to how the middleware treats
         values encoded in a path.
         For a smooth transition, we allow both cases for now, but we should migrate to only passing
         values via the request body.
-        :return: True if option was removed successfully. False otherwise.
         """
 
         if use_body_for_params:
@@ -107,11 +122,19 @@ class ConfigClient(BaseClient):
             option: str
     ) -> bool:
         """
-        Sends the request to remove an option from a section
+        Sends the request to remove an option from a section.
 
-        :param section: the name of the section.
-        :param option: the name of the option.
-        :return: True if option was removed successfully. False otherwise.
+        Parameters
+        ----------
+        section : str
+            The name of the section.
+        option : str
+            The name of the option.
+
+        Returns
+        -------
+        bool
+            True if option was removed successfully.
         """
 
         path = '/'.join([self.CONFIG_BASEURL, section, option])

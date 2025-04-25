@@ -29,7 +29,10 @@ class ImportClient(BaseClient):
         """
         Imports data into Rucio.
 
-        :param data: a dict containing data to be imported into Rucio.
+        Parameters
+        ----------
+        data: dict
+            A dict containing data to be imported into Rucio.
         """
         path = '/'.join([self.IMPORT_BASEURL])
         url = build_url(choice(self.list_hosts), path=path)
