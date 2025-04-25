@@ -31,10 +31,17 @@ class FileClient(BaseClient):
         """
         List file replicas.
 
-        :param scope: the scope.
-        :param lfn: the lfn.
+        Parameters
+        ----------
+        scope : str
+            The scope of the file.
+        lfn : str
+            The LFN
 
-        :return: List of replicas.
+        Returns
+        -------
+        list[dict[str, Any]]
+            List of replicas.
         """
         path = '/'.join([self.BASEURL, quote_plus(scope), quote_plus(lfn), 'rses'])
         url = build_url(choice(self.list_hosts), path=path)

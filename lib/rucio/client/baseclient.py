@@ -95,15 +95,29 @@ class BaseClient:
                  logger: 'Logger' = LOG) -> None:
         """
         Constructor of the BaseClient.
-        :param rucio_host: The address of the rucio server, if None it is read from the config file.
-        :param auth_host: The address of the rucio authentication server, if None it is read from the config file.
-        :param account: The account to authenticate to rucio.
-        :param ca_cert: The path to the rucio server certificate.
-        :param auth_type: The type of authentication (e.g.: 'userpass', 'kerberos' ...)
-        :param creds: Dictionary with credentials needed for authentication.
-        :param user_agent: Indicates the client.
-        :param vo: The VO to authenticate into.
-        :param logger: Logger object to use. If None, use the default LOG created by the module
+
+        Parameters
+        ----------
+        rucio_host : str, optional
+            The address of the rucio server, if None it is read from the config file.
+        auth_host : str, optional
+            The address of the rucio authentication server, if None it is read from the config file.
+        account : str, optional
+            The account to authenticate to rucio.
+        ca_cert : str, optional
+            The path to the rucio server certificate.
+        auth_type : str, optional
+            The type of authentication (e.g.: 'userpass', 'kerberos' ...)
+        creds : dict, optional
+            Dictionary with credentials needed for authentication.
+        timeout : int, optional
+            Timeout for requests.
+        user_agent : str, optional
+            Indicates the client.
+        vo : str, optional
+            The VO to authenticate into.
+        logger : Logger, optional
+            Logger object to use. If None, use the default LOG created by the module.
         """
 
         self.logger = logger

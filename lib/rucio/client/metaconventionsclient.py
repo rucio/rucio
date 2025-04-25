@@ -35,13 +35,27 @@ class MetaConventionClient(BaseClient):
         """
         Sends the request to add an allowed key for DID metadata (update the DID Metadata Conventions table with a new key).
 
-        :param key: the name for the new key.
-        :param key_type: the type of the key: all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection).
-        :param value_type: the type of the value, if defined.
-        :param value_regexp: the regular expression that values should match, if defined.
+        Parameters
+        ----------
+        key: str
+            The name for the new key.
 
-        :return: True if key was created successfully.
-        :raises Duplicate: if key already exists.
+        key_type: str
+            The type of the key: all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection).
+        value_type: Optional[str]
+            The type of the value, if defined.
+        value_regexp: Optional[str]
+            The regular expression that values should match, if defined.
+
+        Returns
+        -------
+        bool
+            True if key was created successfully.
+
+        Raises
+        -------
+        Duplicate
+            If key already exists..
         """
 
         path = '/'.join([self.META_BASEURL, quote_plus(key)])
@@ -62,7 +76,10 @@ class MetaConventionClient(BaseClient):
         """
         Sends the request to list all keys for DID Metadata Conventions.
 
-        :return: a list containing the names of all keys.
+        Returns
+        -------
+        list[str]
+            A list containing the names of all keys.
         """
         path = self.META_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
@@ -77,9 +94,11 @@ class MetaConventionClient(BaseClient):
     def list_values(self, key: str) -> Optional[list[str]]:
         """
         Sends the request to lists all allowed values for a DID key (all values for a key in DID Metadata Conventions).
-.
 
-        :return: a list containing the names of all values for a key.
+        Returns
+        -------
+        list[str]
+            A list containing the names of all values for a key
         """
         path = '/'.join([self.META_BASEURL, quote_plus(key)]) + '/'
         url = build_url(choice(self.list_hosts), path=path)
@@ -95,11 +114,22 @@ class MetaConventionClient(BaseClient):
         """
         Sends the request to add a value for a key in DID Metadata Convention.
 
-        :param key: the name for key.
-        :param value: the value.
+        Parameters
+        ----------
+        key: str
+            The name for key.
+        value: str
+            The value to be added.
 
-        :return: True if value was created successfully.
-        :raises Duplicate: if valid already exists.
+        Returns
+        -------
+        bool
+            True if value was created successfully.
+
+        Raises
+        -------
+        Duplicate
+            If value already exists.
         """
 
         path = '/'.join([self.META_BASEURL, quote_plus(key)]) + '/'
@@ -116,8 +146,12 @@ class MetaConventionClient(BaseClient):
         """
         Delete a key in the DID Metadata Conventions table.
 
-        :param key: the name for key.
-        :param value: the value.
+        Parameters
+        ---------
+        key: str
+            The name for the key
+        value: str
+            The value
         """
         pass
 
@@ -125,7 +159,10 @@ class MetaConventionClient(BaseClient):
         """
         Delete an allowed key.
 
-        :param key: the name for key.
+        Parameters
+        ----------
+        key: str
+            The name for the key.
         """
         pass
 
@@ -133,8 +170,13 @@ class MetaConventionClient(BaseClient):
         """
         Update a key.
 
-        :param key: the name for key.
-        :param type_: the type of the value, if defined.
-        :param regexp: the regular expression that values should match, if defined.
+        Parameters
+        ----------
+        key: str
+            The name for the key.
+        type_: Optional[str]
+            The type of the value, if defined.
+        regexp: Optional[str]
+            The regular expression that values should match, if defined.
         """
         pass

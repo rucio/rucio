@@ -36,11 +36,19 @@ class RSEClient(BaseClient):
         """
         Returns details about the referred RSE.
 
-        :param rse: Name of the referred RSE
+        Parameters
+        ----------
+        rse:
+            Name of the referred RSE
 
-        :returns: A dict containing all attributes of the referred RSE
+        Returns
+        --------
+        A dict containing all attributes of the referred RSE.
 
-        :raises RSENotFound: if the referred RSE was not found in the database
+        Raises
+        -------
+        RSENotFound:
+            if the referred RSE was not found in the database.
         """
         path = '/'.join([self.RSE_BASEURL, rse])
         url = build_url(choice(self.list_hosts), path=path)
@@ -54,27 +62,51 @@ class RSEClient(BaseClient):
             raise exc_cls(exc_msg)
 
     def add_rse(self, rse: str, **kwargs) -> Literal[True]:
+
         """
         Sends the request to create a new RSE.
 
-        :param rse: the name of the rse.
-        :param deterministic: Boolean to know if the pfn is generated deterministically.
-        :param volatile: Boolean for RSE cache.
-        :param city: City for the RSE.
-        :param region_code: The region code for the RSE.
-        :param country_name: The country.
-        :param continent: The continent.
-        :param time_zone: Timezone.
-        :param staging_area: Staging area.
-        :param ISP: Internet service provider.
-        :param rse_type: RSE type.
-        :param latitude: Latitude coordinate of RSE.
-        :param longitude: Longitude coordinate of RSE.
-        :param ASN: Access service network.
-        :param availability: Availability.
+        Parameters
+        ----------
+        rse
+            The name of the RSE.
+        deterministic
+            Boolean to know if the pfn is generated deterministically.
+        volatile
+            Boolean for RSE cache.
+        city
+            City for the RSE.
+        region_code
+            The region code for the RSE.
+        country_name
+            The country.
+        continent
+            The continent.
+        time_zone
+            Timezone.
+        staging_area
+            Staging area.
+        ISP
+            Internet service provider.
+        rse_type
+            RSE type.
+        latitude
+            Latitude coordinate of RSE.
+        longitude
+            Longitude coordinate of RSE.
+        ASN
+            Access service network.
+        availability
+            Availability.
 
-        :return: True if location was created successfully else False.
-        :raises Duplicate: if rse already exists.
+        Returns
+        -------
+            True if RSE was created successfully else False
+
+        Raises
+        ------
+        Duplicate
+            If RSE already exists.
         """
         path = 'rses/' + rse
         url = build_url(choice(self.list_hosts), path=path)
@@ -88,8 +120,12 @@ class RSEClient(BaseClient):
         """
         Update RSE properties like availability or name.
 
-        :param rse: the name of the new rse.
-        :param  parameters: A dictionary with property (name, read, write, delete as keys).
+        Parameters
+        ----------
+        rse:
+            The name of the RSE.
+        parameters:
+            A dictionary with property (name, read, write, delete as keys).
         """
         path = 'rses/' + rse
         url = build_url(choice(self.list_hosts), path=path)
@@ -103,8 +139,14 @@ class RSEClient(BaseClient):
         """
         Sends the request to delete a rse.
 
-        :param rse: the name of the rse.
-        :return: True if location was created successfully else False.
+        Parameters
+        ----------
+        rse
+            The name of the RSE.
+
+        Returns
+        -------
+        True if RSE was deleted successfully else False.
         """
         path = 'rses/' + rse
         url = build_url(choice(self.list_hosts), path=path)
@@ -119,8 +161,13 @@ class RSEClient(BaseClient):
         """
         Sends the request to list all rucio locations(RSEs).
 
-        :rse_expression: RSE Expression to use as filter.
-        :return:         a list containing the names of all rucio locations.
+        Parameters
+        ----------
+        rse_expression
+            RSE expression to use as filter.
+        Returns
+        -------
+        A list containing the names of all rucio locations.
         """
         if rse_expression:
             path = ['rses', "?expression=" + quote(rse_expression)]
@@ -144,12 +191,23 @@ class RSEClient(BaseClient):
         """
         Sends the request to add a RSE attribute.
 
-        :param rse: the name of the rse.
-        :param key: the attribute key.
-        :param value: the attribute value.
+        Parameters
+        ----------
+        rse:
+            The name of the RSE.
+        key:
+            The attribute key.
+        value:
+            The attribute value.
 
-        :return: True if RSE attribute was created successfully else False.
-        :raises Duplicate: if RSE attribute already exists.
+        Returns
+        -------
+        True if RSE attribute was created successfully else False.
+
+        Raises
+        -------
+        Duplicate
+            If RSE attribute already exists.
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'attr', key])
         url = build_url(choice(self.list_hosts), path=path)
@@ -166,10 +224,16 @@ class RSEClient(BaseClient):
         """
         Sends the request to delete a RSE attribute.
 
-        :param rse: the RSE name.
-        :param key: the attribute key.
+        Parameters
+        ----------
+        rse
+            The RSE name.
+        key
+            The attribute key.
 
-        :return: True if RSE attribute was deleted successfully else False.
+        Returns
+        -------
+        True if RSE attribute was deleted successfully else False.
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'attr', key])
         url = build_url(choice(self.list_hosts), path=path)
@@ -185,9 +249,14 @@ class RSEClient(BaseClient):
         """
         Sends the request to get RSE attributes.
 
-        :param rse: The RSE name.
+        Parameters
+        ----------
+        rse
+            The RSE name.
 
-        :return: A ``dict`` with the RSE attribute name/value pairs.
+        Returns
+        -------
+        A dict with the RSE attribute name/value pairs.
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'attr/'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -203,26 +272,36 @@ class RSEClient(BaseClient):
         """
         Sends the request to create a new protocol for the given RSE.
 
-        :param rse: the name of the  rse.
-        :param scheme: identifier of this protocol
-        :param params: Attributes of the protocol. Supported are:
-            hostname:       hostname for this protocol (default = localhost)
-            port:           port for this protocol (default = 0)
-            prefix:         string used as a prfeix for this protocol when generating the PFN (default = None)
-            impl:           qualified name of the implementation class for this protocol (mandatory)
-            read:           integer representing the priority of this procotol for read operations (default = -1)
-            write:          integer representing the priority of this procotol for write operations (default = -1)
-            delete:         integer representing the priority of this procotol for delete operations (default = -1)
-            extended_attributes:  miscellaneous protocol specific information e.g. spacetoken for SRM (default = None)
+        Parameters
+        ----------
+        rse : str
+            The name of the RSE.
+        params : dict[str, Any]
+            Attributes of the protocol. Supported are:
+            - scheme: identifier of this protocol
+            - hostname: hostname for this protocol (default = localhost)
+            - port: port for this protocol (default = 0)
+            - prefix: string used as a prefix for this protocol when generating the PFN (default = None)
+            - impl: qualified name of the implementation class for this protocol (mandatory)
+            - read: integer representing the priority of this protocol for read operations (default = -1)
+            - write: integer representing the priority of this protocol for write operations (default = -1)
+            - delete: integer representing the priority of this protocol for delete operations (default = -1)
+            - extended_attributes: miscellaneous protocol specific information e.g. spacetoken for SRM (default = None)
 
-        :return: True if protocol was created successfully else False.
+        Returns
+        -------
+            True if protocol was created successfully.
 
-        :raises Duplicate: if protocol with same hostname, port and protocol identifier
-                            already exists for the given RSE.
-        :raises RSENotFound: if the RSE doesn't exist.
-        :raises KeyNotFound: if params is missing manadtory attributes to create the
-                             protocol.
-        :raises AccessDenied: if not authorized.
+        Raises
+        ------
+        Duplicate
+            If protocol with same hostname, port and protocol identifier already exists for the given RSE.
+        RSENotFound
+            If the RSE doesn't exist.
+        KeyNotFound
+            If params is missing mandatory attributes to create the protocol.
+        AccessDenied
+            If not authorized.
         """
         scheme = params['scheme']
         path = '/'.join([self.RSE_BASEURL, rse, 'protocols', scheme])
@@ -243,22 +322,35 @@ class RSEClient(BaseClient):
             scheme: Optional['SUPPORTED_PROTOCOLS_LITERAL'] = None
     ) -> Any:
         """
-        Returns protocol information. Parameter combinations are:
-        (operation OR default) XOR protocol.
+        Returns protocol information.
+        Parameter combinations are: (operation OR default) XOR protocol.
 
-        :param rse: the RSE name.
-        :param protocol_domain: The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL' (as default).
-        :param operation: The name of the requested operation (read, write, or delete).
-                          If None, all operations are queried.
-        :param default: Indicates if only the default operations should be returned.
-        :param scheme: The identifier of the requested protocol.
+        Parameters
+        ----------
+        rse : str
+            The RSE name.
+        protocol_domain : RSE_SUPPORTED_PROTOCOL_DOMAINS_LITERAL, optional
+            The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL', by default 'ALL'.
+        operation : RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, optional
+            The name of the requested operation (read, write, or delete).
+            If None, all operations are queried, by default None.
+        default : bool, optional
+            Indicates if only the default operations should be returned, by default False.
+        scheme : SUPPORTED_PROTOCOLS_LITERAL, optional
+            The identifier of the requested protocol, by default None.
 
-        :returns: A dict with details about each matching protocol.
+        Returns
+        -------
+            A dict with details about each matching protocol.
 
-        :raises RSENotFound: if the RSE doesn't exist.
-        :raises RSEProtocolNotSupported: if no matching protocol entry could be found.
-        :raises RSEOperationNotSupported: if no matching protocol entry for the requested
-                                          operation could be found.
+        Raises
+        ------
+        RSENotFound
+            If the RSE doesn't exist.
+        RSEProtocolNotSupported
+            If no matching protocol entry could be found.
+        RSEOperationNotSupported
+            If no matching protocol entry for the requested operation could be found.
         """
 
         path = None
@@ -294,18 +386,33 @@ class RSEClient(BaseClient):
         Returns PFNs that should be used at a RSE, corresponding to requested LFNs.
         The PFNs are generated for the RSE *regardless* of whether a replica exists for the LFN.
 
-        :param rse: the RSE name
-        :param lfns: A list of LFN strings to translate to PFNs.
-        :param protocol_domain: The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL' (as default).
-        :param operation: The name of the requested operation (read, write, or delete).
-                          If None, all operations are queried.
-        :param scheme: The identifier of the requested protocol (gsiftp, https, davs, etc).
+        Parameters
+        ----------
+        rse :
+            The RSE name.
+        lfns :
+            A list of LFN strings to translate to PFNs.
+        protocol_domain :
+            The scope of the protocol.
+        operation :
+            The name of the requested operation (read, write, or delete).
+            If None, all operations are queried, by default None.
+        scheme :
+            The identifier of the requested protocol (gsiftp, https, davs, etc), by default None.
 
-        :returns: A dictionary of LFN / PFN pairs.
-        :raises RSENotFound: if the RSE doesn't exist.
-        :raises RSEProtocolNotSupported: if no matching protocol entry could be found.
-        :raises RSEOperationNotSupported: if no matching protocol entry for the requested
-                                          operation could be found.
+        Returns
+        -------
+        dict[str, str]
+            A dictionary of LFN / PFN pairs.
+
+        Raises
+        ------
+        RSENotFound
+            If the RSE doesn't exist.
+        RSEProtocolNotSupported
+            If no matching protocol entry could be found.
+        RSEOperationNotSupported
+            If no matching protocol entry for the requested operation could be found.
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'lfns2pfns'])
         params = []
@@ -339,16 +446,29 @@ class RSEClient(BaseClient):
         Deletes matching protocols from RSE. Protocols using the same identifier can be
         distinguished by hostname and port.
 
-        :param rse: the RSE name.
-        :param scheme: identifier of the protocol.
-        :param hostname: hostname of the protocol.
-        :param port: port of the protocol.
+        Parameters
+        ----------
+        rse :
+            The RSE name.
+        scheme :
+            The identifier of the protocol.
+        hostname :
+            The hostname of the protocol.
+        port :
+            The port of the protocol.
 
-        :returns: True if success.
+        Returns
+        -------
+        True if success.
 
-        :raises RSEProtocolNotSupported: if no matching protocol entry could be found.
-        :raises RSENotFound: if the RSE doesn't exist.
-        :raises AccessDenied: if not authorized.
+        Raises
+        -------
+        RSEProtocolNotSupported
+            If no matching protocol entry could be found.
+        RSENotFound
+            If the RSE doesn't exist.
+        AccessDenied
+            If not authorized.
         """
         path = [self.RSE_BASEURL, rse, 'protocols', scheme]
         if hostname:
@@ -376,19 +496,32 @@ class RSEClient(BaseClient):
         Updates matching protocols from RSE. Protocol using the same identifier can be
         distinguished by hostname and port.
 
-        :param rse: the RSE name.
-        :param scheme: identifier of the protocol.
-        :param data: A dict providing the new values of the protocol attributes.
-                     Keys must match column names in database.
-        :param hostname: hostname of the protocol.
-        :param port: port of the protocol.
+        Parameters
+        ----------
+        rse:
+            The RSE name.
+        scheme:
+            The identifier of the protocol.
+        data:
+            A dict providing the new values of the protocol attributes. Keys must match column names in database.
+        hostname:
+            The hostname of the protocol.
+        port:
+            The port of the protocol.
+        Returns
+        -------
+        True if success.
 
-        :returns: True if success.
-
-        :raises RSEProtocolNotSupported: if no matching protocol entry could be found.
-        :raises RSENotFound: if the RSE doesn't exist.
-        :raises KeyNotFound: if invalid data was provided for update.
-        :raises AccessDenied: if not authorized.
+        Raises
+        -------
+        RSEProtocolNotSupported
+            If no matching protocol entry could be found.
+        RSENotFound
+            If the RSE doesn't exist.
+        KeyNotFound
+            If invalid data was provided for update.
+        AccessDenied
+            If not authorized.
         """
         path = [self.RSE_BASEURL, rse, 'protocols', scheme]
         if hostname:
@@ -416,18 +549,34 @@ class RSEClient(BaseClient):
         """
         Swaps the priorities of the provided operation.
 
-        :param rse: the RSE name.
-        :param domain: the domain in which priorities should be swapped i.e. wan or lan.
-        :param operation: the operation that should be swapped i.e. read, write, or delete.
-        :param scheme_a: the scheme of one of the two protocols to be swapped, e.g. srm.
-        :param scheme_b: the scheme of the other of the two protocols to be swapped, e.g. http.
+        Parameters
+        ----------
+        rse : str
+            The RSE name.
+        domain :
+            The domain in which priorities should be swapped (e.g., 'wan' or 'lan').
+        operation :
+            The operation for which priorities should be swapped (e.g., 'read', 'write', or 'delete').
+        scheme_a :
+            The scheme of one of the two protocols to be swapped (e.g., 'srm').
+        scheme_b :
+            The scheme of the other protocol to be swapped (e.g., 'http').
 
-        :returns: True if success.
+        Returns
+        -------
+        bool
+            True if successful.
 
-        :raises RSEProtocolNotSupported: if no matching protocol entry could be found.
-        :raises RSENotFound: if the RSE doesn't exist.
-        :raises KeyNotFound: if invalid data was provided for update.
-        :raises AccessDenied: if not authorized.
+        Raises
+        ------
+        RSEProtocolNotSupported
+            If no matching protocol entry could be found.
+        RSENotFound
+            If the RSE doesn't exist.
+        KeyNotFound
+            If invalid data was provided for update.
+        AccessDenied
+            If not authorized.
         """
 
         protocols = self.get_protocols(rse, domain, operation, False, scheme_a)['protocols']
@@ -445,14 +594,23 @@ class RSEClient(BaseClient):
 
     def add_qos_policy(self, rse: str, qos_policy: str) -> Literal[True]:
         """
-        Add a QoS policy from an RSE.
+        Add a QoS policy to an RSE.
 
-        :param rse_id: The id of the RSE.
-        :param qos_policy: The QoS policy to add.
-        :param session: The database session in use.
+        Parameters
+        ----------
+        rse
+            The name of the RSE.
+        qos_policy
+            The QoS policy to add.
 
-        :raises Duplicate: If the QoS policy already exists.
-        :returns: True if successful, except otherwise.
+        Returns
+        -------
+        True if successful.
+
+        Raises
+        ------
+        Duplicate
+            If the QoS policy already exists.
         """
 
         path = [self.RSE_BASEURL, rse, 'qos_policy', qos_policy]
@@ -469,11 +627,25 @@ class RSEClient(BaseClient):
         """
         Delete a QoS policy from an RSE.
 
-        :param rse_id: The id of the RSE.
-        :param qos_policy: The QoS policy to delete.
-        :param session: The database session in use.
+        Parameters
+        ----------
+        rse
+            The name of the RSE.
+        qos_policy
+            The QoS policy to delete.
+        session:
+            The database session in use.
 
-        :returns: True if successful, silent failure if QoS policy does not exist.
+        Returns
+        -------
+        True if successful.
+
+        Raises
+        ------
+        RSENotFound
+            If the RSE doesn't exist.
+        QoSPolicyNotFound
+            If the QoS policy doesn't exist.
         """
 
         path = [self.RSE_BASEURL, rse, 'qos_policy', qos_policy]
@@ -517,13 +689,22 @@ class RSEClient(BaseClient):
         """
         Set RSE usage information.
 
-        :param rse: the RSE name.
-        :param source: the information source, e.g. srm.
-        :param used: the used space in bytes.
-        :param free: the free in bytes.
-        :param files: the number of files
+        Parameters
+        ----------
+        rse:
+            The RSE name.
+        source:
+            The information source, e.g. srm.
+        used:
+            The used space in bytes.
+        free:
+            The free space in bytes.
+        files:
+            The number of files.
 
-        :returns: True if successful
+        Returns
+        -------
+        True if successful.
         """
         path = [self.RSE_BASEURL, rse, 'usage']
         path = '/'.join(path)
@@ -544,10 +725,16 @@ class RSEClient(BaseClient):
         """
         Get RSE usage information.
 
-        :param rse: the RSE name.
-        :param filters: dictionary of attributes by which the results should be filtered
+        Parameters
+        ----------
+        rse:
+            The RSE name.
+        filters:
+            dictionary of attributes by which the results should be filtered
 
-        :returns: True if successful, otherwise false.
+        Returns
+        -------
+        True if successful, otherwise false.
         """
         path = [self.RSE_BASEURL, rse, 'usage']
         path = '/'.join(path)
@@ -567,10 +754,16 @@ class RSEClient(BaseClient):
         """
         List RSE usage history information.
 
-        :param rse: The RSE name.
-        :param filters: dictionary of attributes by which the results should be filtered.
+        Parameters
+        ----------
+        rse:
+            The RSE name.
+        filters:
+            dictionary of attributes by which the results should be filtered
 
-        :returns:  list of dictionaries.
+        Returns
+        -------
+        list of dictionaries
         """
         path = [self.RSE_BASEURL, rse, 'usage', 'history']
         path = '/'.join(path)
@@ -593,11 +786,18 @@ class RSEClient(BaseClient):
         """
         Set RSE limit information.
 
-        :param rse: The RSE name.
-        :param name: The name of the limit.
-        :param value: The feature value.
+        Parameters
+        ----------
+        rse:
+            The RSE name.
+        name:
+            The name of the limit.
+        value:
+            The feature value.
 
-        :returns: True if successful
+        Returns
+        -------
+        True if successful.
         """
         path = [self.RSE_BASEURL, rse, 'limits']
         path = '/'.join(path)
@@ -617,9 +817,14 @@ class RSEClient(BaseClient):
         """
         Get RSE limits.
 
-        :param rse: The RSE name.
+        Parameters
+        ----------
+        rse:
+            The RSE name.
 
-        :returns: An iterator of RSE limits as dicts with 'name' and 'value' as keys.
+        Returns
+        -------
+        An iterator of RSE limits as dicts with 'name' and 'value' as keys.
         """
         path = [self.RSE_BASEURL, rse, 'limits']
         path = '/'.join(path)
@@ -636,10 +841,16 @@ class RSEClient(BaseClient):
         """
         Delete RSE limit information.
 
-        :param rse: The RSE name.
-        :param name: The name of the limit.
+        Parameters
+        ----------
+        rse:
+            The RSE name.
+        name:
+            The name of the limit.
 
-        :returns: True if successful
+        Returns
+        -------
+        True if successful.
         """
         path = [self.RSE_BASEURL, rse, 'limits']
         path = '/'.join(path)
@@ -686,9 +897,14 @@ class RSEClient(BaseClient):
         """
         Update distances with the given RSE ids.
 
-        :param source: The source.
-        :param destination: The destination.
-        :param parameters: A dictionary with property.
+        Parameters
+        ----------
+        source: str
+            The source RSE.
+        destination: str
+            The destination RSE.
+        parameters: dict[str, int]
+            A dictionary with property
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
@@ -709,10 +925,18 @@ class RSEClient(BaseClient):
         """
         Get distances between rses.
 
-        :param source: The source RSE.
-        :param destination: The destination RSE.
+        Param
+        ----------
+        source: str
+            The source RSE.
+        destination: str
 
-        :returns distance: List of dictionaries.
+            The destination RSE.
+
+        Returns
+        -------
+        list[dict[str, Union[str, int]]]
+            A list of dictionaries with the distance information.
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
@@ -731,8 +955,12 @@ class RSEClient(BaseClient):
         """
         Delete distances with the given RSE ids.
 
-        :param source: The source.
-        :param destination: The destination.
+        Parameters
+        ----------
+        source: str
+            The source
+        destination: str
+            The destination
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
