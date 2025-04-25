@@ -91,18 +91,14 @@ services:
       - discovery.type=single-node
 
   activemq:
-    image: docker.io/webcenter/activemq:latest
+    image: docker.io/apache/activemq-classic:5.18.7
     platform: linux/amd64
+    volumes:
+      - ./activemq/users.properties:/opt/apache-activemq/conf/users.properties
     environment:
-      - ACTIVEMQ_CONFIG_NAME=activemq
-      - ACTIVEMQ_CONFIG_DEFAULTACCOUNT=false
-      - ACTIVEMQ_USERS_fts=supersecret
-      - ACTIVEMQ_GROUPS_writes=fts
-      - ACTIVEMQ_USERS_receiver=supersecret
-      - ACTIVEMQ_GROUPS_reads=receiver
-      - ACTIVEMQ_CONFIG_SCHEDULERENABLED=true
-      - ACTIVEMQ_USERS_hermes=supersecret
-      - ACTIVEMQ_CONFIG_QUEUES_events=/queue/events'
+      # web portal acccess, helpful for debugging
+      ACTIVEMQ_WEB_USER: activemq
+      ACTIVEMQ_WEB_PASSWORD: supersecret
 
   postgres14:
     image: docker.io/postgres:14
