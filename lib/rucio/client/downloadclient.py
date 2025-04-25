@@ -71,12 +71,19 @@ class BaseExtractionTool:
             logger: "LoggerFunction" = logging.log
     ):
         """
-        Initialises a extraction tool object
+        Initializes a extraction tool object
 
-        :param program_name: the name of the archive extraction program, e.g., unzip
-        :param useability_check_args: the arguments of the extraction program to test if its installed, e.g., --version
-        :param extract_args: the arguments that will be passed to the program for extraction
-        :param logger: optional decorated logging.log object that can be passed from the calling daemon or client.
+        Parameters
+        ----------
+        program_name: str
+            the name of the archive extraction program, e.g., unzip
+        useability_check_args: str
+            the arguments of the extraction program to test if its installed, e.g., --version
+        extract_args: str
+            the arguments that will be passed to the program for extraction
+        logger: LoggerFunction
+            optional decorated logging.log object that can be passed from the calling daemon or client.
+
         """
         self.program_name = program_name
         self.useability_check_args = useability_check_args
@@ -88,7 +95,10 @@ class BaseExtractionTool:
         """
         Checks if the extraction tool is installed and usable
 
-        :returns: True if it is usable otherwise False
+        Returns
+        -------
+        bool
+            True if it is usable otherwise False
         """
         if self.is_useable_result is not None:
             return self.is_useable_result
@@ -113,11 +123,20 @@ class BaseExtractionTool:
         """
         Calls the extraction program to extract a file from an archive
 
-        :param archive_file_path: path to the archive
-        :param file_to_extract: file name to extract from the archive
-        :param dest_dir_path: destination directory where the extracted file will be stored
+        Parameters
+        ----------
+        archive_file_path: str
+            path to the archive
+        file_to_extract: str
+            file name to extract from the archive
+        dest_dir_path: str
+            destination directory where the extracted file will be stored
 
-        :returns: True on success otherwise False
+        Returns
+        -------
+        bool
+            True on success otherwise False
+
         """
         if not self.is_useable():
             return False
@@ -148,11 +167,16 @@ class DownloadClient:
             check_pcache: bool = False
     ):
         """
-        Initialises the basic settings for an DownloadClient object
+        Initializes the basic settings for an DownloadClient object
 
-        :param client:           Optional: rucio.client.client.Client object. If None, a new object will be created.
-        :param external_traces:  Optional: reference to a list where traces can be added
-        :param logger:           Optional: logging.Logger object. If None, default logger will be used.
+        Parameters
+        ----------
+        client: Client
+            Optional: rucio.client.client.Client object. If None, a new object will be created.
+        logger: LoggerFunction
+            Optional: If None, default logger will be used.
+        external_traces: list
+            Optional: reference to a list where traces can be added
         """
         self.check_pcache = check_pcache
         if logger is None:
@@ -219,29 +243,63 @@ class DownloadClient:
         """
         Download items with a given PFN. This function can only download files, no datasets.
 
-        :param items: List of dictionaries. Each dictionary describing a file to download. Keys:
-            pfn                            - PFN string of this file
-            did                            - DID string of this file (e.g. 'scope:file.name'). Wildcards are not allowed
-            rse                            - rse name (e.g. 'CERN-PROD_DATADISK'). RSE Expressions are not allowed
-            base_dir                       - Optional: Base directory where the downloaded files will be stored. (Default: '.')
-            no_subdir                      - Optional: If true, files are written directly into base_dir. (Default: False)
-            adler32                        - Optional: The adler32 checmsum to compare the downloaded files adler32 checksum with
-            md5                            - Optional: The md5 checksum to compare the downloaded files md5 checksum with
-            transfer_timeout               - Optional: Timeout time for the download protocols. (Default: None)
-            check_local_with_filesize_only - Optional: If true, already downloaded files will not be validated by checksum.
-        :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
-        :param trace_custom_fields: Custom key value pairs to send with the traces
-        :param traces_copy_out: reference to an external list, where the traces should be uploaded
-        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
+        Parameters
+        ----------
+        items : list[dict]
+            List of dictionaries. Each dictionary describing a file to download. Dictionary keys:
+            * **pfn** : str
+                PFN string of this file
 
+            * **did** : str
+                DID string of this file (e.g. 'scope:file.name'). Wildcards are not allowed
 
-        :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
-                  clientState can be one of the following: ALREADY_DONE, DONE, FILE_NOT_FOUND, FAIL_VALIDATE, FAILED
+            * **rse** : str
+                rse name (e.g. 'CERN-PROD_DATADISK'). RSE Expressions are not allowed
 
-        :raises InputValidationError: if one of the input items is in the wrong format
-        :raises NoFilesDownloaded: if no files could be downloaded
-        :raises NotAllFilesDownloaded: if not all files could be downloaded
-        :raises RucioException: if something unexpected went wrong during the download
+            * **base_dir** : str, optional
+                Base directory where the downloaded files will be stored. Default: '.'
+
+            * **no_subdir** : bool, optional
+                If true, files are written directly into base_dir. Default: False
+
+            * **adler32** : str, optional
+                The adler32 checksum to compare the downloaded file's adler32 checksum with
+
+            * **md5** : str, optional
+                The md5 checksum to compare the downloaded file's md5 checksum with
+
+            * **transfer_timeout** : int, optional
+                Timeout time for the download protocols. Default: None
+
+            * **check_local_with_filesize_only** : bool, optional
+                If true, already downloaded files will not be validated by checksum. Default: False
+
+        num_threads : int
+            Suggestion of number of threads to use for the download. It will be lowered if it's too high.
+        trace_custom_fields : dict, optional
+            Custom key value pairs to send with the traces
+        traces_copy_out : list, optional
+            Reference to an external list, where the traces should be uploaded
+        deactivate_file_download_exceptions : bool, optional
+            If file download exceptions shouldn't be raised. Default: False
+
+        Returns
+        -------
+        list[dict]
+            A list of dictionaries with an entry for each file, containing the input options,
+            the did, and the clientState. clientState can be one of the following:
+            ALREADY_DONE, DONE, FILE_NOT_FOUND, FAIL_VALIDATE, FAILED
+
+        Raises
+        ------
+        InputValidationError
+            If one of the input items is in the wrong format
+        NoFilesDownloaded
+            If no files could be downloaded
+        NotAllFilesDownloaded
+            If not all files could be downloaded
+        RucioException
+            If something unexpected went wrong during the download
         """
         trace_custom_fields = trace_custom_fields or {}
         logger = self.logger
@@ -304,34 +362,80 @@ class DownloadClient:
         """
         Download items with given DIDs. This function can also download datasets and wildcarded DIDs.
 
-        :param items: List of dictionaries. Each dictionary describing an item to download. Keys:
-            did                            - DID string of this file (e.g. 'scope:file.name')
-            filters                        - Filter to select DIDs for download. Optional if DID is given
-            rse                            - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
-            impl                           - Optional: name of the protocol implementation to be used to download this item.
-            no_resolve_archives            - Optional: bool indicating whether archives should not be considered for download (Default: False)
-            resolve_archives               - Deprecated: Use no_resolve_archives instead
-            force_scheme                   - Optional: force a specific scheme to download this item. (Default: None)
-            base_dir                       - Optional: base directory where the downloaded files will be stored. (Default: '.')
-            no_subdir                      - Optional: If true, files are written directly into base_dir. (Default: False)
-            nrandom                        - Optional: if the DID addresses a dataset, nrandom files will be randomly chosen for download from the dataset
-            ignore_checksum                - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
-            transfer_timeout               - Optional: Timeout time for the download protocols. (Default: None)
-            transfer_speed_timeout         - Optional: Minimum allowed transfer speed (in KBps). Ignored if transfer_timeout set. Otherwise, used to compute default timeout (Default: 500)
-            check_local_with_filesize_only - Optional: If true, already downloaded files will not be validated by checksum.
-        :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
-        :param trace_custom_fields: Custom key value pairs to send with the traces.
-        :param traces_copy_out: reference to an external list, where the traces should be uploaded
-        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
-        :param sort: Select best replica by replica sorting algorithm. Available algorithms:
-            ``geoip``       - based on src/dst IP topographical distance
+        Parameters
+        ----------
+        items : list[dict]
+            List of dictionaries. Each dictionary describing an item to download. Dictionary keys:
+            * **did** : str
+                DID string of this file (e.g. 'scope:file.name')
 
-        :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
+            * **filters** : dict, optional
+                Filter to select DIDs for download. Optional if DID is given
 
-        :raises InputValidationError: if one of the input items is in the wrong format
-        :raises NoFilesDownloaded: if no files could be downloaded
-        :raises NotAllFilesDownloaded: if not all files could be downloaded
-        :raises RucioException: if something unexpected went wrong during the download
+            * **rse** : str, optional
+                rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
+
+            * **impl** : str, optional
+                name of the protocol implementation to be used to download this item
+
+            * **no_resolve_archives** : bool, optional
+                bool indicating whether archives should not be considered for download. Default: False
+
+            * **resolve_archives** : bool, optional
+                Deprecated: Use no_resolve_archives instead
+
+            * **force_scheme** : str or list[str], optional
+                force a specific scheme to download this item. Default: None
+
+            * **base_dir** : str, optional
+                base directory where the downloaded files will be stored. Default: '.'
+
+            * **no_subdir** : bool, optional
+                If true, files are written directly into base_dir. Default: False
+
+            * **nrandom** : int, optional
+                if the DID addresses a dataset, nrandom files will be randomly chosen for download from the dataset
+
+            * **ignore_checksum** : bool, optional
+                If true, skips the checksum validation between the downloaded file and the rucio catalouge. Default: False
+
+            * **transfer_timeout** : int, optional
+                Timeout time for the download protocols. Default: None
+
+            * **transfer_speed_timeout** : int, optional
+                Minimum allowed transfer speed (in KBps). Ignored if transfer_timeout set. Otherwise, used to compute default timeout. Default: 500
+
+            * **check_local_with_filesize_only** : bool, optional
+                If true, already downloaded files will not be validated by checksum. Default: False
+
+        num_threads : int
+            Suggestion of number of threads to use for the download. It will be lowered if it's too high.
+        trace_custom_fields : dict, optional
+            Custom key value pairs to send with the traces
+        traces_copy_out : list, optional
+            Reference to an external list, where the traces should be uploaded
+        deactivate_file_download_exceptions : bool, optional
+            If file download exceptions shouldn't be raised. Default: False
+        sort : str, optional
+            Select best replica by replica sorting algorithm. Available algorithms:
+            ``geoip`` - based on src/dst IP topographical distance
+
+        Returns
+        -------
+        list[dict]
+            A list of dictionaries with an entry for each file, containing the input options,
+            the did, and the clientState.
+
+        Raises
+        ------
+        InputValidationError
+            If one of the input items is in the wrong format
+        NoFilesDownloaded
+            If no files could be downloaded
+        NotAllFilesDownloaded
+            If not all files could be downloaded
+        RucioException
+            If something unexpected went wrong during the download
         """
         trace_custom_fields = trace_custom_fields or {}
         logger = self.logger
@@ -364,24 +468,51 @@ class DownloadClient:
         """
         Download items using a given metalink file.
 
-        :param item: dictionary describing an item to download. Keys:
-            base_dir                       - Optional: base directory where the downloaded files will be stored. (Default: '.')
-            no_subdir                      - Optional: If true, files are written directly into base_dir. (Default: False)
-            ignore_checksum                - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
-            transfer_timeout               - Optional: Timeout time for the download protocols. (Default: None)
-            check_local_with_filesize_only - Optional: If true, already downloaded files will not be validated by checksum.
+        Parameters
+        ----------
+        item : dict
+            Dictionary describing an item to download. Dictionary keys:
+            * **base_dir** : str, optional
+            Base directory where the downloaded files will be stored. Default: '.'
 
-        :param num_threads: Suggestion of number of threads to use for the download. It will be lowered if it's too high.
-        :param trace_custom_fields: Custom key value pairs to send with the traces.
-        :param traces_copy_out: reference to an external list, where the traces should be uploaded
-        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
+            * **no_subdir** : bool, optional
+            If true, files are written directly into base_dir. Default: False
 
-        :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
+            * **ignore_checksum** : bool, optional
+            If true, skips the checksum validation between the downloaded file and the rucio catalogue. Default: False
 
-        :raises InputValidationError: if one of the input items is in the wrong format
-        :raises NoFilesDownloaded: if no files could be downloaded
-        :raises NotAllFilesDownloaded: if not all files could be downloaded
-        :raises RucioException: if something unexpected went wrong during the download
+            * **transfer_timeout** : int, optional
+            Timeout time for the download protocols. Default: None
+
+            * **check_local_with_filesize_only** : bool, optional
+            If true, already downloaded files will not be validated by checksum. Default: False
+
+
+        num_threads : int
+            Suggestion of number of threads to use for the download. It will be lowered if it's too high.
+        trace_custom_fields : dict, optional
+            Custom key value pairs to send with the traces
+        traces_copy_out : list, optional
+            Reference to an external list, where the traces should be uploaded
+        deactivate_file_download_exceptions : bool, optional
+            If file download exceptions shouldn't be raised. Default: False
+
+        Returns
+        -------
+        list[dict]
+            A list of dictionaries with an entry for each file, containing the input options,
+            the did, and the clientState.
+
+        Raises
+        ------
+        InputValidationError
+            If one of the input items is in the wrong format
+        NoFilesDownloaded
+            If no files could be downloaded
+        NotAllFilesDownloaded
+            If not all files could be downloaded
+        RucioException
+            If something unexpected went wrong during the download
         """
         trace_custom_fields = trace_custom_fields or {}
         logger = self.logger
@@ -419,12 +550,21 @@ class DownloadClient:
         Starts an appropriate number of threads to download items from the input list.
         (This function is meant to be used as class internal only)
 
-        :param input_items: list containing the input items to download
-        :param num_threads: suggestion of how many threads should be started
-        :param trace_custom_fields: Custom key value pairs to send with the traces
-        :param traces_copy_out: reference to an external list, where the traces should be uploaded
+        Parameters
+        ----------
+        input_items : list[dict]
+            List containing the input items to download
+        num_threads : int
+            Suggestion of how many threads should be started
+        trace_custom_fields : dict, optional
+            Custom key value pairs to send with the traces
+        traces_copy_out : list, optional
+            Reference to an external list, where the traces should be uploaded
 
-        :returns: list with output items as dictionaries
+        Returns
+        -------
+        list[dict]
+            List with output items as dictionaries
         """
         trace_custom_fields = trace_custom_fields or {}
         logger = self.logger
@@ -516,8 +656,16 @@ class DownloadClient:
     def _compute_actual_transfer_timeout(item: dict[str, Any]) -> int:
         """
         Merge the two options related to timeout into the value which will be used for protocol download.
-        :param item: dictionary that describes the item to download
-        :return: timeout in seconds
+
+        Parameters
+        ----------
+        item: dict
+            Dictionary that describes the item to download
+
+        Returns
+        -------
+        int
+            Timeout in seconds
         """
         default_transfer_timeout = 360
         default_transfer_speed_timeout = 500  # KBps
@@ -553,12 +701,21 @@ class DownloadClient:
         Downloads the given item and sends traces for success/failure.
         (This function is meant to be used as class internal only)
 
-        :param item: dictionary that describes the item to download
-        :param trace: dictionary representing a pattern of trace that will be send
-        :param traces_copy_out: reference to an external list, where the traces should be uploaded
-        :param log_prefix: string that will be put at the beginning of every log message
+        Parameters
+        -----------
+        item: dict
+            Dictionary describing the item to download
+        trace: dict
+            Dictionary representing a pattern of trace that will be send
+        traces_copy_out: list
+            Reference to an external list, where the traces should be uploaded
+        log_prefix: str
+            String that will be put at the beginning of every log message
 
-        :returns: dictionary with all attributes from the input item and a clientState attribute
+        Returns
+        -------
+        dict
+            Dictionary with all attributes from the input item and a clientState attribute
         """
         logger = self.logger
         pcache = Pcache() if self.check_pcache and len(item.get('archive_items', [])) == 0 else None
@@ -820,27 +977,58 @@ class DownloadClient:
         It only can download files that are available via https/davs.
         Aria2c needs to be installed and X509_USER_PROXY needs to be set!
 
-        :param items: List of dictionaries. Each dictionary describing an item to download. Keys:
-            did                            - DID string of this file (e.g. 'scope:file.name'). Wildcards are not allowed
-            rse                            - Optional: rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
-            base_dir                       - Optional: base directory where the downloaded files will be stored. (Default: '.')
-            no_subdir                      - Optional: If true, files are written directly into base_dir. (Default: False)
-            nrandom                        - Optional: if the DID addresses a dataset, nrandom files will be randomly chosen for download from the dataset
-            ignore_checksum                - Optional: If true, skips the checksum validation between the downloaded file and the rucio catalouge. (Default: False)
-            check_local_with_filesize_only - Optional: If true, already downloaded files will not be validated by checksum.
+        Parameters
+        ----------
+        items: list[dict]
+            List of dictionaries. Each dictionary describing an item to download. Dictionary keys:
+            * **did** : str
+                DID string of this file (e.g. 'scope:file.name'). Wildcards are not allowed
 
-        :param trace_custom_fields: Custom key value pairs to send with the traces
-        :param filters: dictionary containing filter options
-        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
-        :param sort: Select best replica by replica sorting algorithm. Available algorithms:
-            ``geoip``       - based on src/dst IP topographical distance
+            * **rse** : str, optional
+                rse name (e.g. 'CERN-PROD_DATADISK') or rse expression from where to download
 
-        :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
+            * **base_dir** : str, optional
+                base directory where the downloaded files will be stored. (Default: '.')
 
-        :raises InputValidationError: if one of the input items is in the wrong format
-        :raises NoFilesDownloaded: if no files could be downloaded
-        :raises NotAllFilesDownloaded: if not all files could be downloaded
-        :raises RucioException: if something went wrong during the download (e.g. aria2c could not be started)
+            * **no_subdir** : bool, optional
+                If true, files are written directly into base_dir. (Default: False)
+
+            * **nrandom** : int, optional
+                if the DID addresses a dataset, nrandom files will be randomly chosen for download from the dataset
+
+            * **ignore_checksum** : bool, optional
+                If true, skips the checksum validation between the downloaded file and the rucio catalogue. (Default: False)
+
+            * **check_local_with_filesize_only** : bool, optional
+                If true, already downloaded files will not be validated by checksum. (Default: False)
+
+        trace_custom_fields : dict, optional
+            Custom key value pairs to send with the traces
+        filters : dict, optional
+            Filter to select DIDs for download
+        deactivate_file_download_exceptions : bool, optional
+            If file download exceptions shouldn't be raised. Default: False
+        sort : str, optional
+            Select best replica by replica sorting algorithm. Available algorithms:
+            * **geoip** - based on src/dst IP topographical distance
+
+        Returns
+        -------
+        list[dict]
+            A list of dictionaries with an entry for each file, containing the input options,
+            the did, and the clientState.
+
+
+        Raises
+        ------
+        InputValidationError
+            If one of the input items is in the wrong format
+        NoFilesDownloaded
+            If no files could be downloaded
+        NotAllFilesDownloaded
+            If not all files could be downloaded
+        RucioException
+            If something unexpected went wrong during the download (e.g. aria2c could not be started)
         """
         trace_custom_fields = trace_custom_fields or {}
         filters = filters or {}
@@ -880,11 +1068,20 @@ class DownloadClient:
         the RPC proxy instance.
         (This function is meant to be used as class internal only)
 
-        :param rpc_secret: the secret for the RPC proxy
+        Parameters
+        ----------
+        rpc_secret : str
+            The secret for the RPC proxy
 
-        :returns: a tuple with the process and the rpc proxy objects
+        Returns
+        -------
+        tuple
+            A tuple with the process and the rpc proxy objects
 
-        :raises RucioException: if the process or the proxy could not be created
+        Raises
+        ------
+        RucioException
+            If the process or the proxy could not be created
         """
         logger = self.logger
         from xmlrpc.client import ServerProxy as RPCServerProxy
@@ -956,12 +1153,22 @@ class DownloadClient:
         as RPC background process first and a RPC proxy is needed.
         (This function is meant to be used as class internal only)
 
-        :param items: list of dictionaries containing one dict for each file to download
-        :param aria_rcp: RPCProxy to the aria2c process
-        :param rpc_auth: the rpc authentication token
-        :param trace_custom_fields: Custom key value pairs to send with the traces
+        Parameters
+        ----------
+        items: list[dict]
+            List of dictionaries. Each dictionary describing an item to download
+        aria_rpc: RPCProxy
+            RPC proxy to the aria2c process
+        rpc_auth: str
+            The rpc authentication token
+        trace_custom_fields: dict, optional
+            Custom key value pairs to send with the traces
 
-        :returns: a list of dictionaries with an entry for each file, containing the input options, the did, and the clientState
+        Returns
+        -------
+        list[dict]
+            A list of dictionaries with an entry for each file, containing the input options,
+            the did, and the clientState.
         """
         trace_custom_fields = trace_custom_fields or {}
         logger = self.logger
@@ -1111,7 +1318,10 @@ class DownloadClient:
     def _resolve_one_item_dids(self, item: dict[str, Any]) -> "Iterator[dict[str, Any]]":
         """
         Resolve scopes or wildcard DIDs to lists of full did names:
-        :param item: One input item
+        Parameters
+        ----------
+        item: dict
+            One input item
         """
         dids = item.get('did')
         filters = item.get('filters', {})
@@ -1150,21 +1360,31 @@ class DownloadClient:
         This function takes the input items given to download_dids etc.
         and resolves the sources.
 
-        - It first performs a list_dids call to dereference any wildcards and
+        1. It first performs a list_dids call to dereference any wildcards and
         retrieve DID stats (size, length, type).
-        - Next, input items are grouped together by common list_replicas options.
+
+        2. Next, input items are grouped together by common list_replicas options.
         For each group, a single list_replicas call is performed.
-        - The resolved File DIDs with sources are finally mapped back to initial
+
+        3. The resolved File DIDs with sources are finally mapped back to initial
         input items to be able to correctly retrieve download options
         (timeout, destination directories, etc)
 
-        :param input_items: List of dictionaries. Each dictionary describing an input item
+        Parameters
+        ----------
+        input_items: list[dict]
+            List of dictionaries. Each dictionary describing an input item
 
-        :returns: a tuple:
-        - a dictionary that maps the dereferenced(w/o wildcards) input DIDs to a list of input items
-        - and a list with a dictionary for each file DID which has to be downloaded
+        Returns:
+        -------
+        tuple[dict[str, Any], list[dict[str, Any]]]
+            * a dictionary that maps the dereferenced(w/o wildcards) input DIDs to a list of input items
+            * and a list with a dictionary for each file DID which has to be downloaded
 
-        :raises InputValidationError: if one of the input items is in the wrong format
+        Raises
+        ------
+        InputValidationError
+            If one of the input items is in the wrong format
         """
         logger = self.logger
 
@@ -1372,12 +1592,22 @@ class DownloadClient:
         Optimises the amount of files to download
         (This function is meant to be used as class internal only)
 
-        :param did_to_input_items: dictionary that maps resolved input DIDs to input items
-        :param file_items: list of dictionaries. Each dictionary describes a File DID to download
+        Parameters
+        ----------
+        did_to_input_items: dict
+            dictionary that maps resolved input DIDs to input items
+        file_items: list[dict]
+            list of dictionaries. Each dictionary describes a File DID to download
 
-        :returns: list of dictionaries. Each dictionary describes an element to download
+        Returns
+        -------
+        list[dict]
+            list of dictionaries. Each dictionary describes an element to download
 
-        :raises InputValidationError: if the given input is not valid or incomplete
+        Raises
+        ------
+        InputValidationError
+            If the given input is not valid or incomplete
         """
         logger = self.logger
 
@@ -1599,11 +1829,20 @@ class DownloadClient:
         Splits a given DID string (e.g. 'scope1:name.file') into its scope and name part
         (This function is meant to be used as class internal only)
 
-        :param did_str: the DID string that will be split
+        Parameters
+        ----------
+        did_str: str
+            the DID string that will be split
 
-        :returns: the scope- and name part of the given DID
+        Returns
+        -------
+        tuple[str, str]
+            the scope- and name part of the given DID
 
-        :raises InputValidationError: if the given DID string is not valid
+        Raises
+        ------
+        InputValidationError
+            If the given DID string is not valid
         """
         did = did_str.split(':')
         if len(did) == 2:
@@ -1638,11 +1877,19 @@ class DownloadClient:
         destination directory if it's not existent.
         (This function is meant to be used as class internal only)
 
-        :param base_dir: base directory part
-        :param dest_dir_name: name of the destination directory
-        :param no_subdir: if no subdirectory should be created
+        Parameters
+        ----------
+        base_dir: str
+            base directory part
+        dest_dir_name: str
+            name of the destination directory
+        no_subdir: bool
+            if no subdirectory should be created
 
-        :returns: the absolute path of the destination directory
+        Returns
+        -------
+        str
+            the absolute path of the destination directory
         """
         # append dest_dir_name, if subdir should be used
         if dest_dir_name.startswith('/'):
@@ -1663,13 +1910,22 @@ class DownloadClient:
         Checks if all files were successfully downloaded
         (This function is meant to be used as class internal only)
 
-        :param output_items: list of dictionaries describing the downloaded files
-        :param deactivate_file_download_exceptions: Boolean, if file download exceptions shouldn't be raised
+        Parameters
+        ----------
+        output_items: list[dict]
+            list of dictionaries describing the downloaded files
+        deactivate_file_download_exceptions: bool
+            Boolean, if file download exceptions shouldn't be raised
 
-        :returns: output_items list
+        Returns
+        -------
+        list[dict[str, Any]]
+            output_items list
 
-        :raises NoFilesDownloaded:
-        :raises NotAllFilesDownloaded:
+        Raises
+        ------
+        NoFilesDownloaded
+        NotAllFilesDownloaded
         """
         success_states = [FileDownloadState.ALREADY_DONE, FileDownloadState.DONE, FileDownloadState.FOUND_IN_PCACHE]
         num_successful = 0
@@ -1692,19 +1948,28 @@ class DownloadClient:
         """
         Checks if sending trace is allowed and send the trace.
 
-        :param trace: the trace
+        Parameters
+        ----------
+        trace: dict
+            the trace to send
         """
         if self.tracing:
             send_trace(trace, self.client.trace_host, self.client.user_agent)
 
     def preferred_impl(self, sources: list[dict[str, Any]]) -> Optional[str]:
         """
-            Finds the optimum protocol impl preferred by the client and
-            supported by the remote RSE.
+        Finds the optimum protocol impl preferred by the client and
+        supported by the remote RSE.
 
-            :param sources: List of sources for a given DID
+        Parameters
+        ----------
+        sources: list[dict[str, Any]]
+            List of sources for a given DID
 
-            :raises RucioException(msg): general exception with msg for more details.
+        Raises
+        -------
+        RucioException
+            General exception with msg for more details
         """
 
         preferred_protocols = []

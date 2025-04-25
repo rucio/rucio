@@ -28,7 +28,10 @@ class PingClient(BaseClient):
         """
         Sends a ping request to the rucio server.
 
-        :return: Dictonnary with server information
+        Returns
+        --------
+        dict
+            Dictionary with server information
         """
 
         headers = None

@@ -33,9 +33,14 @@ class ReplicaClient(BaseClient):
         """
         Add quaratined replicas for RSE.
 
-        :param replicas: List of replica infos: {'scope': <scope> (optional), 'name': <name> (optional), 'path':<path> (required)}.
-        :param rse: RSE name.
-        :param rse_id: RSE id. Either RSE name or RSE id must be specified, but not both
+        Parameters
+        ----------
+        replicas : list
+            List of replica infos: {'scope': <scope> (optional), 'name': <name> (optional), 'path':<path> (required)}.
+        rse : str, optional
+            RSE name.
+        rse_id : str, optional
+            RSE id. Either RSE name or RSE id must be specified, but not both.
         """
 
         if (rse is None) == (rse_id is None):
@@ -54,10 +59,19 @@ class ReplicaClient(BaseClient):
         """
         Declare a list of bad replicas.
 
-        :param replicas: Either a list of PFNs (string) or a list of dicts {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or 'rse': <rse_name>}
-        :param reason: The reason of the loss.
-        :param force: boolean, tell the serrver to ignore existing replica status in the bad_replicas table. Default: False
-        :returns: Dictionary {"rse_name": ["did: error",...]} - list of strings for DIDs failed to declare, by RSE
+        Parameters
+        ----------
+        replicas : list
+            Either a list of PFNs (string) or a list of dicts {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or 'rse': <rse_name>}
+        reason : str
+            The reason of the loss.
+        force : bool, optional
+            Tell the server to ignore existing replica status in the bad_replicas table. Default: False
+
+        Returns
+        -------
+        dict
+            Dictionary of the form {"rse_name": ["did: error",...]} - list of strings for DIDs failed to declare, by RSE
         """
 
         out = {}    # {rse: ["did: error text",...]}
@@ -79,9 +93,14 @@ class ReplicaClient(BaseClient):
         """
         Declare a list of bad replicas.
 
-        :param rse: The RSE where the bad replicas reside
-        :param dids: The DIDs of the bad replicas
-        :param reason: The reason of the loss.
+        Parameters
+        ----------
+        rse : str
+            The RSE where the bad replicas reside.
+        dids : list
+            The DIDs of the bad replicas.
+        reason : str
+            The reason of the loss.
         """
         data = {'reason': reason, 'rse': rse, 'dids': dids}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'bad/dids']))
@@ -96,8 +115,13 @@ class ReplicaClient(BaseClient):
         """
         Declare a list of bad replicas.
 
-        :param pfns: The list of PFNs.
-        :param reason: The reason of the loss.
+        Parameters
+        ----------
+        pfns: list
+            The list of PFNs.
+        reason: str
+            The reason of the loss.
+
         """
         data = {'reason': reason, 'pfns': pfns}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'suspicious']))
@@ -110,11 +134,14 @@ class ReplicaClient(BaseClient):
 
     def get_did_from_pfns(self, pfns, rse=None):
         """
-        Get the DIDs associated to a PFN on one given RSE
+        Get the DIDs associated to a PFN on one given RSE.
 
-        :param pfns: The list of PFNs.
-        :param rse: The RSE name.
-        :returns: A list of dictionaries {pfn: {'scope': scope, 'name': name}}
+        Parameters
+        ----------
+        pfns : list
+            The list of PFNs.
+        rse : str
+            The RSE name.
         """
         data = {'rse': rse, 'pfns': pfns}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'dids']))
@@ -134,24 +161,44 @@ class ReplicaClient(BaseClient):
         """
         List file replicas for a list of data identifiers (DIDs).
 
-        :param dids: The list of data identifiers (DIDs) like :
+        Parameters
+        ----------
+        dids: list
+            The list of data identifiers (DIDs) like :
             [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
-        :param schemes: A list of schemes to filter the replicas. (e.g. file, http, ...)
-        :param ignore_availability: Also include replicas from blocked RSEs into the list
-        :param metalink: ``False`` (default) retrieves as JSON,
-                         ``True`` retrieves as metalink4+xml.
-        :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
-        :param client_location: Client location dictionary for PFN modification {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
-        :param sort: Sort the replicas: ``geoip`` - based on src/dst IP topographical distance
-        :param domain: Define the domain. None is fallback to 'wan', otherwise 'wan, 'lan', or 'all'
-        :param signature_lifetime: If supported, in seconds, restrict the lifetime of the signed PFN.
-        :param nrandom: pick N random replicas. If the initial number of replicas is smaller than N, returns all replicas.
-        :param resolve_archives: When set to True, find archives which contain the replicas.
-        :param resolve_parents: When set to True, find all parent datasets which contain the replicas.
-        :param updated_after: epoch timestamp or datetime object (UTC time), only return replicas updated after this time
+        schemes: list
+            A list of schemes to filter the replicas. (e.g. file, http, ...)
+        ignore_availability: bool
+            Also include replicas from blocked RSEs into the list
+        all_states: bool
+            Include all states of the replicas. Default: False
+        metalink: bool
+            ``False`` (default) retrieves as JSON,
+            ``True`` retrieves as metalink4+xml.
+        rse_expression: str
+            The RSE expression to restrict replicas on a set of RSEs.
+        client_location: dict
+            Client location dictionary for PFN modification {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
+        sort: str
+            Sort the replicas: ``geoip`` - based on src/dst IP topographical distance
+        domain: str
+            Define the domain. None is fallback to 'wan', otherwise 'wan, 'lan', or 'all'
+        signature_lifetime: int
+            If supported, in seconds, restrict the lifetime of the signed PFN.
+        nrandom: int
+            pick N random replicas. If the initial number of replicas is smaller than N, returns all replicas.
+        resolve_archives: bool
+            When set to True, find archives which contain the replicas.
+        resolve_parents: bool
+            When set to True, find all parent datasets which contain the replicas.
+        updated_after: datetime
+            epoch timestamp or datetime object (UTC time), only return replicas updated after this time
 
-        :returns: A list of dictionaries with replica information.
 
+        Returns
+        -------
+        list
+            A list of dictionaries with replica information.
         """
         data = {'dids': dids,
                 'domain': domain}
@@ -208,11 +255,16 @@ class ReplicaClient(BaseClient):
         """
         List file replicas tagged as suspicious.
 
-        :param rse_expression: The RSE expression to restrict replicas on a set of RSEs.
-        :param younger_than: Datetime object to select the replicas which were declared since younger_than date. Default value = 10 days ago.
-        :param nattempts: The minimum number of replica appearances in the bad_replica DB table from younger_than date. Default value = 0.
-        :param state: State of the replica, either 'BAD' or 'SUSPICIOUS'. No value returns replicas with either state.
-
+        Parameters
+        ----------
+        rse_expression:
+            The RSE expression to restrict replicas on a set of RSEs.
+        younger_than:
+            Datetime object to select the replicas which were declared since younger_than date. Default value = 10 days ago.
+        nattempts:
+            The minimum number of replica appearances in the bad_replica DB table from younger_than date. Default value = 0.
+        state:
+            State of the replica, either 'BAD' or 'SUSPICIOUS'. No value returns replicas with either state.
         """
         params = {}
         if rse_expression:
@@ -246,17 +298,29 @@ class ReplicaClient(BaseClient):
         """
         Add file replicas to a RSE.
 
-        :param rse: the RSE name.
-        :param scope: The scope of the file.
-        :param name: The name of the file.
-        :param bytes_: The size in bytes.
-        :param adler32: adler32 checksum.
-        :param pfn: PFN of the file for non deterministic RSE.
-        :param md5: md5 checksum.
-        :param meta: Metadata attributes.
+        Parameters
+        ----------
+        rse : str
+            The RSE name.
+        scope : str
+            The scope of the file.
+        name : str
+            The name of the file.
+        bytes_ : int
+            The size in bytes.
+        adler32 : str
+            adler32 checksum.
+        pfn : str, optional
+            PFN of the file for non deterministic RSE.
+        md5 : str, optional
+            md5 checksum.
+        meta : dict, optional
+            Metadata attributes.
 
-        :return: True if files were created successfully.
-
+        Returns
+        -------
+        bool
+            True if files were created successfully.
         """
         meta = meta or {}
         dict_ = {'scope': scope, 'name': name, 'bytes': bytes_, 'meta': meta, 'adler32': adler32}
@@ -270,13 +334,19 @@ class ReplicaClient(BaseClient):
         """
         Bulk add file replicas to a RSE.
 
-        :param rse: the RSE name.
-        :param files: The list of files. This is a list of DIDs like :
+        Parameters
+        ----------
+        rse:
+            the RSE name
+        files:
+            The list of files. This is a list of DIDs like :
             [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
-        :param ignore_availability: Ignore the RSE blocklsit.
+        ignore_availability:
+            Ignore the RSE blocklist
 
-        :return: True if files were created successfully.
-
+        Returns
+        -------
+        True if files were created successfully.
         """
         url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
         data = {'rse': rse, 'files': files, 'ignore_availability': ignore_availability}
@@ -289,14 +359,19 @@ class ReplicaClient(BaseClient):
     def delete_replicas(self, rse, files, ignore_availability=True):
         """
         Bulk delete file replicas from a RSE.
-
-        :param rse: the RSE name.
-        :param files: The list of files. This is a list of DIDs like :
+        Parameters
+        ----------
+        rse:
+            the RSE name
+        files:
+            The list of files. This is a list of DIDs like :
             [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
-        :param ignore_availability: Ignore the RSE blocklist.
+        ignore_availability:
+            Ignore the RSE blocklist
 
-        :return: True if files have been deleted successfully.
-
+        Returns
+        -------
+        True if files have been deleted successfully.
         """
         url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
         data = {'rse': rse, 'files': files, 'ignore_availability': ignore_availability}
@@ -307,21 +382,29 @@ class ReplicaClient(BaseClient):
         raise exc_cls(exc_msg)
 
     def update_replicas_states(self, rse, files):
+
         """
+
         Bulk update the file replicas states from a RSE.
 
-        :param rse: the RSE name.
-        :param files: The list of files. This is a list of DIDs like :
+                Parameters
+        ----------
+        rse : str
+            The RSE name.
+        files : list
+            The list of files. This is a list of DIDs like :
             [{'scope': <scope1>, 'name': <name1>, 'state': <state1>}, {'scope': <scope2>, 'name': <name2>, 'state': <state2>}, ...],
-            where a state value can be either of:
-              'A' (AVAILABLE)
-              'U' (UNAVAILABLE)
-              'C' (COPYING)
-              'B' (BEING_DELETED)
-              'D' (BAD)
-              'T' (TEMPORARY_UNAVAILABLE)
-        :return: True if replica states have been updated successfully, otherwise an exception is raised.
+            Where a state value can be any of:
+                * 'A' (AVAILABLE)
+                * 'U' (UNAVAILABLE)
+                * 'C' (COPYING)
+                * 'B' (BEING_DELETED)
+                * 'D' (BAD)
+                * 'T' (TEMPORARY_UNAVAILABLE)
 
+        Returns
+        -------
+        True if replica states have been updated successfully, otherwise an exception is raised.
         """
         url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
         data = {'rse': rse, 'files': files}
@@ -335,12 +418,18 @@ class ReplicaClient(BaseClient):
         """
         List dataset replicas for a did (scope:name).
 
-        :param scope: The scope of the dataset.
-        :param name: The name of the dataset.
-        :param deep: Lookup at the file level.
+        Parameters
+        ----------
+        scope:
+            The scope of the dataset.
+        name:
+            The name of the dataset.
+        deep:
+            Lookup at the file level.
 
-        :returns: A list of dict dataset replicas.
-
+        Returns
+        -------
+        A list of dict dataset replicas
         """
         payload = {}
         if deep:
@@ -359,9 +448,14 @@ class ReplicaClient(BaseClient):
         """
         List dataset replicas for a did (scope:name).
 
-        :param dids: The list of DIDs of the datasets.
+        Parameters
+        ----------
+        dids:
+            The list of DIDs of the datasets
 
-        :returns: A list of dict dataset replicas.
+        Returns
+        -------
+        A list of dict dataset replicas
         """
         payload = {'dids': list(dids)}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'datasets_bulk']))
@@ -378,11 +472,19 @@ class ReplicaClient(BaseClient):
 
         NOTICE: This is an RnD function and might change or go away at any time.
 
-        :param scope: The scope of the dataset.
-        :param name: The name of the dataset.
-        :param deep: Lookup at the file level.
+        Parameters
+        ----------
+        scope:
+            The scope of the dataset.
+        name:
+            The name of the dataset.
+        deep:
+            Lookup at the file level.
 
-        :returns: If VP exists a list of dicts of sites
+        Returns
+        -------
+        If VP exists a list of dicts of sites
+
         """
         payload = {}
         if deep:
@@ -401,12 +503,17 @@ class ReplicaClient(BaseClient):
         """
         List datasets at a RSE.
 
-        :param rse: the rse name.
-        :param filters: dictionary of attributes by which the results should be filtered.
-        :param limit: limit number.
-
-        :returns: A list of dict dataset replicas.
-
+        Parameters
+        ----------
+        rse:
+            The RSE name.
+        filters:
+            dictionary of attributes by which the results should be filtered.
+        limit:
+            limit number.
+        Returns
+        -------
+        A list of dict dataset replicas
         """
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'rse', rse]))
         r = self._send_request(url, type_='GET')
@@ -420,13 +527,20 @@ class ReplicaClient(BaseClient):
         """
         Declare a list of bad replicas.
 
-        :param pfns: The list of PFNs.
-        :param reason: The reason of the loss.
-        :param state: The state of the replica. Either BAD, SUSPICIOUS, TEMPORARY_UNAVAILABLE
-        :param expires_at: Specify a timeout for the TEMPORARY_UNAVAILABLE replicas. None for BAD files.
+        Parameters
+        ----------
+        pfns:
+            The list of PFNs.
+        reason:
+            The reason of the loss.
+        state:
+            The state of the replica. Either BAD, SUSPICIOUS, TEMPORARY_UNAVAILABLE
+        expires_at:
+            Specify a timeout for the TEMPORARY_UNAVAILABLE replicas. None for BAD files.
 
-        :return: True if PFNs were created successfully.
-
+        Returns
+        -------
+        True if PFNs were created successfully.
         """
         data = {'reason': reason, 'pfns': pfns, 'state': state, 'expires_at': expires_at}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'bad/pfns']))
@@ -441,7 +555,10 @@ class ReplicaClient(BaseClient):
         """
         Set a tombstone on a list of replicas.
 
-        :param replicas: list of replicas.
+        Parameters
+        ----------
+        replicas:
+            list of replicas.
         """
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'tombstone']))
         data = {'replicas': replicas}

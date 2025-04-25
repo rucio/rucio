@@ -45,16 +45,19 @@ class SubscriptionClient(BaseClient):
         """
         Adds a new subscription which will be verified against every new added file and dataset
 
-        :param name: Name of the subscription
-        :param account: Account identifier
-        :param filter_: Dictionary of attributes by which the input data should be filtered
-                       **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
-        :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
-        :param comments: Comments for the subscription
-        :param lifetime: Subscription's lifetime (days); False if subscription has no lifetime
-        :param retroactive: Flag to know if the subscription should be applied on previous data
-        :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
-        :param priority: The priority of the subscription (3 by default)
+        Parameters
+        ----------
+        name : Name of the subscription
+        account : Account identifier
+        filter_ : Dictionary of attributes by which the input data should be filtered
+            Example: `{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}`
+        replication_rules : Replication rules to be set. Dictionary with keys copies, rse_expression, weight, rse_expression
+        comments : Comments for the subscription
+        lifetime : Subscription's lifetime (days); False if subscription has no lifetime
+        retroactive : Flag to know if the subscription should be applied on previous data
+        dry_run : Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
+        priority : The priority of the subscription (3 by default)
+
         """
         path = self.SUB_BASEURL + '/' + account + '/' + name
         url = build_url(choice(self.list_hosts), path=path)
@@ -82,10 +85,21 @@ class SubscriptionClient(BaseClient):
         Returns a dictionary with the subscription information :
         Examples: ``{'status': 'INACTIVE/ACTIVE/BROKEN', 'last_modified_date': ...}``
 
-        :param name: Name of the subscription
-        :param account: Account identifier
-        :returns: Dictionary containing subscription parameter
-        :raises: exception.NotFound if subscription is not found
+        Parameters
+        ----------
+        name :
+            Name of the subscription
+        account :
+            Account identifier
+
+        Returns
+        -------
+        Dictionary with the subscription information
+
+        Raises
+        -------
+        NotFound
+            If subscription is not found
         """
         path = self.SUB_BASEURL
         if account:
@@ -120,17 +134,23 @@ class SubscriptionClient(BaseClient):
         """
         Updates a subscription
 
-        :param name: Name of the subscription
-        :param account: Account identifier
-        :param filter_: Dictionary of attributes by which the input data should be filtered
-                       **Example**: ``{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}``
-        :param replication_rules: Replication rules to be set : Dictionary with keys copies, rse_expression, weight, rse_expression
-        :param comments: Comments for the subscription
-        :param lifetime: Subscription's lifetime (days); False if subscription has no lifetime
-        :param retroactive: Flag to know if the subscription should be applied on previous data
-        :param dry_run: Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
-        :param priority: The priority of the subscription
-        :raises: exception.NotFound if subscription is not found
+        Parameters
+        ----------
+        name : Name of the subscription
+        account : Account identifier
+        filter_ : Dictionary of attributes by which the input data should be filtered
+            Example: `{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}`
+        replication_rules : Replication rules to be set. Dictionary with keys copies, rse_expression, weight, rse_expression
+        comments : Comments for the subscription
+        lifetime : Subscription's lifetime (days); False if subscription has no lifetime
+        retroactive : Flag to know if the subscription should be applied on previous data
+        dry_run : Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
+        priority : The priority of the subscription
+
+        Raises
+        ------
+        NotFound
+            If subscription is not found
         """
         if not account:
             account = self.account
@@ -159,8 +179,12 @@ class SubscriptionClient(BaseClient):
         """
         List the associated rules of a subscription.
 
-        :param account: Account of the subscription.
-        :param name:    Name of the subscription.
+        Parameters
+        ----------
+        account :
+            Account of the subscription.
+        name :
+            Name of the subscription.
         """
 
         path = '/'.join([self.SUB_BASEURL, account, name, 'rules'])

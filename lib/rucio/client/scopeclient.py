@@ -35,11 +35,23 @@ class ScopeClient(BaseClient):
         """
         Sends the request to add a new scope.
 
-        :param account: the name of the account to add the scope to.
-        :param scope: the name of the new scope.
-        :return: True if scope was created successfully.
-        :raises Duplicate: if scope already exists.
-        :raises AccountNotFound: if account doesn't exist.
+        Parameters
+        ----------
+        account :
+            The name of the account to add the scope to.
+        scope :
+            The name of the new scope.
+
+        Returns
+        -------
+            True if scope was created successfully.
+
+        Raises
+        ------
+        Duplicate
+            If scope already exists.
+        AccountNotFound
+            If account doesn't exist.
         """
 
         path = '/'.join([self.SCOPE_BASEURL, account, 'scopes', quote_plus(scope)])
@@ -55,7 +67,9 @@ class ScopeClient(BaseClient):
         """
         Sends the request to list all scopes.
 
-        :return: a list containing the names of all scopes.
+        Returns
+        -------
+        A list containing the names of all scopes.
         """
 
         path = '/'.join(['scopes/'])
@@ -72,10 +86,21 @@ class ScopeClient(BaseClient):
         """
         Sends the request to list all scopes for a rucio account.
 
-        :param account: the rucio account to list scopes for.
-        :return: a list containing the names of all scopes for a rucio account.
-        :raises AccountNotFound: if account doesn't exist.
-        :raises ScopeNotFound: if no scopes exist for account.
+        Parameters
+        ----------
+        account :
+            The rucio account to list scopes for.
+
+        Returns
+        -------
+            A list containing the names of all scopes for a rucio account.
+
+        Raises
+        ------
+        AccountNotFound
+            If account doesn't exist.
+        ScopeNotFound
+            If no scopes exist for account.
         """
 
         path = '/'.join([self.SCOPE_BASEURL, account, 'scopes/'])

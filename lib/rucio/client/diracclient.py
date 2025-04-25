@@ -38,13 +38,20 @@ class DiracClient(BaseClient):
     ) -> Literal[True]:
         """
         Bulk add files :
-        - Create the file and replica.
-        - If doesn't exist create the dataset containing the file as well as a rule on the dataset on ANY sites.
-        - Create all the ascendants of the dataset if they do not exist
+            * Create the file and replica.
 
-        :param lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
-        :param ignore_availability: A boolean to ignore blocked sites.
-        :param parents_metadata: Metadata for selected hierarchy DIDs. (dictionary {'lpn': {key : value}}). Default=None
+            * If doesn't exist create the dataset containing the file as well as a rule on the dataset on ANY sites.
+
+            * Create all the ascendants of the dataset if they do not exist
+
+        Parameters
+        ----------
+        lfns : list
+            List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
+        ignore_availability : bool
+            A boolean to ignore blocked sites.
+        parents_metadata : Mapping[str, Mapping[str, Any]]
+            Metadata for selected hierarchy DIDs. (dictionary {'lpn': {key : value}}). Default=None
         """
         path = '/'.join([self.DIRAC_BASEURL, 'addfiles'])
         url = build_url(choice(self.list_hosts), path=path)

@@ -58,63 +58,71 @@ class Client(AccountClient,
              LifetimeClient):
 
     """
-        Main client class for accessing Rucio resources. Handles the authentication.
+    Main client class for accessing Rucio resources. Handles the authentication.
 
-        Note:
-            Used to access all client methods. Each entity client *can* be used to access methods, but using the main client class is recommended for ease of use.
+    Note:
+    ------
+        Used to access all client methods. Each entity client *can* be used to access methods, but using the main client class is recommended for ease of use.
 
-    For using general methods -
+
+    Example:
+    -------
+        from rucio.client import Client
+
+        client = Client()  # authenticate with config or environ settings
+        client.add_replication_rule(...)
+
+        client = Client(
+            rucio_host = "my_host",
+            auth_host = "my_auth_host",
+            account = "jdoe12345",
+            auth_type = "userpass",
+            creds = {
+                "username": "jdoe12345",
+                "password": "******",
+            }
+        ) # authenticate with kwargs
+        client.list_replicas(...)
 
 
-    ```
-    from rucio.client import Client
+        # For using the upload and download clients
 
-    client = Client()  # authenticate with config or environ settings
-    client.add_replication_rule(...)
+        from rucio.client import Client
+        from rucio.client.uploadclient import UploadClient
+        from rucio.client.downloadclient import DownloadClient
 
-    client = Client(
-        rucio_host = "my_host",
-        auth_host = "my_auth_host",
-        account = "jdoe12345",
-        auth_type = "userpass",
-        creds = {
-            "username": "jdoe12345",
-            "password": "******",
-        }
-    ) # authenticate with kwargs
-    client.list_replicas(...)
-    ```
+        client = Client(...) # Initialize a client using your preferred method
 
-    For using the upload and download clients -
+        upload_client = UploadClient(client) # Pass forward the initialized client
+        upload_client.upload(items=...)
 
-    ```
-    from rucio.client import Client
-    from rucio.client.uploadclient import UploadClient
-    from rucio.client.downloadclient import DownloadClient
-
-    client = Client(...) # Initialize a client using your preferred method
-
-    upload_client = UploadClient(client) # Pass forward the initialized client
-    upload_client.upload(items=...)
-
-    download_client = DownloadClient(client)
-    download_client.download_dids(items=...)
-    ```
-
+        download_client = DownloadClient(client)
+        download_client.download_dids(items=...)
     """
 
     def __init__(self, **args):
         """
         Constructor for the Rucio main client class.
 
-        :param rucio_host: the host of the rucio system.
-        :param auth_host: the host of the rucio authentication server.
-        :param account: the rucio account that should be used to interact with the rucio system.
-        :param ca_cert: the certificate to verify the server.
-        :param auth_type: the type of authentication to use (e.g. userpass, x509 ...)
-        :param creds: credentials needed for authentication.
-        :param timeout: Float describes the timeout of the request (in seconds).
-        :param vo: The vo that the client will interact with.
-        :param logger: Logger instance to use (optional)
+        Parameters
+        ----------
+        rucio_host : str
+            The host of the rucio system.
+        auth_host : str
+            The host of the rucio authentication server.
+        account : str
+            The rucio account that should be used to interact with the rucio system.
+        ca_cert : str
+            The certificate to verify the server.
+        auth_type : str
+            The type of authentication to use (e.g. userpass, x509 ...).
+        creds : dict
+            Credentials needed for authentication.
+        timeout : float
+            Describes the timeout of the request (in seconds).
+        vo : str
+            The vo that the client will interact with.
+        logger : logging.Logger, optional
+            Logger instance to use.
         """
         super(Client, self).__init__(**args)
