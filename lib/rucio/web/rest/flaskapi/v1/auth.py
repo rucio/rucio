@@ -916,6 +916,9 @@ class GSS(ErrorHandlingMethodView):
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
+        if not account or not gsscred:
+            return generate_http_error_flask(400, ValueError.__name__, 'Account and REMOTE_USER must be set.')
+
         try:
             result = get_auth_token_gss(account, gsscred, appid, ip, vo=vo)
         except AccessDenied:
@@ -1212,6 +1215,9 @@ class SSH(ErrorHandlingMethodView):
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
+        if not account or not signature:
+            return generate_http_error_flask(400, ValueError.__name__, 'Account and SSH signature must be set.')
+
         try:
             result = get_auth_token_ssh(account, signature, appid, ip, vo=vo)
         except AccessDenied:
@@ -1332,6 +1338,9 @@ class SSHChallengeToken(ErrorHandlingMethodView):
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
+        if not account:
+            return generate_http_error_flask(400, ValueError.__name__, 'Account must be set.')
+
         result = get_ssh_challenge_token(account, appid, ip, vo=vo)
 
         if not result:
@@ -1451,6 +1460,9 @@ class SAML(ErrorHandlingMethodView):
         account = request.headers.get('X-Rucio-Account', default=None)
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
+
+        if not account:
+            return generate_http_error_flask(400, ValueError.__name__, 'Account must be set.')
 
         if saml_nameid:
             try:
@@ -1591,6 +1603,9 @@ class Validate(ErrorHandlingMethodView):
         headers['Pragma'] = 'no-cache'
 
         token = request.headers.get('X-Rucio-Auth-Token', default=None)
+
+        if not token:
+            return generate_http_error_flask(400, ValueError.__name__, 'Token must be set.')
 
         result = validate_auth_token(token)
         if not result:
