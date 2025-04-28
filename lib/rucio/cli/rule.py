@@ -27,7 +27,7 @@ def rule():
 @click.option("--copies", type=int, help="Number of copies", required=True)
 @click.option("--rses", "--rse-exp", help="Rule RSE expression", required=True)
 @click.option("--weight", help="RSE Weight")
-@click.option("--lifetime", type=str, help="Rule lifetime (in seconds). Use 'None' for no set lifetime")
+@click.option("--lifetime", type=int, help="Rule lifetime (in seconds)")
 @click.option("--grouping", type=click.Choice(["DATASET", "ALL", "NONE"]), help="Rule grouping")
 @click.option("--locked", default=False, type=bool, is_flag=False, help="Rule locking")
 @click.option("--source-rses", help="RSE Expression for RSEs to be considered for source replicas")
