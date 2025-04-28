@@ -651,14 +651,6 @@ def test_rule(rucio_client, mock_scope):
     assert "ERROR" not in err
     assert rule_id in out
 
-    # Below functionality is questionable - listing by ID works _sometimes_ if the database has been updated with the new rule
-
-    # cmd = f"rucio -v rule list --rule-id {rule_id}"
-    # exitcode, out, err = execute(cmd)
-    # assert exitcode == 0
-    # assert "ERROR" not in err
-    # assert rule_id in out
-
     move_rse = "MOCK2"
     cmd = f"rucio rule move {rule_id} --rses {move_rse}"
     exitcode, out, err = execute(cmd)
@@ -707,6 +699,19 @@ def test_rule(rucio_client, mock_scope):
     rule_id = out.strip("\n")
 
     cmd = f"rucio rule remove {rule_id}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
+    # Add a rule with a lifetime
+    scope = mock_scope.external
+    name = generate_uuid()
+    rucio_client.add_replica(rse=mock_rse, scope=scope, name=name, bytes_=4, adler32="deadbeef")
+
+    cmd = f"rucio rule add {scope}:{name} " \
+        "--lifetime 2592000 " \
+        f"--rses {rule_rse} " \
+        "--copies 1"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
