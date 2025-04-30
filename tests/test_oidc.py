@@ -82,11 +82,13 @@ mock_idpsecrets = {
                 "issuer_nickname": "example_issuer"
             }
         ],
-        "client_credential_client": {
+        "client_credential_client": [
+            {
             "client_id": "client456",
             "client_secret": "secret456",
             "issuer": "https://mock-oidc-provider"
-        }
+            }
+        ]
     }
 }
 
@@ -259,7 +261,7 @@ def get_idp_auth_params(auth_url, session):
 @pytest.mark.parametrize('idp_secrets_mock', [mock_idpsecrets], indirect=True)
 def test_get_vo_user_auth_config(idp_secrets_mock):
     config = IDPSecretLoad()
-    result = config.get_vo_user_auth_config(vo="def")
+    result = config.get_vo_clients_config(client_type='user_auth_client', vo="def")
     assert result["client_id"] == "mock-client-id"
     assert result["issuer"] == "https://mock-oidc-provider"
 
@@ -267,7 +269,7 @@ def test_get_vo_user_auth_config(idp_secrets_mock):
 @pytest.mark.parametrize('idp_secrets_mock', [mock_idpsecrets], indirect=True)
 def test_get_client_credential_client(idp_secrets_mock):
     config = IDPSecretLoad()
-    result = config.get_client_credential_client(vo="def")
+    result = config.get_vo_clients_config(client_type='client_credential_client', vo="def")
     assert result["client_id"] == "client456"
     assert result["issuer"] == "https://mock-oidc-provider"
 
@@ -392,7 +394,7 @@ def test_request_token_success(mock_post, mock_get_discovery_metadata, idp_secre
     mock_post.assert_called_once()  # Ensure the post request was made
     mock_post.assert_called_with(
         url=get_discovery_metadata["token_endpoint"],
-        auth=(mock_idpsecrets["def"]["client_credential_client"]["client_id"], mock_idpsecrets["def"]["client_credential_client"]["client_secret"]),
+        auth=(mock_idpsecrets["def"]["client_credential_client"][0]["client_id"], mock_idpsecrets["def"]["client_credential_client"][0]["client_secret"]),
         data={
             'grant_type': 'client_credentials',
             'scope': scope,
@@ -662,11 +664,13 @@ mock_idpsecrets_multi_issuer = {
                 "issuer_nickname": "example_issuer2"
             }
         ],
-        "client_credential_client": {
+        "client_credential_client": [
+            {
             "client_id": "client456",
             "client_secret": "secret456",
             "issuer": "https://mock-oidc-provider"
-        }
+            }
+        ]
     }
 }
 
@@ -674,7 +678,7 @@ mock_idpsecrets_multi_issuer = {
 @pytest.mark.parametrize('idp_secrets_mock', [mock_idpsecrets_multi_issuer], indirect=True)
 def test_get_vo_user_auth_config_multi(idp_secrets_mock):
     config = IDPSecretLoad()
-    result = config.get_vo_user_auth_config(issuer_nickname="example_issuer2")
+    result = config.get_vo_clients_config(client_type='user_auth_client', issuer_nickname="example_issuer2")
     assert result["client_id"] == "mock-client-id2"
     assert result["issuer"] == "https://mock-oidc-provider2"
 
@@ -682,7 +686,7 @@ def test_get_vo_user_auth_config_multi(idp_secrets_mock):
 @pytest.mark.parametrize('idp_secrets_mock', [mock_idpsecrets_multi_issuer], indirect=True)
 def test_get_client_credential_client_multi(idp_secrets_mock):
     config = IDPSecretLoad()
-    result = config.get_client_credential_client()
+    result = config.get_vo_clients_config(client_type='client_credential_client')
     assert result["client_id"] == "client456"
     assert result["issuer"] == "https://mock-oidc-provider"
 
@@ -698,11 +702,13 @@ mock_idpsecrets_multi_vo = {
                 "issuer_nickname": "example_issuer"
             },
         ],
-        "client_credential_client": {
+        "client_credential_client": [
+            {
             "client_id": "client456",
             "client_secret": "secret456",
             "issuer": "https://mock-oidc-provider"
-        }
+            }
+        ]
     },
     "new": {
         "user_auth_client": [
@@ -714,11 +720,13 @@ mock_idpsecrets_multi_vo = {
                 "issuer_nickname": "example_issuer2"
             },
         ],
-        "client_credential_client": {
+        "client_credential_client": [
+            {
             "client_id": "client4562",
             "client_secret": "secret4562",
             "issuer": "https://mock-oidc-provider2"
-        }
+            }
+        ]
     }
 }
 

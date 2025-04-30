@@ -2124,10 +2124,9 @@ def get_parser():
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
     # Options for defining remaining OIDC parameters
-    oparser.add_argument('--oidc-scope', dest='oidc_scope', default='openid profile', help='Defines which (OIDC) information user will share with Rucio. '
-                         + 'Rucio requires at least -sc="openid profile". To request refresh token for Rucio, scope must include "openid offline_access" and '  # NOQA: W503
+    oparser.add_argument('--oidc-scope', dest='oidc_scope', default='openid profile', help='Defines additional (OIDC scopes) information user will share with Rucio. '
+                         + 'To request refresh token for Rucio, scope must include "offline_access" and '  # NOQA: W503
                          + 'there must be no active access token saved on the side of the currently used Rucio Client.')  # NOQA: W503
-    oparser.add_argument('--oidc-audience', dest='oidc_audience', default=None, help='Defines which audience are tokens requested for.')
     oparser.add_argument('--oidc-polling', dest='oidc_polling', default=False, action='store_true', help='If not specified, user will be asked to enter a code returned by the browser to the command line. '
                          + 'If --polling is set, Rucio Client should get the token without any further interaction of the user.')  # NOQA: W503
     oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed. '

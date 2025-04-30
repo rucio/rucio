@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 def refresh_cli_auth_token(
     token_string: str,
     account: str,
+    issuer_nickname: Optional[str] = None,
     vo: str = 'def',
     *,
     session: "Session"
@@ -45,7 +46,7 @@ def refresh_cli_auth_token(
     :return: tuple of (access token, expiration epoch), None otherswise
     """
     internal_account = InternalAccount(account, vo=vo)
-    return oidc.refresh_cli_auth_token(token_string, internal_account, session=session)
+    return oidc.refresh_cli_auth_token(token_string, internal_account, issuer_nickname=issuer_nickname, vo=vo, session=session)
 
 
 @transactional_session
@@ -109,7 +110,7 @@ def get_auth_oidc(
     # no permission layer for the moment !
 
     internal_account = InternalAccount(account, vo=vo)
-    return oidc.get_auth_oidc(internal_account, session=session, **kwargs)
+    return oidc.get_auth_oidc(internal_account, vo=vo, session=session, **kwargs)
 
 
 @transactional_session
@@ -120,7 +121,7 @@ def get_token_oidc(
     session: "Session"
 ) -> Optional[dict[str, Optional[Union[str, bool]]]]:
     """
-    After Rucio User got redirected to Rucio /auth/oidc_token (or /auth/oidc_code)
+    After Rucio User got redirected to Rucio /auth/oidc_code)
     REST endpoints with authz code and session state encoded within the URL.
     These parameters are used to eventually gets user's info and tokens from IdP.
 
@@ -351,6 +352,7 @@ def get_auth_token_saml(
 @transactional_session
 def validate_auth_token(
     token: str,
+    issuer_nickname: Optional[str] = None,
     *,
     session: "Session"
 ) -> dict[str, Any]:
@@ -368,7 +370,7 @@ def validate_auth_token(
                            vo: <vo> }
     """
 
-    auth = authentication.validate_auth_token(token, session=session)
+    auth = authentication.validate_auth_token(token, issuer_nickname=issuer_nickname, session=session)
     vo = auth['account'].vo
     auth = gateway_update_return_dict(auth, session=session)
     auth['vo'] = vo

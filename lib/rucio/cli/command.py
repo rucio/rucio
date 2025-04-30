@@ -89,7 +89,6 @@ class LazyGroup(click.Group):
 @click.option("--config", help="The Rucio configuration file to use")
 @click.option("-H", "--host", help="The Rucio API host")
 # oidc auth
-@click.option("--oidc-audience", help="Defines which audience are tokens requested for.")
 @click.option(
     "--oidc-issuer",
     help="""
@@ -119,8 +118,8 @@ class LazyGroup(click.Group):
     "--oidc-scope",
     default="openid profile",
     help="""
-        Defines which (OIDC) information user will share with Rucio. Rucio requires at least -sc='openid profile'.
-        To request refresh token for Rucio, scope must include 'openid offline_access'
+        Defines additional (OIDC scopes) information user will share with Rucio.
+        To request refresh token for Rucio, scope must include 'offline_access'
         and there must be no active access token saved on the side of the currently used Rucio Client,
     """,
 )
@@ -151,7 +150,6 @@ def main(
     user,
     password,
     oidc_scope,
-    oidc_audience,
     oidc_polling,
     oidc_refresh_lifetime,
     oidc_issuer,
@@ -193,7 +191,6 @@ def main(
             "username": user,
             "password": password,
             "oidc_scope": oidc_scope,
-            "oidc_audience": oidc_audience,
             "oidc_polling": oidc_polling,
             "oidc_refresh_lifetime": oidc_refresh_lifetime,
             "oidc_issuer": oidc_issuer,

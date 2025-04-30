@@ -8,7 +8,7 @@ aiohappyeyeballs==2.6.1
     # via
     #   -r requirements.server.txt
     #   aiohttp
-aiohttp==3.11.15
+aiohttp==3.11.16
     # via
     #   -r requirements.server.txt
     #   geoip2
@@ -55,7 +55,7 @@ blinker==1.9.0
     #   flask
 boto3==1.37.5
     # via -r requirements.server.txt
-botocore==1.37.25
+botocore==1.37.33
     # via
     #   -r requirements.server.txt
     #   boto3
@@ -214,12 +214,12 @@ krb5==0.7.1
     #   pyspnego
 libtorrent==2.0.11
     # via -r requirements.server.txt
-lxml==5.3.1
+lxml==5.3.2
     # via
     #   -r requirements.server.txt
     #   python3-saml
     #   xmlsec
-mako==1.3.9
+mako==1.3.10
     # via
     #   -r requirements.server.txt
     #   alembic
@@ -241,7 +241,7 @@ mdurl==0.1.2
     # via
     #   -r requirements.server.txt
     #   markdown-it-py
-multidict==6.3.0
+multidict==6.4.3
     # via
     #   -r requirements.server.txt
     #   aiohttp
@@ -436,7 +436,7 @@ tomli-w==1.2.0
     # via pydoc-markdown
 typeapi==2.2.4
     # via databind
-typing-extensions==4.13.0
+typing-extensions==4.13.2
     # via
     #   -r requirements.server.txt
     #   alembic
@@ -482,7 +482,7 @@ xmltodict==0.13.0
     # via -r requirements.dev.in
 yapf==0.43.0
     # via pydoc-markdown
-yarl==1.18.3
+yarl==1.19.0
     # via
     #   -r requirements.server.txt
     #   aiohttp

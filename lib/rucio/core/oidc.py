@@ -147,7 +147,8 @@ class IDPSecretLoad:
                             raise ValueError(f"Each entry in '{client_type}' for VO '{vo}' must have a valid 'issuer_nickname' when multiple clients exist.")
 
 
-    def get_vo_clients_config(self,
+    def get_vo_clients_config(
+        self,
         client_type: Literal["user_auth_client", "client_credential_client"],
         vo: str = "def",
         issuer_nickname: Optional[str] = None
@@ -170,7 +171,7 @@ class IDPSecretLoad:
         client_config_list = config[client_type]
         if len(client_config_list) == 1:
             return client_config_list[0]
-        
+
         if len(client_config_list) > 1 and not issuer_nickname:
             raise ValueError("Issuer nickname is required since server has multiple issuers configured.")
 
@@ -1058,6 +1059,7 @@ def __save_validated_token(token, valid_dict, extra_dict=None, *, session: "Sess
 
 def validate_jwt(
     token: str,
+    issuer_nickname: Optional[str] = None,
     *,
     session: "Session"
 ) -> "TokenValidationDict":
@@ -1093,45 +1095,69 @@ def validate_jwt(
     token_dict = {}
     token_dict['lifetime'] = lifetime
     token_dict['identity'] = identity_string
-    if "scope" in access_token_decoded:
-        token_dict['authz_scope'] = access_token_decoded['scope']
-    else:
-        # if not scope in access_token claims, get it from introspection_endpoint
-        introspection_endpoint = get_discovery_metadata(issuer_url=issuer_url)["introspection_endpoint"]
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        idpsecret_config_loader = IDPSecretLoad()
-        auths = idpsecret_config_loader.get_vo_clients_config(client_type="user_auth_client", vo=vo)
-        data = {"token": token}
-        try:
-            response = requests.post(
-                introspection_endpoint,
-                headers=headers,
-                auth=(str(auths["client_id"]), str(auths["client_secret"])),
-                data=data,
-                timeout=10
-            )
-            response.raise_for_status()
-            token_info = response.json()
-        except requests.exceptions.RequestException as re:
-            raise CannotAuthorize(f"Failed to do token introspection: {str(re)}")
-        except ValueError as ve:
-            raise CannotAuthenticate(f"Token introspection Decoding JSON failed:: {str(ve)}")
-        except Exception as e:
-            raise CannotAuthenticate(f"Unexpected error occured: {str(e)}")
-
+    # Fallback if 'scope' is missing
+    acquired_scopes = access_token_decoded.get('scope', '')
+    required_scopes = set(DEFAULT_ID_TOKEN_SCOPES + ID_TOKEN_EXTRA_SCOPES + EXTRA_OIDC_ACCESS_TOKEN_SCOPE)
+    if not required_scopes.issubset(set(acquired_scopes.split())):
+        token_info  = perform_token_introspection(token=token, issuer_url=issuer_url, issuer_nickname=issuer_nickname, vo=vo)
         if token_info.get("active", False):
-            token_dict['authz_scope'] = token_info['scope']
+            acquired_scopes = token_info['scope']
+    token_dict['authz_scope'] = acquired_scopes
     token_dict["audience"] = access_token_decoded["aud"]
     token_dict["account"] = account
     acquired_scopes = token_dict.get('authz_scope', None)
     if not acquired_scopes:
         raise CannotAuthenticate(traceback.format_exc())
     else:
-        if not (set(DEFAULT_ID_TOKEN_SCOPES + ID_TOKEN_EXTRA_SCOPES + EXTRA_OIDC_ACCESS_TOKEN_SCOPE)).issubset(set(acquired_scopes.split())):
-            raise CannotAuthenticate(f"Presented token has scope {acquired_scopes} doesn't have required scope {str(DEFAULT_ID_TOKEN_SCOPES + ID_TOKEN_EXTRA_SCOPES + EXTRA_OIDC_ACCESS_TOKEN_SCOPE)}.")
+        if not (required_scopes).issubset(set(acquired_scopes.split())):
+            raise CannotAuthenticate(f"Presented token has scope {acquired_scopes} doesn't have required scope {str(required_scopes)}.")
     METRICS.counter(name='JSONWebToken.saved').inc()
     __save_validated_token(token, token_dict, session=session)
     return cast("TokenValidationDict", token_dict)
+
+
+def perform_token_introspection(
+        token: str,
+        issuer_url: str,
+        issuer_nickname: Optional[str] = None,
+        vo: str = 'def',
+) -> dict[str, Any]:
+
+    """perform token introspection using introspection_endpoint
+
+    :param token:
+    :param issuer_url:
+    :param issuer_nickname:
+    :param vo:
+    :raises CannotAuthorize: _description_
+    :raises CannotAuthenticate: _description_
+    :raises CannotAuthenticate: _description_
+    :return _type_: _description_
+    """
+    # if not scope in access_token claims, get it from introspection_endpoint
+    introspection_endpoint = get_discovery_metadata(issuer_url=issuer_url)["introspection_endpoint"]
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    idpsecret_config_loader = IDPSecretLoad()
+    auths = idpsecret_config_loader.get_vo_clients_config(client_type="user_auth_client", vo=vo, issuer_nickname=issuer_nickname)
+    data = {"token": token}
+    try:
+        response = requests.post(
+            introspection_endpoint,
+            headers=headers,
+            auth=(str(auths["client_id"]), str(auths["client_secret"])),
+            data=data,
+            timeout=10
+        )
+        response.raise_for_status()
+        token_info = response.json()
+    except requests.exceptions.RequestException as re:
+        raise CannotAuthorize(f"Failed to do token introspection: {str(re)}")
+    except ValueError as ve:
+        raise CannotAuthenticate(f"Token introspection Decoding JSON failed:: {str(ve)}")
+    except Exception as e:
+        raise CannotAuthenticate(f"Unexpected error occured: {str(e)}")
+
+    return token_info
 
 
 def oidc_identity_string(sub: str, iss: str) -> str:

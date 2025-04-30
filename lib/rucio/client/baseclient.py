@@ -420,6 +420,9 @@ class BaseClient:
         if self.account is not None:
             hds['X-Rucio-Account'] = self.account
 
+        if self.auth_type == 'oidc':
+            if self.creds['oidc_issuer']:
+                hds['X-Rucio-Client-Authorize-Issuer'] = self.creds['oidc_issuer']
         if headers is not None:
             hds.update(headers)
         if verify is None:
@@ -584,12 +587,9 @@ class BaseClient:
 
         :returns: True if the token was successfully received. False otherwise.
         """
-        oidc_scope = str(self.creds['oidc_scope'])
         headers = {'X-Rucio-Client-Authorize-Polling': str(self.creds['oidc_polling']),
                    'X-Rucio-Client-Authorize-Scope': str(self.creds['oidc_scope']),
                    'X-Rucio-Client-Authorize-Refresh-Lifetime': str(self.creds['oidc_refresh_lifetime'])}
-        if self.creds['oidc_audience']:
-            headers['X-Rucio-Client-Authorize-Audience'] = str(self.creds['oidc_audience'])
         if self.creds['oidc_issuer']:
             headers['X-Rucio-Client-Authorize-Issuer'] = str(self.creds['oidc_issuer'])
 
