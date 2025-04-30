@@ -15,6 +15,7 @@
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalAccount, TokenDict
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import authentication, identity, oidc
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
 def refresh_cli_auth_token(
     token_string: str,
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> Optional[tuple[str, int]]:
@@ -75,7 +76,7 @@ def redirect_auth_oidc(
 @transactional_session
 def get_auth_oidc(
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session",
     **kwargs
@@ -149,7 +150,7 @@ def get_auth_token_user_pass(
     password: str,
     appid: str,
     ip: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> Optional[TokenDict]:
@@ -185,7 +186,7 @@ def get_auth_token_gss(
     gsscred: str,
     appid: str,
     ip: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> Optional[TokenDict]:
@@ -220,7 +221,7 @@ def get_auth_token_x509(
     dn: str,
     appid: str,
     ip: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> Optional[TokenDict]:
@@ -258,7 +259,7 @@ def get_auth_token_ssh(
     signature: str,
     appid: str,
     ip: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> Optional[TokenDict]:
@@ -292,7 +293,7 @@ def get_ssh_challenge_token(
     account: str,
     appid: str,
     ip: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> Optional[TokenDict]:
@@ -326,7 +327,7 @@ def get_auth_token_saml(
     saml_nameid: str,
     appid: str,
     ip: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> Optional[TokenDict]:

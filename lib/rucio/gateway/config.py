@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
 from rucio.common.config import convert_to_any_type
+from rucio.common.constants import DEFAULT_VO
 from rucio.core import config
 from rucio.db.sqla.session import read_session, transactional_session
 from rucio.gateway import permission
@@ -32,7 +33,7 @@ ConfigParser compatible interface.
 
 
 @read_session
-def sections(issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> list[str]:
+def sections(issuer: Optional[str] = None, vo: str = DEFAULT_VO, *, session: "Session") -> list[str]:
     """
     Return a list of the sections available.
 
@@ -50,7 +51,7 @@ def sections(issuer: Optional[str] = None, vo: str = 'def', *, session: "Session
 
 
 @transactional_session
-def add_section(section: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> None:
+def add_section(section: str, issuer: Optional[str] = None, vo: str = DEFAULT_VO, *, session: "Session") -> None:
     """
     Add a section to the configuration.
 
@@ -68,7 +69,7 @@ def add_section(section: str, issuer: Optional[str] = None, vo: str = 'def', *, 
 
 
 @read_session
-def has_section(section: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> bool:
+def has_section(section: str, issuer: Optional[str] = None, vo: str = DEFAULT_VO, *, session: "Session") -> bool:
     """
     Indicates whether the named section is present in the configuration.
 
@@ -87,7 +88,7 @@ def has_section(section: str, issuer: Optional[str] = None, vo: str = 'def', *, 
 
 
 @read_session
-def options(section: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> list[str]:
+def options(section: str, issuer: Optional[str] = None, vo: str = DEFAULT_VO, *, session: "Session") -> list[str]:
     """
     Returns a list of options available in the specified section.
 
@@ -106,7 +107,7 @@ def options(section: str, issuer: Optional[str] = None, vo: str = 'def', *, sess
 
 
 @read_session
-def has_option(section: str, option: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> bool:
+def has_option(section: str, option: str, issuer: Optional[str] = None, vo: str = DEFAULT_VO, *, session: "Session") -> bool:
     """
     Check if the given section exists and contains the given option.
 
@@ -126,7 +127,7 @@ def has_option(section: str, option: str, issuer: Optional[str] = None, vo: str 
 
 
 @read_session
-def get(section: str, option: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> Any:
+def get(section: str, option: str, issuer: Optional[str] = None, vo: str = DEFAULT_VO, *, session: "Session") -> Any:
     """
     Get an option value for the named section. Value can be auto-coerced to int, float, and bool; string otherwise.
 
@@ -149,7 +150,7 @@ def get(section: str, option: str, issuer: Optional[str] = None, vo: str = 'def'
 
 
 @read_session
-def items(section: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> list[tuple[str, Any]]:
+def items(section: str, issuer: Optional[str] = None, vo: str = DEFAULT_VO, *, session: "Session") -> list[tuple[str, Any]]:
     """
     Return a list of (option, value) pairs for each option in the given section. Values are auto-coerced as in get().
 
@@ -169,7 +170,7 @@ def items(section: str, issuer: Optional[str] = None, vo: str = 'def', *, sessio
 
 
 @transactional_session
-def set(section: str, option: str, value: Any, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> None:
+def set(section: str, option: str, value: Any, issuer: Optional[str] = None, vo: str = DEFAULT_VO, *, session: "Session") -> None:
     """
     Set the given option to the specified value.
 
@@ -189,7 +190,7 @@ def set(section: str, option: str, value: Any, issuer: Optional[str] = None, vo:
 
 
 @transactional_session
-def remove_section(section: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> bool:
+def remove_section(section: str, issuer: Optional[str] = None, vo: str = DEFAULT_VO, *, session: "Session") -> bool:
     """
     Remove the specified option from the specified section.
 
@@ -208,7 +209,7 @@ def remove_section(section: str, issuer: Optional[str] = None, vo: str = 'def', 
 
 
 @transactional_session
-def remove_option(section: str, option: str, issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> bool:
+def remove_option(section: str, option: str, issuer: Optional[str] = None, vo: str = DEFAULT_VO, *, session: "Session") -> bool:
     """
     Remove the specified section from the configuration.
 

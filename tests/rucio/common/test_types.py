@@ -14,6 +14,7 @@
 
 import pytest
 
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalAccount, InternalScope, InternalType, _RepresentationCalculator
 
 
@@ -26,7 +27,7 @@ class TestInternalType:
             (None, 'test_vo', False, None, None, 'test_vo'),
             (None, 'test_vo', True, None, None, 'test_vo'),
             ('test_value', 'test_vo', True, 'test_value', 'test_value@test_vo', 'test_vo'),
-            ('test_value', 'test_vo', False, 'test_value', 'test_value', 'def'),
+            ('test_value', 'test_vo', False, 'test_value', 'test_value', DEFAULT_VO),
         ],
         ids=[
             'empty',
@@ -107,7 +108,7 @@ class TestInternalType:
 
 class TestRepresentationCalculator:
     @pytest.mark.parametrize('input_internal,expected_vo,expected_external', [
-        ('test_name', 'def', 'test_name'),
+        ('test_name', DEFAULT_VO, 'test_name'),
         ('test_name@test_vo', 'test_vo', 'test_name'),
         ('test_name@test_vo@extra_string', 'test_vo@extra_string', 'test_name'),
     ])
@@ -117,7 +118,7 @@ class TestRepresentationCalculator:
         assert external == expected_external
 
     @pytest.mark.parametrize('input_external,input_vo,expected_internal', [
-        ('test_name', 'def', 'test_name'),
+        ('test_name', DEFAULT_VO, 'test_name'),
         ('test_name', 'test_vo', 'test_name@test_vo'),
     ])
     def test_calc_internal(self, input_external, input_vo, expected_internal):

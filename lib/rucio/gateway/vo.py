@@ -15,6 +15,7 @@
 from typing import Any, Optional
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount
 from rucio.core import identity
@@ -24,7 +25,7 @@ from rucio.db.sqla.session import db_session
 from rucio.gateway.permission import has_permission
 
 
-def add_vo(new_vo: str, issuer: str, description: Optional[str] = None, email: Optional[str] = None, vo: str = 'def') -> None:
+def add_vo(new_vo: str, issuer: str, description: Optional[str] = None, email: Optional[str] = None, vo: str = DEFAULT_VO) -> None:
     '''
     Add a new VO.
 
@@ -48,7 +49,7 @@ def add_vo(new_vo: str, issuer: str, description: Optional[str] = None, email: O
         vo_core.add_vo(vo=new_vo, description=description, email=email, session=session)
 
 
-def list_vos(issuer: str, vo: str = 'def') -> list[dict[str, Any]]:
+def list_vos(issuer: str, vo: str = DEFAULT_VO) -> list[dict[str, Any]]:
     '''
     List the VOs.
 
@@ -73,7 +74,7 @@ def recover_vo_root_identity(
     issuer: str,
     default: bool = False,
     password: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
 ) -> None:
     """
     Adds a membership association between identity and the root account for given VO.
@@ -101,7 +102,7 @@ def recover_vo_root_identity(
                                              email=email, account=account, password=password, session=session)
 
 
-def update_vo(updated_vo: str, parameters: dict[str, Any], issuer: str, vo: str = 'def') -> None:
+def update_vo(updated_vo: str, parameters: dict[str, Any], issuer: str, vo: str = DEFAULT_VO) -> None:
     """
     Update VO properties (email, description).
 

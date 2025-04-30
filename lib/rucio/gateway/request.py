@@ -19,6 +19,7 @@ Interface for the requests abstraction layer
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalAccount, InternalScope, RequestGatewayDict
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import request
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
 def queue_requests(
     requests: "Iterable[RequestGatewayDict]",
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> list[dict[str, Any]]:
@@ -71,7 +72,7 @@ def cancel_request(
     request_id: str,
     issuer: str,
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -101,7 +102,7 @@ def cancel_request_did(
     request_type: str,
     issuer: str,
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> dict[str, Any]:
@@ -135,7 +136,7 @@ def get_next(
     state: "RequestState",
     issuer: str,
     account: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> list[dict[str, Any]]:
@@ -166,7 +167,7 @@ def get_request_by_did(
     name: str,
     rse: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> dict[str, Any]:
@@ -200,7 +201,7 @@ def get_request_history_by_did(
     name: str,
     rse: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> dict[str, Any]:
@@ -234,7 +235,7 @@ def list_requests(
     dst_rses: "Iterable[str]",
     states: "Sequence[RequestState]",
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> "Iterator[dict[str, Any]]":
@@ -266,7 +267,7 @@ def list_requests_history(
     dst_rses: "Iterable[str]",
     states: "Sequence[RequestState]",
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     offset: Optional[int] = None,
     limit: Optional[int] = None,
     *,
@@ -302,7 +303,7 @@ def get_request_metrics(
     activity: Optional[str],
     group_by_rse_attribute: Optional[str],
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> dict[str, Any]:

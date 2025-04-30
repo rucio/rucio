@@ -16,7 +16,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.gateway.permission
-from rucio.common.constants import RESERVED_KEYS
+from rucio.common.constants import DEFAULT_VO, RESERVED_KEYS
 from rucio.common.exception import AccessDenied, InvalidObject, RucioException
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
@@ -43,7 +43,7 @@ def list_dids(
     offset: Optional[int] = None,
     long: bool = False,
     recursive: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -90,7 +90,7 @@ def add_did(
     lifetime: Optional[str] = None,
     dids: Optional['Sequence[dict[str, Any]]'] = None,
     rse: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -160,7 +160,7 @@ def add_did(
 def add_dids(
     dids: 'Sequence[dict[str, Any]]',
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -201,7 +201,7 @@ def attach_dids(
     name: str,
     attachment: dict[str, Any],
     issuer: str,
-    vo='def',
+    vo=DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -250,7 +250,7 @@ def attach_dids_to_dids(
     attachments: 'Sequence[dict[str, Any]]',
     issuer: str,
     ignore_duplicate: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -294,7 +294,7 @@ def detach_dids(
     name: str,
     dids: 'Sequence[dict[str, Any]]',
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -326,7 +326,7 @@ def list_new_dids(
     thread: Optional[int] = None,
     total_threads: Optional[int] = None,
     chunk_size: int = 1000,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -350,7 +350,7 @@ def list_new_dids(
 def set_new_dids(
     dids: 'Sequence[dict[str, Any]]',
     new_flag: bool = True,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> bool:
@@ -373,7 +373,7 @@ def set_new_dids(
 def list_content(
     scope: str,
     name: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -397,7 +397,7 @@ def list_content(
 def list_content_history(
     scope: str,
     name: str,
-    vo='def',
+    vo=DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -422,7 +422,7 @@ def list_content_history(
 def bulk_list_files(
     dids: 'Iterable[dict[str, Any]]',
     long: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -447,7 +447,7 @@ def list_files(
     scope: str,
     name: str,
     long: bool,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -474,7 +474,7 @@ def scope_list(
     scope: str,
     name: Optional[str] = None,
     recursive: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -501,7 +501,7 @@ def scope_list(
 
 
 @read_session
-def get_did(scope: str, name: str, dynamic_depth: Optional[DIDType] = None, vo: str = 'def', *, session: "Session") -> "dict[str, Any]":
+def get_did(scope: str, name: str, dynamic_depth: Optional[DIDType] = None, vo: str = DEFAULT_VO, *, session: "Session") -> "dict[str, Any]":
     """
     Retrieve a single data did.
 
@@ -529,7 +529,7 @@ def set_metadata(
     value: Any,
     issuer: str,
     recursive: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -565,7 +565,7 @@ def set_metadata_bulk(
     meta: dict[str, Any],
     issuer: str,
     recursive: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -599,7 +599,7 @@ def set_dids_metadata_bulk(
     dids: 'Iterable[dict[str, Any]]',
     issuer: str,
     recursive: bool = False,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -632,7 +632,7 @@ def get_metadata(
     scope: str,
     name: str,
     plugin: str = 'DID_COLUMN',
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> dict[str, Any]:
@@ -657,7 +657,7 @@ def get_metadata_bulk(
     dids: 'Iterable[dict[str, Any]]',
     inherit: bool = False,
     plugin: str = 'DID_COLUMN',
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -683,7 +683,7 @@ def delete_metadata(
     scope: str,
     name: str,
     key: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -706,7 +706,7 @@ def set_status(
     scope: str,
     name: str,
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session",
     **kwargs
@@ -734,7 +734,7 @@ def set_status(
 @stream_session
 def get_dataset_by_guid(
     guid: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -758,7 +758,7 @@ def get_dataset_by_guid(
 def list_parent_dids(
     scope: str,
     name: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -787,7 +787,7 @@ def create_did_sample(
     output_name: str,
     issuer: str,
     nbfiles: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ):
@@ -822,7 +822,7 @@ def create_did_sample(
 def resurrect(
     dids: 'Iterable[dict[str, Any]]',
     issuer: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -850,7 +850,7 @@ def resurrect(
 def list_archive_content(
     scope: str,
     name: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -877,7 +877,7 @@ def add_did_to_followed(
     account: str,
     *,
     session: "Session",
-    vo: str = 'def'
+    vo: str = DEFAULT_VO
 ) -> None:
     """
     Mark a did as followed by the given account
@@ -898,7 +898,7 @@ def add_dids_to_followed(
     account: str,
     *,
     session: "Session",
-    vo: str = 'def'
+    vo: str = DEFAULT_VO
 ) -> None:
     """
     Bulk mark datasets as followed
@@ -917,7 +917,7 @@ def get_users_following_did(
     scope: str,
     *,
     session: "Session",
-    vo: str = 'def'
+    vo: str = DEFAULT_VO
 ) -> 'Iterator[dict[str, str]]':
     """
     Return list of users following a did
@@ -941,7 +941,7 @@ def remove_did_from_followed(
     issuer: str,
     *,
     session: "Session",
-    vo: str = 'def'
+    vo: str = DEFAULT_VO
 ) -> None:
     """
     Mark a did as not followed
@@ -969,7 +969,7 @@ def remove_dids_from_followed(
     issuer: str,
     *,
     session: "Session",
-    vo: str = 'def'
+    vo: str = DEFAULT_VO
 ) -> None:
     """
     Bulk mark datasets as not followed

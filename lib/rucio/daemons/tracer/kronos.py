@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Optional
 
 import rucio.db.sqla.util
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import DatabaseException, RSENotFound
 from rucio.common.logging import setup_logging
 from rucio.common.stomp_utils import StompConnectionManager
@@ -143,7 +144,7 @@ class AMQConsumer:
         rses = []
         for report in self.__reports:
             if 'vo' not in report:
-                report['vo'] = 'def'
+                report['vo'] = DEFAULT_VO
 
             try:
                 # Identify suspicious files
@@ -299,7 +300,7 @@ class AMQConsumer:
                                 'usrdn': 'someuser',
                                 'clientState': 'DONE',
                                 'eventVersion': replica['eventVersion']}
-                    if replica['scope'].vo != 'def':
+                    if replica['scope'].vo != DEFAULT_VO:
                         resubmit['vo'] = replica['scope'].vo
                     self.__conn.send(body=jdumps(resubmit), destination=self.__queue, headers={'appversion': 'rucio', 'resubmitted': '1'})
                     METRICS.counter('sent_resubmitted').inc()

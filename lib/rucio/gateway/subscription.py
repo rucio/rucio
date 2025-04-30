@@ -16,6 +16,7 @@ from collections import namedtuple
 from json import dumps, loads
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import AccessDenied, InvalidObject
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
@@ -44,7 +45,7 @@ def add_subscription(
     dry_run: bool,
     priority: Optional[int] = None,
     issuer: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> str:
@@ -107,7 +108,7 @@ def update_subscription(
     account: str,
     metadata: Optional[dict[str, Any]] = None,
     issuer: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -163,7 +164,7 @@ def list_subscriptions(
     name: Optional[str] = None,
     account: Optional[str] = None,
     state: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[dict[str, Any]]':
@@ -205,7 +206,7 @@ def list_subscriptions(
 def list_subscription_rule_states(
     name: Optional[str] = None,
     account: Optional[str] = None,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> 'Iterator[SubscriptionRuleState]':
@@ -232,7 +233,7 @@ def list_subscription_rule_states(
 @transactional_session
 def delete_subscription(
     subscription_id: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> None:
@@ -250,7 +251,7 @@ def delete_subscription(
 @read_session
 def get_subscription_by_id(
     subscription_id: str,
-    vo: str = 'def',
+    vo: str = DEFAULT_VO,
     *,
     session: "Session"
 ) -> dict[str, Any]:

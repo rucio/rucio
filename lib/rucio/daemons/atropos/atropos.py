@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 import rucio.core.lifetime_exception
 import rucio.db.sqla.util
 from rucio.common import exception
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import InvalidRSEExpression, RuleNotFound
 from rucio.common.logging import setup_logging
 from rucio.core.did import set_metadata
@@ -193,7 +194,7 @@ def run_once(
             tot_size += summary[rse_id][did].get('bytes', 0)
         vo = get_rse_vo(rse_id=rse_id)
         logger(logging.INFO, 'For RSE %s%s %d datasets will be deleted representing %d files and %d bytes',
-               get_rse_name(rse_id=rse_id), '' if vo == 'def' else ' on VO ' + vo, tot_datasets, tot_files, tot_size)
+               get_rse_name(rse_id=rse_id), '' if vo == DEFAULT_VO else ' on VO ' + vo, tot_datasets, tot_files, tot_size)
 
 
 def run(
