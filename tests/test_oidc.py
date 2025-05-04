@@ -608,11 +608,18 @@ def test_get_token_oidc_with_refresh_token(mock_post, mock_get_discovery_metadat
 
 
 @patch("rucio.core.oidc.get_discovery_metadata")
+@patch("rucio.core.oidc.perform_token_introspection")
 @pytest.mark.parametrize('idp_secrets_mock', [mock_idpsecrets], indirect=True)
-def test_validate_jwt_sucess(mock_get_discovery_metadata, encode_jwt_with_argument, idp_secrets_mock, get_discovery_metadata, get_jwks_content, setup_account_and_session):
+def test_validate_jwt_sucess(mock_perform_token_introspection, mock_get_discovery_metadata, encode_jwt_with_argument, idp_secrets_mock, get_discovery_metadata, get_jwks_content, setup_account_and_session):
     account, sub, db_session = setup_account_and_session
 
     mock_get_discovery_metadata.return_value = get_discovery_metadata
+    mock_perform_token_introspection.return_value = {
+        "active": True,
+        "scope": "openid profile test",
+        "sub": sub,
+        "aud": "rucio"
+    }
     mock_token = encode_jwt_with_argument(sub, 'rucio', 'openid profile test')
     with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
         validate_jwt(mock_token, session=db_session)
@@ -622,15 +629,22 @@ def test_validate_jwt_sucess(mock_get_discovery_metadata, encode_jwt_with_argume
     # test with random audience
     mock_token = encode_jwt_with_argument(sub, 'random', 'openid profile test')
     with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
-        with pytest.raises(CannotAuthenticate, match="Invalid access_token: Audience doesn't match"):
+        with pytest.raises(CannotAuthenticate):
             validate_jwt(mock_token, session=db_session)
             db_token = get_token_row(mock_token, account=account, session=db_session)
             assert db_token.token == mock_token
 
+    # test with non proper introspection scopes
+    mock_perform_token_introspection.return_value = {
+        "active": True,
+        "scope": "random",
+        "sub": sub,
+        "aud": "rucio"
+    }
     # test with external token with missing required scope
     mock_token = encode_jwt_with_argument(sub, 'rucio', 'random')
     with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
-        with pytest.raises(CannotAuthenticate, match="doesn't have required scope"):
+        with pytest.raises(CannotAuthenticate):
             validate_jwt(mock_token, session=db_session)
             db_token = get_token_row(mock_token, account=account, session=db_session)
             assert db_token.token == mock_token

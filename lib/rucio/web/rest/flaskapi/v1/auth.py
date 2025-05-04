@@ -674,7 +674,7 @@ class RefreshOIDC(ErrorHandlingMethodView):
         vo = extract_vo(request.headers)
         account = request.headers.get('X-Rucio-Account', default=None)
         token = request.headers.get('X-Rucio-Auth-Token', default=None)
-        issuer_nickname = request.headers.get('X-Rucio-Client-Authorize-Issuer', deafult=None)
+        issuer_nickname = request.headers.get('X-Rucio-Client-Authorize-Issuer', default=None)
         if token is None or account is None:
             return generate_http_error_flask(401, CannotAuthorize.__name__, 'Cannot authorize token request.', headers=headers)
 
@@ -1456,7 +1456,7 @@ class Validate(ErrorHandlingMethodView):
           schema:
             type: string
           required: true
-        - name: X-RUCIO-CLIENT-AUTHORIZE-ISSUER
+        - name: X-Rucio-Client-Authorize-Issuer
           in: header
           schema:
             type: string
@@ -1476,7 +1476,7 @@ class Validate(ErrorHandlingMethodView):
         headers['Pragma'] = 'no-cache'
 
         token = request.headers.get('X-Rucio-Auth-Token', default=None)
-        issuer_nickname = request.headers.get('X-RUCIO-CLIENT-AUTHORIZE-ISSUER', default=None)
+        issuer_nickname = request.headers.get('X-Rucio-Client-Authorize-Issuer', default=None)
 
         result = validate_auth_token(token, issuer_nickname=issuer_nickname)
         if not result:

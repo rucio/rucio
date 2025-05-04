@@ -142,7 +142,7 @@ def request_auth_env() -> Optional['ResponseReturnValue']:
         return '', 200
 
     auth_token = flask.request.headers.get('X-Rucio-Auth-Token', default=None)
-    issuer_nickname = flask.request.headers.get('X-RUCIO-CLIENT-AUTHORIZE-ISSUER', default=None)
+    issuer_nickname = flask.request.headers.get('X-Rucio-Client-Authorize-Issuer', default=None)
 
     try:
         auth = validate_auth_token(auth_token, issuer_nickname=issuer_nickname)
