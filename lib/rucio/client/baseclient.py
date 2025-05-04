@@ -911,7 +911,6 @@ class BaseClient:
                     raise CannotAuthenticate('x509 authentication failed for account=%s with identity=%s' % (self.account,
                                                                                                              self.creds))
             elif self.auth_type == 'oidc':
-                
                 if not self.__get_token_oidc():
                     raise CannotAuthenticate('OIDC authentication failed for account=%s' % self.account)
 

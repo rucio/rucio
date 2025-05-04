@@ -1713,12 +1713,9 @@ def wlcg_token_discovery(user_id=None):
     Discovers a WLCG bearer token from the environment, following the specified precedence.
     Specs: https://zenodo.org/records/3937438
 
-    :param user_id: (Optional) The user ID. If None, uses the effective user ID.
     :returns: The discovered token (string), or None if no valid token is found.
     """
-    if user_id is None:
-        user_id = os.geteuid()
-
+    user_id = os.geteuid()
     token = None
 
     # 1. Check BEARER_TOKEN environment variable
