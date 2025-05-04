@@ -75,10 +75,11 @@ class QBittorrentDriver(BittorrentDriver):
         if not address:
             return None
 
+        vo = rse.columns['vo']
         url = urlparse(address)
         token = None
         if url.scheme.lower() == 'https':
-            token = request_token(audience=url.hostname, scope='qbittorrent_admin')
+            token = request_token(audience=url.hostname, scope='qbittorrent_admin', vo=vo)
         else:
             logging.debug(f'{cls.external_name} will not try token authentication. Requires HTTPS.')
 

@@ -911,7 +911,7 @@ class FTS3Transfertool(Transfertool):
         if oidc_support:
             fts_hostname = urlparse(external_host).hostname
             if fts_hostname is not None:
-                token = request_token(audience=fts_hostname, scope='fts')
+                token = request_token(audience=fts_hostname, scope='fts', vo=vo or 'def')
                 if token is not None:
                     self.logger(logging.INFO, 'Using a token to authenticate with FTS instance %s', fts_hostname)
                     self.token = token
@@ -1032,13 +1032,15 @@ class FTS3Transfertool(Transfertool):
             for source in transfer.sources:
                 src_audience = determine_audience_for_rse(rse_id=source.rse.id)
                 src_scope = determine_scope_for_rse(rse_id=source.rse.id, scopes=['storage.read'], extra_scopes=['offline_access'])
-                t_file['source_tokens'].append(request_token(src_audience, src_scope))
+                src_vo = source.rse.columns['vo']
+                t_file['source_tokens'].append(request_token(src_audience, src_scope, src_vo))
 
             dst_audience = determine_audience_for_rse(transfer.dst.rse.id)
             # FIXME: At the time of writing, StoRM requires `storage.read` in
             # order to perform a stat operation.
             dst_scope = determine_scope_for_rse(transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], extra_scopes=['offline_access'])
-            t_file['destination_tokens'] = [request_token(dst_audience, dst_scope)]
+            dst_vo = transfer.dst.rse.columns['vo']
+            t_file['destination_tokens'] = [request_token(dst_audience, dst_scope, dst_vo)]
 
         if isinstance(self.scitags_exp_id, int):
             activity_id = self.scitags_activity_ids.get(rws.activity)
