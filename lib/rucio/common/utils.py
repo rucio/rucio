@@ -1690,3 +1690,66 @@ def is_method_overridden(obj, base_cls, method_name):
     if getattr(type(obj), method_name, None) is getattr(base_cls, method_name, None):  # Caring for bound/unbound cases
         return False
     return True
+
+
+def wlcg_token_discovery(user_id=None):
+    """
+    Discovers a WLCG bearer token from the environment, following the specified precedence.
+    Specs: https://zenodo.org/records/3937438
+
+    :param user_id: (Optional) The user ID. If None, uses the effective user ID.
+    :returns: The discovered token (string), or None if no valid token is found.
+    """
+    if user_id is None:
+        user_id = os.geteuid()
+
+    token = None
+
+    # 1. Check BEARER_TOKEN environment variable
+    token = os.environ.get('BEARER_TOKEN')
+    if token is not None:
+        token = token.strip()
+        if token:
+            return token
+
+    # 2. Check BEARER_TOKEN_FILE environment variable
+    token_file = os.environ.get('BEARER_TOKEN_FILE')
+    if token_file:
+        try:
+            with open(token_file, 'r') as f:
+                token = f.read().strip()
+            if token:
+                return token
+        except FileNotFoundError:
+            pass
+        except Exception:
+            return None
+
+    # 3. Check $XDG_RUNTIME_DIR/bt_u$ID
+    xdg_runtime_dir = os.environ.get('XDG_RUNTIME_DIR')
+    if xdg_runtime_dir:
+        token_path = os.path.join(xdg_runtime_dir, f'bt_u{user_id}')
+        try:
+            with open(token_path, 'r') as f:
+                token = f.read().strip()
+            if token:
+                return token
+        except FileNotFoundError:
+            pass
+        except Exception:
+            return None
+
+    # 4. Check /tmp/bt_u$ID
+    token_path = f'/tmp/bt_u{user_id}'
+    try:
+        with open(token_path, 'r') as f:
+            token = f.read().strip()
+        if token:
+            return token
+    except FileNotFoundError:
+        pass
+    except Exception:
+        return None
+
+    # No valid token found
+    return None

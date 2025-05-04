@@ -40,7 +40,7 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotFound, ClientProtocolNotSupported, ConfigNotFound, MissingClientParameter, MissingModuleException, NoAuthInformation, ServerConnectionException
 from rucio.common.extra import import_extras
-from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, setup_logger, ssh_sign
+from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, setup_logger, ssh_sign, wlcg_token_discovery
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -874,6 +874,7 @@ class BaseClient:
                     raise CannotAuthenticate('x509 authentication failed for account=%s with identity=%s' % (self.account,
                                                                                                              self.creds))
             elif self.auth_type == 'oidc':
+                
                 if not self.__get_token_oidc():
                     raise CannotAuthenticate('OIDC authentication failed for account=%s' % self.account)
 
@@ -907,6 +908,12 @@ class BaseClient:
         :return: True if a token could be read. False if no file exists.
         """
         if not path.exists(self.token_file):
+            if self.auth_type == "oidc":
+                token = wlcg_token_discovery()
+                if token:
+                    self.auth_token = token
+                    self.headers['X-Rucio-Auth-Token'] = self.auth_token
+                    return True
             return False
 
         try:
