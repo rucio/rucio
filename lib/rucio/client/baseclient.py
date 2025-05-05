@@ -906,13 +906,14 @@ class BaseClient:
 
         :return: True if a token could be read. False if no file exists.
         """
+        if self.auth_type == "oidc":
+            token = wlcg_token_discovery()
+            if token:
+                self.auth_token = token
+                self.headers['X-Rucio-Auth-Token'] = self.auth_token
+                return True
+
         if not path.exists(self.token_file):
-            if self.auth_type == "oidc":
-                token = wlcg_token_discovery()
-                if token:
-                    self.auth_token = token
-                    self.headers['X-Rucio-Auth-Token'] = self.auth_token
-                    return True
             return False
 
         try:
