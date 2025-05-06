@@ -1368,7 +1368,12 @@ def repair_rule(
                                       session=session)
         except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as error:
             rule.state = RuleState.STUCK
-            rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
+
+            error_msg = str(error)
+            if rule.error:
+                error_msg = rule.error + '|' + error_msg
+            rule.error = (error_msg[:245] + '...') if len(error_msg) > 245 else error_msg
+
             rule.save(session=session)
             # Insert rule history
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -1454,7 +1459,10 @@ def repair_rule(
                                                      session=session)
             except (InsufficientAccountLimit, InsufficientTargetRSEs) as error:
                 rule.state = RuleState.STUCK
-                rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
+                error_msg = str(error)
+                if rule.error:
+                    error_msg = rule.error + '|' + error_msg
+                rule.error = (error_msg[:245] + '...') if len(error_msg) > 245 else error_msg
                 rule.save(session=session)
                 # Insert rule history
                 insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -1494,7 +1502,10 @@ def repair_rule(
                                                session=session)
         except (InsufficientAccountLimit, InsufficientTargetRSEs) as error:
             rule.state = RuleState.STUCK
-            rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
+            error_msg = str(error)
+            if rule.error:
+                error_msg = rule.error + '|' + error_msg
+            rule.error = (error_msg[:245] + '...') if len(error_msg) > 245 else error_msg
             rule.save(session=session)
             # Insert rule history
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
