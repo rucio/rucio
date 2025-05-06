@@ -1708,7 +1708,7 @@ def get_transfer_schemas() -> dict[str, list[str]]:
     return scheme_map
 
 
-def wlcg_token_discovery(user_id=None):
+def wlcg_token_discovery() -> Optional[str]:
     """
     Discovers a WLCG bearer token from the environment, following the specified precedence.
     Specs: https://zenodo.org/records/3937438
