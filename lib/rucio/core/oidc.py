@@ -1089,7 +1089,7 @@ def validate_jwt(
     account = get_default_account(identity_string, IdentityType.OIDC, True, session=session)
     vo = account.vo
     idpsecret_config_loader = IDPSecretLoad()
-    is_valid_issuer = idpsecret_config_loader.is_valid_issuer(issuer_url=issuer_url, vo=vo)
+    is_valid_issuer = idpsecret_config_loader.is_valid_issuer(issuer_url=issuer_url, vo=vo, issuer_nickname=issuer_nickname)
     if not is_valid_issuer:
         raise CannotAuthenticate(f"token with issuer {issuer_url} is not from valid issuer")
     token_dict = {}
