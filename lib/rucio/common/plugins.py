@@ -156,7 +156,7 @@ class PolicyPackageAlgorithms:
             # import from utils here to avoid circular import
 
             env_name = 'RUCIO_POLICY_PACKAGE' + ('' if not vo else '_' + vo.upper())
-            package = getattr(os.environ, env_name, "")
+            package = os.getenv(env_name, "")
             if not package:
                 package = str(config.config_get('policy', 'package' + ('' if not vo else '-' + vo)))
 
