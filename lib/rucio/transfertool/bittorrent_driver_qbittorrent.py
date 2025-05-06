@@ -75,6 +75,7 @@ class QBittorrentDriver(BittorrentDriver):
         if not address:
             return None
 
+        rse.ensure_loaded(load_name=True, load_info=True, load_attributes=True, load_columns=True)
         vo = rse.columns['vo']
         url = urlparse(address)
         token = None
