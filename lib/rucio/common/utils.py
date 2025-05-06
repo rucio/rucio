@@ -1692,7 +1692,7 @@ def is_method_overridden(obj, base_cls, method_name):
     return True
 
 
-def wlcg_token_discovery():
+def wlcg_token_discovery() -> Optional[str]:
     """
     Discovers a WLCG bearer token from the environment, following the specified precedence.
     Specs: https://zenodo.org/records/3937438
