@@ -337,7 +337,7 @@ def list_oracle_global_temp_tables(session: "Session") -> list[str]:
         global_temp_tables = [
             str(t[0]).upper()
             for t in session.execute(
-                text('SELECT UPPER(table_name) '
+                text("SELECT /*+ OPT_PARAM('OPTIMIZER_FEATURES_ENABLE', '11.2.0.4') */ UPPER(table_name) "
                      'FROM all_tables '
                      'WHERE OWNER = :owner AND IOT_NAME IS NULL AND DURATION IS NOT NULL'),
                 dict(owner=models.BASE.metadata.schema.upper())
