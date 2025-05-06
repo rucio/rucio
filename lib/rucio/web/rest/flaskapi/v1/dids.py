@@ -22,7 +22,6 @@ from rucio.common.exception import (
     DatabaseException,
     DataIdentifierAlreadyExists,
     DataIdentifierNotFound,
-    Duplicate,
     DuplicateContent,
     FileAlreadyExists,
     FileConsistencyMismatch,
@@ -1295,257 +1294,310 @@ class Parents(ErrorHandlingMethodView):
 class Meta(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, scope_name):
+    def get(self, scope_name, key=None):
         """
         ---
         summary: Get metadata
-        description: "Get the metadata of a DID."
+        description: "Retrieve the metadata of a data identifier (DID)."
         tags:
           - Data Identifiers
         parameters:
         - name: scope_name
           in: path
-          description: "The scope and the name of the DID."
+          description: "The scope and the name of the DID (e.g., `scope:name`)."
+          required: true
+          style: simple
           schema:
             type: string
-          style: simple
         - name: plugin
           in: query
-          description: "The plugin to use."
+          description: "The metadata plugin to use."
+          required: false
+          style: form
           schema:
             type: string
             default: DID_COLUMN
         responses:
           200:
-            description: "OK"
+            description: "OK – returns the metadata of the DID."
             content:
               application/json:
                 schema:
-                  description: "A data identifier with all attributes."
                   type: object
+                  description: "A JSON object containing all attributes of the DID."
+                examples:
+                  defaultPlugin:
+                    summary: "Response produced by the default 'DID_COLUMN' plug-in"
+                    value:
+                      scope: "user"
+                      name: "dataset_123"
+                      did_type: "DATASET"
+                      bytes: 123456789
+                      length: 42
+                      account: "root"
+                      is_open: true
+                      suppressed: false
+                      created_at: "2025-05-20T12:16:58"
+                      updated_at: "2025-05-20T12:17:27"
+                      # ... rest DID fields
+                  jsonPlugin:
+                    summary: "Response produced by the 'JSON' plugin"
+                    value:
+                      custom_key1: "value1"
+                      custom_key2: "value2"
+                      # ... etc
           400:
-            description: "Bad Request - Invalid metadata plugin specified"
+            description: "Bad Request – invalid scope_name, or invalid metadata plugin specified."
           401:
-            description: "Invalid Auth Token"
+            description: "Unauthorized – invalid Auth Token."
           404:
-            description: "DID not found"
+            description: "Not found – the specified DID does not exist."
+          405:
+            description: "Method Not Allowed – the 'key' parameter is not supported with GET."
           406:
-            description: "Not acceptable"
+            description: "Not Acceptable – the requested format is not supported."
         """
+        # Flask injects the `key` keyword argument here because the blueprint registers
+        # the generic `/meta` endpoint with `defaults={'key': None}`.  The GET endpoint is
+        # intentionally *not* exposed as `/meta/<key>`—it always returns the complete
+        # metadata record (optionally filtered by the `plugin` query parameter).  Hence,
+        # a non‑None `key` should never reach this method today.  The following guard
+        # defends against any future routing changes that might introduce
+        # `/meta/<key>` for GET requests by explicitly rejecting such usage.
+        if key is not None:
+            return generate_http_error_flask(405,
+                                             'MethodNotAllowed',
+                                             'GET not allowing keys')
+
+        vo = request.environ['vo']
         try:
-            scope, name = parse_scope_name(scope_name, request.environ['vo'])
+            scope, name = parse_scope_name(scope_name, vo)
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
+        plugin = request.args.get('plugin', default='DID_COLUMN')
         try:
-            plugin = request.args.get('plugin', default='DID_COLUMN')
-            meta = get_metadata(scope=scope, name=name, plugin=plugin, vo=request.environ['vo'])
+            meta = get_metadata(scope=scope, name=name, plugin=plugin, vo=vo)
             return Response(render_json(**meta), content_type='application/json')
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
         except UnsupportedMetadataPlugin as error:
             return generate_http_error_flask(400, error)
 
-    def post(self, scope_name):
+    def post(self, scope_name, key=None):
         """
         ---
-        summary: Add metadata
-        description: "Add metadata to a DID."
+        summary: Set or update metadata
+        description: |
+          Set metadata for a data identifier (DID). If a piece of metadata for a given key
+          already exists, it will be handled according to the underlying metadata plugin
+          in use. Certain plugins may disallow updating specific metadata keys.
+
+          - **Single-key mode** (key provided in the path):
+            The request body must contain a `value` field (e.g., `{"value": "some_value"}`).
+          - **Multi-key mode** (no key in the path):
+            The request body must contain a `meta` field with the dictionary containing
+            multiple key-value pairs (e.g. `{"meta": {"k1": "v1", "k2": "v2"}}`).
+
+          The optional `recursive` flag indicates whether the metadata should be applied
+          recursively to child DIDs. Note that whether recursion is supported depends on
+          the plugin configured for your system.
         tags:
           - Data Identifiers
         parameters:
         - name: scope_name
           in: path
-          description: "The scope and the name of the DID."
+          description: "The scope and the name of the DID (e.g., `scope:name`)."
+          required: true
+          style: simple
           schema:
             type: string
+        - name: key
+          in: path
+          description |
+            The key parameter applies only to the `/meta/<key>` endpoint (**Single-key mode**)
+            and defines which metadata key to set/update. If omitted (by calling just `/meta`
+            without the extra path segment), it defaults to `None` and **Multi-key mode** is used.
+          required: true
           style: simple
+          schema:
+            type: string
         requestBody:
+          required: true
           content:
-            'application/json':
+            application/json:
               schema:
-                type: object
-                required:
-                - meta
-                properties:
-                  meta:
-                    description: "The metadata to add. A dictionary containing the metadata name as key and the value as value."
-                    type: object
-                  recursive:
-                    description: "Flag if the metadata should be applied recirsively to children."
-                    type: boolean
-                    default: false
+                oneOf:
+                  - type: object
+                    description: "Schema for **Single-key mode** (`key` included in path)."
+                    required:
+                      - value
+                    properties:
+                      value:
+                        description: "The metadata value to set for this key."
+                        type: string
+                      recursive:
+                        description: "Whether to apply the update recursively to child DIDs."
+                        type: boolean
+                        default: false
+                  - type: object
+                    description: "Schema for **Multi-key mode** (`key` not included in path)."
+                    required:
+                      - meta
+                    properties:
+                      meta:
+                        description: "A dictionary of multiple metadata keys and their values."
+                        type: object
+                      recursive:
+                        description: "Whether to apply the update recursively to child DIDs."
+                        type: boolean
+                        default: false
+              examples:
+                singleKeyMode:
+                  summary: "Setting a single metadata key"
+                  value:
+                    value: "my_metadata_value"
+                    recursive: false
+                multiKeyMode:
+                  summary: "Setting multiple metadata keys at once"
+                  value:
+                    meta:
+                      experiment: "ATLAS"
+                      physics_group: "Higgs"
+                      data_type: "RAW"
+                    recursive: true
         responses:
           201:
-            description: "Created"
+            description: "Created – metadata was successfully set (or updated)."
             content:
-              application/json:
+              text/plain:
                 schema:
                   type: string
                   enum: ["Created"]
+          400:
+            description: "Bad Request – invalid scope_name, or invalid key/value parameters."
           401:
-            description: "Invalid Auth Token"
+            description: "Unauthorized – invalid Auth Token."
           404:
-            description: "Not found"
-          406:
-            description: "Not acceptable"
+            description: "Not found – the specified DID does not exist."
         """
+        vo = request.environ['vo']
         try:
-            scope, name = parse_scope_name(scope_name, request.environ['vo'])
+            scope, name = parse_scope_name(scope_name, vo)
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
         parameters = json_parameters()
-        meta = param_get(parameters, 'meta')
 
-        try:
-            set_metadata_bulk(
-                scope=scope,
-                name=name,
-                meta=meta,
-                issuer=request.environ['issuer'],
-                recursive=param_get(parameters, 'recursive', default=False),
-                vo=request.environ['vo'],
-            )
-        except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, error)
-        except Duplicate as error:
-            return generate_http_error_flask(409, error)
-        except (KeyNotFound, InvalidMetadata, InvalidValueForKey) as error:
-            return generate_http_error_flask(400, error)
+        if key is not None:
+            value = param_get(parameters, 'value')
+            try:
+                set_metadata(
+                    scope=scope,
+                    name=name,
+                    key=key,
+                    value=value,
+                    issuer=request.environ['issuer'],
+                    recursive=param_get(parameters, 'recursive', default=False),
+                    vo=vo
+                )
+            except DataIdentifierNotFound as error:
+                return generate_http_error_flask(404, error)
+            except (KeyNotFound, InvalidMetadata, InvalidValueForKey) as error:
+                return generate_http_error_flask(400, error)
+            return 'Created', 201
 
-        return "Created", 201
+        else:
+            meta = param_get(parameters, 'meta')
+            try:
+                set_metadata_bulk(
+                    scope=scope,
+                    name=name,
+                    meta=meta,
+                    issuer=request.environ['issuer'],
+                    recursive=param_get(parameters, 'recursive', default=False),
+                    vo=vo,
+                )
+            except DataIdentifierNotFound as error:
+                return generate_http_error_flask(404, error)
+            except (KeyNotFound, InvalidMetadata, InvalidValueForKey) as error:
+                return generate_http_error_flask(400, error)
+            return "Created", 201
 
-    def delete(self, scope_name):
+    def delete(self, scope_name, key=None):
         """
         ---
         summary: Delete metadata
-        description: "Deletes the specified metadata from the DID."
+        description: |
+          Delete a specific metadata key from a data identifier (DID).
+          This `key` must be provided via the query parameter `?key=...`.
         tags:
           - Data Identifiers
         parameters:
         - name: scope_name
           in: path
-          description: "The scope and the name of the DID."
+          description: "The scope and the name of the DID (e.g., `scope:name`)."
+          required: true
+          style: simple
           schema:
             type: string
-          style: simple
         - name: key
           in: query
-          description: "The key to delete."
+          description: "The metadata key to delete."
+          required: true
+          style: form
           schema:
             type: string
         responses:
           200:
-            description: "OK"
+            description: "OK – the metadata key was successfully removed."
+            content:
+              text/plain:
+                schema:
+                  type: string
+                  enum: [""]
           400:
-            description: "scope_name could not be parsed."
+            description: "Bad Request – invalid scope_name."
           401:
-            description: "Invalid Auth Token"
+            description: "Unauthorized – invalid Auth Token."
           404:
-            description: "DID or key not found"
-          406:
-            description: "Not acceptable"
+            description: >
+              Not found – the specified DID or `key` does not exist, or no `key` query
+              parameter provided.
+          405:
+            description: "Method Not Allowed – the 'key' parameter is not supported with DELETE."
           409:
-            description: "Feature is not in current database."
+            description: "Conflict – action not supported by the utilized metadata plugin."
         """
+        # Flask injects the `key` keyword argument here because the blueprint registers the
+        # generic `/meta` endpoint with `defaults={'key': None}`.  For DELETE requests the
+        # API currently expects any metadata key to be supplied via the **query string**
+        # (e.g. `...?key=myfield`), so a non‑None `key` coming from the path is impossible
+        # today.  We still keep this guard as a defensive measure in case someone later
+        # extends the routing to allow `/meta/<key>` for DELETE as well.
+        if key is not None:
+            return generate_http_error_flask(405,
+                                             'MethodNotAllowed',
+                                             'DELETE not allowing keys')
+
+        vo = request.environ['vo']
         try:
-            scope, name = parse_scope_name(scope_name, request.environ['vo'])
+            scope, name = parse_scope_name(scope_name, vo)
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
-        if 'key' in request.args:
-            key = request.args['key']
-        else:
+        if 'key' not in request.args:
             return generate_http_error_flask(404, KeyNotFound.__name__, 'No key provided to remove')
 
+        delete_key = request.args['key']
         try:
-            delete_metadata(scope=scope, name=name, key=key, vo=request.environ['vo'])
+            delete_metadata(scope=scope, name=name, key=delete_key, vo=vo)
         except (KeyNotFound, DataIdentifierNotFound) as error:
             return generate_http_error_flask(404, error)
         except NotImplementedError as error:
             return generate_http_error_flask(409, error, 'Feature not in current database')
 
         return '', 200
-
-
-class SingleMeta(ErrorHandlingMethodView):
-    def post(self, scope_name, key):
-        """
-        ---
-        summary: Add metadata
-        description: "Add metadata to a DID."
-        tags:
-          - Data Identifiers
-        parameters:
-        - name: scope_name
-          in: path
-          description: "The scope and the name of the DID."
-          schema:
-            type: string
-          style: simple
-        - name: key
-          in: path
-          description: "The key for the metadata."
-          schema:
-            type: string
-          style: simple
-        requestBody:
-          content:
-            'application/json':
-              schema:
-                type: object
-                required:
-                - value
-                properties:
-                  value:
-                    description: "The value to set."
-                    type: object
-        responses:
-          201:
-            description: "Created"
-            content:
-              application/json:
-                schema:
-                  type: string
-                  enum: ["Created"]
-          401:
-            description: "Invalid Auth Token"
-          404:
-            description: "DID not found"
-          406:
-            description: "Not acceptable"
-          409:
-            description: "Metadata already exists"
-          400:
-            description: "Invalid key or value"
-        """
-        try:
-            scope, name = parse_scope_name(scope_name, request.environ['vo'])
-        except ValueError as error:
-            return generate_http_error_flask(400, error)
-
-        parameters = json_parameters()
-        value = param_get(parameters, 'value')
-
-        try:
-            set_metadata(
-                scope=scope,
-                name=name,
-                key=key,
-                value=value,
-                issuer=request.environ['issuer'],
-                recursive=param_get(parameters, 'recursive', default=False),
-                vo=request.environ['vo'],
-            )
-        except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, error)
-        except Duplicate as error:
-            return generate_http_error_flask(409, error)
-        except (KeyNotFound, InvalidMetadata, InvalidValueForKey) as error:
-            return generate_http_error_flask(400, error)
-
-        return 'Created', 201
 
 
 class BulkDIDsMeta(ErrorHandlingMethodView):
@@ -2298,9 +2350,8 @@ def blueprint():
     attachment_view = Attachment.as_view('attachment')
     bp.add_url_rule('/<path:scope_name>/dids', view_func=attachment_view, methods=['get', 'post', 'delete'])
     meta_view = Meta.as_view('meta')
-    bp.add_url_rule('/<path:scope_name>/meta', view_func=meta_view, methods=['get', 'post', 'delete'])
-    singlemeta_view = SingleMeta.as_view('singlemeta')
-    bp.add_url_rule('/<path:scope_name>/meta/<key>', view_func=singlemeta_view, methods=['post', ])
+    bp.add_url_rule('/<path:scope_name>/meta', defaults={'key': None}, view_func=meta_view, methods=['get', 'post', 'delete'])
+    bp.add_url_rule('/<path:scope_name>/meta/<key>', view_func=meta_view, methods=['post', ])
     bulkdidsmeta_view = BulkDIDsMeta.as_view('bulkdidsmeta')
     bp.add_url_rule('/bulkdidsmeta', view_func=bulkdidsmeta_view, methods=['post', ])
     rules_view = Rules.as_view('rules')
