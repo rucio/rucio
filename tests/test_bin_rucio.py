@@ -869,21 +869,24 @@ class TestBinRucio:
         cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --expiration-date 2021----10-10-20:00:00 {2}'.format(self.def_rse, self.user, tmp_file)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, err)
+        print(out)
+        print(err)
         assert exitcode != 0
         assert "does not match format '%Y-%m-%d-%H:%M:%S'" in err
 
         cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --expiration-date 2021-10-10-20:00:00 {2}'.format(self.def_rse, self.user, tmp_file)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, err)
+        print(out)
+        print(err)
         assert exitcode != 0
         assert "The specified expiration date should be in the future!" in err
 
         cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --expiration-date 2030-10-10-20:00:00 {2}'.format(self.def_rse, self.user, tmp_file)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, err)
+        print(out)
+        print(err)
         assert exitcode == 0
         remove(tmp_file)
         upload_string = (self.upload_success_str % path.basename(tmp_file))
