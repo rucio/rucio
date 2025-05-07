@@ -21,8 +21,10 @@ import datetime
 import functools
 import json
 import logging
+import random
 import re
 import smtplib
+import socket
 import sys
 import threading
 import time
@@ -31,20 +33,27 @@ from email.mime.text import MIMEText
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import requests
+import stomp
 from requests.auth import HTTPBasicAuth
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get, config_get_bool, config_get_list
+from rucio.common.config import (
+    config_get,
+    config_get_bool,
+    config_get_int,
+    config_get_list,
+)
 from rucio.common.exception import DatabaseException
-from rucio.common.logging import formatted_logger, setup_logging
-from rucio.common.stomp_utils import ListenerBase, StompConnectionManager
+from rucio.common.logging import setup_logging
 from rucio.core.message import delete_messages, retrieve_messages
 from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
     from types import FrameType
+
+    from stomp.utils import Frame
 
     from rucio.common.types import LoggerFunction
     from rucio.daemons.common import HeartbeatHandler
@@ -67,13 +76,264 @@ def default(datetype: Union[datetime.date, datetime.datetime]) -> str:
         return datetype.isoformat()
 
 
-class HermesListener(ListenerBase):
+class HermesListener(stomp.ConnectionListener):
     """
     Hermes Listener
     """
 
+    def __init__(self, broker: str):
+        """
+        __init__
+        """
+        self.__broker = broker
 
-def deliver_emails(messages: "Iterable[dict[str, Any]]", logger: "LoggerFunction") -> list[int]:
+    def on_error(self, frame: "Frame") -> None:
+        """
+        Error handler
+        """
+        logging.error("[broker] [%s]: %s", self.__broker, frame.body)
+
+
+def setup_activemq(
+        logger: "LoggerFunction"
+) -> tuple[
+    Optional[list[stomp.Connection12]],
+    Optional[str],
+    Optional[str],
+    Optional[str],
+    Optional[bool]
+]:
+    """
+    Deliver messages to ActiveMQ
+
+    :param logger:             The logger object.
+    """
+
+    logger(logging.INFO, "[broker] Resolving brokers")
+
+    brokers_alias = []
+    brokers_resolved = []
+    try:
+        brokers_alias = config_get_list("messaging-hermes", "brokers")
+    except:
+        raise Exception("Could not load brokers from configuration")
+
+    logger(logging.INFO, "[broker] Resolving broker dns alias: %s", brokers_alias)
+    brokers_resolved = []
+    for broker in brokers_alias:
+        try:
+            addrinfos = socket.getaddrinfo(
+                broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP
+            )
+            brokers_resolved.extend(ai[4][0] for ai in addrinfos)
+        except socket.gaierror as ex:
+            logger(
+                logging.ERROR,
+                "[broker] Cannot resolve domain name %s (%s)",
+                broker,
+                str(ex),
+            )
+
+    logger(logging.DEBUG, "[broker] Brokers resolved to %s", brokers_resolved)
+
+    if not brokers_resolved:
+        logger(logging.FATAL, "[broker] No brokers resolved.")
+        return None, None, None, None, None
+
+    broker_timeout = 3
+    if not broker_timeout:  # Allow zero in config
+        broker_timeout = None
+
+    logger(logging.INFO, "[broker] Checking authentication method")
+    use_ssl = True
+    try:
+        use_ssl = config_get_bool("messaging-hermes", "use_ssl")
+    except:
+        logger(
+            logging.INFO,
+            "[broker] Could not find use_ssl in configuration -- please update your rucio.cfg",
+        )
+
+    port = config_get_int("messaging-hermes", "port")
+    vhost = config_get("messaging-hermes", "broker_virtual_host", raise_exception=False)
+    username = None
+    password = None
+    if not use_ssl:
+        username = config_get("messaging-hermes", "username")
+        password = config_get("messaging-hermes", "password")
+        port = config_get_int("messaging-hermes", "nonssl_port")
+
+    conns = []
+    for broker in brokers_resolved:
+        if not use_ssl:
+            logger(
+                logging.INFO,
+                "[broker] setting up username/password authentication: %s",
+                broker,
+            )
+        else:
+            logger(
+                logging.INFO,
+                "[broker] setting up ssl cert/key authentication: %s",
+                broker,
+            )
+
+        con = stomp.Connection12(
+            host_and_ports=[(broker, port)],
+            vhost=vhost,
+            keepalive=True,
+            timeout=broker_timeout,
+        )
+        if use_ssl:
+            con.set_ssl(
+                key_file=config_get("messaging-hermes", "ssl_key_file"),
+                cert_file=config_get("messaging-hermes", "ssl_cert_file"),
+            )
+
+        con.set_listener(
+            "rucio-hermes", HermesListener(con.transport._Transport__host_and_ports[0])
+        )
+
+        conns.append(con)
+    destination = config_get("messaging-hermes", "destination")
+    return conns, destination, username, password, use_ssl
+
+
+def deliver_to_activemq(
+    messages: "Iterable[dict[str, Any]]",
+    conns: "Sequence[stomp.Connection12]",
+    destination: str,
+    username: str,
+    password: str,
+    use_ssl: bool,
+    logger: "LoggerFunction"
+) -> list[str]:
+    """
+    Deliver messages to ActiveMQ
+
+    :param messages:           The list of messages.
+    :param conns:              A list of connections.
+    :param destination:        The destination topic or queue.
+    :param username:           The username if no SSL connection.
+    :param password:           The username if no SSL connection.
+    :param use_ssl:            Boolean to choose if SSL connection is used.
+    :param logger:             The logger object.
+
+    :returns:                  List of message_id to delete
+    """
+    to_delete = []
+    for message in messages:
+        try:
+            conn = random.sample(conns, 1)[0]
+            if not conn.is_connected():
+                host_and_ports = conn.transport._Transport__host_and_ports[0][0]
+                RECONNECT_COUNTER.labels(host=host_and_ports.split(".")[0]).inc()
+                if not use_ssl:
+                    logger(
+                        logging.INFO,
+                        "[broker] - connecting with USERPASS to %s",
+                        host_and_ports,
+                    )
+                    conn.connect(username, password, wait=True)
+                else:
+                    logger(
+                        logging.INFO,
+                        "[broker] - connecting with SSL to %s",
+                        host_and_ports,
+                    )
+                    conn.connect(wait=True)
+
+            conn.send(
+                body=json.dumps(
+                    {
+                        "event_type": str(message["event_type"]).lower(),
+                        "payload": message["payload"],
+                        "created_at": str(message["created_at"]),
+                    }
+                ),
+                destination=destination,
+                headers={
+                    "persistent": "true",
+                    "event_type": str(message["event_type"]).lower(),
+                },
+            )
+
+            to_delete.append(message["id"])
+        except ValueError:
+            logger(
+                logging.ERROR,
+                "[broker] Cannot serialize payload to JSON: %s",
+                str(message["payload"]),
+            )
+            to_delete.append(message["id"])
+            continue
+        except stomp.exception.NotConnectedException as error:
+            logger(
+                logging.WARNING,
+                "[broker] Could not deliver message due to NotConnectedException: %s",
+                str(error),
+            )
+            continue
+        except stomp.exception.ConnectFailedException as error:
+            logger(
+                logging.WARNING,
+                "[broker] Could not deliver message due to ConnectFailedException: %s",
+                str(error),
+            )
+            continue
+        except Exception as error:
+            logger(logging.ERROR, "[broker] Could not deliver message: %s", str(error))
+            continue
+
+        if str(message["event_type"]).lower().startswith("transfer") or str(
+            message["event_type"]
+        ).lower().startswith("stagein"):
+            logger(
+                logging.DEBUG,
+                "[broker] - event_type: %s, scope: %s, name: %s, rse: %s, request-id: %s, transfer-id: %s, created_at: %s",
+                str(message["event_type"]).lower(),
+                message["payload"].get("scope", None),
+                message["payload"].get("name", None),
+                message["payload"].get("dst-rse", None),
+                message["payload"].get("request-id", None),
+                message["payload"].get("transfer-id", None),
+                str(message["created_at"]),
+            )
+
+        elif str(message["event_type"]).lower().startswith("dataset"):
+            logger(
+                logging.DEBUG,
+                "[broker] - event_type: %s, scope: %s, name: %s, rse: %s, rule-id: %s, created_at: %s)",
+                str(message["event_type"]).lower(),
+                message["payload"].get("scope", None),
+                message["payload"].get("name", None),
+                message["payload"].get("rse", None),
+                message["payload"].get("rule_id", None),
+                str(message["created_at"]),
+            )
+
+        elif str(message["event_type"]).lower().startswith("deletion"):
+            if "url" not in message["payload"]:
+                message["payload"]["url"] = "unknown"
+            logger(
+                logging.DEBUG,
+                "[broker] - event_type: %s, scope: %s, name: %s, rse: %s, url: %s, created_at: %s)",
+                str(message["event_type"]).lower(),
+                message["payload"].get("scope", None),
+                message["payload"].get("name", None),
+                message["payload"].get("rse", None),
+                message["payload"].get("url", None),
+                str(message["created_at"]),
+            )
+        else:
+            logger(logging.DEBUG, "[broker] Other message: %s", message)
+    return to_delete
+
+
+def deliver_emails(
+        messages: "Iterable[dict[str, Any]]",
+        logger: "LoggerFunction"
+) -> list[str]:
     """
     Sends emails
 
@@ -137,10 +397,9 @@ def submit_to_elastic(
 
     for message in messages:
         text += '{ "index":{ } }\n%s\n' % json.dumps(message, default=default)
-    res = requests.post(endpoint,
-                        data=text,
-                        headers={"Content-Type": "application/json"},
-                        auth=auth)
+    res = requests.post(
+        endpoint, data=text, headers={"Content-Type": "application/json"}, auth=auth
+    )
     return res.status_code
 
 
@@ -170,9 +429,11 @@ def aggregate_to_influx(
         payload = message["payload"]
         if event_type in ["transfer-failed", "transfer-done"]:
             if not payload["transferred_at"]:
-                logger(logging.WARNING,
-                       "No transferred_at for message. Reason : %s",
-                       payload["reason"])
+                logger(
+                    logging.WARNING,
+                    "No transferred_at for message. Reason : %s",
+                    payload["reason"],
+                )
                 continue
             transferred_at = time.strptime(
                 payload["transferred_at"], "%Y-%m-%d %H:%M:%S"
@@ -188,7 +449,11 @@ def aggregate_to_influx(
                 payload["activity"],
             )
             activity = re.sub(" ", r"\ ", activity)
-            key = f"transfer,activity={activity!s},src_rse={src_rse!s},dst_rse={dest_rse!s}"
+            key = "transfer,activity=%s,src_rse=%s,dst_rse=%s" % (
+                activity,
+                src_rse,
+                dest_rse,
+            )
             if key not in bins[transferred_at]:
                 bins[transferred_at][key] = [0, 0, 0, 0]
             if event_type == "transfer-done":
@@ -208,7 +473,7 @@ def aggregate_to_influx(
             if created_at not in bins:
                 bins[created_at] = {}
             rse = payload["rse"]
-            key = f"deletion,rse={rse!s}"
+            key = "deletion,rse=%s" % (rse)
             if key not in bins[created_at]:
                 bins[created_at][key] = [0, 0, 0, 0]
             if event_type == "deletion-done":
@@ -217,22 +482,31 @@ def aggregate_to_influx(
             if event_type == "deletion-failed":
                 bins[created_at][key][2] += 1
                 bins[created_at][key][3] += payload["bytes"]
-
     points = ""
-    for timestamp, entries in bins.items():
-        for key, metrics in entries.items():
-            event_type = key.split(",")[0]
-            points += (f"{key!s} "
-                       f"nb_{event_type!s}_done={metrics[0]!s},"
-                       f"bytes_{event_type!s}_done={metrics[1]!s},"
-                       f"nb_{event_type!s}_failed={metrics[2]!s},"
-                       f"bytes_{event_type!s}_failed={metrics[3]!s} "
-                       rf"{timestamp!s}\n")
-
+    for timestamp in bins:
+        for entry in bins[timestamp]:
+            metrics = bins[timestamp][entry]
+            event_type = entry.split(",")[0]
+            point = (
+                "%s nb_%s_done=%s,bytes_%s_done=%s,nb_%s_failed=%s,bytes_%s_failed=%s %s"
+                % (
+                    entry,
+                    event_type,
+                    metrics[0],
+                    event_type,
+                    metrics[1],
+                    event_type,
+                    metrics[2],
+                    event_type,
+                    metrics[3],
+                    timestamp,
+                )
+            )
+            points += point
+            points += "\n"
     influx_token = config_get("hermes", "influxdb_token", False, None)
-    headers = {}
     if influx_token:
-        headers["Authorization"] = f"Token {influx_token!s}"
+        headers = {"Authorization": "Token %s" % influx_token}
     if points:
         res = requests.post(endpoint, headers=headers, data=points)
         logger(logging.DEBUG, "%s", str(res.text))
@@ -358,8 +632,15 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
         except Exception as err:
             logger(logging.ERROR, str(err))
     if "activemq" in services_list:
-        conn_mgr = StompConnectionManager(config_section='messaging-hermes', logger=logger)
-        conn_mgr.set_listener_factory("rucio-hermes", HermesListener, heartbeats=conn_mgr.config.heartbeats)
+        try:
+            conns, destination, username, password, use_ssl = setup_activemq(logger)
+            if not conns:
+                logger(
+                    logging.ERROR,
+                    "ActiveMQ defined in the services list, cannot be setup",
+                )
+        except Exception as err:
+            logger(logging.ERROR, str(err))
 
     worker_number, total_workers, logger = heartbeat_handler.live()
     message_dict = {}
@@ -467,7 +748,15 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
         if "activemq" in message_dict:
             t_time = time.time()
             try:
-                messages_sent = conn_mgr.deliver_messages(messages=message_dict["activemq"])
+                messages_sent = deliver_to_activemq(
+                    messages=message_dict["activemq"],
+                    conns=conns,  # type: ignore (argument could be None)
+                    destination=destination,  # type: ignore (argument could be None)
+                    username=username,  # type: ignore (argument could be None)
+                    password=password,  # type: ignore (argument could be None)
+                    use_ssl=use_ssl,  # type: ignore (argument could be None)
+                    logger=logger,
+                )
                 logger(
                     logging.INFO,
                     "%s messages successfully submitted to ActiveMQ in %s seconds",
@@ -516,18 +805,31 @@ def run(
     Starts up the hermes threads.
     """
     setup_logging(process_name=DAEMON_NAME)
-    logger = formatted_logger(logging.log, DAEMON_NAME + ' %s')
 
     if rucio.db.sqla.util.is_old_db():
         raise DatabaseException("Database was not updated, daemon won't start")
 
-    logger(logging.INFO, "starting hermes threads")
-    thread_list = []
-    for _ in range(threads):
-        her_thread = threading.Thread(target=hermes, kwargs={"once": once, "bulk": bulk, "sleep_time": sleep_time})
-        her_thread.start()
-        thread_list.append(her_thread)
+    logging.info("starting hermes threads")
+    thread_list = [
+        threading.Thread(
+            target=hermes,
+            kwargs={
+                "once": once,
+                "bulk": bulk,
+                "sleep_time": sleep_time,
+            },
+        )
+        for _ in range(0, threads)
+    ]
 
-    logger(logging.DEBUG, thread_list)
-    while [thread.join(timeout=3.14) for thread in thread_list if thread.is_alive()]:
-        pass
+    for thrd in thread_list:
+        thrd.start()
+
+    logging.debug(thread_list)
+    # Interruptible joins require a timeout.
+    while thread_list:
+        thread_list = [
+            thread.join(timeout=3.14)
+            for thread in thread_list
+            if thread and thread.is_alive()
+        ]

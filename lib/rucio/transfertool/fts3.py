@@ -607,7 +607,7 @@ class Fts3TransferStatusReport(TransferStatusReport):
             'src-type': self._file_metadata.get('src_type'),
             'src-rse': self._src_rse,
             'src-url': self._src_url,
-            'dst-type': self._file_metadata.get('src_type'),
+            'dst-type': self._file_metadata.get('dst_type'),
             'dst-rse': self._file_metadata.get('dst_rse'),
             'dst-url': self._dst_url,
             'started_at': self.started_at,

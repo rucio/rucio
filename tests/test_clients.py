@@ -18,7 +18,7 @@ import pytest
 
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotFound, ClientProtocolNotSupported, MissingClientParameter, RucioException
 from rucio.common.utils import execute
-from rucio.tests.common import remove_config
+from rucio.tests.common import remove_config, skip_outside_gh_actions
 from tests.mocks.mock_http_server import MockServer
 
 
@@ -72,6 +72,7 @@ class TestBaseClient:
         assert client.creds['username'] == 'ddmlab'
         assert client.creds['password'] == 'secret'
 
+    @skip_outside_gh_actions
     def test_x509(self, vo):
         """ CLIENTS (BASECLIENT): authenticate with x509."""
         from rucio.client.baseclient import BaseClient

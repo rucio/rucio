@@ -15,11 +15,13 @@
 import itertools
 import json
 import logging
+import os
 import re
 from configparser import NoOptionError, NoSectionError
 from functools import wraps
 from time import time
 from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, Union
+from urllib.parse import unquote_plus
 
 import flask
 from flask.views import MethodView
@@ -45,6 +47,9 @@ if TYPE_CHECKING:
     from rucio.web.rest.flaskapi.v1.types import HeadersType
 
 ResponseTypeVar = TypeVar('ResponseTypeVar', bound=flask.wrappers.Response)
+
+RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE = os.environ.get('RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE',
+                                                       'false').lower() == 'true'
 
 
 class CORSMiddleware:
@@ -211,14 +216,32 @@ def parse_scope_name(scope_name: str, vo: Optional[str]) -> tuple[str, ...]:
     :raises ValueError: when scope_name could not be parsed.
     :returns: a (scope, name) tuple.
     """
+
+    if RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE:
+        if scope_name.count('/') != 1:
+            # scope and name are always separated by a single slash ('/', unencoded) in the request.
+            # If the server is configured with the 'NoDecode' option, other slashes will be encoded.
+            # This is just a sanity check that should never happen.
+            raise ValueError(f"Could not parse '{scope_name}' ({scope_name=}) with encoded '/' into scope and name.")
+
+        scope, name = scope_name.split('/', 1)
+        name = unquote_plus(name)
+
+        return scope, name
+
     if not vo:
         vo = 'def'
 
-    # why again does that regex start with a slash?
-    scope_regex = re.match(get_schema_value('SCOPE_NAME_REGEXP', vo), '/' + scope_name)
+    # The ':' in did is replaced by '/', also an '/' is added. Why?
+    pattern = get_schema_value('SCOPE_NAME_REGEXP', vo)
+    text = '/' + scope_name
+
+    scope_regex = re.match(pattern, text)
     if scope_regex is None:
-        raise ValueError('cannot parse scope and name')
-    return scope_regex.group(1, 2)
+        raise ValueError(f"Could not parse '{text}' ({scope_name=}) with pattern '{pattern}' into scope and name.")
+
+    scope, name = scope_regex.group(1, 2)
+    return scope, name
 
 
 def try_stream(

@@ -530,26 +530,33 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
     @staticmethod
     def extract_scope_default(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
         """
-        Default fallback scope extraction algorithm, based on the ATLAS scope extraction algorithm.
+        Default scope extraction algorithm. Extracts the scope from the DID.
 
         :param did: The DID to extract the scope from.
+        :param scopes: Not used in the default algorithm.
 
-        :returns: A tuple containing the extracted scope and the DID.
+        :returns: A tuple containing the extracted scope and the name.
         """
-        if did.find(':') > -1:
-            if len(did.split(':')) > 2:
-                raise RucioException('Too many colons. Cannot extract scope and name')
-            scope, name = did.split(':')[0], did.split(':')[1]
-            if name.endswith('/'):
-                name = name[:-1]
-            return scope, name
-        else:
+
+        # This block is ATLAS specific, to be removed in the future.
+        # More info at https://github.com/rucio/rucio/pull/7521
+        if did.find(':') == -1:
             scope = did.split('.')[0]
             if did.startswith('user') or did.startswith('group'):
                 scope = ".".join(did.split('.')[0:2])
             if did.endswith('/'):
                 did = did[:-1]
             return scope, did
+
+        parts = did.split(':')
+        if len(parts) != 2:
+            msg = f"Cannot extract scope and name from DID {did}. The DID should have exactly one colon but found {len(parts)} colons."
+            raise RucioException(msg)
+        scope, name = parts
+        if not scope or not name:
+            msg = f"Cannot extract scope and name from DID {did}. Found empty scope or name."
+            raise RucioException(msg)
+        return scope, name
 
     @staticmethod
     def extract_scope_dirac(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
@@ -787,27 +794,24 @@ def get_bytes_value_from_string(input_string: str) -> Union[bool, int]:
     :param input_string: String containing a value and an unit
     :return: Integer value representing the value in bytes
     """
-    result = re.findall('^([0-9]+)([A-Za-z]+)$', input_string)
+    unit_multipliers = {
+        'b': 1,
+        'kb': 10**3,
+        'mb': 10**6,
+        'gb': 10**9,
+        'tb': 10**12,
+        'pb': 10**15,
+    }
+
+    result = re.findall(r'^([0-9]+)([A-Za-z]+)$', input_string)
     if result:
         value = int(result[0][0])
         unit = result[0][1].lower()
-        if unit == 'b':
-            value = value
-        elif unit == 'kb':
-            value = value * 1000
-        elif unit == 'mb':
-            value = value * 1000000
-        elif unit == 'gb':
-            value = value * 1000000000
-        elif unit == 'tb':
-            value = value * 1000000000000
-        elif unit == 'pb':
-            value = value * 1000000000000000
-        else:
+        multiplier = unit_multipliers.get(unit)
+        if multiplier is None:
             return False
-        return value
-    else:
-        return False
+        return value * multiplier
+    return False
 
 
 def parse_did_filter_from_string(input_string: str) -> tuple[dict[str, Any], str]:

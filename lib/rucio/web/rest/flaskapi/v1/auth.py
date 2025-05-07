@@ -22,7 +22,7 @@ from flask import Blueprint, Flask, Response, redirect, render_template, request
 from werkzeug.datastructures import Headers
 
 from rucio.common.config import config_get
-from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, IdentityError, IdentityNotFound
+from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, ConfigurationError, IdentityError, IdentityNotFound, InvalidRequest
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
 from rucio.core.authentication import strip_x509_proxy_attributes
@@ -1324,7 +1324,7 @@ class SAML(ErrorHandlingMethodView):
         headers.set('Pragma', 'no-cache')
 
         if not EXTRA_MODULES['onelogin']:
-            return "SAML not configured on the server side.", 400, headers
+            return generate_http_error_flask(status_code=400, exc=ConfigurationError.__name__, exc_msg="SAML not configured on the server side.", headers=headers)
 
         saml_nameid = request.cookies.get('saml-nameid', default=None)
         vo = extract_vo(request.headers)

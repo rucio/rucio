@@ -306,7 +306,7 @@ def run_with_httpd(
             '--profile', rdbms,
         )
 
-        rucio_container = 'dev_rucio_1'
+        rucio_container = 'dev-rucio-1'
         try:
             # Start docker compose
             run('docker', 'compose', '-p', project, *up_down_args, 'up', '-d')

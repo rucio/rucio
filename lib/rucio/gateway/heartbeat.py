@@ -16,45 +16,40 @@ from typing import TYPE_CHECKING, Optional
 
 from rucio.common import exception
 from rucio.core import heartbeat
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
 
 if TYPE_CHECKING:
     from threading import Thread
 
-    from sqlalchemy.orm import Session
 
-
-@read_session
-def list_heartbeats(issuer: Optional[str] = None, vo: str = 'def', *, session: "Session") -> list["heartbeat.HeartbeatDict"]:
+def list_heartbeats(issuer: str, vo: str = 'def') -> list["heartbeat.HeartbeatDict"]:
     """
     Return a list of tuples of all heartbeats.
 
     :param issuer: The issuer account.
     :param vo: the VO for the issuer.
-    :param session: The database session in use.
     :returns: List of tuples [('Executable', 'Hostname', ...), ...]
     """
 
     kwargs = {'issuer': issuer}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='list_heartbeats', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('%s cannot list heartbeats. %s' % (issuer, auth_result.message))
-    return heartbeat.list_heartbeats(session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='list_heartbeats', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('%s cannot list heartbeats. %s' % (issuer, auth_result.message))
+        return heartbeat.list_heartbeats(session=session)
 
 
-@transactional_session
 def create_heartbeat(
     executable: str,
     hostname: str,
     pid: int,
     older_than: int,
     payload: Optional[str],
+    issuer: str,
     thread: Optional["Thread"] = None,
-    issuer: Optional[str] = None,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> None:
     """
     Creates a heartbeat.
@@ -66,11 +61,12 @@ def create_heartbeat(
     :param thread: Python Thread Object.
     :param older_than: Ignore specified heartbeats older than specified nr of seconds.
     :param payload: Payload identifier which can be further used to identify the work a certain thread is executing.
-    :param session: The database session in use.
 
     """
     kwargs = {'issuer': issuer}
-    auth_result = permission.has_permission(issuer=issuer, vo=vo, action='send_heartbeats', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('%s cannot send heartbeats. %s' % (issuer, auth_result.message))
-    heartbeat.live(executable=executable, hostname=hostname, pid=pid, thread=thread, older_than=older_than, payload=payload, session=session)
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='send_heartbeats', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('%s cannot send heartbeats. %s' % (issuer, auth_result.message))
+        heartbeat.live(executable=executable, hostname=hostname, pid=pid, thread=thread, older_than=older_than, payload=payload, session=session)

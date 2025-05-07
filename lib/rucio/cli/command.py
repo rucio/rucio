@@ -132,7 +132,7 @@ class LazyGroup(click.Group):
 @click.option("-v", "--verbose", default=False, is_flag=True, help="Print more verbose output")
 @click.version_option(version.version_string(), message="%(prog)s %(version)s")
 # Hidden options at the end
-@click.option("--pager", is_flag=True, default=False, hidden=True)
+@click.option("--no-pager", is_flag=True, default=False, hidden=True)
 @exception_handler
 @click.pass_context
 def main(
@@ -146,7 +146,7 @@ def main(
     timeout,
     user_agent,
     vo,
-    pager,
+    no_pager,
     user,
     password,
     oidc_scope,
@@ -159,9 +159,8 @@ def main(
 ):
     ctx.ensure_object(Arguments)
     ctx.obj.start_time = time.time()
+    ctx.obj.verbose = verbose
 
-    ctx.obj.no_pager = not pager
-    pager = get_pager()
     use_rich = get_cli_config() == "rich"
 
     console = Console(theme=Theme(CLITheme.LOG_THEMES), soft_wrap=True)
@@ -171,7 +170,8 @@ def main(
     ctx.obj.use_rich = use_rich
     ctx.obj.spinner = spinner
     ctx.obj.console = console
-    ctx.obj.pager = pager
+    ctx.obj.no_pager = no_pager
+    ctx.obj.pager = get_pager()
 
     if use_rich:
         install(console=console, word_wrap=True, width=min(console.width, MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
@@ -182,7 +182,7 @@ def main(
         {
             "config": config,
             "host": host,
-            "isser": issuer,
+            "issuer": issuer,
             "auth_host": auth_host,
             "auth_strategy": auth_strategy,
             "timeout": timeout,
@@ -234,19 +234,19 @@ def _teardown(ctx):
 @main.command(name="whoami", help="Get information about account whose token is used")
 @click.pass_context
 def exe_whoami(ctx):
-    args = Arguments()
+    args = Arguments({"no_pager": ctx.obj.no_pager})
     whoami_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @main.command(name="ping", help="Ping Rucio server")
 @click.pass_context
 def exe_ping(ctx):
-    args = Arguments()
+    args = Arguments({"no_pager": ctx.obj.no_pager})
     ping(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @main.command(name="test-server", help="Test client against the server")
 @click.pass_context
 def exe_test_server(ctx):
-    args = Arguments()
+    args = Arguments({"no_pager": ctx.obj.no_pager})
     test_server(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

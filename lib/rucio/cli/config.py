@@ -29,7 +29,7 @@ def config():
 @click.pass_context
 def list_(ctx, section, key):
     """List the sections or content of sections in the rucio.cfg"""
-    get_config(Arguments({"section": section, "key": key}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    get_config(Arguments({"no_pager": ctx.obj.no_pager, "section": section, "key": key}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 # TODO Change to only add new fields and cannot modify an existing field
@@ -46,7 +46,7 @@ def add_(ctx, section, key, value):
     Example, Add a key to an existing section:
         $ rucio config add --section my-section --key key --value value
     """
-    args = Arguments({"section": section, "option": key, "value": value})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "section": section, "option": key, "value": value})
     set_config_option(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -56,7 +56,7 @@ def add_(ctx, section, key, value):
 @click.pass_context
 def remove(ctx, section, key):
     """Remove the section.key from the config."""
-    args = Arguments({"section": section, "option": key})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "section": section, "option": key})
     delete_config_option(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
