@@ -546,7 +546,7 @@ def query_token(token: str, *, session: "Session") -> Optional["TokenValidationD
 
 
 @transactional_session
-def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDict":
+def validate_auth_token(token: str, issuer_nickname: Optional[str] = None, *, session: "Session") -> "TokenValidationDict":
     """
     Validate an authentication token.
 
@@ -575,7 +575,7 @@ def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDi
             # identify JWT access token and validate
             # & save it in Rucio if scope and audience are correct
             if len(token.split(".")) == 3:
-                value = validate_jwt(token, session=session)
+                value = validate_jwt(token, issuer_nickname=issuer_nickname, session=session)
             else:
                 raise CannotAuthenticate(traceback.format_exc())
         # save token in the cache
