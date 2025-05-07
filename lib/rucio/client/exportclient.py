@@ -30,12 +30,12 @@ class ExportClient(BaseClient):
         Export RSE data (RSE, settings, attributes and distance).
         Parameters
         ----------
-        distance : bool
+        distance :
             To include the distance. Default is True.
 
         Returns
         -------
-        dict
+
             A dict containing data
         """
         payload = {'distance': distance}

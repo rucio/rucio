@@ -40,18 +40,18 @@ class AccountLimitClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The name of the account.
-        rse : str
+        rse :
             The rse name.
-        bytes_ : int
+        bytes_ :
             The limit in bytes.
-        locality : {'local', 'global'}
+        locality :
             The scope of the account limit.
 
         Returns
         -------
-        bool
+
             True if quota was created successfully, False otherwise.
         """
 
@@ -74,16 +74,16 @@ class AccountLimitClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The name of the account.
-        rse : str
+        rse :
             The rse name.
-        locality : {'local', 'global'}
+        locality :
             The scope of the account limit.
 
         Returns
         -------
-        bool
+
             True if quota was deleted successfully, False otherwise.
         """
 
@@ -106,16 +106,16 @@ class AccountLimitClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The name of the account.
-        rse : str
+        rse :
             The rse name.
-        bytes_ : int
+        bytes_ :
             The limit in bytes.
 
         Returns
         -------
-        bool
+
             True if quota was created successfully, False otherwise.
         """
 
@@ -141,14 +141,14 @@ class AccountLimitClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The name of the account.
-        rse : str
+        rse :
             The rse name.
 
         Returns
         -------
-        bool
+
             True if quota was removed successfully, False otherwise.
 
         Raises
@@ -179,16 +179,16 @@ class AccountLimitClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The name of the account.
-        rse_expression : str
+        rse_expression :
             The rse expression.
-        bytes_ : int
+        bytes_ :
             The limit in bytes.
 
         Returns
         -------
-        bool
+
             True if quota was created successfully, False otherwise.
         """
 
@@ -214,14 +214,14 @@ class AccountLimitClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The name of the account.
-        rse_expression : str
+        rse_expression :
             The rse expression.
 
         Returns
         -------
-        bool
+
             True if quota was removed successfully, False otherwise.
 
         Raises
