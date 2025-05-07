@@ -47,9 +47,9 @@ class LifetimeClient(BaseClient):
 
         Parameters
         ----------
-        exception_id : str, optional
+        exception_id :
             The unique identifier of a specific exception. If provided, returns only that exception.
-        states : list[LifetimeExceptionsState], optional
+        states :
             Filter exceptions by their states. Possible values are:
             * `A` (APPROVED): Exception was approved
             * `R` (REJECTED): Exception was rejected
@@ -57,7 +57,7 @@ class LifetimeClient(BaseClient):
 
         Returns
         -------
-        Iterator[dict[str, Any]]
+
             An iterator of dictionaries containing the exception details:
             * `id`: The unique identifier of the exception
             * `scope`: The scope of the data identifier
@@ -106,23 +106,23 @@ class LifetimeClient(BaseClient):
 
         Parameters
         ----------
-        dids : list[dict[str, Any]]
+        dids :
             List of dictionaries containing the data identifiers to be excepted.
             Each dictionary must contain:
             * **scope** : The scope of the data identifier
             * **name** : The name of the data identifier
-        account : str
+        account :
             The account requesting the exception
-        pattern : str
+        pattern :
             Associated pattern for the exception request
-        comments : str
+        comments :
             Justification for why the exception is needed (e.g. "Needed for my XYZ analysis..")
-        expires_at : datetime
+        expires_at :
             When the exception should expire (datetime object)
 
         Returns
         -------
-        dict[str, Any]
+
             A dictionary containing:
             * **exceptions** : Dictionary mapping exception IDs to lists of DIDs that were successfully added
             * **unknown** : List of DIDs that could not be found

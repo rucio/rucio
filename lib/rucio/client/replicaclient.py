@@ -35,11 +35,11 @@ class ReplicaClient(BaseClient):
 
         Parameters
         ----------
-        replicas : list
+        replicas :
             List of replica infos: {'scope': <scope> (optional), 'name': <name> (optional), 'path':<path> (required)}.
-        rse : str, optional
+        rse :
             RSE name.
-        rse_id : str, optional
+        rse_id :
             RSE id. Either RSE name or RSE id must be specified, but not both.
         """
 
@@ -61,16 +61,16 @@ class ReplicaClient(BaseClient):
 
         Parameters
         ----------
-        replicas : list
+        replicas :
             Either a list of PFNs (string) or a list of dicts {'scope': <scope>, 'name': <name>, 'rse_id': <rse_id> or 'rse': <rse_name>}
-        reason : str
+        reason :
             The reason of the loss.
-        force : bool, optional
+        force :
             Tell the server to ignore existing replica status in the bad_replicas table. Default: False
 
         Returns
         -------
-        dict
+
             Dictionary of the form {"rse_name": ["did: error",...]} - list of strings for DIDs failed to declare, by RSE
         """
 
@@ -95,11 +95,11 @@ class ReplicaClient(BaseClient):
 
         Parameters
         ----------
-        rse : str
+        rse :
             The RSE where the bad replicas reside.
-        dids : list
+        dids :
             The DIDs of the bad replicas.
-        reason : str
+        reason :
             The reason of the loss.
         """
         data = {'reason': reason, 'rse': rse, 'dids': dids}
@@ -117,9 +117,9 @@ class ReplicaClient(BaseClient):
 
         Parameters
         ----------
-        pfns: list
+        pfns:
             The list of PFNs.
-        reason: str
+        reason:
             The reason of the loss.
 
         """
@@ -138,9 +138,9 @@ class ReplicaClient(BaseClient):
 
         Parameters
         ----------
-        pfns : list
+        pfns :
             The list of PFNs.
-        rse : str
+        rse :
             The RSE name.
         """
         data = {'rse': rse, 'pfns': pfns}
@@ -163,41 +163,41 @@ class ReplicaClient(BaseClient):
 
         Parameters
         ----------
-        dids: list
+        dids:
             The list of data identifiers (DIDs) like :
             [{'scope': <scope1>, 'name': <name1>}, {'scope': <scope2>, 'name': <name2>}, ...]
-        schemes: list
+        schemes:
             A list of schemes to filter the replicas. (e.g. file, http, ...)
-        ignore_availability: bool
+        ignore_availability:
             Also include replicas from blocked RSEs into the list
-        all_states: bool
+        all_states:
             Include all states of the replicas. Default: False
-        metalink: bool
+        metalink:
             ``False`` (default) retrieves as JSON,
             ``True`` retrieves as metalink4+xml.
-        rse_expression: str
+        rse_expression:
             The RSE expression to restrict replicas on a set of RSEs.
-        client_location: dict
+        client_location:
             Client location dictionary for PFN modification {'ip', 'fqdn', 'site', 'latitude', 'longitude'}
-        sort: str
+        sort:
             Sort the replicas: ``geoip`` - based on src/dst IP topographical distance
-        domain: str
+        domain:
             Define the domain. None is fallback to 'wan', otherwise 'wan, 'lan', or 'all'
-        signature_lifetime: int
+        signature_lifetime:
             If supported, in seconds, restrict the lifetime of the signed PFN.
-        nrandom: int
+        nrandom:
             pick N random replicas. If the initial number of replicas is smaller than N, returns all replicas.
-        resolve_archives: bool
+        resolve_archives:
             When set to True, find archives which contain the replicas.
-        resolve_parents: bool
+        resolve_parents:
             When set to True, find all parent datasets which contain the replicas.
-        updated_after: datetime
+        updated_after:
             epoch timestamp or datetime object (UTC time), only return replicas updated after this time
 
 
         Returns
         -------
-        list
+
             A list of dictionaries with replica information.
         """
         data = {'dids': dids,
@@ -300,26 +300,26 @@ class ReplicaClient(BaseClient):
 
         Parameters
         ----------
-        rse : str
+        rse :
             The RSE name.
-        scope : str
+        scope :
             The scope of the file.
-        name : str
+        name :
             The name of the file.
-        bytes_ : int
+        bytes_ :
             The size in bytes.
-        adler32 : str
+        adler32 :
             adler32 checksum.
-        pfn : str, optional
+        pfn :
             PFN of the file for non deterministic RSE.
-        md5 : str, optional
+        md5 :
             md5 checksum.
-        meta : dict, optional
+        meta :
             Metadata attributes.
 
         Returns
         -------
-        bool
+
             True if files were created successfully.
         """
         meta = meta or {}
@@ -387,11 +387,11 @@ class ReplicaClient(BaseClient):
 
         Bulk update the file replicas states from a RSE.
 
-                Parameters
+        Parameters
         ----------
-        rse : str
+        rse :
             The RSE name.
-        files : list
+        files :
             The list of files. This is a list of DIDs like :
             [{'scope': <scope1>, 'name': <name1>, 'state': <state1>}, {'scope': <scope2>, 'name': <name2>, 'state': <state2>}, ...],
             Where a state value can be any of:

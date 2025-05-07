@@ -40,9 +40,9 @@ class LockClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope of the did of the locks to list.
-        name : str
+        name :
             The name of the did of the locks to list.
 
         """
@@ -69,14 +69,14 @@ class LockClient(BaseClient):
 
         Parameters
         ----------
-        dids : list
+        dids :
             list of dictionaries {"scope":..., "name":..., "type":...}
             type can be either "dataset" or "container"
             type is optional, but if specified, improves the query performance
 
         Returns
         -------
-        list
+
             list of dictionaries with lock info
         """
 

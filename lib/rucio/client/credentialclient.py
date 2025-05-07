@@ -36,20 +36,20 @@ class CredentialClient(BaseClient):
 
         Parameters
         ----------
-        rse : str
+        rse :
             The name of the RSE the URL points to.
-        service : str
+        service :
             The service the URL points to (gcs, s3, swift)
-        operation : str
+        operation :
             The desired operation (read, write, delete)
-        url : str
+        url :
             The URL to sign
-        lifetime : int, optional
+        lifetime :
             The desired lifetime of the URL in seconds, by default 3600
 
         Returns
         -------
-        str
+
             The signed URL string
         """
         path = '/'.join([self.CREDENTIAL_BASEURL, 'signurl'])

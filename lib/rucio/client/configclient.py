@@ -37,9 +37,9 @@ class ConfigClient(BaseClient):
 
         Parameters
         ----------
-        section : str, optional
+        section :
             The name of the section.
-        option : str, optional
+        option :
             The option within the section.
         """
 
@@ -73,13 +73,13 @@ class ConfigClient(BaseClient):
 
         Parameters
         ----------
-        section : str
+        section :
             The name of the section.
-        option : str
+        option :
             The name of the option.
-        value : Any
+        value :
             The value to set on the config option.
-        use_body_for_params : bool, default=True
+        use_body_for_params :
             Send parameters in a json-encoded request body instead of url-encoded.
 
         Returns
@@ -126,14 +126,14 @@ class ConfigClient(BaseClient):
 
         Parameters
         ----------
-        section : str
+        section :
             The name of the section.
-        option : str
+        option :
             The name of the option.
 
         Returns
         -------
-        bool
+
             True if option was removed successfully.
         """
 

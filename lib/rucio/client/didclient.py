@@ -47,18 +47,18 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-            scope : str
+            scope :
                 The scope name.
-            filters : list[dict[str, Any]]
+            filters :
                 A nested dictionary of key/value pairs like [{'key1': 'value1', 'key2.lte': 'value2'}, {'key3.gte, 'value3'}].
                 Keypairs in the same dictionary are AND'ed together, dictionaries are OR'ed together. Keys should be suffixed
                 like <key>.<operation>, e.g. key1 >= value1 is equivalent to {'key1.gte': value}, where <operation> belongs to one
                 of the set {'lte', 'gte', 'gt', 'lt', 'ne' or ''}. Equivalence doesn't require an operator.
-            did_type : str
+            did_type :
                 The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
-            long : bool
+            long :
                 Long format option to display more information for each DID.
-            recursive : bool
+            recursive :
                 Recursively list DIDs content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search'])
@@ -112,24 +112,24 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
-        did_type : Literal['DATASET', 'CONTAINER']
+        did_type :
             The data identifier type (dataset|container).
-        statuses : Mapping[str, Any], optional
+        statuses :
             Dictionary with statuses, e.g. {'monotonic':True}.
-        meta : Mapping[str, Any], optional
+        meta :
             Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
-        rules : Sequence[Mapping[str, Any]], optional
+        rules :
             Replication rules associated with the data identifier. A list of dictionaries,
             e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
-        lifetime : int, optional
+        lifetime :
             DID's lifetime (in seconds).
-        dids : Sequence[Mapping[str, Any]], optional
+        dids :
             The content.
-        rse : str, optional
+        rse :
             The RSE name when registering replicas.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name)])
@@ -184,22 +184,22 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
-        statuses : Mapping[str, Any], optional
+        statuses :
             Dictionary with statuses, e.g. {'monotonic':True}.
-        meta : Mapping[str, Any], optional
+        meta :
             Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
-        rules : Sequence[Mapping[str, Any]], optional
+        rules :
             Replication rules associated with the data identifier. A list of dictionaries,
             e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
-        lifetime : int, optional
+        lifetime :
             DID's lifetime (in seconds).
-        files : Sequence[Mapping[str, Any]], optional
+        files :
             The content.
-        rse : str, optional
+        rse :
             The RSE name when registering replicas.
         """
         return self.add_did(scope=scope, name=name, did_type='DATASET',
@@ -212,7 +212,7 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        dids : Sequence[Mapping[str, Any]]
+        dids :
             A list of datasets.
         """
         return self.add_dids(dids=[dict(list(dsn.items()) + [('type', 'DATASET')]) for dsn in dsns])
@@ -229,12 +229,21 @@ class DIDClient(BaseClient):
         """
         Add data identifier for a container.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
-        :param meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
-        :param rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
-        :param lifetime: DID's lifetime (in seconds).
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        statuses :
+            Dictionary with statuses, e.g. {'monotonic':True}.
+        meta :
+            Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
+        rules :
+            Replication rules associated with the data identifier. A list of dictionaries,
+            e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+        lifetime :
+            DID's lifetime (in seconds).
         """
         return self.add_did(scope=scope, name=name, did_type='CONTAINER', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
 
@@ -244,7 +253,7 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        cnts : Sequence[Mapping[str, Any]]
+        cnts :
             A list of containers.
         """
         return self.add_dids(dids=[dict(list(cnt.items()) + [('type', 'CONTAINER')]) for cnt in cnts])
@@ -261,13 +270,13 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
-        dids : Sequence[Mapping[str, Any]]
+        dids :
             The content.
-        rse : str, optional
+        rse :
             The RSE name when registering replicas.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids'])
@@ -293,11 +302,11 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
-        dids : Sequence[Mapping[str, Any]], optional
+        dids :
             The content.
         """
 
@@ -320,11 +329,11 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        attachments : Sequence[dict[str, Union[str, Sequence[dict[str, Any]]]]]
+        attachments :
             The attachments.
             An attachment contains: "scope", "name", "dids".
             dids is: [{'scope': scope, 'name': name}, ...]
-        ignore_duplicate : bool, optional
+        ignore_duplicate :
             If True, ignore duplicate entries.
         """
         path = '/'.join([self.DIDS_BASEURL, 'attachments'])
@@ -347,11 +356,11 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        attachments : Sequence[dict[str, Union[str, Sequence[dict[str, Any]]]]]
+        attachments :
             The attachments.
             An attachment contains: "scope", "name", "dids".
             dids is: [{'scope': scope, 'name': name}, ...]
-        ignore_duplicate : bool, optional
+        ignore_duplicate :
             If True, ignore duplicate entries.
         """
         return self.attach_dids_to_dids(attachments=attachments,
@@ -366,7 +375,7 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        attachments : Sequence[dict[str, Union[str, Sequence[dict[str, Any]]]]]
+        attachments :
             The attachments.
             An attachment contains: "scope", "name", "dids".
             dids is: [{'scope': scope, 'name': name}, ...]
@@ -382,7 +391,7 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        attachments : Sequence[dict[str, Union[str, Sequence[dict[str, Any]]]]]
+        attachments :
             The attachments.
             An attachment contains: "scope", "name", "dids".
             dids is: [{'scope': scope, 'name': name}, ...]
@@ -401,13 +410,13 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The dataset name.
-        files : Sequence[Mapping[str, Any]]
+        files :
             The content.
-        rse : str, optional
+        rse :
             The RSE name when registering replicas.
         """
         return self.attach_dids(scope=scope, name=name, dids=files, rse=rse)
@@ -423,11 +432,11 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The dataset name.
-        files : Sequence[Mapping[str, Any]]
+        files :
             The content.
         """
         return self.attach_dids(scope=scope, name=name, dids=files)
@@ -443,11 +452,11 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The dataset name.
-        dsns : Sequence[Mapping[str, Any]]
+        dsns :
             The content.
         """
         return self.attach_dids(scope=scope, name=name, dids=dsns)
@@ -463,11 +472,11 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The dataset name.
-        cnts : Sequence[Mapping[str, Any]]
+        cnts :
             The content.
         """
         return self.attach_dids(scope=scope, name=name, dids=cnts)
@@ -482,9 +491,9 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
         """
 
@@ -504,8 +513,13 @@ class DIDClient(BaseClient):
         """
         List data identifier contents history.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids', 'history'])
@@ -527,11 +541,11 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
-        long : bool, optional
+        long :
             A boolean to choose if GUID is returned or not.
         """
 
@@ -554,7 +568,7 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        dids : list[dict[str, Any]]
+        dids :
             The list of DIDs.
         """
 
@@ -581,14 +595,14 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
-        dynamic_depth : str, optional
+        dynamic_depth :
             The DID type ('FILE'/'DATASET') at which to stop the dynamic
             length/bytes calculation. If not set, the size will not be computed dynamically.
-        dynamic : bool, optional
+        dynamic :
             Deprecated. Same as setting dynamic_depth='FILE'.
         """
 
@@ -617,11 +631,11 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
-        plugin : str, default='DID_COLUMN'
+        plugin :
             Backend Metadata plugin the Rucio server should use to query data.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
@@ -644,9 +658,14 @@ class DIDClient(BaseClient):
     ) -> "Iterator[dict[str, Any]]":
         """
         Bulk get data identifier metadata
-        :param dids:               A list of dids.
-        :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
-        :param plugin:             The metadata plugin to query, 'ALL' for all available plugins
+        Parameters
+        ----------
+        dids :
+            A list of dids.
+        inherit :
+            A boolean. If set to true, the metadata of the parent are concatenated.
+        plugin :
+            The metadata plugin to query, 'ALL' for all available plugins
         """
         data = {'dids': dids, 'inherit': inherit, 'plugin': plugin}
         path = '/'.join([self.DIDS_BASEURL, 'bulkmeta'])
@@ -670,15 +689,15 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
-        key : str
+        key :
             The metadata key.
-        value : Any
+        value :
             The metadata value.
-        recursive : bool, default=False
+        recursive :
             Option to propagate the metadata change to content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta', key])
@@ -703,13 +722,13 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
-        meta : Mapping[str, Any]
+        meta :
             The metadata key-value pairs.
-        recursive : bool, default=False
+        recursive :
             Option to propagate the metadata change to content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
@@ -732,10 +751,10 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        dids : Sequence[Mapping[str, Any]]
+        dids :
             A list of dids including metadata, i.e.
             [{'scope': scope1, 'name': name1, 'meta': {key1: value1, key2: value2}}, ...].
-        recursive : bool, default=False
+        recursive :
             Option to propagate the metadata update to content.
         """
         path = '/'.join([self.DIDS_BASEURL, 'bulkdidsmeta'])
@@ -759,9 +778,9 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
         **kwargs
             Keyword arguments of the form status_name=value.
@@ -786,9 +805,9 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The dataset/container name.
         """
         return self.set_status(scope=scope, name=name, open=False)
@@ -804,11 +823,11 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
-        key : str
+        key :
             The metadata key to be deleted.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
@@ -829,8 +848,12 @@ class DIDClient(BaseClient):
         """
         List the associated rules of a data identifier.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'rules'])
@@ -852,9 +875,9 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
         """
 
@@ -873,12 +896,12 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        guid : str
+        guid :
             The GUID.
 
         Returns
         -------
-        Iterator[dict[str, Any]]
+
             A did
         """
 
@@ -902,11 +925,11 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
-        recursive : bool
+        recursive :
             ''
         """
 
@@ -935,9 +958,9 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope.
-        name : str
+        name :
             The name,
         """
 
@@ -964,15 +987,15 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        input_scope : str
+        input_scope :
             The scope of the input DID.
-        input_name : str
+        input_name :
             The name of the input DID.
-        output_scope : str
+        output_scope :
             The scope of the output dataset.
-        output_name : str
+        output_name :
             The name of the output dataset.
-        nbfiles : int
+        nbfiles :
             The number of files to register in the output dataset.
         """
         path = '/'.join([self.DIDS_BASEURL, 'sample'])
@@ -997,7 +1020,7 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        dids: Sequence[Mapping[str, Any]]
+        dids :
             A list of dids [{'scope': scope, 'name': name}, ...]
         """
         path = '/'.join([self.DIDS_BASEURL, 'resurrect'])
@@ -1018,9 +1041,9 @@ class DIDClient(BaseClient):
         List archive contents.
         Parameters
         ----------
-        scope : str
+        scope :
             The scope name.
-        name : str
+        name :
             The data identifier name.
         """
         path = '/'.join([self.ARCHIVES_BASEURL, quote_plus(scope), quote_plus(name), 'files'])

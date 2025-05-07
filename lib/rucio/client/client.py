@@ -106,23 +106,23 @@ class Client(AccountClient,
 
         Parameters
         ----------
-        rucio_host : str
+        rucio_host :
             The host of the rucio system.
-        auth_host : str
+        auth_host :
             The host of the rucio authentication server.
-        account : str
+        account :
             The rucio account that should be used to interact with the rucio system.
-        ca_cert : str
+        ca_cert :
             The certificate to verify the server.
-        auth_type : str
+        auth_type :
             The type of authentication to use (e.g. userpass, x509 ...).
-        creds : dict
+        creds :
             Credentials needed for authentication.
-        timeout : float
+        timeout :
             Describes the timeout of the request (in seconds).
-        vo : str
+        vo :
             The vo that the client will interact with.
-        logger : logging.Logger, optional
+        logger :
             Logger instance to use.
         """
         super(Client, self).__init__(**args)
