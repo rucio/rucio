@@ -61,7 +61,7 @@ from rucio.gateway.subscription import add_subscription, list_subscriptions
 from rucio.tests.common import account_name_generator, auth, execute, hdrdict, headers, loginhdr, vohdr
 
 from .test_authentication import PRIVATE_KEY, PUBLIC_KEY
-from .test_oidc import encode_jwt_id_token_with_argument_iss, encode_jwt_with_argument_iss, generate_rsa_keypair, get_discovery_metadata, get_jwks_content, get_oauth_session_row, get_token_row, idp_secrets_mock, mock_idpsecrets_multi_vo
+from .test_oidc import encode_jwt_id_token_with_argument_iss, encode_jwt_with_argument_iss, generate_rsa_keypair, get_discovery_metadata, get_jwks_content, get_oauth_session_row, get_token_row, idp_secrets_mock, mock_idpsecrets_multi_vo  # noqa: F401
 
 LOG = getLogger(__name__)
 
@@ -249,7 +249,7 @@ class TestVORestAPI:
         id_token = encode_jwt_id_token_with_argument_iss(f"{sub}", "mock-client-id" ,auth_url_params["nonce"][0], "https://mock-oidc-provider")
         access_token = encode_jwt_with_argument_iss(f"{sub}", "rucio", "openid profile", "https://mock-oidc-provider")
         headers_dict['X-Rucio-Client-Fetch-Token'] = 'True'
-        with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
+        with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content):
             # Step 4: Submit authorization code (Mock /auth/oidc_code)
             # Mocking requests.post response
             mock_response = Mock()

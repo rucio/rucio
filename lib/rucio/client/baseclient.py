@@ -629,7 +629,7 @@ class BaseClient:
                     break
                 else:
                     print("The Rucio Auth Server did not respond as expected. Please, "
-                            + "try again and make sure you typed the correct code.")  # NOQA: W503
+                            + "try again and make sure you typed the correct code.")
                     count += 1
 
         if not result:

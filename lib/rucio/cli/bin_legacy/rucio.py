@@ -2125,15 +2125,15 @@ def get_parser():
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
     # Options for defining remaining OIDC parameters
     oparser.add_argument('--oidc-scope', dest='oidc_scope', default='openid profile', help='Defines additional (OIDC scopes) information user will share with Rucio. '
-                         + 'To request refresh token for Rucio, scope must include "offline_access" and '  # NOQA: W503
-                         + 'there must be no active access token saved on the side of the currently used Rucio Client.')  # NOQA: W503
+                         + 'To request refresh token for Rucio, scope must include "offline_access" and '
+                         + 'there must be no active access token saved on the side of the currently used Rucio Client.')
     oparser.add_argument('--oidc-polling', dest='oidc_polling', default=False, action='store_true', help='If not specified, user will be asked to enter a code returned by the browser to the command line. '
-                         + 'If --polling is set, Rucio Client should get the token without any further interaction of the user.')  # NOQA: W503
+                         + 'If --polling is set, Rucio Client should get the token without any further interaction of the user.')
     oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed. '
-                         + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')  # NOQA: W503
+                         + 'If not specified, refresh will be stopped after 4 days. This option is effective only if --oidc-scope includes offline_access scope for a refresh token to be granted to Rucio.')
     oparser.add_argument('--oidc-issuer', dest='oidc_issuer', default=None,
                          help='Defines which Identity Provider is going to be used. The issuer string must correspond '
-                         + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')  # NOQA: W503
+                         + 'to the keys configured in the /etc/idpsecrets.json auth server configuration file.')
 
     # Options for the x509  auth_strategy
     oparser.add_argument('--certificate', dest='certificate', default=None, help='Client certificate file for x509 Authentication.')

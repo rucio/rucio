@@ -14,15 +14,13 @@
 
 import json
 import logging
-import time
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
 from flask import Blueprint, Flask, Response, redirect, render_template, request
 from werkzeug.datastructures import Headers
 
 from rucio.common.config import config_get
-from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, ConfigurationError, IdentityError, IdentityNotFound, InvalidRequest
+from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, ConfigurationError, IdentityError, IdentityNotFound
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
 from rucio.core.authentication import strip_x509_proxy_attributes

@@ -318,7 +318,7 @@ def test_validate_token_invalid_nonce(encode_jwt_id_token_with_argument, get_jwk
     sub = str(account_name_generator())
     nonce = "known"
     token = encode_jwt_id_token_with_argument(sub,  nonce)
-    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
+    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content):
         with pytest.raises(CannotAuthenticate, match="Invalid nonce in ID token."):
             validate_token(
                 token=token,
@@ -357,7 +357,7 @@ def test_validate_token_extra_invalid_acess_token_scope(encode_jwt_with_argument
     aud = "rucio"
     scope = 'random'
     token = encode_jwt_with_argument(sub, aud, scope)
-    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
+    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content):
         with pytest.raises(CannotAuthenticate):
             validate_token(
                 token=token,
@@ -485,7 +485,7 @@ def test_get_token_oidc_success(mock_post, mock_get_discovery_metadata, idp_secr
     mock_response.json.return_value = {"access_token": access_token, "id_token": id_token, "expires_in": 3600, "scope": "test"}
     mock_post.return_value = mock_response
     auth_query_string = f"code=test_code&state={state}"
-    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
+    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content):
         result = get_token_oidc(auth_query_string, session=db_session)
         assert 'fetchcode' in result
         db_token = get_token_row(access_token, account=account, session=db_session)
@@ -499,7 +499,7 @@ def test_get_token_oidc_success(mock_post, mock_get_discovery_metadata, idp_secr
 
     # wrong state validation
     auth_query_string = f"code=test_code&state=wrongstate"
-    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
+    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content):
         with pytest.raises(CannotAuthenticate):
             get_token_oidc(auth_query_string, session=db_session)
 
@@ -531,7 +531,7 @@ def test_get_token_oidc_wrong_code(mock_post, mock_get_discovery_metadata, idp_s
     mock_post.return_value = mock_response
     auth_query_string = f"code=wrongcode&state={state}"
 
-    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
+    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content):
         with pytest.raises(CannotAuthorize, match="Failed to exchange code for token"):
             get_token_oidc(auth_query_string, session=db_session)
 
@@ -565,7 +565,7 @@ def test_get_token_oidc_polling_success(mock_post, mock_get_discovery_metadata, 
     mock_response.json.return_value = {"access_token": access_token, "id_token": id_token, "expires_in": 3600, "scope": "test"}
     mock_post.return_value = mock_response
     auth_query_string = f"code=test_code&state={state}"
-    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
+    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content):
         result = get_token_oidc(auth_query_string, session=db_session)
         assert 'polling' in result
         assert result['polling']
@@ -600,7 +600,7 @@ def test_get_token_oidc_with_refresh_token(mock_post, mock_get_discovery_metadat
     mock_post.return_value = mock_response
     auth_query_string = f"code=test_code&state={state}"
     print(auth_query_string)
-    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
+    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content):
         get_token_oidc(auth_query_string, session=db_session)
         db_token = get_token_row(access_token, account=account, session=db_session)
         assert db_token
@@ -621,14 +621,14 @@ def test_validate_jwt_sucess(mock_perform_token_introspection, mock_get_discover
         "aud": "rucio"
     }
     mock_token = encode_jwt_with_argument(sub, 'rucio', 'openid profile test')
-    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
+    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content):
         validate_jwt(mock_token, session=db_session)
         db_token = get_token_row(mock_token, account=account, session=db_session)
         assert db_token.token == mock_token
 
     # test with random audience
     mock_token = encode_jwt_with_argument(sub, 'random', 'openid profile test')
-    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
+    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content):
         with pytest.raises(CannotAuthenticate):
             validate_jwt(mock_token, session=db_session)
             db_token = get_token_row(mock_token, account=account, session=db_session)
@@ -643,7 +643,7 @@ def test_validate_jwt_sucess(mock_perform_token_introspection, mock_get_discover
     }
     # test with external token with missing required scope
     mock_token = encode_jwt_with_argument(sub, 'rucio', 'random')
-    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
+    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content):
         with pytest.raises(CannotAuthenticate):
             validate_jwt(mock_token, session=db_session)
             db_token = get_token_row(mock_token, account=account, session=db_session)
@@ -651,7 +651,7 @@ def test_validate_jwt_sucess(mock_perform_token_introspection, mock_get_discover
 
     # non existent account i.e. with random sub and corresponding account.
     mock_token = encode_jwt_with_argument('random','rucio', 'openid profile test')
-    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content) as mock_get_jwks_content:
+    with patch('rucio.core.oidc.get_jwks_content', return_value=get_jwks_content):
         with pytest.raises(IdentityError):
             validate_jwt(mock_token, session=db_session)
     db_token = get_token_row(mock_token, account=account, session=db_session)

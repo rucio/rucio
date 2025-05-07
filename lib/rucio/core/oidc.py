@@ -911,7 +911,7 @@ def __refresh_token_oidc(
         METRICS.counter(name='IdP_authorization.access_token.saved').inc()
         METRICS.counter(name='IdP_authorization.refresh_token.saved').inc()
     else:
-        raise CannotAuthorize(f"OIDC identity {token_object.identity} of the {token_object.account} account is did not succeed requesting a new access and refresh tokens.")  # NOQA: W503
+        raise CannotAuthorize(f"OIDC identity {token_object.identity} of the {token_object.account} account is did not succeed requesting a new access and refresh tokens.")
     return new_token
 
 
