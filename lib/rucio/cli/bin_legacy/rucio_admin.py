@@ -755,12 +755,12 @@ def delete_distance_rses(args, client, logger, console, spinner):
         if cli_config == 'rich':
             distance_tree = Tree(f"The following {len(distances_to_delete)} distances will be deleted:")
             for src, dst in sorted(distances_to_delete):
-                distance_tree.add(f"{src} → {dst}")
+                distance_tree.add(f"{src} -> {dst}")
             console.print(distance_tree)
         else:
             print(f"The following {len(distances_to_delete)} distances will be deleted:")
             for src, dst in sorted(distances_to_delete):
-                print(f"  {src} → {dst}")
+                print(f"  {src} -> {dst}")
         
         # Confirm deletion
         if not args.yes:
