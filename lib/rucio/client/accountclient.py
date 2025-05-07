@@ -33,18 +33,20 @@ class AccountClient(BaseClient):
 
     def add_account(self, account: str, type_: str, email: str) -> bool:
         """
+        Sends the request to create a new account.
+
         Parameters
         ----------
-        account : str
+        account :
             The name of the account.
-        type_ : str
+        type_ :
             The account type.
-        email : str
+        email :
             The Email address associated with the account.
 
         Returns
         -------
-        bool
+
             True if account was created successfully else False.
 
         Raises
@@ -69,12 +71,12 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The name of the account.
 
         Returns
         -------
-        bool
+
             True if account was disabled successfully. False otherwise.
 
         Raises
@@ -99,12 +101,12 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The name of the account.
 
         Returns
         -------
-        dict or None
+
             A dictionary of attributes for the account. None if failure.
 
         Raises
@@ -129,16 +131,16 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             Name of the account.
-        key : str
+        key :
             Account property like status.
-        value : Any
+        value :
             Property value.
 
         Returns
         -------
-        bool
+
             True if successful.
 
         Raises
@@ -169,16 +171,16 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account_type : str, optional
+        account_type :
             The account type.
-        identity : str, optional
+        identity :
             The identity key name. For example x509 DN, or a username.
-        filters : dict, optional
+        filters :
             A dictionary key:account attribute to use for the filtering.
 
         Returns
         -------
-        Iterator[dict]
+
             An iterator of dictionaries containing account information.
 
         Raises
@@ -212,7 +214,7 @@ class AccountClient(BaseClient):
 
         Returns
         -------
-        dict or None
+
             A dictionary of attributes for the account. None if failure.
 
         Raises
@@ -236,22 +238,22 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
-        identity : str
+        identity :
             The identity key name. For example x509 DN, or a username.
-        authtype : str
+        authtype :
             The type of the authentication (x509, gss, userpass).
-        email : str
+        email :
             The Email address associated with the identity.
-        default : bool, optional
+        default :
             If True, the account should be used by default with the provided identity.
-        password : str, optional
+        password :
             Password if authtype is userpass.
 
         Returns
         -------
-        bool
+
             True if successful.
 
         """
@@ -280,16 +282,16 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
-        identity : str
+        identity :
             The identity key name. For example x509 DN, or a username.
-        authtype : str
+        authtype :
             The type of the authentication (x509, gss, userpass).
 
         Returns
         -------
-        bool
+
             True if successful.
         """
 
@@ -312,7 +314,7 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
         """
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'identities'])
@@ -331,7 +333,7 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
 
         """
@@ -351,11 +353,11 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
-        rse_expression : str
+        rse_expression :
             Valid RSE expression.
-        locality : str
+        locality :
             The scope of the account limit. 'local' or 'global'.
 
         """
@@ -374,9 +376,9 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
-        rse_expression : str
+        rse_expression :
             The rse expression.
 
         """
@@ -395,7 +397,7 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
         """
 
@@ -413,7 +415,7 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
         """
 
@@ -431,9 +433,9 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
-        rse : str
+        rse :
             The rse name.
         """
 
@@ -451,9 +453,9 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
-        rse : str, optional
+        rse :
             The rse name.
         """
         if rse:
@@ -474,9 +476,9 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
-        rse_expression : str, optional
+        rse_expression :
             The rse expression.
         """
         if rse_expression:
@@ -497,9 +499,9 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
-        rse : str
+        rse :
             The rse name.
         """
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage/history', rse])
@@ -517,7 +519,7 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
         """
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'attr/'])
@@ -535,11 +537,11 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
-        key : str
+        key :
             The attribute key.
-        value : Any
+        value :
             The attribute value.
         """
 
@@ -559,9 +561,9 @@ class AccountClient(BaseClient):
 
         Parameters
         ----------
-        account : str
+        account :
             The account name.
-        key : str
+        key :
             The attribute key.
         """
 

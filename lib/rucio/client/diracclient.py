@@ -46,11 +46,11 @@ class DiracClient(BaseClient):
 
         Parameters
         ----------
-        lfns : list
+        lfns :
             List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
-        ignore_availability : bool
+        ignore_availability :
             A boolean to ignore blocked sites.
-        parents_metadata : Mapping[str, Mapping[str, Any]]
+        parents_metadata :
             Metadata for selected hierarchy DIDs. (dictionary {'lpn': {key : value}}). Default=None
         """
         path = '/'.join([self.DIRAC_BASEURL, 'addfiles'])

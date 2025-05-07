@@ -58,46 +58,46 @@ class RuleClient(BaseClient):
 
         Parameters
         ----------
-        dids : sequence of dictionaries
+        dids :
             The data identifier set.
-        copies : int
+        copies :
             The number of replicas.
-        rse_expression : str
+        rse_expression :
             Boolean string expression to give the list of RSEs.
-        priority : optional
+        priority :
             Priority of the transfers. Default is 3.
-        lifetime : optional
+        lifetime :
             The lifetime of the replication rules (in seconds).
-        grouping : optional
+        grouping :
             ALL - All files will be replicated to the same RSE.
             DATASET - All files in the same dataset will be replicated to the same RSE.
             NONE - Files will be completely spread over all allowed RSEs without any grouping considerations at all.
             Default is 'DATASET'.
-        notify : optional
+        notify :
             Notification setting for the rule (Y, N, C). Default is 'N'.
-        source_replica_expression : optional
+        source_replica_expression :
             RSE Expression for RSEs to be considered for source replicas.
-        activity : optional
+        activity :
             Transfer Activity to be passed to FTS.
-        account : optional
+        account :
             The account owning the rule.
-        meta : optional
+        meta :
             Metadata, as dictionary.
-        ignore_availability : optional
+        ignore_availability :
             Option to ignore the availability of RSEs. Default is False.
-        purge_replicas : optional
+        purge_replicas :
             When the rule gets deleted purge the associated replicas immediately. Default is False.
-        ask_approval : optional
+        ask_approval :
             Ask for approval of this replication rule. Default is False.
-        asynchronous : optional
+        asynchronous :
             Create rule asynchronously by judge-injector. Default is False.
-        locked : optional
+        locked :
             If the rule is locked, it cannot be deleted. Default is False.
-        delay_injection : optional
+        delay_injection :
             Delay the rule injection.
-        comment : optional
+        comment :
             Comment about the rule.
-        weight : optional
+        weight :
             If the weighting option of the replication rule is used, the choice of RSEs takes their weight into account.
 
         """
@@ -124,9 +124,9 @@ class RuleClient(BaseClient):
 
         Parameters
         ----------
-        rule_id : str
+        rule_id :
             The id of the rule to be deleted.
-        purge_replicas : bool, optional
+        purge_replicas :
             Immediate delete the replicas
 
         Raises
@@ -153,7 +153,7 @@ class RuleClient(BaseClient):
 
         Parameters
         ----------
-        rule_id : str
+        rule_id :
             The id of the rule to be retrieved.
 
         Raises

@@ -98,25 +98,25 @@ class BaseClient:
 
         Parameters
         ----------
-        rucio_host : str, optional
+        rucio_host :
             The address of the rucio server, if None it is read from the config file.
-        auth_host : str, optional
+        auth_host :
             The address of the rucio authentication server, if None it is read from the config file.
-        account : str, optional
+        account :
             The account to authenticate to rucio.
-        ca_cert : str, optional
+        ca_cert :
             The path to the rucio server certificate.
-        auth_type : str, optional
+        auth_type :
             The type of authentication (e.g.: 'userpass', 'kerberos' ...)
-        creds : dict, optional
+        creds :
             Dictionary with credentials needed for authentication.
-        timeout : int, optional
+        timeout :
             Timeout for requests.
-        user_agent : str, optional
+        user_agent :
             Indicates the client.
-        vo : str, optional
+        vo :
             The VO to authenticate into.
-        logger : Logger, optional
+        logger :
             Logger object to use. If None, use the default LOG created by the module.
         """
 

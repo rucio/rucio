@@ -47,16 +47,25 @@ class SubscriptionClient(BaseClient):
 
         Parameters
         ----------
-        name : Name of the subscription
-        account : Account identifier
-        filter_ : Dictionary of attributes by which the input data should be filtered
+        name :
+            Name of the subscription
+        account :
+            Account identifier
+        filter_ :
+            Dictionary of attributes by which the input data should be filtered
             Example: `{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}`
-        replication_rules : Replication rules to be set. Dictionary with keys copies, rse_expression, weight, rse_expression
-        comments : Comments for the subscription
-        lifetime : Subscription's lifetime (days); False if subscription has no lifetime
-        retroactive : Flag to know if the subscription should be applied on previous data
-        dry_run : Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
-        priority : The priority of the subscription (3 by default)
+        replication_rules :
+            Replication rules to be set. Dictionary with keys copies, rse_expression, weight, rse_expression
+        comments :
+            Comments for the subscription
+        lifetime :
+            Subscription's lifetime (days); False if subscription has no lifetime
+        retroactive :
+            Flag to know if the subscription should be applied on previous data
+        dry_run :
+            Just print the subscriptions actions without actually executing them (Useful if retroactive flag is set)
+        priority :
+            The priority of the subscription (3 by default)
 
         """
         path = self.SUB_BASEURL + '/' + account + '/' + name

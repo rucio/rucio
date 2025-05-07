@@ -245,7 +245,7 @@ class DownloadClient:
 
         Parameters
         ----------
-        items : list[dict]
+        items :
             List of dictionaries. Each dictionary describing a file to download. Dictionary keys:
             * **pfn** : str
                 PFN string of this file
@@ -274,18 +274,18 @@ class DownloadClient:
             * **check_local_with_filesize_only** : bool, optional
                 If true, already downloaded files will not be validated by checksum. Default: False
 
-        num_threads : int
+        num_threads :
             Suggestion of number of threads to use for the download. It will be lowered if it's too high.
-        trace_custom_fields : dict, optional
+        trace_custom_fields :
             Custom key value pairs to send with the traces
-        traces_copy_out : list, optional
+        traces_copy_out :
             Reference to an external list, where the traces should be uploaded
-        deactivate_file_download_exceptions : bool, optional
+        deactivate_file_download_exceptions :
             If file download exceptions shouldn't be raised. Default: False
 
         Returns
         -------
-        list[dict]
+
             A list of dictionaries with an entry for each file, containing the input options,
             the did, and the clientState. clientState can be one of the following:
             ALREADY_DONE, DONE, FILE_NOT_FOUND, FAIL_VALIDATE, FAILED
@@ -364,7 +364,7 @@ class DownloadClient:
 
         Parameters
         ----------
-        items : list[dict]
+        items :
             List of dictionaries. Each dictionary describing an item to download. Dictionary keys:
             * **did** : str
                 DID string of this file (e.g. 'scope:file.name')
@@ -408,21 +408,21 @@ class DownloadClient:
             * **check_local_with_filesize_only** : bool, optional
                 If true, already downloaded files will not be validated by checksum. Default: False
 
-        num_threads : int
+        num_threads :
             Suggestion of number of threads to use for the download. It will be lowered if it's too high.
-        trace_custom_fields : dict, optional
+        trace_custom_fields :
             Custom key value pairs to send with the traces
-        traces_copy_out : list, optional
+        traces_copy_out :
             Reference to an external list, where the traces should be uploaded
-        deactivate_file_download_exceptions : bool, optional
+        deactivate_file_download_exceptions :
             If file download exceptions shouldn't be raised. Default: False
-        sort : str, optional
+        sort :
             Select best replica by replica sorting algorithm. Available algorithms:
             ``geoip`` - based on src/dst IP topographical distance
 
         Returns
         -------
-        list[dict]
+
             A list of dictionaries with an entry for each file, containing the input options,
             the did, and the clientState.
 
@@ -470,7 +470,7 @@ class DownloadClient:
 
         Parameters
         ----------
-        item : dict
+        item :
             Dictionary describing an item to download. Dictionary keys:
             * **base_dir** : str, optional
             Base directory where the downloaded files will be stored. Default: '.'
@@ -488,18 +488,18 @@ class DownloadClient:
             If true, already downloaded files will not be validated by checksum. Default: False
 
 
-        num_threads : int
+        num_threads :
             Suggestion of number of threads to use for the download. It will be lowered if it's too high.
-        trace_custom_fields : dict, optional
+        trace_custom_fields :
             Custom key value pairs to send with the traces
-        traces_copy_out : list, optional
+        traces_copy_out :
             Reference to an external list, where the traces should be uploaded
-        deactivate_file_download_exceptions : bool, optional
+        deactivate_file_download_exceptions :
             If file download exceptions shouldn't be raised. Default: False
 
         Returns
         -------
-        list[dict]
+
             A list of dictionaries with an entry for each file, containing the input options,
             the did, and the clientState.
 
@@ -552,18 +552,18 @@ class DownloadClient:
 
         Parameters
         ----------
-        input_items : list[dict]
+        input_items :
             List containing the input items to download
-        num_threads : int
+        num_threads :
             Suggestion of how many threads should be started
-        trace_custom_fields : dict, optional
+        trace_custom_fields :
             Custom key value pairs to send with the traces
-        traces_copy_out : list, optional
+        traces_copy_out :
             Reference to an external list, where the traces should be uploaded
 
         Returns
         -------
-        list[dict]
+
             List with output items as dictionaries
         """
         trace_custom_fields = trace_custom_fields or {}
@@ -623,11 +623,18 @@ class DownloadClient:
         downloads them and stores the output in the output queue.
         (This function is meant to be used as class internal only)
 
-        :param input_queue: queue containing the input items to download
-        :param output_queue: queue where the output items will be stored
-        :param trace_custom_fields: Custom key value pairs to send with the traces
-        :param traces_copy_out: reference to an external list, where the traces should be uploaded
-        :param log_prefix: string that will be put at the beginning of every log message
+        Parameters
+        ----------
+        input_queue :
+            Queue containing the input items to download
+        output_queue :
+            Queue where the output items will be stored
+        trace_custom_fields :
+            Custom key value pairs to send with the traces
+        traces_copy_out :
+            Reference to an external list, where the traces should be uploaded
+        log_prefix :
+            String that will be put at the beginning of every log message
         """
         logger = self.logger
 
@@ -659,12 +666,12 @@ class DownloadClient:
 
         Parameters
         ----------
-        item: dict
+        item:
             Dictionary that describes the item to download
 
         Returns
         -------
-        int
+
             Timeout in seconds
         """
         default_transfer_timeout = 360
@@ -703,18 +710,18 @@ class DownloadClient:
 
         Parameters
         -----------
-        item: dict
+        item :
             Dictionary describing the item to download
-        trace: dict
+        trace :
             Dictionary representing a pattern of trace that will be send
-        traces_copy_out: list
+        traces_copy_out :
             Reference to an external list, where the traces should be uploaded
-        log_prefix: str
+        log_prefix :
             String that will be put at the beginning of every log message
 
         Returns
         -------
-        dict
+
             Dictionary with all attributes from the input item and a clientState attribute
         """
         logger = self.logger
@@ -979,7 +986,7 @@ class DownloadClient:
 
         Parameters
         ----------
-        items: list[dict]
+        items :
             List of dictionaries. Each dictionary describing an item to download. Dictionary keys:
             * **did** : str
                 DID string of this file (e.g. 'scope:file.name'). Wildcards are not allowed
@@ -1002,19 +1009,19 @@ class DownloadClient:
             * **check_local_with_filesize_only** : bool, optional
                 If true, already downloaded files will not be validated by checksum. (Default: False)
 
-        trace_custom_fields : dict, optional
+        trace_custom_fields :
             Custom key value pairs to send with the traces
-        filters : dict, optional
+        filters :
             Filter to select DIDs for download
-        deactivate_file_download_exceptions : bool, optional
+        deactivate_file_download_exceptions :
             If file download exceptions shouldn't be raised. Default: False
-        sort : str, optional
+        sort :
             Select best replica by replica sorting algorithm. Available algorithms:
             * **geoip** - based on src/dst IP topographical distance
 
         Returns
         -------
-        list[dict]
+
             A list of dictionaries with an entry for each file, containing the input options,
             the did, and the clientState.
 
@@ -1070,12 +1077,12 @@ class DownloadClient:
 
         Parameters
         ----------
-        rpc_secret : str
+        rpc_secret :
             The secret for the RPC proxy
 
         Returns
         -------
-        tuple
+
             A tuple with the process and the rpc proxy objects
 
         Raises
@@ -1155,18 +1162,18 @@ class DownloadClient:
 
         Parameters
         ----------
-        items: list[dict]
+        items:
             List of dictionaries. Each dictionary describing an item to download
-        aria_rpc: RPCProxy
+        aria_rpc:
             RPC proxy to the aria2c process
-        rpc_auth: str
+        rpc_auth:
             The rpc authentication token
-        trace_custom_fields: dict, optional
+        trace_custom_fields:
             Custom key value pairs to send with the traces
 
         Returns
         -------
-        list[dict]
+
             A list of dictionaries with an entry for each file, containing the input options,
             the did, and the clientState.
         """
@@ -1320,7 +1327,7 @@ class DownloadClient:
         Resolve scopes or wildcard DIDs to lists of full did names:
         Parameters
         ----------
-        item: dict
+        item:
             One input item
         """
         dids = item.get('did')
@@ -1372,12 +1379,11 @@ class DownloadClient:
 
         Parameters
         ----------
-        input_items: list[dict]
+        input_items:
             List of dictionaries. Each dictionary describing an input item
 
         Returns:
         -------
-        tuple[dict[str, Any], list[dict[str, Any]]]
             * a dictionary that maps the dereferenced(w/o wildcards) input DIDs to a list of input items
             * and a list with a dictionary for each file DID which has to be downloaded
 
@@ -1594,14 +1600,14 @@ class DownloadClient:
 
         Parameters
         ----------
-        did_to_input_items: dict
+        did_to_input_items:
             dictionary that maps resolved input DIDs to input items
-        file_items: list[dict]
+        file_items:
             list of dictionaries. Each dictionary describes a File DID to download
 
         Returns
         -------
-        list[dict]
+
             list of dictionaries. Each dictionary describes an element to download
 
         Raises
@@ -1831,12 +1837,12 @@ class DownloadClient:
 
         Parameters
         ----------
-        did_str: str
+        did_str:
             the DID string that will be split
 
         Returns
         -------
-        tuple[str, str]
+
             the scope- and name part of the given DID
 
         Raises
@@ -1879,16 +1885,16 @@ class DownloadClient:
 
         Parameters
         ----------
-        base_dir: str
+        base_dir:
             base directory part
-        dest_dir_name: str
+        dest_dir_name:
             name of the destination directory
-        no_subdir: bool
+        no_subdir:
             if no subdirectory should be created
 
         Returns
         -------
-        str
+
             the absolute path of the destination directory
         """
         # append dest_dir_name, if subdir should be used
@@ -1912,14 +1918,14 @@ class DownloadClient:
 
         Parameters
         ----------
-        output_items: list[dict]
+        output_items:
             list of dictionaries describing the downloaded files
         deactivate_file_download_exceptions: bool
             Boolean, if file download exceptions shouldn't be raised
 
         Returns
         -------
-        list[dict[str, Any]]
+
             output_items list
 
         Raises
@@ -1950,7 +1956,7 @@ class DownloadClient:
 
         Parameters
         ----------
-        trace: dict
+        trace:
             the trace to send
         """
         if self.tracing:
@@ -1963,7 +1969,7 @@ class DownloadClient:
 
         Parameters
         ----------
-        sources: list[dict[str, Any]]
+        sources:
             List of sources for a given DID
 
         Raises

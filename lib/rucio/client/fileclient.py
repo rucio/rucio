@@ -33,14 +33,14 @@ class FileClient(BaseClient):
 
         Parameters
         ----------
-        scope : str
+        scope :
             The scope of the file.
-        lfn : str
+        lfn :
             The LFN
 
         Returns
         -------
-        list[dict[str, Any]]
+
             List of replicas.
         """
         path = '/'.join([self.BASEURL, quote_plus(scope), quote_plus(lfn), 'rses'])
