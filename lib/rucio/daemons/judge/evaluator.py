@@ -36,7 +36,7 @@ from rucio.common.types import InternalScope
 from rucio.core.monitor import MetricManager
 from rucio.core.rule import delete_updated_did, get_updated_dids, re_evaluate_did
 from rucio.daemons.common import HeartbeatHandler, run_daemon
-from rucio.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX, ORACLE_UNIQUE_CONSTRAINT_VIOLATED_REGEX
+from rucio.db.sqla.constants import MYSQL_LOCK_NOWAIT_REGEX, ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX, ORACLE_UNIQUE_CONSTRAINT_VIOLATED_REGEX, PSQL_PSYCOPG_LOCK_NOT_AVAILABLE_REGEX
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -129,7 +129,7 @@ def run_once(
         except DataIdentifierNotFound:
             delete_updated_did(id_=did.id)
         except (DatabaseException, DatabaseError) as e:
-            if match(ORACLE_UNIQUE_CONSTRAINT_VIOLATED_REGEX, str(e.args[0])) or match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])):
+            if match(ORACLE_UNIQUE_CONSTRAINT_VIOLATED_REGEX, str(e.args[0])) or match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])) or match(PSQL_PSYCOPG_LOCK_NOT_AVAILABLE_REGEX, str(e.args[0])) or match(MYSQL_LOCK_NOWAIT_REGEX, str(e.args[0])):
                 paused_dids[(did.scope.internal, did.name)] = datetime.utcnow() + timedelta(seconds=randint(60, 600))  # noqa: S311
                 logger(logging.WARNING, 'Locks detected for %s:%s', did.scope, did.name)
                 METRICS.counter('exceptions.{exception}').labels(exception='LocksDetected').inc()

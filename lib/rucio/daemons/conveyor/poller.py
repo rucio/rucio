@@ -40,7 +40,7 @@ from rucio.core import transfer as transfer_core
 from rucio.core.monitor import MetricManager
 from rucio.core.topology import ExpiringObjectCache, Topology
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
-from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, RequestState, RequestType
+from rucio.db.sqla.constants import MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED, ORACLE_DEADLOCK_DETECTED_REGEX, ORACLE_RESOURCE_BUSY_REGEX, PSQL_PSYCOPG_LOCK_NOT_AVAILABLE_REGEX, RequestState, RequestType
 from rucio.transfertool.fts3 import FTS3Transfertool
 
 if TYPE_CHECKING:
@@ -387,7 +387,7 @@ def _poll_transfers(
             # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
             transfer_core.touch_transfer(transfertool_obj.external_host, transfer_id)
         except (DatabaseException, DatabaseError) as error:
-            if re.match(ORACLE_RESOURCE_BUSY_REGEX, error.args[0]) or re.match(ORACLE_DEADLOCK_DETECTED_REGEX, error.args[0]) or MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED in error.args[0]:
+            if re.match(ORACLE_RESOURCE_BUSY_REGEX, error.args[0]) or re.match(ORACLE_DEADLOCK_DETECTED_REGEX, error.args[0]) or re.match(PSQL_PSYCOPG_LOCK_NOT_AVAILABLE_REGEX, str(error.args[0])) or MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED in error.args[0]:
                 logger(logging.WARNING, "Lock detected when handling request %s - skipping" % transfer_id)
             else:
                 logger(logging.ERROR, 'Exception', exc_info=True)
