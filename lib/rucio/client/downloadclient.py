@@ -75,13 +75,13 @@ class BaseExtractionTool:
 
         Parameters
         ----------
-        program_name: str
+        program_name :
             the name of the archive extraction program, e.g., unzip
-        useability_check_args: str
+        useability_check_args :
             the arguments of the extraction program to test if its installed, e.g., --version
-        extract_args: str
+        extract_args :
             the arguments that will be passed to the program for extraction
-        logger: LoggerFunction
+        logger :
             optional decorated logging.log object that can be passed from the calling daemon or client.
 
         """
@@ -97,7 +97,6 @@ class BaseExtractionTool:
 
         Returns
         -------
-        bool
             True if it is usable otherwise False
         """
         if self.is_useable_result is not None:
@@ -125,16 +124,15 @@ class BaseExtractionTool:
 
         Parameters
         ----------
-        archive_file_path: str
+        archive_file_path :
             path to the archive
-        file_to_extract: str
+        file_to_extract :
             file name to extract from the archive
-        dest_dir_path: str
+        dest_dir_pat :
             destination directory where the extracted file will be stored
 
         Returns
         -------
-        bool
             True on success otherwise False
 
         """
@@ -171,11 +169,11 @@ class DownloadClient:
 
         Parameters
         ----------
-        client: Client
+        client :
             Optional: rucio.client.client.Client object. If None, a new object will be created.
-        logger: LoggerFunction
+        logger :
             Optional: If None, default logger will be used.
-        external_traces: list
+        external_traces :
             Optional: reference to a list where traces can be added
         """
         self.check_pcache = check_pcache
@@ -1920,7 +1918,7 @@ class DownloadClient:
         ----------
         output_items:
             list of dictionaries describing the downloaded files
-        deactivate_file_download_exceptions: bool
+        deactivate_file_download_exceptions :
             Boolean, if file download exceptions shouldn't be raised
 
         Returns

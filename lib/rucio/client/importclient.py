@@ -31,7 +31,7 @@ class ImportClient(BaseClient):
 
         Parameters
         ----------
-        data: dict
+        data :
             A dict containing data to be imported into Rucio.
         """
         path = '/'.join([self.IMPORT_BASEURL])
