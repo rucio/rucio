@@ -314,6 +314,15 @@ def test_did_content(root_account, rucio_client):
     assert "ERROR" not in err
     assert dataset in out
 
+    # Verify dids are required for list/history is enforced
+    cmd = "rucio did content list"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 2
+
+    cmd = "rucio did content history"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 2
+
     execute(f"rucio did content remove {scope}:{dataset} --from-did {scope}:{container}")
 
     cmd = f"rucio did content history {scope}:{container}"

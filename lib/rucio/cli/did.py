@@ -117,7 +117,7 @@ def content():
 
 
 @content.command("history")
-@click.argument("dids", nargs=-1)
+@click.argument("dids", nargs=-1, required=True)
 @click.pass_context
 def content_history(ctx, dids):
     """List the content history of a collection-type DID"""
@@ -146,7 +146,7 @@ def content_remove(ctx, dids, from_did):
 
 
 @content.command("list")
-@click.argument("dids", nargs=-1)
+@click.argument("dids", nargs=-1, required=True)
 @click.option("--short", is_flag=True, default=False, help="Just dump the list of DIDs.")
 @click.pass_context
 def content_list_(ctx, dids, short):
