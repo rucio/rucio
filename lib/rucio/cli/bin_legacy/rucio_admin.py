@@ -742,22 +742,15 @@ def delete_distance_rses(args, client, logger, console, spinner):
         
         # Handle case when no distances are found
         if not distances_to_delete:
-            error_msg = ""
             if args.source and args.destination:
                 if len(src_rses) == 1 and len(dst_rses) == 1:
-                    error_msg = f"Distance from {src_rses[0]} to {dst_rses[0]} not found"
+                    raise NoDistance(f"Distance from {src_rses[0]} to {dst_rses[0]} not found")
                 else:
-                    error_msg = f"No distances found between specified sources and destinations"
+                    raise NoDistance(f"No distances found between specified sources and destinations")
             elif args.source:
-                error_msg = f"No outgoing distances found from {args.source}"
+                raise NoDistance(f"No outgoing distances found from {args.source}")
             elif args.destination:
-                error_msg = f"No incoming distances found to {args.destination}"
-                
-            if cli_config == 'rich':
-                print_output(f"{CLITheme.FAILURE_ICON} {error_msg}", console=console, no_pager=True)
-            else:
-                logger.error(error_msg)
-            return FAILURE
+                raise NoDistance(f"No incoming distances found to {args.destination}")
         
         if cli_config == 'rich':
             distance_tree = Tree(f"The following {len(distances_to_delete)} distances will be deleted:")
