@@ -664,11 +664,12 @@ def delete_distance_rses(args, client, logger, console, spinner):
         dst_rses = []
         
         if args.source:
-            # Check if source is an RSE
+            # First try to interpret source as an RSE name
             if args.source in all_rses:
                 src_rses = [args.source]
             else:
-                # Check if source is a site
+                # If not an RSE, try to interpret it as a site name
+                # This allows operating on all RSEs at a single site
                 for rse_name, rse_data in all_rses.items():
                     if rse_data.get('attributes', {}).get('site') == args.source:
                         src_rses.append(rse_name)
@@ -682,11 +683,12 @@ def delete_distance_rses(args, client, logger, console, spinner):
                     return FAILURE
         
         if args.destination:
-            # Check if destination is an RSE
+            # First try to interpret destination as an RSE name
             if args.destination in all_rses:
                 dst_rses = [args.destination]
             else:
-                # Check if destination is a site
+                # If not an RSE, try to interpret it as a site name
+                # This allows operating on all RSEs at a single site
                 for rse_name, rse_data in all_rses.items():
                     if rse_data.get('attributes', {}).get('site') == args.destination:
                         dst_rses.append(rse_name)
