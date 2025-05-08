@@ -37,10 +37,10 @@ from rucio.cli.utils import exception_handler, get_client, setup_gfal2_logger, s
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, generate_table, get_cli_config, get_pager, print_output, setup_rich_logger
 from rucio.common.constants import RseAttr
 from rucio.common.exception import (
-    ReplicaNotFound,
-    RSEOperationNotSupported,
     NoDistance,
+    ReplicaNotFound,
     RSENotFound,
+    RSEOperationNotSupported,
 )
 from rucio.common.extra import import_extras
 from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_pfns, construct_non_deterministic_pfn, extract_scope, get_bytes_value_from_string, parse_response, render_json, setup_logger, sizefmt
