@@ -212,7 +212,7 @@ class DIDClient(BaseClient):
 
         Parameters
         ----------
-        dids :
+        dsns :
             A list of datasets.
         """
         return self.add_dids(dids=[dict(list(dsn.items()) + [('type', 'DATASET')]) for dsn in dsns])
@@ -930,7 +930,7 @@ class DIDClient(BaseClient):
         name :
             The data identifier name.
         recursive :
-            ''
+            boolean, True or False.
         """
 
         payload = {}
