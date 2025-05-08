@@ -116,10 +116,11 @@ def distance_show(ctx, source_rse, destination_rse):
 @click.argument("source-rse")
 @click.argument("destination-rse")
 @click.option("--distance", default=1, type=int, help="Relative distance between RSEs")
+@click.option('--bidirectional', '--bidi', is_flag=True, help='Add distances in both directions')
 @click.pass_context
-def distance_add(ctx, source_rse, destination_rse, distance):
+def distance_add(ctx, source_rse, destination_rse, distance, bidirectional):
     """Create a new link from SOURCE-RSE to DESTINATION-RSE with a distance"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse, "distance": distance})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse, "distance": distance, "bidirectional": bidirectional})
     add_distance_rses(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -127,11 +128,12 @@ def distance_add(ctx, source_rse, destination_rse, distance):
 @click.argument("source-rse")
 @click.argument("destination-rse")
 @click.option('-y', '--yes', is_flag=True, help='Automatically confirm deletion')
+@click.option('--bidirectional', '--bidi', is_flag=True, help='Delete distances in both directions')
 @click.pass_context
-def distance_remove(ctx: click.Context, source_rse: str, destination_rse: str, yes: bool) -> None:
+def distance_remove(ctx: click.Context, source_rse: str, destination_rse: str, yes: bool, bidirectional: bool) -> None:
     """Un-link SOURCE-RSE from DESTINATION-RSE by removing the distance between them"""
-    # Setting yes=True for non-interactive test environments, but keeping bidirectional=False to match legacy behavior
-    args = Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse, "yes": True, "bidirectional": False})
+    # Setting yes=True for non-interactive test environments, but keeping bidirectional configurable
+    args = Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse, "yes": True, "bidirectional": bidirectional})
     delete_distance_rses(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
