@@ -37,19 +37,18 @@ class MetaConventionClient(BaseClient):
 
         Parameters
         ----------
-        key: str
+        key :
             The name for the new key.
 
-        key_type: str
+        key_type :
             The type of the key: all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection).
-        value_type: Optional[str]
+        value_type :
             The type of the value, if defined.
-        value_regexp: Optional[str]
+        value_regexp :
             The regular expression that values should match, if defined.
 
         Returns
         -------
-        bool
             True if key was created successfully.
 
         Raises
@@ -78,7 +77,6 @@ class MetaConventionClient(BaseClient):
 
         Returns
         -------
-        list[str]
             A list containing the names of all keys.
         """
         path = self.META_BASEURL + '/'
@@ -97,7 +95,6 @@ class MetaConventionClient(BaseClient):
 
         Returns
         -------
-        list[str]
             A list containing the names of all values for a key
         """
         path = '/'.join([self.META_BASEURL, quote_plus(key)]) + '/'
@@ -116,14 +113,13 @@ class MetaConventionClient(BaseClient):
 
         Parameters
         ----------
-        key: str
+        key :
             The name for key.
-        value: str
+        value :
             The value to be added.
 
         Returns
         -------
-        bool
             True if value was created successfully.
 
         Raises
@@ -148,9 +144,9 @@ class MetaConventionClient(BaseClient):
 
         Parameters
         ---------
-        key: str
+        key :
             The name for the key
-        value: str
+        value :
             The value
         """
         pass
@@ -161,7 +157,7 @@ class MetaConventionClient(BaseClient):
 
         Parameters
         ----------
-        key: str
+        key :
             The name for the key.
         """
         pass
@@ -172,11 +168,11 @@ class MetaConventionClient(BaseClient):
 
         Parameters
         ----------
-        key: str
+        key :
             The name for the key.
-        type_: Optional[str]
+        type_ :
             The type of the value, if defined.
-        regexp: Optional[str]
+        regexp :
             The regular expression that values should match, if defined.
         """
         pass

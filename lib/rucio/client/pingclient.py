@@ -30,7 +30,6 @@ class PingClient(BaseClient):
 
         Returns
         --------
-        dict
             Dictionary with server information
         """
 
