@@ -15,6 +15,7 @@ import click
 
 from rucio.cli.bin_legacy.rucio import add_rule, delete_rule, info_rule, list_rules, list_rules_history, move_rule, update_rule
 from rucio.cli.utils import Arguments
+from rucio.common.exception import InputValidationError
 
 
 @click.group()
@@ -149,7 +150,7 @@ def update(
 
 
 @rule.command("list")
-@click.argument("did")
+@click.option("--did", help="Filter by DID")
 @click.option("--traverse", is_flag=True, default=False, help="Traverse the did tree and search for rules affecting this did")
 @click.option("--csv", is_flag=True, default=False, help="Comma Separated Value output")
 @click.option("--file", help="Filter by file")
@@ -158,5 +159,13 @@ def update(
 @click.pass_context
 def list_(ctx, did, traverse, csv, file, account, subscription):
     """List all rules impacting a given DID"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did, "rule_id": None, "traverse": traverse, "csv": csv, "file": file, "subscription": (account if account is not None else ctx.obj.client.account, subscription)})
+    if subscription is not None:
+        subscription_account = account if account is not None else ctx.obj.client.account
+        subscription = subscription_account, subscription
+
+    # Done here to raise error==2
+    if not (did or file or account or subscription):
+        raise InputValidationError("At least one option has to be given. Use -h to list the options.")
+
+    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did, "traverse": traverse, "csv": csv, "file": file, "rule_account": account, "subscription": subscription})
     list_rules(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
