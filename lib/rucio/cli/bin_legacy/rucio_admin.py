@@ -703,31 +703,34 @@ def delete_distance_rses(args, client, logger, console, spinner):
         
         distances_to_delete = []
         
-        if args.source and args.destination:
-            # Delete specific distances between source(s) and destination(s)
-            for src in src_rses:
-                if src in all_distances:
-                    for dst in dst_rses:
-                        if dst in all_distances[src]:
-                            distances_to_delete.append((src, dst))
-                        
-                        # Handle bidirectional flag
-                        if args.bidirectional and dst in all_distances and src in all_distances[dst]:
-                            distances_to_delete.append((dst, src))
-        
-        elif args.source:
-            # Delete all outgoing distances from source(s)
-            for src in src_rses:
-                if src in all_distances:
-                    for dst in all_distances[src]:
-                        distances_to_delete.append((src, dst))
-        
-        elif args.destination:
+        if args.source or args.destination:
+            # First handle source-specified cases
+            if args.source:
+                for src in src_rses:
+                    if src in all_distances:
+                        if args.destination:
+                            # Case: Both source and destination specified
+                            # Delete specific distances between source(s) and destination(s)
+                            for dst in dst_rses:
+                                if dst in all_distances[src]:
+                                    distances_to_delete.append((src, dst))
+                                
+                                # Handle bidirectional flag
+                                if args.bidirectional and dst in all_distances and src in all_distances[dst]:
+                                    distances_to_delete.append((dst, src))
+                        else:
+                            # Case: Only source specified
+                            # Delete all outgoing distances from source(s)
+                            for dst in all_distances[src]:
+                                distances_to_delete.append((src, dst))
+            
+            # Then handle destination-only case
             # Delete all incoming distances to destination(s)
-            for dst in dst_rses:
-                for src, dest_dict in all_distances.items():
-                    if dst in dest_dict:
-                        distances_to_delete.append((src, dst))
+            elif args.destination:
+                for dst in dst_rses:
+                    for src, dest_dict in all_distances.items():
+                        if dst in dest_dict:
+                            distances_to_delete.append((src, dst))
         
         # Remove duplicates
         distances_to_delete = list(set(distances_to_delete))
