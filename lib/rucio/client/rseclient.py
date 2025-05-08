@@ -274,9 +274,9 @@ class RSEClient(BaseClient):
 
         Parameters
         ----------
-        rse : str
+        rse :
             The name of the RSE.
-        params : dict[str, Any]
+        params :
             Attributes of the protocol. Supported are:
             - scheme: identifier of this protocol
             - hostname: hostname for this protocol (default = localhost)
@@ -327,16 +327,16 @@ class RSEClient(BaseClient):
 
         Parameters
         ----------
-        rse : str
+        rse :
             The RSE name.
-        protocol_domain : RSE_SUPPORTED_PROTOCOL_DOMAINS_LITERAL, optional
+        protocol_domain :
             The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL', by default 'ALL'.
-        operation : RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, optional
+        operation :
             The name of the requested operation (read, write, or delete).
             If None, all operations are queried, by default None.
-        default : bool, optional
+        default :
             Indicates if only the default operations should be returned, by default False.
-        scheme : SUPPORTED_PROTOCOLS_LITERAL, optional
+        scheme :
             The identifier of the requested protocol, by default None.
 
         Returns
@@ -402,7 +402,6 @@ class RSEClient(BaseClient):
 
         Returns
         -------
-        dict[str, str]
             A dictionary of LFN / PFN pairs.
 
         Raises
@@ -551,7 +550,7 @@ class RSEClient(BaseClient):
 
         Parameters
         ----------
-        rse : str
+        rse :
             The RSE name.
         domain :
             The domain in which priorities should be swapped (e.g., 'wan' or 'lan').
@@ -564,7 +563,6 @@ class RSEClient(BaseClient):
 
         Returns
         -------
-        bool
             True if successful.
 
         Raises
@@ -899,11 +897,11 @@ class RSEClient(BaseClient):
 
         Parameters
         ----------
-        source: str
+        source :
             The source RSE.
-        destination: str
+        destination :
             The destination RSE.
-        parameters: dict[str, int]
+        parameters :
             A dictionary with property
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
@@ -927,15 +925,14 @@ class RSEClient(BaseClient):
 
         Param
         ----------
-        source: str
+        source :
             The source RSE.
-        destination: str
+        destination :
 
             The destination RSE.
 
         Returns
         -------
-        list[dict[str, Union[str, int]]]
             A list of dictionaries with the distance information.
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
@@ -957,9 +954,9 @@ class RSEClient(BaseClient):
 
         Parameters
         ----------
-        source: str
+        source :
             The source
-        destination: str
+        destination :
             The destination
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]

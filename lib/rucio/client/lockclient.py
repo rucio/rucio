@@ -106,7 +106,7 @@ class LockClient(BaseClient):
 
         Parameters
         ----------
-        rse: str
+        rse :
             The rse of the locks to list
         """
 
