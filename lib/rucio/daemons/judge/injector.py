@@ -33,7 +33,7 @@ from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.rule import get_injected_rules, inject_rule, update_rule
 from rucio.daemons.common import HeartbeatHandler, run_daemon
-from rucio.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX
+from rucio.db.sqla.constants import MYSQL_LOCK_NOWAIT_REGEX, ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX, PSQL_PSYCOPG_LOCK_NOT_AVAILABLE_REGEX
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -99,7 +99,7 @@ def run_once(
             inject_rule(rule_id=rule_id, logger=logger)
             logger(logging.DEBUG, 'injection of %s took %f' % (rule_id, time.time() - start))
         except (DatabaseException, DatabaseError) as e:
-            if match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])):
+            if match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])) or match(PSQL_PSYCOPG_LOCK_NOT_AVAILABLE_REGEX, str(e.args[0])) or match(MYSQL_LOCK_NOWAIT_REGEX, str(e.args[0])):
                 paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))  # noqa: S311
                 METRICS.counter('exceptions.{exception}').labels(exception='LocksDetected').inc()
                 logger(logging.WARNING, 'Locks detected for %s' % rule_id)
