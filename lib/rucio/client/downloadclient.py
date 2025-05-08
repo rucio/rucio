@@ -664,7 +664,7 @@ class DownloadClient:
 
         Parameters
         ----------
-        item:
+        item :
             Dictionary that describes the item to download
 
         Returns
@@ -1160,13 +1160,13 @@ class DownloadClient:
 
         Parameters
         ----------
-        items:
+        items :
             List of dictionaries. Each dictionary describing an item to download
-        aria_rpc:
+        aria_rpc :
             RPC proxy to the aria2c process
-        rpc_auth:
+        rpc_auth :
             The rpc authentication token
-        trace_custom_fields:
+        trace_custom_fields :
             Custom key value pairs to send with the traces
 
         Returns
@@ -1323,9 +1323,10 @@ class DownloadClient:
     def _resolve_one_item_dids(self, item: dict[str, Any]) -> "Iterator[dict[str, Any]]":
         """
         Resolve scopes or wildcard DIDs to lists of full did names:
+        
         Parameters
         ----------
-        item:
+        item :
             One input item
         """
         dids = item.get('did')
@@ -1377,7 +1378,7 @@ class DownloadClient:
 
         Parameters
         ----------
-        input_items:
+        input_items :
             List of dictionaries. Each dictionary describing an input item
 
         Returns:
@@ -1598,9 +1599,9 @@ class DownloadClient:
 
         Parameters
         ----------
-        did_to_input_items:
+        did_to_input_items :
             dictionary that maps resolved input DIDs to input items
-        file_items:
+        file_items :
             list of dictionaries. Each dictionary describes a File DID to download
 
         Returns
@@ -1835,7 +1836,7 @@ class DownloadClient:
 
         Parameters
         ----------
-        did_str:
+        did_str :
             the DID string that will be split
 
         Returns
@@ -1883,11 +1884,11 @@ class DownloadClient:
 
         Parameters
         ----------
-        base_dir:
+        base_dir :
             base directory part
-        dest_dir_name:
+        dest_dir_name :
             name of the destination directory
-        no_subdir:
+        no_subdir :
             if no subdirectory should be created
 
         Returns
@@ -1916,7 +1917,7 @@ class DownloadClient:
 
         Parameters
         ----------
-        output_items:
+        output_items :
             list of dictionaries describing the downloaded files
         deactivate_file_download_exceptions :
             Boolean, if file download exceptions shouldn't be raised
@@ -1954,7 +1955,7 @@ class DownloadClient:
 
         Parameters
         ----------
-        trace:
+        trace :
             the trace to send
         """
         if self.tracing:
@@ -1967,7 +1968,7 @@ class DownloadClient:
 
         Parameters
         ----------
-        sources:
+        sources :
             List of sources for a given DID
 
         Raises
