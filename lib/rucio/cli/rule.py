@@ -144,7 +144,7 @@ def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, accou
 
 
 @rule.command("list")
-@click.option("--did")
+@click.option("--did", help="Filter by did")
 @click.option("--id", "rule_id", help="List by rule id", hidden=True)  # TODO: Remove. This doesn't work and does the same thing as show
 @click.option("--traverse", is_flag=True, default=False, help="Traverse the did tree and search for rules affecting this did")
 @click.option("--csv", is_flag=True, default=False, help="Comma Separated Value output")
@@ -154,5 +154,14 @@ def update(ctx, rule_id, lifetime, locked, source_rses, activity, comment, accou
 @click.pass_context
 def list_(ctx, did, rule_id, traverse, csv, file, account, subscription):
     """List all rules impacting a given DID"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did, "rule_id": rule_id, "traverse": traverse, "csv": csv, "file": file, "subscription": (account if account is not None else ctx.obj.client.account, subscription)})
+    if subscription is not None:
+        subscription_account = account if account is not None else ctx.obj.client.account
+        subscription = subscription_account, subscription
+
+    # Done here to raise error==2
+    if not (did or rule_id or file or account or subscription):
+        ctx.obj.logger.error("At least one option has to be given. Use -h to list the options.")
+        ctx.exit(2)
+
+    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did, "rule_id": rule_id, "traverse": traverse, "csv": csv, "file": file, "rule_account": account, "subscription": subscription})
     list_rules(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
