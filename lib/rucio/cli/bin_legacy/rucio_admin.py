@@ -39,6 +39,8 @@ from rucio.common.constants import RseAttr
 from rucio.common.exception import (
     ReplicaNotFound,
     RSEOperationNotSupported,
+    NoDistance,
+    RSENotFound,
 )
 from rucio.common.extra import import_extras
 from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_pfns, construct_non_deterministic_pfn, extract_scope, get_bytes_value_from_string, parse_response, render_json, setup_logger, sizefmt
@@ -790,13 +792,9 @@ def delete_distance_rses(args, client, logger, console, spinner):
                     logger.info(f"Deleted distance information from {src} to {dst}")
                 else:
                     print(f"Deleted distance information from {src} to {dst}")
-            except Exception as e:
-                error_str = str(e)
+            except (NoDistance, RSENotFound) as e:
                 error_count += 1
-                if "NoDistance" in error_str or "RSENotFound" in error_str:
-                    logger.error(f"Distance from {src} to {dst} not found")
-                else:
-                    logger.error(f"Failed to delete distance from {src} to {dst}: {error_str}")
+                logger.error(f"Distance from {src} to {dst} not found: {str(e)}")
         
         if cli_config == 'rich':
             spinner.stop()
