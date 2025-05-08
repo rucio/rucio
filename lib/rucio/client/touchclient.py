@@ -40,13 +40,22 @@ class TouchClient(BaseClient):
         """
         Sends a touch trace for a given file or dataset.
 
-        :param scope: the scope of the file/dataset to update.
-        :param name: the name of file/dataset to update.
-        :param rse: optional parameter if a specific replica should be touched.
-        :raises DataIdentifierNotFound: if given dids does not exist.
-        :raises RSENotFound: if rse is not None and given rse does not exist.
-        :raises UnsupportedDIDType: if type of the given DID is not FILE or DATASET.
-        :raises RucioException: if trace could not be sent successfully.
+        Parameters
+        ----------
+        scope : The scope of the file/dataset to update.
+        name : The name of file/dataset to update.
+        rse : Optional parameter if a specific replica should be touched.
+
+        Raises
+        ------
+        DataIdentifierNotFound
+            If given dids does not exist.
+        RSENotFound
+            If rse is not None and given rse does not exist.
+        UnsupportedDIDType
+            If type of the given DID is not FILE or DATASET.
+        RucioException
+            If trace could not be sent successfully.
         """
 
         trace = {}

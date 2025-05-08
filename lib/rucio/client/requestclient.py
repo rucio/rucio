@@ -36,7 +36,9 @@ class RequestClient(BaseClient):
     ) -> 'Iterator[dict[str, Any]]':
         """Return latest request details
 
-        :return: request information
+        Returns
+        -------
+        request information
         """
         path = '/'.join([self.REQUEST_BASEURL, 'list']) + '?' + '&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format(
             dst_rse), 'request_states={}'.format(request_states)])
@@ -59,7 +61,9 @@ class RequestClient(BaseClient):
     ) -> 'Iterator[dict[str, Any]]':
         """Return historical request details
 
-        :return: request information
+        Returns
+        -------
+        request information
         """
         path = '/'.join([self.REQUEST_BASEURL, 'history', 'list']) + '?' + '&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format(
             dst_rse), 'request_states={}'.format(request_states), 'offset={}'.format(offset), 'limit={}'.format(limit)])
@@ -79,12 +83,22 @@ class RequestClient(BaseClient):
             scope: Optional[str] = None
     ) -> 'Iterator[dict[str, Any]]':
         """Return latest request details for a DID
+        Parameters
+        ----------
+        name:
+            DID
+        rse:
+            Destination RSE name
+        scope:
+            rucio scope, defaults to None
 
-        :param name: DID
-        :param rse: Destination RSE name
-        :param scope: rucio scope, defaults to None
-        :raises exc_cls: from BaseClient._get_exception
-        :return: request information
+        Raises
+        -------
+        exc_cls: from BaseClient._get_exception
+
+        Returns
+        -------
+        request information
         """
 
         if scope is not None:
@@ -104,13 +118,25 @@ class RequestClient(BaseClient):
             rse: str,
             scope: Optional[str] = None
     ) -> 'Iterator[dict[str, Any]]':
-        """Return latest request details for a DID
+        """
+        Return latest request details for a DID
 
-        :param name: DID
-        :param rse: Destination RSE name
-        :param scope: rucio scope, defaults to None
-        :raises exc_cls: from BaseClient._get_exception
-        :return: request information
+        Parameters
+        ----------
+        name:
+            DID
+        rse:
+            Destination RSE name
+        scope:
+            rucio scope, defaults to None
+
+        Raises
+        -------
+        exc_cls: from BaseClient._get_exception
+
+        Returns
+        -------
+        request information
         """
 
         if scope is not None:
