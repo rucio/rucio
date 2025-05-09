@@ -438,7 +438,7 @@ class TestBinRucio:
         assert exitcode == 0
         
         # Delete all outgoing links using --src flag
-        cmd = 'rucio-admin rse delete-distance --src %s -y' % temprse_src
+        cmd = 'rucio-admin rse delete-distance %s -y' % temprse_src
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
@@ -494,7 +494,7 @@ class TestBinRucio:
         assert exitcode == 0
         
         # Delete all incoming links using --dest flag
-        cmd = 'rucio-admin rse delete-distance --dest %s -y' % temprse_dst
+        cmd = 'rucio-admin rse delete-distance "" %s -y' % temprse_dst
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
