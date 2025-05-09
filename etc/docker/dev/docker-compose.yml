@@ -1,10 +1,11 @@
-name: rucio
+name: dev
 
 services:
   # ------------------------------------------------------------------
   # Main Rucio dev containers
   # ------------------------------------------------------------------
   rucioclient:
+    container_name: dev-rucioclient-1
     image: "docker.io/${DOCKER_REPO:-rucio}/rucio-dev${RUCIO_TAG:+:release-${RUCIO_TAG}}"
     platform: linux/amd64
     entrypoint: ["/rucio_source/etc/docker/dev/rucio/entrypoint.sh"]
@@ -65,6 +66,7 @@ services:
   # Database, MQ, metrics, and other external services
   # ------------------------------------------------------------------
   ruciodb:
+    container_name: dev-ruciodb-1
     image: docker.io/postgres:14
     environment:
       - POSTGRES_USER=rucio
@@ -73,9 +75,11 @@ services:
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
 
   graphite:
+    container_name: dev-graphite-1
     image: docker.io/graphiteapp/graphite-statsd
 
   influxdb:
+    container_name: dev-influxdb-1
     image: docker.io/influxdb:latest
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
@@ -86,21 +90,24 @@ services:
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
 
   elasticsearch:
+    container_name: dev-elasticsearch-1
     image: docker.io/elasticsearch:7.8.0
     environment:
       - discovery.type=single-node
 
   activemq:
+    container_name: dev-activemq-1
     image: docker.io/apache/activemq-classic:5.18.7
     platform: linux/amd64
     volumes:
       - ./activemq/users.properties:/opt/apache-activemq/conf/users.properties
     environment:
-      # web portal acccess, helpful for debugging
+      # web portal access, helpful for debugging
       ACTIVEMQ_WEB_USER: activemq
       ACTIVEMQ_WEB_PASSWORD: supersecret
 
   postgres14:
+    container_name: dev-postgres14-1
     image: docker.io/postgres:14
     profiles:
       - postgres14
@@ -111,6 +118,7 @@ services:
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
 
   mysql8:
+    container_name: dev-mysql8-1
     image: docker.io/mysql:8.3
     profiles:
       - mysql8
@@ -125,6 +133,7 @@ services:
       - "--character-set-server=latin1"
 
   oracle:
+    container_name: dev-oracle-1
     image: docker.io/gvenzl/oracle-xe:18.4.0
     platform: linux/amd64
     profiles:
@@ -163,6 +172,7 @@ services:
         hard: 10240
 
   ftsdb:
+    container_name: dev-ftsdb-1
     image: docker.io/mysql:8.3
     profiles:
       - storage
@@ -174,6 +184,7 @@ services:
       - MYSQL_DATABASE=fts
 
   xrd1:
+    container_name: dev-xrd1-1
     image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
@@ -191,6 +202,7 @@ services:
         hard: 10240
 
   xrd2:
+    container_name: dev-xrd2-1
     image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
@@ -208,6 +220,7 @@ services:
         hard: 10240
 
   xrd3:
+    container_name: dev-xrd3-1
     image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
@@ -225,6 +238,7 @@ services:
         hard: 10240
 
   xrd4:
+    container_name: dev-xrd4-1
     image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
@@ -242,6 +256,7 @@ services:
         hard: 10240
 
   xrd5:
+    container_name: dev-xrd5-1
     image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
@@ -266,6 +281,7 @@ services:
         hard: 10240
 
   web1:
+    container_name: dev-web1-1
     image: "docker.io/${DOCKER_REPO:-rucio}/test-webdav:latest"
     platform: linux/amd64
     environment:
@@ -285,6 +301,7 @@ services:
   # Other services
   # ------------------------------------------------------------------
   minio:
+    container_name: dev-minio-1
     image: docker.io/minio/minio
     profiles:
       - storage
@@ -297,6 +314,7 @@ services:
     command: ["server", "/data"]
 
   ssh1:
+    container_name: dev-ssh1-1
     image: "docker.io/${DOCKER_REPO:-rucio}/test-ssh:${RUCIO_TAG:-latest}"
     platform: linux/amd64
     profiles:
@@ -308,6 +326,7 @@ services:
   # External metadata services
   # ------------------------------------------------------------------
   mongo:
+    container_name: dev-mongo-1
     image: docker.io/mongo:5.0
     profiles:
       - externalmetadata
@@ -316,11 +335,13 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: mongo-meta
 
   mongo-noauth:
+    container_name: dev-mongo-noauth-1
     image: docker.io/mongo:5.0
     profiles:
       - externalmetadata
 
   postgres:
+    container_name: dev-postgres-1
     image: docker.io/postgres:14
     profiles:
       - externalmetadata
@@ -331,6 +352,7 @@ services:
     command: ["-p", "5433"]
 
   elasticsearch_meta:
+    container_name: dev-elasticsearch_meta-1
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
     platform: linux/amd64
     profiles:
@@ -348,6 +370,7 @@ services:
   # Monitoring stack
   # ------------------------------------------------------------------
   logstash:
+    container_name: dev-logstash-1
     image: docker.elastic.co/logstash/logstash-oss:7.3.2
     platform: linux/amd64
     profiles:
@@ -357,11 +380,13 @@ services:
       - ./pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf:Z
 
   kibana:
+    container_name: dev-kibana-1
     image: docker.io/kibana:7.4.0
     profiles:
       - monitoring
 
   grafana:
+    container_name: dev-grafana-1
     image: docker.io/grafana/grafana:latest
     profiles:
       - monitoring
@@ -370,6 +395,7 @@ services:
   # IAM / Keycloak for auth
   # ------------------------------------------------------------------
   iam-db:
+    container_name: dev-iam-db-1
     image: mariadb:10.11
     profiles:
       - iam
@@ -386,6 +412,7 @@ services:
       - ./iam/indigoiam_db.sql:/docker-entrypoint-initdb.d/03_indigoiam.sql:ro
 
   indigoiam:
+    container_name: dev-indigoiam-1
     image: nginx
     profiles:
       - iam
@@ -404,6 +431,7 @@ services:
       - indigoiam-login-service
 
   indigoiam-login-service:
+    container_name: dev-indigoiam-login-service-1
     image: indigoiam/iam-login-service:v1.8.2p2
     platform: linux/amd64
     profiles:
@@ -440,6 +468,7 @@ services:
         condition: service_healthy
 
   keycloak:
+    container_name: dev-keycloak-1
     image: quay.io/keycloak/keycloak:23.0.1
     command: start-dev --features=token-exchange,admin-fine-grained-authz,dynamic-scopes --db mariadb --db-url-host iam-db --db-username keycloak --db-password secret --https-certificate-file=/cert.pem --https-certificate-key-file=/key.pem
     profiles:
