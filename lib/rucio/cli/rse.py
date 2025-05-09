@@ -125,15 +125,32 @@ def distance_add(ctx, source_rse, destination_rse, distance, bidirectional):
 
 
 @distance.command("remove")
-@click.argument("source-rse")
-@click.argument("destination-rse")
+@click.argument("source-rse", required=False)
+@click.argument("destination-rse", required=False)
+@click.option("--src", help="Source RSE or site name (for deleting all outgoing links)")
+@click.option("--dest", help="Destination RSE or site name (for deleting all incoming links)")
 @click.option('-y', '--yes', is_flag=True, help='Automatically confirm deletion')
 @click.option('--bidirectional', '--bidi', is_flag=True, help='Delete distances in both directions')
 @click.pass_context
-def distance_remove(ctx: click.Context, source_rse: str, destination_rse: str, yes: bool, bidirectional: bool) -> None:
-    """Un-link SOURCE-RSE from DESTINATION-RSE by removing the distance between them"""
-    # Setting yes=True for non-interactive test environments, but keeping bidirectional configurable
-    args = Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse, "yes": True, "bidirectional": bidirectional})
+def distance_remove(ctx: click.Context, source_rse: str, destination_rse: str, src: str, dest: str, yes: bool, bidirectional: bool) -> None:
+    """
+    Un-link RSEs by removing the distance between them.
+    
+    This command supports multiple modes:
+    - Delete distance from one RSE to another
+    - Delete distances between all RSEs at one site to all RSEs at another site
+    - Delete all outgoing distances from an RSE/site (using --src)
+    - Delete all incoming distances to an RSE/site (using --dest)
+    - Delete distances in both directions (using --bidirectional)
+    """
+    # Determine final source and destination based on positional args and flags
+    final_source = src if src else source_rse
+    final_destination = dest if dest else destination_rse
+    
+    if not (final_source or final_destination):
+        ctx.fail("Either source, destination, or both must be specified")
+    
+    args = Arguments({"no_pager": ctx.obj.no_pager, "source": final_source, "destination": final_destination, "yes": yes, "bidirectional": bidirectional})
     delete_distance_rses(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 

@@ -616,26 +616,16 @@ def update_distance_rses(args, client, logger, console, spinner):
 def delete_distance_rses(args, client, logger, console, spinner):
     """
     %(prog)s delete-distance [options] [SOURCE] [DESTINATION]
-    %(prog)s delete-distance --src [SOURCE]
-    %(prog)s delete-distance --dest [DESTINATION]
-    %(prog)s delete-distance --bidirectional [SOURCE] [DESTINATION]
 
     Delete distance entries between RSEs. Supports multiple modes:
-    - Delete distance from one RSE to another
-    - Delete distances between all RSEs at one site to all RSEs at another site
-    - Delete all outgoing distances from an RSE/site (using --src)
-    - Delete all incoming distances to an RSE/site (using --dest)
-    - Delete distances in both directions (using --bidirectional)
+    - Delete distance from one RSE to another (SOURCE DESTINATION)
+    - Delete all outgoing distances from an RSE/site (SOURCE only)
+    - Delete all incoming distances to an RSE/site (empty SOURCE, DESTINATION)
+    - Delete distances in both directions (--bidirectional)
 
     Arguments support both RSE names and site names. If a site name is provided,
     the command will operate on all RSEs belonging to that site.
     """
-    # Process source/destination arguments and their flags (This is to avoid the issue with positional arguments)
-    if hasattr(args, 'src_flag') and args.src_flag:
-        args.source = args.src_flag
-        
-    if hasattr(args, 'dest_flag') and args.dest_flag:
-        args.destination = args.dest_flag
         
     if not (args.source or args.destination):
         logger.error("Either source, destination, or both must be specified")
@@ -2140,19 +2130,13 @@ def get_parser():
                                                                   '    # Delete distance bidirectionally between two sites\n'
                                                                   '    $ rucio-admin rse delete-distance --bidirectional JDOE_SITE_A JDOE_SITE_B\n'
                                                                   '\n'
-                                                                  '    # Delete all outgoing links from an RSE\n'
-                                                                  '    $ rucio-admin rse delete-distance --src JDOE_DATADISK\n'
+                                                                  '    # Delete all outgoing links from an RSE (provide only source)\n'
+                                                                  '    $ rucio-admin rse delete-distance JDOE_DATADISK\n'
                                                                   '\n'
-                                                                  '    # Delete all incoming links to an RSE\n'
-                                                                  '    $ rucio-admin rse delete-distance --dest JDOE_SCRATCHDISK\n'
+                                                                  '    # Delete all incoming links to an RSE (provide empty source and destination)\n'
+                                                                  '    $ rucio-admin rse delete-distance "" JDOE_SCRATCHDISK\n'
                                                                   '\n')
     delete_distance_rses_parser.set_defaults(which='delete_distance_rses')
-    
-    # Create a mutually exclusive group for source/destination specification
-    src_dest_group = delete_distance_rses_parser.add_mutually_exclusive_group()
-    src_dest_group.add_argument('--src', dest='src_flag', action='store', help='Source RSE or site name (for deleting all outgoing links)')
-    src_dest_group.add_argument('--dest', dest='dest_flag', action='store', help='Destination RSE or site name (for deleting all incoming links)')
-    
     delete_distance_rses_parser.add_argument('source', nargs='?', help='Source RSE or site name')
     delete_distance_rses_parser.add_argument('destination', nargs='?', help='Destination RSE or site name')
     delete_distance_rses_parser.add_argument('--bidirectional', '--bidi', action='store_true', help='Delete distances in both directions')
