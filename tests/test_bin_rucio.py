@@ -494,7 +494,7 @@ class TestBinRucio:
         assert exitcode == 0
         
         # Delete all incoming links using --dest flag
-        cmd = 'rucio-admin rse delete-distance "" %s -y' % temprse_dst
+        cmd = "rucio-admin rse delete-distance '' %s -y" % temprse_dst
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
