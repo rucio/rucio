@@ -6,7 +6,7 @@ services:
   # ------------------------------------------------------------------
   rucioclient:
     container_name: dev-rucioclient-1
-    image: "docker.io/${DOCKER_REPO:-rucio}/rucio-dev${RUCIO_TAG:+:release-${RUCIO_TAG}}"
+    image: "docker.io/${DOCKER_REPO:-rucio}/rucio-dev:${RUCIO_DEV_PREFIX:-}${RUCIO_TAG:-latest}"
     platform: linux/amd64
     entrypoint: ["/rucio_source/etc/docker/dev/rucio/entrypoint.sh"]
     command: ["sleep", "infinity"]
@@ -36,7 +36,7 @@ services:
 
   rucio:
     container_name: dev-rucio-1
-    image: "docker.io/${DOCKER_REPO:-rucio}/rucio-dev${RUCIO_TAG:+:release-${RUCIO_TAG}}"
+    image: "docker.io/${DOCKER_REPO:-rucio}/rucio-dev:${RUCIO_DEV_PREFIX:-}${RUCIO_TAG:-latest}"
     platform: linux/amd64
     entrypoint: ["/rucio_source/etc/docker/dev/rucio/entrypoint.sh"]
     command: ["httpd","-D","FOREGROUND"]
