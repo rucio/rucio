@@ -442,6 +442,9 @@ ensure_upstream_exists
 # We'll pass this to Docker Compose as RUCIO_TAG. If empty, that means :latest.
 RUCIO_TAG=""
 
+# By default, no prefix for rucio-dev images
+RUCIO_DEV_PREFIX=""
+
 # If user specified any destructive checkout option
 if [[ "$USE_MASTER" == "true" || "$USE_LATEST" == "true" || -n "$SPECIFIED_RELEASE" ]]; then
 
@@ -465,7 +468,7 @@ if [[ "$USE_MASTER" == "true" || "$USE_LATEST" == "true" || -n "$SPECIFIED_RELEA
   if [[ "$USE_MASTER" == "true" ]]; then
     echo ">>> Force-reset local '$DEMO_BRANCH' to '$UPSTREAM_REMOTE/master'."
     git checkout -B "$DEMO_BRANCH" "$UPSTREAM_REMOTE/master"
-    # RUCIO_TAG stays empty => "docker.io/.../rucio-dev:latest" (which shall be updated later to master state)
+    # RUCIO_TAG and RUCIO_DEV_PREFIX stay empty => "docker.io/.../rucio-dev:latest"
 
   # --release
   elif [[ -n "$SPECIFIED_RELEASE" ]]; then
@@ -473,6 +476,9 @@ if [[ "$USE_MASTER" == "true" || "$USE_LATEST" == "true" || -n "$SPECIFIED_RELEA
     ensure_tag_fetched "$SPECIFIED_RELEASE"
     git checkout -B "$DEMO_BRANCH" "refs/tags/$SPECIFIED_RELEASE"
     RUCIO_TAG="$SPECIFIED_RELEASE"
+
+    # For rucio-dev images that use "release-<tag>" style
+    RUCIO_DEV_PREFIX="release-"
 
   # --latest
   elif [[ "$USE_LATEST" == "true" ]]; then
@@ -521,10 +527,11 @@ fi
 #       (First tear down any existing environment to ensure a clean start)
 # ---------------------------------------------------------------------------
 
-echo ">>> Using Docker images with RUCIO_TAG=\"$RUCIO_TAG\""
+echo ">>> Using Docker images with RUCIO_TAG=\"$RUCIO_TAG\" and RUCIO_DEV_PREFIX=\"$RUCIO_DEV_PREFIX\""
 
 # Make sure Docker Compose sees the RUCIO_TAG environment variable
 export RUCIO_TAG="$RUCIO_TAG"
+export RUCIO_DEV_PREFIX="$RUCIO_DEV_PREFIX"
 
 cd "$RUCIO_REPO_ROOT/etc/docker/dev"
 
