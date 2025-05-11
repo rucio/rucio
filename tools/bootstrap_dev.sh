@@ -49,10 +49,10 @@
 #   (You can also use the short forms: -r <TAG>, -l, -m, -p <NAME>)
 #
 # Examples:
-#   1) Check out a specific release (36.5.0) and start the dev environment including the "storage" profile:
-#        ./tools/bootstrap_dev.sh --release 36.5.0 --profile storage
+#   1) Check out a specific release (37.4.0) and start the dev environment including the "storage" profile:
+#        ./tools/bootstrap_dev.sh --release 37.4.0 --profile storage
 #     or the short form:
-#        ./tools/bootstrap_dev.sh -r 36.5.0 -p storage
+#        ./tools/bootstrap_dev.sh -r 37.4.0 -p storage
 #
 #   2) Check out master and run the dev environment including the "storage" and "monitoring" profiles:
 #        ./tools/bootstrap_dev.sh --master --profile storage --profile monitoring
@@ -92,7 +92,7 @@ function usage() {
 Usage: $0 [options]
 
 Checkout options (mutually exclusive):
-  -r, --release <TAG>   Force local '$DEMO_BRANCH' branch to the upstream release tag <TAG>, e.g. 36.5.0.
+  -r, --release <TAG>   Force local '$DEMO_BRANCH' branch to the upstream release tag <TAG>, e.g. 37.4.0.
   -l, --latest          Force local '$DEMO_BRANCH' to the semver release that matches the Docker Hub 'latest' digest.
   -m, --master          Force local '$DEMO_BRANCH' to the upstream master branch.
 
@@ -115,7 +115,7 @@ Notes:
      Rucio repository. If it's absent or incorrect, the script will fix it automatically.
 
 Examples:
-  $0 --release 36.5.0 --profile storage
+  $0 --release 37.4.0 --profile storage
   $0 --master --profile storage --profile monitoring
   $0 --latest --profile storage
   $0 --master
@@ -345,7 +345,7 @@ while [[ $# -gt 0 ]]; do
       fi
       # Ensure $2 is valid
       if [[ -z "${2:-}" || "${2:0:1}" == "-" ]]; then
-        echo "ERROR: Option '$1' requires a release tag (e.g. '36.5.0')."
+        echo "ERROR: Option '$1' requires a release tag (e.g. '37.4.0')."
         exit 1
       fi
       SPECIFIED_RELEASE="$2"
@@ -599,14 +599,23 @@ Rucio dev environment started.
 
 -------------------------------------------------------------------
  IMPORTANT:
-   1) You can also manually spin up the dev environment using Docker Compose directly. For example:
-      docker-compose --project-name dev --file etc/docker/dev/docker-compose.yml up -d
+   1) You can also manually spin up the \`latest\` dev environment using Docker Compose directly.
+      Example using docker:
+        docker-compose --file path_to/etc/docker/dev/docker-compose.yml up
+      ..or using podman:
+        podman-compose --file path_to/etc/docker/dev/docker-compose.yml up -d
 
-   2) Additionally, you can specify custom parameters, such as a Docker repository, a specific Rucio release tag, or extra profiles. For example:
-      DOCKER_REPO=my_repo RUCIO_TAG=36.5.0 docker-compose --project-name dev --file etc/docker/dev/docker-compose.yml --profile storage --profile monitoring up -d
+   2) Additionally, you can specify custom parameters, such as a Docker repository, a specific Rucio
+      release tag (in such cases, RUCIO_DEV_PREFIX=release- is required), or extra profiles.
+      Example using docker:
+        DOCKER_REPO=my_repo RUCIO_TAG=37.4.0 RUCIO_DEV_PREFIX=release- docker-compose --project-name dev --file path_to/etc/docker/dev/docker-compose.yml --profile storage --profile monitoring up
+      ..or using podman:
+        RUCIO_TAG=37.4.0 RUCIO_DEV_PREFIX=release- podman-compose --file path_to/etc/docker/dev/docker-compose.yml --profile storage up -d
 
    3) Switching local branches while containers are running:
-      If you change or check out a different branch locally, the bind-mounted code inside the container will be replaced on-the-fly. This can cause unpredictable
-      behavior or partial/inconsistent code loading. For best results, tear down the containers before switching branches, then start them again on the new branch.
+      If you change or check out a different branch locally, the bind-mounted code inside
+      the container will be replaced on-the-fly. This can cause unpredictable behavior or
+      partial/inconsistent code loading. For best results, tear down the containers before
+      switching branches, then start them again on the new branch.
 -------------------------------------------------------------------
 EOF
