@@ -134,19 +134,30 @@ def test_attributes(random_account):
 @pytest.mark.dirty(reason="Creates a new scope on vo=def")
 def test_scope(random_account):
     """CLIENT(ADMIN): Add/list/delete/list scope"""
-    tmp_scp = scope_name_generator().replace("mock", "test")
+    tmp_scp = scope_name_generator()
     cmd = f'rucio-admin scope add --account {random_account} --scope {tmp_scp}'
     exitcode, out, _ = execute(cmd)
     assert exitcode == 0
     assert f'Added new scope to {random_account}: {tmp_scp}' in out
 
-    cmd = 'rucio list-scopes'
+    cmd = f'rucio-admin scope list --account {random_account}'
     exitcode, out, _ = execute(cmd)
     assert exitcode == 0
     assert tmp_scp in out
 
-    cmd = f'rucio-admin scope list --account {random_account}'
-    exitcode, out, _ = execute(cmd)
+    cmd = 'rucio-admin scope list'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert tmp_scp in out
+
+    # Client should do the same
+    cmd = 'rucio list-scopes'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert tmp_scp in out
+
+    cmd = f'rucio list-scopes --account {random_account}'
+    exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert tmp_scp in out
 

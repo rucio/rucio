@@ -781,8 +781,7 @@ def list_scopes(args, client, logger, console, spinner):
         print_output(table, console=console, no_pager=args.no_pager)
     else:
         for scope in scopes:
-            if 'mock' not in scope:
-                print(scope)
+            print(scope)
     return SUCCESS
 
 
