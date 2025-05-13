@@ -75,7 +75,7 @@ elastic-transport==8.17.0
     # via elasticsearch
 elasticsearch==8.15.1
     # via -r requirements.server.in
-flask==3.1.0
+flask==3.1.1
     # via -r requirements.server.in
 frozenlist==1.5.0
     # via
@@ -89,6 +89,8 @@ globus-sdk==3.41.0
     # via -r requirements.server.in
 google-auth==2.38.0
     # via -r requirements.server.in
+greenlet==3.2.2
+    # via sqlalchemy
 gssapi==1.9.0
     # via pyspnego
 idna==3.10
@@ -129,6 +131,7 @@ markdown-it-py==3.0.0
     # via rich
 markupsafe==3.0.2
     # via
+    #   flask
     #   jinja2
     #   mako
     #   werkzeug
