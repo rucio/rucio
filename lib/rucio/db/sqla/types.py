@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import uuid
 
 import sqlalchemy.types as types
@@ -120,13 +121,16 @@ class BooleanString(TypeDecorator):
 
 class JSON(TypeDecorator):
     """
-    Platform independent json type
+    Platform-independent JSON type.
 
-    JSONB for postgres , JSON for the rest
+    Uses:
+    - PostgreSQL: JSONB
+    - MySQL: JSON
+    - Oracle: CLOB (serialized)
+    - SQLite: String (serialized)
     """
 
-    impl = types.JSON
-
+    impl = String
     cache_ok = True
 
     def load_dialect_impl(self, dialect):
@@ -138,6 +142,24 @@ class JSON(TypeDecorator):
             return dialect.type_descriptor(CLOB())
         else:
             return dialect.type_descriptor(String())
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+
+        if dialect.name in ('postgresql', 'mysql'):
+            return value
+
+        return json.dumps(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+
+        if dialect.name in ('postgresql', 'mysql'):
+            return value
+
+        return json.loads(value)
 
 
 class InternalAccountString(TypeDecorator):
