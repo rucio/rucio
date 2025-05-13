@@ -78,7 +78,7 @@ class BaseExtractionTool:
         program_name :
             the name of the archive extraction program, e.g., unzip
         useability_check_args :
-            the arguments of the extraction program to test if its installed, e.g., --version
+            the arguments of the extraction program to test if it's installed, e.g., --version
         extract_args :
             the arguments that will be passed to the program for extraction
         logger :
