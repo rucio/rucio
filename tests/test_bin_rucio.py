@@ -405,7 +405,7 @@ class TestBinRucio:
         assert "No distance set from %s to %s" % (temprse2, temprse1) in out
 
     def test_rse_delete_distance_src_flag(self):
-        """CLIENT (ADMIN): Delete all outgoing distances using --src flag"""
+        """CLIENT (ADMIN): Delete all outgoing distances using RSE expressions"""
         # Create multiple RSEs
         temprse_src = rse_name_generator()
         cmd = 'rucio rse add %s' % temprse_src
@@ -441,8 +441,8 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         assert exitcode == 0
         
-        # Delete all outgoing links with --src flag
-        cmd = 'rucio rse distance remove --src %s -y' % temprse_src
+        # Delete all outgoing links using RSE expression
+        cmd = 'rucio rse distance remove %s "*" -y' % temprse_src
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
@@ -461,7 +461,7 @@ class TestBinRucio:
         assert "No distance set from %s to %s" % (temprse_src, temprse_dst3) in out
 
     def test_rse_delete_distance_dest_flag(self):
-        """CLIENT (ADMIN): Delete all incoming distances using --dest flag"""
+        """CLIENT (ADMIN): Delete all incoming distances using RSE expressions"""
         # Create multiple RSEs
         temprse_dst = rse_name_generator()
         cmd = 'rucio rse add %s' % temprse_dst
@@ -497,8 +497,8 @@ class TestBinRucio:
         exitcode, out, err = execute(cmd)
         assert exitcode == 0
         
-        # Delete all incoming links using the new CLI with --dest flag
-        cmd = "rucio rse distance remove --dest %s -y" % temprse_dst
+        # Delete all incoming links using RSE expression
+        cmd = 'rucio rse distance remove "*" %s -y' % temprse_dst
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
@@ -517,7 +517,7 @@ class TestBinRucio:
         assert "No distance set from %s to %s" % (temprse_src3, temprse_dst) in out
 
     def test_rse_delete_distance_site_attribute(self):
-        """CLIENT (ADMIN): Delete distances between sites using site attribute"""
+        """CLIENT (ADMIN): Delete distances between sites using RSE expressions"""
         
         # Create RSEs for two sites
         site1_rse1 = rse_name_generator()
@@ -544,19 +544,19 @@ class TestBinRucio:
         site1_name = "TESTSITE1_" + str(generate_uuid())[:8]
         site2_name = "TESTSITE2_" + str(generate_uuid())[:8]
         
-        cmd = 'rucio rse set-attribute %s --key site --value %s' % (site1_rse1, site1_name)
+        cmd = 'rucio-admin rse set-attribute --rse %s --key site --value %s' % (site1_rse1, site1_name)
         exitcode, out, err = execute(cmd)
         assert exitcode == 0
         
-        cmd = 'rucio rse set-attribute %s --key site --value %s' % (site1_rse2, site1_name)
+        cmd = 'rucio-admin rse set-attribute --rse %s --key site --value %s' % (site1_rse2, site1_name)
         exitcode, out, err = execute(cmd)
         assert exitcode == 0
         
-        cmd = 'rucio rse set-attribute %s --key site --value %s' % (site2_rse1, site2_name)
+        cmd = 'rucio-admin rse set-attribute --rse %s --key site --value %s' % (site2_rse1, site2_name)
         exitcode, out, err = execute(cmd)
         assert exitcode == 0
         
-        cmd = 'rucio rse set-attribute %s --key site --value %s' % (site2_rse2, site2_name)
+        cmd = 'rucio-admin rse set-attribute --rse %s --key site --value %s' % (site2_rse2, site2_name)
         exitcode, out, err = execute(cmd)
         assert exitcode == 0
         
@@ -2694,5 +2694,3 @@ class TestBinRucio:
         list_exceptions = [(excep['scope'], excep['name']) for excep in self.lifetime_client.list_exceptions()]
         assert (self.user, tmp_dsn_name1) in list_exceptions
         assert (self.user, tmp_dsn_name2) not in list_exceptions
-
-

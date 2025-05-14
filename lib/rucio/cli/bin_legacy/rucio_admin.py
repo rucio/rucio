@@ -619,12 +619,13 @@ def delete_distance_rses(args, client, logger, console, spinner):
 
     Delete distance entries between RSEs. Supports multiple modes:
     - Delete distance from one RSE to another (SOURCE DESTINATION)
-    - Delete all outgoing distances from an RSE/site (SOURCE only)
-    - Delete all incoming distances to an RSE/site (empty SOURCE, DESTINATION)
+    - Delete distances between RSEs matching SOURCE expression to RSEs matching DESTINATION
+    - Delete all outgoing distances from RSEs matching SOURCE to all RSEs
+    - Delete all incoming distances to RSEs matching DESTINATION from all RSEs
     - Delete distances in both directions (--bidirectional)
 
-    Arguments support both RSE names and site names. If a site name is provided,
-    the command will operate on all RSEs belonging to that site.
+    Arguments support RSE expressions (e.g., "site=SITE_NAME" or "*").
+    An RSE name is a valid RSE expression.
     """
         
     if not (args.source or args.destination):
@@ -637,92 +638,131 @@ def delete_distance_rses(args, client, logger, console, spinner):
             spinner.start()
         else:
             print("Identifying distances to delete...")
-        
-        # Get complete export of RSE data with distances
-        export_data = client.export_data(distance=True)
-        all_rses = export_data.get('rses', {})
-        all_distances = export_data.get('distances', {})
-        
-        if not all_rses or not all_distances:
-            if cli_config == 'rich':
-                spinner.stop()
-                print_output(f"{CLITheme.FAILURE_ICON} Failed to retrieve RSE or distance data", console=console, no_pager=True)
-            else:
-                logger.error("Failed to retrieve RSE or distance data")
-            return FAILURE
-        
-        # Resolve source and destination RSEs
+
+        # Get all RSEs matching the source expression
         src_rses = []
-        dst_rses = []
-        
         if args.source:
-            # First try to interpret source as an RSE name
-            if args.source in all_rses:
-                src_rses = [args.source]
-            else:
-                # If not an RSE, try to interpret it as a site name
-                # This allows operating on all RSEs at a single site
-                for rse_name, rse_data in all_rses.items():
-                    if rse_data.get('attributes', {}).get('site') == args.source:
-                        src_rses.append(rse_name)
-                
+            try:
+                src_rses = [rse['rse'] for rse in client.list_rses(args.source)]
                 if not src_rses:
                     if cli_config == 'rich':
                         spinner.stop()
-                        print_output(f"{CLITheme.FAILURE_ICON} Source '{args.source}' is neither a valid RSE nor a site with RSEs", console=console, no_pager=True)
+                        print_output(f"{CLITheme.FAILURE_ICON} No RSEs match source expression: {args.source}", console=console, no_pager=True)
                     else:
-                        logger.error(f"Source '{args.source}' is neither a valid RSE nor a site with RSEs")
+                        logger.error(f"No RSEs match source expression: {args.source}")
                     return FAILURE
-        
+            except Exception as e:
+                if cli_config == 'rich':
+                    spinner.stop()
+                    print_output(f"{CLITheme.FAILURE_ICON} Error resolving source RSE expression: {str(e)}", console=console, no_pager=True)
+                else:
+                    logger.error(f"Error resolving source RSE expression: {str(e)}")
+                return FAILURE
+
+        # Get all RSEs matching the destination expression
+        dst_rses = []
         if args.destination:
-            # First try to interpret destination as an RSE name
-            if args.destination in all_rses:
-                dst_rses = [args.destination]
-            else:
-                # If not an RSE, try to interpret it as a site name
-                # This allows operating on all RSEs at a single site
-                for rse_name, rse_data in all_rses.items():
-                    if rse_data.get('attributes', {}).get('site') == args.destination:
-                        dst_rses.append(rse_name)
-                
+            try:
+                dst_rses = [rse['rse'] for rse in client.list_rses(args.destination)]
                 if not dst_rses:
                     if cli_config == 'rich':
                         spinner.stop()
-                        print_output(f"{CLITheme.FAILURE_ICON} Destination '{args.destination}' is neither a valid RSE nor a site with RSEs", console=console, no_pager=True)
+                        print_output(f"{CLITheme.FAILURE_ICON} No RSEs match destination expression: {args.destination}", console=console, no_pager=True)
                     else:
-                        logger.error(f"Destination '{args.destination}' is neither a valid RSE nor a site with RSEs")
+                        logger.error(f"No RSEs match destination expression: {args.destination}")
                     return FAILURE
+            except Exception as e:
+                if cli_config == 'rich':
+                    spinner.stop()
+                    print_output(f"{CLITheme.FAILURE_ICON} Error resolving destination RSE expression: {str(e)}", console=console, no_pager=True)
+                else:
+                    logger.error(f"Error resolving destination RSE expression: {str(e)}")
+                return FAILURE
+
+        # Get the complete list of RSEs
+        all_rse_list = [rse['rse'] for rse in client.list_rses()]
         
+        # Get all distances information
+        all_distances = {}
+        
+        # When both source and destination are specified, we only need to check distances between them
+        if args.source and args.destination:
+            for src in src_rses:
+                all_distances.setdefault(src, {})
+                for dst in dst_rses:
+                    try:
+                        distance = client.get_distance(source=src, destination=dst)
+                        if distance:
+                            all_distances[src][dst] = distance[0]
+                    except Exception:
+                        pass
+                    
+                    # If bidirectional, check the reverse direction too
+                    if args.bidirectional:
+                        all_distances.setdefault(dst, {})
+                        try:
+                            distance = client.get_distance(source=dst, destination=src)
+                            if distance:
+                                all_distances[dst][src] = distance[0]
+                        except Exception:
+                            pass
+        
+        # When only source is specified, get all outgoing distances from source RSEs
+        elif args.source:
+            for src in src_rses:
+                all_distances.setdefault(src, {})
+                for dst in all_rse_list:
+                    try:
+                        distance = client.get_distance(source=src, destination=dst)
+                        if distance:
+                            all_distances[src][dst] = distance[0]
+                    except Exception:
+                        pass
+        
+        # When only destination is specified, get all incoming distances to destination RSEs
+        elif args.destination:
+            for dst in dst_rses:
+                for src in all_rse_list:
+                    all_distances.setdefault(src, {})
+                    try:
+                        distance = client.get_distance(source=src, destination=dst)
+                        if distance:
+                            all_distances[src][dst] = distance[0]
+                    except Exception:
+                        pass
+
+        # Identify distances to delete
         distances_to_delete = []
         
-        if args.source or args.destination:
-            # First handle source-specified cases
-            if args.source:
-                for src in src_rses:
-                    if src in all_distances:
-                        if args.destination:
-                            # Case: Both source and destination specified
-                            # Delete specific distances between source(s) and destination(s)
-                            for dst in dst_rses:
-                                if dst in all_distances[src]:
-                                    distances_to_delete.append((src, dst))
-                                
-                                # Handle bidirectional flag
-                                if args.bidirectional and dst in all_distances and src in all_distances[dst]:
-                                    distances_to_delete.append((dst, src))
-                        else:
-                            # Case: Only source specified
-                            # Delete all outgoing distances from source(s)
-                            for dst in all_distances[src]:
-                                distances_to_delete.append((src, dst))
-            
-            # Then handle destination-only case
-            # Delete all incoming distances to destination(s)
-            elif args.destination:
-                for dst in dst_rses:
-                    for src, dest_dict in all_distances.items():
-                        if dst in dest_dict:
+        # Handle different cases
+        if args.source and args.destination:
+            # Case: Both source and destination specified
+            # Delete specific distances between source(s) and destination(s)
+            for src in src_rses:
+                if src in all_distances:
+                    for dst in dst_rses:
+                        if dst in all_distances[src]:
                             distances_to_delete.append((src, dst))
+                        
+                        # Handle bidirectional flag - already queried above
+                        if args.bidirectional and dst in all_distances and src in all_distances[dst]:
+                            distances_to_delete.append((dst, src))
+        
+        elif args.source:
+            # Case: Only source specified
+            # Delete all outgoing distances from source(s)
+            for src in src_rses:
+                if src in all_distances:
+                    for dst in all_distances[src]:
+                        distances_to_delete.append((src, dst))
+        
+        elif args.destination:
+            # Case: Only destination specified
+            # Delete all incoming distances to destination(s)
+            for dst in dst_rses:
+                for src in all_distances:
+                    if dst in all_distances[src]:
+                        distances_to_delete.append((src, dst))
         
         # Remove duplicates
         distances_to_delete = list(set(distances_to_delete))
@@ -738,9 +778,9 @@ def delete_distance_rses(args, client, logger, console, spinner):
                 else:
                     raise NoDistance(f"No distances found between specified sources and destinations")
             elif args.source:
-                raise NoDistance(f"No outgoing distances found from {args.source}")
+                raise NoDistance(f"No outgoing distances found from RSEs matching: {args.source}")
             elif args.destination:
-                raise NoDistance(f"No incoming distances found to {args.destination}")
+                raise NoDistance(f"No incoming distances found to RSEs matching: {args.destination}")
         
         if cli_config == 'rich':
             distance_tree = Tree(f"The following {len(distances_to_delete)} distances will be deleted:")
@@ -2115,7 +2155,7 @@ def get_parser():
 
     # The delete_distance_rses command
     delete_distance_rses_parser = rse_subparser.add_parser('delete-distance',
-                                                           help='Delete the distance between a pair of RSEs or sites.',
+                                                           help='Delete the distance between RSEs based on RSE expressions.',
                                                            formatter_class=argparse.RawDescriptionHelpFormatter,
                                                            epilog='Usage example\n'
                                                                   '"""""""""""""\n'
@@ -2124,21 +2164,21 @@ def get_parser():
                                                                   '    # Delete distance between two specific RSEs\n'
                                                                   '    $ rucio-admin rse delete-distance JDOE_DATADISK JDOE_SCRATCHDISK\n'
                                                                   '\n'
-                                                                  '    # Delete distance between two sites (all RSEs at each site)\n'
-                                                                  '    $ rucio-admin rse delete-distance JDOE_SITE_A JDOE_SITE_B\n'
+                                                                  '    # Delete distance between all RSEs at two sites\n'
+                                                                  '    $ rucio-admin rse delete-distance "site=JDOE_SITE_A" "site=JDOE_SITE_B"\n'
                                                                   '\n'
-                                                                  '    # Delete distance bidirectionally between two sites\n'
-                                                                  '    $ rucio-admin rse delete-distance --bidirectional JDOE_SITE_A JDOE_SITE_B\n'
+                                                                  '    # Delete distance bidirectionally between two RSE expressions\n'
+                                                                  '    $ rucio-admin rse delete-distance --bidirectional "site=JDOE_SITE_A" "site=JDOE_SITE_B"\n'
                                                                   '\n'
-                                                                  '    # Delete all outgoing links from an RSE (provide only source)\n'
-                                                                  '    $ rucio-admin rse delete-distance JDOE_DATADISK\n'
+                                                                  '    # Delete all outgoing links from RSEs matching an expression\n'
+                                                                  '    $ rucio-admin rse delete-distance "site=JDOE_SITE_A" "*"\n'
                                                                   '\n'
-                                                                  '    # Delete all incoming links to an RSE (provide empty source and destination)\n'
-                                                                  '    $ rucio-admin rse delete-distance "" JDOE_SCRATCHDISK\n'
+                                                                  '    # Delete all incoming links to RSEs matching an expression\n'
+                                                                  '    $ rucio-admin rse delete-distance "*" "site=JDOE_SITE_B"\n'
                                                                   '\n')
     delete_distance_rses_parser.set_defaults(which='delete_distance_rses')
-    delete_distance_rses_parser.add_argument('source', nargs='?', help='Source RSE or site name')
-    delete_distance_rses_parser.add_argument('destination', nargs='?', help='Destination RSE or site name')
+    delete_distance_rses_parser.add_argument('source', nargs='?', help='Source RSE expression')
+    delete_distance_rses_parser.add_argument('destination', nargs='?', help='Destination RSE expression')
     delete_distance_rses_parser.add_argument('--bidirectional', '--bidi', action='store_true', help='Delete distances in both directions')
     delete_distance_rses_parser.add_argument('-y', '--yes', action='store_true', help='Automatically confirm deletion')
 
@@ -2705,3 +2745,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
