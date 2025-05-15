@@ -729,10 +729,10 @@ class RSEClient(BaseClient):
             destination: str
     ) -> Literal[True]:
         """
-        Delete distances with the given RSE ids.
-
-        :param source: The source.
-        :param destination: The destination.
+        Delete distances with the given RSEs.
+        
+        :param source: Source RSE expression (can be a single RSE name or expression like site=SITE_NAME).
+        :param destination: Destination RSE expression (can be a single RSE name or expression like site=SITE_NAME).
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
