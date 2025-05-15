@@ -236,7 +236,7 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         if policy_module:
             importlib.import_module(policy_module)
 
-        cls._DEFAULT_LFN2PFN = config.get_lfn2pfn_algorithm_default()
+        cls._DEFAULT_LFN2PFN = config.get_lfn2pfn_algorithm()
 
     def path(
             self,
