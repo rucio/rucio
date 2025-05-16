@@ -643,13 +643,23 @@ def test_rule(rucio_client, mock_scope):
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
-    rule_id = out.strip("\n")
+    rule_id = out.split("\n")[0]
 
     cmd = f"rucio rule list --did {scope}:{name}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert rule_id in out
+
+    cmd = f"rucio rule list --account {rucio_client.account}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert rule_id in out
+
+    cmd = "rucio rule list"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 2
+    assert "At least one option has to be given" in err
 
     # Below functionality is questionable - listing by ID works _sometimes_ if the database has been updated with the new rule
 
@@ -710,6 +720,18 @@ def test_rule(rucio_client, mock_scope):
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
+
+    # Can make a rule for multiple DIDs at once
+    name1 = generate_uuid()
+    rucio_client.add_replica(rse=mock_rse, scope=scope, name=name1, bytes_=4, adler32="deadbeef")
+    name2 = generate_uuid()
+    rucio_client.add_replica(rse=mock_rse, scope=scope, name=name2, bytes_=4, adler32="deadbeef")
+
+    cmd = f"rucio rule add {scope}:{name1} {scope}:{name2} --copies 1 --rses {rule_rse}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert len(out.split("\n")) == 3  # Creates two rules with independent IDs and one extra line at the end
 
 
 def test_scope():
