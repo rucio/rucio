@@ -45,14 +45,21 @@ class DIDClient(BaseClient):
         """
         List all data identifiers in a scope which match a given pattern.
 
-        :param scope: The scope name.
-        :param filters: A nested dictionary of key/value pairs like [{'key1': 'value1', 'key2.lte': 'value2'}, {'key3.gte, 'value3'}].
-                        Keypairs in the same dictionary are AND'ed together, dictionaries are OR'ed together. Keys should be suffixed
-                        like <key>.<operation>, e.g. key1 >= value1 is equivalent to {'key1.gte': value}, where <operation> belongs to one
-                        of the set {'lte', 'gte', 'gt', 'lt', 'ne' or ''}. Equivalence doesn't require an operator.
-        :param did_type: The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
-        :param long: Long format option to display more information for each DID.
-        :param recursive: Recursively list DIDs content.
+        Parameters
+        ----------
+            scope :
+                The scope name.
+            filters :
+                A nested dictionary of key/value pairs like [{'key1': 'value1', 'key2.lte': 'value2'}, {'key3.gte, 'value3'}].
+                Keypairs in the same dictionary are AND'ed together, dictionaries are OR'ed together. Keys should be suffixed
+                like <key>.<operation>, e.g. key1 >= value1 is equivalent to {'key1.gte': value}, where <operation> belongs to one
+                of the set {'lte', 'gte', 'gt', 'lt', 'ne' or ''}. Equivalence doesn't require an operator.
+            did_type :
+                The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
+            long :
+                Long format option to display more information for each DID.
+            recursive :
+                Recursively list DIDs content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), 'dids', 'search'])
 
@@ -103,15 +110,27 @@ class DIDClient(BaseClient):
         """
         Add data identifier for a dataset or container.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param did_type: The data identifier type (dataset|container).
-        :param statuses: Dictionary with statuses, e.g. {'monotonic':True}.
-        :param meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
-        :param rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
-        :param lifetime: DID's lifetime (in seconds).
-        :param dids: The content.
-        :param rse: The RSE name when registering replicas.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        did_type :
+            The data identifier type (dataset|container).
+        statuses :
+            Dictionary with statuses, e.g. {'monotonic':True}.
+        meta :
+            Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
+        rules :
+            Replication rules associated with the data identifier. A list of dictionaries,
+            e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+        lifetime :
+            DID's lifetime (in seconds).
+        dids :
+            The content.
+        rse :
+            The RSE name when registering replicas.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name)])
         url = build_url(choice(self.list_hosts), path=path)
@@ -163,14 +182,25 @@ class DIDClient(BaseClient):
         """
         Add data identifier for a dataset.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
-        :param meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
-        :param rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
-        :param lifetime: DID's lifetime (in seconds).
-        :param files: The content.
-        :param rse: The RSE name when registering replicas.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        statuses :
+            Dictionary with statuses, e.g. {'monotonic':True}.
+        meta :
+            Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
+        rules :
+            Replication rules associated with the data identifier. A list of dictionaries,
+            e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+        lifetime :
+            DID's lifetime (in seconds).
+        files :
+            The content.
+        rse :
+            The RSE name when registering replicas.
         """
         return self.add_did(scope=scope, name=name, did_type='DATASET',
                             statuses=statuses, meta=meta, rules=rules,
@@ -180,7 +210,10 @@ class DIDClient(BaseClient):
         """
         Bulk add datasets.
 
-        :param dsns: A list of datasets.
+        Parameters
+        ----------
+        dsns :
+            A list of datasets.
         """
         return self.add_dids(dids=[dict(list(dsn.items()) + [('type', 'DATASET')]) for dsn in dsns])
 
@@ -196,12 +229,21 @@ class DIDClient(BaseClient):
         """
         Add data identifier for a container.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
-        :param meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
-        :param rules: Replication rules associated with the data identifier. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
-        :param lifetime: DID's lifetime (in seconds).
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        statuses :
+            Dictionary with statuses, e.g. {'monotonic':True}.
+        meta :
+            Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
+        rules :
+            Replication rules associated with the data identifier. A list of dictionaries,
+            e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+        lifetime :
+            DID's lifetime (in seconds).
         """
         return self.add_did(scope=scope, name=name, did_type='CONTAINER', statuses=statuses, meta=meta, rules=rules, lifetime=lifetime)
 
@@ -209,7 +251,10 @@ class DIDClient(BaseClient):
         """
         Bulk add containers.
 
-        :param cnts: A list of containers.
+        Parameters
+        ----------
+        cnts :
+            A list of containers.
         """
         return self.add_dids(dids=[dict(list(cnt.items()) + [('type', 'CONTAINER')]) for cnt in cnts])
 
@@ -223,10 +268,16 @@ class DIDClient(BaseClient):
         """
         Attach data identifier.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param dids: The content.
-        :param rse: The RSE name when registering replicas.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        dids :
+            The content.
+        rse :
+            The RSE name when registering replicas.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -247,11 +298,16 @@ class DIDClient(BaseClient):
             dids: Optional["Sequence[Mapping[str, Any]]"] = None
     ) -> bool:
         """
-        Detach data identifier
+        Detach data identifier.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param dids: The content.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        dids :
+            The content.
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids'])
@@ -271,11 +327,14 @@ class DIDClient(BaseClient):
         """
         Add dids to dids.
 
-        :param attachments: The attachments.
-            attachments is: [attachment, attachment, ...]
-            attachment is: {'scope': scope, 'name': name, 'dids': dids}
+        Parameters
+        ----------
+        attachments :
+            The attachments.
+            An attachment contains: "scope", "name", "dids".
             dids is: [{'scope': scope, 'name': name}, ...]
-        :param ignore_duplicate: If True, ignore duplicate entries.
+        ignore_duplicate :
+            If True, ignore duplicate entries.
         """
         path = '/'.join([self.DIDS_BASEURL, 'attachments'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -295,11 +354,14 @@ class DIDClient(BaseClient):
         """
         Add files to datasets.
 
-        :param attachments: The attachments.
-            attachments is: [attachment, attachment, ...]
-            attachment is: {'scope': scope, 'name': name, 'dids': dids}
+        Parameters
+        ----------
+        attachments :
+            The attachments.
+            An attachment contains: "scope", "name", "dids".
             dids is: [{'scope': scope, 'name': name}, ...]
-        :param ignore_duplicate: If True, ignore duplicate entries.
+        ignore_duplicate :
+            If True, ignore duplicate entries.
         """
         return self.attach_dids_to_dids(attachments=attachments,
                                         ignore_duplicate=ignore_duplicate)
@@ -311,9 +373,11 @@ class DIDClient(BaseClient):
         """
         Add datasets_to_containers.
 
-        :param attachments: The attachments.
-            attachments is: [attachment, attachment, ...]
-            attachment is: {'scope': scope, 'name': name, 'dids': dids}
+        Parameters
+        ----------
+        attachments :
+            The attachments.
+            An attachment contains: "scope", "name", "dids".
             dids is: [{'scope': scope, 'name': name}, ...]
         """
         return self.attach_dids_to_dids(attachments=attachments)
@@ -325,9 +389,11 @@ class DIDClient(BaseClient):
         """
         Add containers_to_containers.
 
-        :param attachments: The attachments.
-            attachments is: [attachment, attachment, ...]
-            attachment is: {'scope': scope, 'name': name, 'dids': dids}
+        Parameters
+        ----------
+        attachments :
+            The attachments.
+            An attachment contains: "scope", "name", "dids".
             dids is: [{'scope': scope, 'name': name}, ...]
         """
         return self.attach_dids_to_dids(attachments=attachments)
@@ -342,10 +408,16 @@ class DIDClient(BaseClient):
         """
         Add files to datasets.
 
-        :param scope: The scope name.
-        :param name: The dataset name.
-        :param files: The content.
-        :param rse: The RSE name when registering replicas.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The dataset name.
+        files :
+            The content.
+        rse :
+            The RSE name when registering replicas.
         """
         return self.attach_dids(scope=scope, name=name, dids=files, rse=rse)
 
@@ -358,9 +430,14 @@ class DIDClient(BaseClient):
         """
         Add files to archive.
 
-        :param scope: The scope name.
-        :param name: The dataset name.
-        :param files: The content.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The dataset name.
+        files :
+            The content.
         """
         return self.attach_dids(scope=scope, name=name, dids=files)
 
@@ -373,9 +450,14 @@ class DIDClient(BaseClient):
         """
         Add datasets to container.
 
-        :param scope: The scope name.
-        :param name: The dataset name.
-        :param dsns: The content.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The dataset name.
+        dsns :
+            The content.
         """
         return self.attach_dids(scope=scope, name=name, dids=dsns)
 
@@ -388,9 +470,14 @@ class DIDClient(BaseClient):
         """
         Add containers to container.
 
-        :param scope: The scope name.
-        :param name: The dataset name.
-        :param cnts: The content.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The dataset name.
+        cnts :
+            The content.
         """
         return self.attach_dids(scope=scope, name=name, dids=cnts)
 
@@ -402,8 +489,12 @@ class DIDClient(BaseClient):
         """
         List data identifier contents.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids'])
@@ -422,8 +513,13 @@ class DIDClient(BaseClient):
         """
         List data identifier contents history.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'dids', 'history'])
@@ -443,9 +539,14 @@ class DIDClient(BaseClient):
         """
         List data identifier file contents.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param long: A boolean to choose if GUID is returned or not.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        long :
+            A boolean to choose if GUID is returned or not.
         """
 
         payload = {}
@@ -465,7 +566,10 @@ class DIDClient(BaseClient):
         """
         List data identifier file contents.
 
-        :param dids: The list of DIDs.
+        Parameters
+        ----------
+        dids :
+            The list of DIDs.
         """
 
         data = {'dids': dids}
@@ -489,11 +593,17 @@ class DIDClient(BaseClient):
         """
         Retrieve a single data identifier.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param dynamic_depth: The DID type as string ('FILE'/'DATASET') at which to stop the dynamic
-        length/bytes calculation. If not set, the size will not be computed dynamically.
-        :param dynamic: (Deprecated) same as dynamic_depth = 'FILE'
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        dynamic_depth :
+            The DID type ('FILE'/'DATASET') at which to stop the dynamic
+            length/bytes calculation. If not set, the size will not be computed dynamically.
+        dynamic :
+            Deprecated. Same as setting dynamic_depth='FILE'.
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name)])
@@ -517,11 +627,16 @@ class DIDClient(BaseClient):
             plugin: str = 'DID_COLUMN'
     ) -> dict[str, Any]:
         """
-        Get data identifier metadata
+        Get data identifier metadata.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param plugin: Backend Metadata plugin the Rucio server should use to query data.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        plugin :
+            Backend Metadata plugin the Rucio server should use to query data.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -543,9 +658,14 @@ class DIDClient(BaseClient):
     ) -> "Iterator[dict[str, Any]]":
         """
         Bulk get data identifier metadata
-        :param dids:               A list of dids.
-        :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
-        :param plugin:             The metadata plugin to query, 'ALL' for all available plugins
+        Parameters
+        ----------
+        dids :
+            A list of dids.
+        inherit :
+            A boolean. If set to true, the metadata of the parent are concatenated.
+        plugin :
+            The metadata plugin to query, 'ALL' for all available plugins
         """
         data = {'dids': dids, 'inherit': inherit, 'plugin': plugin}
         path = '/'.join([self.DIDS_BASEURL, 'bulkmeta'])
@@ -565,13 +685,20 @@ class DIDClient(BaseClient):
             recursive: bool = False
     ) -> bool:
         """
-        Set data identifier metadata
+        Set data identifier metadata.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param key: the key.
-        :param value: the value.
-        :param recursive: Option to propagate the metadata change to content.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        key :
+            The metadata key.
+        value :
+            The metadata value.
+        recursive :
+            Option to propagate the metadata change to content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta', key])
         url = build_url(choice(self.list_hosts), path=path)
@@ -593,10 +720,16 @@ class DIDClient(BaseClient):
         """
         Set data identifier metadata in bulk.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param meta: the metadata key-values.
-        :param recursive: Option to propagate the metadata change to content.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        meta :
+            The metadata key-value pairs.
+        recursive :
+            Option to propagate the metadata change to content.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -616,8 +749,13 @@ class DIDClient(BaseClient):
         """
         Set metadata to a list of data identifiers.
 
-        :param dids: A list of dids including metadata, i.e. [{'scope': scope1, 'name': name1, 'meta': {key1: value1, key2: value2}] .
-        :param recursive: Option to propagate the metadata update to content.
+        Parameters
+        ----------
+        dids :
+            A list of dids including metadata, i.e.
+            [{'scope': scope1, 'name': name1, 'meta': {key1: value1, key2: value2}}, ...].
+        recursive :
+            Option to propagate the metadata update to content.
         """
         path = '/'.join([self.DIDS_BASEURL, 'bulkdidsmeta'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -636,11 +774,16 @@ class DIDClient(BaseClient):
             **kwargs
     ) -> bool:
         """
-        Set data identifier status
+        Set data identifier status.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param kwargs:  Keyword arguments of the form status_name=value.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        **kwargs
+            Keyword arguments of the form status_name=value.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'status'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -658,10 +801,14 @@ class DIDClient(BaseClient):
             name: str
     ) -> bool:
         """
-        close dataset/container
+        Close dataset/container.
 
-        :param scope: The scope name.
-        :param name: The dataset/container name.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The dataset/container name.
         """
         return self.set_status(scope=scope, name=name, open=False)
 
@@ -672,11 +819,16 @@ class DIDClient(BaseClient):
             key: str
     ) -> bool:
         """
-        Delete data identifier metadata
+        Delete data identifier metadata.
 
-        :param scope: The scope name.
-        :param name: The data identifier.
-        :param key: the key.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        key :
+            The metadata key to be deleted.
         """
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'meta'])
         url = build_url(choice(self.list_hosts), path=path, params={'key': key})
@@ -696,8 +848,12 @@ class DIDClient(BaseClient):
         """
         List the associated rules of a data identifier.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'rules'])
@@ -717,8 +873,12 @@ class DIDClient(BaseClient):
         """
         List the associated rules a file is affected from..
 
-        :param scope: The scope name.
-        :param name:  The file name.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'associated_rules'])
@@ -733,9 +893,16 @@ class DIDClient(BaseClient):
     def get_dataset_by_guid(self, guid: str) -> "Iterator[dict[str, Any]]":
         """
         Get the parent datasets for a given GUID.
-        :param guid: The GUID.
 
-        :returns: A did
+        Parameters
+        ----------
+        guid :
+            The GUID.
+
+        Returns
+        -------
+
+            A did
         """
 
         path = '/'.join([self.DIDS_BASEURL, guid, 'guid'])
@@ -756,9 +923,14 @@ class DIDClient(BaseClient):
         """
         List data identifiers in a scope.
 
-        :param scope: The scope name.
-        :param name: The data identifier name.
-        :param recursive: boolean, True or False.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
+        recursive :
+            boolean, True or False.
         """
 
         payload = {}
@@ -784,8 +956,12 @@ class DIDClient(BaseClient):
         """
         List parent dataset/containers of a did.
 
-        :param scope: The scope.
-        :param name:  The name.
+        Parameters
+        ----------
+        scope :
+            The scope.
+        name :
+            The name,
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name), 'parents'])
@@ -809,12 +985,18 @@ class DIDClient(BaseClient):
         """
         Create a sample from an input collection.
 
-        :param input_scope: The scope of the input DID.
-        :param input_name: The name of the input DID.
-        :param output_scope: The scope of the output dataset.
-        :param output_name: The name of the output dataset.
-        :param account: The account.
-        :param nbfiles: The number of files to register in the output dataset.
+        Parameters
+        ----------
+        input_scope :
+            The scope of the input DID.
+        input_name :
+            The name of the input DID.
+        output_scope :
+            The scope of the output dataset.
+        output_name :
+            The name of the output dataset.
+        nbfiles :
+            The number of files to register in the output dataset.
         """
         path = '/'.join([self.DIDS_BASEURL, 'sample'])
         data = dumps({
@@ -836,7 +1018,10 @@ class DIDClient(BaseClient):
         """
         Resurrect a list of dids.
 
-        :param dids:  A list of dids [{'scope': scope, 'name': name}, ...]
+        Parameters
+        ----------
+        dids :
+            A list of dids [{'scope': scope, 'name': name}, ...]
         """
         path = '/'.join([self.DIDS_BASEURL, 'resurrect'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -854,9 +1039,12 @@ class DIDClient(BaseClient):
     ) -> "Iterator[dict[str, Any]]":
         """
         List archive contents.
-
-        :param scope: The scope name.
-        :param name: The data identifier name.
+        Parameters
+        ----------
+        scope :
+            The scope name.
+        name :
+            The data identifier name.
         """
         path = '/'.join([self.ARCHIVES_BASEURL, quote_plus(scope), quote_plus(name), 'files'])
         url = build_url(choice(self.list_hosts), path=path)

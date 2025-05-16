@@ -35,12 +35,24 @@ class AccountClient(BaseClient):
         """
         Sends the request to create a new account.
 
-        :param account: the name of the account.
-        :param type_: The account type
-        :param email: The Email address associated with the account.
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        type_ :
+            The account type.
+        email :
+            The Email address associated with the account.
 
-        :return: True if account was created successfully else False.
-        :raises Duplicate: if account already exists.
+        Returns
+        -------
+
+            True if account was created successfully else False.
+
+        Raises
+        ------
+        Duplicate
+            If account already exists.
         """
 
         data = dumps({'type': type_, 'email': email})
@@ -55,11 +67,22 @@ class AccountClient(BaseClient):
 
     def delete_account(self, account: str) -> bool:
         """
-        Sends the request to disable an account.
+        Send the request to disable an account.
 
-        :param account: the name of the account.
-        :return: True is account was disabled successfully. False otherwise.
-        :raises AccountNotFound: if account doesn't exist.
+        Parameters
+        ----------
+        account :
+            The name of the account.
+
+        Returns
+        -------
+
+            True if account was disabled successfully. False otherwise.
+
+        Raises
+        ------
+        AccountNotFound
+            If account doesn't exist.
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
@@ -74,11 +97,22 @@ class AccountClient(BaseClient):
 
     def get_account(self, account: str) -> Optional[dict[str, Any]]:
         """
-        Sends the request to get information about a given account.
+        Send the request to get information about a given account.
 
-        :param account: the name of the account.
-        :return: a list of attributes for the account. None if failure.
-        :raises AccountNotFound: if account doesn't exist.
+        Parameters
+        ----------
+        account :
+            The name of the account.
+
+        Returns
+        -------
+
+            A dictionary of attributes for the account. None if failure.
+
+        Raises
+        ------
+        AccountNotFound
+            If account doesn't exist.
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
@@ -92,11 +126,27 @@ class AccountClient(BaseClient):
         raise exc_cls(exc_msg)
 
     def update_account(self, account: str, key: str, value: Any) -> bool:
-        """ Update a property of an account.
+        """
+        Update a property of an account.
 
-        :param account: Name of the account.
-        :param key: Account property like status.
-        :param value: Property value.
+        Parameters
+        ----------
+        account :
+            Name of the account.
+        key :
+            Account property like status.
+        value :
+            Property value.
+
+        Returns
+        -------
+
+            True if successful.
+
+        Raises
+        ------
+        Exception
+            If update fails.
         """
         data = dumps({key: value})
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
@@ -117,14 +167,26 @@ class AccountClient(BaseClient):
             filters: Optional[dict[str, Any]] = None
     ) -> "Iterator[dict[str, Any]]":
         """
-        Sends the request to list all rucio accounts.
+        Send the request to list all rucio accounts.
 
-        :param type: The account type
-        :param identity: The identity key name. For example x509 DN, or a username.
-        :param filters: A dictionary key:account attribute to use for the filtering
+        Parameters
+        ----------
+        account_type :
+            The account type.
+        identity :
+            The identity key name. For example x509 DN, or a username.
+        filters :
+            A dictionary key:account attribute to use for the filtering.
 
-        :return: a list containing account info dictionary for all rucio accounts.
-        :raises AccountNotFound: if account doesn't exist.
+        Returns
+        -------
+
+            An iterator of dictionaries containing account information.
+
+        Raises
+        ------
+        AccountNotFound
+            If account doesn't exist.
         """
         path = '/'.join([self.ACCOUNTS_BASEURL])
         url = build_url(choice(self.list_hosts), path=path)
@@ -148,10 +210,17 @@ class AccountClient(BaseClient):
 
     def whoami(self) -> Optional[dict[str, Any]]:
         """
-        Get information about account whose token is used
+        Get information about account whose token is used.
 
-        :return: a list of attributes for the account. None if failure.
-        :raises AccountNotFound: if account doesn't exist.
+        Returns
+        -------
+
+            A dictionary of attributes for the account. None if failure.
+
+        Raises
+        ------
+        AccountNotFound
+            If account doesn't exist.
         """
         return self.get_account('whoami')
 
@@ -165,14 +234,28 @@ class AccountClient(BaseClient):
             password: Optional[str] = None
     ) -> bool:
         """
-        Adds a membership association between identity and account.
+        Add a membership association between identity and account.
 
-        :param account: The account name.
-        :param identity: The identity key name. For example x509 DN, or a username.
-        :param authtype: The type of the authentication (x509, gss, userpass).
-        :param default: If True, the account should be used by default with the provided identity.
-        :param email: The Email address associated with the identity.
-        :param password: Password if authtype is userpass.
+        Parameters
+        ----------
+        account :
+            The account name.
+        identity :
+            The identity key name. For example x509 DN, or a username.
+        authtype :
+            The type of the authentication (x509, gss, userpass).
+        email :
+            The Email address associated with the identity.
+        default :
+            If True, the account should be used by default with the provided identity.
+        password :
+            Password if authtype is userpass.
+
+        Returns
+        -------
+
+            True if successful.
+
         """
 
         data = dumps({'identity': identity, 'authtype': authtype, 'default': default, 'email': email, 'password': password})
@@ -197,9 +280,19 @@ class AccountClient(BaseClient):
         """
         Delete an identity's membership association with an account.
 
-        :param account: The account name.
-        :param identity: The identity key name. For example x509 DN, or a username.
-        :param authtype: The type of the authentication (x509, gss, userpass).
+        Parameters
+        ----------
+        account :
+            The account name.
+        identity :
+            The identity key name. For example x509 DN, or a username.
+        authtype :
+            The type of the authentication (x509, gss, userpass).
+
+        Returns
+        -------
+
+            True if successful.
         """
 
         data = dumps({'identity': identity, 'authtype': authtype})
@@ -219,7 +312,10 @@ class AccountClient(BaseClient):
         """
         List all identities on an account.
 
-        :param account: The account name.
+        Parameters
+        ----------
+        account :
+            The account name.
         """
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'identities'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -235,7 +331,11 @@ class AccountClient(BaseClient):
         """
         List the associated rules of an account.
 
-        :param account: The account name.
+        Parameters
+        ----------
+        account :
+            The account name.
+
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'rules'])
@@ -251,9 +351,15 @@ class AccountClient(BaseClient):
         """
         Return the correct account limits for the given locality.
 
-        :param account:        The account name.
-        :param rse_expression: Valid RSE expression
-        :param locality:       The scope of the account limit. 'local' or 'global'.
+        Parameters
+        ----------
+        account :
+            The account name.
+        rse_expression :
+            Valid RSE expression.
+        locality :
+            The scope of the account limit. 'local' or 'global'.
+
         """
 
         if locality == 'local':
@@ -268,8 +374,13 @@ class AccountClient(BaseClient):
         """
         List the account limit for the specific RSE expression.
 
-        :param account:        The account name.
-        :param rse_expression: The rse expression.
+        Parameters
+        ----------
+        account :
+            The account name.
+        rse_expression :
+            The rse expression.
+
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'global', quote_plus(rse_expression)])
@@ -284,7 +395,10 @@ class AccountClient(BaseClient):
         """
         List all RSE expression limits of this account.
 
-        :param account: The account name.
+        Parameters
+        ----------
+        account :
+            The account name.
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'global'])
@@ -299,7 +413,10 @@ class AccountClient(BaseClient):
         """
         List the account rse limits of this account.
 
-        :param account: The account name.
+        Parameters
+        ----------
+        account :
+            The account name.
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'local'])
@@ -314,8 +431,12 @@ class AccountClient(BaseClient):
         """
         List the account rse limits of this account for the specific rse.
 
-        :param account: The account name.
-        :param rse:     The rse name.
+        Parameters
+        ----------
+        account :
+            The account name.
+        rse :
+            The rse name.
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'local', rse])
@@ -330,8 +451,12 @@ class AccountClient(BaseClient):
         """
         List the account usage for one or all rses of this account.
 
-        :param account: The account name.
-        :param rse:     The rse name.
+        Parameters
+        ----------
+        account :
+            The account name.
+        rse :
+            The rse name.
         """
         if rse:
             path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'local', rse])
@@ -349,8 +474,12 @@ class AccountClient(BaseClient):
         """
         List the account usage for one or all RSE expressions of this account.
 
-        :param account:        The account name.
-        :param rse_expression: The rse expression.
+        Parameters
+        ----------
+        account :
+            The account name.
+        rse_expression :
+            The rse expression.
         """
         if rse_expression:
             path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'global', quote_plus(rse_expression)])
@@ -368,8 +497,12 @@ class AccountClient(BaseClient):
         """
         List the account usage history of this account on rse.
 
-        :param account: The account name.
-        :param rse:     The rse name.
+        Parameters
+        ----------
+        account :
+            The account name.
+        rse :
+            The rse name.
         """
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage/history', rse])
         url = build_url(choice(self.list_hosts), path=path)
@@ -384,7 +517,10 @@ class AccountClient(BaseClient):
         """
         List the attributes for an account.
 
-        :param account: The account name.
+        Parameters
+        ----------
+        account :
+            The account name.
         """
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'attr/'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -397,11 +533,16 @@ class AccountClient(BaseClient):
 
     def add_account_attribute(self, account: str, key: str, value: Any) -> bool:
         """
-        Adds an attribute to an account.
+        Add an attribute to an account.
 
-        :param account: The account name.
-        :param key: The attribute key.
-        :param value: The attribute value.
+        Parameters
+        ----------
+        account :
+            The account name.
+        key :
+            The attribute key.
+        value :
+            The attribute value.
         """
 
         data = dumps({'key': key, 'value': value})
@@ -418,8 +559,12 @@ class AccountClient(BaseClient):
         """
         Delete an attribute for an account.
 
-        :param account: The account name.
-        :param key: The attribute key.
+        Parameters
+        ----------
+        account :
+            The account name.
+        key :
+            The attribute key.
         """
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'attr', key])
