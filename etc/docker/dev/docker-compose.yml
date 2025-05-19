@@ -73,10 +73,21 @@ services:
       - POSTGRES_DB=rucio
       - POSTGRES_PASSWORD=secret
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
+    volumes:
+      - vol-ruciodb-data:/var/lib/postgresql/data
 
   graphite:
     container_name: dev-graphite-1
     image: docker.io/graphiteapp/graphite-statsd
+    volumes:
+      - vol-graphite-conf:/opt/graphite/conf
+      - vol-graphite-storage:/opt/graphite/storage
+      - vol-graphite-functions:/opt/graphite/webapp/graphite/functions/custom
+      - vol-statsd-config:/opt/statsd/config
+      - vol-graphite-redis:/var/lib/redis
+      - vol-graphite-log:/var/log
+      - vol-graphite-logrotate:/etc/logrotate.d
+      - vol-graphite-nginx:/etc/nginx
 
   influxdb:
     container_name: dev-influxdb-1
@@ -88,6 +99,9 @@ services:
       - DOCKER_INFLUXDB_INIT_ORG=rucio
       - DOCKER_INFLUXDB_INIT_BUCKET=rucio
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
+    volumes:
+      - vol-influxdb-etc:/etc/influxdb2
+      - vol-influxdb-var:/var/lib/influxdb2
 
   elasticsearch:
     container_name: dev-elasticsearch-1
@@ -116,6 +130,8 @@ services:
       - POSTGRES_DB=rucio
       - POSTGRES_PASSWORD=rucio
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
+    volumes:
+      - vol-postgres14-data:/var/lib/postgresql/data
 
   mysql8:
     container_name: dev-mysql8-1
@@ -131,6 +147,8 @@ services:
     command:
       - "--default-authentication-plugin=mysql_native_password"
       - "--character-set-server=latin1"
+    volumes:
+      - vol-mysql8-mysql:/var/lib/mysql
 
   oracle:
     container_name: dev-oracle-1
@@ -182,6 +200,8 @@ services:
       - MYSQL_PASSWORD=fts
       - MYSQL_ROOT_PASSWORD=fts
       - MYSQL_DATABASE=fts
+    volumes:
+      - vol-ftsdb-mysql:/var/lib/mysql
 
   xrd1:
     container_name: dev-xrd1-1
@@ -309,6 +329,7 @@ services:
       - MINIO_ROOT_USER=admin
       - MINIO_ROOT_PASSWORD=password
     volumes:
+      - vol-minio-data:/data
       - ../../certs/hostcert_minio.pem:/root/.minio/certs/public.crt:Z
       - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key:Z
     command: ["server", "/data"]
@@ -333,12 +354,18 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: rucio
       MONGO_INITDB_ROOT_PASSWORD: mongo-meta
+    volumes:
+      - vol-mongo-configdb:/data/configdb
+      - vol-mongo-db:/data/db
 
   mongo-noauth:
     container_name: dev-mongo-noauth-1
     image: docker.io/mongo:5.0
     profiles:
       - externalmetadata
+    volumes:
+      - vol-mongo-noauth-configdb:/data/configdb
+      - vol-mongo-noauth-db:/data/db
 
   postgres:
     container_name: dev-postgres-1
@@ -350,6 +377,8 @@ services:
       - POSTGRES_DB=metadata
       - POSTGRES_PASSWORD=secret
     command: ["-p", "5433"]
+    volumes:
+      - vol-postgres-data:/var/lib/postgresql/data
 
   elasticsearch_meta:
     container_name: dev-elasticsearch_meta-1
@@ -410,6 +439,7 @@ services:
       - ./iam/dbs_and_users.sql:/docker-entrypoint-initdb.d/01_dbs_and_users.sql:ro
       - ./iam/keycloak_db.sql:/docker-entrypoint-initdb.d/02_keycloak.sql:ro
       - ./iam/indigoiam_db.sql:/docker-entrypoint-initdb.d/03_indigoiam.sql:ro
+      - vol-iam-db-mysql:/var/lib/mysql
 
   indigoiam:
     container_name: dev-indigoiam-1
@@ -483,3 +513,29 @@ services:
     depends_on:
       iam-db:
         condition: service_healthy
+
+volumes:
+  # ------------------------------------------------------------------
+  # Named volumes for each container
+  # ------------------------------------------------------------------
+  vol-ruciodb-data:
+  vol-graphite-conf:
+  vol-graphite-storage:
+  vol-graphite-functions:
+  vol-statsd-config:
+  vol-graphite-redis:
+  vol-graphite-log:
+  vol-graphite-logrotate:
+  vol-graphite-nginx:
+  vol-influxdb-etc:
+  vol-influxdb-var:
+  vol-ftsdb-mysql:
+  vol-minio-data:
+  vol-postgres14-data:
+  vol-mongo-noauth-configdb:
+  vol-mongo-noauth-db:
+  vol-mongo-configdb:
+  vol-mongo-db:
+  vol-iam-db-mysql:
+  vol-mysql8-mysql:
+  vol-postgres-data:
