@@ -38,6 +38,11 @@
 #           -p monitoring
 #           -p storage -p monitoring
 #
+#    3. (Optional) Enables local port mappings (127.0.0.1:<port>:<container_port>) via:
+#         -x, --expose-ports
+#       This will include the additional docker-compose.ports.yml file so that the containers
+#       expose their ports on localhost. If omitted, the containers run without published ports.
+#
 #  Prerequisites:
 #   - You have cloned your Rucio fork locally.
 #   - Docker, docker-compose (or Docker Compose v2), curl, and jq are installed/running.
@@ -45,8 +50,9 @@
 # Usage:
 #   ./tools/bootstrap_dev.sh [--release <TAG> | --latest | --master]
 #                            [--profile [<NAME>] ...]
+#                            [--expose-ports]
 #                            [--help]
-#   (You can also use the short forms: -r <TAG>, -l, -m, -p <NAME>)
+#   (You can also use the short forms: -r <TAG>, -l, -m, -p <NAME>, -x)
 #
 # Examples:
 #   1) Check out a specific release (37.4.0) and start the dev environment including the "storage" profile:
@@ -54,10 +60,10 @@
 #     or the short form:
 #        ./tools/bootstrap_dev.sh -r 37.4.0 -p storage
 #
-#   2) Check out master and run the dev environment including the "storage" and "monitoring" profiles:
-#        ./tools/bootstrap_dev.sh --master --profile storage --profile monitoring
+#   2) Check out master and run the dev environment (with local port mappings), including the "storage" and "monitoring" profiles:
+#        ./tools/bootstrap_dev.sh --master --profile storage --profile monitoring --expose-ports
 #     or:
-#        ./tools/bootstrap_dev.sh -m -p storage -p monitoring
+#        ./tools/bootstrap_dev.sh -m -p storage -p monitoring -x
 #
 #   3) Check out the tag that matches Docker Hub 'latest' and start the dev environment including the "storage" profile:
 #        ./tools/bootstrap_dev.sh --latest --profile storage
@@ -101,6 +107,7 @@ Docker options:
                         (like 'docker-compose up -d' with no profiles).
                         If NAME is provided, spin up that profile plus unprofiled services.
                         You can specify multiple profiles by repeating this option.
+  -x, --expose-ports    Include docker-compose.ports.yml so that containers have published ports.
 
 Other:
   -h, --help            Show this message and exit.
@@ -113,10 +120,12 @@ Notes:
   3) Docker Compose runs only if you specify at least one -p/--profile argument.
   4) This script will ensure a remote named '$UPSTREAM_REMOTE' pointing to the official
      Rucio repository. If it's absent or incorrect, the script will fix it automatically.
+  5) If you specify -x or --expose-ports, the additional 'docker-compose.ports.yml' is used
+     so that each service's port is published on 127.0.0.1.
 
 Examples:
   $0 --release 37.4.0 --profile storage
-  $0 --master --profile storage --profile monitoring
+  $0 --master --profile storage --profile monitoring --expose-ports
   $0 --latest --profile storage
   $0 --master
   $0 --profile
@@ -334,6 +343,7 @@ USE_MASTER="false"
 USE_LATEST="false"
 PROFILES=()           # Named profiles
 ANY_PROFILE_ARG=false # Will be set true if -p/--profile is used at all
+EXPOSE_PORTS=false    # Track whether we want to expose ports
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -380,6 +390,10 @@ while [[ $# -gt 0 ]]; do
         shift 2
       fi
       ;;
+    -x|--expose-ports)
+      EXPOSE_PORTS=true
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -421,6 +435,12 @@ if $ANY_PROFILE_ARG; then
   fi
 else
   echo "No profiles specified."
+fi
+
+if $EXPOSE_PORTS; then
+  echo "Local port mappings enabled (docker-compose.ports.yml will be used)."
+else
+  echo "No local port mappings requested."
 fi
 
 # ---------------------------------------------------------------------------
@@ -554,18 +574,25 @@ $COMPOSE_CMD --project-name dev --file docker-compose.yml \
   --profile oracle \
   down || true
 
+# Build an array of compose files including always the docker-compose.yml and (optionally)
+# also the docker-compose.ports.yml if EXPOSE_PORTS is true.
+compose_files=(--file docker-compose.yml)
+if $EXPOSE_PORTS; then
+  compose_files+=(--file docker-compose.ports.yml)
+fi
+
 # If we have no named profiles, that means the user specified `-p` with no name,
 # so we do not pass --profile at all => only unprofiled containers will run.
 if [[ "${#profile_args[@]}" -eq 0 ]]; then
   echo ">>> Starting only unprofiled/base containers (no named profiles)."
-  $COMPOSE_CMD --file docker-compose.yml pull || true
+  $COMPOSE_CMD "${compose_files[@]}" pull || true
   # Bring them up
-  $COMPOSE_CMD --project-name dev --file docker-compose.yml up -d
+  $COMPOSE_CMD --project-name dev "${compose_files[@]}" up -d
 else
   echo ">>> Starting unprofiled/base + named profiles: ${PROFILES[*]}"
-  $COMPOSE_CMD --file docker-compose.yml "${profile_args[@]}" pull || true
+  $COMPOSE_CMD "${compose_files[@]}" "${profile_args[@]}" pull || true
   # Bring them up with profiles + base
-  $COMPOSE_CMD --project-name dev --file docker-compose.yml "${profile_args[@]}" up -d
+  $COMPOSE_CMD --project-name dev "${compose_files[@]}" "${profile_args[@]}" up -d
 fi
 
 # ------------------------------------------------------------------------------
