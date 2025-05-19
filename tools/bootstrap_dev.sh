@@ -543,7 +543,16 @@ done
 
 echo ">>> Stopping any previous containers from 'dev' environment..."
 $COMPOSE_CMD --project-name dev --file docker-compose.yml \
-  --profile default --profile monitoring --profile storage down || true
+  --profile default \
+  --profile monitoring \
+  --profile storage \
+  --profile externalmetadata \
+  --profile iam \
+  --profile client \
+  --profile postgres14 \
+  --profile mysql8 \
+  --profile oracle \
+  down || true
 
 # If we have no named profiles, that means the user specified `-p` with no name,
 # so we do not pass --profile at all => only unprofiled containers will run.
