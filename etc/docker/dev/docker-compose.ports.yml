@@ -75,7 +75,7 @@ services:
   grafana:
     ports:
       - "127.0.0.1:3000:3000"
-  indigoiam-db:
+  iam-db:
     ports:
       - "127.0.0.1:3307:3306"
   indigoiam:
