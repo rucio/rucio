@@ -2031,19 +2031,19 @@ class Distance(ErrorHandlingMethodView):
         """
         ---
         summary: Delete Rse Distance
-        description: Delete distance information between source RSE and destination RSE.
+        description: Delete distance information between source RSE and destination RSE. Supports RSE expressions.
         tags:
           - Rucio Storage Elements
         parameters:
         - name: source
           in: path
-          description: The name of the source Rucio Storage Element.
+          description: The name of the source Rucio Storage Element or RSE expression (e.g., site=SITE_NAME).
           schema:
             type: string
           style: simple
         - name: destination
           in: path
-          description: The name of the destination Rucio Storage Element.
+          description: The name of the destination Rucio Storage Element or RSE expression (e.g., site=SITE_NAME).
           schema:
             type: string
           style: simple

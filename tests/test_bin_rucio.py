@@ -274,23 +274,29 @@ class TestBinRucio:
         """CLIENT (ADMIN): Add distance to RSE"""
         # add RSEs
         temprse1 = rse_name_generator()
-        cmd = 'rucio-admin rse add %s' % temprse1
+        cmd = 'rucio rse add %s' % temprse1
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
         temprse2 = rse_name_generator()
-        cmd = 'rucio-admin rse add %s' % temprse2
+        cmd = 'rucio rse add %s' % temprse2
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        temprse3 = rse_name_generator()
+        cmd = 'rucio rse add %s' % temprse3
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
 
         # add distance between the RSEs
-        cmd = 'rucio-admin rse add-distance --distance 1 --ranking 1 %s %s' % (temprse1, temprse2)
+        cmd = 'rucio rse distance add %s %s --distance 1' % (temprse1, temprse2)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
-        cmd = 'rucio-admin rse add-distance --distance 1 --ranking 1 %s %s' % (temprse2, temprse1)
+        
+        cmd = 'rucio rse distance add %s %s --distance 1' % (temprse2, temprse1)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -303,39 +309,296 @@ class TestBinRucio:
         assert exitcode != 0
         assert 'Distance from %s to %s already exists!' % (temprse2, temprse1) in err
 
+        # Test bidirectional add distance
+        cmd = 'rucio rse distance add %s %s --distance 1 --bidirectional' % (temprse1, temprse3)
+        print(self.marker + cmd)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        assert "Set distance from %s to %s to 1" % (temprse1, temprse3) in out
+        assert "Set distance from %s to %s to 1" % (temprse3, temprse1) in out
+        
+        # Verify distances were set in both directions
+        cmd = 'rucio rse distance show %s %s' % (temprse1, temprse3)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        assert "distance=1" in out
+        
+        cmd = 'rucio rse distance show %s %s' % (temprse3, temprse1)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        assert "distance=1" in out
+        
+        # Test with non-existent RSE
+        cmd = 'rucio rse distance add %s %s --distance 1' % (temprse1, generate_uuid())
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode != 0
+        assert 'RSE does not exist' in err
+        
+
     def test_rse_delete_distance(self):
         """CLIENT (ADMIN): Delete distance to RSE"""
         # add RSEs
         temprse1 = rse_name_generator()
-        cmd = 'rucio-admin rse add %s' % temprse1
+        cmd = 'rucio rse add %s' % temprse1
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
         temprse2 = rse_name_generator()
-        cmd = 'rucio-admin rse add %s' % temprse2
+        cmd = 'rucio rse add %s' % temprse2
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
 
         # add distance between the RSEs
-        cmd = 'rucio-admin rse add-distance --distance 1 --ranking 1 %s %s' % (temprse1, temprse2)
+        cmd = 'rucio rse distance add %s %s --distance 1' % (temprse1, temprse2)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
 
-        # delete distance OK
-        cmd = 'rucio-admin rse delete-distance %s %s' % (temprse1, temprse2)
+        # delete distance
+        cmd = 'rucio rse distance remove -y %s %s' % (temprse1, temprse2)
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert exitcode == 0
-        assert "Deleted distance information from %s to %s." % (temprse1, temprse2) in out
-
-        # delete distance RSE not found
-        cmd = 'rucio-admin rse delete-distance %s %s' % (temprse1, generate_uuid())
+        
+        # Verify distance is deleted
+        cmd = 'rucio rse distance show %s %s' % (temprse1, temprse2)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert 'RSE does not exist.' in err
+        assert "No distance set from %s to %s" % (temprse1, temprse2) in out
+
+    def test_rse_delete_distance_bidirectional(self):
+        """CLIENT (ADMIN): Delete distance bidirectionally between RSEs"""
+        # add RSEs
+        temprse1 = rse_name_generator()
+        cmd = 'rucio rse add %s' % temprse1
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        temprse2 = rse_name_generator()
+        cmd = 'rucio rse add %s' % temprse2
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+
+        # Add distances in both directions
+        cmd = 'rucio rse distance add %s %s --distance 1 --bidirectional' % (temprse1, temprse2)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        # Delete distances bidirectionally using the new CLI
+        cmd = 'rucio rse distance remove --bidirectional -y %s %s' % (temprse1, temprse2)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        
+        # Verify both directions are deleted
+        cmd = 'rucio rse distance show %s %s' % (temprse1, temprse2)
+        exitcode, out, err = execute(cmd)
+        assert "No distance set from %s to %s" % (temprse1, temprse2) in out
+        
+        cmd = 'rucio rse distance show %s %s' % (temprse2, temprse1)
+        exitcode, out, err = execute(cmd)
+        assert "No distance set from %s to %s" % (temprse2, temprse1) in out
+
+    def test_rse_delete_distance_src_flag(self):
+        """CLIENT (ADMIN): Delete all outgoing distances using RSE expressions"""
+        # Create multiple RSEs
+        temprse_src = rse_name_generator()
+        cmd = 'rucio rse add %s' % temprse_src
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        # Create 3 destination RSEs
+        temprse_dst1 = rse_name_generator()
+        cmd = 'rucio rse add %s' % temprse_dst1
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        temprse_dst2 = rse_name_generator()
+        cmd = 'rucio rse add %s' % temprse_dst2
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        temprse_dst3 = rse_name_generator()
+        cmd = 'rucio rse add %s' % temprse_dst3
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        # Add distances from source to all destinations
+        cmd = 'rucio rse distance add %s %s --distance 1' % (temprse_src, temprse_dst1)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        cmd = 'rucio rse distance add %s %s --distance 2' % (temprse_src, temprse_dst2)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        cmd = 'rucio rse distance add %s %s --distance 3' % (temprse_src, temprse_dst3)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        # Delete all outgoing links using RSE expression
+        cmd = 'rucio rse distance remove %s "*" -y' % temprse_src
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        
+        # Verify all outgoing distances are deleted
+        cmd = 'rucio rse distance show %s %s' % (temprse_src, temprse_dst1)
+        exitcode, out, err = execute(cmd)
+        assert "No distance set from %s to %s" % (temprse_src, temprse_dst1) in out
+        
+        cmd = 'rucio rse distance show %s %s' % (temprse_src, temprse_dst2)
+        exitcode, out, err = execute(cmd)
+        assert "No distance set from %s to %s" % (temprse_src, temprse_dst2) in out
+        
+        cmd = 'rucio rse distance show %s %s' % (temprse_src, temprse_dst3)
+        exitcode, out, err = execute(cmd)
+        assert "No distance set from %s to %s" % (temprse_src, temprse_dst3) in out
+
+    def test_rse_delete_distance_dest_flag(self):
+        """CLIENT (ADMIN): Delete all incoming distances using RSE expressions"""
+        # Create multiple RSEs
+        temprse_dst = rse_name_generator()
+        cmd = 'rucio rse add %s' % temprse_dst
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        # Create 3 source RSEs
+        temprse_src1 = rse_name_generator()
+        cmd = 'rucio rse add %s' % temprse_src1
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        temprse_src2 = rse_name_generator()
+        cmd = 'rucio rse add %s' % temprse_src2
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        temprse_src3 = rse_name_generator()
+        cmd = 'rucio rse add %s' % temprse_src3
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        # Add distances from all sources to destination
+        cmd = 'rucio rse distance add %s %s --distance 1' % (temprse_src1, temprse_dst)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        cmd = 'rucio rse distance add %s %s --distance 2' % (temprse_src2, temprse_dst)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        cmd = 'rucio rse distance add %s %s --distance 3' % (temprse_src3, temprse_dst)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        # Delete all incoming links using RSE expression
+        cmd = 'rucio rse distance remove "*" %s -y' % temprse_dst
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        
+        # Verify all incoming distances are deleted
+        cmd = 'rucio rse distance show %s %s' % (temprse_src1, temprse_dst)
+        exitcode, out, err = execute(cmd)
+        assert "No distance set from %s to %s" % (temprse_src1, temprse_dst) in out
+        
+        cmd = 'rucio rse distance show %s %s' % (temprse_src2, temprse_dst)
+        exitcode, out, err = execute(cmd)
+        assert "No distance set from %s to %s" % (temprse_src2, temprse_dst) in out
+        
+        cmd = 'rucio rse distance show %s %s' % (temprse_src3, temprse_dst)
+        exitcode, out, err = execute(cmd)
+        assert "No distance set from %s to %s" % (temprse_src3, temprse_dst) in out
+
+    def test_rse_delete_distance_site_attribute(self):
+        """CLIENT (ADMIN): Delete distances between sites using RSE expressions"""
+        
+        # Create RSEs for two sites
+        site1_rse1 = rse_name_generator()
+        cmd = 'rucio rse add %s' % site1_rse1
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        site1_rse2 = rse_name_generator()
+        cmd = 'rucio rse add %s' % site1_rse2
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        site2_rse1 = rse_name_generator()
+        cmd = 'rucio rse add %s' % site2_rse1
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        site2_rse2 = rse_name_generator()
+        cmd = 'rucio rse add %s' % site2_rse2
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        # Set site attributes
+        site1_name = "TESTSITE1_" + str(generate_uuid())[:8]
+        site2_name = "TESTSITE2_" + str(generate_uuid())[:8]
+        
+        cmd = 'rucio-admin rse set-attribute --rse %s --key site --value %s' % (site1_rse1, site1_name)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        cmd = 'rucio-admin rse set-attribute --rse %s --key site --value %s' % (site1_rse2, site1_name)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        cmd = 'rucio-admin rse set-attribute --rse %s --key site --value %s' % (site2_rse1, site2_name)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        cmd = 'rucio-admin rse set-attribute --rse %s --key site --value %s' % (site2_rse2, site2_name)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        # Add distances between all RSEs from site1 to site2
+        cmd = 'rucio rse distance add %s %s --distance 10' % (site1_rse1, site2_rse1)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        cmd = 'rucio rse distance add %s %s --distance 10' % (site1_rse1, site2_rse2)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        cmd = 'rucio rse distance add %s %s --distance 10' % (site1_rse2, site2_rse1)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        cmd = 'rucio rse distance add %s %s --distance 10' % (site1_rse2, site2_rse2)
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        
+        # Delete all distances between sites using site attribute
+        cmd = 'rucio rse distance remove -y %s %s' % (site1_name, site2_name)
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        
+        # Verify all distances between sites are deleted
+        cmd = 'rucio rse distance show %s %s' % (site1_rse1, site2_rse1)
+        exitcode, out, err = execute(cmd)
+        assert "No distance set from %s to %s" % (site1_rse1, site2_rse1) in out
+        
+        cmd = 'rucio rse distance show %s %s' % (site1_rse1, site2_rse2)
+        exitcode, out, err = execute(cmd)
+        assert "No distance set from %s to %s" % (site1_rse1, site2_rse2) in out
+        
+        cmd = 'rucio rse distance show %s %s' % (site1_rse2, site2_rse1)
+        exitcode, out, err = execute(cmd)
+        assert "No distance set from %s to %s" % (site1_rse2, site2_rse1) in out
+        
+        cmd = 'rucio rse distance show %s %s' % (site1_rse2, site2_rse2)
+        exitcode, out, err = execute(cmd)
+        assert "No distance set from %s to %s" % (site1_rse2, site2_rse2) in out
 
     def test_upload(self):
         """CLIENT(USER): Upload"""

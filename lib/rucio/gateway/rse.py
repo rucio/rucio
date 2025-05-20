@@ -527,8 +527,8 @@ def delete_distance(source, destination, issuer, vo='def'):
     """
     Delete distances with the given RSE ids.
 
-    :param source: The source RSE.
-    :param destination: The destination RSE.
+    :param source: The source RSE (expression).
+    :param destination: The destination RSE (expression).
     :param issuer: The issuer account.
     :param vo: The VO to act on.
     """
@@ -539,9 +539,31 @@ def delete_distance(source, destination, issuer, vo='def'):
         if not auth_result.allowed:
             raise exception.AccessDenied('Account %s can not update RSE distances. %s' % (issuer, auth_result.message))
 
-        return distance_module.delete_distances(src_rse_id=rse_module.get_rse_id(source, vo=vo, session=session),
-                                                dest_rse_id=rse_module.get_rse_id(destination, vo=vo, session=session),
-                                                session=session)
+    src_rses = []
+    dst_rses = []
+    
+    # Parse source RSE expression
+    if source:
+        try:
+            src_rses = [rse['id'] for rse in parse_expression(source, filter_={'vo': vo}, session=session)]
+            if not src_rses:
+                raise exception.RSENotFound('No RSEs match source expression: %s' % source)
+        except exception.InvalidRSEExpression as error:
+            raise exception.RSENotFound('Invalid RSE expression: %s, %s' % (source, error))
+    
+    # Parse destination RSE expression
+    if destination:
+        try:
+            dst_rses = [rse['id'] for rse in parse_expression(destination, filter_={'vo': vo}, session=session)]
+            if not dst_rses:
+                raise exception.RSENotFound('No RSEs match destination expression: %s' % destination)
+        except exception.InvalidRSEExpression as error:
+            raise exception.RSENotFound('Invalid RSE expression: %s, %s' % (destination, error))
+    
+    # Delete distances for all combinations
+    for src_rse_id in src_rses:
+        for dst_rse_id in dst_rses:
+            distance_module.delete_distances(src_rse_id=src_rse_id, dest_rse_id=dst_rse_id, session=session)
 
 
 def add_qos_policy(rse, qos_policy, issuer, vo='def'):

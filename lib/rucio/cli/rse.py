@@ -116,20 +116,55 @@ def distance_show(ctx, source_rse, destination_rse):
 @click.argument("source-rse")
 @click.argument("destination-rse")
 @click.option("--distance", default=1, type=int, help="Relative distance between RSEs")
+@click.option('--bidirectional', '--bidi', is_flag=True, help='Add distances in both directions')
 @click.pass_context
-def distance_add(ctx, source_rse, destination_rse, distance):
+def distance_add(ctx, source_rse, destination_rse, distance, bidirectional):
     """Create a new link from SOURCE-RSE to DESTINATION-RSE with a distance"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse, "distance": distance})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse, "distance": distance, "bidirectional": bidirectional})
     add_distance_rses(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @distance.command("remove")
-@click.argument("source-rse")
-@click.argument("destination-rse")
+@click.argument("source", required=False)
+@click.argument("destination", required=False)
+@click.option('-y', '--yes', is_flag=True, help='Automatically confirm deletion')
+@click.option('--bidirectional', '--bidi', is_flag=True, help='Delete distances in both directions')
 @click.pass_context
-def distance_remove(ctx, source_rse, destination_rse):
-    """Un-link SOURCE-RSE from DESTINATION-RSE by removing the distance between them"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "source": source_rse, "destination": destination_rse})
+def distance_remove(ctx: click.Context, source: str, destination: str, yes: bool, bidirectional: bool) -> None:
+    """
+    Un-link RSEs by removing the distance between them.
+    
+    This command supports multiple modes:
+    - Delete distance from one RSE to another
+    - Delete distances between RSEs matching SOURCE expression to RSEs matching DESTINATION
+    - Delete all outgoing distances from RSEs matching SOURCE to all RSEs
+    - Delete all incoming distances to RSEs matching DESTINATION from all RSEs
+    - Delete distances in both directions (using --bidirectional)
+    
+    Arguments accept RSE expressions (e.g., "site=SITE_NAME" or "*").
+    An RSE name is itself a valid RSE expression.
+    
+    Examples:
+    
+    # Delete distance between two specific RSEs
+    rucio rse distance remove JDOE_DATADISK JDOE_SCRATCHDISK
+    
+    # Delete distance between all RSEs at two sites
+    rucio rse distance remove "site=JDOE_SITE_A" "site=JDOE_SITE_B"
+    
+    # Delete distance bidirectionally between two RSE expressions
+    rucio rse distance remove --bidirectional "site=JDOE_SITE_A" "site=JDOE_SITE_B"
+    
+    # Delete all outgoing links from RSEs matching an expression
+    rucio rse distance remove "site=JDOE_SITE_A" "*"
+    
+    # Delete all incoming links to RSEs matching an expression
+    rucio rse distance remove "*" "site=JDOE_SITE_B"
+    """
+    if not (source or destination):
+        ctx.fail("Either source, destination, or both must be specified")
+    
+    args = Arguments({"no_pager": ctx.obj.no_pager, "source": source, "destination": destination, "yes": yes, "bidirectional": bidirectional})
     delete_distance_rses(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
