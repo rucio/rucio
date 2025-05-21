@@ -97,7 +97,6 @@ metrics_port = 8080
 [conveyor]
 scheme = srm,gsiftp,root,http,https
 transfertool = fts3
-ftshosts = https://fts3-pilot.cern.ch:8446, https://fts3-pilot.cern.ch:8446
 cacert = /opt/rucio/etc/web/ca.crt
 usercert = /opt/rucio/tools/x509up
 
