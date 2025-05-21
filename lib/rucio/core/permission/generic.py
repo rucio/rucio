@@ -121,7 +121,10 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict[str, Any
             'del_identity': perm_del_identity,
             'remove_did_from_followed': perm_remove_did_from_followed,
             'remove_dids_from_followed': perm_remove_dids_from_followed,
-            'export': perm_export}
+            'export': perm_export,
+            'list_transfer_limits': perm_list_transfer_limits,
+            'set_transfer_limit': perm_set_transfer_limit,
+            'delete_transfer_limit': perm_delete_transfer_limit}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs, session=session)
 
@@ -1122,3 +1125,36 @@ def perm_export(issuer: "InternalAccount", kwargs: dict[str, Any], *, session: "
     :returns: True if account is allowed, otherwise False
     """
     return _is_root(issuer)
+
+def perm_list_transfer_limits(issuer: "InternalAccount", kwargs: dict[str, Any], *, session: "Optional[Session]" = None) -> bool:
+    """
+    Checks if an account can list transfer limits.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
+
+def perm_set_transfer_limit(issuer: "InternalAccount", kwargs: dict[str, Any], *, session: "Optional[Session]" = None) -> bool:
+    """
+    Checks if an account can set transfer limits.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
+
+def perm_delete_transfer_limit(issuer: "InternalAccount", kwargs: dict[str, Any], *, session: "Optional[Session]" = None) -> bool:
+    """
+    Checks if an account can delete transfer limits.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
