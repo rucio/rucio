@@ -21,7 +21,7 @@ from typing import Literal, Optional
 
 def get_source_files() -> list[str]:
     """Find all the files used in the source code."""
-    dir = "rucio/lib/rucio/"
+    dir = "./lib/rucio/"
     return [y for x in os.walk(dir) for y in glob(os.path.join(x[0], '*.py'))]
 
 
@@ -85,6 +85,9 @@ def get_config_lines_with_defaults(file_content) -> list[dict[Literal['section',
         if (len(args) > 3) and (default is None):
             # args order is section, key, raise error, default
             default = clean_string(args[3])
+
+        if doc is not None:
+            doc = doc.rstrip('.')  # Remove trailing period, so we can add it again in MD.
 
         defaults.append(
             {
@@ -174,7 +177,6 @@ def count_doc_lines(json_config: dict) -> float:
         for _, descriptor in items.items():
             total += 1
             if descriptor['doc']:
-                print(f"Key: {descriptor['key']}, Doc: {descriptor['doc']}")
                 count += 1
 
     if total == 0:
