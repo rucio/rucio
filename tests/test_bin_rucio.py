@@ -227,6 +227,37 @@ class TestBinRucio:
         print(out, err)
         assert 'Added new scope to account: %s-%s\n' % (tmp_scp, tmp_acc) in out
 
+    def test_list_scopes(self):
+        """CLIENT/CLIENT(ADMIN): List scopes"""
+        tmp_scp = scope_name_generator()
+        tmp_acc = account_name_generator()
+
+        cmd = 'rucio-admin account add %s' % tmp_acc
+        execute(cmd)
+        cmd = 'rucio-admin scope add --account %s --scope %s' % (tmp_acc, tmp_scp)
+        execute(cmd)
+
+        cmd = 'rucio-admin scope list'
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert tmp_scp in out
+
+        cmd = 'rucio-admin scope list --account %s' % tmp_acc
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert tmp_scp in out
+
+        # Client should do the same
+        cmd = 'rucio list-scopes'
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert tmp_scp in out
+
+        cmd = 'rucio list-scopes --account %s' % tmp_acc
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert tmp_scp in out
+
     def test_add_rse(self):
         """CLIENT(ADMIN): Add RSE"""
         tmp_val = rse_name_generator()
