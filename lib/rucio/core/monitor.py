@@ -82,16 +82,16 @@ if PROMETHEUS_MULTIPROC_DIR:
     atexit.register(cleanup_prometheus_files_at_exit)
 
 
-SERVER = config_get('monitor', 'carbon_server', raise_exception=False, default=None)
-PORT = config_get_int('monitor', 'carbon_port', raise_exception=False, default=8125)
-SCOPE = config_get('monitor', 'user_scope', raise_exception=False, default='rucio')
+SERVER = config_get('monitor', 'carbon_server', raise_exception=False, default=None)  # doc: Hostname or IP address of the `statsd` server
+PORT = config_get_int('monitor', 'carbon_port', raise_exception=False, default=8125)  # doc: Port of the `statsd` server
+SCOPE = config_get('monitor', 'user_scope', raise_exception=False, default='rucio')  # doc: Prefix to distinguish and group stats from an application or environment
 STATSD_CLIENT = None
 if SERVER is not None:
     STATSD_CLIENT = StatsClient(host=SERVER, port=PORT, prefix=SCOPE)
 
-ENABLE_METRICS = config_get_bool('monitor', 'enable_metrics', raise_exception=False, default=False)
+ENABLE_METRICS = config_get_bool('monitor', 'enable_metrics', raise_exception=False, default=False)  # doc: Enable `statsd` metrics
 if ENABLE_METRICS:
-    METRICS_PORT = config_get_int('monitor', 'metrics_port', raise_exception=False, default=8080)
+    METRICS_PORT = config_get_int('monitor', 'metrics_port', raise_exception=False, default=8080)  # doc: Port of Prometheus Python Client
     start_http_server(METRICS_PORT, registry=REGISTRY)
 
 COUNTERS = {}

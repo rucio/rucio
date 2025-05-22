@@ -36,10 +36,10 @@ def get_policy(logger: 'LoggerFunction' = logging.log) -> str:
     policy = REGION.get('policy')
     if isinstance(policy, NoValue):
         try:
-            policy = config_get('policy', 'permission')
+            policy = config_get('policy', 'permission')  # doc: Same as `permission/policy`
         except (NoOptionError, NoSectionError):
             try:
-                policy = config_get('permission', 'policy')
+                policy = config_get('permission', 'policy', default="def")  # doc: Permission policy
             except (NoOptionError, NoSectionError):
                 policy = 'def'
                 logger(logging.WARNING, "Policy not specified, falling back to 'def'")
@@ -52,7 +52,7 @@ def get_scratchdisk_lifetime() -> int:
     scratchdisk_lifetime = REGION.get('scratchdisk_lifetime')
     if isinstance(scratchdisk_lifetime, NoValue):
         try:
-            scratchdisk_lifetime = config_get('policy', 'scratchdisk_lifetime')
+            scratchdisk_lifetime = config_get('policy', 'scratchdisk_lifetime', default=14)
             scratchdisk_lifetime = int(scratchdisk_lifetime)
         except (NoOptionError, NoSectionError, ValueError):
             scratchdisk_lifetime = 14
