@@ -303,8 +303,6 @@ def delete_replicas(rse, files, issuer, ignore_availability=False, vo='def'):
     :param issuer: The issuer account.
     :param ignore_availability: Ignore blocked RSEs.
     :param vo: The VO to act on.
-
-    :returns: True is successful, False otherwise
     """
     validate_schema(name='r_dids', obj=files, vo=vo)
 
