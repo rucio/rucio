@@ -2789,7 +2789,7 @@ def generate_email_for_rule_ok_notification(
 
     if rule.state == RuleState.OK and rule.notification == RuleNotification.YES:
         try:
-            template_path = '%s/rule_ok_notification.tmpl' % config_get('common', 'mailtemplatedir')
+            template_path = '%s/rule_ok_notification.tmpl' % config_get('common', 'mailtemplatedir')   # doc: Path of the folder with mail templates (.tmpl)
         except NoOptionError as ex:
             logger(logging.ERROR, "Missing configuration option 'mailtemplatedir'.", exc_info=ex)
             return
@@ -4360,9 +4360,7 @@ def _create_recipients_list(
 
     # DDMADMIN as default
     if not recipients:
-        default_mail_from = config_get(
-            'core', 'default_mail_from', raise_exception=False, default=None
-        )
+        default_mail_from = config_get('core', 'default_mail_from', raise_exception=False, default=None)  # doc: Default email.
         if default_mail_from:
             recipients = [(default_mail_from, 'ddmadmin')]
 

@@ -134,7 +134,7 @@ def receiver(
     brokers_alias = []
     brokers_resolved = []
     try:
-        brokers_alias = config_get_list('messaging-fts3', 'brokers')
+        brokers_alias = config_get_list('messaging-fts3', 'brokers')  # doc:  Brokers
     except Exception:
         raise Exception('Could not load brokers from configuration')
 
@@ -157,9 +157,9 @@ def receiver(
     port = config_get_int('messaging-fts3', 'port')
     vhost = config_get('messaging-fts3', 'broker_virtual_host', raise_exception=False)
     if not use_ssl:
-        username = config_get('messaging-fts3', 'username')
-        password = config_get('messaging-fts3', 'password')
-        port = config_get_int('messaging-fts3', 'nonssl_port')
+        username = config_get('messaging-fts3', 'username')  # doc: Username of the broker. Only used if `use_ssl` is not set.
+        password = config_get('messaging-fts3', 'password')  # doc: Password of the `username`. Only used if `use_ssl` is not set.
+        port = config_get_int('messaging-fts3', 'nonssl_port')  # doc: Port of the broker if `use_ssl` is not set.
 
     conns = []
     for broker in brokers_resolved:
@@ -172,8 +172,8 @@ def receiver(
                                  reconnect_attempts_max=999)
         if use_ssl:
             con.set_ssl(
-                key_file=config_get('messaging-fts3', 'ssl_key_file'),
-                cert_file=config_get('messaging-fts3', 'ssl_cert_file'),
+                key_file=config_get('messaging-fts3', 'ssl_key_file'),  # doc: Path of the certificate key file defined in `ssl_cert_file`
+                cert_file=config_get('messaging-fts3', 'ssl_cert_file'),  # doc: Path of the certificate file
             )
         conns.append(con)
 
@@ -204,7 +204,7 @@ def receiver(
                         conn.connect(username, password, wait=True)
                     else:
                         conn.connect(wait=True)
-                    conn.subscribe(destination=config_get('messaging-fts3', 'destination'),
+                    conn.subscribe(destination=config_get('messaging-fts3', 'destination'),  # doc:  Name of the destination topic.
                                    id='rucio-messaging-fts3',
                                    ack='auto')
             time.sleep(1)

@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 graceful_stop = threading.Event()
 METRICS = MetricManager(module=__name__)
-REGION = MemcacheRegion(expiration_time=config_get_int('necromancer', 'cache_time', False, 600))
+REGION = MemcacheRegion(expiration_time=config_get_int('necromancer', 'cache_time', False, 600))  # doc: Integer, expiration time in seconds passed to the dogpile system.
 DAEMON_NAME = 'necromancer'
 
 

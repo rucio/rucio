@@ -177,7 +177,7 @@ def _pick_cert_file(vo: Optional[str]) -> Optional[str]:
             if vo_cert.exists():
                 cert = str(vo_cert)
     if not cert:
-        usercert = config_get('conveyor', 'usercert', False, None)
+        usercert = config_get('conveyor', 'usercert', False, None)  # doc: Path to the certificate for the FTS3 implementation of a Rucio transfertool.
         if usercert:
             cert = usercert
     return cert

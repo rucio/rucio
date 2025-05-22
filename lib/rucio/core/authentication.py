@@ -82,7 +82,7 @@ def token_key_generator(namespace, fni, **kwargs):
     return generate_key
 
 
-if config_get_bool('cache', 'use_external_cache_for_auth_tokens', default=False):
+if config_get_bool('cache', 'use_external_cache_for_auth_tokens', default=False):  # doc: Use remote cache provider for auth tokens. If False, use a private in-memory cache.
     TOKENREGION = MemcacheRegion(expiration_time=900, function_key_generator=token_key_generator)
 else:
     TOKENREGION = make_region(function_key_generator=token_key_generator).configure('dogpile.cache.memory', expiration_time=900)
