@@ -296,7 +296,7 @@ class HeaderRedirector(ErrorHandlingMethodView):
             vo = extract_vo(request.headers)
 
             replicas = list(
-                list_replicas(  # type: ignore (session parameter missing)
+                list_replicas(
                     dids=[{'scope': scope, 'name': name, 'type': 'FILE'}],
                     schemes=schemes,
                     client_location=client_location,
