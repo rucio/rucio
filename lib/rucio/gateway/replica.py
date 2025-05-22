@@ -270,8 +270,6 @@ def add_replicas(rse, files, issuer, ignore_availability=False, vo='def'):
     :param issuer: The issuer account.
     :param ignore_availability: Ignore blocked RSEs.
     :param vo: The VO to act on.
-
-    :returns: True is successful, False otherwise
     """
     for v_file in files:
         v_file.update({"type": "FILE"})  # Make sure DIDs are identified as files for checking
