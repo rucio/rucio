@@ -1007,7 +1007,7 @@ def download(args, client, logger, console, spinner):
         item_defaults['nrandom'] = args.nrandom
         item_defaults['transfer_speed_timeout'] = args.transfer_speed_timeout \
             if args.transfer_speed_timeout is not None \
-            else config_get_float('download', 'transfer_speed_timeout', False, 500)
+            else config_get_float('download', 'transfer_speed_timeout', False, 500)  # doc: Minimum allowed average transfer speed (in KBps). Used to dynamically compute the timeout if `--transfer-timeout` not set. Is not supported for `--pfn`.
         items = []
         if args.dids:
             for did in args.dids:

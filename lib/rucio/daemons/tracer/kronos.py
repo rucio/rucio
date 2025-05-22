@@ -344,8 +344,8 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
     _, _, logger = heartbeat_handler.live()
 
     chunksize = config_get_int('tracer-kronos', 'chunksize')
-    prefetch_size = config_get_int('tracer-kronos', 'prefetch_size')
-    subscription_id = config_get('tracer-kronos', 'subscription_id')
+    prefetch_size = config_get_int('tracer-kronos', 'prefetch_size')  # doc: `activemq.prefetchSize`, see [activemq documentation](https://activemq.apache.org/what-is-the-prefetch-limit-for)
+    subscription_id = config_get('tracer-kronos', 'subscription_id')  # doc: A unique id to represent the subscription
     # Load bad file patterns from config
     try:
         bad_files_patterns = []
@@ -362,17 +362,17 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
 
     use_ssl = config_get_bool('tracer-kronos', 'use_ssl', default=True, raise_exception=False)
     if not use_ssl:
-        username = config_get('tracer-kronos', 'username')
-        password = config_get('tracer-kronos', 'password')
+        username = config_get('tracer-kronos', 'username')  # doc: Username of the broker. Mandatory if `use_ssl` is not set.
+        password = config_get('tracer-kronos', 'password')  # doc: Password of the `username`. Mandatory if `use_ssl` is not set.
 
-    excluded_usrdns = set(config_get_list('tracer-kronos', 'excluded_usrdns'))
+    excluded_usrdns = set(config_get_list('tracer-kronos', 'excluded_usrdns'))  # doc: Example: `CN=proxy,CN=Robot: Ganga Robot,CN=722147,CN=gangarbt`
     vhost = config_get('tracer-kronos', 'broker_virtual_host', raise_exception=False)
 
-    brokers_alias = config_get_list('tracer-kronos', 'brokers')
-    port = config_get_int('tracer-kronos', 'port')
-    reconnect_attempts = config_get_int('tracer-kronos', 'reconnect_attempts')
-    ssl_key_file = config_get('tracer-kronos', 'ssl_key_file', raise_exception=False)
-    ssl_cert_file = config_get('tracer-kronos', 'ssl_cert_file', raise_exception=False)
+    brokers_alias = config_get_list('tracer-kronos', 'brokers')  # doc: Brokers
+    port = config_get_int('tracer-kronos', 'port')  # doc: Port of the broker.
+    reconnect_attempts = config_get_int('tracer-kronos', 'reconnect_attempts')  # doc: Maximum attempts to reconnect
+    ssl_key_file = config_get('tracer-kronos', 'ssl_key_file', raise_exception=False)  # doc:  Path of the certificate key file defined in `ssl_cert_file`. Mandatory if `use_ssl` is set.
+    ssl_cert_file = config_get('tracer-kronos', 'ssl_cert_file', raise_exception=False)  # doc: Path of the certificate file. Mandatory if `use_ssl` is set.
 
     created_conns, _ = stomp_conn_mngr.re_configure(
         brokers=brokers_alias,
@@ -393,7 +393,7 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
             METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0]).inc()
             conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0],
                                                                  conn=conn,
-                                                                 queue=config_get('tracer-kronos', 'queue'),
+                                                                 queue=config_get('tracer-kronos', 'queue'),  # doc: The topic or queue to subscribe to
                                                                  chunksize=chunksize,
                                                                  subscription_id=subscription_id,
                                                                  excluded_usrdns=excluded_usrdns,
