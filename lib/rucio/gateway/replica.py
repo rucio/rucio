@@ -13,12 +13,12 @@
 # limitations under the License.
 
 import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
 
 from rucio.common import exception
 from rucio.common.constants import SuspiciousAvailability
 from rucio.common.schema import validate_schema
-from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.types import InternalAccount, InternalScope, IPDict
 from rucio.common.utils import gateway_update_return_dict, invert_dict
 from rucio.core import replica
 from rucio.core.rse import get_rse_id, get_rse_name
@@ -27,10 +27,15 @@ from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterable, Iterator
 
 
-def get_bad_replicas_summary(rse_expression=None, from_date=None, to_date=None, vo='def'):
+def get_bad_replicas_summary(
+        rse_expression: Optional[str] = None,
+        from_date: Optional[datetime.datetime] = None,
+        to_date: Optional[datetime.date] = None,
+        vo: str = 'def'
+) -> list[dict[str, Any]]:
     """
     List the bad file replicas summary. Method used by the rucio-ui.
     :param rse_expression: The RSE expression.
@@ -71,7 +76,13 @@ def list_bad_replicas_status(
         return [gateway_update_return_dict(r, session=session) for r in replicas]
 
 
-def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False):
+def declare_bad_file_replicas(
+        replicas: Union[list[str], list[dict[str, Any]]],
+        reason: str,
+        issuer: str,
+        vo: str = 'def',
+        force: bool = False
+) -> dict[str, Any]:
     """
     Declare a list of bad replicas.
 
@@ -105,6 +116,10 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False):
                 raise exception.ReplicaNotFound("Not all replicas found")
             rse_ids_to_check = set(rses_for_replicas.keys())
         else:
+            # replicas is a list[dict] in this path,
+            # but the static code analyzer does not see it due to as_pfns logic above,
+            # so cast is used instead
+            replicas = cast("list[dict[str, Any]]", replicas)
             replicas_lst = []
             for r in replicas:
                 if "name" not in r or "scope" not in r or ("rse" not in r and "rse_id" not in r):
@@ -153,7 +168,12 @@ def declare_bad_file_replicas(replicas, reason, issuer, vo='def', force=False):
         return out
 
 
-def declare_suspicious_file_replicas(pfns, reason, issuer, vo='def'):
+def declare_suspicious_file_replicas(
+        pfns: list[Union[str, dict[str, Any]]],
+        reason: str,
+        issuer: str,
+        vo: str = 'def'
+) -> dict[str, list[str]]:
     """
     Declare a list of bad replicas.
 
@@ -169,9 +189,9 @@ def declare_suspicious_file_replicas(pfns, reason, issuer, vo='def'):
         if not auth_result.allowed:
             raise exception.AccessDenied('Account %s can not declare suspicious replicas. %s' % (issuer, auth_result.message))
 
-        issuer = InternalAccount(issuer, vo=vo)
+        issuer_account = InternalAccount(issuer, vo=vo)
 
-        replicas = replica.declare_bad_file_replicas(pfns, reason=reason, issuer=issuer, status=BadFilesStatus.SUSPICIOUS, session=session)
+        replicas = replica.declare_bad_file_replicas(pfns, reason=reason, issuer=issuer_account, status=BadFilesStatus.SUSPICIOUS, session=session)
 
         for k in list(replicas):
             try:
@@ -183,7 +203,11 @@ def declare_suspicious_file_replicas(pfns, reason, issuer, vo='def'):
     return replicas
 
 
-def get_did_from_pfns(pfns, rse, vo='def'):
+def get_did_from_pfns(
+        pfns: "Iterable[str]",
+        rse: str,
+        vo: str = 'def'
+) -> 'Iterator[dict[str, dict[str, Any]]]':
     """
     Get the DIDs associated to a PFN on one given RSE
 
@@ -202,12 +226,24 @@ def get_did_from_pfns(pfns, rse, vo='def'):
             yield r
 
 
-def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
-                  ignore_availability=True, all_states=False, rse_expression=None,
-                  client_location=None, domain=None, signature_lifetime=None,
-                  resolve_archives=True, resolve_parents=False,
-                  nrandom=None, updated_after=None,
-                  issuer=None, vo='def'):
+def list_replicas(
+        dids: "Iterable[dict[str, Any]]",
+        schemes: Optional[list[str]] = None,
+        unavailable: bool = False,
+        request_id: Optional[str] = None,
+        ignore_availability: bool = True,
+        all_states: bool = False,
+        rse_expression: Optional[str] = None,
+        client_location: Optional[IPDict] = None,
+        domain: Optional[str] = None,
+        signature_lifetime: Optional[int] = None,
+        resolve_archives: bool = True,
+        resolve_parents: bool = False,
+        nrandom: Optional[int] = None,
+        updated_after: Optional[datetime.datetime] = None,
+        issuer: Optional[str] = None,
+        vo: str = 'def'
+) -> 'Iterator[dict[str, Any]]':
     """
     List file replicas for a list of data identifiers.
 
@@ -261,7 +297,13 @@ def list_replicas(dids, schemes=None, unavailable=False, request_id=None,
             yield rep
 
 
-def add_replicas(rse, files, issuer, ignore_availability=False, vo='def'):
+def add_replicas(
+        rse: str,
+        files: "Iterable[dict[str, Any]]",
+        issuer: str,
+        ignore_availability: bool = False,
+        vo: str = 'def'
+) -> None:
     """
     Bulk add file replicas.
 
@@ -285,16 +327,22 @@ def add_replicas(rse, files, issuer, ignore_availability=False, vo='def'):
         if not permission.has_permission(issuer=issuer, vo=vo, action='skip_availability_check', kwargs=kwargs, session=session):
             ignore_availability = False
 
-        issuer = InternalAccount(issuer, vo=vo)
+        issuer_account = InternalAccount(issuer, vo=vo)
         for f in files:
             f['scope'] = InternalScope(f['scope'], vo=vo)
             if 'account' in f:
                 f['account'] = InternalAccount(f['account'], vo=vo)
 
-        replica.add_replicas(rse_id=rse_id, files=files, account=issuer, ignore_availability=ignore_availability, session=session)
+        replica.add_replicas(rse_id=rse_id, files=files, account=issuer_account, ignore_availability=ignore_availability, session=session)
 
 
-def delete_replicas(rse, files, issuer, ignore_availability=False, vo='def'):
+def delete_replicas(
+        rse: str,
+        files: "Iterable[dict[str, Any]]",
+        issuer: str,
+        ignore_availability: bool = False,
+        vo: str = 'def'
+) -> None:
     """
     Bulk delete file replicas.
 
@@ -322,7 +370,12 @@ def delete_replicas(rse, files, issuer, ignore_availability=False, vo='def'):
         replica.delete_replicas(rse_id=rse_id, files=files, ignore_availability=ignore_availability, session=session)
 
 
-def update_replicas_states(rse, files, issuer, vo='def'):
+def update_replicas_states(
+        rse: str,
+        files: "Iterable[dict[str, Any]]",
+        issuer: str,
+        vo: str = 'def'
+) -> None:
     """
     Update File replica information and state.
 
@@ -351,7 +404,12 @@ def update_replicas_states(rse, files, issuer, vo='def'):
         replica.update_replicas_states(replicas=replicas, session=session)
 
 
-def list_dataset_replicas(scope, name, deep=False, vo='def'):
+def list_dataset_replicas(
+        scope: str,
+        name: str,
+        deep: bool = False,
+        vo: str = 'def'
+) -> "Iterator[dict[str, Any]]":
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.
@@ -361,17 +419,20 @@ def list_dataset_replicas(scope, name, deep=False, vo='def'):
     :returns: A list of dict dataset replicas
     """
 
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
 
     with db_session(DatabaseOperationType.READ) as session:
-        replicas = replica.list_dataset_replicas(scope=scope, name=name, deep=deep, session=session)
+        replicas = replica.list_dataset_replicas(scope=internal_scope, name=name, deep=deep, session=session)
 
         for r in replicas:
             r['scope'] = r['scope'].external
             yield r
 
 
-def list_dataset_replicas_bulk(dids, vo='def'):
+def list_dataset_replicas_bulk(
+        dids: 'Iterable[dict[str, Any]]',
+        vo: str = 'def'
+) -> 'Iterator[dict[str, Any]]':
     """
     :param dids: The list of did dictionaries with scope and name.
     :param vo: The VO to act on.
@@ -399,7 +460,12 @@ def list_dataset_replicas_bulk(dids, vo='def'):
             yield gateway_update_return_dict(r, session=session)
 
 
-def list_dataset_replicas_vp(scope, name, deep=False, vo='def'):
+def list_dataset_replicas_vp(
+        scope: str,
+        name: str,
+        deep: bool = False,
+        vo: str = 'def'
+) -> 'Iterator[dict[str, Any]]':
     """
     :param scope: The scope of the dataset.
     :param name: The name of the dataset.
@@ -411,10 +477,10 @@ def list_dataset_replicas_vp(scope, name, deep=False, vo='def'):
     NOTICE: This is an RnD function and might change or go away at any time.
     """
 
-    scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo)
 
     with db_session(DatabaseOperationType.READ) as session:
-        for r in replica.list_dataset_replicas_vp(scope=scope, name=name, deep=deep, session=session):
+        for r in replica.list_dataset_replicas_vp(scope=internal_scope, name=name, deep=deep, session=session):
             yield gateway_update_return_dict(r, session=session)
 
 
@@ -439,7 +505,14 @@ def list_datasets_per_rse(rse: str, filters: Optional[dict[str, Any]] = None, li
             yield gateway_update_return_dict(r, session=session)
 
 
-def add_bad_pfns(pfns, issuer, state, reason=None, expires_at=None, vo='def'):
+def add_bad_pfns(
+        pfns: "Iterable[str]",
+        issuer: str,
+        state: BadFilesStatus,
+        reason: Optional[str] = None,
+        expires_at: Optional[datetime.datetime] = None,
+        vo: str = 'def'
+) -> Literal[True]:
     """
     Add bad PFNs.
 
@@ -462,12 +535,20 @@ def add_bad_pfns(pfns, issuer, state, reason=None, expires_at=None, vo='def'):
         if expires_at and datetime.datetime.utcnow() <= expires_at and expires_at > datetime.datetime.utcnow() + datetime.timedelta(days=30):
             raise exception.InputValidationError('The given duration of %s days exceeds the maximum duration of 30 days.' % (expires_at - datetime.datetime.utcnow()).days)
 
-        issuer = InternalAccount(issuer, vo=vo)
+        issuer_account = InternalAccount(issuer, vo=vo)
 
-        return replica.add_bad_pfns(pfns=pfns, account=issuer, state=state, reason=reason, expires_at=expires_at, session=session)
+        return replica.add_bad_pfns(pfns=pfns, account=issuer_account, state=state, reason=reason, expires_at=expires_at, session=session)
 
 
-def add_bad_dids(dids, rse, issuer, state, reason=None, expires_at=None, vo='def'):
+def add_bad_dids(
+        dids: "Iterable[dict[str, Any]]",
+        rse: str,
+        issuer: str,
+        state: BadFilesStatus,
+        reason: Optional[str] = None,
+        expires_at: Optional[datetime.datetime] = None,
+        vo: str = 'def'
+) -> list[str]:
     """
     Add bad replica entries for DIDs.
 
@@ -488,13 +569,18 @@ def add_bad_dids(dids, rse, issuer, state, reason=None, expires_at=None, vo='def
         if not auth_result.allowed:
             raise exception.AccessDenied('Account %s can not declare bad PFN or DIDs. %s' % (issuer, auth_result.message))
 
-        issuer = InternalAccount(issuer, vo=vo)
+        issuer_account = InternalAccount(issuer, vo=vo)
         rse_id = get_rse_id(rse=rse, session=session)
 
-        return replica.add_bad_dids(dids=dids, rse_id=rse_id, reason=reason, issuer=issuer, state=state, session=session)
+        return replica.add_bad_dids(dids=dids, rse_id=rse_id, reason=reason, issuer=issuer_account, state=state, session=session)
 
 
-def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, vo='def'):
+def get_suspicious_files(
+        rse_expression: Optional[str],
+        younger_than: Optional[datetime.datetime] = None,
+        nattempts: Optional[int] = None,
+        vo: str = 'def'
+) -> list[dict[str, Any]]:
     """
     List the list of suspicious files on a list of RSEs
     :param rse_expression: The RSE expression where the suspicious files are located
@@ -509,7 +595,13 @@ def get_suspicious_files(rse_expression, younger_than=None, nattempts=None, vo='
         return [gateway_update_return_dict(r, session=session) for r in replicas]
 
 
-def set_tombstone(rse, scope, name, issuer, vo='def'):
+def set_tombstone(
+        rse: str,
+        scope: str,
+        name: str,
+        issuer: str,
+        vo: str = 'def'
+) -> None:
     """
     Sets a tombstone on one replica.
 
@@ -527,5 +619,5 @@ def set_tombstone(rse, scope, name, issuer, vo='def'):
         if not auth_result.allowed:
             raise exception.AccessDenied('Account %s can not set tombstones. %s' % (issuer, auth_result.message))
 
-        scope = InternalScope(scope, vo=vo)
-        replica.set_tombstone(rse_id, scope, name, session=session)
+        internal_scope = InternalScope(scope, vo=vo)
+        replica.set_tombstone(rse_id, internal_scope, name, session=session)
