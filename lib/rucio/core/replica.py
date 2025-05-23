@@ -42,7 +42,7 @@ from rucio.common import exception
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import RseAttr, SuspiciousAvailability
-from rucio.common.types import InternalAccount, InternalScope, LFNDict, is_str_list
+from rucio.common.types import InternalAccount, InternalScope, IPDict, LFNDict, is_str_list
 from rucio.common.utils import add_url_query, chunks, clean_pfns, str_to_date
 from rucio.core.credential import get_signed_url
 from rucio.core.message import add_messages
@@ -943,7 +943,7 @@ def _build_list_replicas_pfn(
         path: str,
         sign_urls: bool,
         signature_lifetime: Optional[int],
-        client_location: Optional[dict[str, Any]],
+        client_location: Optional[IPDict],
         logger: "LoggerFunction" = logging.log,
         *,
         session: "Session",
@@ -1024,7 +1024,7 @@ def _list_replicas(
         show_pfns: bool,
         schemes: Optional[list[str]],
         files_wo_replica: "Iterable[dict[str, Any]]",
-        client_location: Optional[dict[str, Any]],
+        client_location: Optional[IPDict],
         domain: Optional[str],
         sign_urls: bool,
         signature_lifetime: Optional[int],
@@ -1200,7 +1200,7 @@ def list_replicas(
         all_states: bool = False,
         pfns: bool = True,
         rse_expression: Optional[str] = None,
-        client_location: Optional[dict[str, Any]] = None,
+        client_location: Optional[IPDict] = None,
         domain: Optional[str] = None,
         sign_urls: bool = False,
         signature_lifetime: "Optional[int]" = None,
@@ -4176,7 +4176,7 @@ def get_replicas_state(
 
 @read_session
 def get_suspicious_files(
-    rse_expression: str,
+    rse_expression: Optional[str],
     available_elsewhere: int,
     filter_: Optional[dict[str, Any]] = None,
     logger: "LoggerFunction" = logging.log,

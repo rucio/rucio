@@ -252,7 +252,7 @@ class Replicas(ErrorHandlingMethodView):
             def _list_and_sort_replicas(vo):
                 # we need to call list_replicas before starting to reply
                 # otherwise the exceptions won't be propagated correctly
-                for rfile in list_replicas(dids=dids, schemes=schemes, vo=vo):
+                for rfile in list_replicas(dids=dids, schemes=schemes, vo=vo):  # type: ignore (pending https://github.com/rucio/rucio/issues/7739)
                     replicas = []
                     dictreplica = {}
                     for rse in rfile['rses']:
