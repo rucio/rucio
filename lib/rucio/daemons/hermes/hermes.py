@@ -343,6 +343,8 @@ def deliver_emails(
     :returns:                  List of message_id to delete
     """
 
+    smtp_host = config_get("messaging-hermes", "smtp_host")
+    smtp_port = config_get_int("messaging-hermes", "smtp_port", default=25)
     email_from = config_get("messaging-hermes", "email_from")
     send_email = config_get_bool(
         "messaging-hermes", "send_email", raise_exception=False, default=True
@@ -357,7 +359,7 @@ def deliver_emails(
 
             try:
                 if send_email:
-                    smtp = smtplib.SMTP()
+                    smtp = smtplib.SMTP(host=smtp_host, port=smtp_port)
                     smtp.connect()
                     smtp.sendmail(
                         msg["From"], message["payload"]["to"], msg.as_string()
