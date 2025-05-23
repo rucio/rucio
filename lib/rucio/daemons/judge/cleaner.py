@@ -34,7 +34,7 @@ from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.rule import delete_rule, get_expired_rules
 from rucio.daemons.common import HeartbeatHandler, run_daemon
-from rucio.db.sqla.constants import ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX
+from rucio.db.sqla.constants import MYSQL_LOCK_NOWAIT_REGEX, ORACLE_CONNECTION_LOST_CONTACT_REGEX, ORACLE_RESOURCE_BUSY_REGEX, PSQL_PSYCOPG_LOCK_NOT_AVAILABLE_REGEX
 from rucio.db.sqla.util import get_db_time
 
 if TYPE_CHECKING:
@@ -103,7 +103,7 @@ def run_once(
             delete_rule(rule_id=rule_id, nowait=True)
             logger(logging.DEBUG, 'deletion of %s took %f' % (rule_id, time.time() - start))
         except (DatabaseException, DatabaseError, UnsupportedOperation) as e:
-            if match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])):
+            if match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])) or match(PSQL_PSYCOPG_LOCK_NOT_AVAILABLE_REGEX, str(e.args[0])) or match(MYSQL_LOCK_NOWAIT_REGEX, str(e.args[0])):
                 paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(600, 2400))  # noqa: S311
                 METRICS.counter('exceptions.{exception}').labels(exception='LocksDetected').inc()
                 logger(logging.WARNING, 'Locks detected for %s' % rule_id)
