@@ -66,7 +66,7 @@ class CORSMiddleware:
 
         if request.environ.get('REQUEST_METHOD') == 'OPTIONS':
             try:
-                webui_urls = config.config_get_list('webui', 'urls')
+                webui_urls = config.config_get_list('webui', 'urls')  # doc: A CSV specifying urls of Rucio WebUI 2.0 clients. Required for correctly handling pre-flight CORS requests.
             except (NoOptionError, NoSectionError, RuntimeError) as error:
                 logging.exception('Could not get webui urls from config file')
                 return str(error), 500  # type: ignore (return type incompatible with Flask middleware)

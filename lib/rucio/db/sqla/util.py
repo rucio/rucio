@@ -57,7 +57,7 @@ def build_database() -> None:
     """ Applies the schema to the database. Run this command once to build the database. """
     engine = get_engine()
 
-    schema = config_get('database', 'schema', raise_exception=False, check_config_table=False)
+    schema = config_get('database', 'schema', raise_exception=False, check_config_table=False)  # doc: Schema to be applied to a database, if not set in config, try to create automatically.
     if schema:
         print('Schema set in config, trying to create schema:', schema)
         try:
@@ -70,7 +70,7 @@ def build_database() -> None:
     models.register_models(engine)
 
     # Put the database under version control
-    alembic_cfg = Config(config_get('alembic', 'cfg'))
+    alembic_cfg = Config(config_get('alembic', 'cfg'))  # doc: Path to the configuration file (.ini) for Alembic
     command.stamp(alembic_cfg, "head")
 
 
@@ -149,21 +149,21 @@ def create_root_account() -> None:
 
     multi_vo = bool(config_get('common', 'multi_vo', False, False))
 
-    up_id = config_get('bootstrap', 'userpass_identity', default='ddmlab')
-    up_pwd = config_get('bootstrap', 'userpass_pwd', default='secret')
-    up_email = config_get('bootstrap', 'userpass_email', default='ph-adp-ddm-lab@cern.ch')
-    x509_id = config_get('bootstrap', 'x509_identity', default='emailAddress=ph-adp-ddm-lab@cern.ch,CN=DDMLAB Client Certificate,OU=PH-ADP-CO,O=CERN,ST=Geneva,C=CH')
-    x509_email = config_get('bootstrap', 'x509_email', default='ph-adp-ddm-lab@cern.ch')
-    gss_id = config_get('bootstrap', 'gss_identity', default='ddmlab@CERN.CH')
-    gss_email = config_get('bootstrap', 'gss_email', default='ph-adp-ddm-lab@cern.ch')
-    ssh_id = config_get('bootstrap', 'ssh_identity',
+    up_id = config_get('bootstrap', 'userpass_identity', default='ddmlab')  # doc: Name of the root account
+    up_pwd = config_get('bootstrap', 'userpass_pwd', default='secret')  # doc: Password of the root account which name im specified in `userpass_identity`
+    up_email = config_get('bootstrap', 'userpass_email', default='ph-adp-ddm-lab@cern.ch')  # doc: mail of the root account which name is specified in `userpass_identity`
+    x509_id = config_get('bootstrap', 'x509_identity', default='emailAddress=ph-adp-ddm-lab@cern.ch,CN=DDMLAB Client Certificate,OU=PH-ADP-CO,O=CERN,ST=Geneva,C=CH')  # doc: Identity of the X.509 certificate
+    x509_email = config_get('bootstrap', 'x509_email', default='ph-adp-ddm-lab@cern.ch')  # doc: Email of the X.509 identity specified in `x509_identity`
+    gss_id = config_get('bootstrap', 'gss_identity', default='ddmlab@CERN.CH')  # doc:  Identity of the Kerberos auth method.
+    gss_email = config_get('bootstrap', 'gss_email', default='ph-adp-ddm-lab@cern.ch')  # doc: Email of the Kerberos auth method which identity is specified in `gss_identity`.
+    ssh_id = config_get('bootstrap', 'ssh_identity',  # doc: SSH auth using an RSA key.
                         default='ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL614sulXQ7wnIr1aGhGtl8b+HCB/'
                         '0FhMSMTHwSjX78UbfqEorZV16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXUh6ydn'
                         'Vy89zGzX1FJFFDZ+AgiZ3ytp55tg1bjqqhK1OSC0pJxdNe878TRVVo5MLI0S/rZY2UovCSGFaQG2'
                         'iLj14wz/YqI7NFMUuJFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKExlnvFLTlDI5'
                         'Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== ddmlab'
                         )
-    ssh_email = config_get('bootstrap', 'ssh_email', default='ph-adp-ddm-lab@cern.ch')
+    ssh_email = config_get('bootstrap', 'ssh_email', default='ph-adp-ddm-lab@cern.ch')  # doc:  Email of the SSH auth method which identity is specified in `ssh_identity`.
 
     session_scoped = get_session()
 
