@@ -134,7 +134,7 @@ class TestOpenDataCore:
             opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC)
 
         # close DID
-        set_status(scope=mock_scope, name=name, account=root_account, open=False)
+        set_status(scope=mock_scope, name=name, open=False)
 
         opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC)
         state = opendata.get_opendata_did(scope=mock_scope, name=name)["state"]
