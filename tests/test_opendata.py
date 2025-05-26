@@ -16,7 +16,7 @@ import pytest
 
 from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataInvalidStateUpdate
 from rucio.core import opendata
-from rucio.core.did import add_did
+from rucio.core.did import add_did, set_status
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import did_name_generator
@@ -128,6 +128,13 @@ class TestOpenDataCore:
         with pytest.raises(OpenDataInvalidStateUpdate):
             # cannot go from draft to suspended
             opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.SUSPENDED)
+
+        with pytest.raises(OpenDataInvalidStateUpdate):
+            # DID needs to be closed before it can be made public
+            opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC)
+
+        # close DID
+        set_status(scope=mock_scope, name=name, account=root_account, open=False)
 
         opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC)
         state = opendata.get_opendata_did(scope=mock_scope, name=name)["state"]

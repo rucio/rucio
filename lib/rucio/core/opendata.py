@@ -267,7 +267,21 @@ def update_opendata_did(
                     "Cannot set state to DRAFT. Once a DID is made public, it cannot be reverted to DRAFT.")
         elif state == OpenDataDIDState.PUBLIC:
             # All states can be set to PUBLIC
-            ...
+            # DID needs to be closed before going public
+
+            did_is_open = session.execute(
+                select(models.DataIdentifier.is_open).where(
+                    and_(
+                        models.DataIdentifier.scope == scope,
+                        models.DataIdentifier.name == name
+                    )
+                )
+            ).scalar()
+
+            if did_is_open:
+                raise OpenDataInvalidStateUpdate(
+                    "Cannot set state to PUBLIC. The DID must be closed first.")
+
         elif state == OpenDataDIDState.SUSPENDED:
             if state_before == OpenDataDIDState.DRAFT:
                 raise OpenDataInvalidStateUpdate("Cannot set state to SUSPENDED from DRAFT. First set it to PUBLIC.")
