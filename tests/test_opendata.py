@@ -210,6 +210,7 @@ class TestOpenDataCore:
         opendata.add_opendata_did(scope=mock_scope, name=did_public_name)
 
         # Update state to public
+        set_status(scope=mock_scope, name=did_public_name, open=False)
         opendata.update_opendata_did(scope=mock_scope, name=did_public_name, state=OpenDataDIDState.PUBLIC)
 
         opendata_public_number_after = len(opendata.list_opendata_dids(state=OpenDataDIDState.PUBLIC))

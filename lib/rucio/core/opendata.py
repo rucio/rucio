@@ -14,7 +14,7 @@
 
 import json
 from re import match
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union, Iterator
 
 from sqlalchemy import and_, delete, insert, update
 from sqlalchemy.exc import DataError, IntegrityError
@@ -22,6 +22,7 @@ from sqlalchemy.sql.expression import bindparam, select
 
 from rucio.common import exception
 from rucio.common.exception import OpenDataError, OpenDataInvalidStateUpdate
+from rucio.core.did import list_files
 from rucio.core.monitor import MetricManager
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
@@ -103,7 +104,7 @@ def get_opendata_did(
         state: Optional[OpenDataDIDState] = None,
         session: "Session"
 ) -> Optional[dict[str, Any]]:
-    print(f"Called GATEWAY get_opendata_did with scope={scope}, name={name}, state={state}")
+    print(f"Called CORE get_opendata_did with scope={scope}, name={name}, state={state}")
 
     query = select(
         models.OpenDataDid.scope,
@@ -315,8 +316,8 @@ def get_opendata_did_files(
         scope: "InternalScope",
         name: str,
         session: "Session"
-) -> Optional[dict[str, Any]]:
-    print(f"Called GATEWAY get_opendata_did_files with scope={scope}, name={name}")
+) -> Iterator[dict[str, Any]]:
+    print(f"Called CORE get_opendata_did_files with scope={scope}, name={name}")
 
     query = select(
         models.OpenDataDid.scope,
@@ -328,12 +329,10 @@ def get_opendata_did_files(
         )
     )
 
-    print(f"Query: {query}")
-
     result = session.execute(query).mappings().fetchone()
     if not result:
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
 
-    print(f"Query result: {result}")
+    files = list_files(scope=scope, name=name)
 
-    return dict(result)
+    return files
