@@ -35,8 +35,8 @@ from rucio.core.request import (
 from rucio.daemons.conveyor.preparer import preparer
 from rucio.daemons.conveyor.throttler import throttler
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, RequestState, RequestType
-from rucio.db.sqla.session import get_session, transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType, DIDType, RequestState, RequestType
+from rucio.db.sqla.session import db_session, get_session
 from rucio.tests.common import skiplimitedsql
 
 
@@ -70,32 +70,33 @@ def connected_rse_pair(vo, rse_factory):
     return source_rse, source_rse_id, dest_rse, dest_rse_id
 
 
-@transactional_session
-def _create_request(dest_rse_id, _bytes, activity, state, account, *, session):
+def _create_request(dest_rse_id, _bytes, activity, state, account):
     request = models.Request(dest_rse_id=dest_rse_id, bytes=_bytes, activity=activity, state=state, account=account)
-    request.save(session=session)
-    return request.to_dict()
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        request.save(session=session)
+        return request.to_dict()
 
 
-@transactional_session
-def _delete_requests(scope, names, ids=None, *, session):
-    session.execute(
-        delete(
-            models.Request
-        ).where(
-            models.Request.scope == scope,
-            models.Request.name.in_(names)
-        )
-    )
-    if ids:
+def _delete_requests(scope, names, ids=None):
+    with db_session(DatabaseOperationType.WRITE) as session:
         session.execute(
             delete(
                 models.Request
             ).where(
-                models.Request.id.in_(ids)
+                models.Request.scope == scope,
+                models.Request.name.in_(names)
             )
         )
-    session.commit()
+        if ids:
+            session.execute(
+                delete(
+                    models.Request
+                ).where(
+                    models.Request.id.in_(ids)
+                )
+            )
+        session.commit()
 
 
 def _add_test_replicas_and_request(request_configs, scope, account):
