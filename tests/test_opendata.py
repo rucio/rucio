@@ -18,6 +18,7 @@ from rucio.common.exception import OpenDataDataIdentifierAlreadyExists, OpenData
 from rucio.core import opendata
 from rucio.core.did import add_did, set_status
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
+from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import did_name_generator
 
@@ -27,7 +28,20 @@ def skip_without_json():
         pytest.skip("JSON support is not implemented in this database")
 
 
+def skip_unsupported_db():
+    # TODO: Remove this skip when Open Data is supported on all databases
+    unsupported_databases = {'mysql', 'oracle', 'sqlite'}
+    session = get_session()
+    dialect = session.bind.dialect.name
+    if dialect in unsupported_databases:
+        pytest.skip("Open Data is not supported on Oracle databases")
+
+
 class TestOpenDataCore:
+    @pytest.fixture(autouse=True)
+    def skip_checks(self):
+        skip_without_json()
+        skip_unsupported_db()
 
     def test_opendata_dids_add(self, mock_scope, root_account):
         dids = [
