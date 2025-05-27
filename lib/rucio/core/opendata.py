@@ -321,19 +321,12 @@ def get_opendata_did_files(
     query = select(
         models.OpenDataDid.scope,
         models.OpenDataDid.name,
-        models.OpenDataDid.state,
-        models.OpenDataDid.opendata_json,
-        models.OpenDataDid.created_at,
-        models.OpenDataDid.updated_at,
     ).where(
         and_(
             models.OpenDataDid.scope == scope,
             models.OpenDataDid.name == name,
         )
     )
-
-    if state is not None:
-        query = query.where(models.OpenDataDid.state == state)
 
     print(f"Query: {query}")
 
