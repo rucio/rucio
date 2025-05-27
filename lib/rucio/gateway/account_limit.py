@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
 import rucio.common.exception
 import rucio.gateway.permission
@@ -21,39 +21,31 @@ from rucio.common.utils import gateway_update_return_dict
 from rucio.core import account_limit as account_limit_core
 from rucio.core.account import account_exists
 from rucio.core.rse import get_rse_id, get_rse_name
-from rucio.db.sqla.session import read_session, transactional_session
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 
-@read_session
 def get_rse_account_usage(
     rse: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> list[dict[str, Any]]:
     """
     Returns the account limit and usage for all for all accounts on a RSE.
 
     :param rse:      The RSE name.
     :param vo:       The VO to act on.
-    :param session:  The database session in use.
     :return:         List of dictionaries.
     """
-    rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+    with db_session(DatabaseOperationType.READ) as session:
+        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
 
-    return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_rse_account_usage(rse_id=rse_id, session=session)]
+        return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_rse_account_usage(rse_id=rse_id, session=session)]
 
 
-@read_session
 def get_local_account_limit(
         account: str,
         rse: Optional[str] = None,
         vo: str = 'def',
-        *,
-        session: "Session"
 ) -> dict[str, Union[int, float, None]]:
     """
     Lists the limitation names/values for the specified account name.
@@ -65,30 +57,27 @@ def get_local_account_limit(
     :param account: The account name.
     :param rse: The RSE name (optional).
     :param vo: The VO to act on.
-    :param session: The database session in use.
 
     :returns: A dictionary of account limits with RSE names as keys and limits as values.
     """
 
     internal_account = InternalAccount(account, vo=vo)
 
-    if rse:
-        # Single RSE lookup
-        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-        return {rse: account_limit_core.get_local_account_limit(account=internal_account, rse_ids=rse_id, session=session)}
-    else:
-        # Fetch all RSE limits
-        limits = account_limit_core.get_local_account_limit(account=internal_account, rse_ids=None, session=session)
-        return {get_rse_name(rse_id=rse_id, session=session): limit for rse_id, limit in limits.items()}
+    with db_session(DatabaseOperationType.READ) as session:
+        if rse:
+            # Single RSE lookup
+            rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+            return {rse: account_limit_core.get_local_account_limit(account=internal_account, rse_ids=rse_id, session=session)}
+        else:
+            # Fetch all RSE limits
+            limits = account_limit_core.get_local_account_limit(account=internal_account, rse_ids=None, session=session)
+            return {get_rse_name(rse_id=rse_id, session=session): limit for rse_id, limit in limits.items()}
 
 
-@read_session
 def get_global_account_limit(
         account: str,
         rse_expression: Optional[str] = None,
         vo: str = 'def',
-        *,
-        session: "Session"
 ) -> Union[dict[str, RSEResolvedGlobalAccountLimitDict], dict[str, dict[str, RSEResolvedGlobalAccountLimitDict]]]:
     """
     Lists the global account limitation names/values for the specified account.
@@ -100,7 +89,6 @@ def get_global_account_limit(
     :param account:         The account name.
     :param rse_expression:  The RSE expression (optional; if not provided, all limits will be fetched).
     :param vo:              The VO to act on.
-    :param session:         The database session in use.
 
     :returns:
         - If `rse_expression` is provided: `{rse_expression: {...}}`
@@ -109,23 +97,21 @@ def get_global_account_limit(
 
     internal_account = InternalAccount(account, vo=vo)
 
-    if rse_expression:
-        return {rse_expression: account_limit_core.get_global_account_limit(
-            account=internal_account, rse_expression=rse_expression, session=session
-        )}
+    with db_session(DatabaseOperationType.READ) as session:
+        if rse_expression:
+            return {rse_expression: account_limit_core.get_global_account_limit(
+                account=internal_account, rse_expression=rse_expression, session=session
+            )}
 
-    return account_limit_core.get_global_account_limit(account=internal_account, session=session)
+        return account_limit_core.get_global_account_limit(account=internal_account, session=session)
 
 
-@transactional_session
 def set_local_account_limit(
     account: str,
     rse: str,
     bytes_: int,
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> None:
     """
     Set an account limit.
@@ -135,32 +121,29 @@ def set_local_account_limit(
     :param bytes_:   The limit in bytes.
     :param issuer:  The issuer account_core.
     :param vo:      The VO to act on.
-    :param session: The database session in use.
     """
-    rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
 
-    kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id, 'bytes': bytes_}
-    auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_local_account_limit', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not set account limits. %s' % (issuer, auth_result.message))
+        kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id, 'bytes': bytes_}
+        auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_local_account_limit', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise rucio.common.exception.AccessDenied('Account %s can not set account limits. %s' % (issuer, auth_result.message))
 
-    internal_account = InternalAccount(account, vo=vo)
+        internal_account = InternalAccount(account, vo=vo)
 
-    if not account_exists(account=internal_account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+        if not account_exists(account=internal_account, session=session):
+            raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-    account_limit_core.set_local_account_limit(account=internal_account, rse_id=rse_id, bytes_=bytes_, session=session)
+        account_limit_core.set_local_account_limit(account=internal_account, rse_id=rse_id, bytes_=bytes_, session=session)
 
 
-@transactional_session
 def set_global_account_limit(
     account: str,
     rse_expression: str,
     bytes_: int,
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> None:
     """
     Set a global account limit.
@@ -170,30 +153,27 @@ def set_global_account_limit(
     :param bytes_:           The limit in bytes.
     :param issuer:          The issuer account_core.
     :param vo:              The VO to act on.
-    :param session:         The database session in use.
     """
 
     kwargs = {'account': account, 'rse_expression': rse_expression, 'bytes': bytes_}
-    auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_global_account_limit', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not set account limits. %s' % (issuer, auth_result.message))
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_global_account_limit', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise rucio.common.exception.AccessDenied('Account %s can not set account limits. %s' % (issuer, auth_result.message))
 
-    internal_account = InternalAccount(account, vo=vo)
+        internal_account = InternalAccount(account, vo=vo)
 
-    if not account_exists(account=internal_account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+        if not account_exists(account=internal_account, session=session):
+            raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-    account_limit_core.set_global_account_limit(account=internal_account, rse_expression=rse_expression, bytes_=bytes_, session=session)
+        account_limit_core.set_global_account_limit(account=internal_account, rse_expression=rse_expression, bytes_=bytes_, session=session)
 
 
-@transactional_session
 def delete_local_account_limit(
     account: str,
     rse: str,
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> bool:
     """
     Delete an account limit.
@@ -202,33 +182,30 @@ def delete_local_account_limit(
     :param rse:     The rse name.
     :param issuer:  The issuer account_core.
     :param vo:      The VO to act on.
-    :param session: The database session in use.
 
     :returns: True if successful; False otherwise.
     """
 
-    rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-    kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id}
-    auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='delete_local_account_limit', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not delete account limits. %s' % (issuer, auth_result.message))
+    with db_session(DatabaseOperationType.WRITE) as session:
+        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+        kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id}
+        auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='delete_local_account_limit', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise rucio.common.exception.AccessDenied('Account %s can not delete account limits. %s' % (issuer, auth_result.message))
 
-    internal_account = InternalAccount(account, vo=vo)
+        internal_account = InternalAccount(account, vo=vo)
 
-    if not account_exists(account=internal_account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+        if not account_exists(account=internal_account, session=session):
+            raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-    return account_limit_core.delete_local_account_limit(account=internal_account, rse_id=rse_id, session=session)
+        return account_limit_core.delete_local_account_limit(account=internal_account, rse_id=rse_id, session=session)
 
 
-@transactional_session
 def delete_global_account_limit(
     account: str,
     rse_expression: str,
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> bool:
     """
     Delete a global account limit..
@@ -237,32 +214,30 @@ def delete_global_account_limit(
     :param rse_expression: The rse expression.
     :param issuer:         The issuer account_core.
     :param vo:             The VO to act on.
-    :param session:        The database session in use.
 
     :returns: True if successful; False otherwise.
     """
 
     kwargs = {'account': account, 'rse_expression': rse_expression}
-    auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='delete_global_account_limit', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not delete global account limits. %s' % (issuer, auth_result.message))
 
-    internal_account = InternalAccount(account, vo=vo)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='delete_global_account_limit', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise rucio.common.exception.AccessDenied('Account %s can not delete global account limits. %s' % (issuer, auth_result.message))
 
-    if not account_exists(account=internal_account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+        internal_account = InternalAccount(account, vo=vo)
 
-    return account_limit_core.delete_global_account_limit(account=internal_account, rse_expression=rse_expression, session=session)
+        if not account_exists(account=internal_account, session=session):
+            raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+
+        return account_limit_core.delete_global_account_limit(account=internal_account, rse_expression=rse_expression, session=session)
 
 
-@read_session
 def get_local_account_usage(
     account: str,
     rse: str,
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> list[dict[str, Any]]:
     """
     Get the account usage and connect it with (if available) the account limits of the account.
@@ -271,36 +246,33 @@ def get_local_account_usage(
     :param rse:      The rse to read (If none, get all).
     :param issuer:   The issuer account.
     :param vo:       The VO to act on.
-    :param session:  The database session in use.
 
     :returns:        List of dicts {'rse_id', 'rse', 'bytes', 'files', 'bytes_limit', 'bytes_remaining'}
     """
 
     rse_id = None
 
-    if rse:
-        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-    kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id}
-    auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='get_local_account_usage', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not list account usage. %s' % (issuer, auth_result.message))
+    with db_session(DatabaseOperationType.READ) as session:
+        if rse:
+            rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+        kwargs = {'account': account, 'rse': rse, 'rse_id': rse_id}
+        auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='get_local_account_usage', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise rucio.common.exception.AccessDenied('Account %s can not list account usage. %s' % (issuer, auth_result.message))
 
-    internal_account = InternalAccount(account, vo=vo)
+        internal_account = InternalAccount(account, vo=vo)
 
-    if not account_exists(account=internal_account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+        if not account_exists(account=internal_account, session=session):
+            raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-    return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_local_account_usage(account=internal_account, rse_id=rse_id, session=session)]
+        return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_local_account_usage(account=internal_account, rse_id=rse_id, session=session)]
 
 
-@read_session
 def get_global_account_usage(
     account: str,
     rse_expression: str,
     issuer: str,
     vo: str = 'def',
-    *,
-    session: "Session"
 ) -> list[dict[str, Any]]:
     """
     Get the account usage and connect it with (if available) the account limits of the account.
@@ -309,19 +281,20 @@ def get_global_account_usage(
     :param rse_expression:  The rse expression to read (If none, get all).
     :param issuer:          The issuer account.
     :param vo:              The VO to act on.
-    :param session:         The database session in use.
 
     :returns:               List of dicts {'rse_id', 'rse', 'bytes', 'files', 'bytes_limit', 'bytes_remaining'}
     """
 
     kwargs = {'account': account, 'rse_expression': rse_expression}
-    auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='get_global_account_usage', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise rucio.common.exception.AccessDenied('Account %s can not list global account usage. %s' % (issuer, auth_result.message))
 
-    internal_account = InternalAccount(account, vo=vo)
+    with db_session(DatabaseOperationType.READ) as session:
+        auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='get_global_account_usage', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise rucio.common.exception.AccessDenied('Account %s can not list global account usage. %s' % (issuer, auth_result.message))
 
-    if not account_exists(account=internal_account, session=session):
-        raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+        internal_account = InternalAccount(account, vo=vo)
 
-    return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_global_account_usage(account=internal_account, rse_expression=rse_expression, session=session)]
+        if not account_exists(account=internal_account, session=session):
+            raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
+
+        return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_global_account_usage(account=internal_account, rse_expression=rse_expression, session=session)]
