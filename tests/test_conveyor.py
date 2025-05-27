@@ -48,8 +48,8 @@ from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.conveyor.throttler import throttler
 from rucio.daemons.reaper.reaper import reaper
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import LockState, ReplicaState, RequestState, RequestType, RSEType, RuleState
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType, LockState, ReplicaState, RequestState, RequestType, RSEType, RuleState
+from rucio.db.sqla.session import db_session
 from rucio.tests.common import skip_rse_tests_with_accounts
 from rucio.transfertool.fts3 import FTS3Transfertool
 from tests.mocks.mock_http_server import MockServer
@@ -59,8 +59,7 @@ MAX_POLL_WAIT_SECONDS = 100
 TEST_FTS_HOST = 'https://fts:8446'
 
 
-@transactional_session
-def __update_request(request_id, *, session=None, **kwargs):
+def __update_request(request_id, **kwargs):
     stmt = update(
         models.Request
     ).where(
@@ -70,7 +69,8 @@ def __update_request(request_id, *, session=None, **kwargs):
     ).values(
         kwargs
     )
-    session.execute(stmt)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        session.execute(stmt)
 
 
 def __wait_for_replica_transfer(dst_rse_id, scope, name, max_wait_seconds=MAX_POLL_WAIT_SECONDS, transfertool=None):
@@ -127,8 +127,7 @@ def set_query_parameters(url, params):
     return urlunparse(url_parts)
 
 
-@read_session
-def __get_source(request_id, src_rse_id, scope, name, *, session=None):
+def __get_source(request_id, src_rse_id, scope, name):
     stmt = select(
         models.Source
     ).where(
@@ -137,7 +136,8 @@ def __get_source(request_id, src_rse_id, scope, name, *, session=None):
              models.Source.name == name,
              models.Source.rse_id == src_rse_id)
     )
-    return session.execute(stmt).scalar()
+    with db_session(DatabaseOperationType.READ) as session:
+        return session.execute(stmt).scalar()
 
 
 @pytest.fixture
@@ -213,18 +213,18 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         # Fake an existing unused source with raking of 0 for the second source.
         # The ranking of this source should remain at 0 till the end.
 
-        @transactional_session
-        def __fake_source_ranking(*, session=None):
-            models.Source(request_id=request['id'],
-                          scope=request['scope'],
-                          name=request['name'],
-                          rse_id=src_rse2_id,
-                          dest_rse_id=request['dest_rse_id'],
-                          ranking=0,
-                          bytes=request['bytes'],
-                          url=None,
-                          is_using=False). \
-                save(session=session, flush=False)
+        def __fake_source_ranking():
+            with db_session(DatabaseOperationType.WRITE) as session:
+                models.Source(request_id=request['id'],
+                              scope=request['scope'],
+                              name=request['name'],
+                              rse_id=src_rse2_id,
+                              dest_rse_id=request['dest_rse_id'],
+                              ranking=0,
+                              bytes=request['bytes'],
+                              url=None,
+                              is_using=False). \
+                    save(session=session, flush=False)
 
         __fake_source_ranking()
 
@@ -265,21 +265,22 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         assert metrics_mock.get_sample_value('rucio_daemons_conveyor_finisher_handle_requests_total') > 0
     finally:
 
-        @transactional_session
-        def _cleanup_all_usage_and_limits(rse_id, *, session=None):
+        def _cleanup_all_usage_and_limits(rse_id):
             stmt = delete(
                 models.RSELimit
             ).where(
                 models.RSELimit.rse_id == rse_id
             )
-            session.execute(stmt)
-            stmt = delete(
-                models.RSEUsage
-            ).where(
-                and_(models.RSEUsage.rse_id == rse_id,
-                     models.RSEUsage.source == 'storage')
-            )
-            session.execute(stmt)
+
+            with db_session(DatabaseOperationType.WRITE) as session:
+                session.execute(stmt)
+                stmt = delete(
+                    models.RSEUsage
+                ).where(
+                    and_(models.RSEUsage.rse_id == rse_id,
+                         models.RSEUsage.source == 'storage')
+                )
+                session.execute(stmt)
 
         _cleanup_all_usage_and_limits(rse_id=jump_rse_id)
 
@@ -408,8 +409,7 @@ def test_multisource(vo, did_factory, root_account, replica_client, caches_mock,
     rule_core.add_rule(dids=[container], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
-    @read_session
-    def __source_exists(src_rse_id, scope, name, *, session=None):
+    def __source_exists(src_rse_id, scope, name):
         stmt = select(
             models.Source
         ).where(
@@ -417,7 +417,8 @@ def test_multisource(vo, did_factory, root_account, replica_client, caches_mock,
                  models.Source.scope == scope,
                  models.Source.name == name)
         )
-        return session.execute(stmt).scalar_one_or_none() is not None
+        with db_session(DatabaseOperationType.READ) as session:
+            return session.execute(stmt).scalar_one_or_none() is not None
 
     # Entries in the source table must be created for both sources of the multi-source transfer
     assert __source_exists(src_rse_id=src_rse1_id, **did)
@@ -805,8 +806,7 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
     assert request4['state'] == RequestState.WAITING
 
     # Artificially set both requests' last_processed_at timestamp as >1 day old
-    @transactional_session
-    def __set_process_timestamp(request_ids, timestamp, *, session=None):
+    def __set_process_timestamp(request_ids, timestamp):
         stmt = update(
             models.Request
         ).where(
@@ -814,7 +814,9 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
         ).values({
             models.Request.last_processed_at: timestamp
         })
-        session.execute(stmt)
+
+        with db_session(DatabaseOperationType.WRITE) as session:
+            session.execute(stmt)
 
     __set_process_timestamp([request['id'] for request in [request3, request4]], datetime.utcnow() - timedelta(days=2))
 
