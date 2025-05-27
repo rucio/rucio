@@ -24,7 +24,7 @@ from rucio.common import exception
 from rucio.common.exception import OpenDataError, OpenDataInvalidStateUpdate
 from rucio.core.monitor import MetricManager
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import OpenDataDIDState
+from rucio.db.sqla.constants import OpenDataDIDState, DIDType
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
@@ -269,18 +269,28 @@ def update_opendata_did(
             # All states can be set to PUBLIC
             # DID needs to be closed before going public
 
-            did_is_open = session.execute(
-                select(models.DataIdentifier.is_open).where(
+            did_is_file = session.execute(
+                select(models.DataIdentifier.did_type).where(
                     and_(
                         models.DataIdentifier.scope == scope,
                         models.DataIdentifier.name == name
                     )
                 )
-            ).scalar()
+            ).scalar() == DIDType.FILE
 
-            if did_is_open:
-                raise OpenDataInvalidStateUpdate(
-                    "Cannot set state to PUBLIC. The DID must be closed first.")
+            if not did_is_file:
+                did_is_open = session.execute(
+                    select(models.DataIdentifier.is_open).where(
+                        and_(
+                            models.DataIdentifier.scope == scope,
+                            models.DataIdentifier.name == name
+                        )
+                    )
+                ).scalar()
+
+                if did_is_open:
+                    raise OpenDataInvalidStateUpdate(
+                        "Cannot set state to PUBLIC. The DID must be closed first.")
 
         elif state == OpenDataDIDState.SUSPENDED:
             if state_before == OpenDataDIDState.DRAFT:
@@ -297,3 +307,40 @@ def update_opendata_did(
 
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")
+
+
+@read_session
+def get_opendata_did_files(
+        *,
+        scope: "InternalScope",
+        name: str,
+        session: "Session"
+) -> Optional[dict[str, Any]]:
+    print(f"Called GATEWAY get_opendata_did_files with scope={scope}, name={name}")
+
+    query = select(
+        models.OpenDataDid.scope,
+        models.OpenDataDid.name,
+        models.OpenDataDid.state,
+        models.OpenDataDid.opendata_json,
+        models.OpenDataDid.created_at,
+        models.OpenDataDid.updated_at,
+    ).where(
+        and_(
+            models.OpenDataDid.scope == scope,
+            models.OpenDataDid.name == name,
+        )
+    )
+
+    if state is not None:
+        query = query.where(models.OpenDataDid.state == state)
+
+    print(f"Query: {query}")
+
+    result = session.execute(query).mappings().fetchone()
+    if not result:
+        raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
+
+    print(f"Query result: {result}")
+
+    return dict(result)

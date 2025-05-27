@@ -116,3 +116,16 @@ def update_opendata_did(
 
     return opendata.update_opendata_did(scope=internal_scope, name=name, state=state_enum, opendata_json=opendata_json,
                                         session=session)
+@read_session
+def get_opendata_did_files(
+        *,
+        scope: str,
+        name: str,
+        vo: str = "def",
+        session: "Session"
+) -> dict[str, Any]:
+    print(f"GATEWAY get_opendata_did_files called with scope={scope}, name={name}, vo={vo}")
+    internal_scope = InternalScope(scope, vo=vo)
+    result = opendata.get_opendata_did_files(scope=internal_scope, name=name, session=session)
+    print(f"get_opendata_did result: {result}")
+    return gateway_update_return_dict(result, session=session)

@@ -94,6 +94,21 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
         # Handle open data exception
         return Response(status=204, mimetype='application/json')
 
+class OpenDataPrivateDIDFilesView(ErrorHandlingMethodView):
+
+    @check_accept_header_wrapper_flask(["application/json"])
+    def get(self, scope: str, name: str) -> "Response":
+        try:
+            vo = request.environ.get("vo")
+            print(f"OpenDataPrivateDIDFilesView.get() called with scope={scope}, name={name}, vo={vo}")
+            scope, name = parse_scope_name(f"{scope}/{name}", vo=vo)
+            result = opendata.get_opendata_did_files(scope=scope, name=name, vo=vo)
+            result = render_json(**result)
+            return Response(json.dumps(result), status=200, mimetype='application/json')
+        except ValueError as error:
+            return generate_http_error_flask(400, error)
+        except OpenDataDataIdentifierNotFound as error:
+            return generate_http_error_flask(404, error)
 
 def blueprint() -> "Blueprint":
     bp = AuthenticatedBlueprint("opendata_private", __name__, url_prefix="/opendata-private")
@@ -103,6 +118,9 @@ def blueprint() -> "Blueprint":
 
     opendata_private_did_view = OpenDataPrivateDIDsView.as_view("opendata_did")
     bp.add_url_rule("/<scope>/<name>", view_func=opendata_private_did_view, methods=["get", "post", "put", "delete"])
+
+    opendata_private_did_files_view = OpenDataPrivateDIDFilesView.as_view("opendata_did_files")
+    bp.add_url_rule("/<scope>/<name>/files", view_func=opendata_private_did_files_view, methods=["get"])
 
     bp.after_request(response_headers)
 
