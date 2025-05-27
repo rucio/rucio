@@ -30,9 +30,9 @@ from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
 from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.reaper.reaper import reaper
-from rucio.db.sqla.constants import RequestState
+from rucio.db.sqla.constants import DatabaseOperationType, RequestState
 from rucio.db.sqla.models import Request, Source
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import db_session
 from tests.ruciopytest import NoParallelGroups
 
 
@@ -61,8 +61,7 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
         dids.append(did)
 
     # Forge request creation time to a random moment in the past hour
-    @transactional_session
-    def _forge_requests_creation_time(*, session=None):
+    def _forge_requests_creation_time():
         base_time = datetime.utcnow().replace(microsecond=0, minute=0) - timedelta(hours=1)
         assigned_times = set()
         for request in requests:
@@ -78,8 +77,9 @@ def test_request_submitted_in_order(rse_factory, did_factory, root_account):
             ).values({
                 Request.created_at: request_creation_time
             })
-            session.execute(stmt)
-            request['created_at'] = request_creation_time
+            with db_session(DatabaseOperationType.WRITE) as session:
+                session.execute(stmt)
+                request['created_at'] = request_creation_time
 
     _forge_requests_creation_time()
     requests = sorted(requests, key=lambda r: r['created_at'])
@@ -198,8 +198,7 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
     assert request
     assert request['source_rse_id'] == jump_rse3_id
 
-    @read_session
-    def __number_sources(rse_id, scope, name, *, session=None):
+    def __number_sources(rse_id, scope, name):
         stmt = select(
             func.count()
         ).select_from(
@@ -209,7 +208,8 @@ def test_multihop_sources_created(rse_factory, did_factory, root_account, core_c
                  Source.scope == scope,
                  Source.name == name)
         )
-        return session.execute(stmt).scalar()
+        with db_session(DatabaseOperationType.READ) as session:
+            return session.execute(stmt).scalar()
 
     # Ensure that sources where created for transfers
     for rse_id in [src_rse_id, jump_rse1_id, jump_rse2_id]:
@@ -280,8 +280,7 @@ def test_source_avoid_deletion(caches_mock, rse_factory, did_factory, root_accou
     replica = next(iter(replica_core.list_replicas(dids=[did], rse_expression=any_source)))
     assert len(replica['pfns']) == 2
 
-    @transactional_session
-    def __delete_sources(rse_id, scope, name, *, session=None):
+    def __delete_sources(rse_id, scope, name):
         stmt = delete(
             Source
         ).where(
@@ -289,7 +288,9 @@ def test_source_avoid_deletion(caches_mock, rse_factory, did_factory, root_accou
                  Source.scope == scope,
                  Source.name == name)
         )
-        session.execute(stmt)
+
+        with db_session(DatabaseOperationType.WRITE) as session:
+            session.execute(stmt)
 
     # Deletion succeeds for one replica (second still protected by existing request)
     __delete_sources(src_rse1_id, **did)
