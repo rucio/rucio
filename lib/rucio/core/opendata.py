@@ -24,7 +24,7 @@ from rucio.common import exception
 from rucio.common.exception import OpenDataError, OpenDataInvalidStateUpdate
 from rucio.core.monitor import MetricManager
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import OpenDataDIDState, DIDType
+from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
