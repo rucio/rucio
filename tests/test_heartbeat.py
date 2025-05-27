@@ -20,8 +20,9 @@ import pytest
 from sqlalchemy import delete, update
 
 from rucio.core.heartbeat import cardiac_arrest, die, list_heartbeats, list_payload_counts, live, sanity_check
+from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.models import Heartbeat
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.session import db_session
 
 
 @pytest.fixture
@@ -160,8 +161,7 @@ class TestHeartbeat:
 
         assert len(list_heartbeats()) == 6
 
-        @transactional_session
-        def __forge_updated_at(*, session=None):
+        def __forge_updated_at():
             two_days_ago = datetime.utcnow() - timedelta(days=2)
             a_dozen_hours_ago = datetime.utcnow() - timedelta(hours=12)
             stmt = update(
@@ -171,15 +171,17 @@ class TestHeartbeat:
             ).values({
                 Heartbeat.updated_at: two_days_ago
             })
-            session.execute(stmt)
-            stmt = update(
-                Heartbeat
-            ).where(
-                Heartbeat.hostname == 'host2'
-            ).values({
-                Heartbeat.updated_at: a_dozen_hours_ago
-            })
-            session.execute(stmt)
+
+            with db_session(DatabaseOperationType.WRITE) as session:
+                session.execute(stmt)
+                stmt = update(
+                    Heartbeat
+                ).where(
+                    Heartbeat.hostname == 'host2'
+                ).values({
+                    Heartbeat.updated_at: a_dozen_hours_ago
+                })
+                session.execute(stmt)
 
         __forge_updated_at()
 
