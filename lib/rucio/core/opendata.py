@@ -14,7 +14,7 @@
 
 import json
 from re import match
-from typing import TYPE_CHECKING, Any, Optional, Union, Iterator
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from sqlalchemy import and_, delete, insert, update
 from sqlalchemy.exc import DataError, IntegrityError
@@ -316,7 +316,7 @@ def get_opendata_did_files(
         scope: "InternalScope",
         name: str,
         session: "Session"
-) -> Iterator[dict[str, Any]]:
+) -> list[dict[str, Any]]:
     print(f"Called CORE get_opendata_did_files with scope={scope}, name={name}")
 
     query = select(
@@ -334,5 +334,15 @@ def get_opendata_did_files(
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
 
     files = list_files(scope=scope, name=name)
+    result = [
+        {
+            "scope": file["scope"],
+            "name": file["name"],
+            "bytes": file["bytes"],
+            "adler32": file["adler32"],
+            "uri": "TODO",
+        }
+        for file in files
+    ]
 
-    return files
+    return result
