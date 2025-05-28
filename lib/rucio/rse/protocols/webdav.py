@@ -253,8 +253,15 @@ class Default(protocol.RSEProtocol):
             :raise  ServiceUnavailable, RSEAccessDenied
         """
         path = self.path2pfn(pfn)
+
+        using_presigned_urls = self.rse['sign_url'] is not None
+
         try:
-            result = self.session.request('HEAD', path, verify=False, timeout=self.timeout, cert=self.cert)
+            # use GET instead of HEAD for presigned urls
+            if not using_presigned_urls:
+                result = self.session.request('HEAD', path, verify=False, timeout=self.timeout, cert=self.cert)
+            else:
+                result = self.session.request('GET', path, verify=False, timeout=self.timeout, cert=self.cert)
             if result.status_code == 200:
                 return True
             elif result.status_code in [401, ]:
