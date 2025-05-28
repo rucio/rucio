@@ -513,7 +513,7 @@ class OpenDataDOI(BASE, ModelBase):
     doi: Mapped[str] = mapped_column(String(255), unique=True)
 
     __table_args__ = (
-        PrimaryKeyConstraint('scope', 'name', 'doi', name='OPENDATA_DOI_PK'),
+        PrimaryKeyConstraint('scope', 'name', name='OPENDATA_DOI_PK'),
         ForeignKeyConstraint(
             ['scope', 'name'],
             ['dids_opendata.scope', 'dids_opendata.name'],
